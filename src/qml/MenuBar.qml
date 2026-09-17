@@ -30,7 +30,9 @@ T.MenuBar {
         hoverEnabled: true
 
         contentItem: Tk.Label {
-            text: entry.text
+            // The '&' mnemonic marker is for the keyboard (Alt+letter,
+            // handled by the template), not for the eye.
+            text: entry.text.replace(/&(?!&)/g, "").replace(/&&/g, "&")
             font.pixelSize: Tk.Theme.font.small
             color: !entry.enabled ? Tk.Theme.color.textDisabled
                  : entry.highlighted || entry.hovered ? Tk.Theme.color.text : Tk.Theme.color.textMuted

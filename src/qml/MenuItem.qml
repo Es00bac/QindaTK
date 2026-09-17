@@ -53,7 +53,8 @@ T.MenuItem {
         }
         Tk.Label {
             objectName: "menuItemText"
-            text: item.text
+            // '&' marks the mnemonic for the keyboard; '&&' is a literal.
+            text: item.text.replace(/&(?!&)/g, "").replace(/&&/g, "&")
             font.pixelSize: Tk.Theme.font.small
             color: !item.enabled ? Tk.Theme.color.textDisabled
                  : item.danger ? Tk.Theme.color.danger : Tk.Theme.color.text
