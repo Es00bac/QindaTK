@@ -87,3 +87,19 @@ playhead in a `Stack`), and a `StatusBar`. Panels are one file each
   `Ruler`, `Grid`, `Stack`, `StatusBar`/`StatusField`
 - Screenshot: [docs/screenshots/studio-shell.png](../docs/screenshots/studio-shell.png),
   [studio-shell-qinda-dusk.png](../docs/screenshots/studio-shell-qinda-dusk.png)
+
+## office-shell
+
+A document application's window: `Tk.AppWindow` with a `MenuBar` (radio
+items for the ink tools, a colour submenu built with a `Repeater`), two
+wrapping `ToolBar`s with a `ColorButton`, a page inside a `Viewport` with a
+zoom `Island`, a find bar band, a `StatusBar`, and the three dialogs an
+editor needs (`MessageDialog` Save/Discard/Cancel and Delete, `PromptDialog`
+rename). This is the shape the QindaQt office suite's windows take.
+
+- Run: `qtk-preview examples/office-shell/Main.qml`
+  (`--dump --size 520x700` shows the toolbars wrapping onto two rows)
+- Exercises: `AppWindow`, `MenuBar`/`Menu`/`MenuItem { radio }`, `ToolBar { wrap }`,
+  `ColorButton`, `Viewport`, `ZoomControl`, `Island`, `Stack`, `StatusBar`,
+  `MessageDialog`, `PromptDialog`
+

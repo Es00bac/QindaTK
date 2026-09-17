@@ -49,6 +49,7 @@ qt_add_qml_module(qindatk
         core/layout_attached.cpp core/layout_attached.h
         core/layout_info.cpp core/layout_info.h
         core/stack.cpp core/stack.h
+        core/stylus_handler.cpp core/stylus_handler.h
         core/svg_path.cpp core/svg_path.h
         core/theme.cpp core/theme.h
         core/theme_presets.cpp core/theme_presets.h
@@ -61,7 +62,12 @@ target_include_directories(qindatk PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
-    PRIVATE Qt6::Svg Qt6::QuickPrivate)
+    PRIVATE Qt6::Svg)
+# AGENT-NOTE: QuickPrivate is PUBLIC because <qindatk/stylus_handler.h>
+# derives from QQuickPointerDeviceHandler (a private class): any C++ user of
+# that header needs the private include path. LayoutInfo keeps its private
+# includes out of its header.
+target_link_libraries(qindatk PUBLIC Qt6::QuickPrivate)
 
 # ---- optional bridge to the QindaQt desktop's QST-1 tokens (pure QML) ----
 # Importing QindaTK.QindaQt requires QindaQt.Tokens at run time; the module

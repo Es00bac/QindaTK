@@ -9,7 +9,9 @@ import QindaTK as Tk
 // button (`primaryText` / `secondaryText`; `destructive` paints the
 // primary in the danger variant). Escape rejects, Enter accepts.
 // `standardButtons` from T.Dialog is deliberately unused: the footer is
-// ours, so set `footer:` to replace it wholesale instead.
+// ours, so set `footer:` to replace it wholesale instead. `tertiaryText`
+// adds a third, left-aligned button (Save / Discard / Cancel dialogs);
+// `primaryEnabled: false` greys the primary and blocks Enter.
 T.Dialog {
     id: dialog
 
@@ -19,6 +21,12 @@ T.Dialog {
     property string secondaryText: qsTr("Cancel")
     property bool destructive: false
     property real dialogWidth: 420
+    // A third, left-aligned button ("Discard", "Don't save"): emits tertiary().
+    property string tertiaryText: ""
+    // Gate for the primary action (a prompt that must not accept "").
+    property bool primaryEnabled: true
+
+    signal tertiary()
 
     parent: T.Overlay.overlay
     anchors.centerIn: parent
@@ -75,8 +83,8 @@ T.Dialog {
         padding: Tk.Theme.space.md
         Accessible.role: Accessible.Dialog
         Accessible.name: dialog.title
-        Keys.onReturnPressed: dialog.accept()
-        Keys.onEnterPressed: dialog.accept()
+        Keys.onReturnPressed: if (dialog.primaryEnabled) dialog.accept()
+        Keys.onEnterPressed: if (dialog.primaryEnabled) dialog.accept()
     }
 
     footer: Tk.Box {
@@ -93,6 +101,14 @@ T.Dialog {
             gap: Tk.Theme.space.sm
 
             Tk.Button {
+                objectName: "dialogTertiary"
+                visible: dialog.tertiaryText.length > 0
+                text: dialog.tertiaryText
+                variant: "ghost"
+                onClicked: dialog.tertiary()
+            }
+            Tk.Spacer { visible: dialog.tertiaryText.length > 0 }
+            Tk.Button {
                 objectName: "dialogSecondary"
                 visible: dialog.secondaryText.length > 0
                 text: dialog.secondaryText
@@ -105,6 +121,7 @@ T.Dialog {
                 visible: dialog.primaryText.length > 0
                 text: dialog.primaryText
                 variant: dialog.destructive ? "danger" : "accent"
+                available: dialog.primaryEnabled
                 onClicked: dialog.accept()
             }
         }

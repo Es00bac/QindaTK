@@ -125,3 +125,29 @@ imported from the filesystem because its qmldir preferred a `qrc:` path.
 `qtk-preview --qst <theme>` (compiled in when the desktop libraries are
 found) publishes a real desktop theme through the Tokens facade, which is
 how the bridge is verified headlessly.
+
+## D-013 — Pen input is a pointer handler; the application window is a toolkit type
+
+**Context.** Document applications on the QindaQt desktop (the office suite's
+QindaNote first) need pen pressure and tilt, a zoomable page viewport, a
+window with menu/tool/status bands, three-button consent dialogs, colour
+swatch pickers and wrapping toolbars. Verified on Qt 6.11.1: `QQuickItem::event()`
+never sees a `QTabletEvent`; a QML `PointHandler` sees only the mouse event
+Qt synthesises from it (pressure 0); a `QQuickPointerDeviceHandler` subclass
+receives the raw tablet event when it enters through the platform.
+**Decision.** `Tk.StylusHandler` (C++, `src/core/stylus_handler.*`) is that
+subclass and the toolkit's second private-API use after `LayoutInfo`; its
+header is public, so `QuickPrivate` became a PUBLIC link dependency of
+`qindatk`. It drops the synthesised mouse twins of tablet samples and never
+accepts touch. `Tk.AppWindow` (`T.ApplicationWindow`) hosts the bands in
+plain Items that report their column's implicit height, because a `Flex`
+placed directly as the window's header re-polished itself from inside the
+window's relayout. `Tk.Viewport`, `Tk.MessageDialog`, `Tk.PromptDialog`,
+`Tk.ColorSwatches`, `Tk.ColorButton`, `Tk.ToolBar.wrap`, `Tk.TreeRow.editable`,
+`Tk.MenuItem.radio` and `Tk.Dialog.tertiaryText` complete the set; the
+office command icons were added to the curated Lucide list, which is now
+regenerated from the `lucide-react` npm tarball's `.mjs` modules.
+**Consequences.** A C++ user of `<qindatk/stylus_handler.h>` needs the
+private include path (`QindaTK::qindatk` carries it). `examples/office-shell`
+is the smoke test for the whole set.
+

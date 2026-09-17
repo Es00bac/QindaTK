@@ -22,6 +22,11 @@ qindatk_add_test(tst_theme)
 qindatk_add_test(tst_dock_model)
 qindatk_add_test(tst_layout)
 qindatk_add_test(tst_icon)
+qindatk_add_test(tst_stylus_handler)
+qindatk_add_test(tst_app_window)
+# The test registers synthetic pointing devices (QPointingDevicePrivate);
+# the handler itself needs QuickPrivate, which qindatk links privately.
+target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)
 
 # QML tests (QtQuickTest): one runner, every tst_*.qml in tests/qml.
 qt_add_executable(tst_qml cpp/tst_qml.cpp)

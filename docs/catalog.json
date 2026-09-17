@@ -4,6 +4,73 @@
   "version": "1.0",
   "types": [
     {
+      "name": "AppWindow",
+      "kind": "qml",
+      "base": "T.ApplicationWindow",
+      "description": "AGENT-CONTRACT (docs/controls.md): the application window of a document app. Four bands, top to bottom: the `menuBar` (a Tk.MenuBar), the `toolBars` (any items, usually Tk.ToolBar, stacked in a column), the content (the default property), then the optional `findBar` and the `statusBar` at the very bottom. Every band is as tall as its content and the content band takes the rest. The background is the theme's bg role, and the window palette mirrors the theme so native popups (file dialogs off-portal, tooltips of foreign controls) inherit it.  Sizing: set width/height once in the component. Never resize a window after it is shown from inside the app (the QindaQt desktop's window containers own grouped geometry, ADR-0117).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AppWindow.qml",
+      "properties": [
+        {
+          "name": "content",
+          "type": "alias",
+          "default": "contentHost.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "toolBars",
+          "type": "alias",
+          "default": "toolBarColumn.data",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "findBar",
+          "type": "alias",
+          "default": "findHost.data",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusBar",
+          "type": "alias",
+          "default": "statusHost.data",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentHostItem",
+          "type": "Item",
+          "default": "contentHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "seatContent",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "appContent",
+        "appFindBar",
+        "appFooter",
+        "appHeader",
+        "appStatusBar",
+        "appToolBars"
+      ]
+    },
+    {
       "name": "Badge",
       "kind": "qml",
       "base": "Rectangle",
@@ -666,6 +733,97 @@
       "objectNames": []
     },
     {
+      "name": "ColorButton",
+      "kind": "qml",
+      "base": "T.AbstractButton",
+      "description": "AGENT-CONTRACT (docs/controls.md): a toolbar button showing the current `color` as a swatch with a chevron; clicking opens a Tk.Popover with a Tk.ColorSwatches over `colors`. Picking a swatch sets `color` and emits colorSelected(color); \"Custom…\" emits customRequested() (the host opens its picker and sets `color` itself). Control height (24; `small` 20). objectNames \"colorButtonSwatch\", \"colorButtonPopover\".",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ColorButton.qml",
+      "properties": [
+        {
+          "name": "color",
+          "type": "color",
+          "default": "Tk.Theme.color.accent",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "colors",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "8",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ghost",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "swatchSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.icon : Tk.Theme.size.iconLg",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "colorSelected",
+          "parameters": "color color"
+        },
+        {
+          "name": "customRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "colorButtonPopover",
+        "colorButtonSwatch"
+      ]
+    },
+    {
       "name": "ColorField",
       "kind": "qml",
       "base": "T.Control",
@@ -767,6 +925,79 @@
       "objectNames": [
         "colorHex",
         "colorSwatch"
+      ]
+    },
+    {
+      "name": "ColorSwatches",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md): a grid of named colour swatches. `colors` is a list of colour strings or of {name, color}; the entry equal to `current` shows an accent ring. Tapping (or Space/Enter on a focused swatch) emits selected(color); the optional \"Custom…\" button emits customRequested() for the host to open a full picker. Sized to its content: `columns` swatches per row, 16px swatches.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ColorSwatches.qml",
+      "properties": [
+        {
+          "name": "colors",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "current",
+          "type": "color",
+          "default": "\"transparent\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "8",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "customButton",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "swatchSize",
+          "type": "real",
+          "default": "Tk.Theme.size.iconLg",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selected",
+          "parameters": "color color"
+        },
+        {
+          "name": "customRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "entry",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "swatchCustom",
+        "swatchGrid",
+        "swatch_"
       ]
     },
     {
@@ -951,7 +1182,7 @@
       "name": "Dialog",
       "kind": "qml",
       "base": "T.Dialog",
-      "description": "AGENT-CONTRACT: a modal dialog on the popover surface behind a dim scrim: overline title (+ caption subtitle), the dialog's content as its default property, and a footer with a secondary and a primary button (`primaryText` / `secondaryText`; `destructive` paints the primary in the danger variant). Escape rejects, Enter accepts. `standardButtons` from T.Dialog is deliberately unused: the footer is ours, so set `footer:` to replace it wholesale instead.",
+      "description": "AGENT-CONTRACT: a modal dialog on the popover surface behind a dim scrim: overline title (+ caption subtitle), the dialog's content as its default property, and a footer with a secondary and a primary button (`primaryText` / `secondaryText`; `destructive` paints the primary in the danger variant). Escape rejects, Enter accepts. `standardButtons` from T.Dialog is deliberately unused: the footer is ours, so set `footer:` to replace it wholesale instead. `tertiaryText` adds a third, left-aligned button (Save / Discard / Cancel dialogs); `primaryEnabled: false` greys the primary and blocks Enter.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Dialog.qml",
@@ -1003,9 +1234,30 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "tertiaryText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "primaryEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "tertiary",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "objectNames": [
@@ -1014,6 +1266,7 @@
         "dialogHeader",
         "dialogPrimary",
         "dialogSecondary",
+        "dialogTertiary",
         "dialogTitle"
       ]
     },
@@ -2462,7 +2715,7 @@
       "name": "MenuItem",
       "kind": "qml",
       "base": "T.MenuItem",
-      "description": "One 22px menu entry: optional icon (or a check mark when checkable and checked), small-font label, a muted caption `shortcut` on the right, a chevron for a submenu. `danger` paints the label in the danger role.",
+      "description": "One 22px menu entry: optional icon (or a check mark when checkable and checked, a dot when `radio`), small-font label, a muted caption `shortcut` on the right, a chevron for a submenu. `danger` paints the label in the danger role.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/MenuItem.qml",
@@ -2490,6 +2743,14 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "radio",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -2512,6 +2773,56 @@
       "methods": [],
       "enums": {},
       "objectNames": []
+    },
+    {
+      "name": "MessageDialog",
+      "kind": "qml",
+      "base": "Tk.Dialog",
+      "description": "AGENT-CONTRACT (docs/controls.md): a Tk.Dialog for a question or a warning: a status icon, wrapping body `text`, and up to three buttons — `primaryText` (accepted), `secondaryText` (rejected), `tertiaryText` (tertiary), e.g. Save / Cancel / Discard. `variant` picks the icon and its colour: \"info\", \"question\", \"warning\", \"danger\"; `destructive` paints the primary in the danger variant.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MessageDialog.qml",
+      "properties": [
+        {
+          "name": "text",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "variant",
+          "type": "string",
+          "default": "\"info\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "variant === \"warning\" ? \"alert-triangle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconColor",
+          "type": "color",
+          "default": "variant === \"warning\" ? Tk.Theme.color.warning",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "messageIcon",
+        "messageText"
+      ]
     },
     {
       "name": "Mono",
@@ -3111,6 +3422,64 @@
       "methods": [],
       "enums": {},
       "objectNames": []
+    },
+    {
+      "name": "PromptDialog",
+      "kind": "qml",
+      "base": "Tk.Dialog",
+      "description": "AGENT-CONTRACT (docs/controls.md): a Tk.Dialog that asks for one line of text (a name, a title). `label` captions the field, `text` is the value (preset it before open()), Enter accepts, Escape rejects; with `acceptEmpty: false` (the default) an empty or blank value greys OK and blocks Enter. The field takes focus and selects its text on open. objectName \"promptField\" on the field.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PromptDialog.qml",
+      "properties": [
+        {
+          "name": "label",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "alias",
+          "default": "field.text",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholderText",
+          "type": "alias",
+          "default": "field.placeholderText",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "acceptEmpty",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "acceptable",
+          "type": "bool",
+          "default": "acceptEmpty || field.text.trim().length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "promptField",
+        "promptLabel"
+      ]
     },
     {
       "name": "PropertyGroup",
@@ -4412,6 +4781,22 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "wrap",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "baseHeight",
+          "type": "real",
+          "default": "compact ? Tk.Theme.size.controlLg : Tk.Theme.size.toolbar",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -4496,23 +4881,247 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "editable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "editor.visible",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
         {
           "name": "expansionToggled",
           "parameters": "bool expanded"
+        },
+        {
+          "name": "renamed",
+          "parameters": "string text"
         }
       ],
       "methods": [
         {
           "name": "toggle",
           "parameters": ""
+        },
+        {
+          "name": "startEditing",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEditing",
+          "parameters": ""
         }
       ],
       "enums": {},
       "objectNames": [
-        "treeChevron"
+        "treeChevron",
+        "treeEditor"
+      ]
+    },
+    {
+      "name": "Viewport",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md): a zoomable, scrollable document viewport. The single child is the document surface (a page, a slide, an artboard) sized by ITS implicit size in document units; the viewport scales it by `zoom`, centres it when it is narrower than the view, pads it by `contentPadding`, scrolls both axes, and paints the canvas role behind it. Ctrl+wheel zooms about the cursor, Shift+wheel scrolls horizontally, a middle-button drag pans. `fitMode` \"width\" / \"page\" re-fits on every resize until the user zooms by hand.  AGENT-GUARD: zoom is a view transform only. The child keeps its own coordinate space; map pointer positions with `toContent(point)`.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Viewport.qml",
+      "properties": [
+        {
+          "name": "content",
+          "type": "alias",
+          "default": "contentHost.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "contentItem",
+          "type": "Item",
+          "default": "contentHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollItem",
+          "type": "Item",
+          "default": "scroll",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "real",
+          "default": "1.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minZoom",
+          "type": "real",
+          "default": "0.1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxZoom",
+          "type": "real",
+          "default": "8.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fitMode",
+          "type": "string",
+          "default": "\"none\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentPadding",
+          "type": "real",
+          "default": "Tk.Theme.space.xl",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "wheelZoomStep",
+          "type": "real",
+          "default": "1.25",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "interactive",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentWidth",
+          "type": "real",
+          "default": "contentHost.implicitWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentHeight",
+          "type": "real",
+          "default": "contentHost.implicitHeight",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewportWidth",
+          "type": "real",
+          "default": "scroll.viewportWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewportHeight",
+          "type": "real",
+          "default": "scroll.viewportHeight",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "zoomModified",
+          "parameters": "real zoom"
+        }
+      ],
+      "methods": [
+        {
+          "name": "clampZoom",
+          "parameters": "value"
+        },
+        {
+          "name": "contentOriginX",
+          "parameters": ""
+        },
+        {
+          "name": "contentOriginY",
+          "parameters": ""
+        },
+        {
+          "name": "toContent",
+          "parameters": "point"
+        },
+        {
+          "name": "fromContent",
+          "parameters": "point"
+        },
+        {
+          "name": "setZoom",
+          "parameters": "value, anchor"
+        },
+        {
+          "name": "zoomAbout",
+          "parameters": "anchor, factor"
+        },
+        {
+          "name": "zoomIn",
+          "parameters": ""
+        },
+        {
+          "name": "zoomOut",
+          "parameters": ""
+        },
+        {
+          "name": "fitWidth",
+          "parameters": ""
+        },
+        {
+          "name": "fitPage",
+          "parameters": ""
+        },
+        {
+          "name": "applyFit",
+          "parameters": ""
+        },
+        {
+          "name": "ensureVisible",
+          "parameters": "rect"
+        },
+        {
+          "name": "seat",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "viewportContent",
+        "viewportPan",
+        "viewportScroll",
+        "viewportSurface",
+        "viewportWheel"
       ]
     },
     {
@@ -5726,6 +6335,99 @@
         }
       ],
       "signals": [],
+      "methods": [],
+      "enums": {}
+    },
+    {
+      "name": "StylusHandler",
+      "kind": "cpp",
+      "base": "QQuickPointerDeviceHandler",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/stylus_handler.h",
+      "properties": [
+        {
+          "name": "position",
+          "type": "QPointF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pressure",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tiltX",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tiltY",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rotation",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pointerType",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "buttons",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "mousePressure",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "began",
+          "parameters": "const QindaTK::StylusSample &sample"
+        },
+        {
+          "name": "moved",
+          "parameters": "const QindaTK::StylusSample &sample"
+        },
+        {
+          "name": "ended",
+          "parameters": "const QindaTK::StylusSample &sample"
+        },
+        {
+          "name": "sampleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "mousePressureChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {}
     },

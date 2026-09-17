@@ -4,6 +4,12 @@
 
 Usage: gen_icons.py <path-to-lucide-react/dist/esm/icons> [--all]
 
+The package need not come from npm: `curl -O` the tarball named by
+https://registry.npmjs.org/lucide-react (dist-tags.latest → dist.tarball),
+untar it, and point this script at package/dist/esm/icons. lucide-react
+>= 1.x ships `<name>.mjs` modules; older releases shipped `<name>.js`;
+both are read.
+
 Every element of an icon (path/circle/rect/line/polyline/polygon/ellipse)
 is converted to an SVG path string so the C++ renderer only needs a path
 parser. Icons are stroked, 24x24 viewBox, stroke width 2 (Lucide's own
@@ -45,10 +51,13 @@ between-horizontal-start between-vertical-start align-horizontal-justify-center 
 align-start-horizontal align-start-vertical align-end-horizontal align-end-vertical align-center-horizontal align-center-vertical
 align-horizontal-space-between align-vertical-space-between shapes lasso lasso-select paint-roller spray-can
 library scroll-text wallet
+clipboard-paste monitor-play sticky-note book-open sheet file-spreadsheet chart-column chart-bar
+funnel square-check-big text-align-start text-align-center text-align-end text-align-justify
+list-indent-increase list-indent-decrease text-indent-increase text-indent-decrease
 """
 
 ELEMENT_RE = re.compile(r'\[\s*"(\w+)",\s*\{([^}]*)\}\s*\]', re.S)
-REEXPORT_RE = re.compile(r"from\s+'\./([\w-]+)\.js'")
+REEXPORT_RE = re.compile(r"from\s+'\./([\w-]+)\.m?js'")
 ATTR_RE = re.compile(r'(\w+):\s*"([^"]*)"')
 
 
@@ -98,13 +107,16 @@ def main():
     src = Path(sys.argv[1])
     names = sorted(set(CURATED.split()))
     if "--all" in sys.argv:
-        names = sorted(p.stem for p in src.glob("*.js") if not p.stem.endswith(".map"))
+        names = sorted(p.stem for p in list(src.glob("*.mjs")) + list(src.glob("*.js"))
+                       if not p.stem.endswith(".map"))
     out = Path(__file__).resolve().parents[2] / "src" / "core" / "icon_data.cpp"
     rows = []
     aliases = []
     missing = []
     for name in names:
-        f = src / (name + ".js")
+        f = src / (name + ".mjs")
+        if not f.exists():
+            f = src / (name + ".js")
         if not f.exists():
             missing.append(name)
             continue
@@ -120,7 +132,9 @@ def main():
                 continue
             new_name = target.group(1)
             if new_name not in names:
-                tf = src / (new_name + ".js")
+                tf = src / (new_name + ".mjs")
+                if not tf.exists():
+                    tf = src / (new_name + ".js")
                 tpaths = [element_to_path(k, attrs) for k, attrs in ELEMENT_RE.findall(tf.read_text())]
                 rows.append((new_name, tpaths))
                 names.append(new_name)

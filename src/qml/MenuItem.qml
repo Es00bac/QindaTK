@@ -4,14 +4,18 @@ import QtQuick.Templates as T
 import QindaTK as Tk
 
 // One 22px menu entry: optional icon (or a check mark when checkable and
-// checked), small-font label, a muted caption `shortcut` on the right, a
-// chevron for a submenu. `danger` paints the label in the danger role.
+// checked, a dot when `radio`), small-font label, a muted caption
+// `shortcut` on the right, a chevron for a submenu. `danger` paints the
+// label in the danger role.
 T.MenuItem {
     id: item
 
     property string shortcut: ""
     property string iconName: ""
     property bool danger: false
+    // A member of an exclusive group: a dot instead of a check when checked.
+    // Exclusivity itself is the owner's (an action model, a ButtonGroup).
+    property bool radio: false
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             implicitContentWidth + leftPadding + rightPadding)
@@ -40,7 +44,7 @@ T.MenuItem {
             Tk.Flex.shrink: 0
             Tk.Icon {
                 anchors.centerIn: parent
-                name: item.checkable ? "check" : item.iconName
+                name: item.checkable ? (item.radio ? "circle-dot" : "check") : item.iconName
                 size: Tk.Theme.size.icon
                 visible: !item.checkable || item.checked
                 color: item.danger ? Tk.Theme.color.danger

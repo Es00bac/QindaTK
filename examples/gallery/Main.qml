@@ -96,6 +96,7 @@ Rectangle {
                 SelectionSection { filter: search.text }
                 StructureSection { filter: search.text }
                 PopupsSection { filter: search.text }
+                OfficeSection { filter: search.text }
                 DockingSection { filter: search.text }
                 ThemeSection { filter: search.text }
             }
