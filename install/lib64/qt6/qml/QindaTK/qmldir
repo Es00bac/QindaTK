@@ -1,0 +1,79 @@
+module QindaTK
+linktarget qindatkplugin
+optional plugin qindatkplugin
+classname QindaTKPlugin
+typeinfo qindatk.qmltypes
+depends QtQuick
+depends QtQuick.Controls
+depends QtQuick.Templates
+prefer :/qt/qml/QindaTK/
+AppWindow 1.0 AppWindow.qml
+Badge 1.0 Badge.qml
+Box 1.0 Box.qml
+Button 1.0 Button.qml
+Caption 1.0 Caption.qml
+Card 1.0 Card.qml
+CheckBox 1.0 CheckBox.qml
+Chip 1.0 Chip.qml
+ColorButton 1.0 ColorButton.qml
+ColorField 1.0 ColorField.qml
+ColorSwatches 1.0 ColorSwatches.qml
+ComboBox 1.0 ComboBox.qml
+CommandPalette 1.0 CommandPalette.qml
+Dialog 1.0 Dialog.qml
+Divider 1.0 Divider.qml
+DockDivider 1.0 DockDivider.qml
+DockDropOverlay 1.0 DockDropOverlay.qml
+DockFloating 1.0 DockFloating.qml
+DockFrame 1.0 DockFrame.qml
+DockHost 1.0 DockHost.qml
+DockPanel 1.0 DockPanel.qml
+DockTabStrip 1.0 DockTabStrip.qml
+DockZone 1.0 DockZone.qml
+EmptyState 1.0 EmptyState.qml
+Heading 1.0 Heading.qml
+IconButton 1.0 IconButton.qml
+Island 1.0 Island.qml
+KeyValue 1.0 KeyValue.qml
+Label 1.0 Label.qml
+ListRow 1.0 ListRow.qml
+Menu 1.0 Menu.qml
+MenuBar 1.0 MenuBar.qml
+MenuItem 1.0 MenuItem.qml
+MenuSeparator 1.0 MenuSeparator.qml
+MessageDialog 1.0 MessageDialog.qml
+Mono 1.0 Mono.qml
+Notice 1.0 Notice.qml
+NumberField 1.0 NumberField.qml
+Overline 1.0 Overline.qml
+Panel 1.0 Panel.qml
+Popover 1.0 Popover.qml
+ProgressBar 1.0 ProgressBar.qml
+PromptDialog 1.0 PromptDialog.qml
+PropertyGroup 1.0 PropertyGroup.qml
+PropertyRow 1.0 PropertyRow.qml
+RadioButton 1.0 RadioButton.qml
+Ruler 1.0 Ruler.qml
+Scroll 1.0 Scroll.qml
+ScrollBar 1.0 ScrollBar.qml
+SearchField 1.0 SearchField.qml
+SectionHeader 1.0 SectionHeader.qml
+Segmented 1.0 Segmented.qml
+Slider 1.0 Slider.qml
+Spacer 1.0 Spacer.qml
+Spinner 1.0 Spinner.qml
+Splitter 1.0 Splitter.qml
+StatusBar 1.0 StatusBar.qml
+StatusField 1.0 StatusField.qml
+Switch 1.0 Switch.qml
+TabStrip 1.0 TabStrip.qml
+TextArea 1.0 TextArea.qml
+TextField 1.0 TextField.qml
+ToolBar 1.0 ToolBar.qml
+ToolSeparator 1.0 ToolSeparator.qml
+ToolTip 1.0 ToolTip.qml
+TreeRow 1.0 TreeRow.qml
+Viewport 1.0 Viewport.qml
+ZoomControl 1.0 ZoomControl.qml
+DockDropLogic 1.0 DockDropLogic.js
+
