@@ -25,6 +25,8 @@ endmacro()
 ####################################################################################
 
 include(CMakeFindDependencyMacro)
+# QuickPrivate: <qindatk/stylus_handler.h> derives from a private QtQuick class (D-013).
+find_dependency(Qt6QuickPrivate)
 find_dependency(Qt6 COMPONENTS Core Gui Qml Quick Svg)
 
 include("${CMAKE_CURRENT_LIST_DIR}/QindaTKTargets.cmake")

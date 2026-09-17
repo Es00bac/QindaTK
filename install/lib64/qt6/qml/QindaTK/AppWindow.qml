@@ -23,6 +23,9 @@ T.ApplicationWindow {
     property alias findBar: findHost.data
     property alias statusBar: statusHost.data
     readonly property Item contentHostItem: contentHost
+    // View ▸ Show Toolbars / Show Status Bar: hide the whole band.
+    property bool toolBarsVisible: true
+    property bool statusBarVisible: true
 
     visible: true
     width: 960
@@ -66,7 +69,7 @@ T.ApplicationWindow {
             anchors.left: parent.left
             anchors.right: parent.right
             direction: Tk.Flex.Column
-            visible: children.length > 0
+            visible: window.toolBarsVisible && children.length > 0
         }
     }
 
@@ -90,7 +93,7 @@ T.ApplicationWindow {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             direction: Tk.Flex.Column
-            visible: children.length > 0
+            visible: window.statusBarVisible && children.length > 0
         }
     }
 
