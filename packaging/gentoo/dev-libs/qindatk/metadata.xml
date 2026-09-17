@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="person">
+		<email>support@sloom.studio</email>
+		<name>QindaQt contributors</name>
+	</maintainer>
+	<longdescription>
+		QindaTK is a Qt 6 / QML toolkit for dense desktop interfaces: CSS
+		flexbox and grid layout containers, absolute stacks, box model and
+		overflow scrolling, a measured dense theme with density modes, Lucide
+		icons, a zone/lane docking model, and dense controls. It installs the
+		QindaTK QML module, the qindatk shared library with CMake package
+		config, the QindaTK.QindaQt token bridge, and the qtk-preview tool.
+	</longdescription>
+	<use>
+		<flag name="examples">Install the QML examples under /usr/share/qindatk</flag>
+	</use>
+</pkgmetadata>

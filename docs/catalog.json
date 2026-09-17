@@ -1,0 +1,6382 @@
+{
+  "generated": "2026-09-17",
+  "module": "QindaTK",
+  "version": "1.0",
+  "types": [
+    {
+      "name": "Badge",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 16px count/status pill in micro semibold text, radius full. `variant` picks the status tint; `dot` collapses it to an 8px status dot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Badge.qml",
+      "properties": [
+        {
+          "name": "text",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "variant",
+          "type": "string",
+          "default": "\"default\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dot",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tint",
+          "type": "color",
+          "default": "variant === \"accent\" ? Tk.Theme.color.accent",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pillHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.controlSm - Tk.Theme.space.sm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Box",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: the CSS box. Background colour, uniform or per-side border, radius, padding, and a padding box (`contentItem`) that one child fills automatically (`fill: true`, the default) or several children anchor inside. Implicit size is the content's implicit size plus padding and border, so a Box in a Flex or Grid asks for exactly what it holds. Per-side borders (borderLeft/Top/Right/Bottom >= 0) are drawn as edge rectangles and ignore `radius`; a uniform border honours it.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Box.qml",
+      "properties": [
+        {
+          "name": "content",
+          "type": "alias",
+          "default": "contentHost.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "contentItem",
+          "type": "Item",
+          "default": "contentHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "default": "\"transparent\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "borderColor",
+          "type": "color",
+          "default": "Tk.Theme.color.border",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "borderWidth",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "borderLeft",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "borderTop",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "borderRight",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "borderBottom",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "radius",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "padding",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paddingLeft",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paddingTop",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paddingRight",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paddingBottom",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fill",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipContent",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "interactive",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hovered",
+          "type": "bool",
+          "default": "hoverHandler.hovered",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pressed",
+          "type": "alias",
+          "default": "tapHandler.pressed",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "perSide",
+          "type": "bool",
+          "default": "borderLeft >= 0 || borderTop >= 0 || borderRight >= 0 || borderBottom >= 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgeLeft",
+          "type": "real",
+          "default": "(borderLeft >= 0 ? borderLeft : borderWidth)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgeTop",
+          "type": "real",
+          "default": "(borderTop >= 0 ? borderTop : borderWidth)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgeRight",
+          "type": "real",
+          "default": "(borderRight >= 0 ? borderRight : borderWidth)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgeBottom",
+          "type": "real",
+          "default": "(borderBottom >= 0 ? borderBottom : borderWidth)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "insetLeft",
+          "type": "real",
+          "default": "edgeLeft + (paddingLeft >= 0 ? paddingLeft : padding)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "insetTop",
+          "type": "real",
+          "default": "edgeTop + (paddingTop >= 0 ? paddingTop : padding)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "insetRight",
+          "type": "real",
+          "default": "edgeRight + (paddingRight >= 0 ? paddingRight : padding)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "insetBottom",
+          "type": "real",
+          "default": "edgeBottom + (paddingBottom >= 0 ? paddingBottom : padding)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "clicked",
+          "parameters": "var eventPoint"
+        },
+        {
+          "name": "rightClicked",
+          "parameters": "var eventPoint"
+        },
+        {
+          "name": "doubleClicked",
+          "parameters": "var eventPoint"
+        }
+      ],
+      "methods": [
+        {
+          "name": "maxImplicit",
+          "parameters": "items, horizontal"
+        },
+        {
+          "name": "seat",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Button",
+      "kind": "qml",
+      "base": "T.Button",
+      "description": "AGENT-CONTRACT (docs/controls.md): the text button. 24px (small 20, large 28), radius sm, body font, padding-x space.md. Variants: \"default\" (controlBg + controlBorder, text slightly muted at rest as Sloom's theme-button), \"accent\" (accent fill, accentContrast text), \"ghost\" (no fill or border at rest), \"outline\" (border only), \"danger\" (danger fill). `busy` swaps the icon for a Spinner and disables the button. Consumers express capability through `available`, not `enabled`, because the busy state owns the enabled binding.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Button.qml",
+      "properties": [
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trailingIconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "variant",
+          "type": "string",
+          "default": "\"default\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "large",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "available",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.iconSm : Tk.Theme.size.icon",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filled",
+          "type": "bool",
+          "default": "variant === \"accent\" || variant === \"danger\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fillColor",
+          "type": "color",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "outlineColor",
+          "type": "color",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "textColor",
+          "type": "color",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Caption",
+      "kind": "qml",
+      "base": "Tk.Label",
+      "description": "10px secondary text (the original's text-[10px] / text-xs helpers): hints, readouts, list metadata. Muted by default.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Caption.qml",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Card",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "A raised content card: the panelAlt surface with a 1px border and a 6px radius, md padding. `interactive` adds hover/pressed tinting and the `clicked` signal (from Box); `selected` paints the accent border.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Card.qml",
+      "properties": [
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "CheckBox",
+      "kind": "qml",
+      "base": "T.CheckBox",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 14px box (small 12), radius xs, accent-filled with a `check` glyph when checked, a `minus` glyph when partially checked (tristate). Row height 20 (small 16), body text.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CheckBox.qml",
+      "properties": [
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "boxSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.iconSm : Tk.Theme.size.icon",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm - Tk.Theme.space.sm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Chip",
+      "kind": "qml",
+      "base": "T.AbstractButton",
+      "description": "AGENT-CONTRACT (docs/controls.md): the Sloom pill. Measured from the running original: 32px tall (small 28), radius 6, 1px border, 8px horizontal padding, icon and label 6px apart, label and glyph in the accent colour. `rounded` turns it into the 36px fully round island action with 10px padding. `emphasis` follows the original's three weights: \"plain\" for most actions, \"tinted\" for one that is on, \"solid\" for the primary. `active` (alias of checked) lights the border.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Chip.qml",
+      "properties": [
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "chevron",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "active",
+          "type": "alias",
+          "default": "control.checked",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "emphasis",
+          "type": "string",
+          "default": "\"plain\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rounded",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlHeight",
+          "type": "real",
+          "default": "rounded ? Tk.Theme.size.action",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.icon : Tk.Theme.size.iconLg",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lit",
+          "type": "bool",
+          "default": "control.checked || control.emphasis !== \"plain\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fillColor",
+          "type": "color",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "outlineColor",
+          "type": "color",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "labelColor",
+          "type": "color",
+          "default": "!control.enabled ? Tk.Theme.color.textDisabled",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "ColorField",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 24px (small 20) colour readout: a 16px swatch over a checkerboard (so alpha shows) beside an editable hex value (\"#rrggbb\" or \"#aarrggbb\"; \"#rgb\" and bare hex are accepted on entry). Editing the hex emits colorEdited(color); tapping the swatch emits pickRequested() for the host to open its picker. objectName \"colorHex\" on the hex input.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ColorField.qml",
+      "properties": [
+        {
+          "name": "color",
+          "type": "color",
+          "default": "Tk.Theme.color.accent",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showHex",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "swatchSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.icon : Tk.Theme.size.iconLg",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgePadding",
+          "type": "real",
+          "default": "Tk.Theme.space.sm + 1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hexText",
+          "type": "string",
+          "default": "control.color.toString()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "colorEdited",
+          "parameters": "color color"
+        },
+        {
+          "name": "pickRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "applyHex",
+          "parameters": "text"
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "colorHex",
+        "colorSwatch"
+      ]
+    },
+    {
+      "name": "ComboBox",
+      "kind": "qml",
+      "base": "T.ComboBox",
+      "description": "AGENT-CONTRACT (docs/controls.md): the 24px (small 20) picker on inputBg with a chevron, whose popup (objectName \"comboPopup\") is a Menu-styled list of 22px rows, at most 12 visible before it scrolls. `textRole` and `iconRole` read the model; a JS array of strings works with no roles. `placeholderText` shows while currentIndex is -1. `editable` turns the content into a text input, as T.ComboBox defines.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ComboBox.qml",
+      "properties": [
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconRole",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholderText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgePadding",
+          "type": "real",
+          "default": "Tk.Theme.space.sm + 2",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "roleName",
+          "type": "string",
+          "default": "control.textRole.length > 0 ? control.textRole : \"modelData\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "textFor",
+          "parameters": "model"
+        },
+        {
+          "name": "iconFor",
+          "parameters": "model"
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "comboPopup"
+      ]
+    },
+    {
+      "name": "CommandPalette",
+      "kind": "qml",
+      "base": "T.Popup",
+      "description": "AGENT-CONTRACT: the Ctrl+K palette. `commands` is a list of {id, label, shortcut, section, iconName, keywords}; typing filters by a case-insensitive substring over label and keywords, results are grouped by section (first-appearance order) under overline rows, and ↑/↓ + Enter (or a click) emit `activated(id)` and close. Top-centred at 12% of the window height, width min(560, window - 32).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CommandPalette.qml",
+      "properties": [
+        {
+          "name": "commands",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholderText",
+          "type": "string",
+          "default": "qsTr(\"Type a command…\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxVisible",
+          "type": "int",
+          "default": "10",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filterText",
+          "type": "alias",
+          "default": "input.text",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentRow",
+          "type": "alias",
+          "default": "list.currentIndex",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resultCount",
+          "type": "int",
+          "default": "palette.rows.filter(function(r) { return !r.header }).length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "activated",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "rebuild",
+          "parameters": ""
+        },
+        {
+          "name": "firstSelectable",
+          "parameters": "start, step"
+        },
+        {
+          "name": "move",
+          "parameters": "step"
+        },
+        {
+          "name": "activateCurrent",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "paletteInput",
+        "paletteList"
+      ]
+    },
+    {
+      "name": "Dialog",
+      "kind": "qml",
+      "base": "T.Dialog",
+      "description": "AGENT-CONTRACT: a modal dialog on the popover surface behind a dim scrim: overline title (+ caption subtitle), the dialog's content as its default property, and a footer with a secondary and a primary button (`primaryText` / `secondaryText`; `destructive` paints the primary in the danger variant). Escape rejects, Enter accepts. `standardButtons` from T.Dialog is deliberately unused: the footer is ours, so set `footer:` to replace it wholesale instead.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Dialog.qml",
+      "properties": [
+        {
+          "name": "content",
+          "type": "alias",
+          "default": "body.content",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "subtitle",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "primaryText",
+          "type": "string",
+          "default": "qsTr(\"OK\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "secondaryText",
+          "type": "string",
+          "default": "qsTr(\"Cancel\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "destructive",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dialogWidth",
+          "type": "real",
+          "default": "420",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "dialogBody",
+        "dialogFooter",
+        "dialogHeader",
+        "dialogPrimary",
+        "dialogSecondary",
+        "dialogTitle"
+      ]
+    },
+    {
+      "name": "Divider",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "A 1px rule. Horizontal by default; `vertical: true` for toolbars. Inside a Flex it takes no main-axis space beyond its thickness and stretches on the cross axis.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Divider.qml",
+      "properties": [
+        {
+          "name": "vertical",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "thickness",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inset",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "DockDivider",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "The draggable seam between two dock lanes, between a lane and the canvas, or between two slots of a lane (`share: true`). It reports incremental deltas; the host turns them into DockModel extents or shares, so a seam can never drag a lane below its declared minimum.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockDivider.qml",
+      "properties": [
+        {
+          "name": "vertical",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "share",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "drag.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "dragStarted",
+          "parameters": ""
+        },
+        {
+          "name": "dragged",
+          "parameters": "real delta"
+        },
+        {
+          "name": "dragEnded",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "DockDropOverlay",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Drop targets while a panel is being dragged: translucent strips at the host edges (dock into that zone), a preview of the rectangle the panel would take, and a ghost that follows the pointer. Hit testing lives in DockHost (it knows the frames); this only draws `host.dropTarget`.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockDropOverlay.qml",
+      "properties": [
+        {
+          "name": "host",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "DockFloating",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The floating layer: every floating panel of the model, drawn above the dock zones in z-order. A frame's rectangle is read live from the model, so header drags (moveFloating), the eight resize handles (setFloatingRect) and raising (bringToFront) never rebuild it. `shade` (collapse to the header) is host-side state that survives rebuilds. AGENT-GUARD: never name this id `layer`: Item.layer is a property of every delegate, and the scope object's property shadows the id.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockFloating.qml",
+      "properties": [
+        {
+          "name": "host",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "ids",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "dockContent_",
+        "dockFloating_"
+      ]
+    },
+    {
+      "name": "DockFrame",
+      "kind": "qml",
+      "base": "FocusScope",
+      "description": "AGENT-CONTRACT: one docked slot: Tk.Panel chrome around the content of one panel, or a tab strip plus the contents of a whole group. The frame is created from the host's structural snapshot (which panels sit here) and reads the live facts (active tab, collapsed, share) from the model through `host.slotInfo`, so a seam drag or a tab click never rebuilds it. Content items are seated (reparented) into per-panel containers and reclaimed on teardown; they are never re-created.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockFrame.qml",
+      "properties": [
+        {
+          "name": "host",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lane",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "slotIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panelIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sideZone",
+          "type": "bool",
+          "default": "zone === \"left\" || zone === \"right\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "slot",
+          "type": "var",
+          "default": "host.slotInfo(zone, lane, slotIndex)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeId",
+          "type": "string",
+          "default": "slot.activeId !== undefined && slot.activeId !== \"\" ? slot.activeId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsed",
+          "type": "bool",
+          "default": "slot.collapsed === true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "share",
+          "type": "real",
+          "default": "slot.share !== undefined ? slot.share : 1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "info",
+          "type": "var",
+          "default": "host.panelInfo(activeId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "declaration",
+          "type": "var",
+          "default": "host.declarationOf(activeId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "chrome",
+          "type": "string",
+          "default": "info.chrome !== undefined ? info.chrome : \"default\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "seat",
+          "parameters": "panelId, container"
+        },
+        {
+          "name": "owns",
+          "parameters": "item"
+        },
+        {
+          "name": "detach",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "dockContent_",
+        "dockFrame_",
+        "dockTabStrip_"
+      ]
+    },
+    {
+      "name": "DockHost",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: the dockable-panel host. It draws what Tk.DockModel says and reports gestures back; it never holds arrangement state.  Tk.DockHost { model: Tk.DockModel { storageKey: \"myapp/image\" } workspace: \"image\" canvas: Item { ... }                  // the fixed centre Tk.DockPanel { panelId: \"layers\"; title: \"Layers\"; zone: \"right\"; ... } }  Geometry: top and bottom zones span the full width; left and right zones are columns of lanes beside a centre column; the \"center\" zone stacks rows above the canvas inside that column; \"overlay\" panels sit over the canvas at its top-right; floating panels sit above everything.  AGENT-GUARD: structure (which panels sit in which lane/slot) is a snapshot assigned only when it changes, so Repeaters rebuild frames only for real moves. Extents, shares, active tabs, collapsed flags and floating rectangles are read live through `gen`-dependent helpers — a seam drag must never destroy the seam being dragged. Before a zone is rebuilt its frames reclaim their content into the declarations (see DockFrame).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockHost.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.DockModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "workspace",
+          "type": "string",
+          "default": "\"default\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canvas",
+          "type": "Item",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panels",
+          "type": "alias",
+          "default": "registry.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "canvasItem",
+          "type": "Item",
+          "default": "canvasHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panelMenuModel",
+          "type": "var",
+          "default": "host.computeMenu()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hiddenPanels",
+          "type": "var",
+          "default": "host.panelMenuModel.filter(function(e) { return e.hidden })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gen",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "leftLanes",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rightLanes",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "topLanes",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bottomLanes",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "centerLanes",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overlayLanes",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "floatingIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "signatures",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shadedIds",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragFromFloating",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragCancelled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragPointer",
+          "type": "point",
+          "default": "Qt.point(0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropTarget",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgeTargets",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frames",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "floatingFrames",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ready",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "panelDropped",
+          "parameters": "string panelId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "declarationOf",
+          "parameters": "panelId"
+        },
+        {
+          "name": "registerAll",
+          "parameters": ""
+        },
+        {
+          "name": "panelTitle",
+          "parameters": "panelId"
+        },
+        {
+          "name": "panelInfo",
+          "parameters": "panelId"
+        },
+        {
+          "name": "laneExtent",
+          "parameters": "zone, lane"
+        },
+        {
+          "name": "slotInfo",
+          "parameters": "zone, lane, slotIndex"
+        },
+        {
+          "name": "computeMenu",
+          "parameters": ""
+        },
+        {
+          "name": "showPanel",
+          "parameters": "panelId"
+        },
+        {
+          "name": "hidePanel",
+          "parameters": "panelId"
+        },
+        {
+          "name": "togglePanel",
+          "parameters": "panelId"
+        },
+        {
+          "name": "floatPanel",
+          "parameters": "panelId"
+        },
+        {
+          "name": "resetLayout",
+          "parameters": ""
+        },
+        {
+          "name": "applyPreset",
+          "parameters": "presetId"
+        },
+        {
+          "name": "isShaded",
+          "parameters": "panelId"
+        },
+        {
+          "name": "setShaded",
+          "parameters": "panelId, shaded"
+        },
+        {
+          "name": "refresh",
+          "parameters": ""
+        },
+        {
+          "name": "detachZone",
+          "parameters": "zone"
+        },
+        {
+          "name": "detachFloating",
+          "parameters": ""
+        },
+        {
+          "name": "registerFrame",
+          "parameters": "frame"
+        },
+        {
+          "name": "unregisterFrame",
+          "parameters": "frame"
+        },
+        {
+          "name": "registerFloatingFrame",
+          "parameters": "frame"
+        },
+        {
+          "name": "unregisterFloatingFrame",
+          "parameters": "frame"
+        },
+        {
+          "name": "resizeLane",
+          "parameters": "zone, lane, delta"
+        },
+        {
+          "name": "adjustShares",
+          "parameters": "zone, lane, index, delta, laneLength"
+        },
+        {
+          "name": "beginDrag",
+          "parameters": "panelId, scenePos, fromFloating"
+        },
+        {
+          "name": "updateDrag",
+          "parameters": "scenePos"
+        },
+        {
+          "name": "endDrag",
+          "parameters": ""
+        },
+        {
+          "name": "cancelDrag",
+          "parameters": ""
+        },
+        {
+          "name": "seatCanvas",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "dockCanvas",
+        "dockZone_overlay"
+      ]
+    },
+    {
+      "name": "DockPanel",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: a panel declaration inside a Tk.DockHost. Nothing here is drawn. The host registers `definition()` with the DockModel and moves `contentItem` (the Item holding the declared children) into whatever frame the arrangement puts the panel in — docked, tabbed, floating — so the content keeps its state (scroll position, selection, text) across every move. A hidden panel's content simply lives here, invisible.  Tk.DockPanel { panelId: \"layers\"; title: \"Layers\"; zone: \"right\" Tk.Scroll { ... } }",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockPanel.qml",
+      "properties": [
+        {
+          "name": "content",
+          "type": "alias",
+          "default": "contentHost.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "contentItem",
+          "type": "Item",
+          "default": "contentHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "isDockPanel",
+          "type": "bool",
+          "default": "true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"docked\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "default": "\"right\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lane",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "order",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "extent",
+          "type": "real",
+          "default": "280",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "share",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minWidth",
+          "type": "real",
+          "default": "160",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minHeight",
+          "type": "real",
+          "default": "100",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "floatingRect",
+          "type": "var",
+          "default": "undefined",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "allowedZones",
+          "type": "var",
+          "default": "undefined",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "closable",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fixedSize",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "chrome",
+          "type": "string",
+          "default": "\"default\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "group",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "groupActive",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "padding",
+          "type": "real",
+          "default": "Tk.Theme.space.sm",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "definition",
+          "parameters": "index"
+        },
+        {
+          "name": "reclaim",
+          "parameters": ""
+        },
+        {
+          "name": "seat",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "dockPanelContent_"
+      ]
+    },
+    {
+      "name": "DockTabStrip",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The tab row of a slot that holds several panels (a tab group). 22px, caption font, accent underline on the active tab. Click activates (DockModel.activateInGroup), a horizontal drag reorders on release (moveInGroup), a drag that leaves the strip vertically tears the panel out (host.beginDrag), right-click opens the group menu.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockTabStrip.qml",
+      "properties": [
+        {
+          "name": "host",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "panelIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "indexForX",
+          "parameters": "x, excludedId"
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "dockTab_"
+      ]
+    },
+    {
+      "name": "DockZone",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "One dock zone: lanes side by side (left/right zones: columns of stacked slots) or stacked (top/bottom/center zones: rows of slots), each lane followed (or, for right/bottom, preceded) by the seam that resizes it. Structure comes from `lanes` (the host's snapshot); every size is read live from the model so seam drags never rebuild anything.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockZone.qml",
+      "properties": [
+        {
+          "name": "host",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "default": "\"left\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lanes",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sideZone",
+          "type": "bool",
+          "default": "zone === \"left\" || zone === \"right\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "reversed",
+          "type": "bool",
+          "default": "zone === \"right\" || zone === \"bottom\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "seamSign",
+          "type": "real",
+          "default": "reversed ? -1 : 1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "visualIndex",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "dockDivider_",
+        "dockLane_",
+        "dockShareSeam_",
+        "dockZone_"
+      ]
+    },
+    {
+      "name": "EmptyState",
+      "kind": "qml",
+      "base": "Item",
+      "description": "What an empty list or panel says out loud: a muted icon, an overline title, a wrapping caption and optional actions, centred in the space it is given. An empty panel with nothing in it reads as a broken one.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/EmptyState.qml",
+      "properties": [
+        {
+          "name": "text",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxTextWidth",
+          "type": "real",
+          "default": "320",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "actions",
+          "type": "alias",
+          "default": "actionsHost.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "emptyText",
+        "emptyTitle"
+      ]
+    },
+    {
+      "name": "Heading",
+      "kind": "qml",
+      "base": "Tk.Label",
+      "description": "A title line. `level` 1 is display size, 2 is title, 3 is large.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Heading.qml",
+      "properties": [
+        {
+          "name": "level",
+          "type": "int",
+          "default": "2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "IconButton",
+      "kind": "qml",
+      "base": "T.AbstractButton",
+      "description": "A square icon-only button at control height (24px; `small` is 20px). Ghost by default (no fill at rest), tinted on hover, accent when `checked`. `tooltip` sets the accessible name and the hover tooltip.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/IconButton.qml",
+      "properties": [
+        {
+          "name": "icon_",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "alias",
+          "default": "control.icon_",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconSize",
+          "type": "real",
+          "default": "control.small ? Tk.Theme.size.iconSm : Tk.Theme.size.icon",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "danger",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ghost",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconColor",
+          "type": "color",
+          "default": "!control.enabled ? Tk.Theme.color.textDisabled",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Island",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "A floating, fully rounded control island that sits over the canvas (Sloom's `theme-control` glass pills): the canvas at 72% behind a 1px low-contrast border, 6px vertical and 8px horizontal padding, children in a centred row. Anchor it over the work area, not inside a toolbar.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Island.qml",
+      "properties": [
+        {
+          "name": "content",
+          "type": "alias",
+          "default": "row.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "spacing",
+          "type": "real",
+          "default": "6",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paddingH",
+          "type": "real",
+          "default": "8",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paddingV",
+          "type": "real",
+          "default": "6",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "KeyValue",
+      "kind": "qml",
+      "base": "Item",
+      "description": "A 22px readout row: caption key on the left, value right-aligned in mono (the original's \"Sequence Info\" block). `accent` lights the value.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/KeyValue.qml",
+      "properties": [
+        {
+          "name": "key",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mono",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "accent",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "keyLabel",
+        "valueLabel"
+      ]
+    },
+    {
+      "name": "Label",
+      "kind": "qml",
+      "base": "Text",
+      "description": "Body text in the theme's face and colour. Elides when a layout narrows it; set `wrapMode` to wrap instead. `muted`/`disabled`/`accent` switch the colour role so call sites never name a colour.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Label.qml",
+      "properties": [
+        {
+          "name": "muted",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "disabled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "accent",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mono",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "ListRow",
+      "kind": "qml",
+      "base": "T.ItemDelegate",
+      "description": "AGENT-CONTRACT: a dense list row. 22px (28 with `secondaryText`), text in body size, optional icon, `leading`/`trailing` slots, hover tint, `selected` paints the selection role, `active` lights the text in the accent. Right-clicks arrive as `rightClicked(point)` for a context menu; left click and double click come from AbstractButton.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ListRow.qml",
+      "properties": [
+        {
+          "name": "secondaryText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "indent",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "leading",
+          "type": "alias",
+          "default": "leadingHost.data",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trailing",
+          "type": "alias",
+          "default": "trailingHost.data",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "leadingItem",
+          "type": "Item",
+          "default": "leadingHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trailingItem",
+          "type": "Item",
+          "default": "trailingHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "twoLine",
+          "type": "bool",
+          "default": "row.secondaryText.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "rightClicked",
+          "parameters": "var point"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "rowSecondary",
+        "rowText"
+      ]
+    },
+    {
+      "name": "Menu",
+      "kind": "qml",
+      "base": "T.Menu",
+      "description": "AGENT-CONTRACT: a real T.Menu — popup(), cascading submenus, keyboard navigation and mnemonics all come from the template. Visuals: the popover surface with a 1px popover border, 6px radius, 22px items. Use Tk.MenuItem / Tk.MenuSeparator as children; `title` names it in a Tk.MenuBar or as a submenu entry.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Menu.qml",
+      "properties": [
+        {
+          "name": "minWidth",
+          "type": "real",
+          "default": "160",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "MenuBar",
+      "kind": "qml",
+      "base": "T.MenuBar",
+      "description": "A 22px menu bar on the surface colour: small-font titles, the open one filled with the active control tint. Children are Tk.Menu { title }.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MenuBar.qml",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "MenuItem",
+      "kind": "qml",
+      "base": "T.MenuItem",
+      "description": "One 22px menu entry: optional icon (or a check mark when checkable and checked), small-font label, a muted caption `shortcut` on the right, a chevron for a submenu. `danger` paints the label in the danger role.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MenuItem.qml",
+      "properties": [
+        {
+          "name": "shortcut",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "danger",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "menuItemText"
+      ]
+    },
+    {
+      "name": "MenuSeparator",
+      "kind": "qml",
+      "base": "T.MenuSeparator",
+      "description": "A 1px divider between groups of menu items with xs margins.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MenuSeparator.qml",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Mono",
+      "kind": "qml",
+      "base": "Tk.Label",
+      "description": "Monospace readout text: timecodes, coordinates, hashes, values that must line up in columns.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Mono.qml",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Notice",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "An inline message bar: tinted background, a 2px left edge and an icon in the status colour of `variant` (\"info\", \"success\", \"warning\", \"danger\"), optional title, wrapping text, an `actions` slot and an optional dismiss button. Never modal; place it where the message applies.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Notice.qml",
+      "properties": [
+        {
+          "name": "text",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "variant",
+          "type": "string",
+          "default": "\"info\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dismissible",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "actions",
+          "type": "alias",
+          "default": "actionsHost.data",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusColor",
+          "type": "color",
+          "default": "notice.variant === \"danger\" ? Tk.Theme.color.danger",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusIcon",
+          "type": "string",
+          "default": "notice.iconName.length > 0 ? notice.iconName",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "dismissed",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "noticeDismiss",
+        "noticeText",
+        "noticeTitle"
+      ]
+    },
+    {
+      "name": "NumberField",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md): the inspector number field. 24px (small 20), mono digits, optional inline `label` (\"W\"), `prefix`/`suffix` readouts, ▲▼ step buttons on hover, and scrubbing: dragging horizontally on the label or the field changes the value by `scrubSensitivity` units per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel steps. `value` is always clamped to [from, to] and rounded to `decimals`. `valueModified(value)` fires for user edits only; a programmatic `value = x` is silent. objectNames: \"numberInput\", \"numberLabel\".",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/NumberField.qml",
+      "properties": [
+        {
+          "name": "value",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "from",
+          "type": "real",
+          "default": "-1e9",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "to",
+          "type": "real",
+          "default": "1e9",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stepSize",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "decimals",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "prefix",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "suffix",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editable",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrub",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrubSensitivity",
+          "type": "real",
+          "default": "stepSize",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stepButtons",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "live",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputItem",
+          "type": "alias",
+          "default": "input",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "input.activeFocus",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgePadding",
+          "type": "real",
+          "default": "Tk.Theme.space.sm + 2",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "valueModified",
+          "parameters": "real value"
+        },
+        {
+          "name": "editingFinished",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "clamp",
+          "parameters": "v"
+        },
+        {
+          "name": "format",
+          "parameters": "v"
+        },
+        {
+          "name": "commit",
+          "parameters": "v"
+        },
+        {
+          "name": "step",
+          "parameters": "direction, modifiers"
+        },
+        {
+          "name": "syncText",
+          "parameters": ""
+        },
+        {
+          "name": "applyInput",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "numberInput",
+        "numberLabel"
+      ]
+    },
+    {
+      "name": "Overline",
+      "kind": "qml",
+      "base": "Tk.Label",
+      "description": "The uppercase, letter-spaced, semibold caption that heads every grouped block of a Sloom panel: 10px, 0.18em tracking, muted. The typographic signature of the dense style; use it for section titles and panel headers, never for body copy.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Overline.qml",
+      "properties": [
+        {
+          "name": "title",
+          "type": "string",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "wide",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Panel",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: panel chrome. A 24px header (grip, uppercase title, trailing actions, collapse / float / close buttons) over a padded body. The panel only reports intent (collapseToggled, floatRequested, closeRequested); a host such as DockFrame decides what happens. Measured from Sloom Studio: header 24px, title 10px semibold uppercase, 1px divider, floating panels get a 6px radius and an accent border.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Panel.qml",
+      "properties": [
+        {
+          "name": "content",
+          "type": "alias",
+          "default": "bodyBox.content",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "actions",
+          "type": "alias",
+          "default": "actionsHost.data",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerItem",
+          "type": "Item",
+          "default": "headerBox",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bodyItem",
+          "type": "Item",
+          "default": "bodyBox",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "grip",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerVisible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsed",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "closable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "floatable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "floating",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "padding",
+          "type": "real",
+          "default": "Tk.Theme.space.sm",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "default": "Tk.Theme.color.panel",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "collapseToggled",
+          "parameters": "bool collapsed"
+        },
+        {
+          "name": "closeRequested",
+          "parameters": ""
+        },
+        {
+          "name": "floatRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "panelBody",
+        "panelClose",
+        "panelCollapse",
+        "panelFloat",
+        "panelHeader",
+        "panelTitle"
+      ]
+    },
+    {
+      "name": "Popover",
+      "kind": "qml",
+      "base": "T.Popup",
+      "description": "AGENT-CONTRACT: a non-modal popup placed next to `anchorItem` on the side `placement` names (\"bottom\", \"top\", \"left\", \"right\"), kept inside the window. It lives in the Overlay, so it is never clipped by a panel or a Scroll. open()/close() as any Popup; `opened`/`closed` are the template's signals.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Popover.qml",
+      "properties": [
+        {
+          "name": "anchorItem",
+          "type": "Item",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placement",
+          "type": "string",
+          "default": "\"bottom\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "arrow",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gap",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "reposition",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "ProgressBar",
+      "kind": "qml",
+      "base": "T.ProgressBar",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 3px (thin: 2px) accent bar on a divider-coloured track, radius full. `indeterminate` slides a third-width segment; the animation stays off when reduced motion zeroes the motion ladder (a 0ms looping animation would spin the CPU).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ProgressBar.qml",
+      "properties": [
+        {
+          "name": "thin",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackHeight",
+          "type": "real",
+          "default": "thin ? Tk.Theme.space.xs : Tk.Theme.space.xs + 1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "PropertyGroup",
+      "kind": "qml",
+      "base": "Item",
+      "description": "A titled block of PropertyRows: a SectionHeader (collapsible), the rows in a column with xs gaps, and a closing divider. Collapsing hides the rows and keeps the header, as the original's inspector sections do.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PropertyGroup.qml",
+      "properties": [
+        {
+          "name": "rows",
+          "type": "alias",
+          "default": "body.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsed",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "divider",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "spacing",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "groupBody",
+        "groupHeader"
+      ]
+    },
+    {
+      "name": "PropertyRow",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: one inspector row. A muted caption label in a fixed column (Theme.size.labelWidth) and an editor that fills the rest; the row is at least Theme.size.row (22) tall so stacked rows align whatever the editor is. `hint` adds a caption line under the editor. The editor is the row's default content; a single editor is stretched (Box rules).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PropertyRow.qml",
+      "properties": [
+        {
+          "name": "editor",
+          "type": "alias",
+          "default": "editorHost.content",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "editorItem",
+          "type": "Item",
+          "default": "editorHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "labelWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.labelWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hint",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "alignTop",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dense",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minRowHeight",
+          "type": "real",
+          "default": "row.dense ? Tk.Theme.size.controlSm : Tk.Theme.size.row",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "propertyEditor",
+        "propertyLabel"
+      ]
+    },
+    {
+      "name": "RadioButton",
+      "kind": "qml",
+      "base": "T.RadioButton",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 14px circle (small 12) with an accent dot when checked; exclusive within its parent like any T.RadioButton. Row height 20.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RadioButton.qml",
+      "properties": [
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "circleSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.iconSm : Tk.Theme.size.icon",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm - Tk.Theme.space.sm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Ruler",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: a tick ruler for canvases and timelines. `origin` is the pixel position (along the ruler) of unit 0, `pixelsPerUnit` the pixels per unit; major ticks every `majorEvery` units carry micro labels, minor ticks every `minorEvery`. `cursorPosition` (px, -1 none) draws the accent cursor line. It repaints when the theme changes so colours never go stale. 22px thick.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Ruler.qml",
+      "properties": [
+        {
+          "name": "orientation",
+          "type": "int",
+          "default": "Qt.Horizontal",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "origin",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pixelsPerUnit",
+          "type": "real",
+          "default": "10",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "majorEvery",
+          "type": "real",
+          "default": "10",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minorEvery",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "labels",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cursorPosition",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumMinorSpacing",
+          "type": "real",
+          "default": "4",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "horizontal",
+          "type": "bool",
+          "default": "ruler.orientation === Qt.Horizontal",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "css",
+          "parameters": "c"
+        },
+        {
+          "name": "format",
+          "parameters": "value"
+        }
+      ],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Scroll",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: CSS `overflow: auto`. The single content child is sized to its implicit size on a scrolling axis and to the viewport on a hidden axis, so `overflowX: Scroll.Hidden` (the default) makes a Column wrap to the width and scroll vertically. Scrollbars are overlays and take no layout space. Wheel, drag-flick and keyboard (when focused) all scroll.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Scroll.qml",
+      "properties": [
+        {
+          "name": "content",
+          "type": "alias",
+          "default": "contentHost.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "contentItem",
+          "type": "Item",
+          "default": "contentHost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "flickable",
+          "type": "alias",
+          "default": "flick",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overflowX",
+          "type": "int",
+          "default": "Scroll.Hidden",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overflowY",
+          "type": "int",
+          "default": "Scroll.Auto",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "padding",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentX",
+          "type": "alias",
+          "default": "flick.contentX",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentY",
+          "type": "alias",
+          "default": "flick.contentY",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentWidth",
+          "type": "alias",
+          "default": "flick.contentWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentHeight",
+          "type": "alias",
+          "default": "flick.contentHeight",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewportWidth",
+          "type": "real",
+          "default": "flick.width",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewportHeight",
+          "type": "real",
+          "default": "flick.height",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollableX",
+          "type": "bool",
+          "default": "flick.contentWidth > flick.width + 0.5",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollableY",
+          "type": "bool",
+          "default": "flick.contentHeight > flick.height + 0.5",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "interactive",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "ensureVisible",
+          "parameters": "item"
+        },
+        {
+          "name": "scrollToTop",
+          "parameters": ""
+        },
+        {
+          "name": "scrollToBottom",
+          "parameters": ""
+        },
+        {
+          "name": "maxImplicit",
+          "parameters": "items, horizontal"
+        },
+        {
+          "name": "seat",
+          "parameters": ""
+        }
+      ],
+      "enums": {
+        "Overflow": [
+          "Auto",
+          "Hidden",
+          "Always"
+        ]
+      },
+      "objectNames": []
+    },
+    {
+      "name": "ScrollBar",
+      "kind": "qml",
+      "base": "T.ScrollBar",
+      "description": "Thin overlay scrollbar: an 8px rounded thumb in the accent tint over a track that only appears on hover, as the original's WebKit scrollbar styling does. Attach with `T.ScrollBar.vertical: Tk.ScrollBar {}`.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ScrollBar.qml",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "SearchField",
+      "kind": "qml",
+      "base": "Tk.TextField",
+      "description": "AGENT-CONTRACT (docs/controls.md): a TextField with a search glyph, a clear button, Escape-to-clear, and `searched(text)` emitted `debounce` milliseconds after the last keystroke (and immediately on Enter).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SearchField.qml",
+      "properties": [
+        {
+          "name": "debounce",
+          "type": "int",
+          "default": "150",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "searched",
+          "parameters": "string text"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "SectionHeader",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The heading row of a grouped block inside a panel: an Overline title, an optional count, trailing actions, and an optional disclosure chevron that toggles `collapsed` (bind the block's `visible` to !collapsed). AGENT-NOTE: an Item wraps the Flex because Flex owns its implicit size; the row height comes from Theme.size.row, not from the text.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SectionHeader.qml",
+      "properties": [
+        {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsible",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsed",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trailing",
+          "type": "alias",
+          "default": "trailingHost.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "sectionTitle"
+      ]
+    },
+    {
+      "name": "Segmented",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md): one 24px row of joined segments (small 20). `model` is a list of strings or {text, iconName, value, tooltip}; the selected segment paints controlActiveBg, the rest are ghost. Each segment is objectName \"segment_<index>\". `activated(index)` fires on a user click (not on programmatic currentIndex changes).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Segmented.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentValue",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stretch",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "enabled_",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "control.model === undefined || control.model === null ? 0 : control.model.length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "activated",
+          "parameters": "int index"
+        }
+      ],
+      "methods": [
+        {
+          "name": "entry",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "segment_"
+      ]
+    },
+    {
+      "name": "Slider",
+      "kind": "qml",
+      "base": "T.Slider",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 2px track with an accent fill and a 10px round handle (8px small) in a 16px (14px) row, so it sits inside a 24px inspector row. `showValue` adds a mono readout on the right. `valueModified(value)` fires on user moves (pointer and keyboard).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Slider.qml",
+      "properties": [
+        {
+          "name": "showValue",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "decimals",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "suffix",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.icon : Tk.Theme.size.iconLg",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handleSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.space.md : Tk.Theme.size.grip",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackThickness",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "readout",
+          "type": "string",
+          "default": "Number(control.value).toFixed(Math.max(0, control.decimals)) + control.suffix",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "valueModified",
+          "parameters": "real value"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Spacer",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Flexible space inside a Flex row or column (CSS `margin-left: auto` / `flex: 1` on an empty div). `size` gives it a fixed extent instead.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Spacer.qml",
+      "properties": [
+        {
+          "name": "size",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Spinner",
+      "kind": "qml",
+      "base": "T.BusyIndicator",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 14px rotating arc in the accent colour (Lucide's loader-circle glyph). Stops rotating, but stays visible, when reduced motion zeroes the motion ladder.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Spinner.qml",
+      "properties": [
+        {
+          "name": "size",
+          "type": "real",
+          "default": "Tk.Theme.size.icon",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "default": "Tk.Theme.color.accent",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Splitter",
+      "kind": "qml",
+      "base": "T.SplitView",
+      "description": "Resizable panes with a 4px seam (Theme.size.seam) that lights in the accent when hovered or dragged. Children size themselves with the template's attached properties (`SplitView.preferredWidth`, `SplitView.minimumWidth`, `SplitView.fillWidth`; import `QtQuick.Templates as T` or `QtQuick.Controls as QQC` for the attached type). `saveState()`/`restoreState()` come from the template.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Splitter.qml",
+      "properties": [
+        {
+          "name": "handleSize",
+          "type": "real",
+          "default": "Tk.Theme.size.seam",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "StatusBar",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "The 22px strip along the bottom of a window: caption-sized fields in a row on the surface colour under a 1px top rule. Put a Tk.Spacer between the left group and the right group.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/StatusBar.qml",
+      "properties": [
+        {
+          "name": "fields",
+          "type": "alias",
+          "default": "row.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "gap",
+          "type": "real",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "StatusField",
+      "kind": "qml",
+      "base": "Item",
+      "description": "One entry of a StatusBar: optional icon and caption text. Clickable (hover tint, `clicked`) so a field can open what it reports on.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/StatusField.qml",
+      "properties": [
+        {
+          "name": "text",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hovered",
+          "type": "bool",
+          "default": "hover.hovered",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "clicked",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "Switch",
+      "kind": "qml",
+      "base": "T.Switch",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 26x14 track (small 22x12), radius full, accent when on, with a 10px (8px) knob that slides. Row height 20. The track is derived from the icon sizes so it scales with density.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Switch.qml",
+      "properties": [
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.iconSm : Tk.Theme.size.icon",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackWidth",
+          "type": "real",
+          "default": "trackHeight * 2 - Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "knobSize",
+          "type": "real",
+          "default": "trackHeight - Tk.Theme.space.sm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm - Tk.Theme.space.sm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "TabStrip",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: a dense tab row. `model` is a list of strings or of {text, iconName, closable, tooltip}; `currentIndex` is the open tab. The strip never owns pages: bind a page's `visible` to the index. 22px tall (Theme.size.tab), caption font; the active tab shows the text colour with a 2px accent underline (\"underline\") or a filled pill.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TabStrip.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "style",
+          "type": "string",
+          "default": "\"underline\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "closable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stretch",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "Array.isArray(strip.model) ? strip.model.length : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "tabActivated",
+          "parameters": "int index"
+        },
+        {
+          "name": "tabClosed",
+          "parameters": "int index"
+        }
+      ],
+      "methods": [
+        {
+          "name": "entry",
+          "parameters": "index"
+        },
+        {
+          "name": "activate",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "tabClose_",
+        "tab_"
+      ]
+    },
+    {
+      "name": "TextArea",
+      "kind": "qml",
+      "base": "T.TextArea",
+      "description": "AGENT-CONTRACT (docs/controls.md): a wrapping multi-line field on inputBg that is at least `rows` lines tall and grows with its text. Place it in a Tk.Scroll when the text can outgrow its panel.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TextArea.qml",
+      "properties": [
+        {
+          "name": "rows",
+          "type": "int",
+          "default": "3",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mono",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumHeight",
+          "type": "real",
+          "default": "metrics.height * Math.max(1, rows) + topPadding + bottomPadding",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "TextField",
+      "kind": "qml",
+      "base": "T.TextField",
+      "description": "AGENT-CONTRACT (docs/controls.md): the 24px (small 20) single-line field on inputBg with a 1px inputBorder; focus paints inputFocusBorder plus the focus ring; `error` paints the danger colour. Optional leading `iconName`, a `clearable` × button (objectName \"fieldClear\") and a `trailing` slot for buttons or units. `cleared()` fires when the user clears the field through the button or Escape.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TextField.qml",
+      "properties": [
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clearable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mono",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trailing",
+          "type": "alias",
+          "default": "trailingHost.data",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controlHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.iconSm : Tk.Theme.size.icon",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgePadding",
+          "type": "real",
+          "default": "Tk.Theme.space.sm + 2",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showClear",
+          "type": "bool",
+          "default": "clearable && control.length > 0 && control.enabled",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "cleared",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "clearText",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "fieldClear"
+      ]
+    },
+    {
+      "name": "ToolBar",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 36px chrome bar (compact: 28) on the surface colour with a 1px edge, children in a centred row with space.sm gaps. Put Chips, Buttons, Segmented, ToolSeparator and Spacer in it. `edge` draws the border on \"bottom\" (default), \"top\" or \"none\".",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ToolBar.qml",
+      "properties": [
+        {
+          "name": "items",
+          "type": "alias",
+          "default": "row.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "compact",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gap",
+          "type": "real",
+          "default": "Tk.Theme.space.sm",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edge",
+          "type": "string",
+          "default": "\"bottom\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "ToolSeparator",
+      "kind": "qml",
+      "base": "Item",
+      "description": "A vertical rule between toolbar groups: 1px, inset 6px from the bar's top and bottom. AGENT-NOTE: an Item that stretches on the cross axis rather than a bare Divider, so the inset is measured from the bar and not from the row's centred content height.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ToolSeparator.qml",
+      "properties": [
+        {
+          "name": "inset",
+          "type": "real",
+          "default": "Tk.Theme.space.sm + 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "margin",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "ToolTip",
+      "kind": "qml",
+      "base": "T.ToolTip",
+      "description": "Dense tooltip: caption text on the popover surface, 600ms delay. Use the attached form on any control: `Tk.ToolTip.text: qsTr(\"Undo\")`, `Tk.ToolTip.visible: hovered`.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ToolTip.qml",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
+      "name": "TreeRow",
+      "kind": "qml",
+      "base": "Tk.ListRow",
+      "description": "A ListRow with a depth indent and a disclosure chevron. Clicking the chevron (or double-clicking the row) toggles `expanded` and emits `expansionToggled`; the row itself never owns the children it discloses. AGENT-NOTE: the signal is not `toggled(bool)` as docs/controls.md first said: AbstractButton already owns a `toggled()` signal and QML refuses the override.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TreeRow.qml",
+      "properties": [
+        {
+          "name": "depth",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "expandable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "expanded",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "expansionToggled",
+          "parameters": "bool expanded"
+        }
+      ],
+      "methods": [
+        {
+          "name": "toggle",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "treeChevron"
+      ]
+    },
+    {
+      "name": "ZoomControl",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The zoom readout of a canvas toolbar: a minus button, the mono percent (click to reset to 100%), a plus button. Stepping walks `presets` when they are given, else adds `step`. Fits inside an Island.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ZoomControl.qml",
+      "properties": [
+        {
+          "name": "value",
+          "type": "real",
+          "default": "1.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "from",
+          "type": "real",
+          "default": "0.1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "to",
+          "type": "real",
+          "default": "8.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "step",
+          "type": "real",
+          "default": "0.25",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "presets",
+          "type": "var",
+          "default": "[0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 8]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "valueModified",
+          "parameters": "real value"
+        },
+        {
+          "name": "resetRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "clampValue",
+          "parameters": "v"
+        },
+        {
+          "name": "apply",
+          "parameters": "v"
+        },
+        {
+          "name": "zoomIn",
+          "parameters": ""
+        },
+        {
+          "name": "zoomOut",
+          "parameters": ""
+        },
+        {
+          "name": "reset",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "zoomIn",
+        "zoomOut",
+        "zoomReadout"
+      ]
+    },
+    {
+      "name": "Density",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the one density authority of a process. Theme's `space` and `size` groups multiply their base values by scale(); controls read those groups and never Density directly, so a density change re-resolves every metric through a single path (Theme::rescale). Compact is the measured Sloom Studio scale and the default; Comfortable is 20% roomier; Touch is for pen/finger use.",
+      "singleton": true,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/density.h",
+      "properties": [
+        {
+          "name": "mode",
+          "type": "Mode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "modeName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "scale",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "scaleFonts",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "px",
+          "returns": "qreal",
+          "parameters": "qreal value"
+        },
+        {
+          "name": "scaled",
+          "returns": "qreal",
+          "parameters": "qreal value"
+        }
+      ],
+      "enums": {
+        "Mode": [
+          "Compact",
+          "Comfortable",
+          "Touch"
+        ]
+      }
+    },
+    {
+      "name": "DockModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the arrangement authority for dockable panels. It owns where every panel is; DockHost (QML) only draws that and reports gestures. The model is zone-based, as Sloom Studio's dockablePanel contract and QindaStudio's PanelLayoutController are: a panel is docked, floating, collapsed or hidden; a docked panel sits in one zone (left, right, top, bottom, center, overlay), in one lane of that zone (lanes are columns for side zones, rows for the others), at an order inside the lane, optionally sharing a tab group with neighbours. Arrangements are per workspace, persist across runs (`storageKey`), and can be saved by name. Every operation is idempotent on invalid ids.  Compatibility: method names follow PanelLayoutController so QindaStudio can adopt this model with a find-and-replace; dockBeside/lanes/shares are the additions that make drag-to-dock and lane splitting possible.",
+      "singleton": false,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/dock_model.h",
+      "properties": [
+        {
+          "name": "workspace",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "panels",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "savedLayouts",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "presets",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "storageKey",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "workspaceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "layoutChanged",
+          "parameters": ""
+        },
+        {
+          "name": "savedLayoutsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "storageKeyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "panelShown",
+          "parameters": "const QString &panelId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "modeName",
+          "returns": "QString",
+          "parameters": "int mode"
+        },
+        {
+          "name": "zoneName",
+          "returns": "QString",
+          "parameters": "int zone"
+        },
+        {
+          "name": "zoneNames",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "unregisterPanel",
+          "returns": "void",
+          "parameters": "const QString &workspace, const QString &panelId"
+        },
+        {
+          "name": "hasPanel",
+          "returns": "bool",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "panelIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "panel",
+          "returns": "QVariantMap",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "panelsInZone",
+          "returns": "QVariantList",
+          "parameters": "const QString &zone"
+        },
+        {
+          "name": "lanes",
+          "returns": "QVariantList",
+          "parameters": "const QString &zone"
+        },
+        {
+          "name": "zoneExtent",
+          "returns": "qreal",
+          "parameters": "const QString &zone"
+        },
+        {
+          "name": "floatingPanels",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "acceptsZone",
+          "returns": "bool",
+          "parameters": "const QString &panelId, const QString &zone"
+        },
+        {
+          "name": "setMode",
+          "returns": "void",
+          "parameters": "const QString &panelId, const QString &mode"
+        },
+        {
+          "name": "dock",
+          "returns": "void",
+          "parameters": "const QString &panelId, const QString &zone, int lane = -1"
+        },
+        {
+          "name": "floatPanel",
+          "returns": "void",
+          "parameters": "const QString &panelId, double x = -1, double y = -1"
+        },
+        {
+          "name": "hide",
+          "returns": "void",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "show",
+          "returns": "void",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "collapse",
+          "returns": "void",
+          "parameters": "const QString &panelId, bool collapsed"
+        },
+        {
+          "name": "toggle",
+          "returns": "void",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "moveFloating",
+          "returns": "void",
+          "parameters": "const QString &panelId, double x, double y"
+        },
+        {
+          "name": "resizeFloating",
+          "returns": "void",
+          "parameters": "const QString &panelId, double width, double height"
+        },
+        {
+          "name": "setFloatingRect",
+          "returns": "void",
+          "parameters": "const QString &panelId, double x, double y, double width, double height"
+        },
+        {
+          "name": "resizeDocked",
+          "returns": "void",
+          "parameters": "const QString &panelId, double extent"
+        },
+        {
+          "name": "setLaneExtent",
+          "returns": "void",
+          "parameters": "const QString &zone, int lane, double extent"
+        },
+        {
+          "name": "setShare",
+          "returns": "void",
+          "parameters": "const QString &panelId, double share"
+        },
+        {
+          "name": "bringToFront",
+          "returns": "void",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "groupWith",
+          "returns": "void",
+          "parameters": "const QString &panelId, const QString &targetPanelId"
+        },
+        {
+          "name": "ungroup",
+          "returns": "void",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "activateInGroup",
+          "returns": "void",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "moveInGroup",
+          "returns": "void",
+          "parameters": "const QString &panelId, int index"
+        },
+        {
+          "name": "reset",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "applyPreset",
+          "returns": "void",
+          "parameters": "const QString &presetId"
+        },
+        {
+          "name": "saveLayout",
+          "returns": "void",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "applyLayout",
+          "returns": "void",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "deleteLayout",
+          "returns": "void",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "persist",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "restore",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "serialize",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "deserialize",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        }
+      ],
+      "enums": {
+        "Mode": [
+          "Docked",
+          "Floating",
+          "Collapsed",
+          "Hidden"
+        ],
+        "Zone": [
+          "Left",
+          "Right",
+          "Top",
+          "Bottom",
+          "Center",
+          "Overlay"
+        ]
+      }
+    },
+    {
+      "name": "Flex",
+      "kind": "cpp",
+      "base": "QQuickItem",
+      "description": "AGENT-CONTRACT: a CSS flexbox container (CSS Flexible Box Layout Level 1, single-pass free-space resolution with min/max freezing). Children are positioned and sized by the container; it never reads their width/height, only implicit sizes and Flex.* attached values, so a child that binds its own width does not fight the layout. Container implicit size is the content's max-content size plus padding, so nested Flex/Grid/Box chains size bottom-up like HTML.",
+      "singleton": false,
+      "attached": "FlexAttached",
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/flex.h",
+      "properties": [
+        {
+          "name": "direction",
+          "type": "Direction",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "wrap",
+          "type": "WrapMode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "justify",
+          "type": "Alignment",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "align",
+          "type": "Alignment",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "alignContent",
+          "type": "Alignment",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gap",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rowGap",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "columnGap",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "padding",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingLeft",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingTop",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingRight",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingBottom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "contentWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "contentHeight",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lineCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "layoutPropertyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentSizeChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "relayout",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {
+        "Direction": [
+          "Row",
+          "RowReverse",
+          "Column",
+          "ColumnReverse"
+        ],
+        "WrapMode": [
+          "NoWrap",
+          "Wrap",
+          "WrapReverse"
+        ],
+        "Alignment": [
+          "Auto",
+          "Start",
+          "End",
+          "Center",
+          "Stretch",
+          "SpaceBetween",
+          "SpaceAround",
+          "SpaceEvenly",
+          "Baseline"
+        ]
+      }
+    },
+    {
+      "name": "FlexAttached",
+      "kind": "cpp",
+      "base": "LayoutAttachedBase",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "anonymous": true,
+      "registered": true,
+      "file": "src/core/flex.h",
+      "properties": [
+        {
+          "name": "grow",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "shrink",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "basis",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "flex",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {}
+    },
+    {
+      "name": "Grid",
+      "kind": "cpp",
+      "base": "QQuickItem",
+      "description": "AGENT-CONTRACT: a CSS grid container. Tracks come from `columns`/`rows` strings (\"200 1fr auto\", \"repeat(3, minmax(80, 1fr))\"), items are placed explicitly (Grid.row/column/area) or auto-placed in `autoFlow` order, implicit tracks take `autoColumns`/`autoRows`. Columns are sized from the children's implicit widths, widths are applied, then rows are sized from the resulting implicit heights, so wrapping text gets the row height it needs. Container implicit size is the natural track sum plus padding.",
+      "singleton": false,
+      "attached": "GridAttached",
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/grid.h",
+      "properties": [
+        {
+          "name": "columns",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rows",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoColumns",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoRows",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoFlow",
+          "type": "Flow",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "areas",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "justifyItems",
+          "type": "Alignment",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "alignItems",
+          "type": "Alignment",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gap",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rowGap",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "columnGap",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "padding",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingLeft",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingTop",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingRight",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingBottom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "columnCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rowCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "contentWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "contentHeight",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "layoutPropertyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentSizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "relayout",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {
+        "Flow": [
+          "Row",
+          "Column",
+          "RowDense",
+          "ColumnDense"
+        ],
+        "Alignment": [
+          "Auto",
+          "Start",
+          "End",
+          "Center",
+          "Stretch"
+        ]
+      }
+    },
+    {
+      "name": "GridAttached",
+      "kind": "cpp",
+      "base": "LayoutAttachedBase",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "anonymous": true,
+      "registered": true,
+      "file": "src/core/grid.h",
+      "properties": [
+        {
+          "name": "row",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "column",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rowSpan",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "columnSpan",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "area",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "justifySelf",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {}
+    },
+    {
+      "name": "Icon",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "A stroked vector icon painted in `color`: `name` from the registry, or `source` for an SVG file (`tint` recolours it). Its implicit size is `size`; the stroke scales with it (Lucide's 2/24 ratio at strokeWidth 2).",
+      "singleton": false,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/icon.h",
+      "properties": [
+        {
+          "name": "name",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "source",
+          "type": "QUrl",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "size",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "color",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "strokeWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tint",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "available",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "nameChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "colorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "strokeWidthChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tintChanged",
+          "parameters": ""
+        },
+        {
+          "name": "availableChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {}
+    },
+    {
+      "name": "Icons",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the icon registry. Built-in names are Lucide's (see tools/scripts/gen_icons.py); `registerIcon` adds an application's own stroked icons as 24x24 SVG path strings. Lookups resolve deprecated Lucide aliases so both \"alert-triangle\" and \"triangle-alert\" work.",
+      "singleton": true,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/icon.h",
+      "properties": [],
+      "signals": [
+        {
+          "name": "registryChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "has",
+          "returns": "bool",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "names",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "resolve",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "registerIcon",
+          "returns": "void",
+          "parameters": "const QString &name, const QStringList &paths"
+        }
+      ],
+      "enums": {}
+    },
+    {
+      "name": "LayoutInfo",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Facts about an item's own layout intent that QML cannot read itself: whether it anchors, whether its width/height were set explicitly. Box and Scroll use them to stretch only children that have not placed themselves. Backed by QQuickItemPrivate (Qt6::QuickPrivate).",
+      "singleton": true,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/layout_info.h",
+      "properties": [],
+      "signals": [],
+      "methods": [
+        {
+          "name": "hasAnchors",
+          "returns": "bool",
+          "parameters": "QQuickItem *item"
+        },
+        {
+          "name": "hasExplicitWidth",
+          "returns": "bool",
+          "parameters": "QQuickItem *item"
+        },
+        {
+          "name": "hasExplicitHeight",
+          "returns": "bool",
+          "parameters": "QQuickItem *item"
+        },
+        {
+          "name": "describe",
+          "returns": "QString",
+          "parameters": "QQuickItem *item"
+        }
+      ],
+      "enums": {}
+    },
+    {
+      "name": "Stack",
+      "kind": "cpp",
+      "base": "QQuickItem",
+      "description": "AGENT-CONTRACT: the CSS `position: absolute` container. Children stack in declaration (z) order; each fills the padding box unless it sets insets (Stack.top/left/right/bottom/inset), a centre, or `Stack.fill: false`. Implicit size is the largest child implicit size plus its insets and the padding, so a Stack of overlays reports the size of its content layer.",
+      "singleton": false,
+      "attached": "StackAttached",
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/stack.h",
+      "properties": [
+        {
+          "name": "padding",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingLeft",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingTop",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingRight",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paddingBottom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "layoutPropertyChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "relayout",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {}
+    },
+    {
+      "name": "StackAttached",
+      "kind": "cpp",
+      "base": "LayoutAttachedBase",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "anonymous": true,
+      "registered": true,
+      "file": "src/core/stack.h",
+      "properties": [
+        {
+          "name": "top",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "left",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "right",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "bottom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "inset",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fill",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "centerX",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "centerY",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {}
+    },
+    {
+      "name": "Theme",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the process-wide theme singleton. Everything visual in QindaTK resolves through it: colour roles, the type ramp, spacing/radius/ size/motion/opacity ladders. Density (see density.h) multiplies the scalable ladders. Presets are built in (`presets()`), a JSON file can replace a preset (`loadFile`), and on the QindaQt desktop the QindaTK.QindaQt bridge feeds QST-1 tokens through `applyQst`, so one control tree serves both the standalone and the desktop-themed case.",
+      "singleton": true,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/theme.h",
+      "properties": [
+        {
+          "name": "preset",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "name",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "dark",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "reducedMotion",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "presets",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "applyPreset",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "applyRoles",
+          "returns": "void",
+          "parameters": "const QVariantMap &roles"
+        },
+        {
+          "name": "setColor",
+          "returns": "void",
+          "parameters": "const QString &role, const QColor &color"
+        },
+        {
+          "name": "setMetric",
+          "returns": "void",
+          "parameters": "const QString &group, const QString &name, qreal value"
+        },
+        {
+          "name": "setFontFamilies",
+          "returns": "void",
+          "parameters": "const QString &family, const QString &monoFamily"
+        },
+        {
+          "name": "applyQst",
+          "returns": "bool",
+          "parameters": "const QVariantMap &tokens"
+        },
+        {
+          "name": "loadFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "loadJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "toMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "mix",
+          "returns": "QColor",
+          "parameters": "const QColor &a, const QColor &b, qreal t"
+        },
+        {
+          "name": "alpha",
+          "returns": "QColor",
+          "parameters": "const QColor &c, qreal a"
+        },
+        {
+          "name": "lighten",
+          "returns": "QColor",
+          "parameters": "const QColor &c, qreal amount"
+        },
+        {
+          "name": "darken",
+          "returns": "QColor",
+          "parameters": "const QColor &c, qreal amount"
+        },
+        {
+          "name": "onColor",
+          "returns": "QColor",
+          "parameters": "const QColor &bg"
+        },
+        {
+          "name": "luminance",
+          "returns": "qreal",
+          "parameters": "const QColor &c"
+        }
+      ],
+      "enums": {}
+    },
+    {
+      "name": "ThemeColors",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: colour roles. Nine base roles (bg, surface, panel, border, text, textMuted, accent, accentContrast, danger) plus the three status colours are authored by a preset, a theme file, or QindaQt's tokens; every other role is derived from them by theme_presets.cpp with the mix ratios measured from Sloom Studio. Controls read derived roles, never mix themselves, so a theme stays coherent when its accent changes.",
+      "singleton": false,
+      "attached": null,
+      "anonymous": true,
+      "registered": true,
+      "file": "src/core/theme.h",
+      "properties": [
+        {
+          "name": "bg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "surface",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "panel",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "panelAlt",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canvas",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "border",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "borderStrong",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "divider",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "text",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textMuted",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textDisabled",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "accent",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "accentContrast",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "accentSubtle",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "accentText",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hover",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pressed",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selection",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "focus",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "danger",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "dangerContrast",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "dangerSubtle",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "warning",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "success",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "info",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "controlBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "controlBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "controlHoverBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "controlHoverBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "controlActiveBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "controlActiveBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "chipBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "chipBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "chipHoverBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "chipHoverBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "inputBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "inputBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "inputFocusBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "headerBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "headerText",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "popoverBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "popoverBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tooltipBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tooltipText",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "islandBg",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "islandBorder",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "scrollTrack",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "scrollThumb",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "seam",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "seamHover",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "dropZone",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "shadow",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "overlay",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {}
+    },
+    {
+      "name": "ThemeFont",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Type ramp in pixels (Sloom's 9/10/11/12/13/14/16/20 ladder). `trackingWide` is the letter spacing of an uppercase section header at caption size.",
+      "singleton": false,
+      "attached": null,
+      "anonymous": true,
+      "registered": true,
+      "file": "src/core/theme.h",
+      "properties": [
+        {
+          "name": "family",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "monoFamily",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "micro",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "caption",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "small",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "body",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "medium",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "large",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "title",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "display",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "trackingWide",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "trackingWider",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {}
+    },
+    {
+      "name": "ThemeMetrics",
+      "kind": "cpp",
+      "base": "QQmlPropertyMap",
+      "description": "A named ladder of scalar metrics (space, radius, size, motion, opacity). Keys are dynamic QML properties (`Theme.space.md`, `Theme.size.control`) so JSON theme files and density scaling treat every ladder alike; the key lists live in docs/theming.md and Theme::toMap().",
+      "singleton": false,
+      "attached": null,
+      "anonymous": true,
+      "registered": true,
+      "file": "src/core/theme.h",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {}
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+build/
+build-*/
+*.user
+*.autosave
+.cache/
+compile_commands.json
+docs/screenshots/*.tmp.png
+**/.qmlls.ini

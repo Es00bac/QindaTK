@@ -1,0 +1,10 @@
+QindaTK is free software: you can redistribute it and/or modify it under the
+terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+
+SPDX-License-Identifier: LGPL-3.0-or-later
+
+The full text of the LGPL-3.0 is in COPYING.LESSER; it supplements the
+GPL-3.0 in COPYING. Third-party components and their licences are listed
+in THIRD_PARTY_NOTICES.md.
