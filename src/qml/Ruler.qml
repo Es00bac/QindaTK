@@ -125,8 +125,13 @@ Item {
                 minor *= 2
             }
             const major = Math.max(ruler.majorEvery, minor)
-            const first = Math.floor((0 - ruler.origin) / ruler.pixelsPerUnit / minor) * minor
-            const last = Math.ceil((length - ruler.origin) / ruler.pixelsPerUnit / minor) * minor
+            // With a band set, ticks cover the measured surface only (a
+            // ruler numbered into the void beside a page is noise).
+            const hasBand = ruler.band.length === 2 && ruler.band[1] > ruler.band[0]
+            const from = hasBand ? Math.max(0, ruler.band[0]) : 0
+            const to = hasBand ? Math.min(length, ruler.band[1]) : length
+            const first = Math.ceil((from - ruler.origin) / ruler.pixelsPerUnit / minor) * minor
+            const last = Math.floor((to - ruler.origin) / ruler.pixelsPerUnit / minor) * minor
             ctx.beginPath()
             for (let u = first; u <= last; u += minor) {
                 const p = Math.round(ruler.origin + u * ruler.pixelsPerUnit) + 0.5
@@ -252,6 +257,7 @@ Item {
         }
     }
 
+    onBandChanged: canvas.requestPaint()
     onOriginChanged: canvas.requestPaint()
     onScaleChanged: canvas.requestPaint()
     onMajorEveryChanged: canvas.requestPaint()
