@@ -41,6 +41,11 @@ Item {
         }
     }
 
+    // The delegate item of one tab (hit-testing a right-click or a
+    // double-click on a tab that is not the current one).
+    function tabItem(index) {
+        return tabs.itemAt(index)
+    }
     function activate(index) {
         if (index < 0 || index >= strip.count) {
             return
@@ -70,6 +75,7 @@ Item {
         gap: strip.style === "pill" ? Tk.Theme.space.xs : 0
 
         Repeater {
+            id: tabs
             model: strip.count
             delegate: T.TabButton {
                 id: tab
