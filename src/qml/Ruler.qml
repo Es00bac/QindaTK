@@ -232,7 +232,7 @@ Item {
         onPressed: function(mouse) {
             const m = markerAt(mouse.x, mouse.y)
             dragging = m !== null && m.draggable !== false ? m : null
-            mouse.accepted = dragging !== null
+            mouse.accepted = true   // a refused press never gets its double-click
         }
         onPositionChanged: function(mouse) {
             if (dragging !== null) {
