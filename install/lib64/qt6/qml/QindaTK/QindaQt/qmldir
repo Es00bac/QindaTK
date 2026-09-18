@@ -1,8 +1,0 @@
-module QindaTK.QindaQt
-linktarget qindatk_qindaqtplugin
-optional plugin qindatk_qindaqtplugin
-classname QindaTKQindaQtPlugin
-typeinfo qindatk_qindaqt.qmltypes
-prefer :/qt/qml/QindaTK/QindaQt/
-QindaQtTheme 1.0 QindaQtTheme.qml
-

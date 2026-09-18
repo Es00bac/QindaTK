@@ -10,6 +10,9 @@ Tk.Box {
     id: bar
 
     default property alias items: row.data
+    // The row the items live in, for bars that build their items at run
+    // time (createObject needs the parent).
+    readonly property Item rowItem: row
     property bool compact: false
     property real gap: Tk.Theme.space.sm
     property string edge: "bottom"
