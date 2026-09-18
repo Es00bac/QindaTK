@@ -11,9 +11,14 @@ inherit cmake git-r3
 
 DESCRIPTION="QindaTK - Qt6/QML toolkit for dense, CSS-grade desktop layouts (Flex, Grid, docking, theme)"
 HOMEPAGE="https://github.com/Es00bac/QindaQt"
-# The bare repository both checkouts push to; the working trees are not
-# the source of truth for a build.
-EGIT_REPO_URI="file:///home/cabewse/git/QindaTK.git"
+# The bare repository both checkouts push to, then either machine's working
+# tree: git-r3 takes the first URI that exists, so the same ebuild builds on
+# the desktop (where the bare repo and ~/work_SPaC3 live) and on the laptop
+# (where only ~/work_space does). EGIT_COMMIT is what makes the source
+# identical either way.
+EGIT_REPO_URI="file:///home/cabewse/git/QindaTK.git
+	file:///home/cabewse/work_SPaC3/QindaTK
+	file:///home/cabewse/work_space/QindaTK"
 # AGENT-NOTE: an immutable pin, not a branch - a package built twice must
 # be the same package. Replace with the tag's commit when v0.1.0 is tagged.
 EGIT_COMMIT="807ad562fc86b022fe702a3847eb954c72f4cb31"
