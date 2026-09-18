@@ -11,9 +11,12 @@ inherit cmake git-r3
 
 DESCRIPTION="QindaTK - Qt6/QML toolkit for dense, CSS-grade desktop layouts (Flex, Grid, docking, theme)"
 HOMEPAGE="https://github.com/Es00bac/QindaQt"
-EGIT_REPO_URI="file:///home/cabewse/work_SPaC3/QindaTK"
-# v0.1.0 - set to the tagged commit when tagging.
-EGIT_COMMIT=""
+# The bare repository both checkouts push to; the working trees are not
+# the source of truth for a build.
+EGIT_REPO_URI="file:///home/cabewse/git/QindaTK.git"
+# AGENT-NOTE: an immutable pin, not a branch - a package built twice must
+# be the same package. Replace with the tag's commit when v0.1.0 is tagged.
+EGIT_COMMIT="807ad562fc86b022fe702a3847eb954c72f4cb31"
 
 LICENSE="LGPL-3+ ISC"
 SLOT="0"
