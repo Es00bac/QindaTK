@@ -43,6 +43,16 @@ TestCase {
     Component { id: noticeComponent; Tk.Notice { text: "Render complete."; variant: "success"; dismissible: true; width: 240 } }
     Component { id: splitterComponent; Tk.Splitter { width: 300; height: 100; Item { implicitWidth: 100 } Item { } } }
     Component { id: rulerComponent; Tk.Ruler { width: 300; pixelsPerUnit: 10 } }
+    Component {
+        id: markedRulerComponent
+        Tk.Ruler {
+            width: 300; pixelsPerUnit: 10
+            band: [20, 280]; activeBand: [60, 240]
+            markers: [{ id: "first", position: 80, kind: "indent-first", draggable: true },
+                      { id: "left", position: 60, kind: "indent-left", draggable: true },
+                      { id: "right", position: 240, kind: "indent-right", draggable: true }]
+        }
+    }
     Component { id: zoomComponent; Tk.ZoomControl { value: 1.0 } }
     Component { id: emptyComponent; Tk.EmptyState { title: "No markers"; text: "Add one with M."; width: 240 } }
     Component { id: cardComponent; Tk.Card { interactive: true; width: 240; Tk.Label { text: "Card" } } }
@@ -192,6 +202,26 @@ TestCase {
         waitForRendering(card)
         compare(card.padding, Tk.Theme.space.md)
         verify(card.implicitHeight > Tk.Theme.space.md * 2)
+    }
+
+    function test_ruler_markers_drag_and_tabs() {
+        const ruler = createTemporaryObject(markedRulerComponent, root, { y: 120 })
+        waitForRendering(ruler)
+        const moved = createTemporaryObject(signalSpyComponent, root, { target: ruler, signalName: "markerMoved" })
+        const added = createTemporaryObject(signalSpyComponent, root, { target: ruler, signalName: "tabAdded" })
+        verify(findChild(ruler, "rulerMarker_left") !== null)
+        verify(findChild(ruler, "rulerBand").visible)
+        // Drag the left indent on the bottom edge 30 px to the right.
+        mousePress(ruler, 60, ruler.height - 4)
+        mouseMove(ruler, 90, ruler.height - 4)
+        mouseRelease(ruler, 90, ruler.height - 4)
+        verify(moved.count >= 1)
+        compare(moved.signalArguments[moved.count - 1][0], "left")
+        compare(moved.signalArguments[moved.count - 1][1], 90)
+        // A double-click on the empty bottom half adds a tab there.
+        mouseDoubleClickSequence(ruler, 150, ruler.height - 4)
+        compare(added.count, 1)
+        compare(added.signalArguments[0][0], 150)
     }
 
     function test_zoom_control_steps() {
