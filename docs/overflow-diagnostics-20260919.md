@@ -18,3 +18,14 @@ revealed without continuously overriding the user's scroll position.
 This is a shared presentation repair for Office, Viewer and other consumers.
 All code is written before compilation and final focused verification, as
 requested; this diagnosis alone is not a claim of runtime acceptance.
+
+## Final delivery
+
+The reviewed source `d59b080c5b47fbfe35d3984f13be40bf81a0144a` built and is
+installed on qinda and qinda-top as `dev-libs/qindatk-0.1.0-r2`. Both installed
+ebuild pins match, and each package integrity check reports 114/114 good files.
+The existing installed-QML `ControlsStructure::test_menu_and_bar` and
+`ControlsStructure::test_dialog_accepts` checks passed with
+`QT_QPA_PLATFORM=offscreen`, `QT_QUICK_BACKEND=software`, and
+`QT_FATAL_WARNINGS=1` (4/4 including setup/cleanup). No broad new test suite or
+pre-implementation test run was added.
