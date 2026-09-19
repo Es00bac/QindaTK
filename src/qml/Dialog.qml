@@ -32,10 +32,15 @@ T.Dialog {
     anchors.centerIn: parent
     width: parent && parent.width > 0 ? Math.min(dialog.dialogWidth, parent.width - Tk.Theme.space.xl * 2)
                                       : dialog.dialogWidth
-    implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
+    readonly property real naturalHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
                              contentHeight + topPadding + bottomPadding
                              + (implicitHeaderHeight > 0 ? implicitHeaderHeight + spacing : 0)
                              + (implicitFooterHeight > 0 ? implicitFooterHeight + spacing : 0))
+    // AGENT-GUARD: The body may exceed the host window. Keep actions inside
+    // the window and let the body scroll instead of sizing the popup offscreen.
+    implicitHeight: parent && parent.height > 0
+        ? Math.min(naturalHeight, Math.max(0, parent.height - Tk.Theme.space.xl * 2))
+        : naturalHeight
     modal: true
     dim: true
     focus: true
@@ -76,8 +81,8 @@ T.Dialog {
     }
 
     // AGENT-NOTE: a Popup is not an Item, so Keys and Accessible attach to
-    // the content box; `focus: true` above hands it the focus on open.
-    contentItem: Tk.Box {
+    // the body viewport; `focus: true` above hands it the focus on open.
+    contentItem: Tk.Scroll {
         id: body
         objectName: "dialogBody"
         padding: Tk.Theme.space.md
@@ -85,6 +90,18 @@ T.Dialog {
         Accessible.name: dialog.title
         Keys.onReturnPressed: if (dialog.primaryEnabled) dialog.accept()
         Keys.onEnterPressed: if (dialog.primaryEnabled) dialog.accept()
+
+        Connections {
+            target: body.Window.window
+            function onActiveFocusItemChanged() {
+                const item = target.activeFocusItem
+                let ancestor = item
+                while (ancestor && ancestor !== body.contentItem)
+                    ancestor = ancestor.parent
+                if (ancestor)
+                    body.ensureVisible(item)
+            }
+        }
     }
 
     footer: Tk.Box {

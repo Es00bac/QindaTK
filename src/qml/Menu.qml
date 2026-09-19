@@ -15,8 +15,13 @@ T.Menu {
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             contentWidth + leftPadding + rightPadding, menu.minWidth)
-    implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
-                             contentHeight + topPadding + bottomPadding)
+    readonly property real naturalHeight: Math.max(
+        implicitBackgroundHeight + topInset + bottomInset,
+        contentHeight + topPadding + bottomPadding)
+    // AGENT-GUARD: Popup.Window resizes from implicitHeight after a model
+    // change. Bound it before Qt creates or resizes the native popup window.
+    readonly property real verticalRoom: parent ? parent.Screen.height - 2 * margins : 0
+    implicitHeight: verticalRoom > 0 ? Math.min(naturalHeight, verticalRoom) : naturalHeight
     margins: Tk.Theme.space.xs
     overlap: 1
     padding: Tk.Theme.space.xs
@@ -27,9 +32,7 @@ T.Menu {
     contentItem: ListView {
         implicitHeight: contentHeight
         model: menu.contentModel
-        interactive: Window.window
-                     ? contentHeight + menu.topPadding + menu.bottomPadding > Window.window.height
-                     : false
+        interactive: contentHeight > height
         clip: true
         currentIndex: menu.currentIndex
         boundsBehavior: Flickable.StopAtBounds

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-17",
+  "generated": "2026-09-19",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -49,6 +49,22 @@
           "type": "Item",
           "default": "contentHost",
           "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "toolBarsVisible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusBarVisible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
           "defaultProperty": false,
           "required": false
         }
@@ -1248,6 +1264,14 @@
           "type": "bool",
           "default": "true",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "naturalHeight",
+          "type": "real",
+          "default": "Math.max(implicitBackgroundHeight + topInset + bottomInset,",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         }
@@ -2690,6 +2714,22 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "naturalHeight",
+          "type": "real",
+          "default": "Math.max(",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "verticalRoom",
+          "type": "real",
+          "default": "parent ? parent.Screen.height - 2 * margins : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -3688,7 +3728,7 @@
       "name": "Ruler",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT: a tick ruler for canvases and timelines. `origin` is the pixel position (along the ruler) of unit 0, `pixelsPerUnit` the pixels per unit; major ticks every `majorEvery` units carry micro labels, minor ticks every `minorEvery`. `cursorPosition` (px, -1 none) draws the accent cursor line. It repaints when the theme changes so colours never go stale. 22px thick.",
+      "description": "AGENT-CONTRACT: a tick ruler for canvases and timelines. `origin` is the pixel position (along the ruler) of unit 0, `pixelsPerUnit` the pixels per unit; major ticks every `majorEvery` units carry micro labels, minor ticks every `minorEvery`. `cursorPosition` (px, -1 none) draws the accent cursor line. It repaints when the theme changes so colours never go stale. 22px thick.  Markers (A7): `markers` is a list of {id, position (px along the ruler), kind: \"indent-first\" | \"indent-left\" | \"indent-right\" | \"tab\", draggable}. A first-line marker hangs from the top edge, the indents and tabs stand on the bottom edge. Dragging a draggable marker emits markerMoved(id, position) for every move (the host writes the value back and the marker follows through `markers`); a double-click on the bottom half where no marker sits emits tabAdded(position); dragging a tab off the ruler (below it) emits tabRemoved(id) on release. `band` shades the surface the ruler measures (paper) and `activeBand` the part of it that is live (the text column), both as [start, end] px.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Ruler.qml",
@@ -3766,6 +3806,38 @@
           "required": false
         },
         {
+          "name": "markers",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "band",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeBand",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "markerSize",
+          "type": "real",
+          "default": "9",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "horizontal",
           "type": "bool",
           "default": "ruler.orientation === Qt.Horizontal",
@@ -3774,7 +3846,20 @@
           "required": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "markerMoved",
+          "parameters": "string id, real position"
+        },
+        {
+          "name": "tabAdded",
+          "parameters": "real position"
+        },
+        {
+          "name": "tabRemoved",
+          "parameters": "string id"
+        }
+      ],
       "methods": [
         {
           "name": "css",
@@ -3786,7 +3871,12 @@
         }
       ],
       "enums": {},
-      "objectNames": []
+      "objectNames": [
+        "rulerActiveBand",
+        "rulerBand",
+        "rulerMarkerArea",
+        "rulerMarker_"
+      ]
     },
     {
       "name": "Scroll",
@@ -4539,7 +4629,7 @@
         {
           "name": "count",
           "type": "int",
-          "default": "Array.isArray(strip.model) ? strip.model.length : 0",
+          "default": "strip.model != null && strip.model.length !== undefined",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -4558,6 +4648,10 @@
       "methods": [
         {
           "name": "entry",
+          "parameters": "index"
+        },
+        {
+          "name": "tabItem",
           "parameters": "index"
         },
         {
@@ -4756,6 +4850,14 @@
           "default": "row.data",
           "readonly": false,
           "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "rowItem",
+          "type": "Item",
+          "default": "row",
+          "readonly": true,
+          "defaultProperty": false,
           "required": false
         },
         {
