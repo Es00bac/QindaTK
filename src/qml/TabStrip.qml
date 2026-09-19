@@ -17,7 +17,13 @@ Item {
     property bool closable: false
     property bool small: false
     property bool stretch: false
-    readonly property int count: Array.isArray(strip.model) ? strip.model.length : 0
+    // AGENT-NOTE: count reads .length, never Array.isArray — a C++
+    // QStringList/QVariantList property arrives as a sequence object that
+    // HAS length and indexing but is NOT a true JS array, so an isArray()
+    // test reports 0 and every tab vanishes (QindaCalc's sheet strip bound
+    // a QStringList and rendered an empty bar).
+    readonly property int count: strip.model != null && strip.model.length !== undefined
+                                 ? strip.model.length : 0
 
     signal tabActivated(int index)
     signal tabClosed(int index)

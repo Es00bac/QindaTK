@@ -70,6 +70,23 @@ TestCase {
         compare(strip.currentIndex, 1)
     }
 
+    // A C++ QStringList/QVariantList property reaches QML as a sequence
+    // object: it has length and indexing but Array.isArray() is false.
+    // Qt.application.arguments is such a value in-process. The strip must
+    // count it — an isArray() gate hid every tab (QindaCalc's sheet bar).
+    function test_tab_strip_accepts_cpp_sequence_model() {
+        const args = Qt.application.arguments
+        verify(args.length > 0)
+        compare(Array.isArray(args), false) // documents the hazard this guards
+        const strip = createTemporaryObject(tabStripComponent, root)
+        strip.model = args
+        compare(strip.count, args.length)
+        waitForRendering(strip)
+        verify(findChild(strip, "tab_0") !== null)
+        strip.model = ["Solo"]
+        compare(strip.count, 1)
+    }
+
     function test_status_bar_and_field() {
         const bar = createTemporaryObject(statusBarComponent, root)
         compare(bar.implicitHeight, Tk.Theme.size.statusBar)
