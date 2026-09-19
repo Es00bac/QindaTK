@@ -262,7 +262,11 @@ void ThemePresets::installBaseMetrics(Theme &theme)
         {"statusBar", 22}, {"menuItem", 22}, {"icon", 14}, {"iconSm", 12}, {"iconLg", 16},
         {"iconXl", 20}, {"seam", 4}, {"scrollbar", 8}, {"labelWidth", 96}, {"fieldWidth", 120},
         {"panelMinWidth", 200}, {"panelMinHeight", 120}, {"border", 1}, {"focusRing", 2},
-        {"grip", 10}, {"handle", 14}, {"dropEdge", 28}};
+        {"grip", 10}, {"handle", 14}, {"dropEdge", 28},
+        // Telemetry: a sparkline that fits a 22px list row beside its number,
+        // a meter the weight of a rule rather than a bar, and the shortest
+        // plot in which a 120-sample trace still has a readable shape.
+        {"sparkline", 56}, {"sparklineHeight", 14}, {"meter", 6}, {"graphMinHeight", 40}};
     static const Entry motion[] = {{"instant", 0}, {"fast", 80}, {"base", 140}, {"slow", 220}};
     static const Entry opacity[] = {{"disabled", 0.45}, {"muted", 0.7}, {"island", 0.72},
                                     {"ghost", 0.55}, {"scrim", 0.65}};

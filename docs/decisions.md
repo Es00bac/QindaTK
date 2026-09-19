@@ -151,3 +151,44 @@ regenerated from the `lucide-react` npm tarball's `.mjs` modules.
 private include path (`QindaTK::qindatk` carries it). `examples/office-shell`
 is the smoke test for the whole set.
 
+
+## D-014 — Telemetry draws twice, and a ramp is a theme role
+
+**Context.** QindaTK had no way to plot a value over time, which is the one
+thing a system monitor is made of. Adding one raised two problems that are
+not obvious from the outside.
+
+First, drawing. A monitor keeps dozens of live plots, so `Graph` is a
+scene-graph item (`QSGGeometryNode` + `QSGVertexColorMaterial`): appending a
+sample costs a vertex rewrite, not a raster repaint. But Qt's **software
+adaptation draws only the node types it knows** and silently skips a custom
+`QSGGeometryNode`. Every graph rendered blank under `qtk-preview --grab`,
+which forces that adaptation so it works headless — and would have rendered
+blank on any llvmpipe machine, in a VM, or under a remote session.
+
+Second, colour. btop's legibility comes from colouring a reading by its
+*magnitude*, not by which series it belongs to. Rule 2 forbids a control
+naming a literal colour, and a gradient is not expressible as a single role.
+
+**Decision.** `Graph` carries two drawing paths: the geometry one, and a
+`QPainter` twin (`graph_raster.cpp`) presented through a `QSGImageNode` when
+`QSGRendererInterface::graphicsApi()` reports `Software`. Both consume the
+same `GraphMesh::Plot` and the same sample mapping (`normalised`, `sampleX`,
+`sampleY`, `baseline`, `sampleColor`), which is published in `graph_mesh.h`
+for exactly that reason. `Meter` and `Sparkline` avoid the problem instead of
+solving it twice: `Meter` is a `QQuickPaintedItem` (small, cheap to raster,
+correct everywhere for free) and `Sparkline` is a QML wrapper over `Graph`.
+
+Colour scales became a theme concept: `Theme.ramp` publishes six named
+`ThemeRamp`s derived from the colour roles and rebuilt in `finishUpdate()`,
+so `ramp: Tk.Theme.ramp.load` is as themed as `color: Tk.Theme.color.accent`.
+
+`qtk-preview` gained `--gpu`. Without it none of the geometry path was
+verifiable, and merely leaving `QT_QUICK_BACKEND` unset is not enough: the
+offscreen platform advertises no OpenGL, so QtQuick picks software on its own.
+
+**Consequences.** A change to how a graph *looks* must land in both
+`graph_mesh.cpp` and `graph_raster.cpp`; an `AGENT-GUARD` in
+`graph_raster.h` says so, and the two are compared by grabbing the same scene
+with and without `--gpu`. `tst_telemetry` pins the ring-buffer ordering, ramp
+interpolation, and the rule that no preset may collapse a ramp's ends.

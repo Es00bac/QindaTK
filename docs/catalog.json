@@ -1195,6 +1195,160 @@
       ]
     },
     {
+      "name": "DataTable",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: a dense, virtualised, sortable table. `columns` is a list of Tk.TableColumn. `model` is a JS array of objects, or any model that exposes `get(index)` returning one record (QML ListModel does; a C++ model needs a Q_INVOKABLE QVariantMap get(int)). Rows are Theme.size.row tall and only the visible ones exist, so a table of ten thousand processes costs the same as a table of thirty.  AGENT-NOTE: records are fetched with recordAt(index) rather than read from the delegate's `model`/`modelData` context properties, because those differ by model kind -- a JS array delegate gets `modelData` and no `model`, a QAbstractItemModel delegate gets role properties and no `modelData` -- and a cell that has to work for formatters, ramps and custom delegates alike cannot branch on which one happens to exist. get() is only ever called for rows that are actually on screen.  AGENT-GUARD: the table never sorts or filters. Clicking a header emits `sortRequested(key, order)` and nothing moves until the owner applies it to its model. A table that sorted a JS array in place would silently reorder the caller's data and disagree with a C++ proxy's own ordering.  objectNames: tableHeader, tableBody, headerCell_<key>, tableRow.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DataTable.qml",
+      "properties": [
+        {
+          "name": "columns",
+          "type": "list<Tk.TableColumn>",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sortKey",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sortOrder",
+          "type": "int",
+          "default": "Qt.AscendingOrder",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentIndex",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showHeader",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "alternatingRows",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.row",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "emptyText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnWidths",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "table.model == null ? 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleColumns",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sortRequested",
+          "parameters": "string key, int order"
+        },
+        {
+          "name": "activated",
+          "parameters": "int index"
+        },
+        {
+          "name": "rowRightClicked",
+          "parameters": "int index, var point"
+        },
+        {
+          "name": "columnResized",
+          "parameters": "string key, real width"
+        }
+      ],
+      "methods": [
+        {
+          "name": "widthOf",
+          "parameters": "column"
+        },
+        {
+          "name": "resolvedWidth",
+          "parameters": "column, available"
+        },
+        {
+          "name": "toggleSort",
+          "parameters": "column"
+        },
+        {
+          "name": "cellOf",
+          "parameters": "row, key"
+        },
+        {
+          "name": "recordAt",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "objectNames": [
+        "headerCell_",
+        "tableBody",
+        "tableHeader",
+        "tableRow"
+      ]
+    },
+    {
       "name": "Dialog",
       "kind": "qml",
       "base": "T.Dialog",
@@ -4354,6 +4508,93 @@
       "objectNames": []
     },
     {
+      "name": "Sparkline",
+      "kind": "qml",
+      "base": "Tk.Graph",
+      "description": "A single-series Graph sized for a table cell or a label row: no grid, no baseline, no axis -- just the shape of a history. Feed it with append().  AGENT-NOTE: this is a wrapper rather than its own C++ item so that the one plotting implementation (and its two drawing paths) serves both sizes. A row's sparkline and a panel's full graph cannot disagree about a trace.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Sparkline.qml",
+      "properties": [
+        {
+          "name": "color",
+          "type": "alias",
+          "default": "line.color",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ramp",
+          "type": "alias",
+          "default": "line.ramp",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fill",
+          "type": "alias",
+          "default": "line.fill",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fillOpacity",
+          "type": "alias",
+          "default": "line.fillOpacity",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lineWidth",
+          "type": "alias",
+          "default": "line.lineWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "values",
+          "type": "alias",
+          "default": "line.values",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "last",
+          "type": "alias",
+          "default": "line.last",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "peak",
+          "type": "alias",
+          "default": "line.peak",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": []
+    },
+    {
       "name": "Spinner",
       "kind": "qml",
       "base": "T.BusyIndicator",
@@ -4664,6 +4905,170 @@
         "tabClose_",
         "tab_"
       ]
+    },
+    {
+      "name": "TableColumn",
+      "kind": "qml",
+      "base": "QtObject",
+      "description": "AGENT-CONTRACT: one column of a Tk.DataTable. `key` names the model role (QAbstractItemModel) or the object property (JS array) the cell reads, and is also what `sortRequested` reports -- a DataTable never sorts a model itself, because only the model knows whether \"3.9\" outranks \"12\" as a number or as text.  A column is either fixed (`width`) or elastic (`flex` > 0). Elastic columns share whatever the fixed ones leave, never shrinking below `minWidth`.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TableColumn.qml",
+      "properties": [
+        {
+          "name": "key",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "width",
+          "type": "real",
+          "default": "80",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minWidth",
+          "type": "real",
+          "default": "24",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "flex",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "align",
+          "type": "int",
+          "default": "Qt.AlignLeft",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mono",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sortable",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resizable",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "descendingFirst",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "formatter",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "delegate",
+          "type": "Component",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ramp",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rampFrom",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rampTo",
+          "type": "real",
+          "default": "100",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "display",
+          "parameters": "value, row"
+        }
+      ],
+      "enums": {},
+      "objectNames": []
     },
     {
       "name": "TextArea",
@@ -5882,6 +6287,278 @@
       "enums": {}
     },
     {
+      "name": "Graph",
+      "kind": "cpp",
+      "base": "QQuickItem",
+      "description": "AGENT-CONTRACT: a time-series plot drawn on the scene graph (no raster repaint, no QPainter), so many instances stay cheap. Samples enter at the right and scroll left. Series are the default property:  Tk.Graph { capacity: 120; maxValue: 100 Tk.GraphSeries { color: Tk.Theme.color.accent } }  AGENT-NOTE: a series' fill is drawn with per-vertex colour taken from its `ramp` at that sample's own magnitude, which is why a busy column reads hot and a quiet one does not -- the same trick btop plays with character colour, done with vertices instead.",
+      "singleton": false,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/graph.h",
+      "properties": [
+        {
+          "name": "series",
+          "type": "QQmlListProperty<QindaTK::GraphSeries>",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "capacity",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "minValue",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maxValue",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoScale",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoScaleFloor",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "headroom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "effectiveMax",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "mirrored",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridRows",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridColumns",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "baselineColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "seriesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "capacityChanged",
+          "parameters": ""
+        },
+        {
+          "name": "scaleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "seriesCount",
+          "returns": "int",
+          "parameters": ""
+        },
+        {
+          "name": "appendTo",
+          "returns": "void",
+          "parameters": "int index, qreal value"
+        },
+        {
+          "name": "append",
+          "returns": "void",
+          "parameters": "qreal value"
+        },
+        {
+          "name": "appendRow",
+          "returns": "void",
+          "parameters": "const QVariantList &values"
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {}
+    },
+    {
+      "name": "GraphSeries",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: one plotted history inside a Graph. The samples live in a fixed-capacity ring buffer owned here; the owning Graph sets the capacity so every series on one graph shares an x axis. Appending is O(1) and never reallocates, which is what lets a system monitor keep thirty of these updating without a visible cost.  AGENT-GUARD: `at(0)` is the OLDEST retained sample and `at(count()-1)` the newest. Drawing code depends on that order; reading m_values directly by index gives ring order, which is not the same thing.",
+      "singleton": false,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/graph.h",
+      "properties": [
+        {
+          "name": "color",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fill",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fillOpacity",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lineWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "visible",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "label",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "values",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "last",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "peak",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "capacity",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "samplesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "capacityChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "append",
+          "returns": "void",
+          "parameters": "qreal value"
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "at",
+          "returns": "qreal",
+          "parameters": "int index"
+        }
+      ],
+      "enums": {}
+    },
+    {
       "name": "Grid",
       "kind": "cpp",
       "base": "QQuickItem",
@@ -6304,6 +6981,119 @@
           "parameters": "QQuickItem *item"
         }
       ],
+      "enums": {}
+    },
+    {
+      "name": "Meter",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "AGENT-CONTRACT: a magnitude bar for telemetry -- one CPU core, a filesystem's used space, a fan against its maximum. Distinct from ProgressBar, which reports how far a *task* has run: a Meter reports how hard something is working right now, so it is coloured by its reading and has no indeterminate state.  AGENT-NOTE: this is a QQuickPaintedItem, not a scene-graph item like Graph. A meter is small and cheap to raster, and QQuickPaintedItem draws correctly under Qt's software adaptation for free -- Graph needs two drawing paths precisely because it is not one of these.",
+      "singleton": false,
+      "attached": null,
+      "anonymous": false,
+      "registered": true,
+      "file": "src/core/meter.h",
+      "properties": [
+        {
+          "name": "value",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "from",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "to",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "position",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "color",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "trackColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rampMode",
+          "type": "RampMode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "segments",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "segmentGap",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "radius",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "vertical",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "valueColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "valueChanged",
+          "parameters": ""
+        },
+        {
+          "name": "rangeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
       "enums": {}
     },
     {
@@ -7177,6 +7967,74 @@
       "anonymous": true,
       "registered": true,
       "file": "src/core/theme.h",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {}
+    },
+    {
+      "name": "ThemeRamp",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: one named value->colour scale. Telemetry views (Graph, Meter, Sparkline) colour a reading by magnitude rather than by series, the way btop does: a CPU core at 95% must read as \"hot\" without the reader consulting a legend. Stops are derived from theme roles in theme_ramp.cpp, never authored as literals, so a ramp restyles with its theme.  AGENT-GUARD: positions are kept sorted and clamped to [0, 1] by setStops(). at() assumes that ordering and interpolates between neighbours; feeding it unsorted stops silently returns the wrong colour rather than failing.",
+      "singleton": false,
+      "attached": null,
+      "anonymous": true,
+      "registered": true,
+      "file": "src/core/theme_ramp.h",
+      "properties": [
+        {
+          "name": "stops",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "colors",
+          "type": "QList<QColor>",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "at",
+          "returns": "QColor",
+          "parameters": "qreal t"
+        },
+        {
+          "name": "forValue",
+          "returns": "QColor",
+          "parameters": "qreal value, qreal from, qreal to"
+        }
+      ],
+      "enums": {}
+    },
+    {
+      "name": "ThemeRamps",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the ramp set published as `Theme.ramp`. Theme owns it and calls rebuild() from finishUpdate(), so a ramp is never stale with respect to the colour roles it is derived from. Adding a ramp means: a Q_PROPERTY here, a member, a case in rebuild() and in byName(), and a row in the docs/theming.md ramp table that tst_theme_ramp checks.",
+      "singleton": false,
+      "attached": null,
+      "anonymous": true,
+      "registered": true,
+      "file": "src/core/theme_ramp.h",
       "properties": [],
       "signals": [],
       "methods": [],

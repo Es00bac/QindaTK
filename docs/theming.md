@@ -118,13 +118,51 @@ QML properties, so `Tk.Theme.space.md` binds and updates. `space` and
 | --- | --- |
 | `space` | `unit` 4, `xs` 2, `sm` 4, `md` 8, `lg` 12, `xl` 16, `xxl` 24, `xxxl` 32 |
 | `radius` | `none` 0, `xs` 2, `sm` 4, `md` 6, `lg` 10, `xl` 14, `full` 999 |
-| `size` | `controlSm` 20, `control` 24, `controlLg` 28, `chip` 32, `action` 36, `row` 22, `rowLg` 28, `header` 24, `tab` 22, `toolbar` 36, `statusBar` 22, `menuItem` 22, `icon` 14, `iconSm` 12, `iconLg` 16, `iconXl` 20, `seam` 4, `scrollbar` 8, `labelWidth` 96, `fieldWidth` 120, `panelMinWidth` 200, `panelMinHeight` 120, `border` 1, `focusRing` 2, `grip` 10, `handle` 14, `dropEdge` 28 |
+| `size` | `controlSm` 20, `control` 24, `controlLg` 28, `chip` 32, `action` 36, `row` 22, `rowLg` 28, `header` 24, `tab` 22, `toolbar` 36, `statusBar` 22, `menuItem` 22, `icon` 14, `iconSm` 12, `iconLg` 16, `iconXl` 20, `seam` 4, `scrollbar` 8, `labelWidth` 96, `fieldWidth` 120, `panelMinWidth` 200, `panelMinHeight` 120, `border` 1, `focusRing` 2, `grip` 10, `handle` 14, `dropEdge` 28, `sparkline` 56, `sparklineHeight` 14, `meter` 6, `graphMinHeight` 40 |
 | `motion` | `instant` 0, `fast` 80, `base` 140, `slow` 220 (ms) |
 | `opacity` | `disabled` 0.45, `muted` 0.7, `island` 0.72, `ghost` 0.55, `scrim` 0.65 |
 
 The `size` values are measurements of Sloom Studio at 100% (see
 `installBaseMetrics` in `theme_presets.cpp`). `Tk.Theme.size.get("row")`
 reads a key by name.
+
+## Telemetry ramps (`Tk.Theme.ramp`)
+
+A ramp is a value-to-colour scale, for readings that should be understood by
+magnitude rather than by series: a core at 95%, a disk at 98% full, a sensor
+near its limit. `Tk.Graph`, `Tk.Meter` and `Tk.Sparkline` take one as a
+`ramp` property, and `Tk.TableColumn.ramp` colours a cell's number the same
+way, so the bar and the figure beside it always agree.
+
+| Ramp | Shape | Reads as |
+| --- | --- | --- |
+| `load` | `success` 0 → `warning` .55 → `danger` 1 | utilisation: CPU, a core, a queue |
+| `thermal` | `info` 0 → `success` .45 → `warning` .75 → `danger` 1 | a temperature against its limit |
+| `memory` | `accent` 0 → `warning` .6 → `danger` 1 | occupancy: RAM, swap, a filesystem |
+| `network` | dimmed `accent` 0 → `accent` .55 → brightened `accent` 1 | throughput |
+| `io` | `accent` 0 → `warning` .6 → `danger` 1 | disk transfer and queue depth |
+| `neutral` | `textMuted` 0 → `text` 1 | magnitude with no judgement attached |
+
+```qml
+Tk.Label {
+    text: temperature + "\u00b0C"
+    color: Tk.Theme.ramp.thermal.forValue(temperature, 30, 95)
+}
+```
+
+`at(t)` takes a fraction of the scale; `forValue(v, from, to)` rescales a
+reading onto it. `stops` and `colors` expose the scale itself, for a gradient
+brush. Ramps are derived from the colour roles and rebuilt on every theme
+change, so they follow a preset, a JSON theme and the QindaQt bridge alike.
+
+Two shapes are deliberate rather than tasteful. The stop *positions* keep a
+reading calm through the first half of its range and turn only near
+saturation, so an idle machine is visually quiet — moving one changes what a
+reader believes about their machine. And `network` is built by mixing
+`accent` against `bg` and `text` instead of naming two roles, because a
+preset may resolve two roles to the same colour (`sloom-dark` resolves
+`accent` and `info` that way) and a ramp whose ends collapse renders every
+reading identically; `tst_telemetry` asserts this for every preset.
 
 ## Density (`Tk.Density`)
 

@@ -40,6 +40,9 @@ class GraphSeries : public QObject {
     Q_PROPERTY(int count READ count NOTIFY samplesChanged)
     Q_PROPERTY(qreal last READ last NOTIFY samplesChanged)
     Q_PROPERTY(qreal peak READ peak NOTIFY samplesChanged)
+    // Read-only: the owning Graph sets this so every series on one
+    // graph shares an x axis.
+    Q_PROPERTY(int capacity READ capacity NOTIFY capacityChanged)
 
 public:
     explicit GraphSeries(QObject *parent = nullptr);
@@ -79,6 +82,7 @@ public:
 signals:
     void styleChanged();
     void samplesChanged();
+    void capacityChanged();
 
 private:
     QColor m_color;

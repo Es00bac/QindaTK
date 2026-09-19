@@ -119,6 +119,26 @@ in [layout.md](layout.md); theming in [theming.md](theming.md); docking in
 | `EmptyState` | Item | `text`, `title`, `iconName`, `maxTextWidth` (320); default: actions | — | centred muted icon + overline title + wrapping caption, lg padding; for empty lists/panels. objectNames `emptyTitle`, `emptyText`. |
 | `Card` | Box | `padding` (`space.md`), `selected`, `interactive` | `clicked` (from Box) | `panelAlt` background, 1px border, radius md; `selected` → accent border; interactive hover lifts the border to `controlHoverBorder` and tints the fill. |
 
+## Telemetry
+
+Readings over time and against a limit. `Tk.Graph` draws on the scene graph;
+`Tk.Meter` is a `QQuickPaintedItem`. Both take a `Tk.Theme.ramp.*` scale (see
+[theming.md](theming.md)) so a value is coloured by its magnitude.
+
+| Type | Base | Properties | Signals | Notes |
+| --- | --- | --- | --- | --- |
+| `Graph` | Item (C++) | `series` (default property, list of `GraphSeries`), `capacity` 120, `minValue` 0, `maxValue` 100, `autoScale`, `autoScaleFloor` 1, `headroom` 1.15, read-only `effectiveMax`, `mirrored`, `gridRows`, `gridColumns`, `gridColor`, `baselineColor` | — | Time series; samples enter at the right. `append(v)` (first series), `appendTo(i, v)`, `appendRow([...])` (one sample per series, keeping them aligned; a short row repeats each series' last value rather than injecting a zero), `clear()`, `seriesAt(i)`, `seriesCount()`. Implicit size 160×48. `mirrored` hangs the trace from the top edge, for a send series under a receive series. |
+| `GraphSeries` | QObject (C++) | `color`, `ramp`, `fill`, `fillOpacity` 0.45, `lineWidth` 1.5, `visible`, `label`, `values`, read-only `count`/`last`/`peak`/`capacity` | — | A fixed-capacity ring buffer: `append(v)` is O(1) and never reallocates. `at(0)` is the **oldest** retained sample. Non-finite samples are stored as 0. The owning Graph sets `capacity`, so every series on one graph shares an x axis. |
+| `Sparkline` | Graph (QML) | `color`, `ramp`, `fill`, `fillOpacity` 0.35, `lineWidth` 1, `values`, read-only `last`/`peak`, `tooltip` | — | One-series Graph sized for a list row or table cell (`size.sparkline` × `size.sparklineHeight`). No grid, no baseline. `append(v)` passes through. |
+| `Meter` | QQuickPaintedItem (C++) | `value`, `from` 0, `to` 100, read-only `position`, `color`, `trackColor`, `ramp`, `rampMode` (`Meter.ByPosition` default, `Meter.ByValue`), `segments` 0, `segmentGap` 1, `radius` 1, `vertical`, read-only `valueColor` | — | How hard something is working now — not how far a task has run, which is `ProgressBar`. `segments` > 0 draws btop's blocks, each at its own ramp position; `ByValue` colours the whole fill by the current reading. Bind a label's colour to `valueColor` so the number agrees with the bar. Implicit size 80×8. |
+
+## Tables
+
+| Type | Base | Properties | Signals | Notes |
+| --- | --- | --- | --- | --- |
+| `DataTable` | Item | `columns` (`list<TableColumn>`), `model`, `sortKey`, `sortOrder`, `currentIndex`, `showHeader`, `alternatingRows`, `rowHeight` (`size.row`), `emptyText`, `columnWidths`, read-only `count`/`visibleColumns` | `sortRequested(key, order)`, `activated(index)`, `rowRightClicked(index, point)`, `columnResized(key, width)` | Virtualised: only visible rows exist. **The table never sorts or filters** — a header click emits `sortRequested` and nothing moves until the owner applies it to its model, because only the model knows whether "3.9" outranks "12" as a number or as text. `model` is a JS array or anything exposing `get(index)`; `recordAt(index)` is the single path a cell takes to its data. Header seams drag fixed columns wider. objectNames `tableHeader`, `tableBody`, `headerCell_<key>`, `tableRow`. |
+| `TableColumn` | QtObject | `key`, `title`, `width` 80, `minWidth` 24, `flex` 0, `align`, `mono`, `muted`, `visible`, `sortable`, `resizable`, `descendingFirst`, `tooltip`, `formatter`, `delegate`, `ramp`, `rampFrom`, `rampTo` | — | Fixed (`width`) or elastic (`flex` > 0, sharing what the fixed columns leave, never below `minWidth`). `formatter(value, row)` returns the cell text; `delegate` replaces the label entirely and sees `value`, `row`, `column` — this is how a sparkline or meter becomes a cell. `ramp` colours the cell's text by magnitude. `descendingFirst` is right for "who is using the most". |
+
 ## Docking — see docking.md
 
 `DockHost`, `DockPanel`, `DockFrame`, `DockTabStrip`, `DockDivider`,

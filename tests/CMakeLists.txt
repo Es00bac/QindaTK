@@ -24,6 +24,7 @@ qindatk_add_test(tst_layout)
 qindatk_add_test(tst_icon)
 qindatk_add_test(tst_stylus_handler)
 qindatk_add_test(tst_app_window)
+qindatk_add_test(tst_telemetry)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)

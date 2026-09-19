@@ -99,6 +99,7 @@ void GraphSeries::setCapacity(int capacity)
     m_capacity = wanted;
     m_count = keep;
     m_head = keep % wanted;
+    emit capacityChanged();
     emit samplesChanged();
 }
 
