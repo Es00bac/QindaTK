@@ -41,6 +41,22 @@ private slots:
         QVERIFY(registry->paths(QStringLiteral("layers")) != nullptr);
         QCOMPARE(registry->paths(QStringLiteral("layers"))->size(), 3);
     }
+    void imageEditingIconsAreBuiltIn()
+    {
+        // QindaTK is shared by several desktop applications. These are
+        // ordinary Lucide glyphs used by image-editing palettes; keeping
+        // them in the generated registry lets consumers use Tk.Icon rather
+        // than carrying a second image provider for four missing shapes.
+        IconRegistry *registry = IconRegistry::instance();
+        for (const QString &name : {QStringLiteral("bandage"),
+                                    QStringLiteral("circle-off"),
+                                    QStringLiteral("image-off"),
+                                    QStringLiteral("wind")}) {
+            QVERIFY2(registry->has(name), qPrintable(name));
+            const QVector<QPainterPath> *paths = registry->paths(name);
+            QVERIFY2(paths != nullptr && !paths->isEmpty(), qPrintable(name));
+        }
+    }
     void customIcons()
     {
         IconRegistry *registry = IconRegistry::instance();

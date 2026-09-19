@@ -318,6 +318,16 @@ Item {
                                     cell.column, table.width - Tk.Theme.space.md)
                                 implicitHeight: table.rowHeight
 
+                                // AGENT-CONTRACT: a cell delegate reads its
+                                // data from its PARENT -- parent.value,
+                                // parent.row, parent.column. A delegate
+                                // declared in another file cannot see these
+                                // ids, and a Loader does not initialise a
+                                // loaded item's required properties from its
+                                // own same-named ones (verified on Qt 6.11:
+                                // "Required property value was not
+                                // initialized"), so parent is the only
+                                // binding path that works across files.
                                 Loader {
                                     anchors.fill: parent
                                     active: cell.column.delegate !== null

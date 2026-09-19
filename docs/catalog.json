@@ -7077,6 +7077,20 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "tooltip",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hovered",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -7090,6 +7104,14 @@
         },
         {
           "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tooltipChanged",
+          "parameters": ""
+        },
+        {
+          "name": "hoveredChanged",
           "parameters": ""
         }
       ],

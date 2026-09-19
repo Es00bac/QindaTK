@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "meter.h"
 
+#include <QHoverEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QVariantMap>
@@ -18,6 +19,9 @@ Meter::Meter(QQuickItem *parent)
     // The row height and a readable bar length at compact density; callers
     // size them from Theme.size in practice.
     setImplicitSize(80, 8);
+    // Hover is accepted so a meter can host a tooltip; it changes
+    // nothing about how the bar draws.
+    setAcceptHoverEvents(true);
 }
 
 void Meter::setValue(qreal value)
@@ -137,6 +141,32 @@ void Meter::restyle()
     emit styleChanged();
     emit valueChanged();
     update();
+}
+
+void Meter::setTooltip(const QString &tooltip)
+{
+    if (m_tooltip != tooltip) {
+        m_tooltip = tooltip;
+        emit tooltipChanged();
+    }
+}
+
+void Meter::hoverEnterEvent(QHoverEvent *event)
+{
+    QQuickPaintedItem::hoverEnterEvent(event);
+    if (!m_hovered) {
+        m_hovered = true;
+        emit hoveredChanged();
+    }
+}
+
+void Meter::hoverLeaveEvent(QHoverEvent *event)
+{
+    QQuickPaintedItem::hoverLeaveEvent(event);
+    if (m_hovered) {
+        m_hovered = false;
+        emit hoveredChanged();
+    }
 }
 
 QColor Meter::valueColor() const

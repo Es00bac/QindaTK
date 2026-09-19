@@ -27,14 +27,14 @@ CURATED = """
 a-large-small activity alert-circle alert-triangle align-center align-justify align-left align-right
 anchor aperture archive arrow-down arrow-down-to-line arrow-left arrow-left-right arrow-right arrow-up
 arrow-up-down arrow-up-to-line asterisk at-sign audio-lines baseline bell blend bold bookmark box
-braces brackets brush bug calendar camera check check-check chevron-down chevron-left chevron-right
+bandage braces brackets brush bug calendar camera check check-check chevron-down chevron-left chevron-right
 chevron-up chevrons-down chevrons-left chevrons-right chevrons-up chevrons-up-down chevrons-down-up
-circle circle-check circle-dot circle-help circle-x clipboard clock cloud code columns-2 columns-3 command
+circle circle-check circle-dot circle-help circle-off circle-x clipboard clock cloud code columns-2 columns-3 command
 component contrast copy corner-down-left corner-down-right cpu crop crosshair database diamond
 dot download droplet ellipsis ellipsis-vertical equal eraser expand external-link eye eye-off
 file file-image file-plus file-text film filter flag flip-horizontal flip-vertical focus folder
 folder-open folder-plus frame fullscreen gamepad-2 gauge git-branch grid-2x2 grid-3x3 grip-horizontal grip-vertical
-group hand hash heading heart hexagon highlighter history house image images import indent-increase indent-decrease
+group hand hash heading heart hexagon highlighter history house image image-off images import indent-increase indent-decrease
 info italic keyboard languages layers layers-2 layout-dashboard layout-grid layout-panel-left layout-template
 link link-2 list list-ordered list-tree loader loader-circle lock lock-open magnet map-pin maximize maximize-2 menu mic minimize
 minimize-2 minus monitor moon mouse-pointer mouse-pointer-2 move move-horizontal move-vertical music navigation
@@ -46,7 +46,7 @@ sidebar sigma skip-back skip-forward sliders-horizontal sliders-vertical smartph
 square-check square-dashed square-pen stamp star step-back step-forward strikethrough subscript sun superscript
 table tag target terminal text text-cursor text-cursor-input timer toggle-left toggle-right trash trash-2 triangle
 type underline undo undo-2 ungroup unlink unlock upload user users video volume-2 volume-x wand wand-sparkles waypoints
-workflow wrap-text wrench x zap zoom-in zoom-out bring-to-front send-to-back square-stack layout-list
+wind workflow wrap-text wrench x zap zoom-in zoom-out bring-to-front send-to-back square-stack layout-list
 between-horizontal-start between-vertical-start align-horizontal-justify-center align-vertical-justify-center
 align-start-horizontal align-start-vertical align-end-horizontal align-end-vertical align-center-horizontal align-center-vertical
 align-horizontal-space-between align-vertical-space-between shapes lasso lasso-select paint-roller spray-can

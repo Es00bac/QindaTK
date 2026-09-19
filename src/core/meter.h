@@ -3,6 +3,7 @@
 
 #include <QColor>
 #include <QQuickPaintedItem>
+#include <QString>
 #include <QtQml/qqmlregistration.h>
 
 #include "theme_ramp.h"
@@ -35,6 +36,12 @@ class Meter : public QQuickPaintedItem {
     Q_PROPERTY(qreal radius READ radius WRITE setRadius NOTIFY styleChanged)
     Q_PROPERTY(bool vertical READ vertical WRITE setVertical NOTIFY styleChanged)
     Q_PROPERTY(QColor valueColor READ valueColor NOTIFY valueChanged)
+    // AGENT-CONTRACT: rule 7 -- every control carries a tooltip. Show it
+    // by declaring a Tk.ToolTip child bound to `tooltip` and `hovered`,
+    // as the QML controls do, and pass it to Accessible.name there:
+    // QQuickItem has no C++ setter for the accessible name.
+    Q_PROPERTY(QString tooltip READ tooltip WRITE setTooltip NOTIFY tooltipChanged)
+    Q_PROPERTY(bool hovered READ hovered NOTIFY hoveredChanged)
 
 public:
     enum RampMode {
@@ -76,19 +83,29 @@ public:
     // The colour the fill resolves to at the current reading. Labels beside a
     // meter bind to this so the number agrees with the bar.
     [[nodiscard]] QColor valueColor() const;
+    [[nodiscard]] QString tooltip() const { return m_tooltip; }
+    void setTooltip(const QString &tooltip);
+    [[nodiscard]] bool hovered() const { return m_hovered; }
 
     void paint(QPainter *painter) override;
+
+protected:
+    void hoverEnterEvent(QHoverEvent *event) override;
+    void hoverLeaveEvent(QHoverEvent *event) override;
 
 signals:
     void valueChanged();
     void rangeChanged();
     void styleChanged();
+    void tooltipChanged();
+    void hoveredChanged();
 
 private:
     void restyle();
 
     QColor m_color;
     QColor m_trackColor;
+    QString m_tooltip;
     ThemeRamp *m_ramp = nullptr;
     qreal m_value = 0;
     qreal m_from = 0;
@@ -98,6 +115,7 @@ private:
     int m_segments = 0;
     RampMode m_rampMode = ByPosition;
     bool m_vertical = false;
+    bool m_hovered = false;
 };
 
 } // namespace QindaTK
