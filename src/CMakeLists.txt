@@ -43,6 +43,10 @@ qt_add_qml_module(qindatk
         core/dock_model_store.cpp
         core/flex.cpp core/flex.h
         core/grid.cpp core/grid.h
+        core/graph.cpp core/graph.h
+        core/graph_mesh.cpp core/graph_mesh.h
+        core/graph_nodes.cpp
+        core/graph_raster.cpp core/graph_raster.h
         core/grid_tracks.cpp core/grid_tracks.h
         core/icon.cpp core/icon.h
         core/icon_data.cpp core/icon_data.h
@@ -53,6 +57,7 @@ qt_add_qml_module(qindatk
         core/svg_path.cpp core/svg_path.h
         core/theme.cpp core/theme.h
         core/theme_presets.cpp core/theme_presets.h
+        core/theme_ramp.cpp core/theme_ramp.h
     QML_FILES ${qindatk_qml_files} ${qindatk_js_files}
 )
 

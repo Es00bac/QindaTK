@@ -227,11 +227,13 @@ Theme::Theme(QObject *parent)
     , m_size(new ThemeMetrics(true, this))
     , m_motion(new ThemeMetrics(false, this))
     , m_opacity(new ThemeMetrics(false, this))
+    , m_ramp(new ThemeRamps(this))
 {
     m_font->m_family = defaultFamily(false);
     m_font->m_monoFamily = defaultFamily(true);
     ThemePresets::installBaseMetrics(*this);
     ThemePresets::apply(*this, QStringLiteral("sloom-dark"));
+    m_ramp->rebuild(*m_color);
     connect(Density::instance(), &Density::changed, this, &Theme::rescale);
     rescale();
 }
@@ -351,6 +353,31 @@ bool Theme::loadJson(const QString &json)
     return true;
 }
 
+namespace {
+
+QVariantMap rampStops(const ThemeRamp *ramp)
+{
+    QVariantMap map;
+    const QVariantList stops = ramp->stops();
+    for (const QVariant &entry : stops) {
+        const QVariantMap stop = entry.toMap();
+        map.insert(QString::number(stop.value(QStringLiteral("position")).toDouble()),
+                   stop.value(QStringLiteral("color")).value<QColor>().name(QColor::HexArgb));
+    }
+    return map;
+}
+
+} // namespace
+
+QVariantMap Theme::rampMap() const
+{
+    QVariantMap map;
+    for (const QString &name : ThemeRamps::names()) {
+        map.insert(name, rampStops(m_ramp->byName(name)));
+    }
+    return map;
+}
+
 QVariantMap Theme::toMap() const
 {
     return {
@@ -365,6 +392,7 @@ QVariantMap Theme::toMap() const
         {QStringLiteral("size"), m_size->toMap()},
         {QStringLiteral("motion"), m_motion->toMap()},
         {QStringLiteral("opacity"), m_opacity->toMap()},
+        {QStringLiteral("ramp"), rampMap()},
     };
 }
 
@@ -420,6 +448,9 @@ void Theme::rescale()
 void Theme::finishUpdate()
 {
     ++m_generation;
+    // AGENT-GUARD: ramps are derived from the colour roles, so they must be
+    // rebuilt before changed() lets any binding read Theme.ramp again.
+    m_ramp->rebuild(*m_color);
     emit m_color->changed();
     emit m_font->changed();
     emit changed();

@@ -11,6 +11,8 @@
 
 #include <vector>
 
+#include "theme_ramp.h"
+
 class QQmlEngine;
 class QJSEngine;
 
@@ -254,6 +256,7 @@ class Theme : public QObject {
     Q_PROPERTY(QindaTK::ThemeMetrics *size READ size CONSTANT)
     Q_PROPERTY(QindaTK::ThemeMetrics *motion READ motion CONSTANT)
     Q_PROPERTY(QindaTK::ThemeMetrics *opacity READ opacity CONSTANT)
+    Q_PROPERTY(QindaTK::ThemeRamps *ramp READ ramp CONSTANT)
     Q_PROPERTY(QString preset READ preset WRITE setPreset NOTIFY changed)
     Q_PROPERTY(QString name READ name NOTIFY changed)
     Q_PROPERTY(bool dark READ dark NOTIFY changed)
@@ -271,6 +274,7 @@ public:
     [[nodiscard]] ThemeMetrics *size() const { return m_size; }
     [[nodiscard]] ThemeMetrics *motion() const { return m_motion; }
     [[nodiscard]] ThemeMetrics *opacity() const { return m_opacity; }
+    [[nodiscard]] ThemeRamps *ramp() const { return m_ramp; }
 
     [[nodiscard]] QString preset() const { return m_preset; }
     void setPreset(const QString &id);
@@ -318,6 +322,7 @@ private:
     explicit Theme(QObject *parent = nullptr);
     void rescale();
     void finishUpdate();
+    [[nodiscard]] QVariantMap rampMap() const;
 
     ThemeColors *m_color = nullptr;
     ThemeFont *m_font = nullptr;
@@ -326,6 +331,7 @@ private:
     ThemeMetrics *m_size = nullptr;
     ThemeMetrics *m_motion = nullptr;
     ThemeMetrics *m_opacity = nullptr;
+    ThemeRamps *m_ramp = nullptr;
     QString m_preset;
     QString m_name;
     bool m_dark = true;

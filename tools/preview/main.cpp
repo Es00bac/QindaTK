@@ -116,6 +116,21 @@ QJsonObject dumpJson(const QQuickItem *item)
     return node;
 }
 
+// AGENT-NOTE: --grab normally renders through Qt's software adaptation so it
+// works on a headless machine. That adaptation draws none of the custom
+// scene-graph nodes a GPU-only control builds (Graph, Meter, Sparkline), so
+// --gpu keeps the offscreen platform but lets the real RHI backend run: it is
+// the only way to verify what those controls actually put on screen.
+bool wantsGpu(int argc, char **argv)
+{
+    for (int i = 1; i < argc; ++i) {
+        if (QByteArray(argv[i]) == "--gpu") {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool wantsHeadless(int argc, char **argv)
 {
     for (int i = 1; i < argc; ++i) {
@@ -140,7 +155,11 @@ int main(int argc, char **argv)
             qputenv("QT_QPA_PLATFORM", "offscreen");
         }
         if (qEnvironmentVariableIsEmpty("QT_QUICK_BACKEND")) {
-            qputenv("QT_QUICK_BACKEND", "software");
+            // AGENT-GUARD: the offscreen platform advertises no OpenGL, so
+            // QtQuick picks the software adaptation on its own -- leaving the
+            // variable unset is NOT enough to get the GPU path. --gpu has to
+            // name the RHI adaptation explicitly.
+            qputenv("QT_QUICK_BACKEND", wantsGpu(argc, argv) ? "rhi" : "software");
         }
     }
     QGuiApplication app(argc, argv);
@@ -170,6 +189,7 @@ int main(int argc, char **argv)
     parser.addOption({QStringLiteral("stay"), QStringLiteral("Keep the window open after grab/dump")});
     parser.addOption({QStringLiteral("show"), QStringLiteral("Show on screen (default when no headless option is given)")});
     parser.addOption({QStringLiteral("offscreen"), QStringLiteral("Force the offscreen platform")});
+    parser.addOption({QStringLiteral("gpu"), QStringLiteral("Render through the real GPU backend instead of the software adaptation (needed to grab scene-graph controls such as Graph)")});
     parser.addOption({{QStringLiteral("I"), QStringLiteral("import")}, QStringLiteral("Extra QML import path"), QStringLiteral("dir")});
     parser.process(app);
 
