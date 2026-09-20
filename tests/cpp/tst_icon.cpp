@@ -51,6 +51,7 @@ private slots:
         for (const QString &name : {QStringLiteral("bandage"),
                                     QStringLiteral("circle-off"),
                                     QStringLiteral("image-off"),
+                                    QStringLiteral("move-diagonal-2"),
                                     QStringLiteral("wind")}) {
             QVERIFY2(registry->has(name), qPrintable(name));
             const QVector<QPainterPath> *paths = registry->paths(name);
