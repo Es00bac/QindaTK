@@ -266,7 +266,12 @@ void ThemePresets::installBaseMetrics(Theme &theme)
         // Telemetry: a sparkline that fits a 22px list row beside its number,
         // a meter the weight of a rule rather than a bar, and the shortest
         // plot in which a 120-sample trace still has a readable shape.
-        {"sparkline", 56}, {"sparklineHeight", 14}, {"meter", 6}, {"graphMinHeight", 40}};
+        {"sparkline", 56}, {"sparklineHeight", 14}, {"meter", 6}, {"graphMinHeight", 40},
+        // Media: a thumbnail wide enough to recognise a frame in a bin row at
+        // 16:9, the waveform strip that fits under a short audio lane, and the
+        // time ruler above a track area.
+        {"thumbnail", 72}, {"thumbnailHeight", 40}, {"waveformHeight", 28},
+        {"timeRuler", 22}};
     static const Entry motion[] = {{"instant", 0}, {"fast", 80}, {"base", 140}, {"slow", 220}};
     static const Entry opacity[] = {{"disabled", 0.45}, {"muted", 0.7}, {"island", 0.72},
                                     {"ghost", 0.55}, {"scrim", 0.65}};
