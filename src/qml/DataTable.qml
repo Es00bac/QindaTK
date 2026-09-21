@@ -38,6 +38,7 @@ Item {
     property bool alternatingRows: false
     property real rowHeight: Tk.Theme.size.row
     property string emptyText: ""
+    property string tooltip: ""
     // Per-column width overrides written by a header drag, keyed by column key.
     property var columnWidths: ({})
 
@@ -69,6 +70,14 @@ Item {
     implicitHeight: Tk.Theme.size.panelMinHeight
     activeFocusOnTab: true
     Accessible.role: Accessible.Table
+    Accessible.name: table.tooltip.length > 0 ? table.tooltip : qsTr("Table")
+
+    Tk.ToolTip {
+        text: table.tooltip
+        visible: table.tooltip.length > 0 && tableHover.hovered
+        delay: 600
+    }
+    HoverHandler { id: tableHover }
 
     function widthOf(column) {
         const override = table.columnWidths[column.key]

@@ -68,8 +68,8 @@ Item {
             readonly property Item single: children.length === 1 ? children[0] : null
             // Implicit sizes only (see Box.qml): childrenRect would depend on
             // the viewport width and loop.
-            implicitWidth: single ? single.implicitWidth : scroll.maxImplicit(children, true)
-            implicitHeight: single ? single.implicitHeight : scroll.maxImplicit(children, false)
+            implicitWidth: single && single.visible ? single.implicitWidth : scroll.maxImplicit(children, true)
+            implicitHeight: single && single.visible ? single.implicitHeight : scroll.maxImplicit(children, false)
             // AGENT-GUARD: deferred so a freshly created child has its own
         // anchors and size assigned before seat() inspects them.
         onChildrenChanged: Qt.callLater(scroll.seat)
@@ -85,9 +85,13 @@ Item {
         }
     }
 
+    // AGENT-GUARD: invisible children take no slot (docs/layout.md) — the
+    // rule Flex, Grid and Stack enforce in C++ (takesSlot); the single-child
+    // branch above falls through to here when its child is hidden.
     function maxImplicit(items, horizontal) {
         let size = 0
         for (let i = 0; i < items.length; ++i) {
+            if (!items[i].visible) continue
             const value = horizontal ? items[i].implicitWidth : items[i].implicitHeight
             if (value > size) size = value
         }

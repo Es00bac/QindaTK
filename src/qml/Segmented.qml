@@ -23,7 +23,6 @@ Item {
     property bool small: false
     property bool stretch: false
     property string tooltip: ""
-    property bool enabled_: true
 
     signal activated(int index)
 

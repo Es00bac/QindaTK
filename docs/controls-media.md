@@ -75,7 +75,7 @@ middle frames, never the final one, because a cut is two frames — what the
 outgoing clip ends on and what the incoming one starts on — and a strip that
 dropped the tail would hide half of every cut.
 
-objectNames: `filmstrip`, `filmstripFrame<n>`.
+objectNames: `filmstrip`, `filmstripRow`, `filmstripFrame<n>`.
 
 ## TimeRuler
 
@@ -128,7 +128,7 @@ A keyboard shortcut drawn as keys rather than written as a string.
 shortcut as three caps is read as keys. An empty sequence draws nothing rather
 than an empty box.
 
-objectNames: `keyCap`, `keyCapKey`, `keyCapLabel`.
+objectNames: `keyCap`, `keyCapRow`, `keyCapKey`, `keyCapLabel`.
 
 ## Theme roles added
 

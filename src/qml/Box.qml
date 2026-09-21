@@ -85,8 +85,8 @@ Item {
         // sizes, never from childrenRect: geometry of anchored children
         // depends on this box's width, and an owner that binds
         // `width: implicitWidth` would otherwise form a binding loop.
-        implicitWidth: single ? single.implicitWidth : box.maxImplicit(children, true)
-        implicitHeight: single ? single.implicitHeight : box.maxImplicit(children, false)
+        implicitWidth: single && single.visible ? single.implicitWidth : box.maxImplicit(children, true)
+        implicitHeight: single && single.visible ? single.implicitHeight : box.maxImplicit(children, false)
 
         // AGENT-GUARD: deferred so a freshly created child has its own
         // anchors and size assigned before seat() inspects them.
@@ -96,9 +96,13 @@ Item {
     // AGENT-GUARD: a child that anchors itself (an Island pinned to a
     // corner, a centred overlay) keeps its anchors; only an unanchored
     // single child is stretched to the padding box.
+    // AGENT-GUARD: invisible children take no slot (docs/layout.md) — the
+    // rule Flex, Grid and Stack enforce in C++ (takesSlot); the single-child
+    // branch above falls through to here when its child is hidden.
     function maxImplicit(items, horizontal) {
         let size = 0
         for (let i = 0; i < items.length; ++i) {
+            if (!items[i].visible) continue
             const value = horizontal ? items[i].implicitWidth : items[i].implicitHeight
             if (value > size) size = value
         }

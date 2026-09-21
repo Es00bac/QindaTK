@@ -8,6 +8,10 @@ TestCase {
     id: root
     name: "Smoke"
     when: windowShown
+    // AGENTS.md gotcha: a TestCase is invisible by default, and every
+    // container — Box included — gives invisible children no slot, so
+    // implicit sizes are only measurable in a visible tree.
+    visible: true
     width: 400
     height: 300
 

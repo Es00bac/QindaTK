@@ -6,7 +6,11 @@ import QindaTK as Tk
 // AGENT-CONTRACT (docs/controls.md): a 2px track with an accent fill and a
 // 10px round handle (8px small) in a 16px (14px) row, so it sits inside a
 // 24px inspector row. `showValue` adds a mono readout on the right.
-// `valueModified(value)` fires on user moves (pointer and keyboard).
+// `orientation: Qt.Vertical` swaps the axes: the track extent follows
+// `availableHeight`, the handle rides `visualPosition` (value grows upward,
+// the direction Qt's template keys Up/Down to), and the readout moves below
+// the track (`bottomPadding`). `valueModified(value)` fires on user moves
+// (pointer and keyboard).
 T.Slider {
     id: control
 
@@ -28,7 +32,8 @@ T.Slider {
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
                              implicitHandleHeight + topPadding + bottomPadding)
     padding: 0
-    rightPadding: showValue ? valueText.implicitWidth + Tk.Theme.space.sm : 0
+    rightPadding: showValue && horizontal ? valueText.implicitWidth + Tk.Theme.space.sm : 0
+    bottomPadding: showValue && vertical ? valueText.implicitHeight + Tk.Theme.space.sm : 0
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
     opacity: enabled ? 1.0 : Tk.Theme.opacity.disabled
@@ -45,31 +50,35 @@ T.Slider {
     }
 
     background: Item {
-        implicitWidth: Tk.Theme.size.fieldWidth
-        implicitHeight: control.rowHeight
+        implicitWidth: control.horizontal ? Tk.Theme.size.fieldWidth : control.rowHeight
+        implicitHeight: control.horizontal ? control.rowHeight : Tk.Theme.size.fieldWidth
 
         Rectangle {
             id: track
-            x: control.leftPadding
-            y: control.topPadding + (control.availableHeight - height) / 2
-            width: control.availableWidth
-            height: control.trackThickness
-            radius: height / 2
+            objectName: "sliderTrack"
+            x: control.leftPadding + (control.horizontal ? 0 : (control.availableWidth - width) / 2)
+            y: control.topPadding + (control.horizontal ? (control.availableHeight - height) / 2 : 0)
+            width: control.horizontal ? control.availableWidth : control.trackThickness
+            height: control.horizontal ? control.trackThickness : control.availableHeight
+            radius: control.trackThickness / 2
             color: Tk.Theme.color.borderStrong
         }
         Rectangle {
-            x: track.x + (control.horizontal ? 0 : 0)
-            y: track.y
+            objectName: "sliderFill"
+            x: track.x
+            y: track.y + (control.horizontal ? 0 : control.visualPosition * track.height)
             width: control.horizontal ? control.visualPosition * track.width : track.width
-            height: track.height
-            radius: height / 2
+            height: control.horizontal ? track.height : control.position * track.height
+            radius: control.trackThickness / 2
             color: control.enabled ? Tk.Theme.color.accent : Tk.Theme.color.textMuted
         }
         Tk.Mono {
             id: valueText
             visible: control.showValue
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
+            // Horizontal reserves a readout column on the right
+            // (rightPadding); vertical reserves a row below (bottomPadding).
+            x: control.horizontal ? parent.width - width : (parent.width - width) / 2
+            y: control.horizontal ? (parent.height - height) / 2 : parent.height - height
             text: control.readout
             color: Tk.Theme.color.textMuted
             font.pixelSize: control.small ? Tk.Theme.font.caption : Tk.Theme.font.small
@@ -78,8 +87,12 @@ T.Slider {
     }
 
     handle: Rectangle {
-        x: control.leftPadding + control.visualPosition * (control.availableWidth - width)
-        y: control.topPadding + (control.availableHeight - height) / 2
+        x: control.leftPadding + (control.horizontal
+                                  ? control.visualPosition * (control.availableWidth - width)
+                                  : (control.availableWidth - width) / 2)
+        y: control.topPadding + (control.horizontal
+                                 ? (control.availableHeight - height) / 2
+                                 : control.visualPosition * (control.availableHeight - height))
         implicitWidth: control.handleSize
         implicitHeight: control.handleSize
         radius: width / 2

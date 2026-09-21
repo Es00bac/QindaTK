@@ -10,6 +10,9 @@ Tk.Box {
 
     default property alias fields: row.data
     property real gap: Tk.Theme.space.md
+    // Name path for the role (rule 7); the bar itself shows no tooltip,
+    // same as TimeRuler's tooltip feeding only Accessible.name.
+    property string tooltip: ""
 
     color: Tk.Theme.color.surface
     borderTop: 1
@@ -18,6 +21,7 @@ Tk.Box {
     implicitWidth: row.implicitWidth + Tk.Theme.space.sm * 2
 
     Accessible.role: Accessible.StatusBar
+    Accessible.name: bar.tooltip.length > 0 ? bar.tooltip : qsTr("Status bar")
 
     Tk.Flex {
         id: row

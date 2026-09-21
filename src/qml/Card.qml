@@ -9,6 +9,7 @@ Tk.Box {
     id: card
 
     property bool selected: false
+    property string tooltip: ""
 
     color: card.interactive && card.pressed ? Tk.Theme.mix(Tk.Theme.color.panelAlt, Tk.Theme.color.accent, 0.08)
          : card.interactive && card.hovered ? Tk.Theme.mix(Tk.Theme.color.panelAlt, Tk.Theme.color.accent, 0.04)
@@ -21,4 +22,13 @@ Tk.Box {
     padding: Tk.Theme.space.md
 
     Accessible.role: card.interactive ? Accessible.Button : Accessible.Grouping
+    Accessible.name: card.tooltip.length > 0 ? card.tooltip : qsTr("Card")
+
+    // Box only tracks hover while interactive, so the visual tooltip exists
+    // for the cards that can be hovered; the accessible name works for all.
+    Tk.ToolTip {
+        text: card.tooltip
+        visible: card.tooltip.length > 0 && card.hovered
+        delay: 600
+    }
 }
