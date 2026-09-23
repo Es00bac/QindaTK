@@ -22,7 +22,8 @@ import QindaTK as Tk
 // to its model. A table that sorted a JS array in place would silently
 // reorder the caller's data and disagree with a C++ proxy's own ordering.
 //
-// objectNames: tableHeader, tableBody, headerCell_<key>, tableRow.
+// objectNames: tableHeader, tableBody, headerCell_<key>,
+// headerFocusRing_<key>, tableRow.
 Item {
     id: table
 
@@ -108,6 +109,20 @@ Item {
                                                           : Qt.AscendingOrder
         }
         table.sortRequested(column.key, order)
+    }
+
+    function resizeColumn(column, width) {
+        if (!table.enabled || !column.resizable || column.flex > 0) {
+            return
+        }
+        const next = Math.max(column.minWidth, width)
+        if (Math.abs(next - table.widthOf(column)) < 0.001) {
+            return
+        }
+        const widths = Object.assign({}, table.columnWidths)
+        widths[column.key] = next
+        table.columnWidths = widths
+        table.columnResized(column.key, next)
     }
 
     function activateRow(index) {
@@ -205,6 +220,58 @@ Item {
                                                            table.width - Tk.Theme.space.md)
                         implicitHeight: Tk.Theme.size.header
                         readonly property bool active: table.sortKey === headerCell.modelData.key
+                        readonly property bool canResize: headerCell.modelData.resizable
+                                                          && headerCell.modelData.flex <= 0
+                        activeFocusOnTab: table.enabled
+                                          && (headerCell.modelData.sortable || canResize)
+                        Accessible.role: Accessible.ColumnHeader
+                        Accessible.name: headerCell.modelData.title.length > 0
+                                         ? headerCell.modelData.title : headerCell.modelData.key
+                        Accessible.description: headerCell.active
+                                                ? (table.sortOrder === Qt.AscendingOrder
+                                                   ? qsTr("Sorted ascending") : qsTr("Sorted descending"))
+                                                : qsTr("Not sorted")
+                        Accessible.focusable: activeFocusOnTab
+                        Accessible.focused: activeFocus
+                        Accessible.onPressAction: table.toggleSort(headerCell.modelData)
+                        Accessible.onIncreaseAction: table.resizeColumn(
+                            headerCell.modelData,
+                            table.widthOf(headerCell.modelData) + Tk.Theme.space.md)
+                        Accessible.onDecreaseAction: table.resizeColumn(
+                            headerCell.modelData,
+                            table.widthOf(headerCell.modelData) - Tk.Theme.space.md)
+                        Keys.onSpacePressed: function(event) {
+                            table.toggleSort(headerCell.modelData)
+                            event.accepted = true
+                        }
+                        Keys.onReturnPressed: function(event) {
+                            table.toggleSort(headerCell.modelData)
+                            event.accepted = true
+                        }
+                        Keys.onEnterPressed: function(event) {
+                            table.toggleSort(headerCell.modelData)
+                            event.accepted = true
+                        }
+                        Keys.onLeftPressed: function(event) {
+                            table.resizeColumn(headerCell.modelData,
+                                table.widthOf(headerCell.modelData) - Tk.Theme.space.md)
+                            event.accepted = true
+                        }
+                        Keys.onRightPressed: function(event) {
+                            table.resizeColumn(headerCell.modelData,
+                                table.widthOf(headerCell.modelData) + Tk.Theme.space.md)
+                            event.accepted = true
+                        }
+
+                        Rectangle {
+                            objectName: "headerFocusRing_" + headerCell.modelData.key
+                            anchors.fill: parent
+                            anchors.margins: -Tk.Theme.size.focusRing
+                            color: "transparent"
+                            border.width: Tk.Theme.size.focusRing
+                            border.color: Tk.Theme.color.focus
+                            visible: headerCell.activeFocus
+                        }
 
                         Tk.Flex {
                             anchors.fill: parent
@@ -277,14 +344,8 @@ Item {
                                         return
                                     }
                                     const column = headerCell.modelData
-                                    const next = Math.max(column.minWidth,
-                                                          pressWidth + (mouse.x - pressX))
-                                    // Reassigning the whole map is what makes
-                                    // the binding on widthOf() re-evaluate.
-                                    const widths = Object.assign({}, table.columnWidths)
-                                    widths[column.key] = next
-                                    table.columnWidths = widths
-                                    table.columnResized(column.key, next)
+                                    table.resizeColumn(column,
+                                                       pressWidth + (mouse.x - pressX))
                                 }
                             }
                         }

@@ -16,8 +16,18 @@ guards. The integrated system Qt 6.11.1 `tst_qml` target passed after these
 changes. The full two-version gate is tracked in
 [WP-007 progress](WP-007-progress.md).
 
-This is one F04 slice, not complete table accessibility. Header sorting and
-resizing still use pointer handlers without a documented keyboard or
-accessible header action. Virtual rows expose only the realized viewport;
-native assistive bridge behavior and large-table traversal remain to be
-qualified.
+Integration also added focusable ColumnHeader actions. Space, Return, Enter
+and accessible press request sort; Left/Right and accessible increase/decrease
+resize fixed columns through the same `resizeColumn()` operation used by
+pointer drag. Owner `columnWidths` assignment remains silent. A focused QML
+test checks those signals, disabled guards, accessible identity and the
+visible focus ring. The 420×160 preview was dumped, grabbed and opened:
+`DataTable#reviewTable 20,20 360x120` contains
+`Item#headerCell_pid 0,-1 100x24` and
+`Rectangle#headerFocusRing_pid -2,-2 104x28`. The PNG shows a cyan outline
+around the PID header. Ignored artifacts are
+`build/wp007-table-header-review.{qml,png}`.
+
+This is still one F04 slice, not complete native table accessibility. Virtual
+rows expose only the realized viewport; native assistive bridge behavior and
+large-table traversal remain to be qualified.

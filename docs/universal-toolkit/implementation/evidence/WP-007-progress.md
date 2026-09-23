@@ -69,8 +69,9 @@ FND-07 through FND-10.
   [Focused evidence](WP-007-FIX-F04-selection-composites.md).
 - `DataTable` now names the table and realized rows for accessibility, shows
   selected row state, and shares a guarded user activation path across tap,
-  Return/Enter and accessible press. Arrow navigation and owner selection
-  remain silent. [Focused evidence](WP-007-FIX-F04-data-table.md).
+  Return/Enter and accessible press. Focusable column headers support
+  keyboard/assistive sort and fixed-width resize. Arrow navigation and owner
+  selection remain silent. [Focused evidence](WP-007-FIX-F04-data-table.md).
 - `ColorField` now retains invalid hex drafts, exposes `inputInvalid`, and
   separates silent owner updates from changed user commits. Its swatch has
   keyboard and accessible picker actions, with read-only and disabled gates.
