@@ -168,7 +168,7 @@
       "name": "Box",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT: the CSS box. Background colour, uniform or per-side border, radius, padding, and a padding box (`contentItem`) that one child fills automatically (`fill: true`, the default) or several children anchor inside. Implicit size is the content's implicit size plus padding and border, so a Box in a Flex or Grid asks for exactly what it holds. Per-side borders (borderLeft/Top/Right/Bottom >= 0) are drawn as edge rectangles and ignore `radius`; a uniform border honours it.",
+      "description": "AGENT-CONTRACT: the CSS box. Background colour, uniform or per-side border, radius, padding, and a padding box (`contentItem`) that one child fills automatically (`fill: true`, the default) or several children anchor inside. Implicit size is the content's implicit size plus padding and border, so a Box in a Flex or Grid asks for exactly what it holds. Per-side borders (borderLeft/Top/Right/Bottom >= 0) are drawn as square edge rectangles. `radius` rounds the background only in that mode; it does not clip the edges, so their corners remain square. A uniform border honours `radius`.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Box.qml",
@@ -7692,6 +7692,13 @@
         {
           "name": "autoFlow",
           "type": "Flow",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "layoutDirection",
+          "type": "Qt::LayoutDirection",
           "default": "",
           "readonly": false,
           "constant": false

@@ -67,3 +67,14 @@ expansion remains unsupported. No named lines, fit-content or subgrid support
 is claimed. GPU and Qt 6.8 qualification are left to integration; this slice
 provides Qt 6.11 software evidence only. RTL integration, nested scroll ownership
 and the remaining WP-006 contracts are separate work.
+
+## Integration qualification
+
+Sol integrated this slice with the D-019 Flex/Stack/Grid direction work.
+The combined tree builds and passes all 17 CTest cases on Qt 6.8.3 and
+6.11.1, including responsive parser/geometry tests and a runtime Grid
+RTL direction test. `all_qmllint` passes on Qt 6.11.1. The compact and
+comfortable responsive Grid captures above were inspected in the isolated
+worktree; Grid RTL dumps and inspected integration captures are recorded in
+`WP-006-diagnostics.md`. GPU rendering and nested scroll work are still
+separate WP-006 gates.

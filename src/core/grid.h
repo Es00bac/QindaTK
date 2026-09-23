@@ -63,6 +63,8 @@ class Grid : public QQuickItem, public LayoutContainer {
     Q_PROPERTY(QString autoColumns READ autoColumns WRITE setAutoColumns NOTIFY layoutPropertyChanged)
     Q_PROPERTY(QString autoRows READ autoRows WRITE setAutoRows NOTIFY layoutPropertyChanged)
     Q_PROPERTY(Flow autoFlow READ autoFlow WRITE setAutoFlow NOTIFY layoutPropertyChanged)
+    // Explicit logical direction; Grid writes child x coordinates itself (D-019).
+    Q_PROPERTY(Qt::LayoutDirection layoutDirection READ layoutDirection WRITE setLayoutDirection NOTIFY layoutPropertyChanged)
     Q_PROPERTY(QStringList areas READ areas WRITE setAreas NOTIFY layoutPropertyChanged)
     Q_PROPERTY(Alignment justifyItems READ justifyItems WRITE setJustifyItems NOTIFY layoutPropertyChanged)
     Q_PROPERTY(Alignment alignItems READ alignItems WRITE setAlignItems NOTIFY layoutPropertyChanged)
@@ -101,6 +103,8 @@ public:
     void setAutoRows(const QString &value);
     [[nodiscard]] Flow autoFlow() const { return m_autoFlow; }
     void setAutoFlow(Flow value) { assign(m_autoFlow, value); }
+    [[nodiscard]] Qt::LayoutDirection layoutDirection() const { return m_layoutDirection; }
+    void setLayoutDirection(Qt::LayoutDirection value) { assign(m_layoutDirection, value); }
     [[nodiscard]] QStringList areas() const { return m_areas; }
     void setAreas(const QStringList &value) { assign(m_areas, value); }
     [[nodiscard]] Alignment justifyItems() const { return m_justifyItems; }
@@ -169,6 +173,7 @@ private:
     QVector<GridTrack> m_autoColumnTracks;
     QVector<GridTrack> m_autoRowTracks;
     Flow m_autoFlow = Row;
+    Qt::LayoutDirection m_layoutDirection = Qt::LeftToRight;
     QStringList m_areas;
     Alignment m_justifyItems = Stretch;
     Alignment m_alignItems = Stretch;

@@ -328,8 +328,8 @@ engines.
 
 **Consequences.** Existing LTR geometry is preserved. RTL behavior is
 explicit and can change at runtime. Each layout engine needs its own
-tests and documentation; Flex is the first implementation, with Grid and
-Stack tracked under WP-006.
+tests and documentation; Flex, Grid and Stack implement the shared contract.
+Box and Scroll do not place arbitrary children by a logical Start/End axis.
 
 ## D-020 — Bound responsive Grid repeats and preserve intrinsic approximations
 

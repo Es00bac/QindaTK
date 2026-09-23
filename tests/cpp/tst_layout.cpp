@@ -259,6 +259,31 @@ private slots:
         QCOMPARE(scene.item("d")->height(), 260.0);
         QCOMPARE(qobject_cast<Grid *>(scene.root())->rowCount(), 2);
     }
+    void gridLogicalDirectionMirrorsColumnsAndAlignment()
+    {
+        Scene scene(QStringLiteral(R"qml(
+            Tk.Grid { columns: "100 1fr"; rows: "40"; gap: 10
+                layoutDirection: Qt.RightToLeft
+                justifyItems: Tk.Grid.Start; alignItems: Tk.Grid.Start
+                paddingLeft: 5; paddingRight: 15
+                Item { objectName: "first"; implicitWidth: 40; implicitHeight: 20; Tk.Grid.column: 0 }
+                Item { objectName: "second"; implicitWidth: 60; implicitHeight: 20
+                    Tk.Grid.column: 1; Tk.Grid.justifySelf: Tk.Grid.End }
+            })qml"));
+        QVERIFY(scene.exposed());
+        auto *grid = qobject_cast<Grid *>(scene.root());
+        QVERIFY(grid);
+        QQuickItem *first = scene.item("first");
+        QQuickItem *second = scene.item("second");
+        QVERIFY(first && second);
+        QTRY_COMPARE(first->x(), 345.0);
+        QCOMPARE(second->x(), 5.0);
+        QCOMPARE(first->width(), 40.0);
+        QCOMPARE(second->width(), 60.0);
+        grid->setLayoutDirection(Qt::LeftToRight);
+        QTRY_COMPARE(first->x(), 5.0);
+        QCOMPARE(second->x(), 325.0);
+    }
     void gridAreasAndAlignment()
     {
         Scene scene(QStringLiteral(R"qml(

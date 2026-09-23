@@ -59,6 +59,26 @@ Item {
             Tk.Stack.fill: false; Tk.Stack.right: 5
         }
     }
+    Tk.Grid {
+        objectName: "rtlGrid"
+        x: 736; y: 82; width: 212; height: 96
+        columns: "72 1fr"; rows: "44"; gap: 8
+        paddingLeft: 5; paddingRight: 15
+        layoutDirection: Qt.RightToLeft
+        justifyItems: Tk.Grid.Start; alignItems: Tk.Grid.Start
+        Rectangle {
+            objectName: "rtlGridFirst"
+            implicitWidth: 40; implicitHeight: 24
+            color: Tk.Theme.color.accent
+            Tk.Grid.column: 0
+        }
+        Rectangle {
+            objectName: "rtlGridSecond"
+            implicitWidth: 48; implicitHeight: 24
+            color: Tk.Theme.color.accentSubtle
+            Tk.Grid.column: 1
+        }
+    }
     Tk.Box {
         objectName: "roundedSideBorder"
         x: 252; y: 202; width: 180; height: 84

@@ -471,7 +471,11 @@ void Grid::doLayout()
         else if (justify == End) x += cellW - w;
         if (align == Center) y += (cellH - h) / 2;
         else if (align == End) y += cellH - h;
-        e.item->setPosition(QPointF(padL + x, padT + y));
+        // Column indices and Start/End are logical; mirror the final x
+        // inside physical padding, as Flex and Stack do under D-019.
+        const qreal physicalX = m_layoutDirection == Qt::RightToLeft
+            ? width() - padR - x - w : padL + x;
+        e.item->setPosition(QPointF(physicalX, padT + y));
         e.item->setSize(QSizeF(w, h));
     }
 

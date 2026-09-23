@@ -124,3 +124,23 @@ contract now state this limit and recommend `radius: 0` with per-side rules;
 the diagnostic label describes square edges. The compact and comfortable
 software captures visibly show the square cyan top-left corner. This records
 the supported behavior without claiming rounded per-side clipping.
+
+## Subsequent Grid direction repair
+
+`Tk.Grid.layoutDirection` completes the explicit D-019 direction property
+across all three custom C++ layout engines. Column indices and horizontal
+Start/End alignment remain logical; the final x position mirrors within
+physical padding. A focused QtTest checks a 400px Grid with 5px left/15px
+right padding, a 100px first column, `1fr` second column, and 10px gap.
+In RTL its 40px first item sits at x=345 and the second column's 60px
+End-aligned item sits at x=5. Switching to LTR moves them to x=5/325.
+
+The diagnostic preview dumps `Grid#rtlGrid 736,82 212x96`,
+`Rectangle#rtlGridFirst 157,0 40x24`, and
+`Rectangle#rtlGridSecond 69,0 48x24`. Compact and comfortable 960×760
+software captures were opened; the cyan column-0 item is visibly on the
+physical right. Ignored captures are
+`build/layout-diagnostics-gridrtl-{compact,comfortable}.png`. The
+combined integration tree passes 17/17 CTest cases on Qt 6.8.3 and
+6.11.1, including the focused Grid RTL test and responsive Grid tests.
+`all_qmllint` passes on the system Qt build.

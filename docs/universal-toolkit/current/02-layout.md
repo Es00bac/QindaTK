@@ -24,7 +24,7 @@ C++ flexbox layout for dense rows, columns and wrapping tool strips.
 
 direction, layoutDirection, wrap, justify, align, alignContent, gaps and padding control layout; contentWidth/Height and lineCount report results. Children use Tk.Flex attached sizing. Flex owns its implicit size. Baseline aligns mixed text/control items in horizontal rows using Qt item baselines, with a bottom-edge fallback for plain Items; columns currently treat Baseline as Start. Explicit Qt.RightToLeft layoutDirection mirrors horizontal placement within physical padding; LayoutMirroring alone does not affect custom C++ positions.
 
-**Declared members:** `direction: Direction`, `wrap: WrapMode`, `justify: Alignment`, `align: Alignment`, `alignContent: Alignment`, `gap: qreal`, `rowGap: qreal`, `columnGap: qreal`, `padding: qreal`, `paddingLeft: qreal`, `paddingTop: qreal`, `paddingRight: qreal`, `paddingBottom: qreal`, `contentWidth: qreal` (ro), `contentHeight: qreal` (ro), `lineCount: int` (ro).
+**Declared members:** `direction: Direction`, `layoutDirection: Qt::LayoutDirection`, `wrap: WrapMode`, `justify: Alignment`, `align: Alignment`, `alignContent: Alignment`, `gap: qreal`, `rowGap: qreal`, `columnGap: qreal`, `padding: qreal`, `paddingLeft: qreal`, `paddingTop: qreal`, `paddingRight: qreal`, `paddingBottom: qreal`, `contentWidth: qreal` (ro), `contentHeight: qreal` (ro), `lineCount: int` (ro).
 
 **Declared signals:** `layoutPropertyChanged()`, `contentSizeChanged()`.
 
@@ -48,9 +48,9 @@ C++ grid layout with track strings, named areas and automatic placement.
 
 **Source:** [src/core/grid.h](../../../src/core/grid.h) · **Base:** `QQuickItem` · **Kind:** C++ type.
 
-columns/rows accept fixed, percent, auto, fr, minmax and numeric repeat tracks; autoFlow supports dense placement. Child indices are zero based. 1fr means minmax(0,1fr); request minmax(auto,1fr) for a content floor. error exposes parsing failures. This is a layout grid, not an editable data grid.
+columns/rows accept fixed, percent, auto, fr, minmax, numeric repeat, and bounded auto-fill/auto-fit tracks; autoFlow supports dense placement. Child indices are zero based. 1fr means minmax(0,1fr); request minmax(auto,1fr) for a content floor. `layoutDirection: Qt.RightToLeft` places column 0 at the physical right while padding remains physical. error exposes parsing failures. This is a layout grid, not an editable data grid.
 
-**Declared members:** `columns: QString`, `rows: QString`, `autoColumns: QString`, `autoRows: QString`, `autoFlow: Flow`, `areas: QStringList`, `justifyItems: Alignment`, `alignItems: Alignment`, `gap: qreal`, `rowGap: qreal`, `columnGap: qreal`, `padding: qreal`, `paddingLeft: qreal`, `paddingTop: qreal`, `paddingRight: qreal`, `paddingBottom: qreal`, `columnCount: int` (ro), `rowCount: int` (ro), `contentWidth: qreal` (ro), `contentHeight: qreal` (ro), `error: QString` (ro).
+**Declared members:** `columns: QString`, `rows: QString`, `autoColumns: QString`, `autoRows: QString`, `autoFlow: Flow`, `layoutDirection: Qt::LayoutDirection`, `areas: QStringList`, `justifyItems: Alignment`, `alignItems: Alignment`, `gap: qreal`, `rowGap: qreal`, `columnGap: qreal`, `padding: qreal`, `paddingLeft: qreal`, `paddingTop: qreal`, `paddingRight: qreal`, `paddingBottom: qreal`, `columnCount: int` (ro), `rowCount: int` (ro), `contentWidth: qreal` (ro), `contentHeight: qreal` (ro), `error: QString` (ro).
 
 **Declared signals:** `layoutPropertyChanged()`, `contentSizeChanged()`, `errorChanged()`.
 

@@ -173,6 +173,7 @@ simplifications listed under *Deviations*).
 | `columns`, `rows` | track list string | `""` | `grid-template-columns/rows` |
 | `autoColumns`, `autoRows` | track list string for implicit tracks | `"auto"` | `grid-auto-columns/rows` |
 | `autoFlow` | `Tk.Grid.Row`, `Column`, `RowDense`, `ColumnDense` | `Row` | `grid-auto-flow` |
+| `layoutDirection` | `Qt.LeftToRight`, `Qt.RightToLeft` | `Qt.LeftToRight` | logical column direction |
 | `areas` | list of strings, one per row, `.` for an empty cell | `[]` | `grid-template-areas` |
 | `justifyItems`, `alignItems` | `Stretch`, `Start`, `End`, `Center` | `Stretch` | `justify-items`, `align-items` |
 | `gap`, `rowGap`, `columnGap`, `padding…` | px | | |
@@ -184,6 +185,13 @@ Attached on children (`Tk.Grid.*`): `row`, `column` (0-based, `-1` =
 auto), `rowSpan`, `columnSpan` (≥ 1), `area` (a name from `areas`,
 overrides the four above), `justifySelf`, `alignSelf` (`Auto` = the
 container's), plus `minWidth`…, `order`, `ignore`.
+
+Column indices and horizontal `Start`/`End` are logical. With
+`layoutDirection: Qt.RightToLeft`, column 0 is at the physical right and
+each child's final horizontal position is mirrored within physical
+left/right padding. Set `layoutDirection: Qt.application.layoutDirection`
+to follow the app language; `LayoutMirroring.enabled` alone does not
+change custom Grid coordinates (D-019).
 
 ### Track grammar
 
