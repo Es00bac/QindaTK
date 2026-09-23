@@ -316,7 +316,6 @@ Item {
             Tk.ToolTip {
                 text: marker.Accessible.name + " · " + marker.Accessible.description
                 visible: marker.activeFocus && marker.draggable
-                delay: 600
             }
 
             Connections {
