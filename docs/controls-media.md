@@ -92,14 +92,17 @@ A time scale whose tick density follows the zoom.
 | `formatUnit` | seconds | `function(units) -> string` |
 | `scrubbed(units)` | — | signal, in units — never pixels |
 
-When enabled, the ruler is tab-focusable and exposes a slider value to
-assistive technology. Left and Right scrub by one unit; Home and End scrub to
+When enabled, the ruler is tab-focusable, has an accessible slider role, and
+describes its value and visible range. It also exposes read-only `value`,
+`minimumValue`, `maximumValue`, and `stepSize` properties to QML callers.
+Native screen-reader value-interface behavior is not yet qualified. Left and
+Right scrub by one unit; Home and End scrub to
 the visible range limits. Assistive increase/decrease actions use the same
 one-unit step. Pointer, keyboard, and assistive scrubs all clamp to
 `originUnits..originUnits + width / pixelsPerUnit` and emit `scrubbed(units)`;
 the caller remains responsible for updating `playheadUnits`. External changes
-to the playhead or visible range update the accessible value and description
-without emitting `scrubbed`. With no visible playhead, the accessible value is
+to the playhead or visible range update the read-only value and accessible
+description without emitting `scrubbed`. With no visible playhead, `value` is
 the visible range start and the description says no playhead is set. Disabled
 rulers ignore every scrub input.
 

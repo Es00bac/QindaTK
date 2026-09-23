@@ -1,9 +1,10 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # WP-005 — Private Qt and installed-consumer baseline
 
-Status: **baseline only; WP-005 active**. Luna prepared an isolated installed
+Status: **historical pre-change baseline**. Luna prepared an isolated installed
 consumer fixture in commit `3a0989c`; Sol integrated it as `9727172`.
-The source refactor and staged consumer repeat on both Qt versions remain open.
+The subsequent refactor and staged consumer repeat are recorded in the
+[accepted WP-005 evidence](WP-005.md).
 
 ## Observed exposure
 

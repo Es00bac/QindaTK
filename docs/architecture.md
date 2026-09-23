@@ -30,7 +30,7 @@ QindaTK.QindaQt (QML-only module)  ──►  QindaQtTheme: QindaQt.Tokens (QST-
 | `DockModel` | Arrangement state with invariants (lane renumbering, group contiguity, zone rules) that must be testable without a scene graph. |
 | `LayoutInfo` | Reads `QQuickItemPrivate` for anchors and explicit size. |
 | `Graph`, `Meter` | Bounded numerical histories and rendering; `Graph` has geometry and software-raster paths. |
-| `StylusHandler` | Reads raw tablet pressure/tilt through a Qt Quick private pointer-handler base; its current public header exposes that base. |
+| `StylusHandler` | Public QObject facade for pen samples; an implementation-only Qt Quick private pointer handler reads raw tablet pressure/tilt. |
 
 Everything else is QML: controls are `QtQuick.Templates` types with theme
 driven visuals; `Box`, `Scroll`, `Panel`, `Island` compose the C++
@@ -160,12 +160,14 @@ directory.
 
 `layout_info.cpp` includes `<QtQuick/private/qquickitem_p.h>` and
 `<QtQuick/private/qquickanchors_p.h>` to answer "does this item anchor
-itself?" and "was its width/height set explicitly?". The installed
-`stylus_handler.h` currently derives from the private
-`QQuickPointerDeviceHandler`, so `Qt6::QuickPrivate` is a public link
-dependency. A Qt private-API change can affect layout seating or pen event
-delivery and can require C++ consumers to rebuild. WP-005 owns the planned
-boundary mitigation and version qualification.
+itself?" and "was its width/height set explicitly?". `stylus_handler.cpp`
+contains the private `QQuickPointerDeviceHandler` subclass behind a public
+`QObject` facade. `Qt6::QuickPrivate` is linked privately and is absent from
+the installed CMake target and header. A Qt private-API change can still
+affect layout seating or pen event delivery, so rebuild QindaTK for each
+supported Qt minor version. The facade change also requires C++ users of the
+old class to rebuild and migrate private-base use. Qt 6.8.3 and 6.11.1
+passed WP-005's headless and clean-consumer gates; see [the matrix](platform-support.md).
 
 ## Where things are
 

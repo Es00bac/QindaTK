@@ -1,26 +1,25 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Platform and Qt support matrix
 
-This is the initial WP-005 qualification record as of 2026-09-23. A
-configuration is supported only for the operations actually exercised below.
-The minimum in `CMakeLists.txt` is Qt 6.8; an isolated Qt 6.8.3 build and
-test now qualify the existing baseline, while the new facade and installed
-consumer remain open. [WP-005 evidence](universal-toolkit/implementation/evidence/WP-005-baseline.md)
-records the installed-consumer reproduction.
+This is the WP-005 qualification record as of 2026-09-23. A configuration is
+supported only for the operations actually exercised below. The minimum in
+`CMakeLists.txt` is Qt 6.8; both Qt 6.8.3 and 6.11.1 have now passed the
+facade and isolated installed-consumer gates. [WP-005 evidence](universal-toolkit/implementation/evidence/WP-005.md)
+records the commands and results.
 
 | Host and Qt | Build / QML | Rendering | Input | Installed C++ consumer | Status |
 | --- | --- | --- | --- | --- | --- |
-| Gentoo Linux, Qt 6.11.1 | Debug integration build and all 15 CTest targets passed | Headless offscreen software; compact/comfortable captures inspected | Synthetic pen, eraser, mouse and touch delivery in `tst_stylus_handler`; no physical tablet run | Existing installed package consumer configured, built and loaded QML; it still inherits `QuickPrivate` | Verified only for these paths |
-| Gentoo Linux, isolated Qt 6.8.3 SDK | Debug build and all 15 CTest targets passed with optional QindaQt desktop bridge disabled | Headless offscreen software and example instantiation passed | Synthetic pen, eraser, mouse and touch test passed; no physical tablet run | New facade/staged consumer not run yet | Baseline verified; WP-005 boundary gate open |
+| Gentoo Linux, Qt 6.11.1 | Debug integration build, 15/15 CTest targets and `all_qmllint` target passed | Headless offscreen software; focused SectionHeader compact/comfortable captures inspected | Synthetic pen, eraser, mouse and touch delivery in `tst_stylus_handler`; no physical tablet run | New facade staged, clean consumer configured/built and loaded QML; no private Qt include/link dependency | Verified for these paths |
+| Gentoo Linux, isolated Qt 6.8.3 SDK | Debug build, 15/15 CTest targets and `all_qmllint` target passed; optional QindaQt desktop bridge disabled | Headless offscreen software and example instantiation passed | Synthetic pen, eraser, mouse and touch test passed; no physical tablet run | New facade staged, clean consumer configured/built and loaded QML with SDK library path; no private Qt include/link dependency | Verified for these paths |
 | Gentoo Linux, Qt 6.11.1 on Wayland/GPU | Wayland session and render device present | Direct GPU and multi-monitor behavior not qualified here | Physical pen/assistive devices not qualified | — | Later WP-088/092 gates |
 | Windows and macOS | Not built | Not run | Not run | Not run | No support claim |
 
-The current installed public `stylus_handler.h` derives from a Qt Quick
-private class. `QindaTK::qindatk` consequently exports
-`Qt6::QuickPrivate` today. [D-015](decisions.md#d-015--keep-private-qt-behind-a-public-stylus-facade)
-selects an internal-handler/public-facade boundary. Its effect on the
-installed package must be rechecked after implementation; this matrix does
-not report that pending change as verified.
+The installed public `stylus_handler.h` now exposes a `QObject` facade.
+The Qt private pointer handler lives in its `.cpp`, and `Qt6::QuickPrivate`
+is a private build dependency. The staged package's CMake config and target
+do not export it; both consumer compiler commands omit private Qt include
+paths. [D-015](decisions.md#d-015--keep-private-qt-behind-a-public-stylus-facade)
+records the boundary and migration.
 
 ## Isolated Qt 6.8 test environment
 
@@ -63,5 +62,8 @@ package layout.
 The facade changes the pre-1.0 C++ class ABI. Applications using the C++
 handler must rebuild; code that upcasts to its old private pointer-handler
 base or subclasses it must migrate to the public facade and its signals.
-Existing QML sample-stream usage is the compatibility target, subject to
-the WP-005 regressions.
+Existing QML sample-stream usage is retained by the tested facade. The
+inherited `dragThreshold` and `cursorShape` properties of the former private
+base are not proxied. Code using them must migrate, as must C++ casts to the
+former base. Physical tablet and native assistive behavior remain separate
+qualification work.

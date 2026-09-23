@@ -132,13 +132,13 @@ value/from/to/step/presets and zoomIn/zoomOut/reset produce valueModified and re
 
 C++ pen and mouse-fallback gesture stream for custom canvases.
 
-**Source:** [src/core/stylus_handler.h](../../../src/core/stylus_handler.h) · **Base:** `QQuickPointerDeviceHandler` · **Kind:** C++ type.
+**Source:** [src/core/stylus_handler.h](../../../src/core/stylus_handler.h) · **Base:** `QObject` with `QQmlParserStatus` · **Kind:** C++ type.
 
-position/pressure/tiltX/tiltY/rotation/pointerType/buttons expose the latest sample. began/moved/ended deliver stylusSample values; inherited canceled handles lost grabs. Mouse pressure defaults 0.6, touch is excluded, synthesized tablet mouse duplicates are rejected. Uses Qt Quick private API; no brush engine, smoothing or retained stroke model is included.
+position/pressure/tiltX/tiltY/rotation/pointerType/buttons expose the latest sample. began/moved/ended deliver stylusSample values; canceled and grabChanged forward the internal handler's state. Mouse pressure defaults 0.6, touch is excluded, synthesized tablet mouse duplicates are rejected. The installed facade uses public Qt headers; its implementation uses Qt Quick private API. It includes no brush engine, smoothing or retained stroke model. Direct C++ construction with a QQuickItem parent attaches immediately; QML construction attaches when the component completes.
 
-**Declared members:** `position: QPointF` (ro), `pressure: qreal` (ro), `tiltX: qreal` (ro), `tiltY: qreal` (ro), `rotation: qreal` (ro), `pointerType: QString` (ro), `buttons: int` (ro), `mousePressure: qreal`.
+**Declared members:** `parent: QQuickItem`, `target: QQuickItem`, `enabled: bool`, `active: bool` (ro), `position: QPointF` (ro), `pressure: qreal` (ro), `tiltX: qreal` (ro), `tiltY: qreal` (ro), `rotation: qreal` (ro), `pointerType: QString` (ro), `buttons: int` (ro), `mousePressure: qreal`, `acceptedDevices`, `acceptedPointerTypes`, `acceptedButtons`, `acceptedModifiers`, `margin`, `grabPermissions`. Former inherited `dragThreshold` and `cursorShape` are not proxied.
 
-**Declared signals:** `began(const QindaTK::StylusSample &sample)`, `moved(const QindaTK::StylusSample &sample)`, `ended(const QindaTK::StylusSample &sample)`, `sampleChanged()`, `mousePressureChanged()`.
+**Declared signals:** `began(const QindaTK::StylusSample &sample)`, `moved(const QindaTK::StylusSample &sample)`, `ended(const QindaTK::StylusSample &sample)`, `canceled(const QEventPoint &point)`, `grabChanged(...)`, `sampleChanged()`, `mousePressureChanged()` and property change signals.
 
 **Coverage pointers:** [tst_stylus_handler.cpp](../../../tests/cpp/tst_stylus_handler.cpp).
 

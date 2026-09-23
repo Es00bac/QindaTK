@@ -18,9 +18,9 @@ Between configure and run, read `portageq envvar MAKEOPTS`, then build with
 machine's configured job and load values. Do not override `MAKEOPTS` or
 reduce the limits.
 
-The fixture demonstrates the public dependency contract as currently
-installed: the exported CMake target carries `Qt6::QuickPrivate` transitively,
-and the public header includes QtQuick's private
-`qquickpointerdevicehandler_p.h`. It is a compatibility exposure, not a
-promise that Qt's private API is stable. The result is specific to the Qt
-version reported by `qmake6 -query QT_VERSION` on the machine running it.
+The fixture tests the installed public boundary: the exported CMake target
+and public header must not expose `Qt6::QuickPrivate` or Qt Quick private
+include paths. The [WP-005 evidence](../../../docs/universal-toolkit/implementation/evidence/WP-005.md)
+records independent staged runs with Qt 6.8.3 and 6.11.1. When running
+against an isolated SDK beside another host Qt, set `LD_LIBRARY_PATH` to
+that SDK's `lib` directory so transitive Qt modules resolve consistently.

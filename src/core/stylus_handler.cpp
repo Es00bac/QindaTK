@@ -156,9 +156,14 @@ private:
     QPointer<StylusHandler> m_facade;
 };
 
-StylusHandler::StylusHandler(QObject *parent)
-    : QObject(parent)
+StylusHandler::StylusHandler(QQuickItem *parent)
+    : QObject(parent), m_parentItem(parent), m_componentComplete(parent != nullptr)
 {
+    // QML's default construction attaches at componentComplete; direct C++
+    // construction with an item must register its backend immediately.
+    if (parent) {
+        ensureInputHandler();
+    }
 }
 
 StylusHandler::~StylusHandler()

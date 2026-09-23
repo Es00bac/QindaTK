@@ -18,9 +18,8 @@ option(QINDATK_BUILD_EXAMPLES "Build the gallery and studio-shell examples" ON)
 option(QINDATK_BUILD_TOOLS "Build qtk-preview (headless render/dump tool)" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg)
-# AGENT-NOTE: QuickPrivate currently serves layout_info.cpp (anchor/explicit
-# size detection) and StylusHandler's raw tablet event path (D-013). The
-# installed stylus header still exposes a private Qt base until WP-005.
+# AGENT-NOTE: QuickPrivate serves layout_info.cpp (anchor/explicit size
+# detection) and StylusHandler's implementation-only tablet event path (D-015).
 # Official Qt SDKs define Qt6::QuickPrivate from the Qt6Quick package;
 # distro Qt packages may instead provide a separate Qt6QuickPrivate config.
 set(QT_NO_PRIVATE_MODULE_WARNING ON)

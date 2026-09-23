@@ -149,9 +149,10 @@ window's relayout. `Tk.Viewport`, `Tk.MessageDialog`, `Tk.PromptDialog`,
 `Tk.MenuItem.radio` and `Tk.Dialog.tertiaryText` complete the set; the
 office command icons were added to the curated Lucide list, which is now
 regenerated from the `lucide-react` npm tarball's `.mjs` modules.
-**Consequences.** A C++ user of `<qindatk/stylus_handler.h>` needs the
-private include path (`QindaTK::qindatk` carries it). `examples/office-shell`
-is the smoke test for the whole set.
+**Consequences at the time.** A C++ user of `<qindatk/stylus_handler.h>`
+needed the private include path. D-015 subsequently moved that dependency
+behind the public facade. `examples/office-shell` is the smoke test for the
+whole set.
 
 
 ## D-014 — Telemetry draws twice, and a ramp is a theme role
@@ -205,8 +206,8 @@ versioned private headers and `Qt6::QuickPrivate` to every C++ consumer of
 `QQuickItem::event()` override and the standard QML PointHandler did not
 provide raw pressure/tilt in the Qt 6.11.1 platform-event probe recorded by
 D-013. [Qt 6.8's input-handler documentation](https://doc.qt.io/qt-6.8/qtquickhandlers-index.html)
-describes item-owned handlers and grab permissions; exact behavior still
-needs a real 6.8 build and run.
+describes item-owned handlers and grab permissions. The subsequent Qt 6.8.3
+build and run are recorded in [WP-005 evidence](universal-toolkit/implementation/evidence/WP-005.md).
 
 **Decision.** Retain the raw event receiver as an internal
 `QQuickPointerDeviceHandler` subclass. Export a `QObject` and
@@ -231,7 +232,9 @@ development version. Only actual build/run and installed-consumer results
 qualify either target; source inspection alone does not.
 
 **Consequences.** D-013 remains the historical reason for raw tablet
-delivery. WP-005 owns the facade implementation, QML/C++ consumer test,
-Qt-version matrix and migration notes. The rest of the toolkit continues
-to use `LayoutInfo`'s private implementation internally. Public API
-stability for the new facade begins only after those tests pass.
+delivery. WP-005 implemented the facade and passed the QML/C++ consumer
+test on Qt 6.8.3 and 6.11.1. The rest of the toolkit continues to use
+`LayoutInfo`'s private implementation internally. The former inherited
+`dragThreshold` and `cursorShape` properties are not proxied; callers using
+them must migrate. The verified boundary does not imply binary compatibility
+with the prior class or physical-tablet/GPU qualification.

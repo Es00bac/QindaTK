@@ -90,7 +90,7 @@ public:
     Q_DECLARE_FLAGS(GrabPermissions, GrabPermission)
     Q_FLAG(GrabPermissions)
 
-    explicit StylusHandler(QObject *parent = nullptr);
+    explicit StylusHandler(QQuickItem *parent = nullptr);
     ~StylusHandler() override;
 
     void classBegin() override;
@@ -171,7 +171,9 @@ private:
     QPointingDevice::PointerTypes m_acceptedPointerTypes = QPointingDevice::PointerType::Pen
         | QPointingDevice::PointerType::Eraser | QPointingDevice::PointerType::Generic;
     Qt::MouseButtons m_acceptedButtons = Qt::LeftButton | Qt::MiddleButton | Qt::RightButton;
-    Qt::KeyboardModifiers m_acceptedModifiers = Qt::NoModifier;
+    // AGENT-GUARD: Qt's pointer-device handler defaults to all modifiers.
+    // Restricting this to NoModifier would silently drop Shift/Ctrl strokes.
+    Qt::KeyboardModifiers m_acceptedModifiers = Qt::KeyboardModifierMask;
     qreal m_margin = 0.0;
     GrabPermissions m_grabPermissions = GrabPermissions(CanTakeOverFromItems)
         | ApprovesCancellation;

@@ -8,9 +8,9 @@ pieces behind the [101-entry reference](00-type-index.md).
 
 | Piece | Current responsibility | Boundary |
 | --- | --- | --- |
-| [Top-level CMake](../../../CMakeLists.txt) | C++20, Qt 6.8 minimum, Debug/release configuration, optional tests/tools/examples, package config | Declared minimum is not a verified compatibility matrix |
+| [Top-level CMake](../../../CMakeLists.txt) | C++20, Qt 6.8 minimum, Debug/release configuration, optional tests/tools/examples, package config | Linux headless Qt 6.8.3 and 6.11.1 qualification is in the [matrix](../../platform-support.md); other systems/backends require their own gates |
 | [Module CMake](../../../src/CMakeLists.txt) | Shared qindatk library, QindaTK QML module version 1.0, QML/JS resource glob, exported CMake target, install rules | Project version is 0.1.0; module version and project version are distinct |
-| `QindaTK::qindatk` | CMake target for C++ consumers and the backing QML registration library | Public QuickPrivate dependency follows the stylus header |
+| `QindaTK::qindatk` | CMake target for C++ consumers and the backing QML registration library | Private Qt remains inside the library; installed CMake target and headers do not export QuickPrivate |
 | `qindatkplugin` | Main QML plugin, optional for consumers already linking the backing library | Import-path and package installation must still be correct |
 | `qindatk_qindaqt` / plugin | Optional-runtime desktop token bridge | Requires QindaQt.Tokens to import/use the bridge |
 | [Gentoo packaging](../../../packaging/gentoo/dev-libs/qindatk) | Ebuilds/metadata and optional headless test execution | Packaging exists; this audit did not build/install packages |

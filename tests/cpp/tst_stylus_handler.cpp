@@ -68,13 +68,14 @@ class TstStylusHandler final : public QObject {
     }
 
     void tabletSequence(QWindow *window, const QPointingDevice *device, const QPointF &from,
-                        const QPointF &to, qreal pressure, qreal tilt)
+                        const QPointF &to, qreal pressure, qreal tilt,
+                        Qt::KeyboardModifiers modifiers = Qt::NoModifier)
     {
         const auto send = [&](const QPointF &pt, Qt::MouseButtons buttons, qreal p) {
             QWindowSystemInterface::handleTabletEvent(window, device, pt,
                                                       QPointF(window->mapToGlobal(pt.toPoint())),
                                                       buttons, p, tilt, 0.0, 0.0, 0.0, 0,
-                                                      Qt::NoModifier);
+                                                      modifiers);
             QWindowSystemInterface::flushWindowSystemEvents();
             QCoreApplication::processEvents();
         };
@@ -324,6 +325,35 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(&scene->view));
         QVERIFY(scene->handler->grabPermissions().testFlag(StylusHandler::CanTakeOverFromItems));
         QVERIFY(scene->handler->grabPermissions().testFlag(StylusHandler::ApprovesCancellation));
+    }
+
+    void cxxConstructionAttachesImmediately()
+    {
+        QQuickView view;
+        view.resize(400, 300);
+        auto *canvas = new QQuickItem(view.contentItem());
+        canvas->setSize(QSizeF(400, 300));
+        StylusHandler handler(canvas);
+        QCOMPARE(handler.parentItem(), canvas);
+        QCOMPARE(handler.target(), canvas);
+        QVERIFY(!handler.children().size());
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QSignalSpy began(&handler, &StylusHandler::began);
+        tabletSequence(&view, m_stylus, QPointF(100, 100), QPointF(130, 110), 0.8, 0.0);
+        QCOMPARE(began.count(), 1);
+    }
+
+    void modifierKeysDoNotBlockTheDefaultStroke()
+    {
+        auto scene = makeScene();
+        QVERIFY(scene->handler != nullptr);
+        QVERIFY(QTest::qWaitForWindowExposed(&scene->view));
+        QCOMPARE(scene->handler->acceptedModifiers(), Qt::KeyboardModifiers(Qt::KeyboardModifierMask));
+        QSignalSpy began(scene->handler, &StylusHandler::began);
+        tabletSequence(&scene->view, m_stylus, QPointF(100, 100), QPointF(130, 110),
+                       0.8, 0.0, Qt::ShiftModifier);
+        QCOMPARE(began.count(), 1);
     }
 
 };

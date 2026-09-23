@@ -100,7 +100,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-005"></a>
 ## WP-005 — Isolate private Qt dependencies and establish support targets
 
-**Implementation lead:** Sol. **Status:** active; boundary decision in [D-015](../../decisions.md#d-015--keep-private-qt-behind-a-public-stylus-facade), implementation and version checks pending. **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
+**Implementation lead:** Sol. **Status:** accepted for the [verified Linux headless paths](evidence/WP-005.md); D-015 records the boundary and migration. **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
@@ -146,7 +146,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-007"></a>
 ## WP-007 — Harden theme, popup and control interaction behavior
 
-**Implementation lead:** Sol. **Status:** active; see [current-control inventory](evidence/WP-007-inventory.md), with F04 repairs in progress. **Depends on:** [WP-002](phase-00-baseline.md#wp-002), [WP-003](phase-00-baseline.md#wp-003)
+**Implementation lead:** Sol. **Status:** active; [current-control inventory](evidence/WP-007-inventory.md) and [integrated F04 repair progress](evidence/WP-007-progress.md). **Depends on:** [WP-002](phase-00-baseline.md#wp-002), [WP-003](phase-00-baseline.md#wp-003)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

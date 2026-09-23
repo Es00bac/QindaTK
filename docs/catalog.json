@@ -4991,10 +4991,23 @@
           "readonly": false,
           "defaultProperty": true,
           "required": false
+        },
+        {
+          "name": "canToggle",
+          "type": "bool",
+          "default": "collapsible && enabled",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
-      "methods": [],
+      "methods": [
+        {
+          "name": "toggle",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -6163,6 +6176,38 @@
           "required": false
         },
         {
+          "name": "minimumValue",
+          "type": "real",
+          "default": "root.originUnits",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumValue",
+          "type": "real",
+          "default": "root.originUnits",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value",
+          "type": "real",
+          "default": "root.playheadUnits < 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stepSize",
+          "type": "real",
+          "default": "1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "formatUnit",
           "type": "var",
           "default": "function(units) {",
@@ -6193,7 +6238,12 @@
           "parameters": "real units"
         }
       ],
-      "methods": [],
+      "methods": [
+        {
+          "name": "scrubTo",
+          "parameters": "units"
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -8253,12 +8303,40 @@
     {
       "name": "StylusHandler",
       "kind": "cpp",
-      "base": "QQuickPointerDeviceHandler",
-      "description": "",
+      "base": "QObject",
+      "description": "Public, private-API-free proxy for the Qt pointer-device implementation. The implementation is parented to the QQuickItem, never to this QObject.",
       "singleton": false,
       "attached": null,
       "file": "src/core/stylus_handler.h",
       "properties": [
+        {
+          "name": "parent",
+          "type": "QQuickItem *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "target",
+          "type": "QQuickItem *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
         {
           "name": "position",
           "type": "QPointF",
@@ -8311,6 +8389,48 @@
         {
           "name": "mousePressure",
           "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "acceptedDevices",
+          "type": "QInputDevice::DeviceTypes",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "acceptedPointerTypes",
+          "type": "QPointingDevice::PointerTypes",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "acceptedButtons",
+          "type": "Qt::MouseButtons",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "acceptedModifiers",
+          "type": "Qt::KeyboardModifiers",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "margin",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "grabPermissions",
+          "type": "GrabPermissions",
           "default": "",
           "readonly": false,
           "constant": false
