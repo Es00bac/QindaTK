@@ -9,12 +9,17 @@ import QindaTK as Tk
 // on the label or the field changes the value by `scrubSensitivity` units
 // per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel
 // steps. `value` is always clamped to [from, to] and rounded to `decimals`.
-// `valueModified(value)` fires for user edits only; a programmatic
-// `value = x` is silent. objectNames: "numberInput", "numberLabel".
+// `defaultValue`/`reset()` provide explicit reset semantics; mixed state is
+// resolved only by a valid user commit. Invalid drafts stay visible and
+// `inputInvalid` reports them. `valueModified(value)` fires for user edits
+// and reset, while a programmatic `value = x` is silent. objectNames:
+// "numberInput", "numberLabel".
 T.Control {
     id: control
 
     property real value: 0
+    property real defaultValue: 0
+    property bool mixed: false
     property real from: -1e9
     property real to: 1e9
     property real stepSize: 1
@@ -32,9 +37,12 @@ T.Control {
     property string tooltip: ""
     readonly property alias inputItem: input
     readonly property bool editing: input.activeFocus
+    readonly property bool inputInvalid: _invalidDraft
 
     signal valueModified(real value)
     signal editingFinished()
+
+    property bool _invalidDraft: false
 
     readonly property real controlHeight: small ? Tk.Theme.size.controlSm : Tk.Theme.size.control
     readonly property real edgePadding: Tk.Theme.space.sm + 2
@@ -49,8 +57,12 @@ T.Control {
     }
     // User-driven change: clamps, assigns, emits.
     function commit(v) {
+        if (!control.editable || !control.enabled) return
         const next = control.clamp(v)
-        if (next !== control.value) {
+        const wasMixed = control.mixed
+        control.mixed = false
+        control._invalidDraft = false
+        if (next !== control.value || wasMixed) {
             control.value = next
             control.valueModified(next)
         }
@@ -69,15 +81,27 @@ T.Control {
         }
     }
     function syncText() {
-        input.text = control.format(control.value)
+        input.text = control.mixed ? "" : control.format(control.value)
     }
     function applyInput() {
-        const parsed = Number(input.text.replace(",", "."))
-        if (isNaN(parsed)) {
+        if (!control.editable || !control.enabled) {
             control.syncText()
             return
         }
+        const parsed = Number(input.text.replace(",", "."))
+        if (input.text.trim().length === 0 || isNaN(parsed) || !isFinite(parsed)) {
+            control._invalidDraft = true
+            return
+        }
         control.commit(parsed)
+        control.syncText()
+    }
+    // Explicit user reset operation: unlike assigning `value`, this reports
+    // a valueModified signal when it changes the effective value.
+    function reset() {
+        if (!control.editable || !control.enabled) return
+        control._invalidDraft = false
+        control.commit(control.defaultValue)
         control.syncText()
     }
 
@@ -90,6 +114,10 @@ T.Control {
         if (!control.editing || !control.live) {
             control.syncText()
         }
+    }
+    onMixedChanged: {
+        if (mixed) _invalidDraft = false
+        syncText()
     }
     onDecimalsChanged: syncText()
     Component.onCompleted: {
@@ -111,7 +139,9 @@ T.Control {
 
     Accessible.role: Accessible.SpinBox
     Accessible.name: control.tooltip.length > 0 ? control.tooltip : control.label
-    Accessible.description: control.error ? qsTr("Error") : ""
+    Accessible.description: control.inputInvalid ? qsTr("Invalid value")
+                             : control.mixed ? qsTr("Multiple values")
+                             : control.error ? qsTr("Error") : ""
 
     Tk.ToolTip {
         text: control.tooltip
@@ -125,7 +155,7 @@ T.Control {
         radius: Tk.Theme.radius.sm
         color: Tk.Theme.color.inputBg
         border.width: Tk.Theme.size.border
-        border.color: control.error ? Tk.Theme.color.danger
+        border.color: control.error || control.inputInvalid ? Tk.Theme.color.danger
                     : control.editing ? Tk.Theme.color.inputFocusBorder
                     : control.hovered || scrubHandler.active ? Tk.Theme.color.controlHoverBorder
                     : Tk.Theme.color.inputBorder
@@ -137,7 +167,7 @@ T.Control {
             radius: parent.radius + 1
             color: "transparent"
             border.width: Tk.Theme.size.focusRing
-            border.color: control.error ? Tk.Theme.alpha(Tk.Theme.color.danger, 0.4) : Tk.Theme.color.focus
+            border.color: control.error || control.inputInvalid ? Tk.Theme.alpha(Tk.Theme.color.danger, 0.4) : Tk.Theme.color.focus
             visible: control.editing
         }
     }
@@ -147,7 +177,7 @@ T.Control {
     // control before its z -1 background and a tap parented there is lost.
     Item {
         id: stepColumn
-        visible: control.stepButtons && control.enabled && (control.hovered || control.editing)
+        visible: control.stepButtons && control.enabled && control.editable && (control.hovered || control.editing)
         width: Tk.Theme.size.iconSm + Tk.Theme.space.xs
         z: 1
         anchors.right: parent.right
@@ -242,29 +272,51 @@ T.Control {
             font.family: Tk.Theme.font.monoFamily
             font.pixelSize: control.small ? Tk.Theme.font.small : Tk.Theme.font.body
             renderType: Text.NativeRendering
+            property bool draftEdited: false
             readOnly: !control.editable || !control.enabled
             selectByMouse: true
             activeFocusOnTab: control.editable
             clip: true
             onActiveFocusChanged: {
                 if (activeFocus) {
+                    draftEdited = false
                     selectAll()
                 } else {
-                    control.applyInput()
+                    if (draftEdited) control.applyInput()
+                    draftEdited = false
                     control.editingFinished()
                 }
             }
             onAccepted: {
                 control.applyInput()
+                draftEdited = false
                 selectAll()
             }
-            onTextEdited: if (control.live) {
-                const parsed = Number(text.replace(",", "."))
-                if (!isNaN(parsed)) control.commit(parsed)
+            onTextEdited: {
+                draftEdited = true
+                if (control.live) {
+                    const trimmed = text.trim()
+                    const parsed = Number(text.replace(",", "."))
+                    if (trimmed.length > 0 && isFinite(parsed)) control.commit(parsed)
+                    else control._invalidDraft = true
+                }
             }
-            Keys.onUpPressed: function(event) { control.step(1, event.modifiers); event.accepted = true }
-            Keys.onDownPressed: function(event) { control.step(-1, event.modifiers); event.accepted = true }
-            Keys.onEscapePressed: function(event) { control.syncText(); selectAll(); event.accepted = true }
+            Keys.onUpPressed: function(event) { if (control.editable && control.enabled) control.step(1, event.modifiers); event.accepted = true }
+            Keys.onDownPressed: function(event) { if (control.editable && control.enabled) control.step(-1, event.modifiers); event.accepted = true }
+            Keys.onEscapePressed: function(event) { draftEdited = false; control._invalidDraft = false; control.syncText(); selectAll(); event.accepted = true }
+        }
+        Text {
+            x: input.x
+            y: input.y
+            width: input.width
+            height: input.height
+            visible: control.mixed
+            text: qsTr("Mixed")
+            color: Tk.Theme.color.textMuted
+            font.family: Tk.Theme.font.monoFamily
+            font.pixelSize: control.small ? Tk.Theme.font.small : Tk.Theme.font.body
+            verticalAlignment: Text.AlignVCenter
+            renderType: Text.NativeRendering
         }
         Tk.Caption {
             id: suffixText
@@ -281,14 +333,14 @@ T.Control {
     // scrubs too unless it is being edited.
     HoverHandler {
         id: scrubHover
-        enabled: control.scrub && control.enabled
+        enabled: control.scrub && control.enabled && control.editable
         cursorShape: (labelText.visible && labelText.contains(labelText.mapFromItem(control, point.position)))
                      || !control.editing ? Qt.SizeHorCursor : Qt.IBeamCursor
     }
     DragHandler {
         id: scrubHandler
         target: null
-        enabled: control.scrub && control.enabled && !control.editing
+        enabled: control.scrub && control.enabled && control.editable && !control.editing
         acceptedButtons: Qt.LeftButton
         xAxis.enabled: true
         yAxis.enabled: false
@@ -312,7 +364,7 @@ T.Control {
     }
     WheelHandler {
         acceptedModifiers: Qt.ControlModifier
-        enabled: control.enabled
+        enabled: control.enabled && control.editable
         onWheel: function(event) {
             control.step(event.angleDelta.y > 0 ? 1 : -1, event.modifiers & ~Qt.ControlModifier)
         }

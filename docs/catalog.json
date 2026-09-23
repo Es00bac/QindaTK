@@ -3518,7 +3518,7 @@
       "name": "NumberField",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/controls.md): the inspector number field. 24px (small 20), mono digits, optional inline `label` (\"W\"), `prefix`/`suffix` readouts, ▲▼ step buttons on hover, and scrubbing: dragging horizontally on the label or the field changes the value by `scrubSensitivity` units per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel steps. `value` is always clamped to [from, to] and rounded to `decimals`. `valueModified(value)` fires for user edits only; a programmatic `value = x` is silent. objectNames: \"numberInput\", \"numberLabel\".",
+      "description": "AGENT-CONTRACT (docs/controls.md): the inspector number field. 24px (small 20), mono digits, optional inline `label` (\"W\"), `prefix`/`suffix` readouts, ▲▼ step buttons on hover, and scrubbing: dragging horizontally on the label or the field changes the value by `scrubSensitivity` units per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel steps. `value` is always clamped to [from, to] and rounded to `decimals`. `defaultValue`/`reset()` provide explicit reset semantics; mixed state is resolved only by a valid user commit. Invalid drafts stay visible and `inputInvalid` reports them. `valueModified(value)` fires for user edits and reset, while a programmatic `value = x` is silent. objectNames: \"numberInput\", \"numberLabel\".",
       "singleton": false,
       "attached": null,
       "file": "src/qml/NumberField.qml",
@@ -3527,6 +3527,22 @@
           "name": "value",
           "type": "real",
           "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "defaultValue",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mixed",
+          "type": "bool",
+          "default": "false",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -3668,6 +3684,14 @@
           "required": false
         },
         {
+          "name": "inputInvalid",
+          "type": "bool",
+          "default": "_invalidDraft",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "controlHeight",
           "type": "real",
           "default": "small ? Tk.Theme.size.controlSm : Tk.Theme.size.control",
@@ -3717,6 +3741,10 @@
         },
         {
           "name": "applyInput",
+          "parameters": ""
+        },
+        {
+          "name": "reset",
           "parameters": ""
         }
       ],

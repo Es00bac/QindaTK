@@ -39,6 +39,8 @@ TestCase {
     Component { id: search; Tk.SearchField { debounce: 0 } }
     Component { id: textArea; Tk.TextArea { rows: 3; width: 200 } }
     Component { id: number; Tk.NumberField { value: 50; from: 0; to: 100; stepSize: 5 } }
+    Component { id: numberMixed; Tk.NumberField { value: 40; defaultValue: 25; mixed: true; from: 0; to: 100 } }
+    Component { id: numberReadOnly; Tk.NumberField { value: 50; from: 0; to: 100; editable: false } }
     Component { id: numberSmall; Tk.NumberField { small: true } }
     Component {
         id: numberDecorated
@@ -234,6 +236,81 @@ TestCase {
         keyClick(Qt.Key_2)
         keyClick(Qt.Key_Return)
         compare(item.value, 72)
+    }
+
+    function test_numberfield_reset_and_programmatic_notifications() {
+        const item = make(number)
+        item.defaultValue = 20
+        spy.target = item
+        spy.signalName = "valueModified"
+        spy.clear()
+        item.value = 70
+        compare(spy.count, 0)
+        item.reset()
+        compare(item.value, 20)
+        compare(spy.count, 1)
+        compare(spy.signalArguments[0][0], 20)
+        item.value = 30
+        compare(spy.count, 1)
+    }
+
+    function test_numberfield_mixed_and_invalid_drafts() {
+        const item = make(numberMixed)
+        const input = findChild(item, "numberInput")
+        verify(input !== null)
+        spy.target = item
+        spy.signalName = "valueModified"
+        spy.clear()
+        verify(item.mixed)
+        compare(input.text, "")
+        input.forceActiveFocus()
+        input.focus = false
+        compare(item.value, 40)
+        verify(item.mixed)
+
+        input.forceActiveFocus()
+        keyClick(Qt.Key_7)
+        keyClick(Qt.Key_Return)
+        compare(item.value, 7)
+        verify(!item.mixed)
+        verify(!item.inputInvalid)
+        compare(spy.count, 1)
+
+        item.value = 40
+        item.mixed = true
+        input.forceActiveFocus()
+        keyClick(Qt.Key_4)
+        keyClick(Qt.Key_0)
+        keyClick(Qt.Key_Return)
+        compare(item.value, 40)
+        verify(!item.mixed)
+        compare(spy.count, 2)
+
+        input.selectAll()
+        keyClick(Qt.Key_X)
+        keyClick(Qt.Key_Return)
+        verify(item.inputInvalid)
+        compare(input.text, "x")
+        keyClick(Qt.Key_Escape)
+        verify(!item.inputInvalid)
+        compare(input.text, "40")
+    }
+
+    function test_numberfield_readonly_and_disabled_reject_edits() {
+        const item = make(numberReadOnly)
+        spy.target = item
+        spy.signalName = "valueModified"
+        spy.clear()
+        item.step(1, 0)
+        item.forceActiveFocus()
+        keyClick(Qt.Key_Up)
+        compare(item.value, 50)
+        compare(spy.count, 0)
+        item.editable = true
+        item.enabled = false
+        item.step(1, 0)
+        compare(item.value, 50)
+        compare(spy.count, 0)
     }
 
     function test_numberfield_inline_text_is_visible() {
