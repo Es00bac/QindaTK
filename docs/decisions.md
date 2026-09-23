@@ -194,3 +194,43 @@ offscreen platform advertises no OpenGL, so QtQuick picks software on its own.
 `graph_raster.h` says so, and the two are compared by grabbing the same scene
 with and without `--gpu`. `tst_telemetry` pins the ring-buffer ordering, ramp
 interpolation, and the rule that no preset may collapse a ramp's ends.
+
+## D-015 — Keep private Qt behind a public stylus facade
+
+**Context.** D-013's installed `stylus_handler.h` derives from
+`QQuickPointerDeviceHandler`, a Qt Quick private class. This exposes
+versioned private headers and `Qt6::QuickPrivate` to every C++ consumer of
+`QindaTK::qindatk`. `LayoutInfo` already keeps its private Qt use inside a
+`.cpp`; stylus input is the remaining installed-header leak. A public
+`QQuickItem::event()` override and the standard QML PointHandler did not
+provide raw pressure/tilt in the Qt 6.11.1 platform-event probe recorded by
+D-013. Qt 6.8's public handler documentation describes item-owned handlers
+and grab permissions; exact behavior still needs a real 6.8 build and run.
+
+**Decision.** Retain the raw event receiver as an internal
+`QQuickPointerDeviceHandler` subclass. Export a `QObject` and
+`QQmlParserStatus` `Tk.StylusHandler` facade whose installed header uses
+public Qt types only. The internal handler is directly parented to its
+`QQuickItem`, because Qt Quick's delivery registration and parent-item
+lookup require an item parent. The facade forwards the sample stream,
+active/cancel state and supported input configuration; QML construction
+attaches the backend after parent resolution. Reparenting and destruction
+must detach safely, and a failed exclusive-grab request must not claim a
+stroke. `Qt6::QuickPrivate` becomes a private build link, and installed
+CMake package configuration no longer asks consumers to find it.
+
+**Compatibility.** Existing `Tk.StylusHandler` QML usage and typed
+`StylusSample` signals are intended to continue. C++ code treating
+`StylusHandler` as a `QQuickPointerDeviceHandler`, invoking protected
+handler methods or depending on its private-base enum type must migrate and
+rebuild. This is a source and ABI change in the pre-1.0 toolkit; the facade
+does not claim binary compatibility with the old class. The intended
+version targets are the declared Qt 6.8 minimum and the current Qt 6.11.1
+development version. Only actual build/run and installed-consumer results
+qualify either target; source inspection alone does not.
+
+**Consequences.** D-013 remains the historical reason for raw tablet
+delivery. WP-005 owns the facade implementation, QML/C++ consumer test,
+Qt-version matrix and migration notes. The rest of the toolkit continues
+to use `LayoutInfo`'s private implementation internally. Public API
+stability for the new facade begins only after those tests pass.

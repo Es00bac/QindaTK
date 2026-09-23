@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: WP-001 through WP-004 accepted; WP-005 next.** Sol updates this ledger during
+**Execution state: WP-001 through WP-004 accepted; WP-005 active.** Sol updates this ledger during
 execution. Use `planned`, `ready`, `active`, `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
 record. Keep unrelated ready work moving. A row reaches `accepted` only through
@@ -19,7 +19,7 @@ as though a later fix had already passed the earlier run.
 | [WP-002 — Resolve the three source behavior findings](phase-00-baseline.md#wp-002) | 00 | Luna | accepted | [F01–F03 integrated; 15/15 tests](evidence/WP-002.md) |
 | [WP-003 — Repair layout, token and documentation drift](phase-00-baseline.md#wp-003) | 00 | Luna | accepted | [F05/F06/DOC-01 integrated; 15/15 tests](evidence/WP-003.md) |
 | [WP-004 — Make the catalog a reliable API inventory](phase-00-baseline.md#wp-004) | 00 | Luna | accepted | [101-entry catalog and generator evidence](evidence/WP-004.md) |
-| [WP-005 — Isolate private Qt dependencies and establish support targets](phase-00-baseline.md#wp-005) | 00 | Sol | planned | — |
+| [WP-005 — Isolate private Qt dependencies and establish support targets](phase-00-baseline.md#wp-005) | 00 | Sol | active | [Boundary decision D-015](../../decisions.md#d-015--keep-private-qt-behind-a-public-stylus-facade); installed-consumer baseline in `tests/consumer/stylus` |
 | [WP-006 — Complete layout and scrolling contracts](phase-00-baseline.md#wp-006) | 00 | Sol | planned | — |
 | [WP-007 — Harden theme, popup and control interaction behavior](phase-00-baseline.md#wp-007) | 00 | Sol | planned | — |
 | [WP-010 — Define typed cross-layer contracts and capability discovery](phase-01-services.md#wp-010) | 01 | Sol | planned | — |

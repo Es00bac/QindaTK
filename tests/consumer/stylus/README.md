@@ -10,12 +10,13 @@ Build and run from the repository root:
 
 ```sh
 cmake -S tests/consumer/stylus -B build/consumer-stylus -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build/consumer-stylus
 QT_QPA_PLATFORM=offscreen build/consumer-stylus/qindatk_stylus_consumer
 ```
 
-For direct Ninja invocations, read the configured job/load limits with
-`portageq envvar MAKEOPTS` and pass the returned values unchanged.
+Between configure and run, read `portageq envvar MAKEOPTS`, then build with
+`ninja -C build/consumer-stylus -jN -lL`, replacing `N` and `L` with that
+machine's configured job and load values. Do not override `MAKEOPTS` or
+reduce the limits.
 
 The fixture demonstrates the public dependency contract as currently
 installed: the exported CMake target carries `Qt6::QuickPrivate` transitively,

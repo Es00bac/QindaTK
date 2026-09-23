@@ -100,7 +100,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-005"></a>
 ## WP-005 — Isolate private Qt dependencies and establish support targets
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
+**Implementation lead:** Sol. **Status:** active; boundary decision in [D-015](../../decisions.md#d-015--keep-private-qt-behind-a-public-stylus-facade), implementation and version checks pending. **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
