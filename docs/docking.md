@@ -176,6 +176,8 @@ geometry remain unchanged. Corners occupy the ends of each edge target, so
 edge and corner hit regions meet without overlapping. The handles expose
 named `Accessible.Splitter` actions, a visible focus outline, arrow-key
 resizing along their applicable axes, and accessible increase/decrease.
+Increase grows the applicable dimensions from either side; decrease shrinks
+them. Arrow keys move the selected edge in the pressed direction.
 All accepted input routes call `DockModel.setFloatingRect` and honor the
 panel's minimum size. On panels smaller than the target layout, corner targets
 shrink to at most half the frame's width and height; an edge handle whose

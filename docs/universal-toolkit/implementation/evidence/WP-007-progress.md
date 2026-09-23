@@ -114,8 +114,16 @@ FND-07 through FND-10.
   [Focused evidence](WP-007-FIX-F04-list-row.md).
 - `ComboBox` now exposes selected popup rows and fits a long, text-scaled
   list above or below a control in a small host. Keyboard and pointer choice
-  emit `activated`, while owner index assignments remain silent.
+  emit `activated`, while owner index assignments remain silent. Editable
+  text has a separate validator-gated `accepted` submission; owner `editText`
+  updates do not synthesize either user signal.
   [Focused evidence](WP-007-FND-09-combo-box.md).
+- `Menu` now caps its natural height to the anchor screen's available work
+  area through a public-Qt observer, with live anchor/window/screen updates
+  and no DPR multiplication. Synthetic two-screen and work-area-change tests
+  pass on both supported Qt versions. Physical mixed-monitor compositor
+  behavior remains a WP-092 qualification.
+  [Focused evidence](WP-007-FND-09-monitor.md).
 - `ZoomControl`'s percentage readout is now keyboard focusable and exposes a
   guarded accessible reset action. Owner zoom synchronization stays silent;
   disabled user operations are ignored.
@@ -160,7 +168,9 @@ FND-07 through FND-10.
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,
   applicability of mixed/default/invalid states, focus and assistive paths
-  for later controls. The current-control audit is still in progress.
+  for later controls. The [current-control applicability audit](WP-007-FND-10-applicability.md)
+  maps reset, mixed, invalid, read-only, disabled, notification and accessible
+  behavior across the published control families.
 
 ## Verification
 
@@ -222,16 +232,13 @@ popover visible at the lower-right boundary.
 
 ## Still open
 
-Audit the remaining custom composites for F04, including native assistive
-bridge semantics where applicable. FND-07 still requires broad high-contrast,
-text-scale and hit-target workflow coverage;
+Audit remaining custom-composite operations for F04; native assistive bridge
+delivery remains WP-092 platform qualification. FND-07 still requires broad
+high-contrast, text-scale and hit-target workflow coverage;
 [D-016](../../../decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
 records the conditional FND-08 decision to retain process-wide theming;
-FND-09 requires monitor/work-area and dynamic ComboBox popup qualification;
-[the monitor gap audit](WP-007-FND-09-monitor.md) identifies the per-screen
-geometry bridge and native two-screen check still needed;
-FND-10 requires uniform
-editing state and notification contracts across remaining controls; the
-[current-control applicability audit](WP-007-FND-10-applicability.md) maps
-the catalog families and remaining qualification. No
-WP-007 acceptance is claimed.
+FND-09 has a per-screen source contract and dynamic ComboBox popup coverage,
+while physical two-screen placement remains WP-092 platform work;
+FND-10's [applicability audit](WP-007-FND-10-applicability.md) records the
+remaining owner policies and native qualifications. No WP-007 acceptance is
+claimed.

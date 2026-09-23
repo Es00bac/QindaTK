@@ -92,6 +92,16 @@ TestCase {
         keyClick(Qt.Key_Left)
         tryCompare(frame, "width", afterAccessible - Tk.Theme.space.lg)
         compare(frame.x, 180)
+
+        const left = findItem(host, "dockFloatingResize_float_left")
+        const beforeLeft = frame.width
+        const beforeX = frame.x
+        left.Accessible.increaseAction()
+        tryCompare(frame, "width", beforeLeft + Tk.Theme.space.lg)
+        compare(frame.x, beforeX - Tk.Theme.space.lg)
+        left.Accessible.decreaseAction()
+        tryCompare(frame, "width", beforeLeft)
+        compare(frame.x, beforeX)
     }
 
     function test_minimum_size_keeps_corner_targets_disjoint() {

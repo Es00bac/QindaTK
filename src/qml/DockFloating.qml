@@ -189,8 +189,8 @@ Item {
                 Accessible.description: qsTr("Arrow keys resize this floating panel. Increase and decrease adjust its size.")
                 Accessible.focusable: handle.enabled && handle.visible
                 Accessible.focused: handle.activeFocus
-                Accessible.onIncreaseAction: handle.resizeBy(1, 1)
-                Accessible.onDecreaseAction: handle.resizeBy(-1, -1)
+                Accessible.onIncreaseAction: handle.resizeBy(handle.ex, handle.ey)
+                Accessible.onDecreaseAction: handle.resizeBy(-handle.ex, -handle.ey)
                 enabled: edgeTargetFits
 
                 function resizeBy(horizontal, vertical) {
