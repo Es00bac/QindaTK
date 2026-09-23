@@ -14,9 +14,11 @@ T.Control {
     property var selectedStopId: null
     property string tooltip: qsTr("Gradient stops")
     property real trackInset: Tk.Theme.size.iconSm
+    property real keyboardStep: 0.01
 
     readonly property bool dragging: drag.active
-    readonly property var previewStop: drag.active ? drag.snapshot : null
+    readonly property var previewStop: drag.active && drag.snapshot !== null
+        ? ({ id: drag.snapshot.id, position: drag.position, color: drag.snapshot.color }) : null
 
     signal selectionRequested(var stopId)
     signal addStopRequested(real position)
@@ -40,8 +42,9 @@ T.Control {
     function stopAt(x, y) {
         let best = null
         let distance = Tk.Theme.size.controlSm
-        for (let i = 0; i < stops.length; ++i) {
-            const s = stops[i]
+        const source = stops || []
+        for (let i = 0; i < source.length; ++i) {
+            const s = source[i]
             const sx = trackInset + s.position * (width - 2 * trackInset)
             const d = Math.hypot(x - sx, y - handleY)
             if (d <= distance) {
@@ -50,6 +53,21 @@ T.Control {
             }
         }
         return best
+    }
+
+    function nudgeStop(id, delta) {
+        const source = stops || []
+        for (let i = 0; i < source.length; ++i) {
+            const stop = source[i]
+            if (String(stop.id) !== String(id)) continue
+            const next = Math.max(0, Math.min(1, Number(stop.position) + delta))
+            selectionRequested(id)
+            if (Math.abs(next - Number(stop.position)) <= 0.000001) return false
+            movePreviewRequested(id, next)
+            moveFinished(id, next)
+            return true
+        }
+        return false
     }
 
     function beginDrag(stop, x) {
@@ -78,8 +96,12 @@ T.Control {
         if (!drag.active)
             return
         const id = drag.snapshot.id
-        if (drag.moved)
-            moveFinished(id, drag.position)
+        if (drag.moved) {
+            if (Math.abs(drag.position - drag.snapshot.position) > 0.000001)
+                moveFinished(id, drag.position)
+            else
+                moveCanceled(id)
+        }
         drag.active = false
         drag.snapshot = null
     }
@@ -99,7 +121,7 @@ T.Control {
     Accessible.name: tooltip.length > 0 ? tooltip : qsTr("Gradient stops")
     Accessible.description: drag.active
         ? qsTr("Moving stop to %1 percent").arg(Math.round(drag.position * 100))
-        : qsTr("%1 color stops").arg(stops.length)
+        : qsTr("%1 color stops").arg((stops || []).length)
 
     Tk.ToolTip {
         text: control.tooltip
@@ -126,6 +148,12 @@ T.Control {
                 ctx.reset()
                 const preview = ctx.createLinearGradient(0, 0, width, 0)
                 const source = control.stops || []
+                if (source.length < 2) {
+                    ctx.fillStyle = source.length ? String(source[0].color)
+                                                  : Tk.Theme.color.panel
+                    ctx.fillRect(0, 0, width, height)
+                    return
+                }
                 for (let i = 0; i < source.length; ++i)
                     preview.addColorStop(Math.max(0, Math.min(1, Number(source[i].position))),
                                          String(source[i].color))
@@ -150,7 +178,7 @@ T.Control {
     }
 
     Repeater {
-        model: control.stops
+        model: control.stops || []
         delegate: Rectangle {
             required property var modelData
             objectName: "gradientStop_" + modelData.id
@@ -167,9 +195,25 @@ T.Control {
                 ? Tk.Theme.size.focusRing : Tk.Theme.size.border
             border.color: modelData.id === control.selectedStopId
                 ? Tk.Theme.color.focus : Tk.Theme.color.controlBorder
-            Accessible.role: Accessible.ListItem
+            activeFocusOnTab: true
+            Accessible.role: Accessible.Slider
             Accessible.name: qsTr("Gradient stop at %1 percent").arg(Math.round(modelData.position * 100))
             Accessible.description: qsTr("Color %1").arg(String(modelData.color))
+            Accessible.onIncreaseAction: control.nudgeStop(modelData.id, control.keyboardStep)
+            Accessible.onDecreaseAction: control.nudgeStop(modelData.id, -control.keyboardStep)
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Left || event.key === Qt.Key_Down) {
+                    control.nudgeStop(modelData.id, -control.keyboardStep)
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Right || event.key === Qt.Key_Up) {
+                    control.nudgeStop(modelData.id, control.keyboardStep)
+                    event.accepted = true
+                } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                           || event.key === Qt.Key_Space) {
+                    control.selectionRequested(modelData.id)
+                    event.accepted = true
+                }
+            }
         }
     }
 

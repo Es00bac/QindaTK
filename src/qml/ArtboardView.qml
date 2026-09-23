@@ -12,6 +12,8 @@ Item {
     // Records: { id, rect, name, background }. IDs must remain stable.
     property var boardData: []
     property string activeBoardId: ""
+    // Enable while an artboard tool owns presses within board interiors.
+    property bool captureInterior: false
     property string tooltip: qsTr("Artboards")
     property color frameColor: Tk.Theme.color.controlBorder
     property color activeFrameColor: Tk.Theme.color.accent
@@ -43,6 +45,7 @@ Item {
 
     function validRect(rect) {
         return rect && Number.isFinite(Number(rect.x)) && Number.isFinite(Number(rect.y))
+                && Number.isFinite(Number(rect.width)) && Number.isFinite(Number(rect.height))
                 && Number(rect.width) > 0 && Number(rect.height) > 0
     }
 
@@ -56,8 +59,9 @@ Item {
         const revision = geometryRevision
         if (!surface) return []
         const result = []
-        for (let i = 0; i < boardData.length; ++i) {
-            const board = boardData[i]
+        const boards = boardData || []
+        for (let i = 0; i < boards.length; ++i) {
+            const board = boards[i]
             if (!board || !board.id || !validRect(board.rect)) continue
             const points = documentCorners(board.rect).map(point => {
                 const inSurface = surface.mapFromDocument(point)
@@ -83,14 +87,38 @@ Item {
 
     function boardAt(localPoint) {
         const point = documentPoint(localPoint)
-        for (let i = boardData.length - 1; i >= 0; --i) {
-            const board = boardData[i]
+        const boards = boardData || []
+        for (let i = boards.length - 1; i >= 0; --i) {
+            const board = boards[i]
             if (board && board.id && validRect(board.rect)
-                    && (contains(point, board.rect)
+                    && ((captureInterior && contains(point, board.rect))
+                        || frameHit(board, localPoint)
                         || (String(board.id) === activeBoardId && resizeHit(board, localPoint))))
                 return board
         }
         return null
+    }
+
+    function frameHit(board, localPoint) {
+        const corners = documentCorners(board.rect).map(point => {
+            const inSurface = surface.mapFromDocument(point)
+            return root.mapFromItem(surface, inSurface.x, inSurface.y)
+        })
+        const tolerance = handleSize / 2
+        for (let i = 0; i < corners.length; ++i) {
+            const a = corners[i]
+            const b = corners[(i + 1) % corners.length]
+            const dx = b.x - a.x
+            const dy = b.y - a.y
+            const lengthSquared = dx * dx + dy * dy
+            const t = lengthSquared > 0
+                    ? Math.max(0, Math.min(1, ((localPoint.x - a.x) * dx
+                        + (localPoint.y - a.y) * dy) / lengthSquared)) : 0
+            if (Math.hypot(localPoint.x - a.x - t * dx,
+                           localPoint.y - a.y - t * dy) <= tolerance)
+                return true
+        }
+        return false
     }
 
     function resizeHit(board, localPoint) {
@@ -153,8 +181,8 @@ Item {
                 for (let j = 1; j < points.length; ++j)
                     context.lineTo(points[j].x, points[j].y)
                 context.closePath()
-                context.fillStyle = board.background
-                context.fill()
+                // The board background is document data. The host renderer
+                // paints it below objects; this overlay only paints chrome.
                 context.strokeStyle = board.id === root.activeBoardId
                         ? root.activeFrameColor : root.frameColor
                 context.lineWidth = root.lineWidth
@@ -171,7 +199,7 @@ Item {
     }
 
     Repeater {
-        model: root.boardData
+        model: root.boardData || []
         delegate: Item {
             required property var modelData
             required property int index
@@ -182,6 +210,13 @@ Item {
             Accessible.focusable: true
             Accessible.onPressAction: root.boardActivateRequested(String(modelData.id || ""))
             activeFocusOnTab: true
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                        || event.key === Qt.Key_Space) {
+                    root.boardActivateRequested(String(modelData.id || ""))
+                    event.accepted = true
+                }
+            }
             property var geometry: {
                 const boards = root.boardPolygons
                 for (let i = 0; i < boards.length; ++i)
@@ -234,6 +269,11 @@ Item {
         hoverEnabled: true
         onPressed: function(mouse) {
             const board = root.boardAt(Qt.point(mouse.x, mouse.y))
+            if (!board) {
+                gesture.active = false
+                mouse.accepted = false
+                return
+            }
             gesture.active = true
             gesture.canceled = false
             gesture.dragging = false

@@ -62,7 +62,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-042"></a>
 ## WP-042 — Add artboards, layers and document navigation
 
-**Implementation lead:** Luna. **Status:** active presentation slices ([evidence](evidence/WP-042.md); WP-041 dependency remains open). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041)
+**Implementation lead:** Luna. **Status:** active layer, navigator, alignment and artboard presentation slices ([evidence](evidence/WP-042.md); WP-041 dependency remains open). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041)
 
 **Proposal scope:** [CAN-08 ArtboardView](../proposed/04-canvas-color.md#can-08), [CAN-09 LayerTree](../proposed/04-canvas-color.md#can-09), [CAN-21 AlignDistributePanel](../proposed/04-canvas-color.md#can-21), [CAN-22 NavigatorView](../proposed/04-canvas-color.md#can-22)
 
@@ -81,7 +81,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-043"></a>
 ## WP-043 — Implement document color and curve editing
 
-**Implementation lead:** Sol. **Status:** active presentation slice ([evidence](evidence/WP-043.md); WP-040 dependency in review). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** active curve and gradient presentation slices ([evidence](evidence/WP-043.md); WP-040 dependency in review). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [CAN-11 ColorContext](../proposed/04-canvas-color.md#can-11), [CAN-12 ColorPicker](../proposed/04-canvas-color.md#can-12), [CAN-13 GradientEditor](../proposed/04-canvas-color.md#can-13), [CAN-14 CurveEditor](../proposed/04-canvas-color.md#can-14)
 

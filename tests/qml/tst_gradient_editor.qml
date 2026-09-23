@@ -111,4 +111,39 @@ TestCase {
         compare(deleteSpy.count, 1)
         compare(deleteSpy.signalArguments[0][0], "right")
     }
+
+    function test_focused_stop_nudges_through_preview_and_finish() {
+        const item = make()
+        previewSpy.target = item
+        previewSpy.signalName = "movePreviewRequested"
+        previewSpy.clear()
+        moveFinishSpy.target = item
+        moveFinishSpy.signalName = "moveFinished"
+        moveFinishSpy.clear()
+        const stop = findChild(item, "gradientStop_left")
+        verify(stop !== null)
+        stop.forceActiveFocus()
+        keyClick(Qt.Key_Right)
+        compare(previewSpy.count, 1)
+        compare(moveFinishSpy.count, 1)
+        compare(moveFinishSpy.signalArguments[0][0], "left")
+        fuzzyCompare(moveFinishSpy.signalArguments[0][1], 0.01, 0.0001)
+    }
+
+    function test_returning_to_original_position_cancels_preview() {
+        const item = make()
+        cancelSpy.target = item
+        cancelSpy.signalName = "moveCanceled"
+        cancelSpy.clear()
+        moveFinishSpy.target = item
+        moveFinishSpy.signalName = "moveFinished"
+        moveFinishSpy.clear()
+        const startX = item.trackInset
+        mousePress(item, startX, item.handleY)
+        mouseMove(item, startX + 36, item.handleY, 100)
+        mouseMove(item, startX, item.handleY, 100)
+        mouseRelease(item, startX, item.handleY)
+        compare(cancelSpy.count, 1)
+        compare(moveFinishSpy.count, 0)
+    }
 }

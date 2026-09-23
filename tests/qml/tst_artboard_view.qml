@@ -16,6 +16,8 @@ TestCase {
             width: 520
             height: 340
             property alias view: canvasView
+            property alias document: document
+            property alias tool: toolController
             property alias artboards: artboardView
             property alias activateSpy: activateSignal
             property alias arrangeSpy: arrangeSignal
@@ -23,12 +25,13 @@ TestCase {
             property alias cancelSpy: cancelSignal
             property alias resizeSpy: resizeSignal
             Tk.CanvasDocument { id: document; pageRect: Qt.rect(0, 0, 300, 220) }
-            Tk.ToolController { document: document }
+            Tk.ToolController { id: toolController; document: document }
             Tk.CanvasView {
                 id: canvasView
                 width: 520
                 height: 340
                 document: document
+                toolController: toolController
                 viewRotation: 23
                 zoom: 1.3
                 centerX: 150
@@ -56,6 +59,7 @@ TestCase {
         const scene = createTemporaryObject(sceneComponent, this)
         verify(scene !== null)
         waitForRendering(scene)
+        scene.artboards.captureInterior = true
         compare(scene.artboards.boardPolygons.length, 2)
         const label = findChild(scene.artboards, "artboardLabel_board-a")
         verify(label !== null)
@@ -70,6 +74,7 @@ TestCase {
         const scene = createTemporaryObject(sceneComponent, this)
         verify(scene !== null)
         waitForRendering(scene)
+        scene.artboards.captureInterior = true
         const start = scene.view.mapFromDocument(Qt.point(80, 65))
         mousePress(scene.artboards, start.x, start.y)
         scene.artboards.boardData = [{ id: "replacement", name: "Replacement",
@@ -89,6 +94,7 @@ TestCase {
         const scene = createTemporaryObject(sceneComponent, this)
         verify(scene !== null)
         waitForRendering(scene)
+        scene.artboards.captureInterior = true
         const start = scene.view.mapFromDocument(Qt.point(80, 65))
         mousePress(scene.artboards, start.x, start.y)
         mouseMove(scene.artboards, start.x + 12, start.y + 5, 100)
@@ -113,5 +119,50 @@ TestCase {
         const expected = scene.view.mapToDocument(start)
         fuzzyCompare(point.x, expected.x, 0.5)
         fuzzyCompare(point.y, expected.y, 0.5)
+    }
+
+    function test_blank_canvas_press_passes_through_to_canvas_tool() {
+        const scene = createTemporaryObject(sceneComponent, this)
+        verify(scene !== null)
+        waitForRendering(scene)
+        scene.tool.activeTool = "rectangle"
+        const start = scene.view.mapFromDocument(Qt.point(270, 150))
+        mouseDrag(scene.artboards, start.x, start.y, start.x + 20, start.y + 20)
+        compare(scene.document.objectCount, 1)
+        compare(scene.activateSpy.count, 0)
+    }
+
+    function test_board_interior_passes_through_to_canvas_tool_by_default() {
+        const scene = createTemporaryObject(sceneComponent, this)
+        verify(scene !== null)
+        waitForRendering(scene)
+        scene.tool.activeTool = "rectangle"
+        const start = scene.view.mapFromDocument(Qt.point(70, 50))
+        mouseDrag(scene.artboards, start.x, start.y, start.x + 20, start.y + 12)
+        compare(scene.document.objectCount, 1)
+        compare(scene.activateSpy.count, 0)
+        compare(scene.arrangeSpy.count, 0)
+    }
+
+    function test_board_frame_remains_draggable_by_default() {
+        const scene = createTemporaryObject(sceneComponent, this)
+        verify(scene !== null)
+        waitForRendering(scene)
+        const edge = scene.view.mapFromDocument(Qt.point(80, 30))
+        mouseDrag(scene.artboards, edge.x, edge.y, edge.x + 12, edge.y - 12)
+        verify(scene.arrangeSpy.count > 0)
+        compare(scene.finishSpy.count, 1)
+        compare(scene.finishSpy.signalArguments[0][0], "board-a")
+    }
+
+    function test_focused_board_activates_from_keyboard() {
+        const scene = createTemporaryObject(sceneComponent, this)
+        verify(scene !== null)
+        const label = findChild(scene.artboards, "artboardLabel_board-a")
+        verify(label !== null)
+        label.forceActiveFocus()
+        keyClick(Qt.Key_Return)
+        compare(scene.activateSpy.count, 1)
+        compare(scene.activateSpy.signalArguments[0][0], "board-a")
     }
 }

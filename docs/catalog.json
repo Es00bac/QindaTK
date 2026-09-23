@@ -247,6 +247,14 @@
           "required": false
         },
         {
+          "name": "captureInterior",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Artboards\")",
@@ -357,6 +365,10 @@
         {
           "name": "boardAt",
           "parameters": "localPoint"
+        },
+        {
+          "name": "frameHit",
+          "parameters": "board, localPoint"
         },
         {
           "name": "resizeHit",
@@ -8777,6 +8789,14 @@
           "required": false
         },
         {
+          "name": "keyboardStep",
+          "type": "real",
+          "default": "0.01",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "dragging",
           "type": "bool",
           "default": "drag.active",
@@ -8787,7 +8807,7 @@
         {
           "name": "previewStop",
           "type": "var",
-          "default": "drag.active ? drag.snapshot : null",
+          "default": "drag.active && drag.snapshot !== null",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -8835,6 +8855,10 @@
         {
           "name": "stopAt",
           "parameters": "x, y"
+        },
+        {
+          "name": "nudgeStop",
+          "parameters": "id, delta"
         },
         {
           "name": "beginDrag",

@@ -5,12 +5,20 @@ import QindaTK as Tk
 Item {
     width: 900
     height: 560
-    Tk.CanvasDocument { id: document; pageRect: Qt.rect(0, 0, 720, 420) }
-    Tk.ToolController { document: document }
+    Tk.CanvasDocument {
+        id: document
+        pageRect: Qt.rect(0, 0, 720, 420)
+        Component.onCompleted: {
+            addRect(90, 100, 155, 95, "#4a81a1")
+            addRect(425, 150, 180, 120, "#a98655")
+        }
+    }
+    Tk.ToolController { id: tools; document: document }
     Tk.CanvasView {
         id: canvas
         anchors.fill: parent
         document: document
+        toolController: tools
         zoom: 0.9
         centerX: 360
         centerY: 210
@@ -20,9 +28,9 @@ Item {
             surface: canvas
             boardData: [
                 { id: "cover", name: "Cover", rect: Qt.rect(40, 50, 260, 320),
-                  background: Tk.Theme.color.panel },
+                  background: "#ffffff" },
                 { id: "spread", name: "Spread", rect: Qt.rect(340, 50, 340, 320),
-                  background: Tk.Theme.color.surface }
+                  background: "#ffffff" }
             ]
             activeBoardId: "cover"
         }

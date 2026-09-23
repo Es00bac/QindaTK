@@ -221,7 +221,7 @@ Its outline maps the main view's four corners through document space into the
 preview. A press or drag in the preview sets the main view state's centre;
 the navigator does not change zoom, rotation or document data. The preview
 is noninteractive so it cannot capture canvas editing gestures. WP-042 has
-not yet added artboards or a shared layer-selection model.
+an artboard overlay but no authoritative board model or shared layer-selection model.
 
 <a id="rendering"></a>
 ## Rendering
@@ -326,12 +326,16 @@ over a rotated page.
 Each record has a stable `id`, document-space `rect`, `name` and optional
 `background`; `activeBoardId` marks the resize affordance. It maps and paints
 the board frames through the CanvasView pose and exposes accessible board
-labels. A press/release requests activation. Dragging within a board reports
+labels. A frame press/release requests activation. Dragging a board frame reports
 arrange preview/finish/cancel with start and current document points; dragging
 the active board's bottom-right handle reports resize intent with the same
 semantics. The active press snapshots its board ID and starting point, so an
 owner refresh of `boardData` cannot retarget that gesture. Escape suppresses
-the rest of that press. The view does not own geometry, apply previews, clip
+the rest of that press. Interior and outside presses pass through to the canvas
+by default, so object tools work over the board. Set `captureInterior: true`
+while an artboard editing tool owns the board interior.
+Board backgrounds are document data painted by the host renderer below objects;
+the overlay only paints frames. The view does not own geometry, apply previews, clip
 content, persist, export or provide undo; those remain domain responsibilities.
 
 <a id="spatial-snapping"></a>
@@ -418,6 +422,9 @@ selects without committing. The root keeps an active drag snapshot if the
 host replaces the stop array during a preview, and Escape cancels that drag.
 The host supplies canonical colors and owns interpolation, validation,
 persistence and undo; the widget's gradient strip is only a visual preview.
+Focusable stop sliders send the same preview and finish requests for arrow or
+accessible increments. Returning a pointer drag to its original stop position
+cancels the preview instead of requesting a no-op commit.
 
 <a id="viewport"></a>
 ## Relationship to Viewport
