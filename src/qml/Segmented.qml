@@ -83,7 +83,9 @@ Item {
                 Tk.Flex.grow: control.stretch ? 1 : 0
                 Tk.Flex.basis: control.stretch ? 0 : -1
                 Tk.Flex.shrink: control.stretch ? 1 : 0
-                implicitWidth: implicitContentWidth + leftPadding + rightPadding
+                implicitWidth: Math.max(implicitContentWidth + leftPadding + rightPadding,
+                                        Tk.Theme.size.controlSm)
+                Tk.Flex.minWidth: Tk.Theme.size.controlSm
                 implicitHeight: control.controlHeight - Tk.Theme.size.border * 2
                 leftPadding: Tk.Theme.space.md
                 rightPadding: Tk.Theme.space.md

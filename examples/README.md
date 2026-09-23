@@ -58,7 +58,9 @@ Every control in [docs/controls.md](../docs/controls.md) in every documented
 state — variants, sizes, checked/disabled/busy/error, selected and two-line
 rows, expanded and collapsed tree rows — grouped by section with a header
 that switches the preset and the density live and a search field that
-filters sections by title. One QML file per section (`TextSection.qml`,
+filters sections by title. The header wraps as text grows; at maximum
+Touch/text zoom its preset switch scrolls horizontally so every choice stays
+reachable. One QML file per section (`TextSection.qml`,
 `LayoutSection.qml`, …); `Section.qml` and `GalleryRow.qml` are the two
 layout helpers.
 

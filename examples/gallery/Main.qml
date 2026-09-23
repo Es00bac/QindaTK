@@ -63,11 +63,31 @@ Rectangle {
                 Tk.Overline { title: "QindaTK gallery"; wide: true; color: Tk.Theme.color.text }
                 Tk.Divider { vertical: true; inset: 6 }
                 Tk.Caption { text: "Preset" }
-                Tk.Segmented {
-                    objectName: "presetSwitch"
-                    model: root.presets
-                    currentIndex: root.indexOfValue(root.presets, Tk.Theme.preset)
-                    onActivated: function(index) { Tk.Theme.applyPreset(root.presets[index].value) }
+                Tk.Scroll {
+                    id: presetScroll
+                    objectName: "presetScroll"
+                    implicitWidth: Math.min(presetSwitch.implicitWidth,
+                                            Math.max(0, root.width - Tk.Theme.space.md * 2))
+                    implicitHeight: presetSwitch.implicitHeight
+                                    + (scrollableX ? Tk.Theme.size.scrollbar + Tk.Theme.space.xs : 0)
+                    overflowX: Tk.Scroll.Auto
+                    overflowY: Tk.Scroll.Hidden
+                    accessibleName: "Theme presets"
+                    Item {
+                        implicitWidth: presetSwitch.implicitWidth
+                        implicitHeight: presetScroll.implicitHeight
+                        Tk.Segmented {
+                            id: presetSwitch
+                            objectName: "presetSwitch"
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            width: implicitWidth
+                            height: implicitHeight
+                            model: root.presets
+                            currentIndex: root.indexOfValue(root.presets, Tk.Theme.preset)
+                            onActivated: function(index) { Tk.Theme.applyPreset(root.presets[index].value) }
+                        }
+                    }
                 }
                 Tk.Caption { text: "Density" }
                 Tk.Segmented {

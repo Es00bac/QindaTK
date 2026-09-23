@@ -128,6 +128,26 @@ private slots:
         density->setTextScale(1.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("control")), 24.0);
     }
+    void touchDensityRaisesInteractiveRowsAndResets()
+    {
+        Theme *theme = Theme::instance();
+        Density *density = Density::instance();
+        density->setMode(Density::Touch);
+        for (const QString &name : {QStringLiteral("controlSm"), QStringLiteral("control"),
+                                    QStringLiteral("controlLg"), QStringLiteral("row"),
+                                    QStringLiteral("rowLg"), QStringLiteral("tab"),
+                                    QStringLiteral("menuItem"), QStringLiteral("header"),
+                                    QStringLiteral("timeRuler")}) {
+            QVERIFY2(theme->size()->metric(name) >= 48.0, qPrintable(name));
+        }
+        QCOMPARE(theme->size()->metric(QStringLiteral("control")), 48.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("chip")), 48.0);
+        density->setTextScale(3.0);
+        QVERIFY(theme->size()->metric(QStringLiteral("control")) >= 48.0);
+        density->setMode(Density::Compact);
+        density->setTextScale(1.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("control")), 24.0);
+    }
     void textScaleClampsAndIgnoresNonFiniteValues()
     {
         Density *density = Density::instance();

@@ -474,6 +474,16 @@ void Theme::finishUpdate()
              std::pair{"statusBar", caption + 12}, std::pair{"timeRuler", caption + 12}}) {
         m_size->raiseResolved(QString::fromLatin1(name), minimum);
     }
+    // AGENT-CONTRACT (D-022): the touch density gives themed interactive
+    // rows at least 48px so a bordered inner button can retain a 44px
+    // logical target. Returning to compact restores measured chrome.
+    if (Density::instance()->mode() == Density::Touch) {
+        for (const char *name : {"controlSm", "control", "controlLg", "row",
+                                 "rowLg", "tab", "menuItem", "header",
+                                 "timeRuler"}) {
+            m_size->raiseResolved(QString::fromLatin1(name), 48.0);
+        }
+    }
     // AGENT-GUARD: ramps are derived from the colour roles, so they must be
     // rebuilt before changed() lets any binding read Theme.ramp again.
     m_ramp->rebuild(*m_color);

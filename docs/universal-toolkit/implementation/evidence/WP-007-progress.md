@@ -37,6 +37,10 @@ FND-07 through FND-10.
 - `Tk.NumberField` now has reset/default, mixed and invalid-draft semantics
   with user-only change notification and consistent read-only/disabled edit
   gating. [Focused evidence](WP-007-FND-10-numberfield.md).
+- Touch density now has a 48px interactive row floor and short Segmented
+  choices retain a 48×44 target. The gallery's preset switch scrolls at
+  maximum text zoom, with the scrollbar below the labels.
+  [Focused evidence](WP-007-FND-07-touch.md).
 
 ## Verification
 

@@ -147,6 +147,14 @@ statusBar and timeRuler. For example, at compact density and 2× text zoom,
 inside its 34px row. This does not enlarge widths or turn fixed application
 layouts into responsive layouts; inspect narrow and large-text scenes.
 
+In Touch density, interactive vertical roles `controlSm`, `control`,
+`controlLg`, `row`, `rowLg`, `tab`, `menuItem`, `header` and `timeRuler` have
+a 48 logical-pixel minimum after density and text zoom resolve (D-022).
+This gives a bordered joined control a 44px interior button. For example,
+`control` resolves to 48px in Touch at normal text size, then
+returns to 24px in Compact. The floor covers controls using those roles;
+specialized pointer regions need their own target check.
+
 ## Telemetry ramps (`Tk.Theme.ramp`)
 
 A ramp is a value-to-colour scale, for readings that should be understood by
@@ -191,7 +199,7 @@ reading identically; `tst_telemetry` asserts this for every preset.
 | --- | --- | --- |
 | `Tk.Density.Compact` (default) | 1.0 | the measured Sloom metrics |
 | `Tk.Density.Comfortable` | 1.2 | `space` and `size` ×1.2, rounded |
-| `Tk.Density.Touch` | 1.5 | pen/finger use |
+| `Tk.Density.Touch` | 1.5 | pen/finger use; themed interactive rows resolve to at least 48 logical px |
 
 `mode` (enum) and `modeName` (`"compact"`, `"comfortable"`, `"touch"`;
 `"dense"` is accepted as compact) are both writable. `scaleFonts` (default

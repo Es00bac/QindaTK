@@ -400,3 +400,25 @@ move. Its WheelHandler sets
 and accepts an ordinary wheel event only when content moved. This lets an
 ancestor Scroll take the wheel at the document edge. The nested canvas test
 checks both edge handoff and exclusive Ctrl+wheel zoom ownership.
+
+## D-022 — Floor touch-density interactive row targets
+
+**Context.** Density scaling alone resolves a compact 24px control to 36px
+and a 22px menu or list row to 33px in Touch mode. Those are smaller than
+the project's 44px logical target for direct pen/finger interaction. The
+measured Compact and Comfortable chrome remains the desktop baseline.
+
+**Decision.** After density and text-scale resolution, raise interactive
+vertical size roles `controlSm`, `control`, `controlLg`, `row`, `rowLg`, `tab`,
+`menuItem`, `header` and `timeRuler` to at least 48 logical pixels in Touch
+mode. The 48px outer row leaves at least 44px for a joined control's inner
+button after two 2px borders. Larger authored or font-derived values win. Keep the authored metric
+bases intact; switching back to Compact or Comfortable recomputes their
+original resolved heights. Icon artwork and fixed noninteractive metrics do
+not grow solely because of this floor.
+
+**Consequences.** Controls bound to these roles acquire a larger touch
+interaction area while their internal art can remain visually compact.
+This role floor does not enlarge a control that ignores the relevant theme
+size or guarantee every custom pointer handler has a 44px target. WP-007
+continues auditing those controls and whole-workflow reachability.
