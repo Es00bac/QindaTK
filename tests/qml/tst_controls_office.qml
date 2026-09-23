@@ -153,6 +153,42 @@ TestCase {
         tryCompare(popover, "visible", false)
     }
 
+    function test_color_button_keyboard_accessible_and_disabled_paths() {
+        const button = make(colorButtonComponent)
+        const selected = createTemporaryObject(signalSpyComponent, root,
+            { target: button, signalName: "colorSelected" })
+        const popover = findChild(button, "colorButtonPopover")
+        verify(popover !== null)
+        compare(button.Accessible.name, "Pen colour")
+        verify(button.Accessible.focusable)
+
+        button.color = "#d21c1c"
+        compare(selected.count, 0)
+        button.forceActiveFocus()
+        verify(button.Accessible.focused)
+        keyClick(Qt.Key_Space)
+        tryVerify(function() { return popover.opened })
+        popover.close()
+        tryVerify(function() { return !popover.visible })
+
+        button.Accessible.pressAction()
+        tryVerify(function() { return popover.opened })
+        const swatch = findChild(popover.contentItem, "swatch_1")
+        verify(swatch !== null)
+        swatch.Accessible.pressAction()
+        compare(selected.count, 1)
+        verify(Qt.colorEqual(button.color, "#1c62d4"))
+        tryVerify(function() { return !popover.visible })
+
+        button.enabled = false
+        verify(!button.Accessible.focusable)
+        button.Accessible.pressAction()
+        keyClick(Qt.Key_Space)
+        mouseClick(button)
+        verify(!popover.visible)
+        compare(selected.count, 1)
+    }
+
     function test_tree_row_inline_rename() {
         const row = make(treeComponent)
         const spy = createTemporaryObject(signalSpyComponent, root, { target: row, signalName: "renamed" })

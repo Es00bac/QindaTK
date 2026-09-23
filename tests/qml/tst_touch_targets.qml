@@ -203,7 +203,7 @@ TestCase {
             verify(dock !== null)
             compare(dock.height, Tk.Theme.size.seam)
             compare(dock.containmentMask.height, 48)
-            compare(dock.hitMargin, (48 - dock.height) / 2)
+            compare(dock._hitMargin, (48 - dock.height) / 2)
 
             dockDragDistance = 0
             const touch = touchEvent(root)

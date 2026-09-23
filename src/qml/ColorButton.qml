@@ -34,6 +34,9 @@ T.AbstractButton {
 
     Accessible.role: Accessible.Button
     Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Colour")
+    Accessible.focusable: control.enabled
+    Accessible.focused: control.activeFocus
+    Accessible.onPressAction: if (control.enabled) control.click()
 
     onClicked: popover.open()
 
