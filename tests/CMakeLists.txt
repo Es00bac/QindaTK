@@ -91,6 +91,15 @@ qindatk_add_test(tst_selection_model)
 qindatk_add_test(tst_editable_grid_model)
 qindatk_add_test(tst_resource_plan_model)
 qindatk_add_test(tst_query_core)
+qindatk_add_test(tst_canvas_core)
+qindatk_add_test(tst_canvas_tools)
+qindatk_add_test(tst_canvas_render)
+qindatk_add_test(tst_canvas_input)
+# The same binary again on the RHI adaptation: sceneGraphBackend() exercises
+# the geometry provider there and QSKIPs when no offscreen GPU context exists.
+add_test(NAME tst_canvas_render_rhi COMMAND tst_canvas_render sceneGraphBackend)
+set_tests_properties(tst_canvas_render_rhi PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)

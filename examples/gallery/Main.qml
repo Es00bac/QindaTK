@@ -163,6 +163,7 @@ Rectangle {
                 TelemetrySection { filter: search.text }
                 ChartReviewSection { filter: search.text }
                 PlanningSection { filter: search.text }
+                CanvasSection { filter: search.text }
                 QuerySection { filter: search.text }
                 DiffSection { filter: search.text }
                 HeatmapSection { filter: search.text }

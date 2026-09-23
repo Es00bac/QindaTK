@@ -1628,6 +1628,56 @@
       ]
     },
     {
+      "name": "CanvasView",
+      "kind": "qml",
+      "base": "Tk.CanvasSurface",
+      "description": "AGENT-CONTRACT (docs/controls.md#canvasview, docs/canvas.md): the spatial document surface. Bind `document` (a Tk.CanvasDocument or any CanvasDocumentAdapter), `toolController` (a Tk.ToolController) and, for synchronized views, one shared `viewState` (a Tk.CanvasViewState). Navigation changes only the view pose; every document change goes through the tool controller's one-commit-per-gesture path.  AGENT-NOTE: the C++ Tk.CanvasSurface is the root so its API needs no passthroughs (same pattern as Sparkline over Graph). This file supplies what C++ must not: Theme roles, accessibility and the overlay slot. Tk.Viewport is unchanged and remains the right choice for a scrolled page that needs no rotation, tools or picking (docs/canvas.md#viewport).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CanvasView.qml",
+      "properties": [
+        {
+          "name": "accessibleName",
+          "type": "string",
+          "default": "qsTr(\"Document canvas\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overlayData",
+          "type": "alias",
+          "default": "overlaySlot.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "overlay",
+          "type": "Item",
+          "default": "overlayItem",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "canvasFocusRing",
+        "canvasOverlay",
+        "canvasOverlaySlot"
+      ]
+    },
+    {
       "name": "Caption",
       "kind": "qml",
       "base": "Tk.Label",
@@ -16498,6 +16548,622 @@
       "bridge": false
     },
     {
+      "name": "CanvasDocument",
+      "kind": "cpp",
+      "base": "CanvasDocumentAdapter",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_document.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "objectCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "layerCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageRect",
+          "type": "QRectF",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "contentBounds",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "activeLayer",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "layers",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "historyLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "addLayerNamed",
+          "returns": "qulonglong",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "addRect",
+          "returns": "qulonglong",
+          "parameters": "qreal x, qreal y, qreal w, qreal h, const QColor &fill, const QColor &stroke = {}, qreal strokeWidth = 0"
+        },
+        {
+          "name": "addEllipse",
+          "returns": "qulonglong",
+          "parameters": "qreal x, qreal y, qreal w, qreal h, const QColor &fill, const QColor &stroke = {}, qreal strokeWidth = 0"
+        },
+        {
+          "name": "addPolyline",
+          "returns": "qulonglong",
+          "parameters": "const QVariantList &points, const QColor &stroke, qreal strokeWidth"
+        },
+        {
+          "name": "setObjectTransform",
+          "returns": "bool",
+          "parameters": "qulonglong id, const QVariantList &matrix"
+        },
+        {
+          "name": "setObjectVisible",
+          "returns": "bool",
+          "parameters": "qulonglong id, bool visible"
+        },
+        {
+          "name": "setObjectLocked",
+          "returns": "bool",
+          "parameters": "qulonglong id, bool locked"
+        },
+        {
+          "name": "moveObjects",
+          "returns": "bool",
+          "parameters": "const QVariantList &ids, qreal dx, qreal dy"
+        },
+        {
+          "name": "removeObject",
+          "returns": "bool",
+          "parameters": "qulonglong id"
+        },
+        {
+          "name": "setLayerVisibleById",
+          "returns": "bool",
+          "parameters": "qulonglong id, bool visible"
+        },
+        {
+          "name": "setLayerLockedById",
+          "returns": "bool",
+          "parameters": "qulonglong id, bool locked"
+        },
+        {
+          "name": "objectInfo",
+          "returns": "QVariantMap",
+          "parameters": "qulonglong id"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "populateFixture",
+          "returns": "qulonglong",
+          "parameters": "int count, int seed = 1, bool withImage = true"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CanvasDocumentAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/canvas.md#document-adapter): the document side of the canvas boundary. Views, hit testing, tools and renderers read documents only through this interface, and change them only through commit(). An application with its own scene model implements it; CanvasDocument is the in-memory reference implementation used by tests and examples.  AGENT-NOTE: WP-033's shared session (DocumentSession + UndoService over a PropertyDocument) is not yet proven for spatial documents, so this seam owns its own bounded history. When WP-033 lands, a session adapter binds commit()/undo()/redo() to the shared services without changing callers.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_document.h",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CanvasOverlay",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "AGENT-CONTRACT (docs/canvas.md#overlays): view-space feedback drawn above a CanvasSurface: hover outline, selection outlines and the active tool's transient preview. It reads the surface transform, the ToolController and the document; it never changes any of them. WP-041 replaces the selection part with SelectionOverlay/TransformHandles against the same contracts.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_overlay.h",
+      "properties": [
+        {
+          "name": "surface",
+          "type": "QindaTK::CanvasSurface *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hoverColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "previewColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "previewFill",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lineWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "outlineLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CanvasSurface",
+      "kind": "cpp",
+      "base": "QQuickItem",
+      "description": "AGENT-CONTRACT (docs/canvas.md#canvasview): the native document surface behind Tk.CanvasView. It maps input to document coordinates, routes pointer gestures to a ToolController, keeps navigation in a CanvasViewState, and draws through a RenderSurfaceAdapter. It owns no document state.  AGENT-GUARD: updatePaintNode runs on the render thread. It may read only m_frame (an immutable snapshot produced in updatePolish) and plain values copied under sync. Never read the document, the tool controller or the adapter there.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_surface.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "toolController",
+          "type": "QindaTK::ToolController *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "viewState",
+          "type": "QindaTK::CanvasViewState *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "renderSurface",
+          "type": "QindaTK::RenderSurfaceAdapter *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "viewId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backend",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zoom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "viewRotation",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "centerX",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "centerY",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "visibleDocumentRect",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fitMode",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fitPadding",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hitTolerance",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "wheelZoomStep",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rotationStep",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "keyboardPanStep",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "touchRotation",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "interactive",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "canvasColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "devicePixelRatioOverride",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "effectiveDevicePixelRatio",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hoverHit",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "mapToDocument",
+          "returns": "QPointF",
+          "parameters": "const QPointF &viewPoint"
+        },
+        {
+          "name": "mapFromDocument",
+          "returns": "QPointF",
+          "parameters": "const QPointF &documentPoint"
+        },
+        {
+          "name": "zoomAbout",
+          "returns": "void",
+          "parameters": "qreal viewX, qreal viewY, qreal factor"
+        },
+        {
+          "name": "zoomIn",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "zoomOut",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "setZoomCentered",
+          "returns": "void",
+          "parameters": "qreal zoom"
+        },
+        {
+          "name": "rotateBy",
+          "returns": "void",
+          "parameters": "qreal degrees, qreal viewX = -1, qreal viewY = -1"
+        },
+        {
+          "name": "panBy",
+          "returns": "void",
+          "parameters": "qreal dx, qreal dy"
+        },
+        {
+          "name": "fitDocument",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "fitRect",
+          "returns": "void",
+          "parameters": "const QRectF &documentRect"
+        },
+        {
+          "name": "resetView",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "hitTest",
+          "returns": "QVariantList",
+          "parameters": "qreal viewX, qreal viewY, const QString &lockPolicy = QStringLiteral(\"skip\""
+        },
+        {
+          "name": "hitRegion",
+          "returns": "QVariantList",
+          "parameters": "const QRectF &viewRect, bool contain = false"
+        },
+        {
+          "name": "renderStats",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "simulateContextLoss",
+          "returns": "void",
+          "parameters": "bool dropCaches = false"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CanvasViewState",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/canvas.md#synchronized-views): the navigation pose of one or more CanvasViews. Views that share one CanvasViewState show the same document point at their centres with the same zoom and rotation; each keeps its own size and device pixel ratio. Navigation writes only this object -- never the document.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_view_state.h",
+      "properties": [
+        {
+          "name": "centerX",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "centerY",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zoom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rotation",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "minZoom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maxZoom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CapabilityBinding",
       "kind": "cpp",
       "base": "QObject",
@@ -21165,6 +21831,48 @@
       "bridge": false
     },
     {
+      "name": "HitTestService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/hit_test_service.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tolerance",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "regionIds",
+          "returns": "QVariantList",
+          "parameters": "const QRectF &documentRect, bool contain = false"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "Icon",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
@@ -22763,6 +23471,109 @@
           "name": "discardId",
           "returns": "bool",
           "parameters": "const QString &documentId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RenderSurfaceAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/canvas.md#render-surface-adapter): the GUI-thread half of the rendering boundary (PLT-10). It owns * tile planning for the visible region at the current LOD and DPR, * a byte-bounded LRU cache of tile CONTENT (images / vertex runs), * damage from the document (tiles go stale, stay displayed, re-render), * a per-frame render budget, and * the resource generation: any bump makes the render side discard every GPU handle and rebuild from the cache, which is how resize, backend switch and context loss avoid stale handles. It never owns scene-graph objects. Those live only in the node tree built by CanvasSurface::updatePaintNode, which Qt destroys with the scene graph.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/render_surface_adapter.h",
+      "properties": [
+        {
+          "name": "requestedBackend",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "effectiveBackend",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fallbackReason",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resourceGeneration",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tilePixels",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maxTilesPerFrame",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "cacheLimitMiB",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "colorContext",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "stats",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pending",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "simulateContextLoss",
+          "returns": "void",
+          "parameters": "bool dropCaches = false"
+        },
+        {
+          "name": "invalidateAll",
+          "returns": "void",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -24798,6 +25609,172 @@
           "name": "commit",
           "returns": "bool",
           "parameters": "PropertyBinding *binding, const QVariantList &tokens"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ToolController",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-NOTE: ToolController is the per-canvas gesture arbiter. It does not claim through GestureRouter because the router's Edit intent is bound to a PropertyDocument EditTransaction (WP-012); bridging spatial edits into it belongs to the WP-033 session seam (docs/canvas.md#open-seams).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/tool_controller.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "activeTool",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "effectiveTool",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tools",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "gestureActive",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "gestureOwner",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastOutcome",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "preview",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selection",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fillColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "strokeColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "strokeWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hitTolerance",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "begin",
+          "returns": "bool",
+          "parameters": "const QString &viewId, qreal x, qreal y, QindaTK::ToolController::Device device = Mouse, int modifiers = 0, qreal pressure = 1.0"
+        },
+        {
+          "name": "update",
+          "returns": "bool",
+          "parameters": "const QString &viewId, qreal x, qreal y, qreal pressure = 1.0"
+        },
+        {
+          "name": "end",
+          "returns": "bool",
+          "parameters": "const QString &viewId, qreal x, qreal y"
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": "const QString &reason = QStringLiteral(\"cancel\""
+        },
+        {
+          "name": "escape",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "lostGrab",
+          "returns": "void",
+          "parameters": "const QString &viewId"
+        },
+        {
+          "name": "viewDetached",
+          "returns": "void",
+          "parameters": "const QString &viewId"
+        },
+        {
+          "name": "pushTemporaryTool",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "popTemporaryTool",
+          "returns": "bool",
+          "parameters": ""
         }
       ],
       "enums": {},

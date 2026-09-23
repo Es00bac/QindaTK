@@ -15,7 +15,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-040"></a>
 ## WP-040 — Build the spatial canvas and rendering boundary
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-033](phase-02-controls-data.md#wp-033)
+**Implementation lead:** Sol. **Status:** review ([evidence](evidence/WP-040.md); WP-033 dependency still planned). **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-033](phase-02-controls-data.md#wp-033)
 
 **Proposal scope:** [CAN-01 CanvasView](../proposed/04-canvas-color.md#can-01), [CAN-02 ToolController](../proposed/04-canvas-color.md#can-02), [CAN-03 HitTestService](../proposed/04-canvas-color.md#can-03), [PLT-10 RenderSurfaceAdapter](../proposed/08-platform-integrations.md#plt-10)
 

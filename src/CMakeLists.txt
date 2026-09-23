@@ -143,6 +143,23 @@ qt_add_qml_module(qindatk
         core/screen_work_area.cpp core/screen_work_area.h
         core/stack.cpp core/stack.h
         core/stylus_handler.cpp core/stylus_handler.h
+        core/canvas_transform.cpp core/canvas_transform.h
+        core/canvas_object.h
+        core/canvas_geometry.cpp core/canvas_geometry.h
+        core/canvas_document.cpp core/canvas_document.h
+        core/canvas_document_qml.cpp
+        core/hit_test_service.cpp core/hit_test_service.h
+        core/tool_controller.cpp core/tool_controller.h
+        core/canvas_tools.cpp
+        core/canvas_render.h
+        core/canvas_painter.cpp
+        core/canvas_tessellator.cpp
+        core/render_surface_adapter.cpp core/render_surface_adapter.h
+        core/canvas_view_state.cpp core/canvas_view_state.h
+        core/canvas_surface.cpp core/canvas_surface.h
+        core/canvas_surface_input.cpp
+        core/canvas_surface_nodes.cpp core/canvas_surface_nodes.h
+        core/canvas_overlay.cpp core/canvas_overlay.h
         core/svg_path.cpp core/svg_path.h
         core/theme.cpp core/theme.h
         core/theme_presets.cpp core/theme_presets.h

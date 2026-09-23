@@ -195,3 +195,38 @@ performs the transaction and publishes a new snapshot.
 destroyed provider or changed snapshot cancels pending requests. Hosts must
 recheck revisions at commit time and keep cancellation reversible. The toolkit
 never mutates the source documents.
+
+## D-042 — Tile spatial documents in document space behind one render boundary
+
+**Context.** A spatial editor must pan, zoom and rotate a large document in
+several synchronized views, and pick and edit it in stable document
+coordinates. It must render through both Qt's software adaptation (headless
+CI, llvmpipe) and a GPU scene graph. Qt Quick's render thread may tear down
+every GPU handle at any time: on a backend change, a window change or device
+loss. Tool previews must never leak into document state or undo.
+
+**Decision.** A view is a pose `{center, zoom, rotation}` held in a shareable
+`CanvasViewState`. Views that share one state are synchronized, and
+navigation never edits the document. The document is reached only through
+`CanvasDocumentAdapter`. Its only mutation is an all-or-nothing `commit` of a
+`CanvasEdit` that rejects stale `before` states and reports damage in
+document coordinates. `ToolController` owns one gesture at a time. Previews
+stay in the tool; `end` commits exactly one edit, and every interruption
+cancels without touching the document. Rendering tiles the document **in
+document space** at a power-of-two LOD (`ceil(log2(zoom·dpr))`), so
+rotation and fractional zoom are one transform and tiles survive pans and
+turns. `RenderSurfaceAdapter` owns planning, damage, a per-frame budget and a
+byte-bounded LRU cache of CPU-side tile content (software images or
+scene-graph vertex runs). It publishes an immutable frame. The render thread
+reads only that frame. It keeps every GPU handle inside the item's node tree
+and rebuilds the tree whenever the resource generation changes.
+
+**Consequences.** No QML object ever owns a render-thread resource, so Qt's
+teardown releases handles on the right thread, and context loss costs one
+re-upload from the CPU cache. The software adaptation cannot draw custom
+geometry, so the scene-graph provider falls back there and reports why.
+Picking tolerance is in logical pixels (`px / zoom`). Degenerate objects are
+kept but neither drawn nor picked. Until WP-033 proves a shared session for
+spatial documents, `CanvasDocument` keeps its own bounded history behind the
+adapter. Snapping, selection handles and guides (WP-041) and colour transforms
+(WP-043) plug into the published contracts. See [canvas.md](canvas.md).
