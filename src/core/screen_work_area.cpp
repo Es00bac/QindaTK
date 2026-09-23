@@ -24,6 +24,13 @@ void ScreenWorkArea::setAnchorPoint(QPointF point)
     refresh();
     emit anchorPointChanged();
 }
+void ScreenWorkArea::setTrackTransforms(bool track)
+{
+    if (m_trackTransforms == track) return;
+    m_trackTransforms = track;
+    reconnect();
+    emit trackTransformsChanged();
+}
 void ScreenWorkArea::reconnect()
 {
     for (const auto &connection : m_connections) disconnect(connection);
@@ -46,9 +53,11 @@ void ScreenWorkArea::reconnect()
     if (auto *window = m_anchor ? m_anchor->window() : nullptr) {
         m_connections << connect(window, &QWindow::xChanged, this, &ScreenWorkArea::refresh)
                       << connect(window, &QWindow::yChanged, this, &ScreenWorkArea::refresh)
-                      << connect(window, &QWindow::screenChanged, this, &ScreenWorkArea::refresh)
-                      // GUI-thread frame notification also catches arbitrary ancestor transforms.
-                      << connect(window, &QQuickWindow::afterAnimating, this, &ScreenWorkArea::refresh);
+                      << connect(window, &QWindow::screenChanged, this, &ScreenWorkArea::refresh);
+        // Arbitrary ancestor transforms need a frame check only while a popup
+        // is visible; large menu bars can contain many closed menus.
+        if (m_trackTransforms)
+            m_connections << connect(window, &QQuickWindow::afterAnimating, this, &ScreenWorkArea::refresh);
     }
     for (auto *screen : QGuiApplication::screens()) {
         m_connections << connect(screen, &QScreen::availableGeometryChanged, this, &ScreenWorkArea::refresh)

@@ -25,6 +25,7 @@ T.Menu {
         objectName: "menuWorkArea"
         anchor: menu.parent
         anchorPoint: Qt.point(menu.x, menu.y)
+        trackTransforms: menu.visible
     }
     onAboutToShow: workArea.refresh()
     implicitHeight: verticalRoom > 0 ? Math.min(naturalHeight, verticalRoom) : naturalHeight

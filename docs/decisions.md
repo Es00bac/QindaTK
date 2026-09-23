@@ -483,7 +483,9 @@ the particular screen's usable popup height.
 virtual sibling screen, reads `QScreen::availableGeometry`, and observes
 screen/window/anchor changes. A point outside every sibling falls back to the
 window screen. A detached anchor has no work area. Menu uses the resulting
-logical height without DPR multiplication before native popup creation.
+logical height without DPR multiplication before native popup creation. Its
+per-frame transform check runs only while the menu is visible; reopening
+refreshes the geometry synchronously before display.
 
 **Consequences.** Qt continues to own popup placement and flipping. Platform
 work-area limitations (especially multi-monitor X11) remain visible and are

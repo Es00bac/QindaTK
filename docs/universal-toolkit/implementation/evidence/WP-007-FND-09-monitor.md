@@ -10,7 +10,8 @@ screen. A desktop gap falls back to the window screen. It reads that screen’s
 
 The bridge observes item/ancestor position and parenting, window position and
 screen, screen geometry/work-area/DPI changes, and GUI-thread frame updates
-(for arbitrary ancestor transforms). Menu refreshes synchronously before
+(for arbitrary ancestor transforms while the popup is visible). A closed Menu
+does not poll frames. Menu refreshes synchronously before
 opening. An anchor without a window returns an empty rectangle. Native popup
 placement/flipping remains owned by Qt; the bridge constrains natural height
 before Popup.Window is created or resized. Geometry stays in Qt logical

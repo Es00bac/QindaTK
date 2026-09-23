@@ -195,8 +195,9 @@ a desktop gap falls back to the window’s screen. A detached or destroyed
 anchor reports an empty rectangle. `refresh()` synchronously rechecks it.
 
 The observer tracks ancestor movement, reparenting, window movement, screen
-changes, work-area notifications and DPI changes. Frame notifications catch
-arbitrary ancestor transforms. `Menu` supplies its parent and popup position,
+changes, work-area notifications and DPI changes. Set `trackTransforms` when
+arbitrary ancestor transforms must be checked after each GUI frame. `Menu`
+enables that check only while visible, supplies its parent and popup position,
 refreshes before opening, and caps its implicit height before native window
 creation. Qt retains responsibility for native popup placement and flipping.
 Qt reports geometry in logical coordinates; never multiply this rectangle

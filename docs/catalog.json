@@ -8520,6 +8520,13 @@
           "constant": false
         },
         {
+          "name": "trackTransforms",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "availableGeometry",
           "type": "QRect",
           "default": "",
