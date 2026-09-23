@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 03 — Spatial editing and exact time
 
-**Execution underway.** WP-046 is accepted; other packages remain planned.
+**Execution underway.** WP-046 and WP-047 are accepted; other packages remain planned.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -160,7 +160,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-047"></a>
 ## WP-047 — Connect transport state to an authoritative clock
 
-**Implementation lead:** Sol. **Status:** review. **Depends on:** [WP-011](phase-01-services.md#wp-011), [WP-015](phase-01-services.md#wp-015), [WP-046](phase-03-authoring.md#wp-046)
+**Implementation lead:** Sol. **Status:** accepted. **Depends on:** [WP-011](phase-01-services.md#wp-011), [WP-015](phase-01-services.md#wp-015), [WP-046](phase-03-authoring.md#wp-046)
 
 **Proposal scope:** [AUD-02 TransportModel](../proposed/06-audio-music.md#aud-02), [AUD-03 TransportBar](../proposed/06-audio-music.md#aud-03)
 
