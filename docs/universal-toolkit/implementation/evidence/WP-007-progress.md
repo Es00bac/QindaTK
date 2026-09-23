@@ -60,7 +60,9 @@ FND-07 through FND-10.
   accessible name/actions and user-only change notifications. Its default
   keyboard step now works for fractional ranges. `Slider` has an accessible
   fallback name and formatted description. `TreeRow` supports focus,
-  keyboard/assistive expansion and F2 rename, with disabled guards.
+  keyboard/assistive expansion and F2 rename, with disabled guards. Plain
+  leaves share their inherited click operation across pointer, key and
+  accessible activation without emitting twice.
   [RangeSlider evidence](WP-007-FIX-F04-range-slider.md) and
   [TreeRow evidence](WP-007-FIX-F04-tree-row.md).
 - `ColorSwatches` now routes tap, keyboard and accessible press through one
@@ -117,7 +119,11 @@ FND-07 through FND-10.
   selected/focused state and a visible focus ring. Left/Right plus Home/End
   navigate and activate through `DockModel`; Space/Return/Enter, pointer and
   accessible press use the same guarded activation signal. Owner model updates
-  remain silent. [Focused evidence](WP-007-FIX-F04-dock-tabs.md).
+  remain silent. Render-settled drag tests also confirm inactive-tab reorder
+  without activation and the begin/update/end tear-off lifecycle. The model
+  recreates the strip after reorder, so tests reacquire it before asserting.
+  [Focused evidence](WP-007-FIX-F04-dock-tabs.md) and
+  [drag evidence](WP-007-dock-tab-drag.md).
 - `DockDivider` seams now expose a focusable Splitter role. Arrow keys and
   accessible increase/decrease send seam-axis deltas through the existing
   `DockZone` callbacks into `DockModel`; disabled host ancestry blocks them.
