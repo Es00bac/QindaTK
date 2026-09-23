@@ -20,7 +20,13 @@ T.Menu {
         contentHeight + topPadding + bottomPadding)
     // AGENT-GUARD: Popup.Window resizes from implicitHeight after a model
     // change. Bound it before Qt creates or resizes the native popup window.
-    readonly property real verticalRoom: parent ? parent.Screen.height - 2 * margins : 0
+    readonly property real verticalRoom: Math.max(0, workArea.availableGeometry.height - 2 * margins)
+    readonly property Tk.ScreenWorkArea workArea: Tk.ScreenWorkArea {
+        objectName: "menuWorkArea"
+        anchor: menu.parent
+        anchorPoint: Qt.point(menu.x, menu.y)
+    }
+    onAboutToShow: workArea.refresh()
     implicitHeight: verticalRoom > 0 ? Math.min(naturalHeight, verticalRoom) : naturalHeight
     margins: Tk.Theme.space.xs
     overlap: 1

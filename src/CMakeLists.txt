@@ -53,6 +53,7 @@ qt_add_qml_module(qindatk
         core/meter.cpp core/meter.h
         core/layout_attached.cpp core/layout_attached.h
         core/layout_info.cpp core/layout_info.h
+        core/screen_work_area.cpp core/screen_work_area.h
         core/stack.cpp core/stack.h
         core/stylus_handler.cpp core/stylus_handler.h
         core/svg_path.cpp core/svg_path.h

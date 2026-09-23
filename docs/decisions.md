@@ -472,3 +472,20 @@ covers its default panels; each application chooses its own requirements.
 scrolling, including keyboard scrolling and focus reveal. Resize alone does
 not persist new panel positions. A future adaptive panel selector or recovery
 of arbitrary off-workspace floating panels requires a separate design.
+
+## D-025 — Popup height uses the anchor screen's work area
+
+**Context.** Full-screen height includes reserved desktop chrome, while QML
+Screen's desktop-available height is a virtual-desktop union. Neither provides
+the particular screen's usable popup height.
+
+**Decision.** `ScreenWorkArea` maps the popup anchor to its owning window's
+virtual sibling screen, reads `QScreen::availableGeometry`, and observes
+screen/window/anchor changes. A point outside every sibling falls back to the
+window screen. A detached anchor has no work area. Menu uses the resulting
+logical height without DPR multiplication before native popup creation.
+
+**Consequences.** Qt continues to own popup placement and flipping. Platform
+work-area limitations (especially multi-monitor X11) remain visible and are
+not replaced with guessed geometry. Native mixed-monitor placement and scale
+changes require the physical platform qualification in WP-092.

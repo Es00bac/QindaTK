@@ -16,6 +16,8 @@ function(qindatk_add_test name)
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 endfunction()
 
+qindatk_add_test(tst_screen_work_area)
+target_link_libraries(tst_screen_work_area PRIVATE Qt6::GuiPrivate)
 qindatk_add_test(tst_grid_tracks)
 qindatk_add_test(tst_svg_path)
 qindatk_add_test(tst_theme)

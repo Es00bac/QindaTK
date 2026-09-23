@@ -3382,7 +3382,15 @@
         {
           "name": "verticalRoom",
           "type": "real",
-          "default": "parent ? parent.Screen.height - 2 * margins : 0",
+          "default": "Math.max(0, workArea.availableGeometry.height - 2 * margins)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "workArea",
+          "type": "Tk.ScreenWorkArea",
+          "default": "Tk.ScreenWorkArea {",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -3398,7 +3406,9 @@
       "internal": false,
       "valueType": false,
       "bridge": false,
-      "objectNames": []
+      "objectNames": [
+        "menuWorkArea"
+      ]
     },
     {
       "name": "MenuBar",
@@ -8476,6 +8486,55 @@
       ],
       "signals": [],
       "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScreenWorkArea",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Logical global coordinates, as reported by the platform. Never multiply by DPR.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/screen_work_area.h",
+      "properties": [
+        {
+          "name": "anchor",
+          "type": "QQuickItem *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "anchorPoint",
+          "type": "QPointF",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "availableGeometry",
+          "type": "QRect",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "refresh",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
