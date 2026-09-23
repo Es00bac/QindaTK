@@ -393,9 +393,10 @@ have event-level QtQuickTest coverage. `Tk.Scroll` gains a focusable Pane
 and an `accessibleName` path. Touch drag at an edge remains bounded rather
 than transferring an in-progress gesture to the ancestor; that policy
 avoids a disruptive mid-gesture ownership change.
-When a resize removes overflow while the Scroll owns focus, its tab stop
-remains until focus leaves. Qt rejects clearing `activeFocusOnTab` on the
-active item; the deferred release avoids a stale focusable viewport.
+When resize removes overflow or interaction is disabled while Scroll owns
+focus, its tab stop remains until focus leaves. Qt rejects clearing
+`activeFocusOnTab` on the active item; the deferred release avoids a stale
+focusable viewport.
 
 `Tk.Viewport` owns Ctrl+wheel zoom and ordinary wheel panning while it can
 move. Its WheelHandler sets

@@ -36,9 +36,9 @@ Item {
     readonly property bool _qindaScrollViewport: true
 
     // AGENT-GUARD: Qt rejects clearing activeFocusOnTab while this viewport
-    // owns focus. Retain the tab stop until focus leaves after a resize that
-    // removes overflow; otherwise the old true value can remain stuck.
-    activeFocusOnTab: interactive && (scrollableX || scrollableY || activeFocus)
+    // owns focus. Retain the tab stop until focus leaves after overflow ends
+    // or interaction is disabled; otherwise the old true value can stick.
+    activeFocusOnTab: activeFocus || (interactive && (scrollableX || scrollableY))
     Accessible.role: Accessible.Pane
     Accessible.name: accessibleName
     Accessible.focusable: activeFocusOnTab

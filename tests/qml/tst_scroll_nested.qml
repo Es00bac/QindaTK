@@ -210,6 +210,16 @@ TestCase {
         root.forceActiveFocus()
         tryVerify(() => !scroll.activeFocus)
         tryVerify(() => !scroll.activeFocusOnTab)
+
+        scroll.width = 100
+        tryVerify(() => scroll.scrollableX)
+        scroll.forceActiveFocus()
+        verify(scroll.activeFocusOnTab)
+        scroll.interactive = false
+        verify(scroll.activeFocus)
+        verify(scroll.activeFocusOnTab)
+        root.forceActiveFocus()
+        tryVerify(() => !scroll.activeFocusOnTab)
     }
 
     function test_canvasWheelChainsAtDocumentEdge() {
