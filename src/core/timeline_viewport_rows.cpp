@@ -267,7 +267,7 @@ void TimelineViewport::rebuildMarkers(qint64 start, qint64 end)
         for (const auto &change : plan->changes.changes) {
             if (change.kind != TimelineChange::Kind::Marker || !change.markerAfter) continue;
             const TimelineMarker &marker = *change.markerAfter;
-            if (marker.position < end && marker.position + marker.duration >= start)
+            if (marker.position < end && marker.end() >= start)
                 entries.push_back({marker, 1});
         }
     }
@@ -278,7 +278,7 @@ void TimelineViewport::rebuildMarkers(qint64 start, qint64 end)
     QVector<QVariantList> rows;
     for (const auto &entry : entries) {
         const TimelineMarker &marker = entry.first;
-        const qint64 markerEnd = marker.position + marker.duration;
+        const qint64 markerEnd = marker.end();
         const qint64 drawnStart = std::max(marker.position, start);
         const double x = xFor(drawnStart);
         const double width = marker.duration > 0 ? std::max(0.0, xFor(std::min(markerEnd, end)) - x) : 0.0;

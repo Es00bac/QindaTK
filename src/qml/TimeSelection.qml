@@ -142,6 +142,9 @@ Item {
     objectName: "timeSelection_" + selection.kind
     visible: selection.hasRange
 
+    // A draft measured against another model's ticks must not commit.
+    onModelChanged: selection.cancelDrag()
+
     QtObject {
         id: internal
         property bool dragging: false

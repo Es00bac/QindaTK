@@ -70,10 +70,11 @@ identity. Limits: 10,000 tracks, 2,000,000 clips, 200,000 markers.
 | Marker | `id`, `position`, `duration` (0 point, > 0 region), `anchor` (`time` or `musical`), `musicalTick`, `label`, `color`, `kind`, `locked` |
 
 A **musical** marker's canonical value is its `musicalTick`; its position is
-derived from the TimeMap and follows tempo changes (a tempo change advances
-the revision and retires any active edit). A **time** marker keeps its tick
-position through tempo and frame-rate changes. Both anchors survive save and
-reopen. Document colours are data and are drawn as given.
+derived from the TimeMap and follows tempo changes (a tempo change that moves
+one advances the revision). A derived position saturates so that position +
+duration stays representable. A **time** marker keeps its tick position
+through tempo and frame-rate changes. Both anchors survive save and reopen.
+Document colours are data and are drawn as given.
 
 The model indexes clips per track, sorted by `(start, id)` with the longest
 duration, so an interval query is a binary search plus the hits; clip and
@@ -104,20 +105,29 @@ Input fields: `pointerTicks` (delta = pointer − `grabTicks`), `trackDelta`
 (visible tracks), `snap`, `snapToleranceTicks`, `grid`, `playheadTicks`,
 `trackHeight`, `beforeTrackId`. A request can carry `expectedRevision` (and
 `expectedGeneration`): `begin` refuses a stale guard with `StaleRevision` or
-`StaleGeneration`.
+`StaleGeneration`. `commitEdit`/`applyEdit` return `{ok, transactionId,
+changed, createdIds, revision}`; `createdIds` names the records the
+transaction created (new clips, split right parts, markers, tracks), so a
+caller never has to find a new record by position.
 
 **Rules.** One session at a time (`Conflict` otherwise). A preview never
 changes committed records or the revision; views read committed state plus
-the preview (`effectiveClip`, `editPreview`). Any commit, undo, reload, tempo
-change or policy change while a session is active retires it
-(`editInvalidated(operationId, reason)`); later `update`/`commit` for that ID
-return `StaleRevision`. A refused placement (overlap, locked or mismatched
-destination track, negative time, policy veto) stays a preview flagged
-`invalid`, so the view draws where the clip would go; it cannot commit.
-Other errors (a locked source clip, a missing target) leave no preview. A commit re-runs the policy veto, checks
-the history budget and applies atomically; a rejected, stale or cancelled
-edit leaves every record, the revision and the history unchanged. An accepted
-commit is exactly one history step with `transactionId` = the operation ID.
+the preview (`effectiveClip`, `editPreview`). Any commit, undo, reload,
+time-map change (tempo, meter, frame or sample rate, origin) or policy change
+while a session is active retires it (`editInvalidated(operationId,
+reason)`), because its preview was snapped and derived under the old state;
+later `update`/`commit` for that ID return `StaleRevision`. A refused
+placement stays a preview flagged `invalid`, so the view draws where the clip
+would go, and cannot commit: an overlap, negative time or policy veto for any
+edit, and a locked or kind-mismatched destination track for a move. Other
+errors leave no preview: a locked source clip, a missing target, an arithmetic
+overflow, and an insert whose destination is hidden, locked, mismatched or
+short of tracks. A commit with no preview (straight after `begin`) is refused,
+so views begin a session only once a gesture has moved. A commit re-runs the
+policy veto, checks the history budget and applies atomically; a rejected,
+stale or cancelled edit leaves every record, the revision and the history
+unchanged. An accepted commit is exactly one history step with
+`transactionId` = the operation ID; an empty change set commits no step.
 
 **Semantics.** Move shifts the selection rigidly: the track offset is clamped
 so every clip stays on a visible track; hidden tracks keep their clips; a
@@ -130,7 +140,15 @@ stable across previews and redo. Ripple shifts every clip whose committed
 start is at or after an edit point on the rippled tracks (the targets' tracks,
 or all tracks with `RippleAllTracks`): a move's point is the earliest target
 start, a trim's is the original end, a delete closes the **union** of removed
-intervals. Locked tracks are not rippled; a locked clip in the way is an error.
+intervals. One gesture inserts or removes time at a point once, however many
+selected clips share it (a parallel trim of clips that end together shifts
+downstream clips by one delta, not one per clip); distinct points accumulate.
+Locked tracks are not rippled; a locked clip in the way is an error. A pointer
+so far out that a position would overflow is refused, never wrapped or
+clamped. `reorderTrack` inserts before `beforeTrackId`; naming the dragged
+track itself (or the track after it) plans no change, and an empty ID means
+last. `insertClips` templates need distinct IDs, because each new ID is
+UUIDv5(operation, template ID).
 
 **Snapping** is one-dimensional over exact ticks (`TimelineSnapper`).
 Candidates are the moving edges (both edges of the anchor clip for a move).
@@ -154,7 +172,9 @@ complete change sets (overwrite rules, crossfades, engine limits).
 
 By default the model keeps its own history: 256 steps and 64 MiB of inverse
 data, oldest first out; an edit too large for the budget is refused before it
-commits. Undo and redo check that every touched record still equals the
+commits. Lowering `historyLimit` drops the oldest undo steps first and then
+the redo steps farthest from the cursor, so every remaining redo step still
+applies. Undo and redo check that every touched record still equals the
 recorded state; a mismatch clears the history instead of replaying against a
 different document. Loading content clears history and bumps
 `resetGeneration`.
@@ -164,7 +184,10 @@ of D-040): each commit emits `committed(transactionId, label, payload)` with
 before/after records as decimal-string maps, and the host replays with
 `applyHistoryChanges(transactionId, reverse, expectedRevision)` and retires
 steps with `releaseHistoryTransaction`. The model rejects a replay with a
-wrong revision or diverged records. A production session model can therefore
+wrong revision or diverged records. It keeps the change sets of at most 4,096
+unreleased transactions, oldest first out; replaying an evicted one fails
+with "Unknown or released timeline transaction", so a host with a deeper
+history keeps the `committed` payloads itself. A production session model can therefore
 either use `TimelineModel` as its projection (loading content, observing
 `committed`) or own the history while the model enforces preconditions.
 
@@ -218,8 +241,13 @@ results stale. Only the running request that asked can publish; everything
 else is counted in `staleDropped` and dropped. Backend work starts from a
 queued pump, so requests superseded in the same event-loop turn never reach
 the backend; at most `maxInFlight` (4) run, 1,024 wait, 256 results are
-cached by exact key. A host implements `TimelineMediaBackend::start(request,
-CancellationToken, completion)` on any thread (a peak pyramid, a decoder).
+cached by exact key. An owner's newest result stays until the owner
+supersedes or cancels it; requests without an owner key keep only the newest
+1,024 finished results, each released after its notification. Replacing the
+backend fails every pending request (`failed`, "The media backend changed")
+and then emits `backendChanged`, on which `ClipItem` asks again. A host
+implements `TimelineMediaBackend::start(request, CancellationToken,
+completion)` on any thread (a peak pyramid, a decoder).
 `referenceBackend: true` installs the labeled **synthetic reference**
 backend: a deterministic envelope-and-carrier signal per resource ID, reduced
 analytically on the thread pool. It decodes no media and reports frame
@@ -242,10 +270,18 @@ timeline changed after the preview.
 See [controls.md](controls.md#edit-timeline) for properties, signals and
 objectNames. `EditTimeline` routes every clip gesture through one pointer
 controller in `EditTimelineLanes` that hit-tests the viewport, so a delegate
-recycled during autoscroll never owns a gesture; the header column
-(`EditTimelineHeaders`) scrolls with the lanes from the same track rows.
-Dragging near an edge (`size.dropEdge`) autoscrolls and keeps updating the
-same preview. `TimeSelection` endpoints normalize on crossing (the fixed end
+recycled during autoscroll never owns a gesture. The header column
+(`EditTimelineHeaders`) scrolls with the lanes from the same track rows and
+works the same way: its own pointer area under the headers (which run with
+`gestures: false`) owns track resize and reorder, so a reorder previewed out
+of view keeps its session. A resize begins on the first movement, so a click
+on the seam is not an edit. Dragging near an edge (`size.dropEdge`)
+autoscrolls and keeps updating the same preview (clips, ranges, markers and
+track reorder). Every gesture is one session that ends exactly once: release
+commits; Escape, a lost grab, invalidation, a replaced `model` or destruction
+cancels, and the rest of that press does nothing. The numeric timing editor
+applies with the revision it opened at, so it never writes back values the
+user did not see. `TimeSelection` endpoints normalize on crossing (the fixed end
 is the anchor) and an empty range commits only with `allowEmpty`; cancel
 restores the committed range. The edit range lives in the model (not
 undoable, persisted); the loop band on the ruler shows the `TransportModel`'s

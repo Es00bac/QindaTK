@@ -10,9 +10,11 @@ import QindaTK as Tk
 // TimelineViewport instead of per-delegate handlers. Delegates are recycled
 // as clips scroll in and out (and a dragged clip may leave the viewport
 // during autoscroll); a gesture held by a delegate would die with it.
-// AGENT-GUARD: a drag is exactly one TimelineModel edit session. Every exit
-// path (release, Escape, lost grab, model invalidation) either commits or
-// cancels that session; never leave internal.operationId set on return.
+// AGENT-GUARD: a drag is exactly one TimelineModel edit session, owned by
+// internal.sessionModel (`model` may already be a replacement). Every exit
+// path (release, Escape, lost grab, model invalidation, a replaced model,
+// destruction) either commits or cancels that session; never leave
+// internal.operationId set on return.
 Item {
     id: lanes
 
@@ -122,6 +124,7 @@ Item {
             return
         }
         internal.operationId = begun.operationId
+        internal.sessionModel = lanes.model
         internal.kind = kind
         internal.phase = "drag"
     }
@@ -135,7 +138,7 @@ Item {
         if (internal.phase !== "drag") return
         const trackDelta = internal.kind === "move"
                 ? lanes.trackIndexFor(Math.min(lanes.height - 1, internal.pointerY)) - internal.pressTrackIndex : 0
-        internal.preview = lanes.model.updateEdit(internal.operationId, {
+        internal.preview = internal.sessionModel.updateEdit(internal.operationId, {
             pointerTicks: ticks, trackDelta: trackDelta, snap: lanes.snapEnabled,
             snapToleranceTicks: lanes.viewport.ticksForPixels(lanes.snapPixels), grid: lanes.snapGrid,
             playheadTicks: lanes.playheadTicks })
@@ -147,9 +150,11 @@ Item {
         internal.autoY = 0
         if (phase === "drag") {
             const operation = internal.operationId
+            const owner = internal.sessionModel
             internal.operationId = ""
+            internal.sessionModel = null
             internal.preview = ({})
-            const result = lanes.model.commitEdit(operation)
+            const result = owner.commitEdit(operation)
             if (result.ok) lanes.editCommitted(result.transactionId)
             else lanes.editRejected(result.error)
         } else if (phase === "range") {
@@ -160,10 +165,12 @@ Item {
     }
     // Escape, a lost grab or a replaced model: the document stays unchanged.
     function cancelGesture() {
-        if (internal.operationId.length > 0 && lanes.model) lanes.model.cancelEdit(internal.operationId)
+        if (internal.operationId.length > 0 && internal.sessionModel)
+            internal.sessionModel.cancelEdit(internal.operationId)
         if (internal.phase === "range") editRangeItem.cancelDrag()
         const active = internal.phase === "drag" || internal.phase === "range"
         internal.operationId = ""
+        internal.sessionModel = null
         internal.phase = ""
         internal.preview = ({})
         internal.autoX = 0
@@ -181,11 +188,15 @@ Item {
     objectName: "timelineLanes"
     clip: true
 
+    onModelChanged: lanes.cancelGesture()
+    Component.onDestruction: lanes.cancelGesture()
+
     QtObject {
         id: internal
         property string phase: ""       // "", pending, drag, range
         property string kind: ""        // move, trimStart, trimEnd
         property string operationId: ""
+        property Tk.TimelineModel sessionModel: null
         property var hit: ({})
         property var preview: ({})
         property real pressX: 0
@@ -208,8 +219,11 @@ Item {
         function onEditInvalidated(operationId, reason) {
             if (operationId !== internal.operationId) return
             internal.operationId = ""
+            internal.sessionModel = null
             internal.phase = ""
             internal.preview = ({})
+            internal.autoX = 0
+            internal.autoY = 0
             lanes.editRejected(reason)
         }
     }

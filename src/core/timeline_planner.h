@@ -3,6 +3,8 @@
 
 #include "timeline_types.h"
 
+#include <QHash>
+
 namespace QindaTK {
 
 class TimelineModel;
@@ -42,6 +44,19 @@ public:
                                 const QString &field = {});
     static QString clipName(const TimelineClip &clip);
     static TimelineMarker derivedMarker(const TimelineModel &model, TimelineMarker marker);
+
+    // Ripple (timeline_planner_ripple.cpp): clips at or after an edit point
+    // move by that point's shift.
+    struct RipplePoint {
+        qint64 at = 0;
+        qint64 shift = 0;
+    };
+    using RipplePoints = QHash<QUuid, QVector<RipplePoint>>;
+    static QVector<QUuid> rippleTracks(const TimelineModel &model, const QSet<QUuid> &sources, bool all);
+    static RipplePoints pointsFor(const Context &context, const QVector<QUuid> &tracks,
+                                  const QVector<QPair<QUuid, RipplePoint>> &raw);
+    static bool applyRipple(Context &context, const QVector<QUuid> &tracks, RipplePoints points,
+                            QHash<QUuid, TimelineClip> &after, const QSet<QUuid> &skip);
 };
 
 } // namespace QindaTK

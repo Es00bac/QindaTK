@@ -103,6 +103,8 @@ signals:
     void ready(const QString &requestId, const QString &ownerKey);
     void failed(const QString &requestId, const QString &ownerKey, const QString &error);
     void resourceInvalidated(const QString &resourceId);
+    // A new backend replaced the old one; owners should request again.
+    void backendChanged();
 
 private:
     struct Record {
@@ -119,6 +121,7 @@ private:
     void finish(quint64 serial, TimelineMediaResult result);
     void drop(const QString &requestId, bool countCancel);
     void remember(const QString &key, const TimelineMediaResult &result);
+    void retainFinished(const QString &requestId);
 
     TimelineMediaBackendPtr m_backend;
     bool m_reference = false;
@@ -133,6 +136,7 @@ private:
     QHash<quint64, QString> m_serials;
     QHash<QString, QString> m_owners;       // owner key -> newest request ID
     QStringList m_queue;
+    QStringList m_finished;                 // finished requests without an owner, oldest first
     QHash<QString, quint64> m_generations;  // resource ID -> generation
     QHash<QString, TimelineMediaResult> m_cache;
     QStringList m_cacheOrder;

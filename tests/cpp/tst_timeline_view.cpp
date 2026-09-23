@@ -72,6 +72,7 @@ private slots:
     void farOriginGeometryStaysExact();
     void mediaRequestsSupersedeAndRejectStaleResults();
     void mediaRequestsAreBoundedAndCached();
+    void mediaBackendSwapFailsPendingAndBoundsUnowned();
     void syntheticBackendIsDeterministicAndHonest();
     void clipsTransferThroughTheWp016Codec();
 };
@@ -307,6 +308,48 @@ void TimelineViewTest::mediaRequestsAreBoundedAndCached()
     QTRY_COMPARE(ready.count(), 1);        // and announced after the caller holds the ID
     QCOMPARE(provider.requestPeaks(QString(), QString(), QStringLiteral("0"), QStringLiteral("1"),
                                    QStringLiteral("1"), QStringLiteral("1"), 1).isEmpty(), false);
+}
+
+void TimelineViewTest::mediaBackendSwapFailsPendingAndBoundsUnowned()
+{
+    auto first = std::make_shared<ManualBackend>();
+    auto second = std::make_shared<ManualBackend>();
+    TimelineMediaProvider provider;
+    provider.setBackend(first);
+    QSignalSpy failed(&provider, &TimelineMediaProvider::failed);
+    QSignalSpy ready(&provider, &TimelineMediaProvider::ready);
+    QSignalSpy swapped(&provider, &TimelineMediaProvider::backendChanged);
+    const QString owned = provider.requestPeaks(QStringLiteral("clip-a"), QStringLiteral("r1"),
+        QStringLiteral("0"), QString::number(S), QString::number(S), QStringLiteral("1"), 16);
+    const QString unowned = provider.requestPeaks(QString(), QStringLiteral("r2"),
+        QStringLiteral("0"), QString::number(S), QString::number(S), QStringLiteral("1"), 16);
+    QCoreApplication::processEvents();
+    QCOMPARE(first->pending.size(), 2);
+    // Swapping backends fails what was pending, so no owner waits forever,
+    // then tells owners to ask the new backend.
+    provider.setBackend(second);
+    QCOMPARE(failed.count(), 2);
+    QCOMPARE(swapped.count(), 1);
+    QStringList failedIds{failed.at(0).at(0).toString(), failed.at(1).at(0).toString()};
+    failedIds.sort();
+    QStringList expected{owned, unowned};
+    expected.sort();
+    QCOMPARE(failedIds, expected);
+    QCOMPARE(failed.first().at(2).toString(), QStringLiteral("The media backend changed"));
+    QVERIFY(first->pending.at(0).cancel.isCancelled());
+    QCOMPARE(provider.requestCount(), 0);
+    first->complete(0);
+    QCoreApplication::processEvents();
+    QCOMPARE(ready.count(), 0);
+    // Finished requests without an owner are kept only up to a bound, and
+    // every one is still notified before it is released.
+    failed.clear();
+    for (int i = 0; i < 1100; ++i)
+        provider.requestPeaks(QString(), QStringLiteral("r3"), QString::number(S), QStringLiteral("0"),
+                              QString::number(S), QStringLiteral("1"), 16); // an empty range fails at once
+    QCoreApplication::processEvents();
+    QCOMPARE(failed.count(), 1100);
+    QCOMPARE(provider.requestCount(), 1024);
 }
 
 void TimelineViewTest::syntheticBackendIsDeterministicAndHonest()

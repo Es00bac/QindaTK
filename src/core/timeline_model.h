@@ -135,7 +135,10 @@ public:
     // ---- typed edit transactions (C++) ----
     QString begin(const TimelineEditRequest &request, OperationError *error = nullptr);
     TimelinePlan update(const QString &operationId, const TimelineEditInput &input);
-    OperationError commit(const QString &operationId, QString *transactionId = nullptr);
+    // createdIds receives the IDs of records the transaction created (new
+    // clips, split parts, markers, tracks) in change-set order.
+    OperationError commit(const QString &operationId, QString *transactionId = nullptr,
+                          QStringList *createdIds = nullptr);
     void cancel(const QString &operationId);
     OperationError apply(const TimelineEditRequest &request, const TimelineEditInput &input,
                          QString *transactionId = nullptr);

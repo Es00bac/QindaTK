@@ -122,8 +122,10 @@ TimelinePlan TimelineModel::update(const QString &operationId, const TimelineEdi
     return m_session->plan;
 }
 
-OperationError TimelineModel::commit(const QString &operationId, QString *transactionId)
+OperationError TimelineModel::commit(const QString &operationId, QString *transactionId,
+                                     QStringList *createdIds)
 {
+    if (createdIds) createdIds->clear();
     if (!m_session || m_session->operationId != operationId || operationId.isEmpty()) {
         if (m_retiredOperations.contains(operationId))
             return failWith({ErrorCode::StaleRevision, tr("The timeline changed during the edit"), {}, {}});
@@ -163,6 +165,14 @@ OperationError TimelineModel::commit(const QString &operationId, QString *transa
     if (auto failure = applyChangeSet(changes, false)) return failWith(failure);
     recordHistory(changes, bytes);
     if (transactionId) *transactionId = changes.transactionId;
+    if (createdIds) {
+        for (const auto &change : changes.changes) {
+            const bool created = (change.clipAfter && !change.clipBefore)
+                || (change.markerAfter && !change.markerBefore)
+                || (change.trackAfter && !change.trackBefore);
+            if (created) createdIds->push_back(change.id.toString(QUuid::WithoutBraces));
+        }
+    }
     emit committed(changes.transactionId, changes.label, changePayload(changes));
     return {};
 }
@@ -339,10 +349,12 @@ QVariantMap TimelineModel::updateEdit(const QString &operationId, const QVariant
 QVariantMap TimelineModel::commitEdit(const QString &operationId)
 {
     QString transaction;
+    QStringList created;
     const quint64 before = m_revision;
-    if (auto error = commit(operationId, &transaction)) return failure(error);
+    if (auto error = commit(operationId, &transaction, &created)) return failure(error);
     return {{QStringLiteral("ok"), true}, {QStringLiteral("transactionId"), transaction},
             {QStringLiteral("changed"), m_revision != before},
+            {QStringLiteral("createdIds"), created},
             {QStringLiteral("revision"), revisionText()}};
 }
 

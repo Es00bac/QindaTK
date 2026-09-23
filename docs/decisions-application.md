@@ -177,8 +177,11 @@ history step with precondition checks on undo and replay. The model owns a
 local history by default and offers the D-040 external-history bridge.
 `TimelineViewport` maps exact ticks to pixels from integer differences and
 diffs bounded delegate rows by key; views route gestures through its hit
-tests. Media previews use a cancellable, stale-checked provider seam, and
-transfers use the WP-016 payload and drop-target contracts.
+tests from one pointer controller per surface (clip lanes, header column,
+marker lane), never from a recycled delegate, and every exit path of a drag
+ends its session exactly once. Media previews use a cancellable,
+stale-checked provider seam, and transfers use the WP-016 payload and
+drop-target contracts.
 
 **Consequences.** Hosts with their own session model either project into
 `TimelineModel` or take its history through `externalUndo`; domain edit rules

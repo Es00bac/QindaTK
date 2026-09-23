@@ -50,13 +50,14 @@ struct TimelineMarker {
     enum class Anchor { Time, Musical };
     QUuid id;
     qint64 position = 0;     // ticks; derived from musicalTick for Musical anchors
-    qint64 duration = 0;     // 0 is a point cue; > 0 is a region
+    qint64 duration = 0;     // 0 is a point cue; > 0 is a region; end() never overflows
     qint64 musicalTick = 0;  // TimeMap PPQ tick, canonical for Musical anchors
     Anchor anchor = Anchor::Time;
     QString label;
     QString color;
     QString kind;
     bool locked = false;
+    qint64 end() const { return position + duration; }
     friend bool operator==(const TimelineMarker &, const TimelineMarker &) = default;
 };
 

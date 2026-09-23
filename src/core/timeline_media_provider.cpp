@@ -12,6 +12,7 @@ namespace {
 constexpr int kMaxColumns = 8192;
 constexpr int kMaxQueued = 1024;
 constexpr int kMaxCacheEntries = 256;
+constexpr int kMaxRetained = 1024;
 constexpr double kPi = 3.14159265358979323846;
 
 quint32 stableHash(const QString &text)
@@ -49,7 +50,7 @@ public:
             const double scale = double(request.ticksPerSecond.denominator)
                                / double(request.ticksPerSecond.numerator);
             const double first = double(request.sourceStart) * scale;
-            const double span = double(request.sourceEnd - request.sourceStart) * scale;
+            const double span = (double(request.sourceEnd) - double(request.sourceStart)) * scale;
             const auto envelope = [period](double t) {
                 return 0.15 + 0.8 * std::fabs(std::sin(kPi * t / period));
             };
@@ -107,13 +108,23 @@ TimelineMediaProvider::~TimelineMediaProvider()
     for (auto &record : m_records) record.cancel.cancel();
 }
 
+// Pending requests die with the old backend; their owners hear `failed` and
+// then `backendChanged`, which is their cue to ask the new backend.
 void TimelineMediaProvider::setBackend(TimelineMediaBackendPtr backend)
 {
+    QVector<QPair<QString, QString>> pending;
+    for (auto it = m_records.cbegin(); it != m_records.cend(); ++it)
+        if (it->state == QLatin1String("queued") || it->state == QLatin1String("running"))
+            pending.push_back({it.key(), it->request.ownerKey});
     for (const auto &id : m_records.keys()) drop(id, true);
+    m_finished.clear();
     m_backend = std::move(backend);
     m_reference = false;
     clearCache();
+    const QString reason = tr("The media backend changed");
+    for (const auto &entry : pending) emit failed(entry.first, entry.second, reason);
     emit changed();
+    emit backendChanged();
     emit statisticsChanged();
 }
 
@@ -178,13 +189,18 @@ QString TimelineMediaProvider::request(TimelineMediaRequest request)
     m_records.insert(id, record);
     if (!request.ownerKey.isEmpty()) m_owners.insert(request.ownerKey, id);
     if (record.state != QLatin1String("queued")) {
-        // Notify after the caller has stored the returned ID.
+        // Notify after the caller has stored the returned ID; retention only
+        // counts a result once its notification is out.
         const QString owner = request.ownerKey;
         QMetaObject::invokeMethod(this, [this, id, owner] {
             const auto it = m_records.constFind(id);
             if (it == m_records.cend()) return;
-            if (it->state == QLatin1String("ready")) emit ready(id, owner);
-            else emit failed(id, owner, it->result.error.message);
+            // Copies: a slot may add or drop records, which moves hash storage.
+            const bool isReady = it->state == QLatin1String("ready");
+            const QString message = it->result.error.message;
+            if (isReady) emit ready(id, owner);
+            else emit failed(id, owner, message);
+            retainFinished(id);
         }, Qt::QueuedConnection);
     }
     schedulePump();
@@ -278,22 +294,36 @@ void TimelineMediaProvider::finish(quint64 serial, TimelineMediaResult result)
     if (id.isEmpty() || it == m_records.end() || it->state != QLatin1String("running")
         || m_generations.value(it->request.resourceId) != it->request.resourceGeneration) {
         ++m_stale;
-        if (it != m_records.end() && it->state == QLatin1String("running"))
+        if (it != m_records.end() && it->state == QLatin1String("running")) {
             it->state = QStringLiteral("cancelled");
+            retainFinished(id);
+        }
         pump();
         return;
     }
     it->result = std::move(result);
     it->state = it->result.error ? QStringLiteral("failed") : QStringLiteral("ready");
     ++m_completed;
+    // Copies: a slot may add or drop records, which moves hash storage.
     const QString owner = it->request.ownerKey;
-    if (!it->result.error) {
-        remember(it->key, it->result);
-        emit ready(id, owner);
-    } else {
-        emit failed(id, owner, it->result.error.message);
-    }
+    const QString message = it->result.error.message;
+    const bool isReady = !it->result.error;
+    if (isReady) remember(it->key, it->result);
+    if (isReady) emit ready(id, owner);
+    else emit failed(id, owner, message);
+    retainFinished(id);
     pump();
+}
+
+// AGENT-NOTE: an owner's newest result stays until the owner supersedes or
+// cancels it. A request without an owner key has nobody to release it, so
+// only the newest kMaxRetained finished ones are kept.
+void TimelineMediaProvider::retainFinished(const QString &requestId)
+{
+    const auto it = m_records.constFind(requestId);
+    if (it == m_records.cend() || !it->request.ownerKey.isEmpty() || m_finished.contains(requestId)) return;
+    m_finished.push_back(requestId);
+    while (m_finished.size() > kMaxRetained) drop(m_finished.takeFirst(), false);
 }
 
 void TimelineMediaProvider::drop(const QString &requestId, bool countCancel)
@@ -301,6 +331,7 @@ void TimelineMediaProvider::drop(const QString &requestId, bool countCancel)
     auto it = m_records.find(requestId);
     if (it == m_records.end()) return;
     if (it->state == QLatin1String("queued")) m_queue.removeAll(requestId);
+    else if (it->request.ownerKey.isEmpty()) m_finished.removeOne(requestId);
     it->cancel.cancel();
     if (m_owners.value(it->request.ownerKey) == requestId) m_owners.remove(it->request.ownerKey);
     m_records.erase(it);

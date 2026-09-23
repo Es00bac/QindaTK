@@ -182,8 +182,8 @@ const std::vector<TimelineModel::EdgeEntry> &TimelineModel::markerEdges() const
         m_markerMaxDuration = 0;
         for (auto it = m_markers.cbegin(); it != m_markers.cend(); ++it) {
             m_markerEdges.push_back({it->position, it->id, false});
-            if (it->duration > 0) m_markerEdges.push_back({it->position + it->duration, it->id, true});
-            m_markerIndex.push_back({it->position, it->position + it->duration, it->id});
+            if (it->duration > 0) m_markerEdges.push_back({it->end(), it->id, true});
+            m_markerIndex.push_back({it->position, it->end(), it->id});
             m_markerMaxDuration = std::max(m_markerMaxDuration, it->duration);
         }
         std::sort(m_markerEdges.begin(), m_markerEdges.end(), [](const auto &a, const auto &b) {
@@ -275,7 +275,7 @@ void TimelineModel::recomputeContentEnd()
     for (auto it = m_indexes.cbegin(); it != m_indexes.cend(); ++it)
         if (!it->entries.empty()) end = std::max(end, it->maxEnd);
     for (auto it = m_markers.cbegin(); it != m_markers.cend(); ++it)
-        end = std::max(end, it->position + it->duration);
+        end = std::max(end, it->end());
     m_contentEnd = end;
 }
 
@@ -424,15 +424,23 @@ bool TimelineModel::gridStep(TimelineSnapGrid grid, quint64 &numerator, quint64 
     return true;
 }
 
+// AGENT-GUARD: a derived position saturates so position + duration stays
+// representable (TimelineMarker::end() must never overflow). A negative
+// duration is not clamped here; checkMarker refuses it before storage.
 TimelineMarker TimelineModel::withDerivedPosition(TimelineMarker marker) const
 {
     if (marker.anchor != TimelineMarker::Anchor::Musical) return marker;
-    if (const auto position = ticksForMusicalTick(marker.musicalTick)) marker.position = *position;
+    const qint64 latest = std::numeric_limits<qint64>::max() - std::max<qint64>(0, marker.duration);
+    if (const auto position = ticksForMusicalTick(marker.musicalTick)) marker.position = std::min(*position, latest);
     return marker;
 }
 
 void TimelineModel::resolveMusicalMarkers()
 {
+    // Any time-map change (tempo, meter, frame or sample rate, origin) retires
+    // an active edit: its preview snapped and derived musical ticks under the
+    // old map, and committing it would store what was never shown.
+    invalidateSession(tr("The time map changed"));
     bool changed = false;
     for (auto it = m_markers.begin(); it != m_markers.end(); ++it) {
         if (it->anchor != TimelineMarker::Anchor::Musical) continue;
@@ -444,8 +452,7 @@ void TimelineModel::resolveMusicalMarkers()
     if (!changed) return;
     // AGENT-NOTE: a tempo change moves musically anchored markers without a
     // history step; their canonical musicalTick is unchanged. The revision
-    // still advances so drags and requests based on old positions go stale.
-    invalidateSession(tr("The tempo map changed"));
+    // still advances so requests based on old positions go stale.
     ++m_revision;
     m_markerEdgesDirty = true;
     recomputeContentEnd();

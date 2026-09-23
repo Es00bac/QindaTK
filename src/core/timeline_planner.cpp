@@ -14,12 +14,6 @@ QString tr(const char *text)
     return QCoreApplication::translate("TimelineModel", text);
 }
 
-struct RipplePoint {
-    qint64 at = 0;
-    qint64 shift = 0;
-};
-using RipplePoints = QHash<QUuid, QVector<RipplePoint>>;
-
 void setError(TimelinePlanner::Context &context, OperationError error)
 {
     context.plan.error = std::move(error);
@@ -72,82 +66,6 @@ const TimelineClip &anchorOf(const TimelinePlanner::Context &context,
     for (const auto &clip : targets)
         if (clip.id == context.request.anchorClipId) return clip;
     return targets.first();
-}
-
-QVector<QUuid> rippleTracks(const TimelineModel &model, const QSet<QUuid> &sources, bool all)
-{
-    QVector<QUuid> result;
-    for (const auto &id : model.trackOrder()) {
-        if (!all && !sources.contains(id)) continue;
-        const auto *track = model.trackRecord(id);
-        // AGENT-NOTE: like an NLE with sync lock off, a locked track is never
-        // rippled; its clips keep their positions.
-        if (track && !track->locked) result.push_back(id);
-    }
-    return result;
-}
-
-// Every clip on a rippled track whose committed start is at or after an edit
-// point moves by that point's shift. `after` already holds the targets' edits.
-bool applyRipple(TimelinePlanner::Context &context, const QVector<QUuid> &tracks,
-                 RipplePoints points, QHash<QUuid, TimelineClip> &after, const QSet<QUuid> &skip)
-{
-    for (const auto &trackId : tracks) {
-        auto list = points.value(trackId);
-        if (list.isEmpty()) continue;
-        std::sort(list.begin(), list.end(), [](const auto &a, const auto &b) { return a.at < b.at; });
-        const auto &entries = context.model.trackIndex(trackId);
-        auto it = std::lower_bound(entries.cbegin(), entries.cend(), list.first().at,
-                                   [](const TimelineModel::IndexEntry &entry, qint64 value) {
-                                       return entry.start < value;
-                                   });
-        for (; it != entries.cend(); ++it) {
-            if (skip.contains(it->id)) continue;
-            qint64 shift = 0;
-            for (const auto &point : list) {
-                if (point.at > it->start) break;
-                const auto sum = TimelineTime::add(shift, point.shift);
-                if (!sum) {
-                    setError(context, TimelinePlanner::error(ErrorCode::InvalidArgument,
-                                                             tr("Ripple shift overflows")));
-                    return false;
-                }
-                shift = *sum;
-            }
-            if (shift == 0) continue;
-            TimelineClip clip = after.contains(it->id) ? after.value(it->id)
-                                                       : *context.model.clipRecord(it->id);
-            if (clip.locked) {
-                setError(context, TimelinePlanner::error(ErrorCode::Validation,
-                    tr("Ripple would move locked clip “%1”").arg(TimelinePlanner::clipName(clip))));
-                return false;
-            }
-            const auto start = TimelineTime::add(clip.start, shift);
-            if (!start || !TimelineTime::add(*start, clip.duration)) {
-                setError(context, TimelinePlanner::error(ErrorCode::InvalidArgument,
-                                                         tr("Ripple moves a clip out of range")));
-                return false;
-            }
-            clip.start = *start;
-            after.insert(clip.id, clip);
-        }
-    }
-    return true;
-}
-
-RipplePoints pointsFor(const TimelinePlanner::Context &context, const QVector<QUuid> &tracks,
-                       const QVector<QPair<QUuid, RipplePoint>> &raw)
-{
-    RipplePoints result;
-    const bool all = context.policy.rippleScope() == TimelineEditPolicy::RippleAllTracks;
-    for (const auto &entry : raw) {
-        if (all) {
-            for (const auto &track : tracks) result[track].push_back(entry.second);
-        } else {
-            result[entry.first].push_back(entry.second);
-        }
-    }
-    return result;
 }
 
 void emitClipChanges(TimelinePlanner::Context &context, const QHash<QUuid, TimelineClip> &after)
@@ -242,11 +160,9 @@ void TimelinePlanner::planMove(Context &context)
                 tr("A %1 clip cannot be placed on the %2 track “%3”").arg(clip.kind, track->kind, track->name));
     }
 
-    QVector<QUuid> tracks;
-    QVector<QPair<QUuid, RipplePoint>> raw;
     if (ripple) {
-        tracks = rippleTracks(context.model, sourceTracks,
-                              policy.rippleScope() == TimelineEditPolicy::RippleAllTracks);
+        const QVector<QUuid> tracks = rippleTracks(context.model, sourceTracks,
+                                                   policy.rippleScope() == TimelineEditPolicy::RippleAllTracks);
         QHash<QUuid, qint64> pivots;
         for (const auto &clip : targets) {
             const qint64 current = pivots.value(clip.trackId, clip.start);
@@ -264,11 +180,16 @@ void TimelinePlanner::planMove(Context &context)
     }
     const TimelineClip &anchor = anchorOf(context, targets);
     snapDelta(context, {anchor.start, anchor.end()}, moving, *delta);
-    if (!policy.allowNegativeTime()) {
+    if (!policy.allowNegativeTime() && !moving.isEmpty()) {
         qint64 minimum = std::numeric_limits<qint64>::max();
         for (const auto &id : moving) minimum = std::min(minimum, context.model.clipRecord(id)->start);
-        if (minimum != std::numeric_limits<qint64>::max() && minimum + *delta < 0) {
-            *delta = -minimum;
+        // An overflowing sum is left to the range check below, never clamped.
+        const auto earliest = TimelineTime::add(minimum, *delta);
+        if (earliest && *earliest < 0) {
+            const auto toZero = TimelineTime::subtract(0, minimum);
+            if (!toZero)
+                return setError(context, error(ErrorCode::InvalidArgument, tr("The clip would move out of range")));
+            *delta = *toZero;
             context.plan.snap = {};
         }
     }
@@ -322,8 +243,11 @@ void TimelinePlanner::planTrim(Context &context)
     for (const auto &clip : targets) {
         if (head) {
             high = std::min(high, clip.duration - minimum);
-            if (!policy.allowBeyondSource()) low = std::max(low, -clip.sourceOffset);
-            if (!ripple && !policy.allowNegativeTime()) low = std::max(low, -clip.start);
+            // A value whose negation overflows (the int64 minimum) bounds nothing.
+            const auto source = TimelineTime::subtract(0, clip.sourceOffset);
+            const auto zero = TimelineTime::subtract(0, clip.start);
+            if (!policy.allowBeyondSource() && source) low = std::max(low, *source);
+            if (!ripple && !policy.allowNegativeTime() && zero) low = std::max(low, *zero);
         } else {
             low = std::max(low, minimum - clip.duration);
             const auto remaining = TimelineTime::subtract(clip.sourceDuration, clip.sourceOffset);
@@ -388,14 +312,16 @@ void TimelinePlanner::planSplit(Context &context)
     const QUuid ns(context.operationId);
     QHash<QUuid, TimelineClip> after;
     for (const auto &clip : targets) {
-        if (at - clip.start < minimum || clip.end() - at < minimum) continue;
+        const auto head = TimelineTime::subtract(at, clip.start);
+        const auto tail = TimelineTime::subtract(clip.end(), at);
+        if (!head || !tail || *head < minimum || *tail < minimum) continue;
         TimelineClip left = clip;
-        left.duration = at - clip.start;
+        left.duration = *head;
         TimelineClip right = clip;
         right.id = QUuid::createUuidV5(ns, clip.id.toRfc4122());
         right.start = at;
-        right.duration = clip.end() - at;
-        const auto offsetTicks = TimelineTime::add(clip.sourceOffset, at - clip.start);
+        right.duration = *tail;
+        const auto offsetTicks = TimelineTime::add(clip.sourceOffset, *head);
         if (!offsetTicks)
             return setError(context, error(ErrorCode::InvalidArgument,
                                            tr("The split source offset is out of range")));
@@ -435,7 +361,12 @@ void TimelinePlanner::planDelete(Context &context)
         auto list = it.value();
         std::sort(list.begin(), list.end());
         qint64 start = list.first().first, end = list.first().second;
-        const auto flush = [&] { raw.push_back({it.key(), {end, start - end}}); };
+        bool overflow = false;
+        const auto flush = [&] {
+            const auto shift = TimelineTime::subtract(start, end);
+            if (shift) raw.push_back({it.key(), {end, *shift}});
+            else overflow = true;
+        };
         for (int i = 1; i < list.size(); ++i) {
             if (list.at(i).first <= end) {
                 end = std::max(end, list.at(i).second);
@@ -446,6 +377,8 @@ void TimelinePlanner::planDelete(Context &context)
             }
         }
         flush();
+        if (overflow)
+            return setError(context, error(ErrorCode::InvalidArgument, tr("Ripple shift overflows")));
     }
     QHash<QUuid, TimelineClip> after;
     if (!applyRipple(context, tracks, pointsFor(context, tracks, raw), after, removed)) return;
@@ -489,7 +422,9 @@ void TimelinePlanner::planClipTiming(Context &context)
         if (auto failure = policy.requireOperation(QStringLiteral("ripple"))) return setError(context, failure);
         const bool all = policy.rippleScope() == TimelineEditPolicy::RippleAllTracks;
         const QVector<QUuid> tracks = rippleTracks(context.model, {clip.trackId}, all);
-        const QVector<QPair<QUuid, RipplePoint>> raw{{clip.trackId, {before.end(), clip.end() - before.end()}}};
+        const auto shift = TimelineTime::subtract(clip.end(), before.end());
+        if (!shift) return setError(context, error(ErrorCode::InvalidArgument, tr("Ripple shift overflows")));
+        const QVector<QPair<QUuid, RipplePoint>> raw{{clip.trackId, {before.end(), *shift}}};
         if (!applyRipple(context, tracks, pointsFor(context, tracks, raw), after, {clip.id})) return;
     }
     emitClipChanges(context, after);

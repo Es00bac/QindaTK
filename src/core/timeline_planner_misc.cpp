@@ -187,12 +187,21 @@ OperationError TimelinePlanner::validateRequest(const TimelineModel &model,
     case TimelineEditKind::AddTrack:
         if (!request.track) return error(ErrorCode::InvalidArgument, tr("A new track needs a template"));
         break;
-    case TimelineEditKind::InsertClips:
+    case TimelineEditKind::InsertClips: {
         if (request.templates.isEmpty()) return error(ErrorCode::InvalidArgument, tr("There are no clips to insert"));
         if (!model.trackRecord(request.trackId)) return error(ErrorCode::InvalidArgument, tr("Unknown track"));
         if (model.clipCount() + request.templates.size() > TimelineModel::kMaxClips)
             return error(ErrorCode::Validation, tr("The timeline has too many clips"));
+        // New IDs derive from template IDs, so two equal templates would
+        // collide inside one transaction.
+        QSet<QUuid> ids;
+        for (const auto &item : request.templates) {
+            if (item.clip.id.isNull() || ids.contains(item.clip.id))
+                return error(ErrorCode::InvalidArgument, tr("Inserted clips need distinct IDs"));
+            ids.insert(item.clip.id);
+        }
         break;
+    }
     default:
         break;
     }
@@ -250,7 +259,7 @@ void TimelinePlanner::planMarker(Context &context)
             QVector<qint64> candidates;
             if (const auto moved = TimelineTime::add(before->position, *delta)) candidates.push_back(*moved);
             if (before->duration > 0) {
-                const auto end = TimelineTime::add(before->position + before->duration, *delta);
+                const auto end = TimelineTime::add(before->end(), *delta);
                 if (end) candidates.push_back(*end);
             }
             TimelineSnapContext snap;
@@ -274,7 +283,9 @@ void TimelinePlanner::planMarker(Context &context)
         }
         marker = derivedMarker(context.model, marker);
         if (auto failure = checkMarker(context, marker)) return setError(context, failure);
-        context.plan.appliedDelta = marker.position - before->position;
+        const auto applied = TimelineTime::subtract(marker.position, before->position);
+        if (!applied) return setError(context, error(ErrorCode::InvalidArgument, tr("The marker is out of range")));
+        context.plan.appliedDelta = *applied;
         pushMarkerChange(context, before, marker);
         return;
     }

@@ -265,15 +265,22 @@ QString TimelineModel::redoText() const
     return canRedo() ? m_history.at(m_cursor).changes.label : QString();
 }
 
+// AGENT-GUARD: a lower limit drops the oldest undo steps first and only then
+// the redo steps farthest from the cursor. Dropping the nearest redo step
+// would leave later redo steps whose preconditions can never match.
 void TimelineModel::setHistoryLimit(int steps)
 {
     steps = std::clamp(steps, 1, 10000);
     if (m_historyLimit == steps) return;
     m_historyLimit = steps;
-    while (m_history.size() > m_historyLimit) {
+    while (m_history.size() > m_historyLimit && m_cursor > 0) {
         m_historyBytes -= m_history.first().bytes;
         m_history.removeFirst();
-        m_cursor = std::max<qsizetype>(0, m_cursor - 1);
+        --m_cursor;
+    }
+    while (m_history.size() > m_historyLimit) {
+        m_historyBytes -= m_history.last().bytes;
+        m_history.removeLast();
     }
     emit historyChanged();
 }

@@ -73,12 +73,17 @@ TransferPayload payloadFor(const TimelineModel &model, const QVector<QUuid> &cli
         return {};
     }
     for (const auto *clip : clips) {
+        const auto offset = TimelineTime::subtract(clip->start, earliest);
+        if (!offset) {
+            if (error) *error = failure(ErrorCode::InvalidArgument, tr("The copied clips span too much time"));
+            return {};
+        }
         QVariantMap record = TimelineCodec::toMap(*clip);
         record.remove(QStringLiteral("end"));
         record.remove(QStringLiteral("trackId"));
         QJsonObject item{{QStringLiteral("schema"), QString::fromLatin1(ClipSchema)},
                          {QStringLiteral("clip"), QJsonObject::fromVariantMap(record)},
-                         {QStringLiteral("startOffset"), QString::number(clip->start - earliest)},
+                         {QStringLiteral("startOffset"), QString::number(*offset)},
                          {QStringLiteral("trackOffset"), int(order.indexOf(clip->trackId) - topTrack)},
                          {QStringLiteral("timebaseNumerator"), model.timebaseNumeratorText()},
                          {QStringLiteral("timebaseDenominator"), model.timebaseDenominatorText()}};

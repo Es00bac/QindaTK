@@ -7,11 +7,12 @@ import QindaTK as Tk
 //
 // AGENT-CONTRACT: markers are TimelineModel records with stable IDs and
 // exact positions; this lane draws TimelineViewport marker rows and edits
-// through model transactions only. A drag is one MoveMarker session: Escape
-// or a lost grab cancels it and restores the committed position; release
-// commits one undo step. Keyboard: Left/Right choose the previous/next
-// marker, Alt+Left/Right move it one grid step, Delete removes it, F2 or
-// Return renames it and M adds one at the playhead.
+// through model transactions only. A drag is one MoveMarker session: Escape,
+// a lost grab or a replaced model cancels it and restores the committed
+// position, and the rest of that press does nothing; release commits one
+// undo step. Keyboard: Left/Right choose the previous/next marker,
+// Alt+Left/Right move it one grid step, Delete removes it, F2 or Return
+// renames it and M adds one at the playhead.
 Item {
     id: lane
 
@@ -84,7 +85,8 @@ Item {
         const result = lane.model.applyEdit({ kind: "addMarker",
                                               marker: { position: ticks, label: qsTr("Marker") } })
         if (!lane.report(result)) return false
-        lane.currentMarkerId = lane.model.adjacentMarker(lane.model.subtractTicks(ticks, "1"), 1)
+        // The new marker by ID: another cue may already sit at this tick.
+        if (result.createdIds.length > 0) lane.currentMarkerId = result.createdIds[0]
         return true
     }
     function removeCurrent() {
@@ -110,14 +112,18 @@ Item {
             lane.report(lane.model.applyEdit({ kind: "editMarker", markerId: lane.currentMarkerId,
                                                marker: { label: renameEditor.text } }))
     }
+    // Also ends the press: later moves of the same press start nothing.
     function cancelDrag() {
-        if (internal.operationId.length > 0 && lane.model) lane.model.cancelEdit(internal.operationId)
+        if (internal.operationId.length > 0 && internal.sessionModel)
+            internal.sessionModel.cancelEdit(internal.operationId)
         internal.operationId = ""
+        internal.sessionModel = null
+        internal.pressMarker = ""
         internal.autoScroll = 0
     }
     function updateDrag() {
         if (internal.operationId.length === 0) return
-        lane.model.updateEdit(internal.operationId, {
+        internal.sessionModel.updateEdit(internal.operationId, {
             pointerTicks: lane.viewport.ticksForX(Math.max(0, Math.min(lane.width, internal.pointerX))),
             snap: lane.snapEnabled, snapToleranceTicks: lane.viewport.ticksForPixels(lane.snapPixels),
             grid: lane.snapGrid, playheadTicks: lane.playheadTicks })
@@ -144,6 +150,9 @@ Item {
     Accessible.focusable: lane.enabled
     Accessible.focused: lane.activeFocus
 
+    onModelChanged: lane.cancelDrag()
+    Component.onDestruction: lane.cancelDrag()
+
     Keys.onPressed: function(event) {
         if (!lane.enabled || !lane.model) return
         const alt = (event.modifiers & Qt.AltModifier) !== 0
@@ -163,6 +172,11 @@ Item {
     QtObject {
         id: internal
         property string operationId: ""
+        // The model that owns operationId; `model` may already be a new one.
+        property Tk.TimelineModel sessionModel: null
+        property real pressX: 0
+        property string pressTicks: ""
+        property string pressMarker: ""
         property real pointerX: 0
         property real autoScroll: 0
     }
@@ -176,10 +190,12 @@ Item {
         target: lane.model
         ignoreUnknownSignals: true
         function onEditInvalidated(operationId, reason) {
-            if (operationId === internal.operationId) {
-                internal.operationId = ""
-                lane.editRejected(reason)
-            }
+            if (operationId !== internal.operationId) return
+            internal.operationId = ""
+            internal.sessionModel = null
+            internal.pressMarker = ""
+            internal.autoScroll = 0
+            lane.editRejected(reason)
         }
     }
 
@@ -267,31 +283,30 @@ Item {
     }
 
     MouseArea {
+        objectName: "markerLanePointer"
         anchors.fill: parent
         enabled: lane.enabled && !!lane.model && !!lane.viewport
         preventStealing: internal.operationId.length > 0
-        property real pressX: 0
-        property string pressTicks: ""
-        property string pressMarker: ""
         onPressed: function(mouse) {
             lane.forceActiveFocus()
-            pressX = mouse.x
-            pressTicks = lane.viewport.ticksForX(mouse.x)
-            pressMarker = lane.markerAt(mouse.x)
-            if (pressMarker.length > 0) lane.currentMarkerId = pressMarker
+            internal.pressX = mouse.x
+            internal.pressTicks = lane.viewport.ticksForX(mouse.x)
+            internal.pressMarker = lane.markerAt(mouse.x)
+            if (internal.pressMarker.length > 0) lane.currentMarkerId = internal.pressMarker
         }
         onPositionChanged: function(mouse) {
-            if (!pressed || pressMarker.length === 0) return
+            if (!pressed || internal.pressMarker.length === 0) return
             if (internal.operationId.length === 0) {
-                if (Math.abs(mouse.x - pressX) < Qt.styleHints.startDragDistance) return
-                const begun = lane.model.beginEdit({ kind: "moveMarker", markerId: pressMarker,
-                                                     grabTicks: pressTicks,
+                if (Math.abs(mouse.x - internal.pressX) < Qt.styleHints.startDragDistance) return
+                const begun = lane.model.beginEdit({ kind: "moveMarker", markerId: internal.pressMarker,
+                                                     grabTicks: internal.pressTicks,
                                                      expectedRevision: lane.model.revision })
                 if (!lane.report(begun)) {
-                    pressMarker = ""
+                    internal.pressMarker = ""
                     return
                 }
                 internal.operationId = begun.operationId
+                internal.sessionModel = lane.model
             }
             internal.pointerX = mouse.x
             const edge = Tk.Theme.size.dropEdge
@@ -301,10 +316,13 @@ Item {
         }
         onReleased: {
             internal.autoScroll = 0
+            internal.pressMarker = ""
             if (internal.operationId.length === 0) return
             const operation = internal.operationId
+            const owner = internal.sessionModel
             internal.operationId = ""
-            lane.report(lane.model.commitEdit(operation))
+            internal.sessionModel = null
+            lane.report(owner.commitEdit(operation))
         }
         onCanceled: lane.cancelDrag()
         onDoubleClicked: function(mouse) {

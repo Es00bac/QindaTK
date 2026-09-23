@@ -139,6 +139,7 @@ Item {
         function onResourceInvalidated(resourceId) {
             if (resourceId === clipItem.resourceId) clipItem.refreshMedia()
         }
+        function onBackendChanged() { clipItem.refreshMedia() }
     }
 
     Rectangle {

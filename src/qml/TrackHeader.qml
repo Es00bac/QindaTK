@@ -9,6 +9,9 @@ import QindaTK as Tk
 // TimelineViewport track rows. Toggles, rename, resize and reorder emit
 // requests keyed by trackId; nothing changes until the model applies them,
 // so a rejected request leaves the header showing the committed state.
+// With gestures: false the header leaves press, drag and double-click on its
+// background and resize seam to the owner (EditTimelineHeaders handles them
+// for the whole column, so a drag outlives a recycled header delegate).
 Item {
     id: header
 
@@ -26,6 +29,9 @@ Item {
     property bool current: false
     property bool preview: false
     property bool resizable: true
+    property bool gestures: true
+    // Set by an owner that runs the resize gesture itself (gestures: false).
+    property bool resizing: false
     property string tooltip: header.name.length > 0 ? header.name : qsTr("Track")
     readonly property bool editingName: nameEditor.visible
     readonly property string kindIcon: header.kind === "video" ? "film"
@@ -36,6 +42,7 @@ Item {
     signal renameRequested(string trackId, string name)
     signal selectRequested(string trackId)
     signal heightStepRequested(string trackId, int steps)
+    // Starts on the first pointer movement; a press without one emits nothing.
     signal resizeStarted(string trackId)
     signal resizeMoved(string trackId, real delta)
     signal resizeFinished(string trackId)
@@ -195,6 +202,7 @@ Item {
         objectName: "trackReorderArea"
         anchors.fill: parent
         z: -1
+        enabled: header.gestures
         property real pressY: 0
         property bool reordering: false
         preventStealing: reordering
@@ -231,7 +239,7 @@ Item {
 
         Rectangle {
             objectName: "trackResizeSeam"
-            visible: resizeArea.containsMouse || resizeArea.pressed
+            visible: resizeArea.containsMouse || resizeArea.pressed || header.resizing
             width: parent.width
             height: Tk.Theme.size.border * 2
             y: parent.height - height
@@ -241,18 +249,28 @@ Item {
             id: resizeArea
             anchors.fill: parent
             hoverEnabled: true
+            // Without gestures only the cursor and hover seam stay here.
+            acceptedButtons: header.gestures ? Qt.LeftButton : Qt.NoButton
             cursorShape: Qt.SizeVerCursor
             preventStealing: true
             property real pressY: 0
+            property bool resizing: false
             onPressed: function(mouse) {
                 pressY = mapToItem(header, mouse.x, mouse.y).y
-                header.resizeStarted(header.trackId)
+                resizing = false
             }
             onPositionChanged: function(mouse) {
-                if (pressed) header.resizeMoved(header.trackId, mapToItem(header, mouse.x, mouse.y).y - pressY)
+                if (!pressed) return
+                const delta = mapToItem(header, mouse.x, mouse.y).y - pressY
+                if (!resizing) {
+                    if (delta === 0) return
+                    resizing = true
+                    header.resizeStarted(header.trackId)
+                }
+                header.resizeMoved(header.trackId, delta)
             }
-            onReleased: header.resizeFinished(header.trackId)
-            onCanceled: header.resizeCanceled(header.trackId)
+            onReleased: if (resizing) { resizing = false; header.resizeFinished(header.trackId) }
+            onCanceled: if (resizing) { resizing = false; header.resizeCanceled(header.trackId) }
         }
     }
 }

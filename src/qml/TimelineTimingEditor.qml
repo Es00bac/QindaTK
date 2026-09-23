@@ -10,8 +10,9 @@ import QindaTK as Tk
 // formatDuration/parseDuration for lengths), so no value passes through a
 // QML Number. A field the user did not change keeps its exact value rather
 // than the display-quantized text (a timecode shows whole frames only). In
-// clip mode Apply submits one SetClipTiming edit; in range
-// mode it emits rangeEdited for the owner's TimeSelection to commit. An
+// clip mode Apply submits one SetClipTiming edit guarded by the revision the
+// editor opened at, so values the user never saw are never written back; in
+// range mode it emits rangeEdited for the owner's TimeSelection to commit. An
 // unparsable field or a rejection keeps the popover open with the reason and
 // changes nothing. Escape or Cancel closes it without an edit.
 Tk.Popover {
@@ -32,6 +33,8 @@ Tk.Popover {
         id: exact
         property var values: ({})  // field objectName -> exact decimal ticks
         property var texts: ({})   // field objectName -> text shown at open
+        property string revision: ""
+        property string generation: ""
     }
     function show(field, text, ticks) {
         field.text = text
@@ -66,6 +69,8 @@ Tk.Popover {
         editor.clipId = id
         exact.values = ({})
         exact.texts = ({})
+        exact.revision = editor.model.revision
+        exact.generation = editor.model.resetGeneration
         editor.show(startField, editor.model.formatTicks(data.start, editor.displayMode, editor.dropFrame), data.start)
         editor.show(durationField, editor.model.formatDuration(data.duration, editor.displayMode), data.duration)
         editor.show(offsetField, editor.model.formatDuration(data.sourceOffset, editor.displayMode), data.sourceOffset)
@@ -102,7 +107,9 @@ Tk.Popover {
         }
         const result = editor.model.applyEdit({ kind: "setClipTiming", clipIds: [editor.clipId],
                                                 start: start.value, duration: duration.value,
-                                                sourceOffset: offset.value, ripple: editor.rippleMode })
+                                                sourceOffset: offset.value, ripple: editor.rippleMode,
+                                                expectedRevision: exact.revision,
+                                                expectedGeneration: exact.generation })
         editor.edited(result)
         if (!result.ok) {
             editor.errorText = result.error
@@ -114,6 +121,9 @@ Tk.Popover {
 
     objectName: "timelineTimingEditor"
     placement: "bottom"
+
+    // Its fields describe the old model's clip or range.
+    onModelChanged: editor.close()
 
     Tk.Flex {
         direction: Tk.Flex.Column

@@ -5197,7 +5197,7 @@
       "name": "EditTimelineHeaders",
       "kind": "qml",
       "base": "Item",
-      "description": "The track-header column of an EditTimeline: one TrackHeader per visible track row, scrolled with the lanes, and the resize/reorder sessions.  AGENT-CONTRACT: header rows come from TimelineViewport, so they share the lanes' vertical scroll and virtualization. A resize or reorder drag is one TimelineModel session previewed live (the rows move before anything is committed); release commits one undo step, a lost grab or Escape cancels. Reorder targets are computed from the committed layout captured at the start, so the previewed order never feeds back into its own destination.",
+      "description": "The track-header column of an EditTimeline: one TrackHeader per visible track row, scrolled with the lanes, and the resize/reorder sessions.  AGENT-CONTRACT: header rows come from TimelineViewport, so they share the lanes' vertical scroll and virtualization. A resize or reorder drag is one TimelineModel session previewed live (the rows move before anything is committed); release commits one undo step. A lost grab, Escape, a replaced model or destruction cancels it, and the rest of that press does nothing. Reorder targets are computed from the committed layout captured at the start, so the previewed order never feeds back into its own destination. AGENT-NOTE: the column's own MouseArea, under headers that run with gestures: false, owns press, drag and double-click, like the lanes' pointer controller: a previewed reorder or an autoscroll recycles header delegates, and a gesture held by a delegate would die with it.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/EditTimelineHeaders.qml",
@@ -5233,6 +5233,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "gestureKind",
+          "type": "string",
+          "default": "headers.gestureActive ? internal.kind : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -5255,16 +5263,28 @@
           "parameters": "trackId, property, value"
         },
         {
+          "name": "headerFor",
+          "parameters": "trackId"
+        },
+        {
+          "name": "pointerPressed",
+          "parameters": "y"
+        },
+        {
+          "name": "pointerMoved",
+          "parameters": "y"
+        },
+        {
           "name": "beginGesture",
-          "parameters": "kind, trackId"
+          "parameters": "kind"
         },
         {
           "name": "reorderTarget",
-          "parameters": "trackId, y"
+          "parameters": "y"
         },
         {
           "name": "updateGesture",
-          "parameters": "input"
+          "parameters": ""
         },
         {
           "name": "finishGesture",
@@ -5273,6 +5293,14 @@
         {
           "name": "cancelGesture",
           "parameters": ""
+        },
+        {
+          "name": "autoScrollStep",
+          "parameters": "seconds"
+        },
+        {
+          "name": "renameAt",
+          "parameters": "y"
         }
       ],
       "enums": {},
@@ -5284,14 +5312,15 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "timelineTrackHeaders"
+        "timelineTrackHeaders",
+        "trackHeaderPointer"
       ]
     },
     {
       "name": "EditTimelineLanes",
       "kind": "qml",
       "base": "Item",
-      "description": "The track-lane surface of an EditTimeline: lane stripes, clip delegates, the edit range, playhead, snap guide and the single pointer controller.  AGENT-NOTE: one MouseArea owns every clip gesture and hit-tests through TimelineViewport instead of per-delegate handlers. Delegates are recycled as clips scroll in and out (and a dragged clip may leave the viewport during autoscroll); a gesture held by a delegate would die with it. AGENT-GUARD: a drag is exactly one TimelineModel edit session. Every exit path (release, Escape, lost grab, model invalidation) either commits or cancels that session; never leave internal.operationId set on return.",
+      "description": "The track-lane surface of an EditTimeline: lane stripes, clip delegates, the edit range, playhead, snap guide and the single pointer controller.  AGENT-NOTE: one MouseArea owns every clip gesture and hit-tests through TimelineViewport instead of per-delegate handlers. Delegates are recycled as clips scroll in and out (and a dragged clip may leave the viewport during autoscroll); a gesture held by a delegate would die with it. AGENT-GUARD: a drag is exactly one TimelineModel edit session, owned by internal.sessionModel (`model` may already be a replacement). Every exit path (release, Escape, lost grab, model invalidation, a replaced model, destruction) either commits or cancels that session; never leave internal.operationId set on return.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/EditTimelineLanes.qml",
@@ -8288,7 +8317,7 @@
       "name": "MarkerLane",
       "kind": "qml",
       "base": "Item",
-      "description": "Editable cues and regions above timeline tracks.  AGENT-CONTRACT: markers are TimelineModel records with stable IDs and exact positions; this lane draws TimelineViewport marker rows and edits through model transactions only. A drag is one MoveMarker session: Escape or a lost grab cancels it and restores the committed position; release commits one undo step. Keyboard: Left/Right choose the previous/next marker, Alt+Left/Right move it one grid step, Delete removes it, F2 or Return renames it and M adds one at the playhead.",
+      "description": "Editable cues and regions above timeline tracks.  AGENT-CONTRACT: markers are TimelineModel records with stable IDs and exact positions; this lane draws TimelineViewport marker rows and edits through model transactions only. A drag is one MoveMarker session: Escape, a lost grab or a replaced model cancels it and restores the committed position, and the rest of that press does nothing; release commits one undo step. Keyboard: Left/Right choose the previous/next marker, Alt+Left/Right move it one grid step, Delete removes it, F2 or Return renames it and M adds one at the playhead.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/MarkerLane.qml",
@@ -8466,6 +8495,7 @@
         "markerFocus_",
         "markerLabel_",
         "markerLane",
+        "markerLanePointer",
         "markerRegion_",
         "markerRenameEditor"
       ]
@@ -13829,7 +13859,7 @@
       "name": "TimelineTimingEditor",
       "kind": "qml",
       "base": "Tk.Popover",
-      "description": "Numeric entry for one clip (start, length, source offset) or one range (start, end) of an EditTimeline.  AGENT-CONTRACT: fields show and parse text in the owner's display mode through TimelineModel (formatTicks/parseTicks for positions, formatDuration/parseDuration for lengths), so no value passes through a QML Number. A field the user did not change keeps its exact value rather than the display-quantized text (a timecode shows whole frames only). In clip mode Apply submits one SetClipTiming edit; in range mode it emits rangeEdited for the owner's TimeSelection to commit. An unparsable field or a rejection keeps the popover open with the reason and changes nothing. Escape or Cancel closes it without an edit.",
+      "description": "Numeric entry for one clip (start, length, source offset) or one range (start, end) of an EditTimeline.  AGENT-CONTRACT: fields show and parse text in the owner's display mode through TimelineModel (formatTicks/parseTicks for positions, formatDuration/parseDuration for lengths), so no value passes through a QML Number. A field the user did not change keeps its exact value rather than the display-quantized text (a timecode shows whole frames only). In clip mode Apply submits one SetClipTiming edit guarded by the revision the editor opened at, so values the user never saw are never written back; in range mode it emits rangeEdited for the owner's TimeSelection to commit. An unparsable field or a rejection keeps the popover open with the reason and changes nothing. Escape or Cancel closes it without an edit.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TimelineTimingEditor.qml",
@@ -14554,7 +14584,7 @@
       "name": "TrackHeader",
       "kind": "qml",
       "base": "Item",
-      "description": "The controls for one timeline track: name, kind, mute/solo/arm/lock/hide, routing summary, a resize seam and a reorder grip.  AGENT-CONTRACT: every value here is owner state from TimelineModel through TimelineViewport track rows. Toggles, rename, resize and reorder emit requests keyed by trackId; nothing changes until the model applies them, so a rejected request leaves the header showing the committed state.",
+      "description": "The controls for one timeline track: name, kind, mute/solo/arm/lock/hide, routing summary, a resize seam and a reorder grip.  AGENT-CONTRACT: every value here is owner state from TimelineModel through TimelineViewport track rows. Toggles, rename, resize and reorder emit requests keyed by trackId; nothing changes until the model applies them, so a rejected request leaves the header showing the committed state. With gestures: false the header leaves press, drag and double-click on its background and resize seam to the owner (EditTimelineHeaders handles them for the whole column, so a drag outlives a recycled header delegate).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TrackHeader.qml",
@@ -14667,6 +14697,22 @@
           "name": "resizable",
           "type": "bool",
           "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gestures",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resizing",
+          "type": "bool",
+          "default": "false",
           "readonly": false,
           "defaultProperty": false,
           "required": false
