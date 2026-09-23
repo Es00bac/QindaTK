@@ -5696,6 +5696,14 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -5709,6 +5717,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "splitterFocusRing",
         "splitterHandle",
         "splitterHitTarget"
       ]
