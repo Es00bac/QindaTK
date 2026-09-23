@@ -945,10 +945,26 @@
           "required": false
         },
         {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "\"\"",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputInvalid",
+          "type": "bool",
+          "default": "hexInput.visible && invalidDraft",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         },
@@ -983,6 +999,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "invalidDraft",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -999,6 +1023,18 @@
         {
           "name": "applyHex",
           "parameters": "text"
+        },
+        {
+          "name": "setHex",
+          "parameters": "text, notifyUser"
+        },
+        {
+          "name": "commitUserDraft",
+          "parameters": ""
+        },
+        {
+          "name": "revertDraft",
+          "parameters": ""
         }
       ],
       "enums": {},

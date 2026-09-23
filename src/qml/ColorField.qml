@@ -16,7 +16,9 @@ T.Control {
     property bool showHex: true
     property bool small: false
     property bool error: false
+    property bool readOnly: false
     property string tooltip: ""
+    readonly property bool inputInvalid: hexInput.visible && invalidDraft
 
     signal colorEdited(color color)
     signal pickRequested()
@@ -25,11 +27,16 @@ T.Control {
     readonly property real swatchSize: small ? Tk.Theme.size.icon : Tk.Theme.size.iconLg
     readonly property real edgePadding: Tk.Theme.space.sm + 1
     readonly property string hexText: control.color.toString()
+    property bool invalidDraft: false
 
     function applyHex(text) {
+        return setHex(text, false)
+    }
+
+    function setHex(text, notifyUser) {
         const match = /^\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\s*$/.exec(text)
         if (match === null) {
-            hexInput.text = control.hexText
+            invalidDraft = true
             return false
         }
         let hex = match[1]
@@ -39,14 +46,34 @@ T.Control {
         const next = Qt.color("#" + hex)
         if (Qt.colorEqual(next, control.color)) {
             hexInput.text = control.hexText
+            invalidDraft = false
             return false
         }
         control.color = next
-        control.colorEdited(next)
+        hexInput.text = control.hexText
+        invalidDraft = false
+        if (notifyUser)
+            control.colorEdited(next)
         return true
     }
 
-    onColorChanged: if (!hexInput.activeFocus) hexInput.text = control.hexText
+    function commitUserDraft() {
+        if (!control.enabled || control.readOnly)
+            return false
+        return setHex(hexInput.text, true)
+    }
+
+    function revertDraft() {
+        invalidDraft = false
+        hexInput.text = control.hexText
+    }
+
+    onColorChanged: {
+        if (!hexInput.activeFocus) {
+            hexInput.text = control.hexText
+            invalidDraft = false
+        }
+    }
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             implicitContentWidth + leftPadding + rightPadding)
@@ -60,8 +87,9 @@ T.Control {
     focusPolicy: Qt.NoFocus
     opacity: enabled ? 1.0 : Tk.Theme.opacity.disabled
 
-    Accessible.role: Accessible.EditableText
-    Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Colour %1").arg(control.hexText)
+    Accessible.role: Accessible.Grouping
+    Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Colour field")
+    Accessible.description: qsTr("Current colour %1").arg(control.hexText)
 
     Tk.ToolTip {
         text: control.tooltip
@@ -75,7 +103,7 @@ T.Control {
         radius: Tk.Theme.radius.sm
         color: Tk.Theme.color.inputBg
         border.width: Tk.Theme.size.border
-        border.color: control.error ? Tk.Theme.color.danger
+        border.color: control.error || control.inputInvalid ? Tk.Theme.color.danger
                     : hexInput.activeFocus ? Tk.Theme.color.inputFocusBorder
                     : control.hovered ? Tk.Theme.color.controlHoverBorder : Tk.Theme.color.inputBorder
         Behavior on border.color { ColorAnimation { duration: Tk.Theme.motion.fast } }
@@ -134,9 +162,30 @@ T.Control {
             HoverHandler {
                 id: swatchHover
                 cursorShape: Qt.PointingHandCursor
+                enabled: control.enabled && !control.readOnly
             }
             TapHandler {
+                enabled: control.enabled && !control.readOnly
                 onTapped: control.pickRequested()
+            }
+            activeFocusOnTab: control.enabled && !control.readOnly
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("Choose colour")
+            Accessible.description: qsTr("Current colour %1").arg(control.hexText)
+            Accessible.focusable: control.enabled && !control.readOnly
+            Accessible.focused: activeFocus
+            Accessible.onPressAction: if (control.enabled && !control.readOnly) control.pickRequested()
+            Keys.onSpacePressed: function(event) {
+                if (control.enabled && !control.readOnly) control.pickRequested()
+                event.accepted = true
+            }
+            Keys.onReturnPressed: function(event) {
+                if (control.enabled && !control.readOnly) control.pickRequested()
+                event.accepted = true
+            }
+            Keys.onEnterPressed: function(event) {
+                if (control.enabled && !control.readOnly) control.pickRequested()
+                event.accepted = true
             }
         }
 
@@ -155,26 +204,32 @@ T.Control {
             font.family: Tk.Theme.font.monoFamily
             font.pixelSize: control.small ? Tk.Theme.font.caption : Tk.Theme.font.small
             renderType: Text.NativeRendering
-            readOnly: !control.enabled
+            readOnly: !control.enabled || control.readOnly
             selectByMouse: true
             maximumLength: 9
             clip: true
+            Accessible.role: Accessible.EditableText
+            Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Colour value")
+            Accessible.description: control.inputInvalid ? qsTr("Invalid colour. Press Escape to restore %1").arg(control.hexText)
+                                      : qsTr("Current colour %1").arg(control.hexText)
+            onTextChanged: if (activeFocus && !readOnly) invalidDraft = false
             onAccepted: {
-                control.applyHex(text)
+                control.commitUserDraft()
                 selectAll()
             }
             onActiveFocusChanged: {
                 if (activeFocus) {
                     selectAll()
                 } else {
-                    control.applyHex(text)
+                    control.commitUserDraft()
                 }
             }
             Keys.onEscapePressed: function(event) {
-                text = control.hexText
+                control.revertDraft()
                 selectAll()
                 event.accepted = true
             }
+            onReadOnlyChanged: if (readOnly) control.revertDraft()
         }
     }
 }
