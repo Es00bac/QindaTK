@@ -163,7 +163,7 @@ Readings over time and against a limit. `Tk.Graph` draws on the scene graph;
 | `size.menuItem` | 22 | Menu items, ComboBox rows |
 | `size.icon` / `iconSm` / `iconLg` | 14 / 12 / 16 | icons in controls / small controls / chips |
 | `size.seam` | 4 | Painted splitter and dock divider thickness |
-| `size.seamTarget` | 16 | Dock divider hit area; 48px minimum in Touch density |
+| `size.seamTarget` | 16 | Dock divider and Splitter cross-axis hit area; 48px minimum in Touch density |
 | `size.scrollbar` | 8 | ScrollBar thumb |
 | `size.labelWidth` | 96 | PropertyRow label column |
 | `size.fieldWidth` | 120 | default width of a lone field |

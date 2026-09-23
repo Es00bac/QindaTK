@@ -46,10 +46,9 @@ FND-07 through FND-10.
   maximum text zoom, with the scrollbar below the labels. At 480×320, the
   header itself scrolls to keep the gallery content visible, and density
   choices scroll horizontally. DockDivider seams now route touch drags through
-  a 48px target. Qt SplitView still needs a
-  layout-preserving route; its standalone
-  [reproduction](../../../../tests/repros/tst_splitter_touch_hit.qml) fails
-  for touches starting outside the painted handle.
+  a 48px target. `Tk.Splitter` routes touches through a matching expanded
+  handle child while native SplitView retains pane sizing and constraints.
+  Both axes and all three densities have focused synthetic touch coverage.
   [Focused evidence](WP-007-FND-07-touch.md).
 - `TextField` blocks its custom clear paths when read-only or disabled;
   `SearchField` now debounces user edits while programmatic synchronization

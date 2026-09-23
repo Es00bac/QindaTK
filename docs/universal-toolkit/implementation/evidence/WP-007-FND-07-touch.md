@@ -42,8 +42,8 @@ and a preset switch/reset. In the integrated Touch 3× preview,
 `Slider#reviewSlider 0,194 520x48` and
 `RangeSlider#reviewRange 0,260 520x48` have tracks centred at y=23 and
 handles at y=17. The ignored `build/wp007-controls-touch-3x.png` was opened
-and inspected. Splitters, menu geometry, custom handlers, narrower windows
-and physical devices remain to check.
+and inspected. Menu geometry, other custom handlers, narrower application
+workflows and physical devices remain to check.
 
 Small `CheckBox`, `Switch` and `RadioButton` rows now use the derived
 `Theme.size.toggleTargetSm` role (16px Compact, 19px Comfortable, 48px
@@ -69,6 +69,15 @@ visible. A focused QML test scrolls to the final density choice and the
 filter field, verifying both remain reachable. Ignored preview artifacts are
 `build/wp007-gallery-narrow-review.{qml,png}`.
 
+A combined 480×320 Touch, 3× text and high-contrast-dark preview was also
+dumped and opened. It reports `Box#galleryHeader 0,0 480x160`,
+`Scroll#galleryHeaderScroll 0,0 480x159`, `SearchField#sectionFilter
+12,255 220x48` inside the scrollable header content, and
+`Scroll#galleryScroll 0,160 480x160`. The ignored artifacts are
+`build/wp007-hc-touch-gallery.{qml,png,dump}` in the integration worktree.
+This checks reachability of the combined example state, not every control's
+contrast or native accessibility behavior.
+
 At integration source commit `1f30b69`, Qt 6.11.1 and 6.8.3 each passed the
 full 19-target CTest suite and `all_qmllint`.
 
@@ -77,12 +86,12 @@ full 19-target CTest suite and `all_qmllint`.
 `DockDivider` now reads the density-scaled `Theme.size.seamTarget` (16px in
 Compact, 19px in Comfortable, and at least 48px in Touch) and derives the
 `HoverHandler` and `DragHandler` margin from the seam's cross-axis thickness.
-The painted Rectangle and its Flex
-basis remain bound to `Theme.size.seam`, so hit expansion does not alter dock
+The painted Rectangle and its Flex basis remain bound to `Theme.size.seam`,
+so hit expansion does not alter dock
 geometry. `tests/qml/tst_touch_targets.qml` presses 20px outside the painted
 vertical and horizontal seams, starts synthetic touch drags, and verifies
-that each handler reports a nonzero resize delta. Theme tests check the target role across
-Compact, Comfortable, Touch, a preset switch and reset.
+that each handler reports a nonzero resize delta. Theme tests check the target
+role across Compact, Comfortable, Touch, a preset switch and reset.
 After the horizontal cross-axis correction, the focused `tst_qml` and
 `tst_theme` targets pass on Qt 6.11.1 and Qt 6.8.3. The
 docking example dump shows Compact lane dividers at `4px` (`left_0 230,0
