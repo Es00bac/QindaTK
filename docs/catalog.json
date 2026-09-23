@@ -15226,6 +15226,13 @@
           "constant": false
         },
         {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "canUndo",
           "type": "bool",
           "default": "",

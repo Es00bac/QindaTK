@@ -92,6 +92,13 @@ step. This is an adapter bridge, not an `UndoService` registration:
 There must be one history owner per active grid, otherwise a shared undo
 command can replay the same edit twice.
 
+`readOnly = true` cancels an active edit, clears local/external history and
+rejects `setData`, edit transactions, paste/fill, undo/redo, history replay and
+row/column identity changes. Item flags omit `ItemIsEditable`. A query/pivot
+result adapter enables this mode on its presentation snapshot; the source
+grid remains separately editable. Section geometry may still be resized for
+display.
+
 The model does not implement spreadsheet formulas, persistence, accessible
 virtual cells or keyboard focus. Those belong to the domain model and the
 EditableGrid/HeaderView/RangeSelectionOverlay view layer.

@@ -32,6 +32,7 @@ QVariant EditableGridModel::data(const QModelIndex &index, int role) const
 }
 bool EditableGridModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (!index.isValid() || index.row() >= rows() || index.column() >= columns()
         || (role != Qt::EditRole && role != ValueRole)) return false;
     const bool started = !m_editing;
@@ -50,34 +51,13 @@ QVariant EditableGridModel::headerData(int section, Qt::Orientation orientation,
 QHash<int, QByteArray> EditableGridModel::roleNames() const
 { return {{ValueRole, "value"}, {RowIdRole, "rowId"}, {ColumnIdRole, "columnId"}}; }
 Qt::ItemFlags EditableGridModel::flags(const QModelIndex &index) const
-{ return index.isValid() ? Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable : Qt::NoItemFlags; }
+{ return index.isValid() ? Qt::ItemIsEnabled | Qt::ItemIsSelectable
+                           | (m_readOnly ? Qt::NoItemFlags : Qt::ItemIsEditable) : Qt::NoItemFlags; }
 
 bool EditableGridModel::fail(const QString &reason)
 { m_lastError = reason; emit rejected(reason); return false; }
 QString EditableGridModel::key(const QString &row, const QString &column) const
 { return row + separator + column; }
-void EditableGridModel::setSource(GridCellSource *source)
-{
-    if (m_source == source) return;
-    cancelEdit();
-    m_source = source;
-    m_overrides.clear(); m_sparseCount = 0;
-    m_history.clear(); m_externalSteps.clear(); m_historyCursor = 0;
-    ++m_revision; ++m_structureGeneration;
-    emit cellsChanged(); emit historyChanged();
-    if (rows() && columns()) emit dataChanged(index(0, 0), index(rows()-1, columns()-1));
-}
-void EditableGridModel::setExternalUndo(bool enabled)
-{
-    if (m_externalUndo == enabled) return;
-    cancelEdit();
-    m_externalUndo = enabled;
-    m_history.clear(); m_externalSteps.clear(); m_historyCursor = 0;
-    emit historyChanged();
-}
-void EditableGridModel::setValidator(std::function<QString(const QString &, const QString &, const QVariant &)> validator)
-{ m_validator = std::move(validator); }
-
 void EditableGridModel::rebuildIndexes(bool rowAxis)
 {
     const auto &ids = rowAxis ? m_rows : m_columns;
@@ -114,6 +94,7 @@ void EditableGridModel::reconcile(bool invalidateHistory)
 }
 bool EditableGridModel::setIds(QStringList ids, bool rowAxis)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     QSet<QString> seen;
     for (const QString &id : ids) {
         if (id.isEmpty() || id.contains(separator) || seen.contains(id))
@@ -155,6 +136,7 @@ bool EditableGridModel::setRowIds(const QStringList &ids) { return setIds(ids, t
 bool EditableGridModel::setColumnIds(const QStringList &ids) { return setIds(ids, false); }
 bool EditableGridModel::setDimensions(int rowCount, int columnCount)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (rowCount < 0 || columnCount < 0) return fail(QStringLiteral("Negative grid dimensions"));
     QStringList rowIds = m_rows, columnIds = m_columns;
     QSet<QString> usedRows, usedColumns;
@@ -222,6 +204,7 @@ bool EditableGridModel::requestColumnResize(const QString &id, qreal size)
 { return resizeId(id, size, false); }
 bool EditableGridModel::moveId(const QString &id, const QString &beforeId, bool rowAxis)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     auto &ids = rowAxis ? m_rows : m_columns;
     auto &sizes = rowAxis ? m_rowSizes : m_columnSizes;
     const int from = rowAxis ? rowIndex(id) : columnIndex(id);
@@ -360,11 +343,13 @@ bool EditableGridModel::validateCell(const QString &row, const QString &column, 
 }
 bool EditableGridModel::beginEdit(const QString &label)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (m_editing) return fail(QStringLiteral("An edit is already active"));
     m_pending.clear(); m_label = label; m_editing = true; emit editingChanged(); return true;
 }
 bool EditableGridModel::stageCell(const QString &row, const QString &column, const QVariant &candidate)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (!m_editing) return fail(QStringLiteral("No active grid edit"));
     if (!validateCell(row, column, candidate)) return false;
     auto it = std::find_if(m_pending.begin(), m_pending.end(), [&](const Change &v) {
@@ -378,6 +363,7 @@ bool EditableGridModel::stageCell(const QString &row, const QString &column, con
 }
 bool EditableGridModel::paste(int firstRow, int firstColumn, const QVariantList &rowsData)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (firstRow < 0 || firstColumn < 0 || firstRow > rows() || firstColumn > columns()
         || rowsData.size() > rows()-firstRow) return fail(QStringLiteral("Paste outside grid"));
     const bool started = !m_editing;
@@ -405,6 +391,7 @@ bool EditableGridModel::paste(int firstRow, int firstColumn, const QVariantList 
 bool EditableGridModel::fill(int firstRow, int firstColumn, int rowSpan, int columnSpan,
                              int targetRow, int targetColumn)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (firstRow < 0 || firstColumn < 0 || targetRow < 0 || targetColumn < 0
         || rowSpan <= 0 || columnSpan <= 0 || targetRow + rowSpan > rows()
         || targetColumn + columnSpan > columns() || firstRow + rowSpan > rows()
@@ -455,6 +442,7 @@ bool EditableGridModel::applyChanges(const QVector<Change> &changes, bool revers
 }
 bool EditableGridModel::commitEdit()
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (!m_editing) return fail(QStringLiteral("No active grid edit"));
     QVector<Change> changes;
     for (const auto &v : m_pending) if (v.before != v.after) changes.append(v);
@@ -473,6 +461,7 @@ bool EditableGridModel::commitEdit()
 }
 bool EditableGridModel::undo()
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (m_externalUndo) return fail(QStringLiteral("Host owns grid undo"));
     if (m_editing || !canUndo()) return fail(QStringLiteral("Grid undo unavailable"));
     if (!applyChanges(m_history[m_historyCursor-1].changes, true)) return false;
@@ -480,6 +469,7 @@ bool EditableGridModel::undo()
 }
 bool EditableGridModel::redo()
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (m_externalUndo) return fail(QStringLiteral("Host owns grid redo"));
     if (m_editing || !canRedo()) return fail(QStringLiteral("Grid redo unavailable"));
     if (!applyChanges(m_history[m_historyCursor].changes, false)) return false;
@@ -489,6 +479,7 @@ bool EditableGridModel::applyHistoryChanges(const QString &transactionId,
                                             const QVariantList &changes, bool reverse,
                                             const QString &expectedRevision)
 {
+    if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (!m_externalUndo || m_editing) return fail(QStringLiteral("Host grid history is unavailable"));
     auto it = m_externalSteps.constFind(transactionId);
     if (it == m_externalSteps.cend()) return fail(QStringLiteral("Unknown or retired grid transaction ID"));

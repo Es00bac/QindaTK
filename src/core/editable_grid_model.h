@@ -37,6 +37,7 @@ class EditableGridModel : public QAbstractTableModel {
     Q_PROPERTY(qreal defaultRowSize READ defaultRowSize WRITE setDefaultRowSize NOTIFY geometryChanged)
     Q_PROPERTY(qreal defaultColumnSize READ defaultColumnSize WRITE setDefaultColumnSize NOTIFY geometryChanged)
     Q_PROPERTY(bool externalUndo READ externalUndo WRITE setExternalUndo NOTIFY historyChanged)
+    Q_PROPERTY(bool readOnly READ readOnly WRITE setReadOnly NOTIFY readOnlyChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(bool editing READ editing NOTIFY editingChanged)
@@ -61,14 +62,16 @@ public:
     qreal defaultRowSize() const { return m_defaultRowSize; }
     qreal defaultColumnSize() const { return m_defaultColumnSize; }
     bool externalUndo() const { return m_externalUndo; }
-    bool canUndo() const { return !m_externalUndo && m_historyCursor > 0; }
-    bool canRedo() const { return !m_externalUndo && m_historyCursor < m_history.size(); }
+    bool canUndo() const { return !m_readOnly && !m_externalUndo && m_historyCursor > 0; }
+    bool canRedo() const { return !m_readOnly && !m_externalUndo && m_historyCursor < m_history.size(); }
+    bool readOnly() const { return m_readOnly; }
     bool editing() const { return m_editing; }
     QString lastError() const { return m_lastError; }
     QVariantList ranges() const;
     GridCellSource *source() const { return m_source; }
     void setSource(GridCellSource *source);
     void setExternalUndo(bool enabled);
+    void setReadOnly(bool enabled);
     void setValidator(std::function<QString(const QString &, const QString &, const QVariant &)> validator);
 
     Q_INVOKABLE bool setDimensions(int rows, int columns);
@@ -123,6 +126,7 @@ signals:
     void selectionChanged();
     void editingChanged();
     void historyChanged();
+    void readOnlyChanged();
     void rowResized(const QString &id, qreal size);
     void columnResized(const QString &id, qreal size);
     void rowMoved(const QString &id, int newIndex);
@@ -177,7 +181,7 @@ private:
     quint64 m_nextRow = 1, m_nextColumn = 1;
     int m_frozenRows = 0, m_frozenColumns = 0, m_sparseCount = 0;
     qreal m_defaultRowSize = 24, m_defaultColumnSize = 100;
-    bool m_editing = false, m_externalUndo = false;
+    bool m_editing = false, m_externalUndo = false, m_readOnly = false;
     QString m_label, m_lastError;
 };
 

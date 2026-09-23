@@ -188,7 +188,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-029"></a>
 ## WP-029 — Implement filters, query building and pivots
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Sol. **Status:** active (C++ core; controls pending). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** [DAT-07 FilterBar](../proposed/03-data-views.md#dat-07), [DAT-08 QueryBuilder](../proposed/03-data-views.md#dat-08), [DAT-09 PivotView](../proposed/03-data-views.md#dat-09)
 

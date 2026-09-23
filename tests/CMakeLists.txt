@@ -76,6 +76,7 @@ endif()
 qindatk_add_test(tst_document_session)
 qindatk_add_test(tst_selection_model)
 qindatk_add_test(tst_editable_grid_model)
+qindatk_add_test(tst_query_core)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)
