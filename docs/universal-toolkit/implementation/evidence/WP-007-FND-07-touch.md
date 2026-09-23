@@ -44,3 +44,14 @@ and a preset switch/reset. In the integrated Touch 3× preview,
 handles at y=17. The ignored `build/wp007-controls-touch-3x.png` was opened
 and inspected. Splitters, small toggle variants, menu geometry, custom
 handlers, narrower windows and physical devices remain to check.
+
+Small `CheckBox`, `Switch` and `RadioButton` rows now use the derived
+`Theme.size.toggleTargetSm` role (16px Compact, 19px Comfortable, 48px
+Touch), preserving their small desktop geometry. Theme and QML tests check
+the role and control heights across densities and 1×/3× text. Integrated
+software previews show `CheckBox#reviewSmallCheck 0,27 520x16`,
+`Switch#reviewSmallSwitch 0,55 520x16` and
+`RadioButton#reviewSmallRadio 0,83 520x16` in Compact. In Touch at 3× text,
+the same controls are each 520×48, with 18px indicators centred at y=15.
+`build/wp007-small-toggles-compact.png` and
+`build/wp007-small-toggles-touch-3x.png` were opened and inspected.

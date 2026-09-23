@@ -19,6 +19,9 @@ TestCase {
     Component { id: smallSlider; Tk.Slider { small: true; tooltip: "Value" } }
     Component { id: rangeSlider; Tk.RangeSlider { tooltip: "Range" } }
     Component { id: smallRangeSlider; Tk.RangeSlider { small: true; tooltip: "Range" } }
+    Component { id: smallCheckbox; Tk.CheckBox { small: true; text: "Grid" } }
+    Component { id: smallSwitch; Tk.Switch { small: true; text: "Snap" } }
+    Component { id: smallRadio; Tk.RadioButton { small: true; text: "Mode" } }
     Component { id: gallery; Loader { source: "../../examples/gallery/Main.qml" } }
 
     function test_sliderTargetsFollowDensityWithoutChangingCompactRows() {
@@ -56,6 +59,31 @@ TestCase {
                     small.destroy()
                     range.destroy()
                     rangeSmall.destroy()
+                }
+            }
+        } finally {
+            Tk.Density.modeName = formerMode
+            Tk.Density.textScale = formerTextScale
+        }
+    }
+
+    function test_smallToggleTargetsFollowThemeRole() {
+        const formerMode = Tk.Density.modeName
+        const formerTextScale = Tk.Density.textScale
+        try {
+            for (const mode of ["compact", "comfortable", "touch"]) {
+                Tk.Density.modeName = mode
+                for (const textScale of [1, 3]) {
+                    Tk.Density.textScale = textScale
+                    for (const component of [smallCheckbox, smallSwitch, smallRadio]) {
+                        const control = createTemporaryObject(component, root)
+                        verify(control !== null)
+                        verify(control.height >= Tk.Theme.size.toggleTargetSm)
+                        if (mode === "touch") verify(control.height >= 48)
+                        if (mode === "compact" && textScale === 1)
+                            compare(control.height, 16)
+                        control.destroy()
+                    }
                 }
             }
         } finally {

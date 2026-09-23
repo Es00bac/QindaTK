@@ -139,13 +139,15 @@ private slots:
                                     QStringLiteral("menuItem"), QStringLiteral("header"),
                                     QStringLiteral("timeRuler"),
                                     QStringLiteral("sliderTarget"),
-                                    QStringLiteral("sliderTargetSm")}) {
+                                    QStringLiteral("sliderTargetSm"),
+                                    QStringLiteral("toggleTargetSm")}) {
             QVERIFY2(theme->size()->metric(name) >= 48.0, qPrintable(name));
         }
         QCOMPARE(theme->size()->metric(QStringLiteral("control")), 48.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("chip")), 48.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 48.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 48.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("toggleTargetSm")), 48.0);
         density->setTextScale(3.0);
         QVERIFY(theme->size()->metric(QStringLiteral("control")) >= 48.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 48.0);
@@ -155,6 +157,7 @@ private slots:
         QCOMPARE(theme->size()->metric(QStringLiteral("control")), 24.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 16.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 14.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("toggleTargetSm")), 16.0);
     }
     void sliderTargetRolesScaleAndResetAcrossPresets()
     {

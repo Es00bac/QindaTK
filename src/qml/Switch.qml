@@ -18,7 +18,7 @@ T.Switch {
     readonly property real trackHeight: small ? Tk.Theme.size.iconSm : Tk.Theme.size.icon
     readonly property real trackWidth: trackHeight * 2 - Tk.Theme.space.xs
     readonly property real knobSize: trackHeight - Tk.Theme.space.sm
-    readonly property real rowHeight: small ? Tk.Theme.size.controlSm - Tk.Theme.space.sm
+    readonly property real rowHeight: small ? Tk.Theme.size.toggleTargetSm
                                             : Tk.Theme.size.controlSm
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,

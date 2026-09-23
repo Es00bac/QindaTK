@@ -661,7 +661,7 @@
         {
           "name": "rowHeight",
           "type": "real",
-          "default": "small ? Tk.Theme.size.controlSm - Tk.Theme.space.sm",
+          "default": "small ? Tk.Theme.size.toggleTargetSm",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -4480,7 +4480,7 @@
         {
           "name": "rowHeight",
           "type": "real",
-          "default": "small ? Tk.Theme.size.controlSm - Tk.Theme.space.sm",
+          "default": "small ? Tk.Theme.size.toggleTargetSm",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -5652,7 +5652,7 @@
         {
           "name": "rowHeight",
           "type": "real",
-          "default": "small ? Tk.Theme.size.controlSm - Tk.Theme.space.sm",
+          "default": "small ? Tk.Theme.size.toggleTargetSm",
           "readonly": true,
           "defaultProperty": false,
           "required": false

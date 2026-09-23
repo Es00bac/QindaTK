@@ -410,7 +410,8 @@ measured Compact and Comfortable chrome remains the desktop baseline.
 
 **Decision.** After density and text-scale resolution, raise interactive
 vertical size roles `controlSm`, `control`, `controlLg`, `row`, `rowLg`, `tab`,
-`menuItem`, `header`, `timeRuler`, `sliderTarget` and `sliderTargetSm` to at
+`menuItem`, `header`, `timeRuler`, `sliderTarget`, `sliderTargetSm` and
+`toggleTargetSm` to at
 least 48 logical pixels in Touch
 mode. The 48px outer row leaves at least 44px for a joined control's inner
 button after two 2px borders. Larger authored or font-derived values win. Keep the authored metric
