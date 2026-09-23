@@ -123,7 +123,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-006"></a>
 ## WP-006 — Complete layout and scrolling contracts
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-002](phase-00-baseline.md#wp-002), [WP-003](phase-00-baseline.md#wp-003), [WP-005](phase-00-baseline.md#wp-005)
+**Implementation lead:** Sol. **Status:** active; [diagnostic fixtures and observed gaps](evidence/WP-006-diagnostics.md). **Depends on:** [WP-002](phase-00-baseline.md#wp-002), [WP-003](phase-00-baseline.md#wp-003), [WP-005](phase-00-baseline.md#wp-005)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

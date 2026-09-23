@@ -238,3 +238,28 @@ test on Qt 6.8.3 and 6.11.1. The rest of the toolkit continues to use
 `dragThreshold` and `cursorShape` properties are not proxied; callers using
 them must migrate. The verified boundary does not imply binary compatibility
 with the prior class or physical-tablet/GPU qualification.
+
+## D-016 — Keep toolkit theme ownership process-wide
+
+**Context.** `Tk.Theme` and `Tk.Density` are QML singletons backed by C++
+`instance()` objects shared across engines. Every current control reads
+`Tk.Theme` directly. The QindaQt token bridge also updates that object.
+Consequently, applying a preset in one window changes toolkit chrome in
+every window. A per-window theme object would have no effect on existing
+controls merely by being placed in a window or QML context.
+
+**Decision.** The supported toolkit-chrome theme and density contract remains
+process-wide for WP-007. Applications select one preset, role map or QST
+token source for all QindaTK windows in a process. They may style document
+content independently as application data, but must not claim that toolkit
+controls in different windows use separate palettes. No `ThemeScope` API is
+published until controls and detached popups can resolve a nearest explicit
+scope, with one defined owner for QindaQt token updates and a migration path
+for existing `Tk.Theme` bindings.
+
+**Consequences.** This is the conditional FND-08 disposition, not an
+implementation of per-window theming. Existing QML and C++ theme calls keep
+their behavior. Future scoped work must cover inheritance across item trees,
+popup reparenting, window movement, runtime scope changes, density and text
+scale, and the bridge's global-token policy before advertising mixed-theme
+windows. The other WP-007 foundations still require implementation and tests.

@@ -8,6 +8,17 @@ type ramp, and the spacing / radius / size / motion / opacity ladders.
 file can replace one, and on the QindaQt desktop the `QindaTK.QindaQt`
 bridge feeds the desktop's QST-1 tokens in.
 
+## Ownership across windows
+
+The supported theme and density apply to every QindaTK window in the
+process. `Tk.Theme.applyPreset()`, JSON/role changes, QST token updates and
+`Tk.Density.mode` all update shared singleton objects. Putting a separate
+palette object inside one window does not change controls that bind directly
+to `Tk.Theme`. See [D-016](decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
+for the scoped-theme decision and the work required before mixed-theme
+toolkit windows can be supported. Applications can still render document
+content using document-specific colours without changing toolkit chrome.
+
 ```qml
 import QindaTK as Tk
 Rectangle {
@@ -25,7 +36,9 @@ or the QST bridge). Every other role is **derived** from them with the
 ratios below (`theme_presets.cpp`, `derive()`), which were recovered from
 Sloom Studio's stylesheet (`color-mix` rules) and, for the chip and island
 roles, from sampling its rendered pixels. Controls only ever read derived
-roles, so a theme stays coherent when its accent changes.
+roles, so a theme stays coherent when its accent changes. The two high
+contrast presets replace translucent control borders, focus and selected
+surfaces with opaque derivatives; their exact overrides are in `derive()`.
 
 `mix(a, b, t)` weights `b` by `t` (CSS `color-mix` order); `alpha(c, a)`
 sets the alpha channel; `dark` is the preset's flag, or `luminance(bg) <
@@ -186,6 +199,15 @@ mode.
 | `sloom-dark` (default) | Sloom Dark | Sloom Studio's shipped palette (`bg #0b0c10`, `surface #11141d`, `panel #1a1b23`, `border #263244`, `text #f3f7fb`, `textMuted #92a3b8`, `accent #22d3ee`, `accentContrast #061018`, `danger #fb7185`, `warning #ecc52f`, `success #6ee7b7`, `info #22d3ee`) |
 | `sloom-light` | Sloom Light | paper tones from the original's splash screen, cyan-600 accent |
 | `graphite` | Graphite | neutral dark with a blue accent, for non-Sloom applications |
+| `high-contrast-dark` | High Contrast Dark | black surfaces, white borders/text and yellow focus/accent |
+| `high-contrast-light` | High Contrast Light | white surfaces, black borders/text and dark-blue focus/accent |
+
+The high contrast presets keep disabled controls opaque so labels remain
+legible. The focused Qt test checks representative text pairs at 4.5:1 and
+key control boundaries at 3:1 using resolved theme colours. This does not
+certify every widget or custom theme against an accessibility standard;
+WP-007 still requires large-text, hit-target and visual workflow review.
+The ratio targets follow [WCAG 2.2 text and non-text contrast criteria](https://www.w3.org/TR/wcag/).
 
 `Tk.Theme.preset = "sloom-light"` or `Tk.Theme.applyPreset("sloom-light")`
 (returns false for an unknown id). `Tk.Theme.presets()` lists ids.

@@ -21,15 +21,16 @@ struct PresetDef final {
     const char *id;
     const char *name;
     BaseRoles roles;
+    bool highContrast = false;
 };
 
 // AGENT-NOTE: sloom-dark is Sloom Studio's shipped palette (src/index.css
 // of the original); the status colours are the literal amber/emerald the
 // original paints because its nine roles carry none. sloom-light keeps the
 // splash-screen paper tone as its base.
-const std::array<PresetDef, 3> &presetTable()
+const std::array<PresetDef, 5> &presetTable()
 {
-    static const std::array<PresetDef, 3> table = {{
+    static const std::array<PresetDef, 5> table = {{
         {"sloom-dark", "Sloom Dark",
          {QColor("#0b0c10"), QColor("#11141d"), QColor("#1a1b23"), QColor("#263244"),
           QColor("#f3f7fb"), QColor("#92a3b8"), QColor("#22d3ee"), QColor("#061018"),
@@ -42,6 +43,14 @@ const std::array<PresetDef, 3> &presetTable()
          {QColor("#121212"), QColor("#181818"), QColor("#1f1f1f"), QColor("#2c2c2c"),
           QColor("#ececec"), QColor("#9a9a9a"), QColor("#7aa2f7"), QColor("#0b0f1a"),
           QColor("#f7768e"), QColor("#e0af68"), QColor("#9ece6a"), QColor("#7dcfff"), true}},
+        {"high-contrast-dark", "High Contrast Dark",
+         {QColor("#000000"), QColor("#000000"), QColor("#000000"), QColor("#ffffff"),
+          QColor("#ffffff"), QColor("#ffffff"), QColor("#ffff00"), QColor("#000000"),
+          QColor("#ff8080"), QColor("#ffff00"), QColor("#80ff80"), QColor("#80ffff"), true}, true},
+        {"high-contrast-light", "High Contrast Light",
+         {QColor("#ffffff"), QColor("#ffffff"), QColor("#ffffff"), QColor("#000000"),
+          QColor("#000000"), QColor("#000000"), QColor("#0000cc"), QColor("#ffffff"),
+          QColor("#b00020"), QColor("#754000"), QColor("#006c36"), QColor("#005a75"), false}, true},
     }};
     return table;
 }
@@ -100,8 +109,9 @@ BaseRoles currentBase(const Theme &theme)
 // (`color-mix` rules of src/index.css) and, for the chip/island roles, by
 // sampling rendered pixels of the running original (QindaStudio's
 // StudioTheme.qml). Where a stylesheet and the pixels disagreed, the pixels
-// won. Change a ratio here and every control follows.
-void derive(Theme &theme, const BaseRoles &r)
+// won. High-contrast presets override translucent roles below. Change a
+// ratio here and every control follows.
+void derive(Theme &theme, const BaseRoles &r, bool highContrast = false)
 {
     ThemeColors &c = *theme.color();
     const QColor black(Qt::black);
@@ -160,6 +170,43 @@ void derive(Theme &theme, const BaseRoles &r)
     c.setRole("dropZone", theme.alpha(r.accent, 0.22));
     c.setRole("shadow", theme.alpha(black, dark ? 0.55 : 0.25));
     c.setRole("overlay", theme.alpha(black, 0.65));
+    if (highContrast) {
+        // Opaque borders and focus survive over any of the solid control
+        // surfaces. State backgrounds remain distinguishable without opacity.
+        c.setRole("borderStrong", r.border);
+        c.setRole("divider", r.border);
+        c.setRole("textDisabled", r.muted);
+        c.setRole("accentText", r.accent);
+        c.setRole("hover", theme.mix(r.panel, r.accent, 0.22));
+        c.setRole("pressed", theme.mix(r.panel, r.accent, 0.36));
+        c.setRole("selection", theme.mix(r.panel, r.accent, 0.30));
+        c.setRole("focus", r.accent);
+        c.setRole("controlBg", r.panel);
+        c.setRole("controlBorder", r.border);
+        c.setRole("controlHoverBg", theme.mix(r.panel, r.accent, 0.22));
+        c.setRole("controlHoverBorder", r.accent);
+        c.setRole("controlActiveBg", theme.mix(r.panel, r.accent, 0.36));
+        c.setRole("controlActiveBorder", r.accent);
+        c.setRole("chipBg", r.panel);
+        c.setRole("chipBorder", r.border);
+        c.setRole("chipHoverBg", theme.mix(r.panel, r.accent, 0.22));
+        c.setRole("chipHoverBorder", r.accent);
+        c.setRole("inputBg", r.panel);
+        c.setRole("inputBorder", r.border);
+        c.setRole("inputFocusBorder", r.accent);
+        c.setRole("headerBg", r.surface);
+        c.setRole("headerText", r.text);
+        c.setRole("popoverBg", r.panel);
+        c.setRole("popoverBorder", r.border);
+        c.setRole("tooltipBg", r.panel);
+        c.setRole("tooltipText", r.text);
+        c.setRole("islandBg", r.panel);
+        c.setRole("islandBorder", r.border);
+        c.setRole("scrollTrack", r.surface);
+        c.setRole("scrollThumb", r.border);
+        c.setRole("seam", r.border);
+        c.setRole("seamHover", r.accent);
+    }
     ThemePresets::setDark(theme, dark);
 }
 
@@ -231,7 +278,8 @@ bool ThemePresets::apply(Theme &theme, const QString &id)
         if (id != QLatin1String(preset.id)) {
             continue;
         }
-        derive(theme, preset.roles);
+        derive(theme, preset.roles, preset.highContrast);
+        theme.opacity()->setBase(QStringLiteral("disabled"), preset.highContrast ? 1.0 : 0.45);
         theme.m_preset = id;
         theme.m_name = QString::fromLatin1(preset.name);
         g_fontBase = FontBase{};

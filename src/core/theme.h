@@ -32,7 +32,8 @@ private:                                                                      \
 // text, textMuted, accent, accentContrast, danger) plus the three status
 // colours are authored by a preset, a theme file, or QindaQt's tokens; every
 // other role is derived from them by theme_presets.cpp with the mix ratios
-// measured from Sloom Studio. Controls read derived roles, never mix
+// measured from Sloom Studio or the explicit high-contrast overrides.
+// Controls read derived roles, never mix
 // themselves, so a theme stays coherent when its accent changes.
 class ThemeColors : public QObject {
     Q_OBJECT

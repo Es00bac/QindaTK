@@ -51,6 +51,31 @@ private slots:
         QVERIFY(!theme->applyPreset(QStringLiteral("nope")));
         QCOMPARE(theme->preset(), QStringLiteral("sloom-light"));
     }
+    void highContrastPresetsKeepTextAndControlsDistinct()
+    {
+        Theme *theme = Theme::instance();
+        const auto contrast = [theme](const QColor &a, const QColor &b) {
+            const qreal la = theme->luminance(a);
+            const qreal lb = theme->luminance(b);
+            return (qMax(la, lb) + 0.05) / (qMin(la, lb) + 0.05);
+        };
+        for (const QString &id : {QStringLiteral("high-contrast-dark"),
+                                  QStringLiteral("high-contrast-light")}) {
+            QVERIFY(theme->applyPreset(id));
+            const auto *c = theme->color();
+            QVERIFY(contrast(c->text(), c->panel()) >= 4.5);
+            QVERIFY(contrast(c->textMuted(), c->panel()) >= 4.5);
+            QVERIFY(contrast(c->accentText(), c->panel()) >= 4.5);
+            QVERIFY(contrast(c->accentContrast(), c->accent()) >= 4.5);
+            QVERIFY(contrast(c->controlBorder(), c->controlBg()) >= 3.0);
+            QVERIFY(contrast(c->inputBorder(), c->inputBg()) >= 3.0);
+            QVERIFY(contrast(c->focus(), c->panel()) >= 3.0);
+            QVERIFY(contrast(c->scrollThumb(), c->scrollTrack()) >= 3.0);
+            QCOMPARE(theme->opacity()->metric(QStringLiteral("disabled")), 1.0);
+        }
+        QVERIFY(theme->applyPreset(QStringLiteral("sloom-dark")));
+        QCOMPARE(theme->opacity()->metric(QStringLiteral("disabled")), 0.45);
+    }
     void densityRescalesMetricsNotRadius()
     {
         Theme *theme = Theme::instance();

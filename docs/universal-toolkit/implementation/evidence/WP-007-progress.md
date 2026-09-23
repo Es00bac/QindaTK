@@ -20,6 +20,11 @@ FND-07 through FND-10.
   and accessible increase/decrease actions. All user scrubs use one bounded
   operation. External playhead updates do not emit `scrubbed`; disabled
   rulers ignore scrubs.
+- Two high-contrast presets use opaque derived borders, focus and control
+  surfaces. Resolved representative text pairs meet 4.5:1 and control
+  boundaries 3:1 in `tst_theme`; switching back restores standard disabled
+  opacity. These pairs are a focused palette check, not a whole-toolkit
+  accessibility certification.
 
 ## Verification
 
@@ -40,10 +45,21 @@ captures, with the title, count and disclosure icon readable. The ignored
 captures are `build/section-header-focus-{compact,comfortable}.png` in the
 integration worktree.
 
+The gallery under `high-contrast-dark` and `high-contrast-light` was dumped
+and grabbed at 1280×800, then both images were opened. The dump showed
+`Box#galleryHeader 0,0 1280x40` and the two new preset choices as
+`AbstractButton#segment_3 224,0 123x22` and `segment_4 347,0 120x22`.
+The visible gallery text, selected choice, focus/accent colours and widget
+borders were legible in both captures. The ignored PNGs are
+`build/gallery-high-contrast-{dark,light}.png` in the integration worktree.
+
 ## Still open
 
 Audit the remaining custom composites for F04, including native assistive
-bridge semantics where applicable. FND-07 requires high-contrast/text-scale
-and hit-target behavior; FND-08 requires a scoped-theme decision; FND-09
+bridge semantics where applicable. FND-07 still requires broad high-contrast,
+text-scale and hit-target workflow coverage;
+[D-016](../../../decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
+records the conditional FND-08 decision to retain process-wide theming;
+FND-09
 requires popup bounds and focus-return behavior; FND-10 requires uniform
 editing state and notification contracts. No WP-007 acceptance is claimed.

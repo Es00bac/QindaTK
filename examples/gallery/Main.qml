@@ -15,7 +15,9 @@ Rectangle {
     readonly property var presets: [
         { "text": "Sloom dark", "value": "sloom-dark" },
         { "text": "Sloom light", "value": "sloom-light" },
-        { "text": "Graphite", "value": "graphite" }
+        { "text": "Graphite", "value": "graphite" },
+        { "text": "High contrast dark", "value": "high-contrast-dark" },
+        { "text": "High contrast light", "value": "high-contrast-light" }
     ]
     readonly property var densities: [
         { "text": "Compact", "value": "compact" },
