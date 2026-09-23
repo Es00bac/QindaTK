@@ -43,9 +43,11 @@ Item {
         return Math.max(1, Math.min(root.count, fit))
     }
 
-    Row {
+    Tk.Flex {
+        objectName: "filmstripRow"
         anchors.fill: parent
-        spacing: Tk.Theme.space.xs
+        direction: Tk.Flex.Row
+        gap: Tk.Theme.space.xs
 
         Repeater {
             model: root.shown
@@ -66,8 +68,8 @@ Item {
                     return list[which] || ({})
                 }
                 objectName: "filmstripFrame" + cell.index
-                width: (root.width - Tk.Theme.space.xs * (root.shown - 1)) / root.shown
-                height: root.height
+                implicitWidth: (root.width - Tk.Theme.space.xs * (root.shown - 1)) / root.shown
+                implicitHeight: root.height
                 source: cell.frame.source !== undefined ? cell.frame.source : ""
                 caption: cell.frame.caption !== undefined ? cell.frame.caption : ""
                 crop: root.crop

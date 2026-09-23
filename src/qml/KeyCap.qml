@@ -12,7 +12,12 @@ import QindaTK as Tk
 // AGENT-CONTRACT: `sequence` is a portable Qt key string ("Ctrl+Shift+K").
 // The separator is normalised here rather than by callers, so a sheet and a
 // menu cannot disagree about whether it is "+" or a space.
-Row {
+//
+// AGENT-NOTE: an Item wraps the Flex because Flex owns its implicit size
+// (docs/layout.md); the Item reports the row's, so the strip slots into
+// menus and palette rows like any other control. Rule 4 forbids the QtQuick
+// Row positioner this control was rooted on.
+Item {
     id: root
 
     property string sequence: ""
@@ -36,30 +41,42 @@ Row {
     }
 
     objectName: "keyCap"
-    spacing: Tk.Theme.space.xs
+    implicitWidth: row.implicitWidth
+    implicitHeight: row.implicitHeight
     visible: root.keys.length > 0
 
     Accessible.role: Accessible.StaticText
     Accessible.name: root.sequence
 
-    Repeater {
-        model: root.keys
-        delegate: Rectangle {
-            required property string modelData
-            objectName: "keyCapKey"
-            height: Tk.Theme.size.row - Tk.Theme.space.xs * 2
-            width: Math.max(height, label.implicitWidth + Tk.Theme.space.sm * 2)
-            radius: Tk.Theme.radius.xs
-            color: Tk.Theme.color.chipBg
-            border.width: Tk.Theme.size.border
-            border.color: Tk.Theme.color.chipBorder
+    Tk.Flex {
+        id: row
+        objectName: "keyCapRow"
+        direction: Tk.Flex.Row
+        align: Tk.Flex.Start
+        gap: Tk.Theme.space.xs
 
-            Tk.Caption {
-                id: label
-                objectName: "keyCapLabel"
-                anchors.centerIn: parent
-                text: modelData
-                color: Tk.Theme.color.textMuted
+        Repeater {
+            model: root.keys
+            delegate: Rectangle {
+                required property string modelData
+                objectName: "keyCapKey"
+                implicitHeight: Tk.Theme.size.row - Tk.Theme.space.xs * 2
+                implicitWidth: Math.max(implicitHeight, label.implicitWidth + Tk.Theme.space.sm * 2)
+                radius: Tk.Theme.radius.xs
+                color: Tk.Theme.color.chipBg
+                border.width: Tk.Theme.size.border
+                border.color: Tk.Theme.color.chipBorder
+                // Caps keep their label whole and let the row overflow,
+                // same refusal Segmented documents for its segments.
+                Tk.Flex.shrink: 0
+
+                Tk.Caption {
+                    id: label
+                    objectName: "keyCapLabel"
+                    anchors.centerIn: parent
+                    text: modelData
+                    color: Tk.Theme.color.textMuted
+                }
             }
         }
     }
