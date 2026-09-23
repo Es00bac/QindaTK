@@ -223,7 +223,7 @@ T.Control {
             Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Colour value")
             Accessible.description: control.inputInvalid ? qsTr("Invalid colour. Press Escape to restore %1").arg(control.hexText)
                                       : qsTr("Current colour %1").arg(control.hexText)
-            onTextChanged: if (activeFocus && !readOnly) invalidDraft = false
+            onTextChanged: if (activeFocus && !readOnly) control.invalidDraft = false
             onAccepted: {
                 control.commitUserDraft()
                 selectAll()
