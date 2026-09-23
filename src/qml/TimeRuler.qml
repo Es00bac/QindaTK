@@ -21,6 +21,18 @@ Item {
     property real originUnits: 0
     // Where the playhead sits, in units. Negative hides it.
     property real playheadUnits: -1
+    // User scrubs are restricted to the timeline currently shown by this ruler.
+    readonly property real minimumValue: root.originUnits
+    readonly property real maximumValue: root.originUnits
+                                    + Math.max(0, root.width)
+                                      / Math.max(0.0001, root.pixelsPerUnit)
+    // With no visible playhead, expose the start of the visible range as the
+    // accessible slider value and explain that state in its description.
+    readonly property real value: root.playheadUnits < 0
+                                  ? root.minimumValue
+                                  : Math.max(root.minimumValue,
+                                             Math.min(root.maximumValue, root.playheadUnits))
+    readonly property real stepSize: 1
     // Turns a unit value into its label. Seconds by default; a caller working
     // in frames or pages supplies its own.
     property var formatUnit: function(units) {
@@ -30,13 +42,58 @@ Item {
 
     signal scrubbed(real units)
 
+    function scrubTo(units) {
+        if (!root.enabled || !isFinite(units)) {
+            return
+        }
+        root.scrubbed(Math.max(root.minimumValue,
+                               Math.min(root.maximumValue, units)))
+    }
+
     objectName: "timeRuler"
     implicitHeight: Tk.Theme.size.timeRuler
     implicitWidth: Tk.Theme.size.panelMinWidth
     clip: true
+    activeFocusOnTab: enabled
 
     Accessible.role: Accessible.Slider
     Accessible.name: root.tooltip.length > 0 ? root.tooltip : qsTr("Time ruler")
+    Accessible.description: root.playheadUnits < 0
+                             ? qsTr("No playhead is set. Visible range %1 to %2. Left and Right move by 1 unit; Home and End go to the visible range limits.")
+                               .arg(root.formatUnit(root.minimumValue))
+                               .arg(root.formatUnit(root.maximumValue))
+                             : qsTr("Current position %1. Visible range %2 to %3. Left and Right move by 1 unit; Home and End go to the visible range limits.")
+                               .arg(root.formatUnit(root.value))
+                               .arg(root.formatUnit(root.minimumValue))
+                               .arg(root.formatUnit(root.maximumValue))
+    Accessible.focusable: root.enabled
+    Accessible.focused: root.activeFocus
+    Accessible.onIncreaseAction: root.scrubTo(root.value + root.stepSize)
+    Accessible.onDecreaseAction: root.scrubTo(root.value - root.stepSize)
+
+    Keys.onPressed: function(event) {
+        if (!root.enabled) {
+            return
+        }
+        switch (event.key) {
+        case Qt.Key_Left:
+            root.scrubTo(root.value - root.stepSize)
+            event.accepted = true
+            break
+        case Qt.Key_Right:
+            root.scrubTo(root.value + root.stepSize)
+            event.accepted = true
+            break
+        case Qt.Key_Home:
+            root.scrubTo(root.minimumValue)
+            event.accepted = true
+            break
+        case Qt.Key_End:
+            root.scrubTo(root.maximumValue)
+            event.accepted = true
+            break
+        }
+    }
 
     // The 1/2/5/10 ladder: the smallest step whose labels still have room.
     readonly property real step: {
@@ -106,7 +163,9 @@ Item {
 
     TapHandler {
         onTapped: function(point) {
-            root.scrubbed(root.originUnits + point.position.x / Math.max(0.0001, root.pixelsPerUnit))
+            root.forceActiveFocus()
+            root.scrubTo(root.originUnits
+                         + point.position.x / Math.max(0.0001, root.pixelsPerUnit))
         }
     }
     DragHandler {
@@ -115,8 +174,9 @@ Item {
         yAxis.enabled: false
         onCentroidChanged: {
             if (active) {
-                root.scrubbed(root.originUnits
-                              + centroid.position.x / Math.max(0.0001, root.pixelsPerUnit))
+                root.forceActiveFocus()
+                root.scrubTo(root.originUnits
+                             + centroid.position.x / Math.max(0.0001, root.pixelsPerUnit))
             }
         }
     }
