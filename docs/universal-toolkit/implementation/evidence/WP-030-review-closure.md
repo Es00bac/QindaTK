@@ -69,3 +69,11 @@ screenshots. The dump reports `ChartView#reviewTrend 0,0 544x536` and
 `ChartView#reviewHistogram 552,0 544x536` at compact density. Both images
 show the point and deadline annotations, four histogram bins, selected bin
 outlines and the source-domain label `Selected 1–3 s`.
+
+The Qt 6.8.3 shared build also passed. Its chart core, dataset, QML and
+example checks passed within a **88/89** repository run; the sole failure is
+the separate WP-027 asset subscription fixture under review. Root opened
+[Qt 6.8 compact dark](../../../screenshots/wp030-qt68-compact.png) and
+[Qt 6.8 comfortable light](../../../screenshots/wp030-qt68-comfortable.png)
+screenshots and confirmed the same annotation coordinates, four bins,
+selection outlines and selected source-domain label.

@@ -2,7 +2,7 @@
 # Live validation gallery
 
 Run `python3 tools/scripts/validation_gallery.py` from this checkout and open
-<http://127.0.0.1:8765/>. The page polls every 2.5 seconds, shows captures in
+<http://127.0.0.1:8777/>. The page polls every 2.5 seconds, shows captures in
 chronological order, follows the latest image by default, filters by filename
 or worktree, and opens each original at full size.
 

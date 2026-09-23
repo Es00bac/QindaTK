@@ -193,7 +193,7 @@ def handler_for(gallery: Gallery) -> type[BaseHTTPRequestHandler]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--port", type=int, default=8777)
     args = parser.parse_args()
     gallery = Gallery()
     with ThreadingHTTPServer((args.host, args.port), handler_for(gallery)) as server:
