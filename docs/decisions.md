@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Decisions
 
-ADR-lite log of durable, cross-cutting choices. Add an entry when a
+ADR-lite log of durable, cross-cutting choices; [service decisions](decisions-services.md) continue the log. Add an entry when a
 choice would surprise a future reader; keep entries short.
 
 ## D-001 — LGPL-3.0-or-later for the library

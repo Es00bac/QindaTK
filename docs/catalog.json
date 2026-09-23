@@ -2340,6 +2340,14 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "floatConstraintScheduled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -2420,6 +2428,14 @@
         {
           "name": "setShaded",
           "parameters": "panelId, shaded"
+        },
+        {
+          "name": "clearShading",
+          "parameters": ""
+        },
+        {
+          "name": "scheduleFloatConstraint",
+          "parameters": ""
         },
         {
           "name": "refresh",
@@ -8057,6 +8073,11 @@
           "parameters": "const QString &panelId, double x, double y, double width, double height"
         },
         {
+          "name": "constrainFloatingToViewport",
+          "returns": "bool",
+          "parameters": "double width, double height, double reachableHeaderWidth, double headerHeight"
+        },
+        {
           "name": "resizeDocked",
           "returns": "void",
           "parameters": "const QString &panelId, double extent"
@@ -9995,6 +10016,148 @@
       "bridge": false
     },
     {
+      "name": "SettingsModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "In-memory typed descriptor and staging layer. Persistence and schema migration belong to the application codec; import/export use scoped keys.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/settings_model.h",
+      "properties": [
+        {
+          "name": "staging",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "needsRestart",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "valid",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "values",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "orphanedValues",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "beginStage",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "apply",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "setValue",
+          "returns": "bool",
+          "parameters": "const QString &scopedKey, const QVariant &value"
+        },
+        {
+          "name": "valueForKey",
+          "returns": "QVariant",
+          "parameters": "const QString &scopedKey"
+        },
+        {
+          "name": "resetSetting",
+          "returns": "bool",
+          "parameters": "const QString &scopedKey"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SettingsPersistence",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "The file owns preferences only. Document content and workspace topology use independent stores and never enter this schema.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/settings_persistence.h",
+      "properties": [
+        {
+          "name": "path",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "load",
+          "returns": "bool",
+          "parameters": "SettingsModel *model"
+        },
+        {
+          "name": "save",
+          "returns": "bool",
+          "parameters": "const SettingsModel *model"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ShortcutMap",
       "kind": "cpp",
       "base": "QObject",
@@ -11459,6 +11622,120 @@
         },
         {
           "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "WorkspaceSession",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Restorable window/view topology. Documents retain their own independent persistence and DockModel remains the sole panel-arrangement authority.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/workspace_session.h",
+      "properties": [
+        {
+          "name": "path",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "windows",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "views",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "documents",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "activeWindowId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "activeDocumentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "unavailableDocuments",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setState",
+          "returns": "bool",
+          "parameters": "const QVariantMap &state, const QVariantList &screens = {}"
+        },
+        {
+          "name": "state",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "capture",
+          "returns": "bool",
+          "parameters": "DocumentManager *documents, DockModel *dock, const QVariantList &windows, const QVariantList &views, const QString &activeWindowId"
+        },
+        {
+          "name": "restore",
+          "returns": "bool",
+          "parameters": "DocumentManager *documents, DockModel *dock"
+        },
+        {
+          "name": "load",
+          "returns": "bool",
+          "parameters": "const QVariantList &screens = {}"
+        },
+        {
+          "name": "save",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "reset",
           "returns": "void",
           "parameters": ""
         }

@@ -36,6 +36,9 @@ public:
     Q_INVOKABLE bool activate(const QString &documentId);
     Q_INVOKABLE QString duplicateView(const QString &documentId);
     Q_INVOKABLE QStringList viewsFor(const QString &documentId) const;
+    // Restore stable view identities from a validated workspace snapshot.
+    // Document content and dirty state are unaffected.
+    bool setViewIds(const QString &documentId, const QStringList &viewIds);
     Q_INVOKABLE bool closeDocument(const QString &documentId, ClosePolicy policy);
     Q_INVOKABLE bool requestSaveAll();
 signals:

@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QSet>
 
 namespace QindaTK {
 
@@ -169,6 +170,23 @@ QStringList DocumentManager::viewsFor(const QString &documentId) const
         if (it.value() == documentId) result.append(it.key());
     result.sort();
     return result;
+}
+
+bool DocumentManager::setViewIds(const QString &documentId, const QStringList &viewIds)
+{
+    if (!findSession(documentId) || viewIds.isEmpty()) return false;
+    QSet<QString> requested;
+    for (const QString &id : viewIds) {
+        if (QUuid(id).isNull() || requested.contains(id)
+            || (m_views.contains(id) && m_views.value(id) != documentId)) return false;
+        requested.insert(id);
+    }
+    for (auto it = m_views.begin(); it != m_views.end();)
+        if (it.value() == documentId) it = m_views.erase(it);
+        else ++it;
+    for (const QString &id : requested) m_views.insert(id, documentId);
+    emit changed();
+    return true;
 }
 
 bool DocumentManager::remove(DocumentSession *session)

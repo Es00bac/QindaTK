@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution beginning.** WP-010 through WP-013 are accepted; WP-014 is active. Other
+**Execution beginning.** WP-010 through WP-014 are accepted; WP-015 is active. Other
 packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
@@ -102,7 +102,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-014"></a>
 ## WP-014 — Persist settings and workspace state
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-013](phase-01-services.md#wp-013)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-014.md). **Depends on:** [WP-013](phase-01-services.md#wp-013)
 
 **Proposal scope:** [APP-09 WorkspaceSession](../proposed/01-application-services.md#app-09), [APP-12 SettingsModel](../proposed/01-application-services.md#app-12)
 
@@ -123,7 +123,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-015"></a>
 ## WP-015 — Implement asynchronous jobs and asset services
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-013](phase-01-services.md#wp-013)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-013](phase-01-services.md#wp-013)
 
 **Proposal scope:** [APP-13 JobModel](../proposed/01-application-services.md#app-13), [APP-14 AssetProvider](../proposed/01-application-services.md#app-14), [APP-19 ResourceResolver](../proposed/01-application-services.md#app-19)
 
