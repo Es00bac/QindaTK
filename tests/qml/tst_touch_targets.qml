@@ -187,6 +187,9 @@ TestCase {
             tryCompare(cell, "height", 48)
             compare(artwork.width, swatches.swatchSize)
 
+            // Let Touch geometry reach the scene before injecting an edge tap.
+            waitForRendering(swatches)
+            compare(selected.count, 0)
             const touch = touchEvent(root)
             const edge = cell.mapToItem(root, cell.width - 1, cell.height / 2)
             touch.press(0, root, edge.x, edge.y)
