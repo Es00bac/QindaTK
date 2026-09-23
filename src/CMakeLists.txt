@@ -64,6 +64,16 @@ qt_add_qml_module(qindatk
         core/transfer_payload.cpp core/transfer_payload.h
         core/gesture_router.cpp core/gesture_router.h
         core/time_map.cpp core/time_map.h
+        core/timeline_time.cpp core/timeline_time.h core/timeline_types.h
+        core/timeline_policy.cpp core/timeline_policy.h
+        core/timeline_codec.cpp core/timeline_codec.h
+        core/timeline_snap.cpp core/timeline_snap.h
+        core/timeline_planner.cpp core/timeline_planner_misc.cpp core/timeline_planner.h
+        core/timeline_model.cpp core/timeline_model_edit.cpp core/timeline_model_history.cpp
+        core/timeline_model_io.cpp core/timeline_model_qml.cpp core/timeline_model.h
+        core/timeline_visible_list.cpp core/timeline_visible_list.h
+        core/timeline_viewport.cpp core/timeline_viewport_rows.cpp core/timeline_viewport.h
+        core/timeline_media_provider.cpp core/timeline_media_provider.h
         core/clipboard_service.cpp core/clipboard_service.h
         core/drag_drop_service.cpp core/drag_drop_service.h
         core/property_collection_drop_target.cpp
