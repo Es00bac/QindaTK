@@ -39,5 +39,11 @@ popup through the same internal revision. The repaired dump shows
 The PNG was opened and the focused scroll regression passed on Qt 6.11.1.
 Ignored artifacts are `build/wp007-combo-scroll-review.{qml,png}`.
 
+A further focused test changes `Tk.Density.textScale` from 1 to 3 while a
+six-row popup is open near the bottom of the same 220×140 host. The popup
+remeasures, stays above the control and scrolls its taller rows. The QML
+target passes on both Qt 6.11.1 and 6.8.3. This exercises live content
+scaling, not a native monitor-DPI or work-area transition.
+
 Multiple monitors, work-area changes and native assistive announcements
 remain outside this slice. FND-09 and WP-007 remain active.

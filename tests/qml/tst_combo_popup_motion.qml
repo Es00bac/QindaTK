@@ -90,4 +90,33 @@ TestCase {
             host.height = oldHeight
         }
     }
+
+    function test_open_popup_remeasures_after_text_scale_change() {
+        const host = root.Window.window
+        const oldWidth = host.width
+        const oldHeight = host.height
+        const oldScale = Tk.Density.textScale
+        try {
+            host.width = 220
+            host.height = 140
+            Tk.Density.textScale = 1
+            tryVerify(function() { return host.contentItem.height === 140 })
+            const combo = createTemporaryObject(comboComponent, root, { y: 100 })
+            verify(combo !== null)
+            combo.popup.open()
+            tryVerify(function() { return combo.popup.visible })
+            Tk.Density.textScale = 3
+            tryVerify(function() {
+                const top = combo.popup.contentItem.mapToItem(host.contentItem, 0, 0).y
+                            - combo.popup.topPadding
+                return top >= 0 && top + combo.popup.height <= combo.y
+                       && combo.popup.contentItem.contentHeight > combo.popup.contentItem.height
+            })
+            combo.popup.close()
+        } finally {
+            Tk.Density.textScale = oldScale
+            host.width = oldWidth
+            host.height = oldHeight
+        }
+    }
 }
