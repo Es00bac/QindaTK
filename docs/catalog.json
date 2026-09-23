@@ -1455,6 +1455,142 @@
       ]
     },
     {
+      "name": "CandlestickView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/financial-displays.md): the model owns exact UTC time, price validation and host session meaning; this view uses equal session slots.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CandlestickView.qml",
+      "properties": [
+        {
+          "name": "candleModel",
+          "type": "Tk.OhlcModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Candlestick chart\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedCandleId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "windowStart",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "windowCount",
+          "type": "int",
+          "default": "64",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleStart",
+          "type": "int",
+          "default": "candleModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleCount",
+          "type": "int",
+          "default": "candleModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleRecords",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "legendText",
+          "type": "string",
+          "default": "candleModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "candleSelected",
+          "parameters": "string candleId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "csvData",
+          "parameters": ""
+        },
+        {
+          "name": "selectIndex",
+          "parameters": "index, userAction"
+        },
+        {
+          "name": "navigate",
+          "parameters": "step"
+        },
+        {
+          "name": "shiftWindow",
+          "parameters": "step"
+        },
+        {
+          "name": "reconcileSelection",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "candleBody",
+        "candleCanvas",
+        "candleDataTable",
+        "candleError",
+        "candleLegend",
+        "candleToolbar",
+        "candlestickView"
+      ]
+    },
+    {
       "name": "Caption",
       "kind": "qml",
       "base": "Tk.Label",
@@ -9681,6 +9817,215 @@
       ]
     },
     {
+      "name": "PolarView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: plot and table consume the same full-resolution model. Numeric angles and ordered categories are separate axis modes; neither the delegate nor the CSV path invents angular units or category order.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PolarView.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.PolarDataModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "angleMode",
+          "type": "alias",
+          "default": "plot.angleMode",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "angleUnit",
+          "type": "alias",
+          "default": "plot.angleUnit",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "categories",
+          "type": "alias",
+          "default": "plot.categories",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "radialMinimum",
+          "type": "alias",
+          "default": "plot.radialMinimum",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "radialMaximum",
+          "type": "alias",
+          "default": "plot.radialMaximum",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "radialUnit",
+          "type": "alias",
+          "default": "plot.radialUnit",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "startAngleDegrees",
+          "type": "alias",
+          "default": "plot.startAngleDegrees",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clockwise",
+          "type": "alias",
+          "default": "plot.clockwise",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "plotItem",
+          "type": "alias",
+          "default": "plot",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "valid",
+          "type": "bool",
+          "default": "plot.valid",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "string",
+          "default": "plot.error",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSeriesId",
+          "type": "string",
+          "default": "plot.selectedSeriesId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedPointId",
+          "type": "string",
+          "default": "plot.selectedPointId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pointSelected",
+          "parameters": "string seriesId, string pointId"
+        },
+        {
+          "name": "exportRequested",
+          "parameters": "string format, var image"
+        }
+      ],
+      "methods": [
+        {
+          "name": "project",
+          "parameters": "angle, radius"
+        },
+        {
+          "name": "projectCategory",
+          "parameters": "category, radius"
+        },
+        {
+          "name": "unproject",
+          "parameters": "x, y"
+        },
+        {
+          "name": "hitTest",
+          "parameters": "x, y"
+        },
+        {
+          "name": "selectAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "selectedPoint",
+          "parameters": ""
+        },
+        {
+          "name": "csvData",
+          "parameters": ""
+        },
+        {
+          "name": "renderImage",
+          "parameters": "size"
+        },
+        {
+          "name": "exportPng",
+          "parameters": "path, size"
+        },
+        {
+          "name": "exportSvg",
+          "parameters": "path, size"
+        },
+        {
+          "name": "navigateSelection",
+          "parameters": "key"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "polarDataTable",
+        "polarFocusRing",
+        "polarPlot",
+        "polarView"
+      ]
+    },
+    {
       "name": "Popover",
       "kind": "qml",
       "base": "T.Popup",
@@ -12846,6 +13191,158 @@
       "objectNames": []
     },
     {
+      "name": "TargetDisplay",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/financial-displays.md): band labels, direction, target and range are validated by TargetModel; drawing infers no category.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TargetDisplay.qml",
+      "properties": [
+        {
+          "name": "targetModel",
+          "type": "Tk.TargetModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"bullet\" // bullet or gauge",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Target display\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedTargetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageStart",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageCapacity",
+          "type": "int",
+          "default": "mode === \"gauge\" ? 4 : 8",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleStart",
+          "type": "int",
+          "default": "targetModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleCount",
+          "type": "int",
+          "default": "targetModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleRecords",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedRecord",
+          "type": "var",
+          "default": "targetModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "legendText",
+          "type": "string",
+          "default": "selectedRecord.targetId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "targetSelected",
+          "parameters": "string targetId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "csvData",
+          "parameters": ""
+        },
+        {
+          "name": "selectIndex",
+          "parameters": "index, userAction"
+        },
+        {
+          "name": "navigate",
+          "parameters": "step"
+        },
+        {
+          "name": "shiftPage",
+          "parameters": "step"
+        },
+        {
+          "name": "reconcileSelection",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "targetBody",
+        "targetCanvas",
+        "targetDataTable",
+        "targetDisplay",
+        "targetError",
+        "targetLegend",
+        "targetToolbar"
+      ]
+    },
+    {
       "name": "TaskCenter",
       "kind": "qml",
       "base": "Tk.Box",
@@ -14228,6 +14725,163 @@
         "treeChevron",
         "treeEditor",
         "treeFocusRing"
+      ]
+    },
+    {
+      "name": "UncertaintyView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/UncertaintyView.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.UncertaintyModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "xAxis",
+          "type": "alias",
+          "default": "horizontalAxis",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "yAxis",
+          "type": "alias",
+          "default": "verticalAxis",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "int",
+          "default": "Tk.UncertaintyRenderer.ErrorBars",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Uncertainty intervals\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedId",
+          "type": "string",
+          "default": "renderer.selectedId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedInterval",
+          "type": "var",
+          "default": "renderer.selectedInterval",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "horizontalViewFraction",
+          "type": "real",
+          "default": "renderer.viewX",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "verticalViewFraction",
+          "type": "real",
+          "default": "renderer.viewY",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "intervalSelected",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "selectId",
+          "parameters": "id"
+        },
+        {
+          "name": "navigateSelection",
+          "parameters": "key"
+        },
+        {
+          "name": "setViewport",
+          "parameters": "xs, xe, ys, ye"
+        },
+        {
+          "name": "pan",
+          "parameters": "dx, dy"
+        },
+        {
+          "name": "zoom",
+          "parameters": "factor, xAnchor, yAnchor"
+        },
+        {
+          "name": "hitAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "projected",
+          "parameters": "id"
+        },
+        {
+          "name": "csvData",
+          "parameters": ""
+        },
+        {
+          "name": "renderImage",
+          "parameters": "size"
+        },
+        {
+          "name": "exportPng",
+          "parameters": "path, size"
+        },
+        {
+          "name": "exportSvg",
+          "parameters": "path, size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "uncertaintyDataTable",
+        "uncertaintyFocusRing",
+        "uncertaintyPlot",
+        "uncertaintyView"
       ]
     },
     {
@@ -20377,6 +21031,124 @@
       "bridge": false
     },
     {
+      "name": "OhlcModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-CONTRACT (docs/financial-displays.md): each row is one host-defined session slot, never an inferred market calendar interval.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/ohlc_model.h",
+      "properties": [
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "priceUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "intervalMeaning",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "timeZoneId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "minimum",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maximum",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hasReferencePrice",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "referencePrice",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "quint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "replaceCandles",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows, const QString &priceUnit, const QString &intervalMeaning, const QString &timeZoneId, const QVariant &referencePrice"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "page",
+          "returns": "QVariantList",
+          "parameters": "int start, int count"
+        },
+        {
+          "name": "indexOfId",
+          "returns": "int",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "csv",
+          "returns": "QString",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "PartWholeModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
@@ -20584,6 +21356,276 @@
           "name": "exportSvg",
           "returns": "bool",
           "parameters": "const QString &path,const QSize &size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PolarDataModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-GUARD: replacement is all-or-nothing. Stable (seriesId, pointId) identity and source values survive rendering order, table access and CSV.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/polar_data_model.h",
+      "properties": [
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "replacePoints",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows"
+        },
+        {
+          "name": "appendPoint",
+          "returns": "bool",
+          "parameters": "const QVariantMap &row"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PolarRenderer",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/polar_renderer.h",
+      "properties": [
+        {
+          "name": "model",
+          "type": "PolarDataModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "angleMode",
+          "type": "AngleMode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "angleUnit",
+          "type": "AngleUnit",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "categories",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "radialMinimum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "radialMaximum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "radialUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "startAngleDegrees",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "clockwise",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "textColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "defaultSeriesColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "seriesColors",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "metrics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fillOpacity",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "valid",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedSeriesId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedPointId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "project",
+          "returns": "QPointF",
+          "parameters": "double angle, double radius"
+        },
+        {
+          "name": "projectCategory",
+          "returns": "QPointF",
+          "parameters": "const QString &category, double radius"
+        },
+        {
+          "name": "unproject",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "hitTest",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "selectAt",
+          "returns": "bool",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "navigateSelection",
+          "returns": "bool",
+          "parameters": "int key"
+        },
+        {
+          "name": "selectedPoint",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "csv",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "renderImage",
+          "returns": "QImage",
+          "parameters": "const QSize &size"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
         }
       ],
       "enums": {},
@@ -21969,6 +23011,75 @@
       "bridge": false
     },
     {
+      "name": "TargetModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-CONTRACT (docs/financial-displays.md): targets and threshold bands have host-declared meaning; no performance classification is inferred.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/target_model.h",
+      "properties": [
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "quint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "replaceTargets",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "page",
+          "returns": "QVariantList",
+          "parameters": "int start, int count"
+        },
+        {
+          "name": "indexOfId",
+          "returns": "int",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "csv",
+          "returns": "QString",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "Theme",
       "kind": "cpp",
       "base": "QObject",
@@ -23186,6 +24297,324 @@
           "name": "requestPunch",
           "returns": "QString",
           "parameters": "bool enabled, const QString &startSample, const QString &endSample"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "UncertaintyModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-CONTRACT: the host supplies interval endpoints and meaning. The model validates and preserves them; it never estimates confidence or credibility.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/uncertainty_model.h",
+      "properties": [
+        {
+          "name": "meaning",
+          "type": "Meaning",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "coverage",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "meaningDetail",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sourceDatasetId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "missingCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "meaningLabel",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "replaceIntervals",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "interval",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "csvData",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "metadataJson",
+          "returns": "QString",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "UncertaintyRenderer",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/uncertainty_renderer.h",
+      "properties": [
+        {
+          "name": "model",
+          "type": "UncertaintyModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xAxis",
+          "type": "ChartAxis *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yAxis",
+          "type": "ChartAxis *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "mode",
+          "type": "Mode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lineColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "bandColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "textColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "missingColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "metrics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paintPointLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedInterval",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "viewX",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "viewY",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setViewport",
+          "returns": "void",
+          "parameters": "double xStart,double xEnd,double yStart,double yEnd"
+        },
+        {
+          "name": "pan",
+          "returns": "void",
+          "parameters": "double xFraction,double yFraction"
+        },
+        {
+          "name": "zoom",
+          "returns": "void",
+          "parameters": "double factor,double xAnchor=0.5,double yAnchor=0.5"
+        },
+        {
+          "name": "selectId",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "navigateSelection",
+          "returns": "bool",
+          "parameters": "int key"
+        },
+        {
+          "name": "hitAt",
+          "returns": "QString",
+          "parameters": "double x,double y"
+        },
+        {
+          "name": "projected",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "visiblePaintCount",
+          "returns": "int",
+          "parameters": ""
+        },
+        {
+          "name": "csvData",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "renderImage",
+          "returns": "QImage",
+          "parameters": "const QSize &size"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path,const QSize &size"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path,const QSize &size"
         }
       ],
       "enums": {},

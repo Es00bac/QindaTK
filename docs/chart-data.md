@@ -171,3 +171,11 @@ identity and appear in the accessible `Tk.DataTable`, with a distinct status.
 `geometryFor(id)` exposes the normalized area or angle for numerical checking.
 Selection/hit testing preserve stable IDs. Screen, PNG and SVG all use one
 painter and the same geometry. The view caps output to 8192 pixels per side.
+
+## Polar coordinate family
+
+VIS-08 uses a dedicated [PolarView and PolarDataModel](polar.md) because
+Cartesian `ChartAxis.map()` fractions do not encode bearing, wraparound,
+category sectors or radial distance. The polar transform is shared by paint,
+inverse coordinates and hit testing. Its declared units and category order
+travel with full-resolution CSV and the accessible table.

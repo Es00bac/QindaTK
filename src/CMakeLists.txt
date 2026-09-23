@@ -114,9 +114,16 @@ qt_add_qml_module(qindatk
         core/gantt_task_model.cpp core/gantt_task_model.h
         core/heatmap_model.cpp core/heatmap_model.h
         core/heatmap_renderer.cpp core/heatmap_renderer.h
+        core/ohlc_model.cpp core/ohlc_model.h
         core/part_whole_model.cpp core/part_whole_model.h
         core/part_whole_layout.cpp core/part_whole_layout.h
         core/part_whole_renderer.cpp core/part_whole_renderer.h
+        core/polar_transform.cpp core/polar_transform.h
+        core/polar_data_model.cpp core/polar_data_model.h
+        core/polar_renderer.cpp core/polar_renderer_paint.cpp core/polar_renderer.h
+        core/target_model.cpp core/target_model.h
+        core/uncertainty_model.cpp core/uncertainty_model.h
+        core/uncertainty_renderer.cpp core/uncertainty_renderer.h
         core/graph.cpp core/graph.h
         core/graph_mesh.cpp core/graph_mesh.h
         core/graph_nodes.cpp

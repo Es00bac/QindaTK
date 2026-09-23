@@ -508,3 +508,21 @@ adapter accepts or rejects the entire schedule change and supplies undo.
 previews never mutate committed data. Hosts own resource constraints,
 persisted undo and calendar boundary-time policy. The bundled adapter is a
 reference finish-to-start planner only.
+
+## D-030 — Polar plots declare bearing and radial semantics outside Cartesian axes
+
+**Context.** A Cartesian `ChartAxis` fraction does not determine a bearing,
+wraparound, category sector, direction or radial distance. Reusing it for
+polar marks would let paint and hit testing disagree about the same point.
+
+**Decision.** The polar family uses one explicit transform for paint,
+projection, inverse coordinates and hit testing. Zero is north; positive
+angles are clockwise by default. Numeric input declares degrees or radians;
+categorical input declares a unique order. Radial values declare an
+increasing nonnegative domain and unit. Source rows keep stable IDs and
+remain available for table and export.
+
+**Consequences.** A missing category, incomplete radar polygon or value
+outside the radial domain surfaces as an error rather than plausible but
+false geometry. Cartesian chart APIs remain unchanged. CSV records the
+coordinate convention so the display can be interpreted outside the view.
