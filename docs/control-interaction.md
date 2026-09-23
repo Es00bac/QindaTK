@@ -19,14 +19,17 @@ disabled/read-only guard. A single accepted operation produces one interaction
 signal. A rejected or unchanged operation is silent unless a control
 explicitly documents a command-like activation of the already selected item.
 
-Editing controls distinguish a **draft** from the committed public property.
-Cancel restores the committed display without a user-change signal. A valid
-commit changes the public property and sends its documented interaction
-signal once. A parser does not silently replace an invalid draft with an
-unrelated value. It either keeps the draft visible with an error state or
-explicitly documents rejection and restoration. Programmatic assignment can
-replace the committed value even while user editing is unavailable; the
-control must define what happens to an active draft.
+Controls that stage an edit distinguish a **draft** from the committed public
+property. Cancel restores the committed display without a user-change signal.
+A valid commit changes the public property and sends its documented
+interaction signal once. A parser does not silently replace an invalid draft
+with an unrelated value. It either keeps the draft visible with an error
+state or explicitly documents rejection and restoration. Programmatic
+assignment can replace the committed value even while user editing is
+unavailable; each staged control defines what happens to an active draft.
+Live text controls expose edits through their public `text` property as they
+occur; `TextArea`'s cross-version focus and notification behavior is specified
+in the table below.
 
 `reset()` is an explicit operation. Where a control has a `defaultValue`, its
 reset behavior and signal policy are documented with that control. An app that
