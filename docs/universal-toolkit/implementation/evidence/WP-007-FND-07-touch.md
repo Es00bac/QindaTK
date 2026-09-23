@@ -56,6 +56,14 @@ the same controls are each 520×48, with 18px indicators centred at y=15.
 `build/wp007-small-toggles-compact.png` and
 `build/wp007-small-toggles-touch-3x.png` were opened and inspected.
 
+`Ruler` marker hit radius uses `Theme.size.controlSm / 2` in Touch (24px)
+while the Canvas marker remains at `Theme.size.rulerMarker`. Overlapping hit
+regions resolve to the nearest marker, and ties retain model order. A
+synthetic touch starts a drag from near the edge of that radius; QML tests
+also cover overlap selection and double-click insertion on an empty region.
+The opened Touch preview retains the existing marker artwork geometry.
+Focused evidence is in [the ruler marker interaction slice](WP-007-FIX-F04-ruler-markers.md).
+
 `ColorSwatches` cells now size their hit area to the larger of the authored
 swatch-plus-spacing size and `Theme.size.controlSm`. Compact retains the
 existing 16px artwork and 20px cell; Touch gives each cell at least 48×48px

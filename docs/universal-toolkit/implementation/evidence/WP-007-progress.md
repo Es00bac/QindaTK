@@ -52,6 +52,11 @@ FND-07 through FND-10.
   handle child while native SplitView retains pane sizing and constraints.
   Both axes and all three densities have focused synthetic touch coverage.
   [Focused evidence](WP-007-FND-07-touch.md).
+- `Ruler` marker hits use a theme-derived 24px Touch radius while marker
+  artwork stays at `size.rulerMarker`; overlapping targets choose the nearest
+  marker and exact ties follow model order. Touch edge-drag and insertion tests
+  are recorded in [ruler marker evidence](WP-007-FIX-F04-ruler-markers.md).
+  Marker keyboard and native accessibility actions remain an open F04 gap.
 - `TextField` blocks its custom clear paths when read-only or disabled;
   `SearchField` now debounces user edits while programmatic synchronization
   remains silent. `TextField` and `TextArea` describe read-only/error state.

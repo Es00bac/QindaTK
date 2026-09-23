@@ -217,9 +217,11 @@ Item {
         acceptedButtons: Qt.LeftButton
         hoverEnabled: true
         property var dragging: null
+        readonly property real markerHitRadius: Tk.Density.modeName === "touch"
+            ? Tk.Theme.size.controlSm / 2 : ruler.markerSize
         function markerAt(px, py) {
             let best = null
-            let bestDistance = ruler.markerSize
+            let bestDistance = markerHitRadius
             for (let i = 0; i < ruler.markers.length; ++i) {
                 const m = ruler.markers[i]
                 const onTop = m.kind === "indent-first"
@@ -227,7 +229,11 @@ Item {
                     continue
                 }
                 const distance = Math.abs(m.position - px)
-                if (distance <= bestDistance) {
+                // AGENT-GUARD: overlapping touch targets choose the nearest
+                // marker; strict improvement leaves exact ties with the
+                // earlier model entry instead of making array order jitter.
+                if (distance <= markerHitRadius &&
+                    (best === null || distance < bestDistance)) {
                     best = m
                     bestDistance = distance
                 }

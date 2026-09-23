@@ -168,6 +168,10 @@ unchanged.
 square cell. In Touch this provides a 48×48px input area while the swatch
 artwork remains centered at its authored `swatchSize`.
 
+`Ruler` keeps marker artwork at `size.rulerMarker`; only its hit radius grows
+to half of `size.controlSm` (24px) in Touch. When marker regions overlap, the
+nearest marker receives the gesture, with exact ties resolved by model order.
+
 ## Telemetry ramps (`Tk.Theme.ramp`)
 
 A ramp is a value-to-colour scale, for readings that should be understood by
