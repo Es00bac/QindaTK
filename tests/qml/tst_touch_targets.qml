@@ -32,6 +32,15 @@ TestCase {
             onDragged: delta => root.dockDragDistance += delta
         }
     }
+    Component {
+        id: horizontalDockDivider
+        Tk.DockDivider {
+            width: 100
+            height: Tk.Theme.size.seam
+            vertical: false
+            onDragged: delta => root.dockDragDistance += delta
+        }
+    }
     Component { id: gallery; Loader { source: "../../examples/gallery/Main.qml" } }
 
     function test_sliderTargetsFollowDensityWithoutChangingCompactRows() {
@@ -175,6 +184,40 @@ TestCase {
             touch.commit()
             tryVerify(() => findChild(dock, "dockDividerDragHandler").active)
             const dragPoint = dock.mapToItem(root, dock.width / 2 + 40, dock.height / 2)
+            touch.move(0, root, dragPoint.x, dragPoint.y)
+            touch.commit()
+            tryVerify(() => Math.abs(root.dockDragDistance) > 0)
+            touch.release(0, root, dragPoint.x, dragPoint.y)
+            touch.commit()
+        } finally {
+            Tk.Density.modeName = formerMode
+        }
+    }
+
+    function test_horizontalDockDivider_routes_touch_outside_painted_seam() {
+        const formerMode = Tk.Density.modeName
+        try {
+            Tk.Density.modeName = "touch"
+            const dock = createTemporaryObject(horizontalDockDivider, root,
+                                               { x: 300, y: 100 })
+            verify(dock !== null)
+            compare(dock.height, Tk.Theme.size.seam)
+            compare(dock.containmentMask.height, 48)
+            compare(dock.hitMargin, (48 - dock.height) / 2)
+
+            dockDragDistance = 0
+            const touch = touchEvent(root)
+            const pressPoint = dock.mapToItem(root, dock.width / 2,
+                                              dock.height / 2 + 20)
+            touch.press(0, root, pressPoint.x, pressPoint.y)
+            touch.commit()
+            const movePoint = dock.mapToItem(root, dock.width / 2,
+                                             dock.height / 2 + 30)
+            touch.move(0, root, movePoint.x, movePoint.y)
+            touch.commit()
+            tryVerify(() => findChild(dock, "dockDividerDragHandler").active)
+            const dragPoint = dock.mapToItem(root, dock.width / 2,
+                                             dock.height / 2 + 40)
             touch.move(0, root, dragPoint.x, dragPoint.y)
             touch.commit()
             tryVerify(() => Math.abs(root.dockDragDistance) > 0)

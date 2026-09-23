@@ -75,14 +75,16 @@ full 19-target CTest suite and `all_qmllint`.
 ## Divider seams
 
 `DockDivider` now reads the density-scaled `Theme.size.seamTarget` (16px in
-Compact, 19px in Comfortable, and at least 48px in Touch) as the margin for
-its `HoverHandler` and `DragHandler`. The painted Rectangle and its Flex
+Compact, 19px in Comfortable, and at least 48px in Touch) and derives the
+`HoverHandler` and `DragHandler` margin from the seam's cross-axis thickness.
+The painted Rectangle and its Flex
 basis remain bound to `Theme.size.seam`, so hit expansion does not alter dock
 geometry. `tests/qml/tst_touch_targets.qml` presses 20px outside the painted
-vertical seam, starts a synthetic touch drag, and verifies that the handler
-reports a nonzero resize delta. Theme tests check the target role across
+vertical and horizontal seams, starts synthetic touch drags, and verifies
+that each handler reports a nonzero resize delta. Theme tests check the target role across
 Compact, Comfortable, Touch, a preset switch and reset.
-On Qt 6.11.1 the focused `TouchTargets` and `tst_theme` tests pass. The
+After the horizontal cross-axis correction, the focused `tst_qml` and
+`tst_theme` targets pass on Qt 6.11.1 and Qt 6.8.3. The
 docking example dump shows Compact lane dividers at `4px` (`left_0 230,0
 4x536`; `center_0 0,220 758x4`) and Touch dividers at the existing density
 scaled `6px` (`left_0 230,0 6x504`; `center_0 0,220 752x6`). The `--grab`
