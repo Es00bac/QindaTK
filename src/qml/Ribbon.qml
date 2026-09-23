@@ -124,7 +124,7 @@ Item {
                     Keys.onPressed: function(event) { event.accepted = ribbon.onKey(event) }
                     background: Rectangle {
                         color: tab.current ? Tk.Theme.color.panelAlt : tab.hovered ? Tk.Theme.color.hover : "transparent"
-                        Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 2; color: Tk.Theme.color.accent; visible: tab.current }
+                        Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: Tk.Theme.size.focusRing; color: Tk.Theme.color.accent; visible: tab.current }
                     }
                     contentItem: Tk.Label {
                         id: tabLabel

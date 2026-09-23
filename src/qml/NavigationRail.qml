@@ -143,10 +143,10 @@ Item {
                         }
                         Tk.ToolTip { text: slot.modelData.label; visible: !rail.expanded && itemButton.hovered }
                         background: Rectangle {
-                            color: itemButton.checked ? Tk.Theme.color.controlActiveBg : itemButton.hovered ? Tk.Theme.color.hover : "transparent"
+                            color: itemButton.checked ? Tk.Theme.color.controlActiveBg : itemButton.hovered ? Tk.Theme.color.hover : Tk.Theme.alpha(Tk.Theme.color.surface, Tk.Theme.opacity.hidden)
                             radius: Tk.Theme.radius.sm
-                            Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 2; color: Tk.Theme.color.accent; visible: itemButton.checked }
-                            Rectangle { anchors.fill: parent; anchors.margins: -Tk.Theme.size.focusRing; color: "transparent"; border.width: Tk.Theme.size.focusRing; border.color: Tk.Theme.color.focus; visible: itemButton.activeFocus }
+                            Rectangle { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: Tk.Theme.size.focusRing; color: Tk.Theme.color.accent; visible: itemButton.checked }
+                            Rectangle { anchors.fill: parent; anchors.margins: -Tk.Theme.size.focusRing; color: Tk.Theme.alpha(Tk.Theme.color.surface, Tk.Theme.opacity.hidden); border.width: Tk.Theme.size.focusRing; border.color: Tk.Theme.color.focus; visible: itemButton.activeFocus }
                         }
                     }
                 }

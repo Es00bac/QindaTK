@@ -31,7 +31,8 @@ T.Control {
     function updateBinding(binding, value) {
         if (!binding || !binding.writable || !binding.begin()) return false
         if (!binding.update(value)) { binding.cancel(); return false }
-        return binding.commit()
+        if (!binding.commit()) { binding.cancel(); return false }
+        return true
     }
     function bindingFor(entry, map) { return entry.binding || map[String(entry.tag || "")] || null }
     Tk.ToolTip { text: rootItem.tooltip; visible: text.length > 0 && rootItem.hovered }
@@ -67,17 +68,44 @@ T.Control {
         }
         Repeater {
             model: rootItem.features
-            delegate: Tk.CheckBox {
+            delegate: Tk.Flex {
+                id: featureRow
+                required property int index
                 required property var modelData
-                objectName: "fontFeature_" + (modelData.tag || index)
-                text: modelData.name || modelData.tag || qsTr("OpenType feature")
-                tooltip: (modelData.tag || "") + (modelData.supported === false ? " · " + qsTr("Unsupported by selected font") : "")
-                enabled: rootItem.metadataAvailable && modelData.supported !== false
-                         && rootItem.bindingFor(modelData, rootItem.featureBindings)
-                         && rootItem.bindingFor(modelData, rootItem.featureBindings).writable
-                checked: rootItem.bindingFor(modelData, rootItem.featureBindings)
-                         ? Boolean(rootItem.bindingFor(modelData, rootItem.featureBindings).value) : Boolean(modelData.value)
-                onClicked: rootItem.updateBinding(rootItem.bindingFor(modelData, rootItem.featureBindings), checked)
+                readonly property var featureBinding: rootItem.bindingFor(modelData, rootItem.featureBindings)
+                objectName: "fontFeatureRow_" + (modelData.tag || index)
+                direction: Tk.Flex.Row
+                align: Tk.Flex.Center
+                gap: Tk.Theme.space.sm
+                Tk.CheckBox {
+                    objectName: "fontFeature_" + (featureRow.modelData.tag || featureRow.index)
+                    text: featureRow.modelData.name || featureRow.modelData.tag || qsTr("OpenType feature")
+                    tooltip: (featureRow.modelData.tag || "")
+                        + (featureRow.modelData.supported === false ? " · " + qsTr("Unsupported by selected font") : "")
+                        + (featureRow.featureBinding && featureRow.featureBinding.mixed ? " · " + qsTr("Mixed values") : "")
+                    enabled: rootItem.metadataAvailable && featureRow.modelData.supported !== false
+                             && featureRow.featureBinding && featureRow.featureBinding.writable
+                    tristate: featureRow.featureBinding !== null && featureRow.featureBinding.mixed
+                    checkState: featureRow.featureBinding
+                        ? featureRow.featureBinding.mixed ? Qt.PartiallyChecked
+                          : Boolean(featureRow.featureBinding.value) ? Qt.Checked : Qt.Unchecked
+                        : Boolean(featureRow.modelData.value) ? Qt.Checked : Qt.Unchecked
+                    Accessible.description: tooltip
+                    onClicked: rootItem.updateBinding(featureRow.featureBinding, checkState === Qt.Checked)
+                }
+                Tk.Button {
+                    objectName: "fontFeatureReset_" + (featureRow.modelData.tag || featureRow.index)
+                    visible: featureRow.modelData.supported !== false && featureRow.featureBinding !== null
+                             && featureRow.featureBinding.writable
+                             && (featureRow.featureBinding.mixed
+                                 || Boolean(featureRow.featureBinding.value) !== Boolean(featureRow.featureBinding.defaultValue))
+                    text: qsTr("Reset")
+                    small: true
+                    variant: "ghost"
+                    tooltip: qsTr("Reset %1 to its default").arg(featureRow.modelData.name || featureRow.modelData.tag)
+                    Accessible.name: tooltip
+                    onClicked: if (featureRow.featureBinding) featureRow.featureBinding.reset()
+                }
             }
         }
     }

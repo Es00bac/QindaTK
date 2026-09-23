@@ -72,6 +72,46 @@ TestCase {
         verify(findChild(features, "fontMetadataUnavailable").visible)
     }
 
+    function test_font_feature_mixed_edit_and_reset_are_single_undo_steps() {
+        const fixture = inspectorFixtures.create()
+        const originalMetadata = features.fontMetadata
+        verify(fixture.ready)
+        const binding = fixture.featureBinding
+        verify(binding.mixed)
+        compare(fixture.document.valueFor(fixture.firstId, "liga"), false)
+        compare(fixture.document.valueFor(fixture.secondId, "liga"), true)
+
+        features.fontMetadata = ({ available: true, axisMetadataAvailable: true, featureMetadataAvailable: true,
+            axes: [], features: [{ tag: "liga", name: "Standard ligatures", supported: true }] })
+        features.featureBindings = ({ liga: binding })
+        const checkbox = findChild(features, "fontFeature_liga")
+        const reset = findChild(features, "fontFeatureReset_liga")
+        verify(checkbox && reset)
+        compare(checkbox.checkState, Qt.PartiallyChecked)
+        verify(checkbox.tristate)
+        verify(reset.visible)
+
+        checkbox.click()
+        compare(fixture.document.valueFor(fixture.firstId, "liga"), true)
+        compare(fixture.document.valueFor(fixture.secondId, "liga"), true)
+        verify(!binding.mixed)
+        verify(fixture.undoService.undo())
+        verify(binding.mixed)
+        compare(fixture.document.valueFor(fixture.firstId, "liga"), false)
+        compare(fixture.document.valueFor(fixture.secondId, "liga"), true)
+
+        reset.click()
+        compare(fixture.document.valueFor(fixture.firstId, "liga"), false)
+        compare(fixture.document.valueFor(fixture.secondId, "liga"), false)
+        verify(!binding.mixed)
+        verify(fixture.undoService.undo())
+        verify(binding.mixed)
+        compare(fixture.document.valueFor(fixture.firstId, "liga"), false)
+        compare(fixture.document.valueFor(fixture.secondId, "liga"), true)
+        features.featureBindings = ({})
+        features.fontMetadata = originalMetadata
+    }
+
     function test_datetime_reports_dst_overlap_and_requires_explicit_choice() {
         const service = createTemporaryObject(localeComponent, root)
         const field = createTemporaryObject(datetimeComponent, root)
