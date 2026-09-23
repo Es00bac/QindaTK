@@ -3807,7 +3807,7 @@
       "name": "NumberField",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/controls.md): the inspector number field. 24px (small 20), mono digits, optional inline `label` (\"W\"), `prefix`/`suffix` readouts, ▲▼ step buttons on hover, and scrubbing: dragging horizontally on the label or the field changes the value by `scrubSensitivity` units per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel steps. `value` is always clamped to [from, to] and rounded to `decimals`. `defaultValue`/`reset()` provide explicit reset semantics; mixed state is resolved only by a valid user commit. Invalid drafts stay visible and `inputInvalid` reports them. `valueModified(value)` fires for user edits and reset, while a programmatic `value = x` is silent. objectNames: \"numberInput\", \"numberLabel\".",
+      "description": "AGENT-CONTRACT (docs/controls.md): the inspector number field. 24px (small 20), mono digits, optional inline `label` (\"W\"), `prefix`/`suffix` readouts, ▲▼ step buttons on hover (always visible in Touch), and scrubbing: dragging horizontally on the label or the field changes the value by `scrubSensitivity` units per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel steps. `value` is always clamped to [from, to] and rounded to `decimals`. `defaultValue`/`reset()` provide explicit reset semantics; mixed state is resolved only by a valid user commit. Invalid drafts stay visible and `inputInvalid` reports them. `valueModified(value)` fires for user edits and reset, while a programmatic `value = x` is silent. objectNames: \"numberInput\", \"numberLabel\", \"numberStepUp\", \"numberStepDown\".",
       "singleton": false,
       "attached": null,
       "file": "src/qml/NumberField.qml",
@@ -7311,6 +7311,127 @@
         "zoomOut",
         "zoomReadout"
       ]
+    },
+    {
+      "name": "CapabilityBinding",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A reactive QML view of one operation. The application or adapter owns the registry and publishes metadata from the GUI thread; bindings receive a fresh result when a backend appears, disappears or changes state.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/capability_registry.h",
+      "properties": [
+        {
+          "name": "registry",
+          "type": "CapabilityRegistry *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "featureId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "operationId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "available",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "reason",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "backendId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "backendVersion",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CapabilityRegistry",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/capability_registry.h",
+      "properties": [
+        {
+          "name": "generation",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "query",
+          "returns": "QVariantMap",
+          "parameters": "const QString &featureId, const QString &operationId"
+        },
+        {
+          "name": "isAvailable",
+          "returns": "bool",
+          "parameters": "const QString &featureId, const QString &operationId"
+        },
+        {
+          "name": "disabledReason",
+          "returns": "QString",
+          "parameters": "const QString &featureId, const QString &operationId"
+        },
+        {
+          "name": "operations",
+          "returns": "QStringList",
+          "parameters": "const QString &featureId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Density",

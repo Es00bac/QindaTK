@@ -14,7 +14,8 @@ application QML  ── import QindaTK as Tk ──►  QindaTK (QML module)
                                                   ├── Theme, Density                    singletons
                                                   ├── Icon, Icons (registry)            Lucide paths, SVG
                                                   ├── Graph, Meter, StylusHandler       telemetry and input
-                                                  └── DockModel                          arrangement authority
+                                                  ├── DockModel                          arrangement authority
+                                                  └── application contracts/CapabilityRegistry
 application C++  ── QindaTK::qindatk (CMake target) ──►  <qindatk/theme.h> <qindatk/dock_model.h> ...
 
 QindaTK.QindaQt (QML-only module)  ──►  QindaQtTheme: QindaQt.Tokens (QST-1) → Theme.applyQst()
@@ -31,6 +32,7 @@ QindaTK.QindaQt (QML-only module)  ──►  QindaQtTheme: QindaQt.Tokens (QST-
 | `LayoutInfo` | Reads `QQuickItemPrivate` for anchors and explicit size. |
 | `Graph`, `Meter` | Bounded numerical histories and rendering; `Graph` has geometry and software-raster paths. |
 | `StylusHandler` | Public QObject facade for pen samples; an implementation-only Qt Quick private pointer handler reads raw tablet pressure/tilt. |
+| Application records, `CapabilityRegistry`, `CapabilityBinding` | Strong identities and exact QML transfer stay shared; the registry reports optional operation status without loading domain engines. |
 
 Everything else is QML: controls are `QtQuick.Templates` types with theme
 driven visuals; `Box`, `Scroll`, `Panel`, `Island` compose the C++
@@ -115,7 +117,8 @@ application's CMake.
 **C++ too.** `find_package(QindaTK)` provides `QindaTK::qindatk` and the
 headers under `include/qindatk/` (`theme.h`, `density.h`, `dock_model.h`,
 `flex.h`, `grid.h`, `grid_tracks.h`, `stack.h`, `icon.h`, `layout_info.h`,
-`svg_path.h`; `*_p.h` files are not installed). Linking the backing library
+`svg_path.h`, `application_contracts.h`, `capability_registry.h`; `*_p.h`
+files are not installed). Linking the backing library
 also registers the QML types in-process (the generated
 `QQmlModuleRegistration`), so the plugin is optional there — the qmldir
 says `optional plugin qindatkplugin`.

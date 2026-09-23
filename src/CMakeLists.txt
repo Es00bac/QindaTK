@@ -37,6 +37,8 @@ qt_add_qml_module(qindatk
     PLUGIN_TARGET qindatkplugin
     DEPENDENCIES QtQuick QtQuick.Controls QtQuick.Templates
     SOURCES
+        core/application_contracts.cpp core/application_contracts.h
+        core/capability_registry.cpp core/capability_registry.h
         core/density.cpp core/density.h
         core/dock_model.cpp core/dock_model.h core/dock_model_p.h
         core/dock_model_ops.cpp

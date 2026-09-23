@@ -492,3 +492,28 @@ refreshes the geometry synchronously before display.
 work-area limitations (especially multi-monitor X11) remain visible and are
 not replaced with guessed geometry. Native mixed-monitor placement and scale
 changes require the physical platform qualification in WP-092.
+
+## D-026 — Keep application contracts typed and optional engines explicit
+
+**Context.** Later document, creative, Office and media packages need stable
+identity, exact time/revision values and operation availability across QML and
+C++ threads. A QML `Number` cannot represent every 64-bit tick or revision,
+and linking every optional engine into the core module would make simple
+control consumers pay for unused backends.
+
+**Decision.** Publish distinct C++ entity/document IDs, decimal-string QML
+codecs for exact integers, versioned immutable snapshot headers, cancellation
+tokens and reset generations in the core library. QObject models and the
+capability registry stay on their owning GUI thread; workers receive immutable
+snapshots and check revision/generation before results are applied.
+`CapabilityRegistry` accepts explicit lightweight operation manifests, never
+loads a backend during query, and chooses a deterministic available provider
+with a specific disabled reason and provenance. Optional domain packs are
+separate selected targets and register themselves with an application-owned
+registry. The base `QindaTK` import and C++ library link no such engine.
+
+**Consequences.** Existing controls remain usable without domain packages.
+QML exchanges large revisions and ticks as strings, and applications must
+resolve IDs again after model resets. The first optional pack owns its
+plugin/discovery and installed-package policy, with a core-only consumer as
+a regression gate. See [application contracts](application-contracts.md).

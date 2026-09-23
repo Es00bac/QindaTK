@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution beginning.** WP-010 is ready after baseline acceptance. Other
+**Execution beginning.** WP-010 is accepted and WP-011 is ready. Other
 packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
@@ -16,7 +16,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-010"></a>
 ## WP-010 — Define typed cross-layer contracts and capability discovery
 
-**Implementation lead:** Sol. **Status:** ready. **Depends on:** [WP-004](phase-00-baseline.md#wp-004), [WP-005](phase-00-baseline.md#wp-005), [WP-006](phase-00-baseline.md#wp-006), [WP-007](phase-00-baseline.md#wp-007)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-010.md). **Depends on:** [WP-004](phase-00-baseline.md#wp-004), [WP-005](phase-00-baseline.md#wp-005), [WP-006](phase-00-baseline.md#wp-006), [WP-007](phase-00-baseline.md#wp-007)
 
 **Proposal scope:** [APP-20 CapabilityRegistry](../proposed/01-application-services.md#app-20)
 
@@ -39,7 +39,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-011"></a>
 ## WP-011 — Unify commands, contexts, shortcuts and focus
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-010](phase-01-services.md#wp-010)
+**Implementation lead:** Sol. **Status:** ready. **Depends on:** [WP-010](phase-01-services.md#wp-010)
 
 **Proposal scope:** [APP-01 CommandRegistry](../proposed/01-application-services.md#app-01), [APP-02 CommandContext](../proposed/01-application-services.md#app-02), [APP-03 ShortcutMap](../proposed/01-application-services.md#app-03), [PLT-08 FocusManager](../proposed/08-platform-integrations.md#plt-08)
 
