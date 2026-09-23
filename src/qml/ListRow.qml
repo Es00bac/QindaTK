@@ -7,7 +7,9 @@ import QindaTK as Tk
 // in body size, optional icon, `leading`/`trailing` slots, hover tint,
 // `selected` paints the selection role, `active` lights the text in the
 // accent. Right-clicks arrive as `rightClicked(point)` for a context
-// menu; left click and double click come from AbstractButton.
+// menu; left click, keyboard and assistive press share the template click
+// operation. Owner selection updates are silent. objectNames: rowText,
+// rowSecondary and rowFocusRing.
 T.ItemDelegate {
     id: row
 
@@ -17,6 +19,7 @@ T.ItemDelegate {
     property bool active: false
     property bool small: false
     property real indent: 0
+    property string tooltip: ""
     property alias leading: leadingHost.data
     property alias trailing: trailingHost.data
     readonly property Item leadingItem: leadingHost
@@ -34,18 +37,39 @@ T.ItemDelegate {
     bottomPadding: 0
     spacing: Tk.Theme.space.sm
     hoverEnabled: true
-    focusPolicy: Qt.NoFocus
+    focusPolicy: Qt.StrongFocus
     highlighted: row.selected
 
     Accessible.role: Accessible.ListItem
-    Accessible.name: row.text
+    Accessible.name: row.tooltip.length > 0 ? row.tooltip
+                     : row.text.length > 0 ? row.text : qsTr("List row")
+    Accessible.description: row.secondaryText
+    Accessible.selectable: true
     Accessible.selected: row.selected
+    Accessible.focusable: row.enabled
+    Accessible.focused: row.activeFocus
+    Accessible.onPressAction: if (row.enabled) row.click()
+
+    Tk.ToolTip {
+        text: row.tooltip
+        visible: row.tooltip.length > 0 && row.hovered
+        delay: 600
+    }
 
     background: Rectangle {
         color: row.down ? Tk.Theme.color.pressed
              : row.selected ? Tk.Theme.color.selection
              : row.hovered ? Tk.Theme.color.hover : "transparent"
         Behavior on color { ColorAnimation { duration: Tk.Theme.motion.fast } }
+        Rectangle {
+            objectName: "rowFocusRing"
+            anchors.fill: parent
+            anchors.margins: -Tk.Theme.size.focusRing
+            color: "transparent"
+            border.width: Tk.Theme.size.focusRing
+            border.color: Tk.Theme.color.focus
+            visible: row.activeFocus
+        }
     }
 
     contentItem: Tk.Flex {
@@ -101,6 +125,8 @@ T.ItemDelegate {
 
     TapHandler {
         acceptedButtons: Qt.RightButton
-        onTapped: function(eventPoint) { row.rightClicked(eventPoint.position) }
+        onTapped: function(eventPoint) {
+            if (row.enabled) row.rightClicked(eventPoint.position)
+        }
     }
 }

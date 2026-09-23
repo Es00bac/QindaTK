@@ -75,6 +75,9 @@ FND-07 through FND-10.
   separates silent owner updates from changed user commits. Its swatch has
   keyboard and accessible picker actions, with read-only and disabled gates.
   [Focused evidence](WP-007-FND-10-colorfield.md).
+- `ListRow` now supports Tab focus, a visible focus ring, Space and accessible
+  press through its template click path. Owner `selected` updates stay silent.
+  [Focused evidence](WP-007-FIX-F04-list-row.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,

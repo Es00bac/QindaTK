@@ -3147,7 +3147,7 @@
       "name": "ListRow",
       "kind": "qml",
       "base": "T.ItemDelegate",
-      "description": "AGENT-CONTRACT: a dense list row. 22px (28 with `secondaryText`), text in body size, optional icon, `leading`/`trailing` slots, hover tint, `selected` paints the selection role, `active` lights the text in the accent. Right-clicks arrive as `rightClicked(point)` for a context menu; left click and double click come from AbstractButton.",
+      "description": "AGENT-CONTRACT: a dense list row. 22px (28 with `secondaryText`), text in body size, optional icon, `leading`/`trailing` slots, hover tint, `selected` paints the selection role, `active` lights the text in the accent. Right-clicks arrive as `rightClicked(point)` for a context menu; left click, keyboard and assistive press share the template click operation. Owner selection updates are silent. objectNames: rowText, rowSecondary and rowFocusRing.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ListRow.qml",
@@ -3196,6 +3196,14 @@
           "name": "indent",
           "type": "real",
           "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -3257,6 +3265,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "rowFocusRing",
         "rowSecondary",
         "rowText"
       ]

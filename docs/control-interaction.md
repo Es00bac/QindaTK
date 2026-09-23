@@ -72,6 +72,7 @@ that every family is fully qualified on every native accessibility backend.
 | `ColorSwatches` | `current` is owner assigned; tap, key and accessible press emit guarded `selected(color)`. | App applies the chosen colour and owns defaults and a full custom picker. |
 | `ColorField` | Invalid hex remains visible with `inputInvalid` until corrected or canceled with Escape. Valid user commits emit `colorEdited`; owner `color` and `applyHex()` changes are silent. Read-only and disabled states block user edits and picker requests. | App owns the full picker and any reset/default or mixed-colour policy. Native assistive announcements and broad layout qualification remain open. |
 | `DataTable` | Owner `currentIndex` and arrow navigation are silent; tap, Return/Enter and accessible row press select and emit guarded `activated`. Realized rows report names and selection. | App owns sort/filter and selection reconciliation when the model changes. Header keyboard/assistive actions and virtual row traversal remain open. |
+| `ListRow` | Owner `selected` assignment is silent; Space and accessible press use template click. Row text or tooltip names the accessible list item. | App owns list selection, including whether a click changes `selected`. |
 | `ComboBox` | Public selection and template popup behavior exist. | Popup and accessible selection behavior remain under WP-007 audit. |
 
 ## Verification for a new control
