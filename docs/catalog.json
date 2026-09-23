@@ -6650,7 +6650,7 @@
       "name": "TreeRow",
       "kind": "qml",
       "base": "Tk.ListRow",
-      "description": "A ListRow with a depth indent and a disclosure chevron. Clicking the chevron (or double-clicking the row) toggles `expanded` and emits `expansionToggled`; the row itself never owns the children it discloses. AGENT-NOTE: the signal is not `toggled(bool)` as docs/controls.md first said: AbstractButton already owns a `toggled()` signal and QML refuses the override.",
+      "description": "AGENT-CONTRACT (docs/controls.md): a ListRow with a depth indent and a disclosure chevron. Clicking the chevron (or double-clicking the row) toggles `expanded` and emits `expansionToggled`; a nonexpandable, noneditable leaf uses the inherited `clicked` action for pointer, keyboard and accessible activation. The row never owns disclosed children. AGENT-NOTE: the signal is not `toggled(bool)` as docs/controls.md first said: AbstractButton already owns a `toggled()` signal and QML refuses the override.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TreeRow.qml",

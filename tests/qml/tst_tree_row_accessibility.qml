@@ -12,6 +12,7 @@ TestCase {
     height: 160
 
     Component { id: rowComponent; Tk.TreeRow { text: "Tracks"; expandable: true; width: 280 } }
+    Component { id: leafComponent; Tk.TreeRow { text: "Audio bus"; width: 280 } }
     Component { id: editableComponent; Tk.TreeRow { text: "Track"; editable: true; width: 280 } }
     Component { id: spyComponent; SignalSpy {} }
 
@@ -63,6 +64,42 @@ TestCase {
         row.expanded = true
         verify(row.expanded)
         compare(spy.count, 0)
+    }
+
+    function test_leafSharesPointerKeyboardAndAccessibleActivation() {
+        const row = createTemporaryObject(leafComponent, root)
+        verify(row !== null)
+        const clicked = createTemporaryObject(spyComponent, root,
+            { target: row, signalName: "clicked" })
+
+        compare(row.Accessible.role, Accessible.TreeItem)
+        compare(row.Accessible.name, "Audio bus")
+        verify(row.Accessible.focusable)
+        mouseClick(row)
+        compare(clicked.count, 1)
+
+        row.forceActiveFocus()
+        verify(row.activeFocus)
+        verify(row.Accessible.focused)
+        verify(findChild(row, "treeFocusRing").visible)
+        keyClick(Qt.Key_Space)
+        compare(clicked.count, 2)
+        keyClick(Qt.Key_Return)
+        compare(clicked.count, 3)
+        keyClick(Qt.Key_Enter)
+        compare(clicked.count, 4)
+
+        row.Accessible.pressAction()
+        compare(clicked.count, 5)
+
+        row.enabled = false
+        verify(!row.Accessible.focusable)
+        verify(!findChild(row, "treeFocusRing").visible)
+        mouseClick(row)
+        keyClick(Qt.Key_Space)
+        keyClick(Qt.Key_Return)
+        row.Accessible.pressAction()
+        compare(clicked.count, 5)
     }
 
     function test_f2StartsRenameAndReturnFromEditorDoesNotRestartIt() {

@@ -2,9 +2,11 @@
 import QtQuick
 import QindaTK as Tk
 
-// A ListRow with a depth indent and a disclosure chevron. Clicking the
-// chevron (or double-clicking the row) toggles `expanded` and emits
-// `expansionToggled`; the row itself never owns the children it discloses.
+// AGENT-CONTRACT (docs/controls.md): a ListRow with a depth indent and a
+// disclosure chevron. Clicking the chevron (or double-clicking the row)
+// toggles `expanded` and emits `expansionToggled`; a nonexpandable,
+// noneditable leaf uses the inherited `clicked` action for pointer,
+// keyboard and accessible activation. The row never owns disclosed children.
 // AGENT-NOTE: the signal is not `toggled(bool)` as docs/controls.md first
 // said: AbstractButton already owns a `toggled()` signal and QML refuses
 // the override.
@@ -25,14 +27,14 @@ Tk.ListRow {
 
     indent: tree.depth * Tk.Theme.space.lg
     focusPolicy: Qt.StrongFocus
-    activeFocusOnTab: enabled && (expandable || editable)
+    activeFocusOnTab: enabled
 
     Accessible.role: Accessible.TreeItem
     Accessible.name: tree.text
     Accessible.description: tree.expandable
                               ? tree.expanded ? qsTr("Expanded") : qsTr("Collapsed")
                               : ""
-    Accessible.focusable: enabled && (expandable || editable)
+    Accessible.focusable: enabled
     Accessible.focused: activeFocus
 
     Rectangle {
@@ -68,28 +70,33 @@ Tk.ListRow {
     }
 
     function activate() {
+        if (!tree.enabled) {
+            return
+        }
         if (tree.expandable) {
             tree.toggle()
         } else if (tree.editable) {
             tree.startEditing()
+        } else {
+            tree.click()
         }
     }
 
     Keys.onSpacePressed: function(event) {
-        if (!tree.editing && tree.enabled && tree.expandable) {
-            tree.toggle()
+        if (!tree.editing && tree.enabled && (tree.expandable || !tree.editable)) {
+            tree.activate()
             event.accepted = true
         }
     }
     Keys.onReturnPressed: function(event) {
-        if (!tree.editing && tree.enabled && tree.expandable) {
-            tree.toggle()
+        if (!tree.editing && tree.enabled && (tree.expandable || !tree.editable)) {
+            tree.activate()
             event.accepted = true
         }
     }
     Keys.onEnterPressed: function(event) {
-        if (!tree.editing && tree.enabled && tree.expandable) {
-            tree.toggle()
+        if (!tree.editing && tree.enabled && (tree.expandable || !tree.editable)) {
+            tree.activate()
             event.accepted = true
         }
     }
@@ -99,7 +106,10 @@ Tk.ListRow {
             event.accepted = true
         }
     }
-    Accessible.onPressAction: tree.activate()
+    // AGENT-GUARD: ListRow already maps its accessible press to click(). Let
+    // nonexpandable, noneditable leaves inherit that single guarded action;
+    // invoking activate() here as well would emit clicked() twice.
+    Accessible.onPressAction: if (tree.expandable || tree.editable) tree.activate()
 
     onDoubleClicked: tree.editable ? tree.startEditing() : tree.toggle()
 
