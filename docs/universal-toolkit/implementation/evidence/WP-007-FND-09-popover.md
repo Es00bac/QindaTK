@@ -6,6 +6,22 @@ does not claim that the full FND-09 popup policy is complete.
 
 ## Finding and change
 
+### Oversized content
+
+Clamping only the popup's position let content larger than its Overlay extend
+past the host on both axes. `Tk.Popover` now caps its implicit width and height
+to the Overlay with `space.xs` margins and seats its declarative children in a
+two-axis `Tk.Scroll` (`popoverBody`). The popup still follows the anchor while
+the host resizes. The focused regression opens 420×330 content inside a
+220×160 host, navigates both overflow axes with End and Right, reveals a
+far-corner action, then shrinks the host to 180×120 and checks the bounds.
+
+Qt 6.11.1 and 6.8.3 `ControlsStructure` each passed 22/22. `qtk-preview --dump` reported
+`PopupItem#Popover 2,2 216x156` and `Scroll#popoverBody 4,4 208x148` around
+the 420×330 content in a 220×160 scene. The PNG was opened and confirmed the
+surface and both scrollbars remain within the host. Native multi-monitor
+placement remains a separate qualification item.
+
 ### Ancestor scrolling
 
 The direct-movement fix above still left a popup behind when an ancestor

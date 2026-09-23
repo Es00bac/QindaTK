@@ -30,7 +30,9 @@ FND-07 through FND-10.
   reset, clamping, non-finite inputs and JSON/QST font-base preservation.
 - An open `Tk.Popover` now follows direct anchor x/y/size, scrolling on its
   ancestors, host size and placement changes; direct-movement and scrolling
-  regressions failed on the old source and passed after repair.
+  regressions failed on the old source and passed after repair. Oversized
+  content now stays within the host and scrolls on both axes; the 220×160
+  preview and keyboard reachability regression passed.
   [Focused evidence](WP-007-FND-09-popover.md).
 - Popup focus entry/return and small-host bounds now have a focused matrix
   across Menu, Dialog, Popover and CommandPalette. In a constrained nested
