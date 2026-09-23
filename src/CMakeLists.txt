@@ -109,6 +109,9 @@ qt_add_qml_module(qindatk
         core/chart_renderer.cpp core/chart_renderer.h
         core/chart_table_model.cpp core/chart_table_model.h
         core/chart_histogram.cpp core/chart_histogram.h
+        core/distribution_model.cpp core/distribution_model.h
+        core/heatmap_model.cpp core/heatmap_model.h
+        core/heatmap_renderer.cpp core/heatmap_renderer.h
         core/graph.cpp core/graph.h
         core/graph_mesh.cpp core/graph_mesh.h
         core/graph_nodes.cpp

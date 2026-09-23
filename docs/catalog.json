@@ -3232,6 +3232,127 @@
       ]
     },
     {
+      "name": "DistributionPlot",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/distribution-plot.md): all statistical values and interval meanings come from DistributionModel. This view only projects them.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DistributionPlot.qml",
+      "properties": [
+        {
+          "name": "distributionModel",
+          "type": "Tk.DistributionModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"box\" // box, violin, interval",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Distribution plot\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedGroupId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showSourceTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "groupCount",
+          "type": "int",
+          "default": "distributionModel ? distributionModel.count : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sourceRows",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "legendText",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "groupSelected",
+          "parameters": "string groupId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "csvData",
+          "parameters": ""
+        },
+        {
+          "name": "selectIndex",
+          "parameters": "index, userAction"
+        },
+        {
+          "name": "navigate",
+          "parameters": "step"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "distributionBody",
+        "distributionCanvas",
+        "distributionError",
+        "distributionLegend",
+        "distributionPlot",
+        "distributionSourceTable",
+        "distributionSummaryTable",
+        "distributionToolbar"
+      ]
+    },
+    {
       "name": "Divider",
       "kind": "qml",
       "base": "Rectangle",
@@ -6669,6 +6790,138 @@
       "valueType": false,
       "bridge": false,
       "objectNames": []
+    },
+    {
+      "name": "Heatmap",
+      "kind": "qml",
+      "base": "Item",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Heatmap.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.HeatmapModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Heatmap\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedCell",
+          "type": "var",
+          "default": "renderer.selectedCell",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedRegion",
+          "type": "var",
+          "default": "renderer.selectedRegion",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "horizontalViewFraction",
+          "type": "real",
+          "default": "renderer.horizontalViewFraction",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "verticalViewFraction",
+          "type": "real",
+          "default": "renderer.verticalViewFraction",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paintBinCount",
+          "type": "int",
+          "default": "renderer.paintBinCount",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "cellSelected",
+          "parameters": "string cellId"
+        },
+        {
+          "name": "regionSelected",
+          "parameters": "var region"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setViewport",
+          "parameters": "x0, x1, y0, y1"
+        },
+        {
+          "name": "pan",
+          "parameters": "x, y"
+        },
+        {
+          "name": "zoom",
+          "parameters": "factor, xAnchor, yAnchor"
+        },
+        {
+          "name": "selectCell",
+          "parameters": "row, column"
+        },
+        {
+          "name": "selectRegion",
+          "parameters": "firstRow, lastRow, firstColumn, lastColumn"
+        },
+        {
+          "name": "navigateSelection",
+          "parameters": "key, extend"
+        },
+        {
+          "name": "renderImage",
+          "parameters": "size"
+        },
+        {
+          "name": "exportPng",
+          "parameters": "path, size"
+        },
+        {
+          "name": "exportSvg",
+          "parameters": "path, size"
+        },
+        {
+          "name": "accessibleCellDescription",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "heatmap",
+        "heatmapFocusRing",
+        "heatmapPlot"
+      ]
     },
     {
       "name": "HistoryView",
@@ -16120,6 +16373,110 @@
       "bridge": false
     },
     {
+      "name": "DistributionModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-CONTRACT (docs/distribution-plot.md): records own finite source values, a declared common unit, and optional explicitly named intervals. The model computes statistics; the QML view only projects them.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/distribution_model.h",
+      "properties": [
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "unit",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "intervalMeaning",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "minimum",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maximum",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "estimator",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "quint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "replaceGroups",
+          "returns": "bool",
+          "parameters": "const QVariantList &groups"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "indexOfId",
+          "returns": "int",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "sourceValues",
+          "returns": "QVariantList",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "summaryCsv",
+          "returns": "QString",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "DockModel",
       "kind": "cpp",
       "base": "QObject",
@@ -18604,6 +18961,351 @@
       "registrationKind": "qml_anonymous",
       "exported": false,
       "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "HeatmapModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: row zero is the top of the matrix. Numeric cell coordinates are band centers in the declared [minimum, maximum] domains; categorical coordinates use ordered labels. Missing cells are never numeric zero.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/heatmap_model.h",
+      "properties": [
+        {
+          "name": "rows",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "xMinimum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xMaximum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yMinimum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yMaximum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "valueUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xCategories",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yCategories",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "valueCategories",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "colorMinimum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "colorMaximum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "storedCellCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "quint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "valid",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setDimensions",
+          "returns": "bool",
+          "parameters": "int rows, int columns"
+        },
+        {
+          "name": "setCell",
+          "returns": "bool",
+          "parameters": "int row, int column, const QString &id, const QVariant &value"
+        },
+        {
+          "name": "cellAt",
+          "returns": "QVariantMap",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "tile",
+          "returns": "QVariantList",
+          "parameters": "int firstRow, int lastRow, int firstColumn, int lastColumn, int binsY, int binsX"
+        },
+        {
+          "name": "requestTile",
+          "returns": "quint64",
+          "parameters": "int firstRow, int lastRow, int firstColumn, int lastColumn, int binsY, int binsX"
+        },
+        {
+          "name": "cancelTile",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "HeatmapRenderer",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/heatmap_renderer.h",
+      "properties": [
+        {
+          "name": "model",
+          "type": "HeatmapModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lowColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "highColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "missingColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "textColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "categoryColors",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "metrics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "horizontalViewFraction",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "verticalViewFraction",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedCell",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedRegion",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "paintBinCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setViewport",
+          "returns": "void",
+          "parameters": "double x0, double x1, double y0, double y1"
+        },
+        {
+          "name": "pan",
+          "returns": "void",
+          "parameters": "double xFraction, double yFraction"
+        },
+        {
+          "name": "zoom",
+          "returns": "void",
+          "parameters": "double factor, double xAnchor = 0.5, double yAnchor = 0.5"
+        },
+        {
+          "name": "selectCell",
+          "returns": "bool",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "selectRegion",
+          "returns": "bool",
+          "parameters": "int firstRow, int lastRow, int firstColumn, int lastColumn"
+        },
+        {
+          "name": "navigateSelection",
+          "returns": "bool",
+          "parameters": "int key, bool extend = false"
+        },
+        {
+          "name": "renderImage",
+          "returns": "QImage",
+          "parameters": "const QSize &size"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
       "valueType": false,
       "bridge": false
     },

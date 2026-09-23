@@ -119,3 +119,27 @@ telemetry `Tk.Graph` remains a separate compatible control.
 GPU and software visual checks plus the installed consumer check are
 acceptance gates for WP-030; source availability alone does not mark this
 package accepted.
+
+## Heatmap matrix adapter (DAT-14)
+
+`Tk.HeatmapModel` declares rows/columns, numeric X/Y domains and units, or
+ordered X/Y category labels. Row zero is the top of the matrix. Numeric
+coordinates are band centers; Y values descend from the declared maximum.
+Domains, color bounds and category lists must be valid and complete; `valid`
+and `error` expose malformed declarations and rendering stays empty until fixed.
+Values are finite numbers or members of `valueCategories`. The caller declares
+`colorMinimum`/`colorMaximum` in `valueUnit`; colors clamp at those bounds.
+Unset cells and explicit null cells are missing, never zero. `setCell` requires
+a stable unique ID and rejects invalid input without changing the matrix.
+
+The sparse model stores only supplied cells. `tile()` aggregates a bounded
+viewport into at most 4096 bins and reports minimum, maximum, present count,
+missing count and category state. At overview zoom `Tk.HeatmapRenderer` paints
+both extrema in split tiles and hatches tiles containing missing cells. It
+creates no per-cell QML delegates. `requestTile()` emits only the latest
+request and revision; `cancelTile()` invalidates pending delivery. Onscreen,
+PNG and SVG rendering use the same data-coordinate paint path. Image dimensions
+are limited to 1–8192 pixels per side. `Tk.Heatmap` exposes cell navigation and
+announces the selected ID, value or missing state, coordinates and units as an
+accessible cell alternative. Pointer drag and Shift+arrow select a rectangular
+region; `selectedRegion` reports half-open row and column bounds.
