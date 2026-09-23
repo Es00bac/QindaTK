@@ -36,11 +36,12 @@ TestCase {
                     const range = createTemporaryObject(rangeSlider, root)
                     const rangeSmall = createTemporaryObject(smallRangeSlider, root)
                     verify(regular && small && range && rangeSmall)
-                    const touchTarget = modes[i] === "touch" ? Tk.Theme.size.control : 0
-                    compare(regular.height, Math.max(regular.rowHeight, touchTarget))
-                    compare(small.height, Math.max(small.rowHeight, touchTarget))
-                    compare(range.height, Math.max(range.rowHeight, touchTarget))
-                    compare(rangeSmall.height, Math.max(rangeSmall.rowHeight, touchTarget))
+                    const regularTarget = modes[i] === "touch" ? Tk.Theme.size.sliderTarget : 0
+                    const smallTarget = modes[i] === "touch" ? Tk.Theme.size.sliderTargetSm : 0
+                    compare(regular.height, Math.max(regular.rowHeight, regularTarget))
+                    compare(small.height, Math.max(small.rowHeight, smallTarget))
+                    compare(range.height, Math.max(range.rowHeight, regularTarget))
+                    compare(rangeSmall.height, Math.max(rangeSmall.rowHeight, smallTarget))
                     compare(regular.handleSize, Tk.Theme.size.grip)
                     compare(small.handleSize, Tk.Theme.space.md)
                     compare(range.handleSize, Tk.Theme.size.grip)

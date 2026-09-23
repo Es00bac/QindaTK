@@ -137,16 +137,49 @@ private slots:
                                     QStringLiteral("controlLg"), QStringLiteral("row"),
                                     QStringLiteral("rowLg"), QStringLiteral("tab"),
                                     QStringLiteral("menuItem"), QStringLiteral("header"),
-                                    QStringLiteral("timeRuler")}) {
+                                    QStringLiteral("timeRuler"),
+                                    QStringLiteral("sliderTarget"),
+                                    QStringLiteral("sliderTargetSm")}) {
             QVERIFY2(theme->size()->metric(name) >= 48.0, qPrintable(name));
         }
         QCOMPARE(theme->size()->metric(QStringLiteral("control")), 48.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("chip")), 48.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 48.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 48.0);
         density->setTextScale(3.0);
         QVERIFY(theme->size()->metric(QStringLiteral("control")) >= 48.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 48.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 48.0);
         density->setMode(Density::Compact);
         density->setTextScale(1.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("control")), 24.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 16.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 14.0);
+    }
+    void sliderTargetRolesScaleAndResetAcrossPresets()
+    {
+        Theme *theme = Theme::instance();
+        Density *density = Density::instance();
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 16.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 14.0);
+
+        density->setMode(Density::Comfortable);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 19.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 17.0);
+
+        density->setMode(Density::Touch);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 48.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 48.0);
+        density->setTextScale(3.0);
+        QVERIFY(theme->applyPreset(QStringLiteral("sloom-light")));
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 48.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 48.0);
+
+        density->setMode(Density::Compact);
+        density->setTextScale(1.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTarget")), 16.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("sliderTargetSm")), 14.0);
+        QVERIFY(theme->applyPreset(QStringLiteral("sloom-dark")));
     }
     void textScaleClampsAndIgnoresNonFiniteValues()
     {

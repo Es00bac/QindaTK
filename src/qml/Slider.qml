@@ -19,11 +19,10 @@ T.Slider {
     signal valueModified(real value)
 
     readonly property real rowHeight: small ? Tk.Theme.size.icon : Tk.Theme.size.iconLg
-    // AGENT-CONTRACT (D-022): a slider's visible row stays compact while its
-    // template input surface reaches the shared Touch control target height.
-    readonly property real _targetHeight: Tk.Density.mode === Tk.Density.Touch
-                                          ? Math.max(rowHeight, Tk.Theme.size.control)
-                                          : rowHeight
+    // AGENT-CONTRACT (D-022): Theme owns the Touch floor; the target roles
+    // preserve this control's authored visual row in other densities.
+    readonly property real _targetHeight: small ? Tk.Theme.size.sliderTargetSm
+                                                : Tk.Theme.size.sliderTarget
     readonly property real handleSize: small ? Tk.Theme.space.md : Tk.Theme.size.grip
     readonly property real trackThickness: Tk.Theme.space.xs
     readonly property string readout: Number(control.value).toFixed(Math.max(0, control.decimals)) + control.suffix
