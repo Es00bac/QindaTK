@@ -32,7 +32,7 @@ native accessibility backends are qualified.
 | `ZoomControl`, `Viewport` | ZoomControl reset is an explicit `resetRequested` command; Viewport fit/reset policy is owner-owned | App policy | N/A | User actions guarded; owner zoom sync remains allowed | Owner zoom assignment silent; changed user zoom emits `valueModified` / `zoomModified`; reset command can fire at current default | ZoomControl value readout/reset action; Viewport Pane with pan/zoom keys and accessible increase/decrease | `src/qml/{ZoomControl,Viewport}.qml`; `tests/qml/tst_viewport_accessibility.qml`, `tst_controls_telemetry.qml` |
 | `ColorField` | App owns color/default; no reset API | App policy | Hex invalid draft remains visible; read-only blocks input and picker; owner color assignment re-syncs draft | User edits/picker guarded | Owner `color`/`applyHex()` silent; valid changed user commit emits `colorEdited`; picker request is an operation | Group name/description; editable-text child and named picker Button with press action | `src/qml/ColorField.qml`; [ColorField evidence](WP-007-FND-10-colorfield.md); `tests/qml/tst_color_field_editing.qml` |
 | `ColorButton`, `ColorSwatches` | App owns palette/current/default; no reset API | App policy | No invalid parsing; readonly N/A | Disabled selection/open paths guarded | Owner color/current silent; accepted swatch emits `colorSelected` or `selected`; custom picker request is separate | Button and swatch names, selection state, focus/press paths; synthetic touch target is tested | `src/qml/{ColorButton,ColorSwatches}.qml`; `tests/qml/tst_controls_office.qml` |
-| `ComboBox` | App owns model/current index/default | App policy; no mixed display contract | Editable text parser/commit semantics not specified by this audit; selection is not a text draft | Template selection gate; model validity/reconciliation is app-owned | Owner index assignment silent; accepted user selection emits `activated` | Popup selection state and keyboard interaction; native assistive delivery and monitor workarea remain qualified separately | `src/qml/ComboBox.qml`; [ComboBox evidence](WP-007-FND-09-combo-box.md); `tests/qml/tst_combo_popup_motion.qml` |
+| `ComboBox` | App owns model/current index/default | App policy; no mixed display contract | Editable `editText` is a draft; `validator` gates `accepted` on Return/Enter, while selection is an `activated` operation | Template selection/disabled gate; model reconciliation is app-owned | Owner index or edit-text assignment is silent; accepted user choice emits `activated`, and valid text submission emits `accepted` | Popup selection state and keyboard interaction; native assistive delivery remains platform-qualified | `src/qml/ComboBox.qml`; [ComboBox evidence](WP-007-FND-09-combo-box.md); `tests/qml/tst_combo_popup_motion.qml`, `tst_combo_editing.qml` |
 | `ProgressBar`, `Spinner`, `Sparkline`, `Waveform` | App owns progress/data/running state | N/A; no multi-selection editing | No parser/editor | `enabled` is not an edit gate; running/indeterminate state controls presentation | Data/property updates are owner-driven; no user-change signal | Read-only progress or graphic descriptions where exposed; no keyboard action required | `src/qml/{ProgressBar,Spinner,Sparkline,Waveform}.qml`; `tests/qml/tst_media.qml`, `tst_waveform_geometry.qml` |
 
 ## Selection, command, and composite controls
@@ -82,9 +82,9 @@ their update does not imply a user action.
    presentation or an explicit future component contract.
 3. **Invalid draft is distinct from error decoration.** NumberField and
    ColorField retain parser-invalid drafts. TextField/TextArea `error` is
-   owner-supplied feedback; text is otherwise live. ComboBox editable text,
-   TreeRow rename validation, and app-specific form validation are not
-   specified as common parsers here.
+   owner-supplied feedback; text is otherwise live. Editable ComboBox uses
+   its inherited validator/`acceptableInput` gate for `accepted`; TreeRow
+   rename validation and app-specific form validation are not common parsers.
 4. Read-only is not a universal property. It applies to text editors,
    ColorField and NumberField's `editable` mode; other controls use their
    semantic operation model or owner-level disabling.

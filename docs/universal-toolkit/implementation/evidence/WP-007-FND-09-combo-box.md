@@ -45,5 +45,13 @@ remeasures, stays above the control and scrolls its taller rows. The QML
 target passes on both Qt 6.11.1 and 6.8.3. This exercises live content
 scaling, not a native monitor-DPI or work-area transition.
 
+`tests/qml/tst_combo_editing.qml` verifies the inherited editable contract:
+owner `editText` assignment emits neither `accepted` nor `activated`; typed
+valid text followed by Return emits one `accepted` and no selection activation;
+validator-rejected and disabled submissions emit no `accepted`. Qt's
+[ComboBox documentation](https://doc.qt.io/qt-6.8/qml-qtquick-controls-combobox.html)
+defines `accepted` as the user text-submission signal and `activated` as a
+user selection signal. The app decides whether to add novel text to the model.
+
 Multiple monitors, work-area changes and native assistive announcements
 remain outside this slice. FND-09 and WP-007 remain active.
