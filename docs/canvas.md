@@ -13,6 +13,7 @@ and PLT-10 RenderSurfaceAdapter. Evidence:
 | `Tk.CanvasView` | QML over C++ `CanvasSurface` | Input, navigation, rendering host, overlay slot |
 | `Tk.CanvasDocument` | C++ | Reference in-memory spatial document (`CanvasDocumentAdapter`) |
 | `Tk.CanvasViewState` | C++ | Shareable navigation pose; views that share one are synchronized |
+| `Tk.SnapModel` | C++ | Pure spatial snapping query over guides, visible object geometry and grid |
 | `Tk.ToolController` | C++ | Active/temporary tools and the one-gesture state machine |
 | `Tk.HitTestService` | C++ | Point and region picking with lock/visibility policy |
 | `RenderSurfaceAdapter` | C++ (`view.renderSurface`) | Tiles, damage, budgets, backends, resource generations |
@@ -108,9 +109,10 @@ withImage)` loads a deterministic fixture without history.
   itself. The router's Edit intent needs a PropertyDocument
   `EditTransaction`, so bridging canvas edits into it is part of the same
   seam.
-- **WP-041.** Snapping, authoritative selection geometry, transform edits
-  and guides belong to WP-041. Its `SelectionOverlay` presentation slice now
-  maps a host-supplied selection and reports handle gestures. The canvas
+- **WP-041.** `SnapModel` supplies one-point guide/object/grid queries, but
+  authoritative selection geometry, multi-object transform edits and guide
+  persistence still belong to WP-041. Its `SelectionOverlay` presentation
+  slice maps a host-supplied selection and reports handle gestures. The canvas
   exposes the contracts that the remaining work needs:
   `CanvasToolPreview`, `ToolController.selection`, `HitTestService`,
   `CanvasSurface::mapFromDocument` and the `canvasOverlaySlot` item. It
@@ -303,9 +305,51 @@ events report a handle and document-space start/current points; keyboard and
 accessible actions report a nudge request. The host owns selection identity,
 snapping, constraints, preview, cancellation and the one authoritative commit.
 
+`Tk.GuideLayer` is another application overlay. The host supplies guide
+records with stable `id`, `orientation` (`vertical` or `horizontal`) and
+document-unit `position`. It clips their transformed lines to the view and
+offers pointer, keyboard and accessible move/delete requests. Its
+`requestAdd` helper maps a view point back into document coordinates. The
+host owns guide persistence and the edit transaction. The
+[guide scene](../examples/spatial-canvas/GuideScene.qml) shows both orientations
+over a rotated page.
+
+<a id="spatial-snapping"></a>
+## Spatial snapping
+
+`Tk.SnapModel` is a stateless spatial query over a `CanvasDocumentAdapter` and
+`CanvasViewState`. `snapPoint(documentPoint, excludedObjectIds)` returns a
+document-space `point`, `delta`, `snapped`, and separate `x`/`y` provenance
+maps (`source`, `targetId`, `feature`, `position`, `distancePixels`). Pass stable
+object IDs as decimal strings in `excludedObjectIds` so dragged objects do not
+snap to themselves. Set `guides` to records with stable string `id`,
+`orientation` (`vertical` or `horizontal`), numeric `position` and optional
+`visible`. The host stores and edits guide records; the snap model does not.
+
+Visible guides have priority 300, visible object outline vertices/edge
+midpoints/centers 200, and grid lines 100. Within one priority, the closest
+candidate wins; source, target ID and feature break equal-distance ties. A
+candidate must be within `tolerancePixels` after scaling by the current view
+zoom. The model queries only indexed objects near the point and skips hidden,
+degenerate and excluded objects. A disabled query returns the raw point;
+callers must send the raw pointer coordinate on every drag update rather than
+feeding back a previously snapped point. One query does not edit a document,
+own selection identity, or commit an undo step. A group move/resize controller
+must choose which anchor points to query and apply the resulting delta in one
+authoritative transaction.
+
 `Tk.LayerTree` reads the current `CanvasDocument.layers` facade and sends
 active, visibility and lock requests back to it. The list is flat. Layer
 hierarchy, reorder and artboard transactions require the WP-042 model work.
+
+`Tk.AlignDistributePanel` accepts selected stable object IDs as strings and
+offers selection, key-object and page reference choices. It reports semantic
+operations (`align.left`, `align.horizontalCenter`, `align.right`, `align.top`,
+`align.verticalCenter`, `align.bottom`, `distribute.horizontal`,
+`distribute.vertical`) with those IDs and a document-unit spacing value. The
+host computes canonical bounds and lock policy, then commits one scene edit.
+The [panel fixture](../examples/spatial-canvas/AlignPanelScene.qml) is only a
+visual proof of the reusable controls.
 
 <a id="viewport"></a>
 ## Relationship to Viewport

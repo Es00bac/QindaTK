@@ -81,6 +81,20 @@ QtObject {
         bridge_entry = GEN.parse_qml(bridge, "QindaTK.QindaQt", "bridge_qml")
         require(bridge_entry["bridge"] and bridge_entry["module"] == "QindaTK.QindaQt",
                 "bridge QML module classification was lost")
+        multiline = Path(temp) / "MultilineSignals.qml"
+        multiline.write_text("""// SPDX-License-Identifier: LGPL-3.0-or-later
+import QtQuick
+QtObject {
+    signal operationRequested(string operation, var selectedIds,
+                              string referenceMode, string keyObjectId,
+                              real spacing)
+}
+""")
+        multiline_entry = GEN.parse_qml(multiline)
+        require(multiline_entry["signals"] == [{
+            "name": "operationRequested",
+            "parameters": "string operation, var selectedIds, string referenceMode, string keyObjectId, real spacing"
+        }], "multiline QML signal parameters were not extracted")
 
 
 def repository_checks():
@@ -119,6 +133,15 @@ def repository_checks():
             "bridge module metadata is incorrect")
     require(any(signal["name"] == "jobFinished" for signal in entries["JobModel"]["signals"]),
             "JobModel's public C++ signal was not cataloged")
+    panel = entries["AlignDistributePanel"]
+    require(any(signal["name"] == "operationRequested" for signal in panel["signals"]),
+            "AlignDistributePanel.operationRequested was not cataloged")
+    guide = entries["GuideLayer"]
+    require(any(signal["name"] == "guideMoveRequested" for signal in guide["signals"]),
+            "GuideLayer.guideMoveRequested was not cataloged")
+    snap_model = GEN.parse_header(GEN.CORE_DIR / "canvas_snap_model.h")
+    require(any(signal["name"] == "changed" for signal in snap_model[0]["signals"]),
+            "CanvasSnapModel::changed was not extracted from its C++ header")
     require(not any(signal["name"] == "refresh" for signal in entries["FontCatalog"]["signals"]),
             "private FontCatalog implementation leaked as a signal")
     ordered = sorted(after["types"], key=lambda e: (e["module"] != "QindaTK",

@@ -168,6 +168,7 @@ qt_add_qml_module(qindatk
         core/canvas_tessellator.cpp
         core/render_surface_adapter.cpp core/render_surface_adapter.h
         core/canvas_view_state.cpp core/canvas_view_state.h
+        core/canvas_snap_model.cpp core/canvas_snap_model.h
         core/canvas_surface.cpp core/canvas_surface.h
         core/canvas_surface_input.cpp
         core/canvas_surface_nodes.cpp core/canvas_surface_nodes.h

@@ -75,7 +75,7 @@ def parse_qml(path, module="QindaTK", registration="qml_module"):
                   "description": leading_comment(lines), "objectNames": []})
     entry["singleton"] = any(line.strip() == "pragma Singleton" for line in lines)
     depth, root_seen = 0, False
-    for line in lines:
+    for line_index, line in enumerate(lines):
         if not root_seen:
             root = QML_ROOT.match(line)
             if root:
@@ -90,7 +90,18 @@ def parse_qml(path, module="QindaTK", registration="qml_module"):
                     "type": prop.group("type"), "default": (prop.group("default") or "").strip(),
                     "readonly": "readonly" in mods, "defaultProperty": "default" in mods,
                     "required": "required" in mods})
-            signal = QML_SIGNAL.match(line)
+            # QML permits signal parameter lists to wrap across lines. Keep
+            # the source-depth walk line based, but parse the declaration as
+            # one normalized statement.
+            signal_statement = line
+            if re.match(r"^\s*signal\s+", line) and "(" in line:
+                balance = line.count("(") - line.count(")")
+                next_index = line_index + 1
+                while balance > 0 and next_index < len(lines):
+                    signal_statement += " " + lines[next_index].strip()
+                    balance += lines[next_index].count("(") - lines[next_index].count(")")
+                    next_index += 1
+            signal = QML_SIGNAL.match(signal_statement)
             if signal:
                 entry["signals"].append({"name": signal.group("name"),
                     "parameters": (signal.group("params") or "").strip()})

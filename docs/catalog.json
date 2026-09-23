@@ -5,6 +5,125 @@
   "version": "1.0",
   "types": [
     {
+      "name": "AlignDistributePanel",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (WP-042/CAN-21): the host supplies stable object IDs and owns canonical bounds, geometry previews, commit and undo. Requests carry string IDs so 64-bit CanvasObjectIds remain exact across QML/JS.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AlignDistributePanel.qml",
+      "properties": [
+        {
+          "name": "selectedIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceMode",
+          "type": "string",
+          "default": "\"selection\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyObjectId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "spacing",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "spacingStep",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Align and distribute selected objects\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasSelection",
+          "type": "bool",
+          "default": "selectedIds && selectedIds.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceAvailable",
+          "type": "bool",
+          "default": "referenceMode !== \"keyObject\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "actionAvailable",
+          "type": "bool",
+          "default": "hasSelection && referenceAvailable",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "operationRequested",
+          "parameters": "string operation, var selectedIds, string referenceMode, string keyObjectId, real spacing"
+        }
+      ],
+      "methods": [
+        {
+          "name": "requestOperation",
+          "parameters": "operation"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "alignBottomButton",
+        "alignDistributePanel",
+        "alignDistributeTitle",
+        "alignHorizontalCenterButton",
+        "alignLeftButton",
+        "alignReferenceMode",
+        "alignRightButton",
+        "alignSectionTitle",
+        "alignTopButton",
+        "alignVerticalCenterButton",
+        "distributeHorizontalButton",
+        "distributeSectionTitle",
+        "distributeSpacing",
+        "distributeVerticalButton"
+      ]
+    },
+    {
       "name": "AppWindow",
       "kind": "qml",
       "base": "T.ApplicationWindow",
@@ -8310,6 +8429,134 @@
       ]
     },
     {
+      "name": "GuideLayer",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (WP-041): the host supplies guideData records with stable `id`, `orientation` (horizontal/vertical), and document-space `position`. This layer paints/maps guides and reports requests; guide persistence, snapping, and authoritative movement remain with the host model.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GuideLayer.qml",
+      "properties": [
+        {
+          "name": "surface",
+          "type": "Item",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "guideData",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "guideColor",
+          "type": "color",
+          "default": "Tk.Theme.color.accent",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lineWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.border",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hitThickness",
+          "type": "real",
+          "default": "Tk.Theme.size.seamTarget",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyboardStep",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "geometryRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Document guides\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "guideAddRequested",
+          "parameters": "string orientation, real documentPosition"
+        },
+        {
+          "name": "guideMoveRequested",
+          "parameters": "string guideId, real documentPosition"
+        },
+        {
+          "name": "guideMoveFinished",
+          "parameters": "string guideId, real documentPosition"
+        },
+        {
+          "name": "guideMoveCanceled",
+          "parameters": "string guideId, real originalPosition"
+        },
+        {
+          "name": "guideDeleteRequested",
+          "parameters": "string guideId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "guidePosition",
+          "parameters": "guide"
+        },
+        {
+          "name": "lineGeometry",
+          "parameters": "guide"
+        },
+        {
+          "name": "requestAdd",
+          "parameters": "orientation, localX, localY"
+        },
+        {
+          "name": "moveBy",
+          "parameters": "guide, delta"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "guideAction_",
+        "guideLayer",
+        "guideLines"
+      ]
+    },
+    {
       "name": "HeaderView",
       "kind": "qml",
       "base": "T.Control",
@@ -14112,6 +14359,10 @@
         }
       ],
       "signals": [
+        {
+          "name": "transformRequested",
+          "parameters": "string handle, point startDocumentPoint, point currentDocumentPoint, int modifiers"
+        },
         {
           "name": "transformFinished",
           "parameters": "string handle"
@@ -27535,6 +27786,88 @@
           "name": "cancelChord",
           "returns": "void",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SnapModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/canvas.md#spatial-snapping): a pure, document-space query. A gesture controller supplies the moving point and excluded object IDs; it may use the returned point for preview or commit. SnapModel never changes the document or holds a gesture, so disabling it mid-drag cannot leave a latent constraint behind.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_snap_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "viewState",
+          "type": "QindaTK::CanvasViewState *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tolerancePixels",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridSpacing",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridOrigin",
+          "type": "QPointF",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "guides",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "snapPoint",
+          "returns": "QVariantMap",
+          "parameters": "QPointF point, const QVariantList &excludedObjectIds = {}"
         }
       ],
       "enums": {},

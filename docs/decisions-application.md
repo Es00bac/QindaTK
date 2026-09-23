@@ -270,3 +270,25 @@ contract deliberately leaves real audio/video decoding to hosts and the
 later audio/video integration packages; the synthetic backend is identified
 as a fixture. WP-048 acceptance checks request, cancellation, stale-result
 and view behavior at that boundary, not a codec implementation.
+
+## D-046 — Query spatial snaps from raw document coordinates
+
+**Context.** Spatial gestures need guides, object geometry and grids to agree
+across rotated and zoomed views. A snap chosen in document units alone changes
+its apparent pointer tolerance under zoom. Reusing a previously snapped point
+as the next drag input causes a jump when snapping is toggled off.
+
+**Decision.** `SnapModel` takes the raw document-space pointer point on each
+query, a shareable `CanvasViewState` for pixel tolerance, optional stable-ID
+guide records, and a `CanvasDocumentAdapter` for indexed visible objects.
+Visible guides outrank object geometry, which outranks grid lines; distance
+and stable provenance break ties within a priority. The result is a point and
+per-axis provenance, with no document mutation or retained gesture state.
+Dragged object IDs are excluded by the host. The host chooses group anchors,
+validates constraints and commits one edit through the document adapter.
+
+**Consequences.** Disabling snapping immediately returns the raw pointer
+position. Different views can share the same guide/document data while their
+own zoom controls tolerance in logical pixels. Guide storage and transactions
+remain a WP-041 domain responsibility; this decision does not make a
+one-point snap query a complete transform controller.
