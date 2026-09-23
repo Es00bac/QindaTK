@@ -5,7 +5,11 @@ Snapshot: 2026-09-22; repository HEAD `89d5ca39a13c974d2877597a39d0fe6db88fbaf0`
 
 Coverage: **78 main-module QML files + 21 C++ catalog entries + stylusSample + QindaQtTheme = 101 described entries**. Of the 21 C++ entries, 13 have QML names and 8 are anonymous attached/theme helpers. These numbers are not a count of independent widgets. Internal dock renderers are included because CMake exports every QML file.
 
-The original generator does not include the bridge or value type and omits some pointer properties/multiline methods. This reference supplements those omissions from headers. Inherited framework APIs remain documented by Qt.
+The current `docs/catalog.json` generator includes these 101 source entries,
+including the bridge and value type, with source registration metadata. It
+parses pointer properties and multiline invokables cited in the audit. This is
+a source declaration inventory, not compiled Qt runtime reflection. Inherited
+framework APIs remain documented by Qt.
 
 [Book index](../README.md) · [Tools and implementation helpers](10-tools-tests.md)
 

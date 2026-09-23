@@ -1,4 +1,5 @@
 {
+  "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
   "generated": "2026-09-22",
   "module": "QindaTK",
   "version": "1.0",
@@ -77,6 +78,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "appContent",
         "appFindBar",
@@ -147,6 +155,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -416,6 +431,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -543,6 +565,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -557,6 +586,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -580,6 +616,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -627,6 +670,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -746,6 +796,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -834,6 +891,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "colorButtonPopover",
         "colorButtonSwatch"
@@ -938,6 +1002,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "colorHex",
         "colorSwatch"
@@ -1010,6 +1081,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "swatchCustom",
         "swatchGrid",
@@ -1094,6 +1172,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "comboPopup"
       ]
@@ -1189,6 +1274,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "paletteInput",
         "paletteList"
@@ -1341,6 +1433,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "headerCell_",
         "tableBody",
@@ -1438,6 +1537,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "dialogBody",
         "dialogFooter",
@@ -1485,6 +1591,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -1537,6 +1650,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -1560,6 +1680,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -1591,6 +1718,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "dockContent_",
         "dockFloating_"
@@ -1726,6 +1860,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "dockContent_",
         "dockFrame_",
@@ -2083,6 +2224,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "dockCanvas",
         "dockZone_overlay"
@@ -2298,6 +2446,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "dockPanelContent_"
       ]
@@ -2352,6 +2507,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "dockTab_"
       ]
@@ -2422,6 +2584,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "dockDivider_",
         "dockLane_",
@@ -2482,6 +2651,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "emptyText",
         "emptyTitle"
@@ -2548,9 +2724,17 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "filmstrip",
-        "filmstripFrame"
+        "filmstripFrame",
+        "filmstripRow"
       ]
     },
     {
@@ -2574,6 +2758,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -2653,6 +2844,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -2700,13 +2898,20 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
       "name": "KeyCap",
       "kind": "qml",
-      "base": "Row",
-      "description": "A keyboard shortcut, drawn as keys rather than written as a string.  AGENT-NOTE: \"Ctrl+Shift+K\" in running text is read as prose and skimmed past; the same shortcut as three caps is read as keys and remembered. Menus, command palettes and shortcut sheets all want this, and all three were hand-rolling it.  AGENT-CONTRACT: `sequence` is a portable Qt key string (\"Ctrl+Shift+K\"). The separator is normalised here rather than by callers, so a sheet and a menu cannot disagree about whether it is \"+\" or a space.",
+      "base": "Item",
+      "description": "A keyboard shortcut, drawn as keys rather than written as a string.  AGENT-NOTE: \"Ctrl+Shift+K\" in running text is read as prose and skimmed past; the same shortcut as three caps is read as keys and remembered. Menus, command palettes and shortcut sheets all want this, and all three were hand-rolling it.  AGENT-CONTRACT: `sequence` is a portable Qt key string (\"Ctrl+Shift+K\"). The separator is normalised here rather than by callers, so a sheet and a menu cannot disagree about whether it is \"+\" or a space.  AGENT-NOTE: an Item wraps the Flex because Flex owns its implicit size (docs/layout.md); the Item reports the row's, so the strip slots into menus and palette rows like any other control. Rule 4 forbids the QtQuick Row positioner this control was rooted on.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/KeyCap.qml",
@@ -2739,10 +2944,18 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "keyCap",
         "keyCapKey",
-        "keyCapLabel"
+        "keyCapLabel",
+        "keyCapRow"
       ]
     },
     {
@@ -2790,6 +3003,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "keyLabel",
         "valueLabel"
@@ -2848,6 +3068,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -2956,6 +3183,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "rowSecondary",
         "rowText"
@@ -2998,6 +3232,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -3012,6 +3253,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -3059,6 +3307,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "menuItemText"
       ]
@@ -3075,6 +3330,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -3122,6 +3384,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "messageIcon",
         "messageText"
@@ -3139,6 +3408,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -3223,6 +3499,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "noticeDismiss",
         "noticeText",
@@ -3436,6 +3719,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "numberInput",
         "numberLabel"
@@ -3470,6 +3760,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -3626,6 +3923,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "panelBody",
         "panelClose",
@@ -3742,6 +4046,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -3794,6 +4105,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -3833,6 +4151,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -3888,6 +4213,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "promptField",
         "promptLabel"
@@ -3962,6 +4294,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "groupBody",
         "groupHeader"
@@ -4044,6 +4383,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "propertyEditor",
         "propertyLabel"
@@ -4094,6 +4440,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -4186,6 +4539,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "rangeSlider",
         "rangeSliderBand",
@@ -4342,6 +4702,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "rulerActiveBand",
         "rulerBand",
@@ -4509,6 +4876,13 @@
           "Always"
         ]
       },
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -4523,6 +4897,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -4551,6 +4932,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -4606,6 +4994,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "sectionTitle"
       ]
@@ -4705,6 +5100,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "segment_"
       ]
@@ -4799,6 +5201,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -4822,6 +5231,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -4909,6 +5325,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -4948,6 +5371,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -4971,6 +5401,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5002,6 +5439,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5062,6 +5506,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5125,6 +5576,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5218,6 +5676,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "tabClose_",
         "tab_"
@@ -5385,6 +5850,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5440,6 +5912,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5553,6 +6032,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "fieldClear"
       ]
@@ -5626,6 +6112,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "thumbnail",
         "thumbnailCaption",
@@ -5700,6 +6193,13 @@
       ],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "timeRuler",
         "timeRulerPlayhead",
@@ -5775,6 +6275,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5806,6 +6313,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5820,6 +6334,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": []
     },
     {
@@ -5897,6 +6418,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "treeChevron",
         "treeEditor"
@@ -6089,6 +6617,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "viewportContent",
         "viewportPan",
@@ -6150,6 +6685,13 @@
       "signals": [],
       "methods": [],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "waveform",
         "waveformCentreLine",
@@ -6239,6 +6781,13 @@
         }
       ],
       "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
       "objectNames": [
         "zoomIn",
         "zoomOut",
@@ -6252,8 +6801,6 @@
       "description": "AGENT-CONTRACT: the one density authority of a process. Theme's `space` and `size` groups multiply their base values by scale(); controls read those groups and never Density directly, so a density change re-resolves every metric through a single path (Theme::rescale). Compact is the measured Sloom Studio scale and the default; Comfortable is 20% roomier; Touch is for pen/finger use.",
       "singleton": true,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/density.h",
       "properties": [
         {
@@ -6285,12 +6832,7 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "changed",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "px",
@@ -6303,13 +6845,15 @@
           "parameters": "qreal value"
         }
       ],
-      "enums": {
-        "Mode": [
-          "Compact",
-          "Comfortable",
-          "Touch"
-        ]
-      }
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "DockModel",
@@ -6318,8 +6862,6 @@
       "description": "AGENT-CONTRACT: the arrangement authority for dockable panels. It owns where every panel is; DockHost (QML) only draws that and reports gestures. The model is zone-based, as Sloom Studio's dockablePanel contract and QindaStudio's PanelLayoutController are: a panel is docked, floating, collapsed or hidden; a docked panel sits in one zone (left, right, top, bottom, center, overlay), in one lane of that zone (lanes are columns for side zones, rows for the others), at an order inside the lane, optionally sharing a tab group with neighbours. Arrangements are per workspace, persist across runs (`storageKey`), and can be saved by name. Every operation is idempotent on invalid ids.  Compatibility: method names follow PanelLayoutController so QindaStudio can adopt this model with a find-and-replace; dockBeside/lanes/shares are the additions that make drag-to-dock and lane splitting possible.",
       "singleton": false,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/dock_model.h",
       "properties": [
         {
@@ -6365,28 +6907,7 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "workspaceChanged",
-          "parameters": ""
-        },
-        {
-          "name": "layoutChanged",
-          "parameters": ""
-        },
-        {
-          "name": "savedLayoutsChanged",
-          "parameters": ""
-        },
-        {
-          "name": "storageKeyChanged",
-          "parameters": ""
-        },
-        {
-          "name": "panelShown",
-          "parameters": "const QString &panelId"
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "modeName",
@@ -6402,6 +6923,11 @@
           "name": "zoneNames",
           "returns": "QStringList",
           "parameters": ""
+        },
+        {
+          "name": "registerPanel",
+          "returns": "void",
+          "parameters": "const QString &workspace, const QString &panelId, const QVariantMap &definition"
         },
         {
           "name": "unregisterPanel",
@@ -6457,6 +6983,11 @@
           "name": "dock",
           "returns": "void",
           "parameters": "const QString &panelId, const QString &zone, int lane = -1"
+        },
+        {
+          "name": "dockBeside",
+          "returns": "void",
+          "parameters": "const QString &panelId, const QString &targetPanelId, const QString &placement"
         },
         {
           "name": "floatPanel",
@@ -6544,6 +7075,11 @@
           "parameters": ""
         },
         {
+          "name": "registerPreset",
+          "returns": "void",
+          "parameters": "const QString &workspace, const QString &presetId, const QVariantMap &statesByPanelId"
+        },
+        {
           "name": "applyPreset",
           "returns": "void",
           "parameters": "const QString &presetId"
@@ -6584,22 +7120,15 @@
           "parameters": "const QString &json"
         }
       ],
-      "enums": {
-        "Mode": [
-          "Docked",
-          "Floating",
-          "Collapsed",
-          "Hidden"
-        ],
-        "Zone": [
-          "Left",
-          "Right",
-          "Top",
-          "Bottom",
-          "Center",
-          "Overlay"
-        ]
-      }
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Flex",
@@ -6608,8 +7137,6 @@
       "description": "AGENT-CONTRACT: a CSS flexbox container (CSS Flexible Box Layout Level 1, single-pass free-space resolution with min/max freezing). Children are positioned and sized by the container; it never reads their width/height, only implicit sizes and Flex.* attached values, so a child that binds its own width does not fight the layout. Container implicit size is the content's max-content size plus padding, so nested Flex/Grid/Box chains size bottom-up like HTML.",
       "singleton": false,
       "attached": "FlexAttached",
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/flex.h",
       "properties": [
         {
@@ -6725,16 +7252,7 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "layoutPropertyChanged",
-          "parameters": ""
-        },
-        {
-          "name": "contentSizeChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "relayout",
@@ -6742,30 +7260,15 @@
           "parameters": ""
         }
       ],
-      "enums": {
-        "Direction": [
-          "Row",
-          "RowReverse",
-          "Column",
-          "ColumnReverse"
-        ],
-        "WrapMode": [
-          "NoWrap",
-          "Wrap",
-          "WrapReverse"
-        ],
-        "Alignment": [
-          "Auto",
-          "Start",
-          "End",
-          "Center",
-          "Stretch",
-          "SpaceBetween",
-          "SpaceAround",
-          "SpaceEvenly",
-          "Baseline"
-        ]
-      }
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "FlexAttached",
@@ -6774,8 +7277,6 @@
       "description": "",
       "singleton": false,
       "attached": null,
-      "anonymous": true,
-      "registered": true,
       "file": "src/core/flex.h",
       "properties": [
         {
@@ -6809,7 +7310,15 @@
       ],
       "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Graph",
@@ -6818,8 +7327,6 @@
       "description": "AGENT-CONTRACT: a time-series plot drawn on the scene graph (no raster repaint, no QPainter), so many instances stay cheap. Samples enter at the right and scroll left. Series are the default property:  Tk.Graph { capacity: 120; maxValue: 100 Tk.GraphSeries { color: Tk.Theme.color.accent } }  AGENT-NOTE: a series' fill is drawn with per-vertex colour taken from its `ramp` at that sample's own magnitude, which is why a busy column reads hot and a quiet one does not -- the same trick btop plays with character colour, done with vertices instead.",
       "singleton": false,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/graph.h",
       "properties": [
         {
@@ -6914,25 +7421,13 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "seriesChanged",
-          "parameters": ""
-        },
-        {
-          "name": "capacityChanged",
-          "parameters": ""
-        },
-        {
-          "name": "scaleChanged",
-          "parameters": ""
-        },
-        {
-          "name": "styleChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
+        {
+          "name": "seriesAt",
+          "returns": "QindaTK::GraphSeries *",
+          "parameters": "int index"
+        },
         {
           "name": "seriesCount",
           "returns": "int",
@@ -6959,7 +7454,15 @@
           "parameters": ""
         }
       ],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "GraphSeries",
@@ -6968,13 +7471,18 @@
       "description": "AGENT-CONTRACT: one plotted history inside a Graph. The samples live in a fixed-capacity ring buffer owned here; the owning Graph sets the capacity so every series on one graph shares an x axis. Appending is O(1) and never reallocates, which is what lets a system monitor keep thirty of these updating without a visible cost.  AGENT-GUARD: `at(0)` is the OLDEST retained sample and `at(count()-1)` the newest. Drawing code depends on that order; reading m_values directly by index gives ring order, which is not the same thing.",
       "singleton": false,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/graph.h",
       "properties": [
         {
           "name": "color",
           "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "ramp",
+          "type": "QindaTK::ThemeRamp *",
           "default": "",
           "readonly": false,
           "constant": false
@@ -7050,20 +7558,7 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "styleChanged",
-          "parameters": ""
-        },
-        {
-          "name": "samplesChanged",
-          "parameters": ""
-        },
-        {
-          "name": "capacityChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "append",
@@ -7081,7 +7576,15 @@
           "parameters": "int index"
         }
       ],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Grid",
@@ -7090,8 +7593,6 @@
       "description": "AGENT-CONTRACT: a CSS grid container. Tracks come from `columns`/`rows` strings (\"200 1fr auto\", \"repeat(3, minmax(80, 1fr))\"), items are placed explicitly (Grid.row/column/area) or auto-placed in `autoFlow` order, implicit tracks take `autoColumns`/`autoRows`. Columns are sized from the children's implicit widths, widths are applied, then rows are sized from the resulting implicit heights, so wrapping text gets the row height it needs. Container implicit size is the natural track sum plus padding.",
       "singleton": false,
       "attached": "GridAttached",
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/grid.h",
       "properties": [
         {
@@ -7242,20 +7743,7 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "layoutPropertyChanged",
-          "parameters": ""
-        },
-        {
-          "name": "contentSizeChanged",
-          "parameters": ""
-        },
-        {
-          "name": "errorChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "relayout",
@@ -7263,21 +7751,15 @@
           "parameters": ""
         }
       ],
-      "enums": {
-        "Flow": [
-          "Row",
-          "Column",
-          "RowDense",
-          "ColumnDense"
-        ],
-        "Alignment": [
-          "Auto",
-          "Start",
-          "End",
-          "Center",
-          "Stretch"
-        ]
-      }
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "GridAttached",
@@ -7286,8 +7768,6 @@
       "description": "",
       "singleton": false,
       "attached": null,
-      "anonymous": true,
-      "registered": true,
       "file": "src/core/grid.h",
       "properties": [
         {
@@ -7335,7 +7815,15 @@
       ],
       "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Icon",
@@ -7344,8 +7832,6 @@
       "description": "A stroked vector icon painted in `color`: `name` from the registry, or `source` for an SVG file (`tint` recolours it). Its implicit size is `size`; the stroke scales with it (Lucide's 2/24 ratio at strokeWidth 2).",
       "singleton": false,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/icon.h",
       "properties": [
         {
@@ -7398,38 +7884,17 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "nameChanged",
-          "parameters": ""
-        },
-        {
-          "name": "sourceChanged",
-          "parameters": ""
-        },
-        {
-          "name": "sizeChanged",
-          "parameters": ""
-        },
-        {
-          "name": "colorChanged",
-          "parameters": ""
-        },
-        {
-          "name": "strokeWidthChanged",
-          "parameters": ""
-        },
-        {
-          "name": "tintChanged",
-          "parameters": ""
-        },
-        {
-          "name": "availableChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Icons",
@@ -7438,16 +7903,9 @@
       "description": "AGENT-CONTRACT: the icon registry. Built-in names are Lucide's (see tools/scripts/gen_icons.py); `registerIcon` adds an application's own stroked icons as 24x24 SVG path strings. Lookups resolve deprecated Lucide aliases so both \"alert-triangle\" and \"triangle-alert\" work.",
       "singleton": true,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/icon.h",
       "properties": [],
-      "signals": [
-        {
-          "name": "registryChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "has",
@@ -7470,7 +7928,15 @@
           "parameters": "const QString &name, const QStringList &paths"
         }
       ],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "LayoutInfo",
@@ -7479,8 +7945,6 @@
       "description": "Facts about an item's own layout intent that QML cannot read itself: whether it anchors, whether its width/height were set explicitly. Box and Scroll use them to stretch only children that have not placed themselves. Backed by QQuickItemPrivate (Qt6::QuickPrivate).",
       "singleton": true,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/layout_info.h",
       "properties": [],
       "signals": [],
@@ -7506,7 +7970,15 @@
           "parameters": "QQuickItem *item"
         }
       ],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Meter",
@@ -7515,8 +7987,6 @@
       "description": "AGENT-CONTRACT: a magnitude bar for telemetry -- one CPU core, a filesystem's used space, a fan against its maximum. Distinct from ProgressBar, which reports how far a *task* has run: a Meter reports how hard something is working right now, so it is coloured by its reading and has no indeterminate state.  AGENT-NOTE: this is a QQuickPaintedItem, not a scene-graph item like Graph. A meter is small and cheap to raster, and QQuickPaintedItem draws correctly under Qt's software adaptation for free -- Graph needs two drawing paths precisely because it is not one of these.",
       "singleton": false,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/meter.h",
       "properties": [
         {
@@ -7557,6 +8027,13 @@
         {
           "name": "trackColor",
           "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "ramp",
+          "type": "QindaTK::ThemeRamp *",
           "default": "",
           "readonly": false,
           "constant": false
@@ -7618,30 +8095,17 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "valueChanged",
-          "parameters": ""
-        },
-        {
-          "name": "rangeChanged",
-          "parameters": ""
-        },
-        {
-          "name": "styleChanged",
-          "parameters": ""
-        },
-        {
-          "name": "tooltipChanged",
-          "parameters": ""
-        },
-        {
-          "name": "hoveredChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Stack",
@@ -7650,8 +8114,6 @@
       "description": "AGENT-CONTRACT: the CSS `position: absolute` container. Children stack in declaration (z) order; each fills the padding box unless it sets insets (Stack.top/left/right/bottom/inset), a centre, or `Stack.fill: false`. Implicit size is the largest child implicit size plus its insets and the padding, so a Stack of overlays reports the size of its content layer.",
       "singleton": false,
       "attached": "StackAttached",
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/stack.h",
       "properties": [
         {
@@ -7690,12 +8152,7 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "layoutPropertyChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "relayout",
@@ -7703,7 +8160,15 @@
           "parameters": ""
         }
       ],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "StackAttached",
@@ -7712,8 +8177,6 @@
       "description": "",
       "singleton": false,
       "attached": null,
-      "anonymous": true,
-      "registered": true,
       "file": "src/core/stack.h",
       "properties": [
         {
@@ -7775,7 +8238,15 @@
       ],
       "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "StylusHandler",
@@ -7784,8 +8255,6 @@
       "description": "",
       "singleton": false,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/stylus_handler.h",
       "properties": [
         {
@@ -7845,30 +8314,17 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "began",
-          "parameters": "const QindaTK::StylusSample &sample"
-        },
-        {
-          "name": "moved",
-          "parameters": "const QindaTK::StylusSample &sample"
-        },
-        {
-          "name": "ended",
-          "parameters": "const QindaTK::StylusSample &sample"
-        },
-        {
-          "name": "sampleChanged",
-          "parameters": ""
-        },
-        {
-          "name": "mousePressureChanged",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "Theme",
@@ -7877,10 +8333,64 @@
       "description": "AGENT-CONTRACT: the process-wide theme singleton. Everything visual in QindaTK resolves through it: colour roles, the type ramp, spacing/radius/ size/motion/opacity ladders. Density (see density.h) multiplies the scalable ladders. Presets are built in (`presets()`), a JSON file can replace a preset (`loadFile`), and on the QindaQt desktop the QindaTK.QindaQt bridge feeds QST-1 tokens through `applyQst`, so one control tree serves both the standalone and the desktop-themed case.",
       "singleton": true,
       "attached": null,
-      "anonymous": false,
-      "registered": true,
       "file": "src/core/theme.h",
       "properties": [
+        {
+          "name": "color",
+          "type": "QindaTK::ThemeColors *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "font",
+          "type": "QindaTK::ThemeFont *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "space",
+          "type": "QindaTK::ThemeMetrics *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "radius",
+          "type": "QindaTK::ThemeMetrics *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "size",
+          "type": "QindaTK::ThemeMetrics *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "motion",
+          "type": "QindaTK::ThemeMetrics *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "opacity",
+          "type": "QindaTK::ThemeMetrics *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "ramp",
+          "type": "QindaTK::ThemeRamps *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
         {
           "name": "preset",
           "type": "QString",
@@ -7917,12 +8427,7 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "changed",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "presets",
@@ -8005,7 +8510,15 @@
           "parameters": "const QColor &c"
         }
       ],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "ThemeColors",
@@ -8014,8 +8527,6 @@
       "description": "AGENT-CONTRACT: colour roles. Nine base roles (bg, surface, panel, border, text, textMuted, accent, accentContrast, danger) plus the three status colours are authored by a preset, a theme file, or QindaQt's tokens; every other role is derived from them by theme_presets.cpp with the mix ratios measured from Sloom Studio. Controls read derived roles, never mix themselves, so a theme stays coherent when its accent changes.",
       "singleton": false,
       "attached": null,
-      "anonymous": true,
-      "registered": true,
       "file": "src/core/theme.h",
       "properties": [
         {
@@ -8390,14 +8901,17 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "changed",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "ThemeFont",
@@ -8406,8 +8920,6 @@
       "description": "Type ramp in pixels (Sloom's 9/10/11/12/13/14/16/20 ladder). `trackingWide` is the letter spacing of an uppercase section header at caption size.",
       "singleton": false,
       "attached": null,
-      "anonymous": true,
-      "registered": true,
       "file": "src/core/theme.h",
       "properties": [
         {
@@ -8495,14 +9007,17 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "changed",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "ThemeMetrics",
@@ -8511,13 +9026,19 @@
       "description": "A named ladder of scalar metrics (space, radius, size, motion, opacity). Keys are dynamic QML properties (`Theme.space.md`, `Theme.size.control`) so JSON theme files and density scaling treat every ladder alike; the key lists live in docs/theming.md and Theme::toMap().",
       "singleton": false,
       "attached": null,
-      "anonymous": true,
-      "registered": true,
       "file": "src/core/theme.h",
       "properties": [],
       "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "ThemeRamp",
@@ -8526,8 +9047,6 @@
       "description": "AGENT-CONTRACT: one named value->colour scale. Telemetry views (Graph, Meter, Sparkline) colour a reading by magnitude rather than by series, the way btop does: a CPU core at 95% must read as \"hot\" without the reader consulting a legend. Stops are derived from theme roles in theme_ramp.cpp, never authored as literals, so a ramp restyles with its theme.  AGENT-GUARD: positions are kept sorted and clamped to [0, 1] by setStops(). at() assumes that ordering and interpolates between neighbours; feeding it unsorted stops silently returns the wrong colour rather than failing.",
       "singleton": false,
       "attached": null,
-      "anonymous": true,
-      "registered": true,
       "file": "src/core/theme_ramp.h",
       "properties": [
         {
@@ -8552,12 +9071,7 @@
           "constant": false
         }
       ],
-      "signals": [
-        {
-          "name": "changed",
-          "parameters": ""
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "at",
@@ -8570,7 +9084,15 @@
           "parameters": "qreal value, qreal from, qreal to"
         }
       ],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
     },
     {
       "name": "ThemeRamps",
@@ -8579,13 +9101,210 @@
       "description": "AGENT-CONTRACT: the ramp set published as `Theme.ramp`. Theme owns it and calls rebuild() from finishUpdate(), so a ramp is never stale with respect to the colour roles it is derived from. Adding a ramp means: a Q_PROPERTY here, a member, a case in rebuild() and in byName(), and a row in the docs/theming.md ramp table that tst_theme_ramp checks.",
       "singleton": false,
       "attached": null,
+      "file": "src/core/theme_ramp.h",
+      "properties": [
+        {
+          "name": "load",
+          "type": "QindaTK::ThemeRamp *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "thermal",
+          "type": "QindaTK::ThemeRamp *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "memory",
+          "type": "QindaTK::ThemeRamp *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "network",
+          "type": "QindaTK::ThemeRamp *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "io",
+          "type": "QindaTK::ThemeRamp *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "neutral",
+          "type": "QindaTK::ThemeRamp *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "byName",
+          "returns": "QindaTK::ThemeRamp *",
+          "parameters": "const QString &name"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
       "anonymous": true,
       "registered": true,
-      "file": "src/core/theme_ramp.h",
-      "properties": [],
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "stylusSample",
+      "kind": "cpp",
+      "base": "",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/stylus_handler.h",
+      "properties": [
+        {
+          "name": "position",
+          "type": "QPointF",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "scenePosition",
+          "type": "QPointF",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pressure",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tiltX",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tiltY",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rotation",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pointerType",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "buttons",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "modifiers",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "synthesizedFromMouse",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timestamp",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
       "signals": [],
       "methods": [],
-      "enums": {}
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_value_type",
+      "exported": true,
+      "internal": false,
+      "valueType": true,
+      "bridge": false
+    },
+    {
+      "name": "QindaQtTheme",
+      "kind": "qml",
+      "base": "QtObject",
+      "description": "AGENT-CONTRACT: feeds the QindaQt desktop's QST-1 semantic tokens into QindaTK's Theme. Instantiate one in the application root:  import QindaTK.QindaQt QindaQtTheme { }  Every republish of the Tokens singleton (theme switch, accessibility change) re-derives QindaTK's colour roles, so both the desktop's own controls and QindaTK's read the same palette. When the Tokens singleton reports not ready, the toolkit keeps its current preset instead of painting invented colours on top of an unpublished theme.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/bridge/QindaQtTheme.qml",
+      "properties": [
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "applied",
+          "type": "bool",
+          "default": "bridge._applied",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "sync",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK.QindaQt",
+      "registrationKind": "bridge_qml",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": true,
+      "objectNames": []
     }
   ]
 }

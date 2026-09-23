@@ -79,7 +79,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-004"></a>
 ## WP-004 — Make the catalog a reliable API inventory
 
-**Implementation lead:** Luna. **Status:** review (parser changes ready for integration). **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
+**Implementation lead:** Luna. **Status:** accepted; see [catalog evidence](evidence/WP-004.md). **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

@@ -203,7 +203,8 @@ def build():
         if entry["kind"] == "cpp":
             entry["name"] = entry.pop("qmlName")
     types.sort(key=lambda entry: (entry["module"] != "QindaTK", entry["kind"] != "qml", entry["name"]))
-    return {"generated": datetime.date.today().isoformat(), "module": "QindaTK",
+    return {"_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
+            "generated": datetime.date.today().isoformat(), "module": "QindaTK",
             "version": "1.0", "types": types}
 
 

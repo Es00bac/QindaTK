@@ -69,6 +69,8 @@ QtObject {
 def repository_checks():
     before = json.loads(GEN.OUT.read_text())
     after = GEN.build()
+    require(after["_license"] == "SPDX-License-Identifier: LGPL-3.0-or-later",
+            "generated catalog lacks its source license marker")
     before_names = {item["name"] for item in before["types"]}
     after_names = {item["name"] for item in after["types"]}
     require(before_names <= after_names, "one or more existing catalog entries disappeared")

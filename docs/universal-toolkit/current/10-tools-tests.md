@@ -48,7 +48,7 @@ performance profiler or installer.
 
 | Tool | Purpose | Caveat |
 | --- | --- | --- |
-| [gen_catalog.py](../../../tools/scripts/gen_catalog.py) | Source-derived JSON type catalog | Regex parser omits some pointer/multiline declarations, the bridge and value types |
+| [gen_catalog.py](../../../tools/scripts/gen_catalog.py) | Source-derived JSON type catalog with 101 main, value and bridge entries | Declaration parser covers the audited pointer, multiline and MEMBER forms; it is not compiled Qt runtime reflection |
 | [gen_icons.py](../../../tools/scripts/gen_icons.py) | Generates icon path/alias data from Lucide inputs | Generated icon_data.cpp is exempt from the source file length limit |
 | [screenshots.sh](../../../tools/scripts/screenshots.sh) | Renders example screenshots and selected theme/density variants | Rendering without reviewing pixels is not visual verification |
 | `all_qmllint` build target | Lints module QML | A lint result is distinct from runtime/interaction correctness |
@@ -65,9 +65,11 @@ performance profiler or installer.
 
 ## Present test sources
 
-There are **10 C++ test source files** (including the QML runner), **8 QML test
-files**, and **5 example Main.qml scenes**. Counts describe source inventory,
-not a fresh ctest run or individual assertion totals.
+At the original audit snapshot there were **10 C++ test source files**
+(including the QML runner), **8 QML test files**, and **5 example Main.qml
+scenes**. The live implementation now also has catalog fixtures and layout
+convention tests; consult the current source for totals. Counts describe
+source inventory, not individual assertion totals.
 
 | Source | Coverage visible in source |
 | --- | --- |
