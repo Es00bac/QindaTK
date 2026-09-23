@@ -36,13 +36,14 @@ Tk.ListRow {
     Accessible.focused: activeFocus
 
     Rectangle {
+        objectName: "treeFocusRing"
         z: 1
         anchors.fill: parent
         anchors.margins: -Tk.Theme.size.focusRing
         color: "transparent"
         border.width: Tk.Theme.size.focusRing
         border.color: Tk.Theme.color.focus
-        visible: tree.visualFocus && tree.enabled
+        visible: tree.activeFocus && tree.enabled
     }
 
     function toggle() {

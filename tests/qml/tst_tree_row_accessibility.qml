@@ -27,6 +27,7 @@ TestCase {
         row.forceActiveFocus()
         verify(row.activeFocus)
         verify(row.Accessible.focused)
+        verify(findChild(row, "treeFocusRing").visible)
 
         keyClick(Qt.Key_Space)
         verify(row.expanded)
@@ -51,6 +52,7 @@ TestCase {
         const spy = createTemporaryObject(spyComponent, root, { target: row, signalName: "expansionToggled" })
         row.enabled = false
         verify(!row.Accessible.focusable)
+        verify(!findChild(row, "treeFocusRing").visible)
         row.forceActiveFocus()
         keyClick(Qt.Key_Space)
         row.Accessible.pressAction()

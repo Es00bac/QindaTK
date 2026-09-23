@@ -41,11 +41,23 @@ FND-07 through FND-10.
   choices retain a 48×44 target. The gallery's preset switch scrolls at
   maximum text zoom, with the scrollbar below the labels.
   [Focused evidence](WP-007-FND-07-touch.md).
+- `TextField` blocks its custom clear paths when read-only or disabled;
+  `SearchField` now debounces user edits while programmatic synchronization
+  remains silent. `TextField` and `TextArea` describe read-only/error state.
+  [Focused evidence](WP-007-FND-10-text-inputs.md).
+- `RangeSlider` has keyboard focus, endpoint controls, a visible focus ring,
+  accessible name/actions and user-only change notifications. Its default
+  keyboard step now works for fractional ranges. `Slider` has an accessible
+  fallback name and formatted description. `TreeRow` supports focus,
+  keyboard/assistive expansion and F2 rename, with disabled guards.
+  [RangeSlider evidence](WP-007-FIX-F04-range-slider.md) and
+  [TreeRow evidence](WP-007-FIX-F04-tree-row.md).
 
 ## Verification
 
 On both Qt 6.11.1 and isolated Qt 6.8.3, integrated Debug builds, all
-16 current CTest targets and `all_qmllint` exited 0. The new QML tests cover
+19 current CTest targets and `all_qmllint` exited 0 at integration commit
+`7b3c898`. The new QML tests cover
 pointer/keyboard/assistive-action signal paths, disabled behavior and group
 state synchronization. These signal tests do not establish native screen-reader
 delivery or a platform value interface.
@@ -105,5 +117,6 @@ text-scale and hit-target workflow coverage;
 [D-016](../../../decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
 records the conditional FND-08 decision to retain process-wide theming;
 FND-09
-requires popup bounds and focus-return behavior; FND-10 requires uniform
-editing state and notification contracts. No WP-007 acceptance is claimed.
+requires nested-menu and work-area qualification; FND-10 requires uniform
+editing state and notification contracts across remaining controls. No
+WP-007 acceptance is claimed.

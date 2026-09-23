@@ -24,3 +24,12 @@ completed. `ctest --test-dir build/wp007-selection -R '^tst_qml$'
 --output-on-failure` passed (the complete QML test target, 0 failures). The first full-suite
 run caught an Enter bubbling regression in inline rename; the key contract was
 adjusted to reserve rename for F2, and the suite passed on rerun.
+
+Integration review caught a visual-focus gap: the added ring used
+`visualFocus`, which stayed false when the row received active focus in an
+offscreen preview. It now uses `activeFocus` and has stable objectName
+`treeFocusRing`. The QML regression asserts ring visibility after focus and
+invisibility when disabled. Integrated Qt 6.11.1 `tst_qml` passed. A
+480×160 offscreen dump shows `TreeRow 0,55 480x22` with
+`Rectangle#treeFocusRing -2,-2 484x26` visible, and the opened
+`build/wp007-tree-review-fixed.png` capture shows both horizontal focus edges.
