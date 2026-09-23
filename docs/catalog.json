@@ -907,7 +907,7 @@
       "name": "ColorField",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/controls.md): a 24px (small 20) colour readout: a 16px swatch over a checkerboard (so alpha shows) beside an editable hex value (\"#rrggbb\" or \"#aarrggbb\"; \"#rgb\" and bare hex are accepted on entry). Editing the hex emits colorEdited(color); tapping the swatch emits pickRequested() for the host to open its picker. objectName \"colorHex\" on the hex input.",
+      "description": "AGENT-CONTRACT (docs/controls.md): a 24px (small 20) colour readout: a 16px swatch over a checkerboard (so alpha shows) beside an editable hex value (\"#rrggbb\" or \"#aarrggbb\"; \"#rgb\" and bare hex are accepted on entry). A changed, valid user commit emits colorEdited(color); applyHex() and owner color assignment are silent. Swatch tap, key or accessible press emits pickRequested() for the host to open its picker. objectNames \"colorHex\" and \"colorSwatch\" identify the interactive parts.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ColorField.qml",

@@ -6,9 +6,10 @@ import QindaTK as Tk
 // AGENT-CONTRACT (docs/controls.md): a 24px (small 20) colour readout: a
 // 16px swatch over a checkerboard (so alpha shows) beside an editable hex
 // value ("#rrggbb" or "#aarrggbb"; "#rgb" and bare hex are accepted on
-// entry). Editing the hex emits colorEdited(color); tapping the swatch
-// emits pickRequested() for the host to open its picker. objectName
-// "colorHex" on the hex input.
+// entry). A changed, valid user commit emits colorEdited(color); applyHex()
+// and owner color assignment are silent. Swatch tap, key or accessible press
+// emits pickRequested() for the host to open its picker. objectNames
+// "colorHex" and "colorSwatch" identify the interactive parts.
 T.Control {
     id: control
 
@@ -36,7 +37,8 @@ T.Control {
     function setHex(text, notifyUser) {
         const match = /^\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\s*$/.exec(text)
         if (match === null) {
-            invalidDraft = true
+            if (notifyUser)
+                invalidDraft = true
             return false
         }
         let hex = match[1]
@@ -158,6 +160,15 @@ T.Control {
                 radius: Tk.Theme.radius.xs
                 border.width: Tk.Theme.size.border
                 border.color: swatchHover.hovered ? Tk.Theme.color.controlHoverBorder : Tk.Theme.color.borderStrong
+            }
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: -Tk.Theme.size.focusRing
+                color: "transparent"
+                radius: Tk.Theme.radius.sm
+                border.width: Tk.Theme.size.focusRing
+                border.color: Tk.Theme.color.focus
+                visible: swatch.activeFocus
             }
             HoverHandler {
                 id: swatchHover

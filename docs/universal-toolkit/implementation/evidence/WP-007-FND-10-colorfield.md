@@ -47,6 +47,16 @@ does not claim broader picker acceptance.
   `8 passed, 0 failed`.
 - `tools/scripts/gen_catalog.py` regenerated `docs/catalog.json` with the
   ColorField properties and interaction methods.
+- Integration moved the ColorField cases into a dedicated QML test file to
+  keep `tst_controls_input.qml` below the 500 nonblank line limit. The picker
+  swatch gained a visible theme focus ring. Invalid programmatic `applyHex()`
+  input leaves both the committed value and invalid-draft state unchanged.
+- The integration fixture was dumped and grabbed at 320×160, and its PNG was
+  opened. The dump shows `ColorField#reviewColorField 24,24 180x24`,
+  `Item#colorSwatch 0,4 16x16`, the focus-ring rectangle at `-2,-2 20x20`,
+  and `TextInput#colorHex 20,0 150x24 "oops"`. The capture visibly shows the
+  cyan swatch ring and danger border around the retained invalid draft.
+  Ignored artifacts are `build/wp007-colorfield-review.{qml,png}`.
 
 Native screen-reader announcements and visual review with an active screen
 reader were not tested. This slice does not certify remaining WP-007 controls.

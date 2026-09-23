@@ -70,7 +70,9 @@ that every family is fully qualified on every native accessibility backend.
 | `Slider`, `RangeSlider` | Template values and bounds; user movement signals are separate from owner assignment. RangeSlider has keyboard endpoint operations. | App supplies reset and mixed representations if needed; touch target and native value-interface checks are tracked separately. |
 | `TextField`, `TextArea`, `SearchField` | Inherited read-only text editing. TextField clear is gated; SearchField debounce begins on user edit, while owner text sync is silent. | App supplies validation/default policy and handles submitted search results. |
 | `ColorSwatches` | `current` is owner assigned; tap, key and accessible press emit guarded `selected(color)`. | App applies the chosen colour and owns defaults and a full custom picker. |
-| `ColorField`, `ComboBox`, `DataTable` | Public value/selection and template or custom input paths exist. | Their remaining WP-007 editing, popup and accessibility slices are under audit; use their individual control entries for current guarantees. |
+| `ColorField` | Invalid hex remains visible with `inputInvalid` until corrected or canceled with Escape. Valid user commits emit `colorEdited`; owner `color` and `applyHex()` changes are silent. Read-only and disabled states block user edits and picker requests. | App owns the full picker and any reset/default or mixed-colour policy. Native assistive announcements and broad layout qualification remain open. |
+| `DataTable` | Owner `currentIndex` and arrow navigation are silent; tap, Return/Enter and accessible row press select and emit guarded `activated`. Realized rows report names and selection. | App owns sort/filter and selection reconciliation when the model changes. Header keyboard/assistive actions and virtual row traversal remain open. |
+| `ComboBox` | Public selection and template popup behavior exist. | Popup and accessible selection behavior remain under WP-007 audit. |
 
 ## Verification for a new control
 
