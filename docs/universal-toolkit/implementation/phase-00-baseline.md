@@ -146,7 +146,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-007"></a>
 ## WP-007 — Harden theme, popup and control interaction behavior
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-002](phase-00-baseline.md#wp-002), [WP-003](phase-00-baseline.md#wp-003)
+**Implementation lead:** Sol. **Status:** active; see [current-control inventory](evidence/WP-007-inventory.md), with F04 repairs in progress. **Depends on:** [WP-002](phase-00-baseline.md#wp-002), [WP-003](phase-00-baseline.md#wp-003)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
