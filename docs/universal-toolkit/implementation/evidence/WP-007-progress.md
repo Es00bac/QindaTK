@@ -63,6 +63,10 @@ FND-07 through FND-10.
   [TreeRow evidence](WP-007-FIX-F04-tree-row.md).
 - `ColorSwatches` now routes tap, keyboard and accessible press through one
   disabled-aware selection operation. Owner updates to `current` are silent.
+  Cells retain authored swatch artwork while expanding to 48×48px targets in
+  Touch; a synthetic edge touch is covered in the touch-target test. Focused
+  Qt 6.11.1 QML tests and QML lint pass; Compact/Touch previews confirm target
+  and artwork bounds. [Touch evidence](WP-007-FND-07-touch.md).
   [Focused evidence](WP-007-FIX-F04-swatches.md).
 - `ColorButton` now exposes enabled focus state and an accessible press path
   through its template click. The tested Space and accessible paths open the

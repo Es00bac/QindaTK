@@ -162,6 +162,10 @@ keeps small toggle rows at their desktop geometry while providing a 48px
 Touch surface. DockDivider uses `seamTarget` (16px base) for its handler
 margin, leaving the seam width unchanged.
 
+`ColorSwatches` uses `controlSm` as the minimum width and height for each
+square cell. In Touch this provides a 48×48px input area while the swatch
+artwork remains centered at its authored `swatchSize`.
+
 ## Telemetry ramps (`Tk.Theme.ramp`)
 
 A ramp is a value-to-colour scale, for readings that should be understood by

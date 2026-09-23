@@ -1054,7 +1054,7 @@
       "name": "ColorSwatches",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (docs/controls.md): a grid of named colour swatches. `colors` is a list of colour strings or of {name, color}; the entry equal to `current` shows an accent ring. Tapping (or Space/Enter on a focused swatch) emits selected(color); the optional \"Custom…\" button emits customRequested() for the host to open a full picker. Sized to its content: `columns` swatches per row, 16px swatches.",
+      "description": "AGENT-CONTRACT (docs/controls.md): a grid of named colour swatches. `colors` is a list of colour strings or of {name, color}; the entry equal to `current` shows an accent ring. Tapping (or Space/Enter on a focused swatch) emits selected(color); the optional \"Custom…\" button emits customRequested() for the host to open a full picker. Sized to its content: `columns` swatches per row, 16px Compact artwork, and cells at least `Theme.size.controlSm` so Touch targets use the 48px floor.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ColorSwatches.qml",

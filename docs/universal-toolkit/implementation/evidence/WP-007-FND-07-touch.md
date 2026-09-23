@@ -56,6 +56,21 @@ the same controls are each 520×48, with 18px indicators centred at y=15.
 `build/wp007-small-toggles-compact.png` and
 `build/wp007-small-toggles-touch-3x.png` were opened and inspected.
 
+`ColorSwatches` cells now size their hit area to the larger of the authored
+swatch-plus-spacing size and `Theme.size.controlSm`. Compact retains the
+existing 16px artwork and 20px cell; Touch gives each cell at least 48×48px
+while keeping the swatch centred at its density-scaled authored size. The
+QML test checks Compact geometry, Touch target geometry, and a synthetic
+touch on the outer edge of a cell emits the expected single selection.
+`ctest --test-dir build/wp007-swatches -R '^tst_qml$'` passes on Qt 6.11.1;
+`all_qmllint` exits successfully with the repository's nonfatal warnings.
+The opened Compact dump reports `Item#swatch_0 0,0 20x20` with a
+`Rectangle 2,2 16x16`; Touch reports `Item#swatch_0 0,0 48x48` with a
+`Rectangle 12,12 24x24`. Captures are
+`build/wp007-swatches-compact.png` and `build/wp007-swatches-touch.png` in
+the swatch worker worktree. Physical touch hardware and native assistive
+traversal remain unqualified.
+
 At 480×320, Touch density and 3× text, the gallery header previously grew
 to 333px, leaving `Scroll#galleryScroll 0,333 480x0`; its 549px density
 switch also extended beyond the right edge. The header now scrolls once its

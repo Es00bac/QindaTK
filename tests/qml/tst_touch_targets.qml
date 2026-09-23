@@ -12,6 +12,7 @@ TestCase {
     height: 200
     property real dockDragDistance: 0
 
+    Component { id: signalSpyComponent; SignalSpy {} }
     Component { id: button; Tk.Button { text: "Apply" } }
     Component { id: iconButton; Tk.IconButton { iconName: "plus"; tooltip: "Add" } }
     Component { id: listRow; Tk.ListRow { text: "Asset" } }
@@ -23,6 +24,14 @@ TestCase {
     Component { id: smallCheckbox; Tk.CheckBox { small: true; text: "Grid" } }
     Component { id: smallSwitch; Tk.Switch { small: true; text: "Snap" } }
     Component { id: smallRadio; Tk.RadioButton { small: true; text: "Mode" } }
+    Component {
+        id: colorSwatches
+        Tk.ColorSwatches {
+            colors: [{ name: "Ink", color: "#202020" }, { name: "Paper", color: "#f0f0f0" }]
+            customButton: false
+            columns: 2
+        }
+    }
     Component {
         id: dockDivider
         Tk.DockDivider {
@@ -153,6 +162,39 @@ TestCase {
             tryCompare(segments, "height", 48)
             tryCompare(segment, "height", 44)
             verify(segment.width >= 44)
+        } finally {
+            Tk.Density.modeName = formerMode
+        }
+    }
+
+    function test_colorSwatches_preserve_compact_art_and_expand_touch_cells() {
+        const formerMode = Tk.Density.modeName
+        try {
+            Tk.Density.modeName = "compact"
+            const swatches = createTemporaryObject(colorSwatches, root)
+            verify(swatches !== null)
+            const cell = findChild(swatches, "swatch_0")
+            verify(cell !== null)
+            const artwork = cell.children[0]
+            compare(artwork.width, Tk.Theme.size.iconLg)
+            compare(cell.width, Math.max(swatches.swatchSize + Tk.Theme.space.sm,
+                                        Tk.Theme.size.controlSm))
+
+            const selected = createTemporaryObject(signalSpyComponent, root,
+                { target: swatches, signalName: "selected" })
+            Tk.Density.modeName = "touch"
+            tryCompare(cell, "width", 48)
+            tryCompare(cell, "height", 48)
+            compare(artwork.width, swatches.swatchSize)
+
+            const touch = touchEvent(root)
+            const edge = cell.mapToItem(root, cell.width - 1, cell.height / 2)
+            touch.press(0, root, edge.x, edge.y)
+            touch.commit()
+            touch.release(0, root, edge.x, edge.y)
+            touch.commit()
+            compare(selected.count, 1)
+            verify(Qt.colorEqual(selected.signalArguments[0][0], "#202020"))
         } finally {
             Tk.Density.modeName = formerMode
         }

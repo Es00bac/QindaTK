@@ -200,7 +200,7 @@ Grid of named color choices.
 
 **Source:** [src/qml/ColorSwatches.qml](../../../src/qml/ColorSwatches.qml) · **Base:** `Item` · **Kind:** QML component.
 
-colors accepts strings or name/color records; current marks a value; columns and swatchSize control layout. selected(color) and customRequested report actions; swatches support keyboard activation. Large managed libraries, spot colors and persistent palettes require additional models.
+colors accepts strings or name/color records; current marks a value; columns and swatchSize control layout. Each cell uses at least `Theme.size.controlSm` for its target (48px in Touch), with the authored swatch artwork centred inside it. selected(color) and customRequested report actions; swatches support keyboard activation. Large managed libraries, spot colors and persistent palettes require additional models.
 
 **Declared members:** `colors: var`, `current: color`, `columns: int`, `customButton: bool`, `swatchSize: real`.
 

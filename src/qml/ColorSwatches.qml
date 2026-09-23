@@ -7,7 +7,8 @@ import QindaTK as Tk
 // equal to `current` shows an accent ring. Tapping (or Space/Enter on a
 // focused swatch) emits selected(color); the optional "Custom…" button
 // emits customRequested() for the host to open a full picker. Sized to
-// its content: `columns` swatches per row, 16px swatches.
+// its content: `columns` swatches per row, 16px Compact artwork, and cells
+// at least `Theme.size.controlSm` so Touch targets use the 48px floor.
 Item {
     id: swatches
 
@@ -63,8 +64,11 @@ Item {
                     readonly property var entry: swatches.entry(index)
                     readonly property color swatchColor: entry.color
                     readonly property bool isCurrent: Qt.colorEqual(swatchColor, swatches.current)
+                    readonly property real targetSize: Math.max(
+                        swatches.swatchSize + Tk.Theme.space.sm,
+                        Tk.Theme.size.controlSm)
                     objectName: "swatch_" + index
-                    implicitWidth: swatches.swatchSize + Tk.Theme.space.sm
+                    implicitWidth: targetSize
                     implicitHeight: implicitWidth
                     activeFocusOnTab: swatches.enabled
 
