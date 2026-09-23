@@ -43,9 +43,10 @@ records the current observations and unresolved contracts.
 
 A 360×300 narrow inspector scene exercises a wrapped action row, auto-fill
 Grid cards, and a Stack overlay with a long message and a reserved badge slot.
-Set `interfaceDirection` to `Qt.RightToLeft` to inspect mirrored placement.
-The focused `tst_layout` matrix checks compact/comfortable density and
-LTR/RTL geometry.
+The sections flow by content height inside `Tk.Scroll`, including at 2× text
+size. Set `interfaceDirection` to `Qt.RightToLeft` to inspect mirrored
+placement. The focused `tst_layout` matrix checks both densities, both
+directions, and normal/2× text.
 
 - Run: `qtk-preview examples/adaptive-layout/Main.qml --dump --size 360x300`
 - Screenshot: `qtk-preview examples/adaptive-layout/Main.qml --grab out.png --density comfortable --size 360x300`

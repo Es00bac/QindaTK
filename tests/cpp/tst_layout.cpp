@@ -83,21 +83,34 @@ private:
 class TstLayout final : public QObject {
     Q_OBJECT
 private slots:
+    void cleanup()
+    {
+        Density::instance()->setTextScale(1.0);
+        Density::instance()->setMode(Density::Compact);
+        Density::instance()->setScaleFonts(false);
+    }
     void adaptiveNarrowLayout_data()
     {
         QTest::addColumn<int>("density");
         QTest::addColumn<int>("direction");
-        QTest::newRow("compact-ltr") << int(Density::Compact) << int(Qt::LeftToRight);
-        QTest::newRow("compact-rtl") << int(Density::Compact) << int(Qt::RightToLeft);
-        QTest::newRow("comfortable-ltr") << int(Density::Comfortable) << int(Qt::LeftToRight);
-        QTest::newRow("comfortable-rtl") << int(Density::Comfortable) << int(Qt::RightToLeft);
+        QTest::addColumn<qreal>("textScale");
+        QTest::newRow("compact-ltr") << int(Density::Compact) << int(Qt::LeftToRight) << 1.0;
+        QTest::newRow("compact-rtl") << int(Density::Compact) << int(Qt::RightToLeft) << 1.0;
+        QTest::newRow("comfortable-ltr") << int(Density::Comfortable) << int(Qt::LeftToRight) << 1.0;
+        QTest::newRow("comfortable-rtl") << int(Density::Comfortable) << int(Qt::RightToLeft) << 1.0;
+        QTest::newRow("compact-ltr-2x") << int(Density::Compact) << int(Qt::LeftToRight) << 2.0;
+        QTest::newRow("compact-rtl-2x") << int(Density::Compact) << int(Qt::RightToLeft) << 2.0;
+        QTest::newRow("comfortable-ltr-2x") << int(Density::Comfortable) << int(Qt::LeftToRight) << 2.0;
+        QTest::newRow("comfortable-rtl-2x") << int(Density::Comfortable) << int(Qt::RightToLeft) << 2.0;
     }
     void adaptiveNarrowLayout()
     {
         QFETCH(int, density);
         QFETCH(int, direction);
+        QFETCH(qreal, textScale);
         Density::instance()->setScaleFonts(true);
         Density::instance()->setMode(static_cast<Density::Mode>(density));
+        Density::instance()->setTextScale(textScale);
         Scene scene(QUrl::fromLocalFile(QStringLiteral(QINDATK_ADAPTIVE_FIXTURE)), QSize(360, 300));
         QVERIFY(scene.root());
         QVERIFY(scene.exposed());
@@ -107,6 +120,10 @@ private slots:
         auto *grid = qobject_cast<Grid *>(scene.item("adaptiveGrid"));
         auto *stack = qobject_cast<Stack *>(scene.item("adaptiveStack"));
         QVERIFY(flex && grid && stack);
+        QQuickItem *gridHost = scene.item("adaptiveGridHost");
+        QQuickItem *column = scene.item("adaptiveColumn");
+        QQuickItem *scroll = scene.item("adaptiveScroll");
+        QVERIFY(gridHost && column && scroll);
         QQuickItem *actionA = scene.item("adaptiveActionPrimary");
         QQuickItem *actionB = scene.item("adaptiveActionSecondary");
         QQuickItem *actionC = scene.item("adaptiveActionTertiary");
@@ -145,9 +162,12 @@ private slots:
                                                  : badge->x() + badge->width() <= message->x());
         QTRY_VERIFY(direction == int(Qt::LeftToRight) ? badge->x() > stack->width() / 2
                                                      : badge->x() < stack->width() / 2);
-
-        Density::instance()->setMode(Density::Compact);
-        Density::instance()->setScaleFonts(false);
+        const qreal sectionGap = Theme::instance()->space()->metric(QStringLiteral("lg"));
+        QVERIFY(gridHost->y() >= flex->y() + flex->height() + sectionGap - 0.5);
+        QVERIFY(stack->y() >= gridHost->y() + gridHost->height() + sectionGap - 0.5);
+        QVERIFY(column->implicitHeight() >= stack->y() + stack->height());
+        if (textScale > 1.0)
+            QVERIFY(scroll->property("contentHeight").toReal() > scroll->height());
     }
 
     void responsiveGridResizeAndFit()

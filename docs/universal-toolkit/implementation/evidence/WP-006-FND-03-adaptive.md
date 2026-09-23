@@ -19,18 +19,18 @@ build/wp006-adaptive/tools/preview/qtk-preview examples/adaptive-layout/Main.qml
   --density compact --size 360x300
 ```
 
-The QtTest `adaptiveNarrowLayout` data rows exercise compact and comfortable
-density in both LTR and RTL. It checks two Flex lines with non-overlapping
-children, RTL/LTR ordering, two auto-fill Grid columns and their mirrored
-positions, badge/message non-overlap in Stack, and the density-resolved gap
-and insets. It enables `Density.scaleFonts` while testing to include a text
-scale change in the stress case.
+The QtTest `adaptiveNarrowLayout` matrix exercises compact and comfortable
+density, LTR and RTL, and 1× and 2× text. It checks two Flex lines with
+non-overlapping children, RTL/LTR ordering, two auto-fill Grid columns and
+their mirrored positions, badge/message non-overlap in Stack, the
+density-resolved gaps/insets, and spacing between the three sections. At
+2× it also checks that the Scroll content exceeds its viewport.
 
 ## Observations
 
-All four test rows pass. The preview dump and inspected software captures
-show these representative geometries (child coordinates are relative to the
-container):
+The four 1× rows pass. The preview dump and inspected software captures
+show these representative geometries (child coordinates are relative to their
+immediate container):
 
 | Region | Compact LTR | Compact RTL | Comfortable LTR | Comfortable RTL |
 | --- | --- | --- | --- | --- |
@@ -47,12 +47,34 @@ theme-scaled gap from the message region, so the long message no longer
 paints underneath the badge. The four PNGs were opened: all show the expected
 column order and non-overlapping Stack message/badge at both densities.
 
-The preview uses QindaTK's default `Density.scaleFonts: false`, so its text
-glyph size remains the same at the two density settings while spacing and
-Stack insets grow. The automated matrix enables font scaling and verifies
-that the layout continues to fit. This is a software-rendered geometry
-fixture, not a claim about platform-specific font metrics or physical input
+The default preview uses `Density.scaleFonts: false`, so its text glyph size
+remains the same at the two density settings while spacing and Stack insets
+grow. The automated matrix enables font scaling. In the first version,
+fixed-height sections passed the within-section geometry checks but the 2×
+software screenshot showed that the sections painted over each other. The
+fixture now flows through a column inside `Tk.Scroll`. The Grid is hosted in
+an `Item` whose implicit height follows its cards; this avoids a Grid/Flex
+implicit-size polish loop observed when the Grid was nested directly.
+
+The eight revised rows pass. The 2× preview used a wrapper that sets
+`Density.scaleFonts: true` and `Density.textScale: 2`; all four software
+captures were opened. Representative `--dump` lines:
+
+| 2× case | Flex y/height | Grid host y/height | Stack y/height | Scroll content/viewport |
+| --- | --- | --- | --- | --- |
+| Compact LTR/RTL | `4/182` | `198/150` | `360/98` | `462/300` |
+| Comfortable LTR/RTL | `5/218` | `237/180` | `431/154` | `590/300` |
+
+The 12px compact and 14px comfortable section gaps keep the card region
+below the wrapped actions and the Stack below the cards. The lower content
+is reached by scrolling. These are software-rendered geometry and pixel
+checks, not a claim about platform-specific font metrics or physical input
 target accessibility.
+
+With the revised fixture, full CTest passes 18/18 on system Qt 6.11.1 and
+the isolated Qt 6.8.3 SDK. System `all_qmllint` exits successfully with its
+existing unqualified-access warnings. The focused eight-row layout check
+finishes without Grid polish-loop warnings on both Qt versions.
 
 This package adds no layout algorithms. The existing narrow Flex/Grid/Stack
 semantics are exercised as currently implemented; wider stress widths,
