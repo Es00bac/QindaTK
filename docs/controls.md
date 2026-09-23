@@ -123,6 +123,30 @@ in [layout.md](layout.md); theming in [theming.md](theming.md); docking in
 | `EmptyState` | Item | `text`, `title`, `iconName`, `maxTextWidth` (320); default: actions | — | centred muted icon + overline title + wrapping caption, lg padding; for empty lists/panels. objectNames `emptyTitle`, `emptyText`. |
 | `Card` | Box | `padding` (`space.md`), `selected`, `interactive`, `tooltip` (from Box) | `clicked` (from Box) | `panelAlt` background, 1px border, radius md; `selected` → accent border; interactive hover lifts the border to `controlHoverBorder` and tints the fill. Interactive cards inherit Box activation, naming and focus-ring behavior; passive cards have no role or tab stop. |
 
+## Asset-backed media adapters
+
+These controls own one `Tk.AssetProvider` subscription each. They request only
+when `active` is true and the provider/resource ID are set. Changing the
+provider, resource, options, document, view ID, or active state releases the
+old subscription before starting another. Destruction releases the current
+subscription; virtualized delegates that are pooled should set `active: false`
+or update their identity while they are not displaying a row. `refresh()`
+explicitly retries. A backend error remains visible in the control's state and
+accessible description; adapters never draw placeholder data as a successful
+asset.
+
+| Type | Properties | Read-only properties / actions | Notes |
+| --- | --- | --- | --- |
+| `AssetThumbnail` | `provider`, `resourceId`, `requestKind` (`"thumbnail"`), `requestOptions`, `document`, `viewId`, `active`, `caption`, `crop`, `selected`, `tooltip` | `subscriptionId`, `assetState` (`idle`, `loading`, `ready`, `failed`, `missing`, `stale`, or `cancelled`), `assetData`, `assetError`; `refresh()` | Requests through `AssetProvider.requestAsset`. By default the request size uses the thumbnail's nominal theme size; `requestOptions.size` overrides it. On success, `assetData.previewUrl` becomes the `Tk.Thumbnail.source`; while pending, missing, or failed the normal placeholder/error glyph is shown. `source` and `placeholderIcon` are provider-owned. `active: false` releases the subscription, which is useful when a recycled delegate leaves the visible set. The subscription retains the provider that created it so replacing `provider` releases it from the original owner. objectNames `assetThumbnail`, `thumbnailImage`, `thumbnailPlaceholder`. |
+| `AssetWaveform` | `provider`, `resourceId`, `requestOptions`, `columns` (0 uses the displayed width), `document`, `viewId`, `active`, `color`, `showCentreLine`, `tooltip` | `subscriptionId`, `assetState`, `assetData`, `assetError`, `peaks`; `refresh()` | Requests kind `"waveform"` and passes returned `assetData.peaks` to `Tk.Waveform`. The backend reduces peaks to the requested number of columns; width changes coalesce through `Theme.motion.fast`. Empty, missing, cancelled, or failed results remain visibly empty and report their state; no sample peaks are invented. The subscription retains the provider that created it so replacing `provider` releases it from the original owner. objectNames `assetWaveform`, `assetWaveformDisplay`, `assetWaveformStatus`. |
+| `AssetFilmstrip` | `provider`, `resourceId`, `headTimeTicks` (`"0"`), `tailTimeTicks` (empty means unknown and inactive), `rateNumerator`/`rateDenominator` (decimal strings), `document`, `viewId`, `active`, `crop`, `frameSize`, `tooltip` | `assetState`, `assetError` | Requests `"frame"` assets for the supplied head and tail times. The tail request stays inactive until `tailTimeTicks` is supplied. An injected video backend can return endpoint frames; the default `FileAssetBackend` reports `Unsupported` because it does not decode video. It never substitutes fabricated frames. objectNames `assetFilmstrip`, `assetFilmstripFrames`, `assetFilmstripHead`, `assetFilmstripTail`. |
+
+All three controls use `Tk.AssetProvider` and `Tk.ResourceResolver`; register a
+logical resource ID before requesting it. `document` and `viewId` scope
+subscriptions to a live editing context. `invalidateView(viewId)` makes those
+subscriptions stale, so the owner can refresh them when the view context is
+rebuilt.
+
 ## Telemetry
 
 Readings over time and against a limit. `Tk.Graph` draws on the scene graph;
