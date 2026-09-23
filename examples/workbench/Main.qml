@@ -16,6 +16,15 @@ Rectangle {
     readonly property var boardSession: host.boardSession
     readonly property var sheetSession: host.sheetSession
     property string statusText: qsTr("Two reference documents are open")
+    property string gridFilterText: ""
+    property bool gridSortByName: false
+    property bool restoringGridSelection: false
+    property string gridDocumentId: ""
+    property string pendingGridRow: ""
+    property string pendingGridDocumentId: ""
+    property int gridViewGeneration: 0
+    property var rememberedRows: ({})
+    property var protectedRows: ({})
     readonly property var activeSession: manager.activeSession
     readonly property bool boardActive: activeSession && activeSession === boardSession
     readonly property var activeGridModel: !activeSession ? null
@@ -58,6 +67,17 @@ Rectangle {
         renameContextMenu.close()
         return true
     }
+    function editGridCell(rowId, columnId, value) {
+        if (!activeGridModel) return false
+        const row = activeGridModel.rowIndex(rowId)
+        const column = activeGridModel.columnIndex(columnId)
+        if (row < 0 || column < 0) return false
+        grid.setCurrent(row, column, false)
+        return grid.beginCellEdit() && grid.commitCellEdit(value)
+    }
+    function pasteGridRows(firstRow, rows) {
+        return grid.pasteMatrix(firstRow, 0, rows)
+    }
     function saveActive() {
         if (!activeSession) return
         const path = pathField.text.trim()
@@ -68,6 +88,72 @@ Rectangle {
     }
     function selectWorkspace(session) {
         if (session) manager.activate(session.documentId)
+    }
+    function applyGridView() {
+        if (!activeGridModel || !activeSession) return
+        const docId = activeSession.documentId
+        const allRows = host.rowIdsForDocument(docId)
+        let wanted = protectedRows[docId] || rememberedRows[docId] || grid.activeRowId
+        if (!wanted || allRows.indexOf(wanted) < 0) wanted = allRows.length ? allRows[0] : ""
+        const needle = gridFilterText.trim().toLowerCase()
+        let visibleRows = allRows.filter(function(rowId) {
+            if (!needle) return true
+            for (let column = 0; column < activeGridModel.columnCount; ++column) {
+                const columnId = activeGridModel.columnIdAt(column)
+                if (String(activeSession.document.valueFor(rowId, columnId)).toLowerCase().includes(needle))
+                    return true
+            }
+            return false
+        })
+        if (gridSortByName) visibleRows.sort(function(left, right) {
+            const a = String(activeSession.document.valueFor(left, "name")).toLowerCase()
+            const b = String(activeSession.document.valueFor(right, "name")).toLowerCase()
+            return a < b ? -1 : a > b ? 1 : left.localeCompare(right)
+        })
+        restoringGridSelection = true
+        gridViewGeneration += 1
+        if (wanted) protectedRows[docId] = wanted
+        activeGridModel.setRowIds(visibleRows)
+        const isVisible = visibleRows.indexOf(wanted) >= 0
+        pendingGridRow = isVisible ? wanted : ""
+        pendingGridDocumentId = docId
+        Qt.callLater(restorePendingGridSelection, gridViewGeneration)
+    }
+    function restorePendingGridSelection(generation) {
+        if (generation !== gridViewGeneration) return
+        if (pendingGridDocumentId === activeDocumentId && pendingGridRow) {
+            const index = activeGridModel.rowIndex(pendingGridRow)
+            if (index >= 0) {
+                grid.setCurrent(index, Math.max(0, activeGridModel.columnIndex("name")), false)
+                rememberedRows[pendingGridDocumentId] = pendingGridRow
+            }
+        }
+        restoringGridSelection = false
+    }
+    function rememberGridRow(rowId) {
+        if (!restoringGridSelection && gridDocumentId === activeDocumentId && gridDocumentId && rowId
+                && (!protectedRows[gridDocumentId] || protectedRows[gridDocumentId] === rowId)) {
+            rememberedRows[gridDocumentId] = rowId
+        }
+    }
+    function setGridFilter(value) {
+        gridFilterText = value
+        applyGridView()
+        return true
+    }
+    function toggleGridSort(unused) {
+        gridSortByName = !gridSortByName
+        applyGridView()
+        return true
+    }
+    function selectGridRow(rowId) {
+        const index = activeGridModel ? activeGridModel.rowIndex(rowId) : -1
+        if (index < 0) return false
+        grid.setCurrent(index, Math.max(0, activeGridModel.columnIndex("name")), false)
+        rememberedRows[activeDocumentId] = rowId
+        protectedRows[activeDocumentId] = rowId
+        gridViewGeneration += 1
+        return grid.activeRowId === rowId
     }
 
     Tk.SelectionModel { id: boardSelection }
@@ -95,6 +181,22 @@ Rectangle {
         stageNameDraft()
     }
     onInspectedRowIdChanged: stageNameDraft()
+    Connections {
+        target: root.activeSession ? root.activeSession.document : null
+        function onPropertyChanged() {
+            if (root.gridSortByName || root.gridFilterText)
+                Qt.callLater(root.applyGridView)
+        }
+    }
+    onActiveDocumentIdChanged: {
+        restoringGridSelection = true
+        gridDocumentId = activeDocumentId
+        Qt.callLater(applyGridView)
+    }
+    Component.onCompleted: {
+        gridDocumentId = activeDocumentId
+        Qt.callLater(applyGridView)
+    }
 
     Tk.ShortcutMap {
         id: workbenchShortcuts
@@ -258,13 +360,45 @@ Rectangle {
                             variant: root.activeSession && root.activeSession.dirty ? "warning" : "default"
                         }
                     }
-                    Tk.Caption { text: qsTr("Document rows · Select a row, then rename it in Inspector") }
+                    Tk.Caption { text: qsTr("Document rows · Edit a cell or use the Inspector") }
+                    Tk.Flex {
+                        direction: Tk.Flex.Row
+                        gap: Tk.Theme.space.xs
+                        Tk.TextField {
+                            objectName: "workbenchGridFilter"
+                            placeholderText: qsTr("Filter rows")
+                            tooltip: qsTr("Filter the active document grid")
+                            Accessible.name: qsTr("Filter rows")
+                            text: root.gridFilterText
+                            onTextChanged: root.setGridFilter(text)
+                            Tk.Flex.grow: 1
+                        }
+                        Tk.Button {
+                            objectName: "workbenchGridSort"
+                            text: root.gridSortByName ? qsTr("Name ↑") : qsTr("Sort name")
+                            tooltip: qsTr("Sort rows by Name")
+                            Accessible.name: tooltip
+                            onClicked: root.toggleGridSort()
+                        }
+                    }
                     Tk.EditableGrid {
                         id: grid
                         objectName: "workbenchEditableGrid"
                         model: root.activeGridModel
                         tooltip: qsTr("Editable table in the active reference workspace")
                         alternatingRows: true
+                        onCurrentCellChanged: function(rowId) { root.rememberGridRow(rowId) }
+                        onModelChanged: Qt.callLater(root.applyGridView)
+                        Keys.onPressed: function(event) {
+                            delete root.protectedRows[root.activeDocumentId]
+                        }
+                        onActiveFocusChanged: {
+                            if (activeFocus) delete root.protectedRows[root.activeDocumentId]
+                        }
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton
+                            onTapped: delete root.protectedRows[root.activeDocumentId]
+                        }
                         columnLabel: function(id, index) {
                             const names = [qsTr("Name"), qsTr("Kind"), qsTr("Owner"), qsTr("State")]
                             return index < names.length ? names[index] : id
@@ -338,7 +472,7 @@ Rectangle {
                     }
                     Tk.Divider {}
                     Tk.Caption {
-                        text: qsTr("Rows are a read-only projection of the active native document. Name edits and undo use its transaction history.")
+                        text: qsTr("Grid and Inspector edits commit to the active native document. Undo uses its shared transaction history.")
                         wrapMode: Text.Wrap
                     }
                     Tk.Spacer {}

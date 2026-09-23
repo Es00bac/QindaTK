@@ -9,7 +9,7 @@ find_package(QindaTK 0.1 CONFIG REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Quick)
 get_filename_component(QINDATK_QML_IMPORT_ROOT "${QindaTK_QML_DIR}" DIRECTORY)
 
-add_executable(qindatk_workbench main.cpp)
+add_executable(qindatk_workbench main.cpp workbench_host.h)
 target_link_libraries(qindatk_workbench PRIVATE QindaTK::qindatk Qt6::Quick)
 target_compile_definitions(qindatk_workbench PRIVATE
     WORKBENCH_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/Main.qml"

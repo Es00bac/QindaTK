@@ -3,8 +3,13 @@
 
 This local host seeds two actual `DocumentManager` reference sessions with
 typed `PropertyDocument` descriptors and stable entity IDs. `AssetGrid` and
-read-only `EditableGrid` are projections of each session's document. The
-inspector's Name field uses `PropertyBinding` to commit one document edit.
+`EditableGrid` are projections of each session's document. A committed grid
+cell is validated against its stable entity/property IDs and applied with one
+`EditTransaction`; the grid relinquishes its sparse projection so document
+changes remain authoritative. Multi-cell commits use one `UndoService` macro;
+rejecting a cell cancels the macro and restores the grid projection. The
+inspector's Name field uses
+`PropertyBinding` to commit one document edit.
 Apply Name is one scoped `CommandRegistry` action presented by the toolbar,
 keyboard shortcut, and inspector context menu. Its accessible toolbar action
 uses the same `CommandButton` activation path. Each invocation commits through
@@ -27,12 +32,20 @@ The executable accepts `--density compact|comfortable`, `--check`, `--dump` and
 `--grab path`; without these flags it opens an interactive window. The QML
 file relies on its local C++ host context, so launch through this executable.
 
-`--check` exercises toolbar, context-menu and shortcut name edits, verifies a
-single revision increment and projected asset update, undoes each edit, then
-switches documents and confirms the shortcut edits only the active document.
-It does not automate an operating-system accessibility client. Clipboard
-transfer, async close, failed-save recovery, workspace restore, and
-saved-content reopen remain outside this example's current coverage.
+`--check` exercises a grid Name edit and a two-cell Name paste. It verifies one
+undo entry for the paste, no lingering sparse overrides, document/grid/
+inspector/asset updates, exact undo of both cells, and that the inactive
+document stays unchanged. It checks sorting, filtering, selection restoration,
+per-document row selection, and re-sorting after an edit and undo. It also
+exercises toolbar, context-menu and shortcut command edits after a document
+switch. It does not automate an operating-system accessibility client.
+Clipboard transfer, async close, failed-save recovery,
+workspace restore, and saved-content reopen remain outside this example's
+current coverage.
 `CommandRegistry` handler registration remains C++ only. Native persistence
-and history include the seeded document entities, while the grid is
-intentionally a read-only projection.
+and history include the seeded document entities. The grid keeps section
+structure local to the workbench while values remain backed by the active
+document.
+The document grid sorts by Name and filters across visible columns. Selection is
+remembered by stable row ID per document, including while filtering temporarily
+hides the selected row.

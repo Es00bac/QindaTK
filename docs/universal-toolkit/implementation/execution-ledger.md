@@ -18,9 +18,11 @@ WP-040 is in review with its WP-033 dependency still open. WP-048 is accepted
 after its time-axis and host-media boundaries were reconciled with D-045;
 both full integrated suites and its installed consumers pass. WP-050 and WP-055
 remain active in separate Opus worktrees; their draft code is not integrated
-or accepted. WP-033 is active in the shared tree to prove the common workbench.
-WP-041 and WP-042 have bounded presentation work underway before their declared
-dependencies close; their model, command and acceptance gates remain open.
+or accepted. WP-033 has a dual-Qt editable, sortable and filterable two-document
+workbench plus installed lifecycle consumers; its remaining end-to-end gates
+are recorded in its evidence. WP-041 now has a document-space snap query and
+guide layer, while WP-042 has layer, navigator and alignment presentation.
+Both spatial packages still have model, command and acceptance gates open.
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -60,10 +62,10 @@ as though a later fix had already passed the earlier run.
 | [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | accepted | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | accepted | [Seven families, dual-Qt suite and installed consumer](evidence/WP-031.md) |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | accepted | [Event, diff and resource integration status](evidence/WP-032.md) |
-| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | active | [Two-document workbench and dual-Qt consumers; lifecycle gaps open](evidence/WP-033.md) |
+| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | active | [Editable sort/filter workbench and dual-Qt consumers; lifecycle gaps open](evidence/WP-033.md) |
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | review | [Integrated dual-Qt, pixels and installed consumer; WP-033 dependency open](evidence/WP-040.md) |
-| [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Selection overlay presentation; model and snap contracts open](evidence/WP-041.md) |
-| [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree and navigator presentation ahead of model work](evidence/WP-042.md) |
+| [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Selection overlay, guide layer and snap query; transform integration open](evidence/WP-041.md) |
+| [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator and alignment presentation; model integration open](evidence/WP-042.md) |
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | planned | — |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | planned | — |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | planned | — |
