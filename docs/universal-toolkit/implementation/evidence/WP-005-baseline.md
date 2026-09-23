@@ -59,6 +59,10 @@ new boundary.
   host Qt 6.11 libraries and failed with undefined Qt 6.11 symbols. It was
   disabled via `QINDATK_PREVIEW_QINDAQT=OFF` for the isolated Qt 6.8 build;
   the main toolkit, QML plugin, preview and tests then built successfully.
+  A source guard now auto-disables that bridge when its library lies outside
+  the selected Qt install prefix. Reconfiguring Qt 6.8 with the option on
+  reported the bridge disabled and built `qtk-preview`; reconfiguring the
+  system Qt 6.11 build still reported the bridge enabled.
 - Read actual `portageq envvar MAKEOPTS` as `-j24 -l24` and built with
   `ninja -C build/qt68 -j24 -l24`. `ldd` on `tst_stylus_handler` resolves
   Qt Core, Gui, Qml, Quick and Test libraries from the 6.8.3 SDK path.

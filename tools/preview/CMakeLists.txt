@@ -17,7 +17,16 @@ if(QINDATK_PREVIEW_QINDAQT)
         PATHS /usr/lib64/qt6/qml/QindaQt/Tokens /usr/lib/qt6/qml/QindaQt/Tokens)
     find_library(QINDAQT_DESIGN_TOKENS_LIB NAMES qindaqt_design_tokens)
     find_library(QINDAQT_THEMES_LIB NAMES qindaqt_themes)
-    if(QINDAQT_INCLUDE_DIR AND QINDAQT_TOKENS_QML_LIB AND QINDAQT_DESIGN_TOKENS_LIB AND QINDAQT_THEMES_LIB)
+    # AGENT-GUARD: an SDK-selected Qt must not link desktop archives built
+    # against the system Qt. Qt 6.8 + a host Qt 6.11 Tokens library fails
+    # with unresolved Qt 6.11 symbols. Match the selected Qt install prefix.
+    get_filename_component(qindatk_qt_prefix "${Qt6_DIR}/../../.." ABSOLUTE)
+    if(QINDAQT_TOKENS_QML_LIB)
+        cmake_path(IS_PREFIX qindatk_qt_prefix "${QINDAQT_TOKENS_QML_LIB}"
+            NORMALIZE qindatk_qindaqt_same_prefix)
+    endif()
+    if(QINDAQT_INCLUDE_DIR AND QINDAQT_TOKENS_QML_LIB AND QINDAQT_DESIGN_TOKENS_LIB AND QINDAQT_THEMES_LIB
+       AND qindatk_qindaqt_same_prefix)
         message(STATUS "qtk-preview: QindaQt desktop themes enabled (--qst)")
         target_compile_definitions(qtk-preview PRIVATE QINDATK_HAVE_QINDAQT)
         target_include_directories(qtk-preview PRIVATE ${QINDAQT_INCLUDE_DIR})
@@ -27,6 +36,8 @@ if(QINDATK_PREVIEW_QINDAQT)
             ${QINDAQT_THEMES_LIB})
         get_filename_component(qindaqt_tokens_dir "${QINDAQT_TOKENS_QML_LIB}" DIRECTORY)
         set_target_properties(qtk-preview PROPERTIES BUILD_RPATH "${qindaqt_tokens_dir}" INSTALL_RPATH "${qindaqt_tokens_dir}")
+    elseif(QINDAQT_TOKENS_QML_LIB AND NOT qindatk_qindaqt_same_prefix)
+        message(STATUS "qtk-preview: QindaQt desktop library is outside the selected Qt prefix; --qst disabled")
     else()
         message(STATUS "qtk-preview: QindaQt desktop libraries not found; --qst disabled")
     endif()
