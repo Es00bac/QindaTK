@@ -56,5 +56,5 @@ the same controls are each 520×48, with 18px indicators centred at y=15.
 `build/wp007-small-toggles-compact.png` and
 `build/wp007-small-toggles-touch-3x.png` were opened and inspected.
 
-At integration commit `c8efd7e`, Qt 6.11.1 and 6.8.3 each passed the full
-19-target CTest suite and `all_qmllint`.
+At integration source commit `1f30b69`, Qt 6.11.1 and 6.8.3 each passed the
+full 19-target CTest suite and `all_qmllint`.

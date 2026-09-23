@@ -78,6 +78,10 @@ FND-07 through FND-10.
 - `ListRow` now supports Tab focus, a visible focus ring, Space and accessible
   press through its template click path. Owner `selected` updates stay silent.
   [Focused evidence](WP-007-FIX-F04-list-row.md).
+- `ComboBox` now exposes selected popup rows and fits a long, text-scaled
+  list above or below a control in a small host. Keyboard and pointer choice
+  emit `activated`, while owner index assignments remain silent.
+  [Focused evidence](WP-007-FND-09-combo-box.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,
@@ -87,8 +91,10 @@ FND-07 through FND-10.
 ## Verification
 
 On both Qt 6.11.1 and isolated Qt 6.8.3, integrated Debug builds, all
-19 current CTest targets and `all_qmllint` exited 0 at integration commit
-`c8efd7e`. The new QML tests cover
+19 current CTest targets and `all_qmllint` exited 0 at integration source
+commit `1f30b69`. The lint targets still report existing nonfatal warnings,
+especially under Qt 6.8.3; their exit status is the gate recorded here.
+The new QML tests cover
 pointer/keyboard/assistive-action signal paths, disabled behavior and group
 state synchronization. These signal tests do not establish native screen-reader
 delivery or a platform value interface.
@@ -147,7 +153,7 @@ bridge semantics where applicable. FND-07 still requires broad high-contrast,
 text-scale and hit-target workflow coverage;
 [D-016](../../../decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
 records the conditional FND-08 decision to retain process-wide theming;
-FND-09
-requires nested-menu and work-area qualification; FND-10 requires uniform
+FND-09 requires monitor/work-area and dynamic ComboBox popup qualification;
+FND-10 requires uniform
 editing state and notification contracts across remaining controls. No
 WP-007 acceptance is claimed.
