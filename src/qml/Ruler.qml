@@ -307,7 +307,8 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: -Tk.Theme.size.focusRing
-                color: "transparent"
+                color: Qt.rgba(Tk.Theme.color.focus.r, Tk.Theme.color.focus.g,
+                               Tk.Theme.color.focus.b, Tk.Theme.opacity.hidden)
                 border.width: Tk.Theme.size.focusRing
                 border.color: Tk.Theme.color.focus
                 visible: marker.activeFocus
