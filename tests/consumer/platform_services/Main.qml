@@ -29,7 +29,8 @@ Item {
     Tk.FilePathField { objectName: "installedFilePathField"; dialogAdapter: fileDialog; visible: false }
     Tk.TokenField { objectName: "installedTokenField"; visible: false }
     Tk.FontPicker { objectName: "installedFontPicker"; fontProvider: fonts; visible: false }
-    Tk.DateTimeField { objectName: "installedDateTimeField"; localeService: locale; visible: false }
+    Tk.FontFeaturesEditor { objectName: "installedFontFeaturesEditor"; fontProvider: fonts; sampleText: "A"; visible: false }
+    Tk.DateTimeField { objectName: "installedDateTimeField"; localeService: locale; minValue: "2024-01-01T00:00:00.000Z"; visible: false }
     Tk.CalendarPicker { objectName: "installedCalendarPicker"; localeService: locale; visible: false }
     Tk.ShortcutEditor { objectName: "installedShortcutEditor"; visible: false }
     Tk.FindReplaceBar { objectName: "installedFindReplaceBar"; visible: false }
