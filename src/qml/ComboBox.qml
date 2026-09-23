@@ -112,7 +112,6 @@ T.ComboBox {
     Tk.ToolTip {
         text: control.tooltip
         visible: control.tooltip.length > 0 && control.hovered && !control.popup.visible
-        delay: 600
     }
 
     delegate: T.ItemDelegate {
