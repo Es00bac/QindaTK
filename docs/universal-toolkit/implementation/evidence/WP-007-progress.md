@@ -45,7 +45,11 @@ FND-07 through FND-10.
   choices retain a 48×44 target. The gallery's preset switch scrolls at
   maximum text zoom, with the scrollbar below the labels. At 480×320, the
   header itself scrolls to keep the gallery content visible, and density
-  choices scroll horizontally.
+  choices scroll horizontally. DockDivider seams now route touch drags through
+  a 48px target. Qt SplitView still needs a
+  layout-preserving route; its standalone
+  [reproduction](../../../../tests/repros/tst_splitter_touch_hit.qml) fails
+  for touches starting outside the painted handle.
   [Focused evidence](WP-007-FND-07-touch.md).
 - `TextField` blocks its custom clear paths when read-only or disabled;
   `SearchField` now debounces user edits while programmatic synchronization

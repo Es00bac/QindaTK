@@ -16,6 +16,7 @@ T.SplitView {
 
     handle: Rectangle {
         id: seam
+        objectName: "splitterHandle"
         implicitWidth: splitter.orientation === Qt.Horizontal ? splitter.handleSize : splitter.width
         implicitHeight: splitter.orientation === Qt.Horizontal ? splitter.height : splitter.handleSize
         color: T.SplitHandle.pressed || T.SplitHandle.hovered ? Tk.Theme.color.seamHover

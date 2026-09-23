@@ -10,6 +10,7 @@ TestCase {
     visible: true
     width: 600
     height: 200
+    property real dockDragDistance: 0
 
     Component { id: button; Tk.Button { text: "Apply" } }
     Component { id: iconButton; Tk.IconButton { iconName: "plus"; tooltip: "Add" } }
@@ -22,6 +23,15 @@ TestCase {
     Component { id: smallCheckbox; Tk.CheckBox { small: true; text: "Grid" } }
     Component { id: smallSwitch; Tk.Switch { small: true; text: "Snap" } }
     Component { id: smallRadio; Tk.RadioButton { small: true; text: "Mode" } }
+    Component {
+        id: dockDivider
+        Tk.DockDivider {
+            width: Tk.Theme.size.seam
+            height: 100
+            vertical: true
+            onDragged: delta => root.dockDragDistance += delta
+        }
+    }
     Component { id: gallery; Loader { source: "../../examples/gallery/Main.qml" } }
 
     function test_sliderTargetsFollowDensityWithoutChangingCompactRows() {
@@ -134,6 +144,42 @@ TestCase {
             tryCompare(segments, "height", 48)
             tryCompare(segment, "height", 44)
             verify(segment.width >= 44)
+        } finally {
+            Tk.Density.modeName = formerMode
+        }
+    }
+
+    function test_dockDivider_keeps_compact_layout_and_routes_touch_outside_painted_seam() {
+        const formerMode = Tk.Density.modeName
+        try {
+            const dock = createTemporaryObject(dockDivider, root, { x: 300 })
+            verify(dock !== null)
+
+            Tk.Density.modeName = "compact"
+            compare(dock.width, 4)
+            compare(dock.containmentMask.width, 16)
+
+            Tk.Density.modeName = "touch"
+            compare(dock.width, Tk.Theme.size.seam)
+            compare(dock.containmentMask.width, 48)
+
+            // Start 20px beyond the painted dock seam, inside its themed
+            // DragHandler margin, then move farther to prove it routes input.
+            dockDragDistance = 0
+            const touch = touchEvent(root)
+            const pressPoint = dock.mapToItem(root, dock.width / 2 + 20, dock.height / 2)
+            touch.press(0, root, pressPoint.x, pressPoint.y)
+            touch.commit()
+            const movePoint = dock.mapToItem(root, dock.width / 2 + 30, dock.height / 2)
+            touch.move(0, root, movePoint.x, movePoint.y)
+            touch.commit()
+            tryVerify(() => findChild(dock, "dockDividerDragHandler").active)
+            const dragPoint = dock.mapToItem(root, dock.width / 2 + 40, dock.height / 2)
+            touch.move(0, root, dragPoint.x, dragPoint.y)
+            touch.commit()
+            tryVerify(() => Math.abs(root.dockDragDistance) > 0)
+            touch.release(0, root, dragPoint.x, dragPoint.y)
+            touch.commit()
         } finally {
             Tk.Density.modeName = formerMode
         }

@@ -114,7 +114,7 @@ Internal seam that reports resize gesture deltas.
 
 **Source:** [src/qml/DockDivider.qml](../../../src/qml/DockDivider.qml) · **Base:** `Rectangle` · **Kind:** QML component; internal renderer.
 
-vertical/share configure orientation/use; dragStarted/dragged(delta)/dragEnded let the host change model extents or shares. It owns no placement state; independent use needs an owner to enforce minimum sizes.
+vertical/share configure orientation/use; dragStarted/dragged(delta)/dragEnded let the host change model extents or shares. Its hit surface uses size.seamTarget independently of the painted seam and Flex basis. It owns no placement state; independent use needs an owner to enforce minimum sizes.
 
 **Declared members:** `vertical: bool`, `share: bool`, `dragging: bool` (ro).
 

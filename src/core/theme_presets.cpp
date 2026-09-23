@@ -307,6 +307,7 @@ void ThemePresets::installBaseMetrics(Theme &theme)
     static const Entry size[] = {
         {"controlSm", 20}, {"control", 24}, {"controlLg", 28}, {"chip", 32}, {"action", 36},
         {"sliderTarget", 16}, {"sliderTargetSm", 14}, {"toggleTargetSm", 16},
+        {"seamTarget", 16},
         {"row", 22}, {"rowLg", 28}, {"header", 24}, {"tab", 22}, {"toolbar", 36},
         {"statusBar", 22}, {"menuItem", 22}, {"icon", 14}, {"iconSm", 12}, {"iconLg", 16},
         {"iconXl", 20}, {"seam", 4}, {"scrollbar", 8}, {"labelWidth", 96}, {"fieldWidth", 120},

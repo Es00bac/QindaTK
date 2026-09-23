@@ -131,7 +131,7 @@ QML properties, so `Tk.Theme.space.md` binds and updates. `space` and
 | --- | --- |
 | `space` | `unit` 4, `xs` 2, `sm` 4, `md` 8, `lg` 12, `xl` 16, `xxl` 24, `xxxl` 32 |
 | `radius` | `none` 0, `xs` 2, `sm` 4, `md` 6, `lg` 10, `xl` 14, `full` 999 |
-| `size` | `controlSm` 20, `control` 24, `controlLg` 28, `sliderTarget` 16, `sliderTargetSm` 14, `toggleTargetSm` 16, `chip` 32, `action` 36, `row` 22, `rowLg` 28, `header` 24, `tab` 22, `toolbar` 36, `statusBar` 22, `menuItem` 22, `icon` 14, `iconSm` 12, `iconLg` 16, `iconXl` 20, `seam` 4, `scrollbar` 8, `labelWidth` 96, `fieldWidth` 120, `panelMinWidth` 200, `panelMinHeight` 120, `border` 1, `focusRing` 2, `grip` 10, `handle` 14, `dropEdge` 28, `tableColumn` 80, `dialogWidth` 420, `rulerLength` 200, `rulerMarker` 9, `sparkline` 56, `sparklineHeight` 14, `meter` 6, `graphMinHeight` 40, `thumbnail` 72, `thumbnailHeight` 40, `waveformHeight` 28, `timeRuler` 22 |
+| `size` | `controlSm` 20, `control` 24, `controlLg` 28, `sliderTarget` 16, `sliderTargetSm` 14, `toggleTargetSm` 16, `seamTarget` 16, `chip` 32, `action` 36, `row` 22, `rowLg` 28, `header` 24, `tab` 22, `toolbar` 36, `statusBar` 22, `menuItem` 22, `icon` 14, `iconSm` 12, `iconLg` 16, `iconXl` 20, `seam` 4, `scrollbar` 8, `labelWidth` 96, `fieldWidth` 120, `panelMinWidth` 200, `panelMinHeight` 120, `border` 1, `focusRing` 2, `grip` 10, `handle` 14, `dropEdge` 28, `tableColumn` 80, `dialogWidth` 420, `rulerLength` 200, `rulerMarker` 9, `sparkline` 56, `sparklineHeight` 14, `meter` 6, `graphMinHeight` 40, `thumbnail` 72, `thumbnailHeight` 40, `waveformHeight` 28, `timeRuler` 22 |
 | `motion` | `instant` 0, `fast` 80, `base` 140, `slow` 220, `tooltipDelay` 600, `tooltipTimeout` 6000 (ms); reduced motion zeroes delay and animation durations but retains the tooltip's reading time |
 | `opacity` | `hidden` 0, `full` 1, `disabled` 0.45, `muted` 0.7, `island` 0.72, `ghost` 0.55, `scrim` 0.65 |
 
@@ -149,7 +149,7 @@ layouts into responsive layouts; inspect narrow and large-text scenes.
 
 In Touch density, interactive vertical roles `controlSm`, `control`,
 `controlLg`, `row`, `rowLg`, `tab`, `menuItem`, `header`, `timeRuler`,
-`sliderTarget`, `sliderTargetSm` and `toggleTargetSm` have a 48 logical-pixel minimum after
+`sliderTarget`, `sliderTargetSm`, `toggleTargetSm` and `seamTarget` have a 48 logical-pixel minimum after
 density and text zoom resolve (D-022).
 This gives a bordered joined control a 44px interior button. For example,
 `control` resolves to 48px in Touch at normal text size, then
@@ -158,8 +158,9 @@ returns to 24px in Compact. The floor covers controls using those roles.
 `RangeSlider` density-scaled targets while retaining their Compact visual
 rows. In Touch each role resolves to at least 48px; the track and handles
 remain centered at their authored density size. `toggleTargetSm` (16px base)
-keeps small CheckBox, Switch and RadioButton rows at their desktop sizes
-while giving each a 48px Touch surface.
+keeps small toggle rows at their desktop geometry while providing a 48px
+Touch surface. DockDivider uses `seamTarget` (16px base) for its handler
+margin, leaving the seam width unchanged.
 
 ## Telemetry ramps (`Tk.Theme.ramp`)
 

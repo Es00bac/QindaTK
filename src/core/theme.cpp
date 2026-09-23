@@ -481,7 +481,7 @@ void Theme::finishUpdate()
         for (const char *name : {"controlSm", "control", "controlLg", "row",
                                  "rowLg", "tab", "menuItem", "header",
                                  "timeRuler", "sliderTarget", "sliderTargetSm",
-                                 "toggleTargetSm"}) {
+                                 "toggleTargetSm", "seamTarget"}) {
             m_size->raiseResolved(QString::fromLatin1(name), 48.0);
         }
     }

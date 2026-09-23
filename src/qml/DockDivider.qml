@@ -26,16 +26,27 @@ Rectangle {
     Tk.Flex.shrink: 0
     Tk.Flex.grow: 0
 
+    // AGENT-GUARD: expand hit testing without changing the Flex basis or
+    // painted rectangle, so dock layout keeps its authored seam thickness.
+    containmentMask: Item {
+        readonly property real target: Math.max(Tk.Theme.size.seamTarget, Tk.Theme.size.seam)
+        x: (seam.width - Math.max(seam.width, target)) / 2
+        y: (seam.height - Math.max(seam.height, target)) / 2
+        width: Math.max(seam.width, target)
+        height: Math.max(seam.height, target)
+    }
+
     HoverHandler {
         id: hover
-        margin: 2
+        margin: Math.max(0, (Tk.Theme.size.seamTarget - seam.width) / 2)
         cursorShape: seam.vertical ? Qt.SplitHCursor : Qt.SplitVCursor
     }
 
     DragHandler {
         id: drag
+        objectName: "dockDividerDragHandler"
         target: null
-        margin: 2
+        margin: Math.max(0, (Tk.Theme.size.seamTarget - seam.width) / 2)
         dragThreshold: 1
         property real last: 0
         onActiveChanged: {

@@ -148,7 +148,7 @@ Themed Qt template SplitView for user-resizable adjacent panes.
 
 **Source:** [src/qml/Splitter.qml](../../../src/qml/Splitter.qml) · **Base:** `T.SplitView` · **Kind:** QML component.
 
-handleSize uses size.seam; orientation and saveState/restoreState are inherited. Children use T.SplitView preferred/minimum/fill attached properties. It is distinct from DockModel and does not make a pane dockable.
+handleSize uses size.seam; orientation and saveState/restoreState are inherited. Children use T.SplitView preferred/minimum/fill attached properties. It is distinct from DockModel and does not make a pane dockable. A broader Touch target remains under investigation in WP-007 FND-07 because Qt SplitView routes drags from the handle item's bounds.
 
 **Declared members:** `handleSize: real`.
 

@@ -1746,7 +1746,9 @@
       "internal": false,
       "valueType": false,
       "bridge": false,
-      "objectNames": []
+      "objectNames": [
+        "dockDividerDragHandler"
+      ]
     },
     {
       "name": "DockDropOverlay",
@@ -5587,7 +5589,9 @@
       "internal": false,
       "valueType": false,
       "bridge": false,
-      "objectNames": []
+      "objectNames": [
+        "splitterHandle"
+      ]
     },
     {
       "name": "StatusBar",

@@ -142,6 +142,10 @@ it again (`DockFrame.seat`/`detach`).
 
 ### Gestures
 
+Dock divider hit surfaces use `Theme.size.seamTarget`; the painted seam and
+Flex layout basis continue to use `Theme.size.seam`. In Touch density the
+invisible surface reaches 48 logical px without widening the dock lane.
+
 | Gesture | Effect |
 | --- | --- |
 | drag a lane seam | `setLaneExtent` (floored at the panels' minimum) |

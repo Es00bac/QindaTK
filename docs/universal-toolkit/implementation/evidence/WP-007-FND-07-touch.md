@@ -71,3 +71,33 @@ filter field, verifying both remain reachable. Ignored preview artifacts are
 
 At integration source commit `1f30b69`, Qt 6.11.1 and 6.8.3 each passed the
 full 19-target CTest suite and `all_qmllint`.
+
+## Divider seams
+
+`DockDivider` now reads the density-scaled `Theme.size.seamTarget` (16px in
+Compact, 19px in Comfortable, and at least 48px in Touch) as the margin for
+its `HoverHandler` and `DragHandler`. The painted Rectangle and its Flex
+basis remain bound to `Theme.size.seam`, so hit expansion does not alter dock
+geometry. `tests/qml/tst_touch_targets.qml` presses 20px outside the painted
+vertical seam, starts a synthetic touch drag, and verifies that the handler
+reports a nonzero resize delta. Theme tests check the target role across
+Compact, Comfortable, Touch, a preset switch and reset.
+On Qt 6.11.1 the focused `TouchTargets` and `tst_theme` tests pass. The
+docking example dump shows Compact lane dividers at `4px` (`left_0 230,0
+4x536`; `center_0 0,220 758x4`) and Touch dividers at the existing density
+scaled `6px` (`left_0 230,0 6x504`; `center_0 0,220 752x6`). The `--grab`
+images `build/wp007-divider-touch/docking-compact.png` and
+`build/wp007-divider-touch/docking-touch.png` were opened; no target pixels
+are painted beyond the seam.
+
+Qt `SplitView` remains open in FND-07. Expanding its `containmentMask` to
+48px does not extend the template's touch drag routing beyond the actual
+handle bounds; the standalone reproduction
+[`tst_splitter_touch_hit.qml`](../../../../tests/repros/tst_splitter_touch_hit.qml)
+fails when a touch starts 20px outside the painted handle. Giving the handle
+itself a 48px width in Touch made the drag work, but that width participates
+in pane allocation and changes SplitView layout. That does not meet the
+layout-preserving hit-target requirement, so the experimental change was
+removed. A follow-up needs expanded hit testing integrated with Qt
+SplitView's gesture routing, or a toolkit-owned splitter interaction that
+leaves its layout handle at `size.seam`.
