@@ -152,8 +152,11 @@ In Touch density, interactive vertical roles `controlSm`, `control`,
 a 48 logical-pixel minimum after density and text zoom resolve (D-022).
 This gives a bordered joined control a 44px interior button. For example,
 `control` resolves to 48px in Touch at normal text size, then
-returns to 24px in Compact. The floor covers controls using those roles;
-specialized pointer regions need their own target check.
+returns to 24px in Compact. The floor covers controls using those roles.
+Specialized pointer controls use the same `size.control` target in Touch;
+`Slider` and `RangeSlider` retain their 16px (14px small) Compact visual rows
+and scale those rows normally in Comfortable while their full Touch surface
+grows to the target.
 
 ## Telemetry ramps (`Tk.Theme.ramp`)
 

@@ -15,7 +15,78 @@ TestCase {
     Component { id: iconButton; Tk.IconButton { iconName: "plus"; tooltip: "Add" } }
     Component { id: listRow; Tk.ListRow { text: "Asset" } }
     Component { id: segmented; Tk.Segmented { model: ["S", "M"] } }
+    Component { id: slider; Tk.Slider { tooltip: "Value" } }
+    Component { id: smallSlider; Tk.Slider { small: true; tooltip: "Value" } }
+    Component { id: rangeSlider; Tk.RangeSlider { tooltip: "Range" } }
+    Component { id: smallRangeSlider; Tk.RangeSlider { small: true; tooltip: "Range" } }
     Component { id: gallery; Loader { source: "../../examples/gallery/Main.qml" } }
+
+    function test_sliderTargetsFollowDensityWithoutChangingCompactRows() {
+        const formerMode = Tk.Density.modeName
+        const formerTextScale = Tk.Density.textScale
+        try {
+            const modes = ["compact", "comfortable", "touch"]
+            const textScales = [1, 3]
+            for (let i = 0; i < modes.length; ++i) {
+                Tk.Density.modeName = modes[i]
+                for (let j = 0; j < textScales.length; ++j) {
+                    Tk.Density.textScale = textScales[j]
+                    const regular = createTemporaryObject(slider, root)
+                    const small = createTemporaryObject(smallSlider, root)
+                    const range = createTemporaryObject(rangeSlider, root)
+                    const rangeSmall = createTemporaryObject(smallRangeSlider, root)
+                    verify(regular && small && range && rangeSmall)
+                    const touchTarget = modes[i] === "touch" ? Tk.Theme.size.control : 0
+                    compare(regular.height, Math.max(regular.rowHeight, touchTarget))
+                    compare(small.height, Math.max(small.rowHeight, touchTarget))
+                    compare(range.height, Math.max(range.rowHeight, touchTarget))
+                    compare(rangeSmall.height, Math.max(rangeSmall.rowHeight, touchTarget))
+                    compare(regular.handleSize, Tk.Theme.size.grip)
+                    compare(small.handleSize, Tk.Theme.space.md)
+                    compare(range.handleSize, Tk.Theme.size.grip)
+                    compare(rangeSmall.handleSize, Tk.Theme.space.md)
+                    if (modes[i] === "compact") {
+                        compare(regular.height, 16)
+                        compare(small.height, 14)
+                        compare(range.height, 16)
+                        compare(rangeSmall.height, 14)
+                    }
+                    regular.destroy()
+                    small.destroy()
+                    range.destroy()
+                    rangeSmall.destroy()
+                }
+            }
+        } finally {
+            Tk.Density.modeName = formerMode
+            Tk.Density.textScale = formerTextScale
+        }
+    }
+
+    function test_sliderVisualMetricsStayAuthoredAtThreeTimesTextScale() {
+        const formerMode = Tk.Density.modeName
+        const formerTextScale = Tk.Density.textScale
+        try {
+            Tk.Density.modeName = "touch"
+            Tk.Density.textScale = 3
+            const regular = createTemporaryObject(slider, root)
+            const small = createTemporaryObject(smallSlider, root)
+            const range = createTemporaryObject(rangeSlider, root)
+            const rangeSmall = createTemporaryObject(smallRangeSlider, root)
+            verify(regular && small && range && rangeSmall)
+            verify(regular.height >= 48)
+            verify(small.height >= 48)
+            verify(range.height >= 48)
+            verify(rangeSmall.height >= 48)
+            compare(regular.rowHeight, Tk.Theme.size.iconLg)
+            compare(small.rowHeight, Tk.Theme.size.icon)
+            compare(range.rowHeight, Tk.Theme.size.iconLg)
+            compare(rangeSmall.rowHeight, Tk.Theme.size.icon)
+        } finally {
+            Tk.Density.modeName = formerMode
+            Tk.Density.textScale = formerTextScale
+        }
+    }
 
     function test_themed_controls_keep_a_touch_sized_target() {
         const formerMode = Tk.Density.modeName

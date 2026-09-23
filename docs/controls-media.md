@@ -117,7 +117,10 @@ objectNames: `timeRuler`, `timeRulerTicks`, `timeRulerPlayhead`.
 ## RangeSlider
 
 Two handles on one track, for a band rather than a point. Matches `Slider`'s
-metrics so a range and a value sit on the same inspector grid.
+metrics so a range and a value sit on the same inspector grid. Its Compact
+height is 16px (14px small), with normal density scaling in Comfortable;
+Touch gives the control a minimum 48px target while keeping its track and
+handles compact.
 
 | Property | Default | Meaning |
 |---|---|---|
