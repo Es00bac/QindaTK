@@ -16,6 +16,13 @@ T.MenuItem {
     // A member of an exclusive group: a dot instead of a check when checked.
     // Exclusivity itself is the owner's (an action model, a ButtonGroup).
     property bool radio: false
+    readonly property string accessibleText: text.replace(/&(?!&)/g, "").replace(/&&/g, "&")
+
+    Accessible.role: Accessible.MenuItem
+    Accessible.name: accessibleText
+    Accessible.focusable: item.enabled
+    Accessible.checked: item.checked
+    Accessible.onPressAction: if (item.enabled) item.click()
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             implicitContentWidth + leftPadding + rightPadding)
@@ -54,7 +61,7 @@ T.MenuItem {
         Tk.Label {
             objectName: "menuItemText"
             // '&' marks the mnemonic for the keyboard; '&&' is a literal.
-            text: item.text.replace(/&(?!&)/g, "").replace(/&&/g, "&")
+            text: item.accessibleText
             font.pixelSize: Tk.Theme.font.small
             color: !item.enabled ? Tk.Theme.color.textDisabled
                  : item.danger ? Tk.Theme.color.danger : Tk.Theme.color.text

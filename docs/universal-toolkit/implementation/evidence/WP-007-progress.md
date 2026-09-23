@@ -93,6 +93,12 @@ FND-07 through FND-10.
   guarded accessible reset action. Owner zoom synchronization stays silent;
   disabled user operations are ignored.
   [Focused evidence](WP-007-FIX-F04-zoom-control.md).
+- `MenuItem` now exposes its mnemonic-clean name, checked state and disabled
+  focusability to accessibility clients, with `Accessible.pressAction` routed
+  through its enabled template click. `MenuBar` and menu entries expose
+  explicit roles and names. Space, Return and Alt mnemonics emit `triggered`
+  on accepted user actions; owner checked-state changes stay silent.
+  [Focused evidence](WP-007-FIX-F04-menu-actions.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,

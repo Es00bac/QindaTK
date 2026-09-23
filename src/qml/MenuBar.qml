@@ -8,6 +8,9 @@ import QindaTK as Tk
 T.MenuBar {
     id: bar
 
+    Accessible.role: Accessible.MenuBar
+    Accessible.name: "Menu bar"
+
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             contentWidth + leftPadding + rightPadding)
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
@@ -19,6 +22,9 @@ T.MenuBar {
 
     delegate: T.MenuBarItem {
         id: entry
+
+        Accessible.role: Accessible.MenuItem
+        Accessible.name: entry.text.replace(/&(?!&)/g, "").replace(/&&/g, "&")
 
         implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                                 implicitContentWidth + leftPadding + rightPadding)
@@ -32,7 +38,7 @@ T.MenuBar {
         contentItem: Tk.Label {
             // The '&' mnemonic marker is for the keyboard (Alt+letter,
             // handled by the template), not for the eye.
-            text: entry.text.replace(/&(?!&)/g, "").replace(/&&/g, "&")
+            text: entry.Accessible.name
             font.pixelSize: Tk.Theme.font.small
             color: !entry.enabled ? Tk.Theme.color.textDisabled
                  : entry.highlighted || entry.hovered ? Tk.Theme.color.text : Tk.Theme.color.textMuted

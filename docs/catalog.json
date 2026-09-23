@@ -3404,6 +3404,14 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "accessibleText",
+          "type": "string",
+          "default": "text.replace(/&(?!&)/g, \"\").replace(/&&/g, \"&\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
