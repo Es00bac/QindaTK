@@ -22,6 +22,12 @@ All containers share these rules:
 - Layout runs on the next polish after any change; `relayout()` runs it
   now. Layouts converge after a child's implicit size reacts to its new
   size (wrapping text, nested containers).
+- Width-dependent intrinsic convergence relies on each child publishing its
+  updated `implicitWidth`/`implicitHeight`. `Flex` and `Grid` observe those
+  changes and schedule another polish; `Box` and `Scroll` expose the
+  children's implicit sizes and do not infer content size from arbitrary
+  child geometry. A wrapper with geometry-only children should provide an
+  explicit implicit size when its parent needs to measure it.
 - Padding: `padding` plus `paddingLeft/Top/Right/Bottom`; a side set to
   `-1` (the default) inherits `padding`. Gaps: `gap` plus `rowGap` and
   `columnGap`; `-1` inherits `gap`.
