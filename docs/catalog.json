@@ -4272,6 +4272,291 @@
       ]
     },
     {
+      "name": "EditableGrid",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: EditableGridModel owns cell data, transactions, section geometry/order, frozen counts and range identity. This view owns only the active cell/editor and the two viewport offsets.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/EditableGrid.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.EditableGridModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Editable grid\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeaderWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.tableColumn",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.header",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnLabel",
+          "type": "var",
+          "default": "function(id, index) { return String(index + 1) }",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowLabel",
+          "type": "var",
+          "default": "function(id, index) { return String(index + 1) }",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeRowId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeColumnId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "anchorRowId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "anchorColumnId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollX",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollY",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showHeaders",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "alternatingRows",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cellEditing",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dataEpoch",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingRowId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingColumnId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bodyWidth",
+          "type": "real",
+          "default": "Math.max(0, width - (showHeaders ? rowHeaderWidth : 0))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bodyHeight",
+          "type": "real",
+          "default": "Math.max(0, height - (showHeaders ? headerHeight : 0))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleCellRecords",
+          "type": "var",
+          "default": "collectVisibleCells()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeRow",
+          "type": "int",
+          "default": "model ? model.rowIndex(activeRowId) : -1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeColumn",
+          "type": "int",
+          "default": "model ? model.columnIndex(activeColumnId) : -1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "currentCellChanged",
+          "parameters": "string rowId, string columnId"
+        },
+        {
+          "name": "editCommitted",
+          "parameters": "string rowId, string columnId, var value"
+        },
+        {
+          "name": "editCancelled",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "accessibleDescription",
+          "parameters": ""
+        },
+        {
+          "name": "collectVisibleCells",
+          "parameters": ""
+        },
+        {
+          "name": "moveCurrent",
+          "parameters": "rowDelta, columnDelta, extend"
+        },
+        {
+          "name": "setCurrent",
+          "parameters": "row, column, extend"
+        },
+        {
+          "name": "ensureCurrentVisible",
+          "parameters": ""
+        },
+        {
+          "name": "clampScroll",
+          "parameters": ""
+        },
+        {
+          "name": "beginCellEdit",
+          "parameters": ""
+        },
+        {
+          "name": "commitCellEdit",
+          "parameters": "value"
+        },
+        {
+          "name": "cancelCellEdit",
+          "parameters": ""
+        },
+        {
+          "name": "pasteMatrix",
+          "parameters": "firstRow, firstColumn, rows"
+        },
+        {
+          "name": "fillSelection",
+          "parameters": "targetRow, targetColumn"
+        },
+        {
+          "name": "onGeometryChanged",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "gridCellEditor",
+        "gridCellViewport",
+        "gridCell_",
+        "gridColumnHeaders",
+        "gridCornerHeader",
+        "gridRangeOverlay",
+        "gridRowHeaders",
+        "gridWheel"
+      ]
+    },
+    {
       "name": "EmptyState",
       "kind": "qml",
       "base": "Item",
@@ -5682,6 +5967,117 @@
         "formGroupBody",
         "formGroupHeader"
       ]
+    },
+    {
+      "name": "HeaderView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: section positions, order and size come from EditableGridModel. The view receives viewport geometry and never keeps a parallel size map.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/HeaderView.qml",
+      "properties": [
+        {
+          "name": "gridModel",
+          "type": "Tk.EditableGridModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "orientation",
+          "type": "int",
+          "default": "Qt.Horizontal",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollX",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollY",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeaderWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.tableColumn",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sectionLabel",
+          "type": "var",
+          "default": "function(id, index) { return String(index + 1) }",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "orientation === Qt.Horizontal",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "geometryEpoch",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "horizontal",
+          "type": "bool",
+          "default": "orientation === Qt.Horizontal",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sections",
+          "type": "var",
+          "default": "sectionRecords()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "sectionRecords",
+          "parameters": ""
+        },
+        {
+          "name": "requestResize",
+          "parameters": "section, size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": []
     },
     {
       "name": "Heading",
@@ -8532,6 +8928,87 @@
       "valueType": false,
       "bridge": false,
       "objectNames": []
+    },
+    {
+      "name": "RangeSelectionOverlay",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: endpoints live in EditableGridModel by stable ID; this overlay only resolves the current geometry and never stores selection state.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RangeSelectionOverlay.qml",
+      "properties": [
+        {
+          "name": "gridModel",
+          "type": "Tk.EditableGridModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollX",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollY",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeaderWidth",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerHeight",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rectangles",
+          "type": "var",
+          "default": "resolveRectangles()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "resolveRectangles",
+          "parameters": ""
+        },
+        {
+          "name": "split",
+          "parameters": "first, last, frozenCount"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "gridRangeSelection_"
+      ]
     },
     {
       "name": "RangeSlider",

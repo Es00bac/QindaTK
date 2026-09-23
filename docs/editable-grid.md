@@ -95,3 +95,24 @@ command can replay the same edit twice.
 The model does not implement spreadsheet formulas, persistence, accessible
 virtual cells or keyboard focus. Those belong to the domain model and the
 EditableGrid/HeaderView/RangeSelectionOverlay view layer.
+
+## QML view layer
+
+`Tk.EditableGrid` is a `T.Control` over this model. It applies the current
+`Theme.size.row` and `Theme.size.tableColumn` as model defaults, instantiates
+the cells returned by the four visible regions, and keeps only viewport
+offsets plus active/editing endpoint IDs. The `gridCellViewport` clip keeps
+scrolling content below frozen rows and columns; cell delegates in frozen
+regions draw above the body. `Tk.HeaderView` resolves visible section IDs and
+geometry from the model on structural or geometry changes. Dragging a header
+seam resizes its model section; dragging the section body submits a stable-ID
+move. `Tk.RangeSelectionOverlay` splits a selection at frozen row/column
+boundaries so the visible borders follow the four distinct cell regions.
+
+Keyboard navigation keeps focus on the table and exposes its current cell,
+value and dimensions through the accessible name/description path. Visible
+cells also expose row, column and value names. Enter or F2 moves focus to the
+cell editor; edits remember the cell's row and column IDs until commit even if
+the selection changes. Escape cancels. The view exposes `pasteMatrix` and
+`fillSelection` as host integration points for clipboard and fill-handle
+adapters; the model validates and commits either operation atomically.

@@ -40,7 +40,7 @@ as though a later fix had already passed the earlier run.
 | [WP-025 — Add preferences, shortcut editing and find/replace](phase-02-controls-data.md#wp-025) | 02 | Luna | review | [Focused persistence, search and undo checks](evidence/WP-025.md) |
 | [WP-026 — Add history, notifications and task feedback](phase-02-controls-data.md#wp-026) | 02 | Luna | review | [Focused feedback checks](evidence/WP-026.md) |
 | [WP-027 — Implement virtual lists, trees and asset grids](phase-02-controls-data.md#wp-027) | 02 | Luna | review | [100k-model, lazy tree and bounded-delegate checks](evidence/WP-027.md) |
-| [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | active | [C++ grid foundation in isolated lane](evidence/WP-028.md) |
+| [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | review | [Sparse core, bounded visual grid and interaction checks](evidence/WP-028.md) |
 | [WP-029 — Implement filters, query building and pivots](phase-02-controls-data.md#wp-029) | 02 | Sol | planned | — |
 | [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | active | [C++ chart foundation in isolated lane](evidence/WP-030.md) |
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | planned | — |

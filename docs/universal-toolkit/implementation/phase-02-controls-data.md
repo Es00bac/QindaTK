@@ -167,7 +167,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-028"></a>
 ## WP-028 — Implement editable two-dimensional grids
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-022](phase-02-controls-data.md#wp-022), [WP-027](phase-02-controls-data.md#wp-027)
+**Implementation lead:** Sol. **Status:** review. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-022](phase-02-controls-data.md#wp-022), [WP-027](phase-02-controls-data.md#wp-027)
 
 **Proposal scope:** [DAT-04 EditableGrid](../proposed/03-data-views.md#dat-04), [DAT-05 HeaderView](../proposed/03-data-views.md#dat-05), [DAT-06 RangeSelectionOverlay](../proposed/03-data-views.md#dat-06)
 

@@ -77,13 +77,18 @@ T.Control {
                     selected: root.selectionModel && root.selectionModel.selectedIds.indexOf(rowHost.stableId) >= 0
                     active: root.selectionModel && root.selectionModel.currentId === rowHost.stableId
                     tooltip: rowHost.labelText
+                    onClicked: root.selectRow(rowHost.index, Qt.NoModifier)
                     onRightClicked: function(position) { root.contextRequested(rowHost.stableId, position) }
                     onDoubleClicked: root.activated(rowHost.stableId)
                 }
-                TapHandler {
+                MouseArea {
+                    anchors.fill: parent
                     acceptedButtons: Qt.LeftButton
-                    gesturePolicy: TapHandler.ReleaseWithinBounds
-                    onTapped: function(eventPoint) { root.selectRow(rowHost.index, eventPoint.modifiers) }
+                    onClicked: function(mouse) {
+                        root.selectRow(rowHost.index, mouse.modifiers)
+                        root.forceActiveFocus()
+                    }
+                    onDoubleClicked: root.activated(rowHost.stableId)
                 }
                 Accessible.role: Accessible.ListItem
                 Accessible.name: rowHost.labelText
