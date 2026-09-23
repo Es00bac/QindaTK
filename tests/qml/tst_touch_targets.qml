@@ -350,4 +350,54 @@ TestCase {
         }
     }
 
+    function test_narrow_large_text_gallery_sections_remain_reachable_in_high_contrast() {
+        const formerMode = Tk.Density.modeName
+        const formerTextScale = Tk.Density.textScale
+        const formerPreset = Tk.Theme.preset
+        try {
+            Tk.Density.modeName = "touch"
+            Tk.Density.textScale = 3
+            const loader = createTemporaryObject(gallery, root, { width: 480, height: 320 })
+            verify(loader !== null)
+            tryCompare(loader, "status", Loader.Ready)
+            waitForRendering(loader.item)
+
+            const content = findChild(loader.item, "galleryScroll")
+            const search = findChild(loader.item, "sectionFilter")
+            verify(content && search)
+            const cases = [
+                { filter: "Buttons", section: "gallerySection_Buttonsandchips" },
+                { filter: "Text", section: "gallerySection_Text" },
+                { filter: "Theme", section: "gallerySection_Theme" },
+                { filter: "Structure", section: "gallerySection_Structure" },
+                { filter: "Document app parts", section: "gallerySection_Documentappparts" }
+            ]
+
+            for (const preset of ["high-contrast-dark", "high-contrast-light"]) {
+                Tk.Theme.applyPreset(preset)
+                for (const testCase of cases) {
+                    search.text = testCase.filter
+                    waitForRendering(loader.item)
+                    const section = findChild(content, testCase.section)
+                    verify(section !== null)
+                    tryCompare(section, "visible", true)
+                    verify(section.width <= content.width + 0.5,
+                           testCase.filter + " section width " + section.width
+                           + " exceeds gallery width " + content.width)
+                    tryVerify(function() { return content.scrollableY })
+
+                    content.contentY = content.contentHeight - content.viewportHeight
+                    tryVerify(function() {
+                        return Math.abs(content.contentY
+                                        - (content.contentHeight - content.viewportHeight)) < 1
+                    })
+                }
+            }
+        } finally {
+            Tk.Theme.applyPreset(formerPreset)
+            Tk.Density.modeName = formerMode
+            Tk.Density.textScale = formerTextScale
+        }
+    }
+
 }
