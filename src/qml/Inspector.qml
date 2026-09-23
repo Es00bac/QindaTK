@@ -30,35 +30,50 @@ Item {
                 visible: !inspector.filterText.length || String(modelData.label || "").toLowerCase().includes(inspector.filterText.toLowerCase())
                 label: modelData.label || modelData.id || ""
                 hint: modelData.helpText || ""
-                Tk.UnitField {
+                Tk.MixedValueField {
                     visible: modelData.editorType === "number" || !modelData.editorType
                     binding: modelData.binding || null
                     label: modelData.label || ""
                     tooltip: modelData.tooltip || modelData.label || ""
-                    displayUnit: modelData.displayUnit || ""
-                    units: modelData.units || []
-                    unitScale: modelData.unitScale === undefined ? 1 : modelData.unitScale
-                    unitOffset: modelData.unitOffset === undefined ? 0 : modelData.unitOffset
-                    precision: modelData.precision === undefined ? 2 : modelData.precision
-                    stepSize: modelData.stepSize === undefined ? 1 : modelData.stepSize
+                    Tk.UnitField {
+                        displayUnit: modelData.displayUnit || ""
+                        units: modelData.units || []
+                        unitScale: modelData.unitScale === undefined ? 1 : modelData.unitScale
+                        unitOffset: modelData.unitOffset === undefined ? 0 : modelData.unitOffset
+                        precision: modelData.precision === undefined ? 2 : modelData.precision
+                        stepSize: modelData.stepSize === undefined ? 1 : modelData.stepSize
+                        binding: modelData.binding || null
+                        label: modelData.label || ""
+                        tooltip: modelData.tooltip || modelData.label || ""
+                    }
                 }
-                Tk.VectorField {
+                Tk.MixedValueField {
                     visible: modelData.editorType === "vector"
                     binding: modelData.binding || null
+                    label: modelData.label || ""
+                    tooltip: modelData.tooltip || modelData.label || ""
+                    Tk.VectorField {
                     componentLabels: modelData.componentLabels || ["X", "Y", "Z"]
                     componentUnits: modelData.componentUnits || []
                     tooltip: modelData.tooltip || modelData.label || ""
+                    binding: modelData.binding || null
+                    }
                 }
-                Tk.TextField {
+                Tk.MixedValueField {
                     visible: modelData.editorType === "text"
-                    enabled: modelData.binding ? modelData.binding.writable : false
-                    text: modelData.binding && !modelData.binding.mixed ? String(modelData.binding.value) : ""
-                    placeholderText: modelData.binding && modelData.binding.mixed ? qsTr("Multiple values") : ""
+                    binding: modelData.binding || null
+                    label: modelData.label || ""
                     tooltip: modelData.tooltip || modelData.label || ""
-                    onEditingFinished: {
-                        if (modelData.binding && modelData.binding.begin()) {
-                            if (modelData.binding.update(text)) modelData.binding.commit()
-                            else modelData.binding.cancel()
+                    Tk.TextField {
+                        enabled: modelData.binding ? modelData.binding.writable : false
+                        text: modelData.binding && !modelData.binding.mixed ? String(modelData.binding.value) : ""
+                        placeholderText: modelData.binding && modelData.binding.mixed ? qsTr("Multiple values") : ""
+                        tooltip: modelData.tooltip || modelData.label || ""
+                        onEditingFinished: {
+                            if (modelData.binding && modelData.binding.begin()) {
+                                if (modelData.binding.update(text)) modelData.binding.commit()
+                                else modelData.binding.cancel()
+                            }
                         }
                     }
                 }
