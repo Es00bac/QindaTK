@@ -44,6 +44,10 @@ Item {
     // in response to markerMoved.
     property var _markerDelegates: ({})
     property string _markerFocusRestoreId: ""
+    // The owner receives a requested position and decides whether/how to add
+    // the marker. This command's position is transient interaction state.
+    property real _tabInsertPosition: 0
+    readonly property real tabInsertStep: Tk.Theme.space.unit
 
     readonly property bool horizontal: ruler.orientation === Qt.Horizontal
 
@@ -99,6 +103,22 @@ Item {
         if (!ruler.enabled || !markerData || markerData.draggable === false || markerData.kind !== "tab")
             return false
         ruler.tabRemoved(markerData.id)
+        return true
+    }
+    function adjustTabInsertPosition(direction) {
+        if (!ruler.enabled || !ruler.horizontal)
+            return false
+        const next = Math.max(0, Math.min(ruler.width,
+            ruler._tabInsertPosition + direction * ruler.tabInsertStep))
+        if (next === ruler._tabInsertPosition)
+            return false
+        ruler._tabInsertPosition = next
+        return true
+    }
+    function requestTabAtInsertPosition() {
+        if (!ruler.enabled || !ruler.horizontal)
+            return false
+        ruler.tabAdded(Math.max(0, Math.min(ruler.width, ruler._tabInsertPosition)))
         return true
     }
     function markerName(kind) {
@@ -325,6 +345,61 @@ Item {
             }
         }
     }
+    Item {
+        id: tabInsertCommand
+        objectName: "rulerTabInsertCommand"
+        x: ruler._tabInsertPosition - width / 2
+        y: ruler.height / 2 - height / 2
+        width: Tk.Theme.size.controlSm
+        height: Tk.Theme.size.controlSm
+        activeFocusOnTab: ruler.enabled && ruler.horizontal
+        Accessible.role: Accessible.Slider
+        Accessible.name: qsTr("Tab stop insertion position")
+        Accessible.description: qsTr("Position %1 pixels. Use Left and Right to adjust by %2 pixels; press Enter to add a tab stop.")
+            .arg(Math.round(ruler._tabInsertPosition)).arg(ruler.tabInsertStep)
+        Accessible.focusable: ruler.enabled && ruler.horizontal
+        Accessible.focused: activeFocus
+        Accessible.onIncreaseAction: ruler.adjustTabInsertPosition(1)
+        Accessible.onDecreaseAction: ruler.adjustTabInsertPosition(-1)
+        Accessible.onPressAction: ruler.requestTabAtInsertPosition()
+        Keys.onPressed: function(event) {
+            if (!ruler.enabled || !ruler.horizontal)
+                return
+            if (event.key === Qt.Key_Left) {
+                ruler.adjustTabInsertPosition(-1)
+                event.accepted = true
+            } else if (event.key === Qt.Key_Right) {
+                ruler.adjustTabInsertPosition(1)
+                event.accepted = true
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                ruler.requestTabAtInsertPosition()
+                event.accepted = true
+            }
+        }
+        Component.onCompleted: ruler._tabInsertPosition = ruler.width / 2
+        Rectangle {
+            objectName: "rulerTabInsertIndicator"
+            anchors.fill: parent
+            anchors.margins: -Tk.Theme.size.focusRing
+            color: Qt.rgba(Tk.Theme.color.focus.r, Tk.Theme.color.focus.g,
+                           Tk.Theme.color.focus.b, Tk.Theme.opacity.hidden)
+            border.width: Tk.Theme.size.focusRing
+            border.color: Tk.Theme.color.focus
+            visible: tabInsertCommand.activeFocus
+        }
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            width: Tk.Theme.size.border * 2
+            height: parent.height - Tk.Theme.space.xs
+            color: Tk.Theme.color.accent
+            visible: tabInsertCommand.activeFocus
+        }
+        Tk.ToolTip {
+            text: tabInsertCommand.Accessible.name + " · " + tabInsertCommand.Accessible.description
+            visible: tabInsertCommand.activeFocus
+        }
+    }
     MouseArea {
         id: markerArea
         objectName: "rulerMarkerArea"
@@ -395,7 +470,10 @@ Item {
     onMinimumMinorSpacingChanged: canvas.requestPaint()
     onLabelsChanged: canvas.requestPaint()
     onUnitChanged: canvas.requestPaint()
-    onWidthChanged: canvas.requestPaint()
+    onWidthChanged: {
+        canvas.requestPaint()
+        _tabInsertPosition = Math.max(0, Math.min(width, _tabInsertPosition))
+    }
     onHeightChanged: canvas.requestPaint()
 
     Connections {

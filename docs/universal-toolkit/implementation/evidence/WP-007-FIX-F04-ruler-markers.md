@@ -27,11 +27,20 @@ adjust by `Tk.Theme.space.unit` pixels, clamp to the ruler bounds and use the
 same `markerMoved(id, position)` operation as pointer dragging. Focus follows
 the marker when the owner replaces its marker array in response to the signal.
 
+The distinct `rulerTabInsertCommand` Slider is the keyboard and accessible
+tab insertion path. It starts at the ruler midpoint, exposes its current pixel
+position, and adjusts in `space.unit` steps with Left/Right or accessible
+increase/decrease. Enter and accessible press each make one `tabAdded(position)`
+request. Its themed focused indicator marks the requested location. The app
+still owns `markers` and applies that request; owner replacement does not
+generate another insertion signal. Pointer double-click on an empty point in
+the bottom half remains available.
+
 Markers with `draggable: false` are exposed as static text and reject keyboard,
 assistive and pointer edits. Disabling the ruler blocks user changes while
 owner assignment to `markers` remains silent. Delete removes a focused
 draggable tab through the existing `tabRemoved(id)` signal; other marker kinds
-are not deleted. Tab creation remains a pointer double-click operation.
+are not deleted.
 
 ## Verification
 
@@ -51,10 +60,22 @@ are not deleted. Tab creation remains a pointer double-click operation.
 - `tst_ruler_marker_accessibility.qml` covers keyboard and assistive changes,
   focus restoration after owner replacement, accessible name/role/position,
   both bounds, read-only/disabled guards, silent owner updates and Delete for
-  tabs. `tst_ruler_marker_targets.qml` retains synthetic Touch edge coverage,
+  tabs. It also covers Tab focus to the insertion command, keyboard and
+  accessible position changes, Enter/press insertion, one signal per command,
+  owner marker assignment and the disabled gate. `tst_ruler_marker_targets.qml` retains synthetic Touch edge coverage,
   nearest-target and exact-tie resolution, unchanged artwork geometry, and
   empty-region double-click insertion. `tst_controls_structure.qml` covers
   Compact marker dragging and insertion.
+- After insertion support was added, the full QML suite passed 299/299 on both
+  Qt 6.11.1 and Qt 6.8.3. The focused insertion test passed on both versions;
+  `all_qmllint` completed successfully (Qt 6.8 reports the existing static
+  type-map warnings).
+- The Compact focused preview dump reported `Ruler#previewRuler 40,30 420x22`,
+  `Item#rulerTabInsertCommand 200,1 20x20`,
+  `Rectangle#rulerTabInsertIndicator -2,-2 24x24`, and the accent position
+  line `Rectangle 9,1 2x18`. The grab at `/tmp/ruler-tab-insert-preview.png`
+  was opened and reviewed; the focused location is visible without changing
+  the ruler's 420x22 geometry.
 
 ## Limits
 

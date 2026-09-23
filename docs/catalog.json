@@ -4919,6 +4919,14 @@
           "required": false
         },
         {
+          "name": "tabInsertStep",
+          "type": "real",
+          "default": "Tk.Theme.space.unit",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "horizontal",
           "type": "bool",
           "default": "ruler.orientation === Qt.Horizontal",
@@ -4963,6 +4971,14 @@
           "parameters": "markerData"
         },
         {
+          "name": "adjustTabInsertPosition",
+          "parameters": "direction"
+        },
+        {
+          "name": "requestTabAtInsertPosition",
+          "parameters": ""
+        },
+        {
           "name": "markerName",
           "parameters": "kind"
         }
@@ -4979,7 +4995,9 @@
         "rulerActiveBand",
         "rulerBand",
         "rulerMarkerArea",
-        "rulerMarker_"
+        "rulerMarker_",
+        "rulerTabInsertCommand",
+        "rulerTabInsertIndicator"
       ]
     },
     {

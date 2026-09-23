@@ -41,6 +41,24 @@ TestCase {
             onTabRemoved: markers = []
         }
     }
+    Component {
+        id: insertionFocusSceneComponent
+        Item {
+            width: 360
+            height: 80
+            Tk.Button { objectName: "beforeInsertion"; text: "Before"; width: 80; height: 24 }
+            Tk.Ruler {
+                id: insertionRuler
+                objectName: "insertionRuler"
+                y: 28
+                width: 320
+                height: 22
+                onTabAdded: function(position) {
+                    markers = [{ id: "ownerTab", position: position, kind: "tab", draggable: true }]
+                }
+            }
+        }
+    }
 
     function marker(ruler, markerId) {
         return findChild(ruler, "rulerMarker_" + markerId)
@@ -144,5 +162,55 @@ TestCase {
         compare(removed.count, 1)
         compare(removed.signalArguments[0][0], "tabA")
         compare(ruler.markers.length, 0)
+    }
+
+    function test_tabInsertionTabFocusKeyboardAndAccessibleActions() {
+        const scene = createTemporaryObject(insertionFocusSceneComponent, root)
+        verify(scene !== null)
+        const ruler = findChild(scene, "insertionRuler")
+        const command = findChild(ruler, "rulerTabInsertCommand")
+        const indicator = findChild(ruler, "rulerTabInsertIndicator")
+        verify(command !== null)
+        verify(indicator !== null)
+        compare(command.Accessible.role, Accessible.Slider)
+        compare(command.Accessible.name, "Tab stop insertion position")
+        verify(command.Accessible.focusable)
+        verify(command.Accessible.description.indexOf("Position 160 pixels") >= 0)
+        const added = spyOn(ruler, "tabAdded")
+
+        findChild(scene, "beforeInsertion").forceActiveFocus()
+        keyClick(Qt.Key_Tab)
+        verify(command.activeFocus)
+        verify(indicator.visible)
+        keyClick(Qt.Key_Right)
+        compare(added.count, 0)
+        verify(command.Accessible.description.indexOf("Position 164 pixels") >= 0)
+        keyClick(Qt.Key_Return)
+        compare(added.count, 1)
+        compare(added.signalArguments[0][0], 164)
+        compare(ruler.markers.length, 1)
+        compare(ruler.markers[0].position, 164)
+
+        command.Accessible.increaseAction()
+        verify(command.Accessible.description.indexOf("Position 168 pixels") >= 0)
+        command.Accessible.pressAction()
+        compare(added.count, 2)
+        compare(added.signalArguments[1][0], 168)
+        compare(ruler.markers.length, 1)
+        compare(ruler.markers[0].position, 168)
+
+        command.Accessible.decreaseAction()
+        verify(command.Accessible.description.indexOf("Position 164 pixels") >= 0)
+        compare(added.count, 2)
+        ruler.enabled = false
+        verify(!command.Accessible.focusable)
+        command.Accessible.increaseAction()
+        command.Accessible.pressAction()
+        keyClick(Qt.Key_Right)
+        keyClick(Qt.Key_Return)
+        compare(added.count, 2)
+        verify(command.Accessible.description.indexOf("Position 164 pixels") >= 0)
+        compare(ruler.markers.length, 1)
+        compare(ruler.markers[0].position, 168)
     }
 }
