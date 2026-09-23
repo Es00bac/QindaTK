@@ -8736,6 +8736,140 @@
       ]
     },
     {
+      "name": "GradientEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "Host-owned gradient stop presentation. The host supplies stable stop records { id, position, color }; this item owns only the active pointer preview.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GradientEditor.qml",
+      "properties": [
+        {
+          "name": "stops",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedStopId",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Gradient stops\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackInset",
+          "type": "real",
+          "default": "Tk.Theme.size.iconSm",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "drag.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewStop",
+          "type": "var",
+          "default": "drag.active ? drag.snapshot : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handleY",
+          "type": "real",
+          "default": "Tk.Theme.size.controlSm + Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectionRequested",
+          "parameters": "var stopId"
+        },
+        {
+          "name": "addStopRequested",
+          "parameters": "real position"
+        },
+        {
+          "name": "movePreviewRequested",
+          "parameters": "var stopId, real position"
+        },
+        {
+          "name": "moveFinished",
+          "parameters": "var stopId, real position"
+        },
+        {
+          "name": "moveCanceled",
+          "parameters": "var stopId"
+        },
+        {
+          "name": "deleteStopRequested",
+          "parameters": "var stopId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "clampedPosition",
+          "parameters": "x"
+        },
+        {
+          "name": "stopAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "beginDrag",
+          "parameters": "stop, x"
+        },
+        {
+          "name": "updateDrag",
+          "parameters": "x"
+        },
+        {
+          "name": "finishDrag",
+          "parameters": ""
+        },
+        {
+          "name": "cancelDrag",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "gradientEditor",
+        "gradientPointer",
+        "gradientPreview",
+        "gradientStop_",
+        "gradientTrack"
+      ]
+    },
+    {
       "name": "GuideLayer",
       "kind": "qml",
       "base": "Item",

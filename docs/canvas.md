@@ -408,6 +408,17 @@ This is a WP-043 presentation slice. A domain curve evaluator must supply
 interpolation, tangents, constraints, typed units, transaction history and
 persisted samples. The editor does not infer those from the displayed line.
 
+<a id="gradient-editor"></a>
+## GradientEditor
+
+`Tk.GradientEditor` presents host-owned `{id, position, color}` stop records,
+with stable IDs and normalized positions. Pointer actions emit selection,
+add, move-preview, move-finish, move-cancel and delete requests. A click
+selects without committing. The root keeps an active drag snapshot if the
+host replaces the stop array during a preview, and Escape cancels that drag.
+The host supplies canonical colors and owns interpolation, validation,
+persistence and undo; the widget's gradient strip is only a visual preview.
+
 <a id="viewport"></a>
 ## Relationship to Viewport
 
