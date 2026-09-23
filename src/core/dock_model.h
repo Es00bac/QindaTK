@@ -91,6 +91,11 @@ public:
     Q_INVOKABLE void moveFloating(const QString &panelId, double x, double y);
     Q_INVOKABLE void resizeFloating(const QString &panelId, double width, double height);
     Q_INVOKABLE void setFloatingRect(const QString &panelId, double x, double y, double width, double height);
+    // Keep every floating panel header reachable in a host-local viewport.
+    // Panel size and arrangement remain model-owned; only its origin moves.
+    Q_INVOKABLE bool constrainFloatingToViewport(double width, double height,
+                                                   double reachableHeaderWidth,
+                                                   double headerHeight);
     // Extent of a docked panel's lane (width for side zones, height else).
     Q_INVOKABLE void resizeDocked(const QString &panelId, double extent);
     Q_INVOKABLE void setLaneExtent(const QString &zone, int lane, double extent);

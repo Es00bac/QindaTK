@@ -20,7 +20,7 @@ View menu, a preset, or a script without touching the host.
 | **order** | Position of a slot inside its lane, renumbered 0..n-1 after every move. |
 | **share** | Relative weight of a slot inside its lane (stacked slots split the lane by share). Group members share one weight. |
 | **group** | Panels in the same lane with the same `group` id form one slot with a tab strip; `groupActive` marks the shown tab. |
-| **floatingRect** | Position and size while floating (host coordinates); `zOrder` stacks floating panels. |
+| **floatingRect** | Position and size while floating (host-local coordinates); `zOrder` stacks floating panels. On restore or host shrink, the host asks DockModel to move the rectangle so a usable part of its header remains inside the viewport. |
 | **allowedZones** | Optional list a panel may dock into; absent means any zone. `minWidth`/`minHeight` floor the lane extent and the floating size. `fixedSize` refuses floating resizes. |
 
 ## DockModel API
@@ -57,7 +57,7 @@ bumps on every change).
 | `registerPreset(workspace, presetId, states)` / `applyPreset(id)` / `presets` | Named arrangements: `states` maps panelId → arrangement map (or a bare mode string, PanelLayoutController style); applying starts from the defaults and overlays the preset. |
 | `saveLayout(name)` / `applyLayout(name)` / `deleteLayout(name)` / `savedLayouts` | User-named snapshots of the active workspace. |
 | `persist()` / `restore()` | Whole state under `storageKey` in QSettings (automatic after every change when the key is set). |
-| `serialize()` / `deserialize(json)` | The same state as a JSON string, for custom storage. |
+| `serialize()` / `deserialize(json)` | The same state as a JSON string, for custom storage. Restore accepts schema version 1 and validates the complete payload before applying any changes; unsupported versions and malformed nested arrangements leave model and pending-panel state untouched. Unknown panel IDs remain pending for later registration. |
 
 Signals: `workspaceChanged`, `layoutChanged`, `savedLayoutsChanged`,
 `storageKeyChanged`, `panelShown(panelId)`.
@@ -108,6 +108,16 @@ menu), `hiddenPanels`, `dragging`/`dragId`/`dropTarget` (read-only drag
 state), signal `panelDropped(panelId)`. Functions: `showPanel(id)`,
 `hidePanel(id)`, `togglePanel(id)`, `floatPanel(id)`, `resetLayout()`,
 `applyPreset(id)`, `declarationOf(id)` (the DockPanel), `panelTitle(id)`.
+
+Floating rectangles belong to the host coordinate space. Once the host has
+a nonzero viewport, and after either viewport dimension changes, DockHost
+calls `DockModel.constrainFloatingToViewport(width, height,
+reachableHeaderWidth, headerHeight)`. The model preserves each panel's size
+and moves only its origin. At least a header-width strip and the header's
+height stay reachable; if the host is smaller than those dimensions, the
+reachable dimensions shrink to the viewport. This is also applied after
+restore. The operation is idempotent and emits a layout change only if a
+rectangle moved.
 
 `DockPanel` properties: `panelId`, `title`, `iconName`, `mode`, `zone`,
 `lane`, `order` (-1 = declaration index), `extent`, `share`, `minWidth`,
@@ -185,8 +195,13 @@ remaining non-overlapping segment cannot contain a target is disabled. This
 preserves distinct, safe hit areas but cannot guarantee 48px targets for a
 panel whose minimum dimensions are below the space required for eight handles.
 | press anywhere on a floating panel | `bringToFront` |
-| collapse button on a floating panel | shade to the header (host-side state) |
+| collapse button on a floating panel | shade to the header (transient host presentation state) |
 | Escape in a focused floating panel | `hide` |
+
+Floating shade state belongs to DockHost presentation. It remains while the
+same host rebuilds frames, clears when the host switches workspaces, and is
+not included in DockModel serialization. Restarting the application restores
+floating panels at their saved size rather than shaded.
 
 ## Mapping from QindaStudio's PanelLayoutController
 

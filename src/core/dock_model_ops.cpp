@@ -4,6 +4,7 @@
 #include "dock_model_p.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace QindaTK {
 
@@ -44,6 +45,38 @@ void DockModel::setFloatingRect(const QString &panelId, double x, double y, doub
                                        std::max(height, p->minimumSize.height())));
     }
     touched();
+}
+
+bool DockModel::constrainFloatingToViewport(double width, double height,
+                                            double reachableHeaderWidth,
+                                            double headerHeight)
+{
+    if (!std::isfinite(width) || !std::isfinite(height)
+        || !std::isfinite(reachableHeaderWidth) || !std::isfinite(headerHeight)
+        || width <= 0 || height <= 0 || reachableHeaderWidth <= 0 || headerHeight <= 0) {
+        return false;
+    }
+    bool changed = false;
+    Workspace *ws = activeWorkspace();
+    if (ws == nullptr) return false;
+    for (auto it = ws->begin(); it != ws->end(); ++it) {
+        PanelState &panel = it.value();
+        if (panel.mode != Floating) continue;
+        QRectF &rect = panel.floatingRect;
+        const qreal reachableWidth = std::min({qreal(reachableHeaderWidth), qreal(width), rect.width()});
+        const qreal reachableHeight = std::min({qreal(headerHeight), qreal(height), rect.height()});
+        const qreal minX = reachableWidth - rect.width();
+        const qreal maxX = width - reachableWidth;
+        const qreal x = std::clamp(std::isfinite(rect.x()) ? rect.x() : qreal(0), minX, maxX);
+        const qreal y = std::clamp(std::isfinite(rect.y()) ? rect.y() : qreal(0),
+                                   qreal(0), height - reachableHeight);
+        if (!qFuzzyCompare(rect.x() + 1, x + 1) || !qFuzzyCompare(rect.y() + 1, y + 1)) {
+            rect.moveTo(x, y);
+            changed = true;
+        }
+    }
+    if (changed) touched();
+    return changed;
 }
 
 void DockModel::resizeDocked(const QString &panelId, double extent)

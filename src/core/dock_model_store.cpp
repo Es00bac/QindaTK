@@ -5,13 +5,81 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonValue>
 #include <QSettings>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 namespace QindaTK {
 
 using namespace DockModelDetail;
+
+namespace {
+
+bool finiteNumber(const QJsonValue &value)
+{
+    return value.isDouble() && std::isfinite(value.toDouble());
+}
+
+bool validArrangement(const QJsonValue &value)
+{
+    if (!value.isObject()) return false;
+    const QJsonObject map = value.toObject();
+    if (map.contains(QStringLiteral("mode"))) {
+        const QJsonValue mode = map.value(QStringLiteral("mode"));
+        if (!mode.isString()) return false;
+        const QString name = mode.toString();
+        if (name != QStringLiteral("docked") && name != QStringLiteral("floating")
+            && name != QStringLiteral("collapsed") && name != QStringLiteral("hidden")) return false;
+    }
+    for (const QString &key : {QStringLiteral("zone"), QStringLiteral("dockZone")}) {
+        if (map.contains(key) && (!map.value(key).isString()
+                                  || !DockModel::zoneNames().contains(map.value(key).toString()))) return false;
+    }
+    for (const QString &key : {QStringLiteral("lane"), QStringLiteral("order"), QStringLiteral("zOrder")}) {
+        if (map.contains(key) && (!finiteNumber(map.value(key))
+                                  || std::floor(map.value(key).toDouble()) != map.value(key).toDouble()
+                                  || map.value(key).toDouble() < std::numeric_limits<int>::min()
+                                  || map.value(key).toDouble() > std::numeric_limits<int>::max())) return false;
+    }
+    if (map.contains(QStringLiteral("lane")) && map.value(QStringLiteral("lane")).toDouble() < 0) return false;
+    for (const QString &key : {QStringLiteral("extent"), QStringLiteral("share")}) {
+        if (map.contains(key) && (!finiteNumber(map.value(key)) || map.value(key).toDouble() < 0)) return false;
+    }
+    if (map.contains(QStringLiteral("group")) && !map.value(QStringLiteral("group")).isString()) return false;
+    if (map.contains(QStringLiteral("groupActive")) && !map.value(QStringLiteral("groupActive")).isBool()) return false;
+    if (map.contains(QStringLiteral("floatingRect"))) {
+        const QJsonValue rectValue = map.value(QStringLiteral("floatingRect"));
+        if (!rectValue.isObject()) return false;
+        const QJsonObject rect = rectValue.toObject();
+        for (const QString &key : {QStringLiteral("x"), QStringLiteral("y"),
+                                   QStringLiteral("width"), QStringLiteral("height")}) {
+            if (!finiteNumber(rect.value(key))) return false;
+        }
+        if (rect.value(QStringLiteral("width")).toDouble() <= 0
+            || rect.value(QStringLiteral("height")).toDouble() <= 0) return false;
+    }
+    return true;
+}
+
+bool validLayouts(const QJsonValue &value)
+{
+    if (!value.isObject()) return false;
+    for (const QJsonValue &workspace : value.toObject()) {
+        if (!workspace.isObject()) return false;
+        for (const QJsonValue &layout : workspace.toObject()) {
+            if (!layout.isObject()) return false;
+            for (const QJsonValue &arrangement : layout.toObject()) {
+                if (!validArrangement(arrangement)) return false;
+            }
+        }
+    }
+    return true;
+}
+
+} // namespace
 
 // AGENT-CONTRACT: the persisted arrangement of one panel. Keys are stable
 // across releases; add keys, never rename them, and read absent keys as
@@ -231,7 +299,20 @@ bool DockModel::deserialize(const QString &json)
     if (error.error != QJsonParseError::NoError || !document.isObject()) {
         return false;
     }
-    const QVariantMap root = document.object().toVariantMap();
+    const QJsonObject rootObject = document.object();
+    const QJsonValue version = rootObject.value(QStringLiteral("version"));
+    const QJsonValue workspacesValue = rootObject.value(QStringLiteral("workspaces"));
+    const QJsonValue savedValue = rootObject.value(QStringLiteral("saved"));
+    if (!finiteNumber(version) || version.toDouble() != 1 || !workspacesValue.isObject()
+        || (rootObject.contains(QStringLiteral("saved")) && !validLayouts(savedValue))) return false;
+    const QJsonObject workspacesObject = workspacesValue.toObject();
+    for (const QJsonValue &workspaceValue : workspacesObject) {
+        if (!workspaceValue.isObject()) return false;
+        for (const QJsonValue &arrangement : workspaceValue.toObject()) {
+            if (!validArrangement(arrangement)) return false;
+        }
+    }
+    const QVariantMap root = rootObject.toVariantMap();
     m_restoring = true;
     const QVariantMap workspaces = root.value(QStringLiteral("workspaces")).toMap();
     for (auto ws = workspaces.cbegin(); ws != workspaces.cend(); ++ws) {

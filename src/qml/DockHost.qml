@@ -63,6 +63,7 @@ Item {
     property var frames: ({})
     property var floatingFrames: ({})
     property bool ready: false
+    property bool floatConstraintScheduled: false
 
     signal panelDropped(string panelId)
     signal panelPlacementAccepted(string panelId)
@@ -169,6 +170,25 @@ Item {
         next[panelId] = shaded
         host.shadedIds = next
         host.gen = host.gen + 1
+    }
+
+    function clearShading() {
+        if (Object.keys(host.shadedIds).length === 0) return
+        host.shadedIds = ({})
+        host.gen = host.gen + 1
+    }
+
+    function scheduleFloatConstraint() {
+        if (!host.ready || host.floatConstraintScheduled) return
+        host.floatConstraintScheduled = true
+        Qt.callLater(function() {
+            host.floatConstraintScheduled = false
+            if (host.model !== null && host.width > 0 && host.height > 0) {
+                host.model.constrainFloatingToViewport(host.width, host.height,
+                                                       Tk.Theme.size.header * 2,
+                                                       Tk.Theme.size.header)
+            }
+        })
     }
 
     // ---- structure ---------------------------------------------------------
@@ -347,6 +367,7 @@ Item {
 
     onCanvasChanged: seatCanvas()
     onWorkspaceChanged: {
+        host.clearShading()
         if (host.ready && host.model !== null) {
             host.model.workspace = host.workspace
             host.registerAll()
@@ -361,6 +382,8 @@ Item {
             host.refresh()
         }
     }
+    onWidthChanged: scheduleFloatConstraint()
+    onHeightChanged: scheduleFloatConstraint()
 
     Component.onCompleted: {
         if (host.model === null) {
@@ -374,12 +397,13 @@ Item {
         host.seatCanvas()
         host.ready = true
         host.refresh()
+        host.scheduleFloatConstraint()
     }
 
     Connections {
         target: host.model
         function onLayoutChanged() { host.refresh() }
-        function onWorkspaceChanged() { host.refresh() }
+        function onWorkspaceChanged() { host.clearShading(); host.refresh(); host.scheduleFloatConstraint() }
     }
 
     Shortcut {
