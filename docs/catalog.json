@@ -8653,7 +8653,7 @@
       "name": "ThemeColors",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: colour roles. Nine base roles (bg, surface, panel, border, text, textMuted, accent, accentContrast, danger) plus the three status colours are authored by a preset, a theme file, or QindaQt's tokens; every other role is derived from them by theme_presets.cpp with the mix ratios measured from Sloom Studio. Controls read derived roles, never mix themselves, so a theme stays coherent when its accent changes.",
+      "description": "AGENT-CONTRACT: colour roles. Nine base roles (bg, surface, panel, border, text, textMuted, accent, accentContrast, danger) plus the three status colours are authored by a preset, a theme file, or QindaQt's tokens; every other role is derived from them by theme_presets.cpp with the mix ratios measured from Sloom Studio or the explicit high-contrast overrides. Controls read derived roles, never mix themselves, so a theme stays coherent when its accent changes.",
       "singleton": false,
       "attached": null,
       "file": "src/core/theme.h",

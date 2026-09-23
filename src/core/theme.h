@@ -229,6 +229,9 @@ public:
     void setBase(const QString &name, qreal value);
     [[nodiscard]] qreal base(const QString &name) const;
     void rescale(qreal factor);
+    // Raise a resolved metric without changing its authorable base value.
+    // The next rescale starts from the base before applying this floor again.
+    void raiseResolved(const QString &name, qreal minimum);
     [[nodiscard]] QStringList names() const;
     [[nodiscard]] QVariantMap toMap() const;
 

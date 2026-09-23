@@ -101,7 +101,7 @@ private slots:
         density->setMode(Density::Comfortable);
         density->setTextScale(1.5);
         QCOMPARE(theme->font()->body(), 18.0);
-        QCOMPARE(theme->size()->metric(QStringLiteral("control")), 29.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("control")), 30.0);
 
         density->setScaleFonts(true);
         QCOMPARE(theme->font()->body(), 22.0);
@@ -112,6 +112,21 @@ private slots:
         density->setScaleFonts(false);
         QCOMPARE(theme->font()->body(), 12.0);
         density->setMode(Density::Compact);
+    }
+    void textScaleRaisesTextRowMinimumsAndCanReset()
+    {
+        Theme *theme = Theme::instance();
+        Density *density = Density::instance();
+        density->setTextScale(2.0);
+        QCOMPARE(theme->font()->body(), 24.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("row")), 34.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("control")), 36.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("menuItem")), 34.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("header")), 34.0);
+        density->setTextScale(0.5);
+        QCOMPARE(theme->size()->metric(QStringLiteral("row")), 22.0);
+        density->setTextScale(1.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("control")), 24.0);
     }
     void textScaleClampsAndIgnoresNonFiniteValues()
     {

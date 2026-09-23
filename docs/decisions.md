@@ -263,3 +263,26 @@ their behavior. Future scoped work must cover inheritance across item trees,
 popup reparenting, window movement, runtime scope changes, density and text
 scale, and the bridge's global-token policy before advertising mixed-theme
 windows. The other WP-007 foundations still require implementation and tests.
+
+## D-017 — Raise text-bearing chrome heights for user text zoom
+
+**Context.** `Tk.Density.textScale` can increase the font ramp independently
+of compact/comfortable/touch density. An integrated gallery run at 2× text
+zoom showed a 30px label at y=-4 inside a 22px segment, visibly spilling
+across the row. Scaling fonts without a corresponding minimum for fixed
+chrome heights does not provide a usable large-text path.
+
+**Decision.** Keep the authored density-scaled `Tk.Theme.size` ladder as the
+floor. After fonts resolve, raise text-bearing vertical roles to the larger
+of that floor and a documented font-based minimum. The affected roles are
+controlSm/control/controlLg, chip, row/rowLg, tab, toolbar, menuItem, header,
+statusBar and timeRuler. Recompute from authored bases on every theme/density
+change so reducing text zoom or changing a JSON/QST font base cannot leave
+stale larger sizes. Width and icon roles retain their existing contracts.
+
+**Consequences.** At compact density with 2× default text, row is 34px and
+control is 36px; a segment's 30px label fits its 34px row in the preview
+dump. Control heights can grow even when density mode stays compact. Fixed
+application widths can still crowd at large text, so this is a necessary
+foundation, not WP-007's complete large-text acceptance. The source of
+truth is `Theme::finishUpdate()` and the WP-007 visual evidence.

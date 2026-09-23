@@ -32,6 +32,15 @@ inside the Overlay. `docs/controls.md` records the live-update behavior.
 - `python tools/scripts/gen_catalog.py` completed and left the generated
   catalog unchanged; no generated type metadata changed.
 
+After integration, Qt 6.11.1 and 6.8.3 Debug builds and all 16 current
+CTest targets passed on each version. A separate `qtk-preview` scene opened
+the popover, moved its anchor to the host's lower-right edge, and used a
+300ms settle time. The dump showed `Rectangle#movingAnchor 275,170 40x24`
+and `PopupItem#Popover 208,138 110x60` within the 320×200 overlay. The
+software-rendered PNG was opened and showed the whole popup inside the host.
+These ignored artifacts are `build/popover-moving-anchor.qml` and
+`build/popover-moving-anchor.png` in the integration worktree.
+
 ## Remaining FND-09 work
 
 This change does not qualify focus return, dynamic monitor/work-area changes,

@@ -22,7 +22,7 @@ Process-wide visual configuration shared by QML engines and C++ callers.
 
 **Source:** [src/core/theme.h](../../../src/core/theme.h) · **Base:** `QObject` · **Kind:** C++ singleton.
 
-Use color, font, space, radius, size, motion, opacity and ramp groups. Presets are sloom-dark, sloom-light and graphite; applyRoles, setColor, setMetric, loadFile/loadJson and applyQst change the theme. reducedMotion zeros animation durations. This styles interface chrome; it does not color-manage document pixels or supply per-window theme isolation.
+Use color, font, space, radius, size, motion, opacity and ramp groups. Presets are sloom-dark, sloom-light, graphite, high-contrast-dark and high-contrast-light; applyRoles, setColor, setMetric, loadFile/loadJson and applyQst change the theme. reducedMotion zeros animation durations. This styles interface chrome; it does not color-manage document pixels or supply per-window theme isolation.
 
 **Declared members:** `color: QindaTK::ThemeColors *` (ro), `font: QindaTK::ThemeFont *` (ro), `space: QindaTK::ThemeMetrics *` (ro), `radius: QindaTK::ThemeMetrics *` (ro), `size: QindaTK::ThemeMetrics *` (ro), `motion: QindaTK::ThemeMetrics *` (ro), `opacity: QindaTK::ThemeMetrics *` (ro), `ramp: QindaTK::ThemeRamps *` (ro), `preset: QString`, `name: QString` (ro), `dark: bool` (ro), `reducedMotion: bool`, `generation: qulonglong` (ro).
 
@@ -38,7 +38,7 @@ Process-wide sizing policy for compact, comfortable and touch interfaces.
 
 **Source:** [src/core/density.h](../../../src/core/density.h) · **Base:** `QObject` · **Kind:** C++ singleton.
 
-mode/modeName choose scales 1.0, 1.2 and 1.5. space and size ladders scale and round; scaleFonts optionally composes density with typography. textScale independently changes the Tk.Theme.font ramp (0.5–3.0, default 1.0) without changing layout metrics. px rounds; scaled preserves fractional values. A larger density alone does not supply touch gestures or accessible hit targets for every custom part.
+mode/modeName choose scales 1.0, 1.2 and 1.5. space and size ladders scale and round; scaleFonts optionally composes density with typography. textScale independently changes the Tk.Theme.font ramp (0.5–3.0, default 1.0) and raises text-bearing vertical size minimums when needed. px rounds; scaled preserves fractional values. A larger density alone does not supply touch gestures or accessible hit targets for every custom part.
 
 **Declared members:** `mode: Mode`, `modeName: QString`, `scale: qreal` (ro), `scaleFonts: bool`, `textScale: qreal`.
 

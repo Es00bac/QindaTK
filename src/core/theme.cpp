@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace QindaTK {
 
@@ -199,6 +200,13 @@ void ThemeMetrics::rescale(qreal factor)
     for (const QString &name : std::as_const(m_order)) {
         const qreal value = m_base.value(name);
         insert(name, m_scalable ? std::round(value * m_factor) : value);
+    }
+}
+
+void ThemeMetrics::raiseResolved(const QString &name, qreal minimum)
+{
+    if (m_base.contains(name) && std::isfinite(minimum) && minimum > metric(name)) {
+        insert(name, minimum);
     }
 }
 
@@ -437,9 +445,6 @@ QColor Theme::onColor(const QColor &bg) const
 
 void Theme::rescale()
 {
-    const qreal scale = Density::instance()->scale();
-    m_space->rescale(scale);
-    m_size->rescale(scale);
     ThemePresets::applyMotion(*this, m_reducedMotion);
     finishUpdate();
 }
@@ -447,9 +452,28 @@ void Theme::rescale()
 void Theme::finishUpdate()
 {
     ++m_generation;
+    const qreal scale = Density::instance()->scale();
+    m_space->rescale(scale);
+    m_size->rescale(scale);
     const qreal densityScale = Density::instance()->scaleFonts()
-        ? Density::instance()->scale() : 1.0;
+        ? scale : 1.0;
     ThemePresets::rescaleFonts(*this, densityScale * Density::instance()->textScale());
+    // AGENT-CONTRACT: user text zoom keeps the authored density ladder, then
+    // raises text-bearing row heights enough for the enlarged font. A smaller
+    // zoom never shrinks Sloom's measured chrome. Recompute from base on every
+    // update so preset/JSON font changes and zoom resets cannot leave stale
+    // minimums behind.
+    const qreal body = m_font->body();
+    const qreal caption = m_font->caption();
+    for (const auto &[name, minimum] : {
+             std::pair{"controlSm", body + 8}, std::pair{"control", body + 12},
+             std::pair{"controlLg", body + 16}, std::pair{"chip", body + 20},
+             std::pair{"row", body + 10}, std::pair{"rowLg", body + 16},
+             std::pair{"tab", body + 10}, std::pair{"toolbar", body + 24},
+             std::pair{"menuItem", body + 10}, std::pair{"header", caption + 14},
+             std::pair{"statusBar", caption + 12}, std::pair{"timeRuler", caption + 12}}) {
+        m_size->raiseResolved(QString::fromLatin1(name), minimum);
+    }
     // AGENT-GUARD: ramps are derived from the colour roles, so they must be
     // rebuilt before changed() lets any binding read Theme.ramp again.
     m_ramp->rebuild(*m_color);

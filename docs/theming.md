@@ -139,6 +139,14 @@ The `size` values are measurements of Sloom Studio at 100% (see
 `installBaseMetrics` in `theme_presets.cpp`). `Tk.Theme.size.get("row")`
 reads a key by name.
 
+When text zoom grows, text-bearing vertical sizes keep the larger of their
+density-scaled base and a font-based minimum. This applies to control,
+controlSm, controlLg, chip, row, rowLg, tab, toolbar, menuItem, header,
+statusBar and timeRuler. For example, at compact density and 2× text zoom,
+`row` resolves to 34px and `control` to 36px while a 30px segment label fits
+inside its 34px row. This does not enlarge widths or turn fixed application
+layouts into responsive layouts; inspect narrow and large-text scenes.
+
 ## Telemetry ramps (`Tk.Theme.ramp`)
 
 A ramp is a value-to-colour scale, for readings that should be understood by
@@ -192,10 +200,13 @@ independent user text zoom for `Tk.Theme.font`; it is clamped to `0.5`–`3.0`
 and ignores non-finite values. The effective font factor is `textScale`, or
 `textScale × Density.scale` when `scaleFonts` is enabled. Assigning `1.0`
 resets user text zoom without changing density or `scaleFonts`. For example,
-`Tk.Density.textScale = 1.25` enlarges text by 25% while leaving spacing and
-control sizes alone. JSON and QST font sizes remain the unscaled base ramp,
-so changing or resetting text zoom never compounds previously published
-font sizes. `px(v)` and `scaled(v)` scale a value by hand. Radii, motion and
+`Tk.Density.textScale = 1.25` enlarges text by 25% independently of density.
+Spacing stays the same while text-bearing vertical sizes gain the minimums
+described above. Some fixed application widths still crowd or elide content;
+WP-007's full large-text workflow qualification remains open. JSON and QST
+font sizes remain the unscaled base ramp, so changing or resetting text zoom
+never compounds previously published font sizes. `px(v)` and `scaled(v)`
+scale a value by hand. Radii, motion and
 opacity never scale; the 1px border does not scale either because
 `size.border` is scalable but rounds back to 1 at every mode.
 

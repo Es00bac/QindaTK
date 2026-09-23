@@ -21,7 +21,7 @@ as though a later fix had already passed the earlier run.
 | [WP-004 — Make the catalog a reliable API inventory](phase-00-baseline.md#wp-004) | 00 | Luna | accepted | [101-entry catalog and generator evidence](evidence/WP-004.md) |
 | [WP-005 — Isolate private Qt dependencies and establish support targets](phase-00-baseline.md#wp-005) | 00 | Sol | accepted | [Qt 6.8.3/6.11.1 implementation and staged-consumer evidence](evidence/WP-005.md); [D-015](../../decisions.md#d-015--keep-private-qt-behind-a-public-stylus-facade) |
 | [WP-006 — Complete layout and scrolling contracts](phase-00-baseline.md#wp-006) | 00 | Sol | active | [Geometry baseline and algorithm decisions](evidence/WP-006-diagnostics.md) |
-| [WP-007 — Harden theme, popup and control interaction behavior](phase-00-baseline.md#wp-007) | 00 | Sol | active | [Source inventory](evidence/WP-007-inventory.md); [SectionHeader/TimeRuler integrated progress](evidence/WP-007-progress.md) |
+| [WP-007 — Harden theme, popup and control interaction behavior](phase-00-baseline.md#wp-007) | 00 | Sol | active | [Source inventory](evidence/WP-007-inventory.md); [interaction, theme and text-scale progress](evidence/WP-007-progress.md); [popover repair](evidence/WP-007-FND-09-popover.md) |
 | [WP-010 — Define typed cross-layer contracts and capability discovery](phase-01-services.md#wp-010) | 01 | Sol | planned | — |
 | [WP-011 — Unify commands, contexts, shortcuts and focus](phase-01-services.md#wp-011) | 01 | Sol | planned | — |
 | [WP-012 — Implement reversible editing, stable selection and properties](phase-01-services.md#wp-012) | 01 | Sol | planned | — |
