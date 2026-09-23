@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
 
@@ -45,6 +46,7 @@ Item {
     signal editCommitted(string transactionId)
     signal rangeCommitted(string startTicks, string endTicks)
     signal rangeCleared()
+    signal rangeNumericEditRequested()
 
     function xOf(ticks) {
         if (!lanes.viewport || ticks.length === 0) return -lanes.width
@@ -305,6 +307,7 @@ Item {
         onRangeCommitted: function(start, end) { lanes.rangeCommitted(start, end) }
         onRangeRejected: function(reason) { lanes.editRejected(reason) }
         onRangeCleared: lanes.rangeCleared()
+        onNumericEditRequested: lanes.rangeNumericEditRequested()
     }
 
     Rectangle {

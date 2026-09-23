@@ -57,7 +57,14 @@ TestCase {
         rejected.clear()
         waitForRendering(timeline)
     }
-    function init() { load() }
+    function init() {
+        const editor = findChild(timeline, "timelineTimingEditor")
+        if (editor && editor.visible) {
+            editor.close()
+            tryCompare(editor, "visible", false)
+        }
+        load()
+    }
     function lanes() { return timeline.lanes }
     function clipItem(id) { return findChild(timeline.lanes, "clip_" + id) }
     function drag(item, fromX, fromY, toX, toY) {
@@ -263,6 +270,56 @@ TestCase {
         verify(session.compareTicks(after, before) > 0)
         mouseRelease(lanes(), 596, 28)
         compare(session.clipData(clipA).start, after)
+        compare(session.historyCount, 1)
+    }
+
+    function test_numericEntryForClipsAndRanges() {
+        const editor = findChild(timeline, "timelineTimingEditor")
+        verify(editor)
+        verify(timeline.openTimingEditor(clipA))
+        tryCompare(editor, "opened", true)
+        const start = findChild(editor.contentItem, "timingStartField")
+        const length = findChild(editor.contentItem, "timingLengthField")
+        compare(start.text, session.formatTicks(ticks(1), "timecode", false))
+        compare(length.text, session.formatDuration(ticks(1), "timecode"))
+        start.text = "not a time"
+        verify(!editor.apply())
+        verify(editor.errorText.length > 0)
+        compare(session.clipData(clipA).start, ticks(1)) // nothing changed
+        start.text = "00:00:04:00"
+        length.text = "00:00:00:15"
+        verify(editor.apply())
+        compare(session.clipData(clipA).start, session.frameStartTicksText("120"))
+        compare(session.clipData(clipA).duration, session.parseDuration("00:00:00:15", "timecode").value)
+        tryCompare(editor, "opened", false)
+        // The edit range takes numeric start/end through the same editor.
+        verify(session.setEditRange(ticks(1), ticks(2)))
+        const handle = findChild(timeline.editRange, "timeSelectionHandle_end")
+        handle.forceActiveFocus()
+        keyClick(Qt.Key_Return)
+        tryCompare(editor, "opened", true)
+        compare(editor.mode, "range")
+        findChild(editor.contentItem, "timingLengthField").text = "00:00:03:00"
+        verify(editor.apply())
+        compare(session.editRangeEnd, session.frameStartTicksText("90"))
+        compare(session.editRangeStart, ticks(1)) // untouched: exact, not the displayed frame
+        tryCompare(editor, "visible", false)
+    }
+
+    function test_markerDragAutoscrolls() {
+        timeline.snapEnabled = false
+        const lane = timeline.markerLane
+        mousePress(lane, 500, 11)
+        mouseMove(lane, 540, 11)
+        mouseMove(lane, 596, 11)
+        verify(lane.dragging)
+        const before = session.editPreview.appliedDelta
+        lane.autoScrollStep(0.25)
+        verify(timeline.viewport.originTicks !== "0")
+        verify(session.compareTicks(session.editPreview.appliedDelta, before) > 0)
+        mouseRelease(lane, 596, 11)
+        verify(!lane.dragging)
+        verify(session.compareTicks(session.markerData(cue).position, ticks(5.96)) > 0)
         compare(session.historyCount, 1)
     }
 }

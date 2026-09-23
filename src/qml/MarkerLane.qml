@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
 
@@ -112,6 +113,20 @@ Item {
     function cancelDrag() {
         if (internal.operationId.length > 0 && lane.model) lane.model.cancelEdit(internal.operationId)
         internal.operationId = ""
+        internal.autoScroll = 0
+    }
+    function updateDrag() {
+        if (internal.operationId.length === 0) return
+        lane.model.updateEdit(internal.operationId, {
+            pointerTicks: lane.viewport.ticksForX(Math.max(0, Math.min(lane.width, internal.pointerX))),
+            snap: lane.snapEnabled, snapToleranceTicks: lane.viewport.ticksForPixels(lane.snapPixels),
+            grid: lane.snapGrid, playheadTicks: lane.playheadTicks })
+    }
+    // One autoscroll step while a marker is dragged near either edge.
+    function autoScrollStep(seconds) {
+        if (internal.operationId.length === 0 || internal.autoScroll === 0) return
+        lane.viewport.scrollByPixels(internal.autoScroll * Tk.Theme.size.dropEdge * 30 * seconds, 0)
+        lane.updateDrag()
     }
 
     objectName: "markerLane"
@@ -148,6 +163,13 @@ Item {
     QtObject {
         id: internal
         property string operationId: ""
+        property real pointerX: 0
+        property real autoScroll: 0
+    }
+
+    FrameAnimation {
+        running: internal.operationId.length > 0 && internal.autoScroll !== 0
+        onTriggered: lane.autoScrollStep(frameTime)
     }
 
     Connections {
@@ -271,12 +293,14 @@ Item {
                 }
                 internal.operationId = begun.operationId
             }
-            lane.model.updateEdit(internal.operationId, {
-                pointerTicks: lane.viewport.ticksForX(mouse.x), snap: lane.snapEnabled,
-                snapToleranceTicks: lane.viewport.ticksForPixels(lane.snapPixels),
-                grid: lane.snapGrid, playheadTicks: lane.playheadTicks })
+            internal.pointerX = mouse.x
+            const edge = Tk.Theme.size.dropEdge
+            internal.autoScroll = mouse.x < edge ? -Math.min(1, (edge - mouse.x) / edge)
+                                : mouse.x > lane.width - edge ? Math.min(1, (mouse.x - lane.width + edge) / edge) : 0
+            lane.updateDrag()
         }
         onReleased: {
+            internal.autoScroll = 0
             if (internal.operationId.length === 0) return
             const operation = internal.operationId
             internal.operationId = ""

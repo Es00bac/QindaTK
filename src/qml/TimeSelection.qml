@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
 
@@ -44,6 +45,7 @@ Item {
     signal rangeCanceled()
     signal rangeRejected(string reason)
     signal rangeCleared()
+    signal numericEditRequested(string handle)
 
     function xOf(ticks) {
         if (!selection.viewport || ticks.length === 0) return 0
@@ -194,6 +196,8 @@ Item {
                 if (event.key === Qt.Key_Left) selection.nudge(handle.modelData, -step)
                 else if (event.key === Qt.Key_Right) selection.nudge(handle.modelData, step)
                 else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) selection.rangeCleared()
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                    selection.numericEditRequested(handle.modelData)
                 else if (event.key === Qt.Key_Escape && selection.dragging) selection.cancelDrag()
                 else return
                 event.accepted = true

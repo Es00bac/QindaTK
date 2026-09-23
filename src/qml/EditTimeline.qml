@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
+import "EditTimelineCommands.js" as Commands
 
 // A virtualized multitrack edit timeline: ruler, marker lane, track headers,
 // clip lanes, edit range and scrollbars over one TimelineModel.
@@ -49,8 +50,13 @@ T.Control {
         const ticks = timeline.model.samplesToTicksText(timeline.transportModel.positionSample)
         return ticks.length > 0 ? ticks : timeline.playheadTicks
     }
+    readonly property string playheadLabel: {
+        if (!timeline.model) return ""
+        void timeline.model.revision
+        return timeline.model.formatTicks(timeline.effectivePlayheadTicks, timeline.displayMode, timeline.dropFrame)
+    }
     readonly property bool dragging: lanesItem.gestureActive || markerLaneItem.dragging
-                                     || internal.trackOperation.length > 0
+                                     || headerColumn.gestureActive
     readonly property real originSeconds: {
         void view.originTicks
         return timeline.model ? timeline.model.ticksToSeconds(view.originTicks) : 0
@@ -92,111 +98,19 @@ T.Control {
         if (id.length > 0) timeline.currentTrackId = timeline.clipRecord(id).trackId
         if (reveal && id.length > 0) view.ensureClipVisible(id, Tk.Theme.size.dropEdge)
     }
+    // Keyboard and assistive commands; each is one applyEdit (see EditTimelineCommands.js).
     function selectClip(id, modifiers) {
-        if (!timeline.selectionModel || id.length === 0) return
-        const anchor = timeline.selectionModel.anchorId
-        if (modifiers & Qt.ControlModifier) {
-            timeline.selectionModel.toggle(id)
-        } else if ((modifiers & Qt.ShiftModifier) && anchor.length > 0 && timeline.model.hasClip(anchor)) {
-            const a = timeline.clipRecord(anchor), b = timeline.clipRecord(id)
-            const start = timeline.model.compareTicks(a.start, b.start) <= 0 ? a.start : b.start
-            const end = timeline.model.compareTicks(a.end, b.end) >= 0 ? a.end : b.end
-            const inside = timeline.model.clipIdsInRect(a.trackId, b.trackId, start, end)
-                           .filter(function(other) { return other !== anchor && other !== id })
-            timeline.selectionModel.extendTo(id, [anchor].concat(inside, [id]))
-        } else {
-            timeline.selectionModel.select(id)
-        }
-        timeline.setCurrentClip(id, false)
+        Commands.selectClip(timeline, id, modifiers, Qt.ShiftModifier, Qt.ControlModifier)
     }
-    function moveCurrentTrack(delta) {
-        if (!timeline.model) return
-        const ids = timeline.model.visibleTrackIds()
-        if (ids.length === 0) return
-        const index = Math.max(0, Math.min(ids.length - 1, ids.indexOf(timeline.currentTrackId) + delta))
-        timeline.currentTrackId = ids[index]
-        view.ensureTrackVisible(timeline.currentTrackId)
-        const reference = timeline.currentClipId.length > 0 ? timeline.clipRecord(timeline.currentClipId).start
-                                                            : timeline.effectivePlayheadTicks
-        const next = timeline.model.nearestClip(timeline.currentTrackId, reference)
-        if (next.length > 0) {
-            timeline.selectionModel.select(next)
-            timeline.setCurrentClip(next, true)
-        } else {
-            timeline.currentClipId = ""
-        }
-    }
+    function moveCurrentTrack(delta) { if (timeline.model) Commands.moveCurrentTrack(timeline, delta) }
     function moveCurrentClip(direction, extend) {
-        if (!timeline.model) return
-        if (timeline.currentTrackId.length === 0) timeline.currentTrackId = timeline.model.visibleTrackIds()[0] || ""
-        const next = timeline.currentClipId.length > 0
-                   ? timeline.model.adjacentClip(timeline.currentClipId, direction)
-                   : timeline.model.edgeClip(timeline.currentTrackId, direction < 0)
-        if (next.length === 0) return
-        timeline.selectClip(next, extend ? Qt.ShiftModifier : Qt.NoModifier)
-        timeline.setCurrentClip(next, true)
+        if (timeline.model) Commands.moveCurrentClip(timeline, direction, extend, Qt.ShiftModifier)
     }
-    function selectionOrCurrent() {
-        if (timeline.selectedClipIds.length > 0) return timeline.selectedClipIds
-        return timeline.currentClipId.length > 0 ? [timeline.currentClipId] : []
-    }
-    function anchorOf(ids) {
-        return ids.indexOf(timeline.currentClipId) >= 0 ? timeline.currentClipId : ids[0]
-    }
-    function stepGrid() {
-        return timeline.snapGrid === "none" ? "frames" : timeline.snapGrid
-    }
-    function nudgeSelection(steps, trackDelta) {
-        const ids = timeline.selectionOrCurrent()
-        if (!timeline.model || ids.length === 0) return false
-        const anchor = timeline.anchorOf(ids)
-        const start = timeline.clipRecord(anchor).start
-        const target = steps === 0 ? start : timeline.model.stepTicks(start, timeline.stepGrid(), steps)
-        const ok = timeline.report(timeline.model.applyEdit(
-            { kind: "move", clipIds: ids, anchorClipId: anchor, grabTicks: start, ripple: timeline.rippleMode },
-            { pointerTicks: target, trackDelta: trackDelta || 0, snap: false }))
-        if (ok) timeline.setCurrentClip(anchor, true)
-        return ok
-    }
-    function trimSelection(edge, steps) {
-        const ids = timeline.selectionOrCurrent()
-        if (!timeline.model || ids.length === 0) return false
-        const anchor = timeline.anchorOf(ids)
-        const from = edge === "start" ? timeline.clipRecord(anchor).start : timeline.clipRecord(anchor).end
-        return timeline.report(timeline.model.applyEdit(
-            { kind: edge === "start" ? "trimStart" : "trimEnd", clipIds: ids, anchorClipId: anchor,
-              grabTicks: from, ripple: timeline.rippleMode },
-            { pointerTicks: timeline.model.stepTicks(from, timeline.stepGrid(), steps), snap: false }))
-    }
-    function splitAtPlayhead() {
-        const ids = timeline.selectionOrCurrent()
-        if (!timeline.model || ids.length === 0) return false
-        return timeline.report(timeline.model.applyEdit({ kind: "split", clipIds: ids },
-                                                        { pointerTicks: timeline.effectivePlayheadTicks, snap: false }))
-    }
-    function deleteSelection(ripple) {
-        const ids = timeline.selectionOrCurrent()
-        if (!timeline.model || ids.length === 0) return false
-        const next = timeline.model.adjacentClip(timeline.currentClipId, 1)
-        if (!timeline.report(timeline.model.applyEdit({ kind: "delete", clipIds: ids, ripple: ripple }))) return false
-        if (next.length > 0 && timeline.model.hasClip(next)) timeline.selectClip(next, Qt.NoModifier)
-        return true
-    }
-    function reorderCurrentTrack(delta) {
-        if (!timeline.model || timeline.currentTrackId.length === 0) return false
-        const ids = timeline.model.trackIds()
-        const index = ids.indexOf(timeline.currentTrackId)
-        const target = index + (delta > 0 ? 2 : -1)
-        if (index < 0 || target < 0 || (delta > 0 && index + 1 >= ids.length)) return false
-        const ok = timeline.report(timeline.model.applyEdit({ kind: "reorderTrack", trackId: timeline.currentTrackId,
-                                                              beforeTrackId: target < ids.length ? ids[target] : "" }))
-        view.ensureTrackVisible(timeline.currentTrackId)
-        return ok
-    }
-    function requestTrackProperty(trackId, property, value) {
-        return timeline.report(timeline.model.applyEdit({ kind: "trackProperty", trackId: trackId,
-                                                          property: property, value: value }))
-    }
+    function nudgeSelection(steps, trackDelta) { return Commands.nudgeSelection(timeline, steps, trackDelta) }
+    function trimSelection(edge, steps) { return Commands.trimSelection(timeline, edge, steps) }
+    function splitAtPlayhead() { return Commands.splitAtPlayhead(timeline) }
+    function deleteSelection(ripple) { return Commands.deleteSelection(timeline, ripple) }
+    function reorderCurrentTrack(delta) { return Commands.reorderCurrentTrack(timeline, delta) }
     function openTimingEditor(id) {
         if (!timeline.model || id.length === 0) return false
         timeline.setCurrentClip(id, true)
@@ -207,39 +121,22 @@ T.Control {
         timingAnchor.height = Math.max(Tk.Theme.size.icon, geometry.height || 0)
         return timingEditor.openClip(id)
     }
+    function openRangeEditor(selection) {
+        if (!timeline.model || !selection || !selection.hasRange) return false
+        internal.rangeTarget = selection
+        timingAnchor.x = Math.max(0, Math.min(lanesItem.width - Tk.Theme.size.icon, selection.startX))
+        timingAnchor.y = 0
+        timingAnchor.width = Tk.Theme.size.icon
+        timingAnchor.height = Tk.Theme.size.icon
+        return timingEditor.openRange(selection.startTicks, selection.endTicks)
+    }
     function zoomBy(factor) {
         view.zoomAround(Math.max(0, Math.min(view.viewportWidth, lanesItem.xOf(timeline.effectivePlayheadTicks))), factor)
     }
     function cancelActiveEdit() {
         const lanesCancelled = lanesItem.cancelGesture()
         if (markerLaneItem.dragging) markerLaneItem.cancelDrag()
-        if (internal.trackOperation.length > 0) timeline.model.cancelEdit(internal.trackOperation)
-        internal.trackOperation = ""
-        return lanesCancelled
-    }
-    function beginTrackGesture(kind, trackId) {
-        const begun = timeline.model.beginEdit({ kind: kind, trackId: trackId, expectedRevision: timeline.model.revision })
-        internal.trackOperation = begun.ok ? begun.operationId : ""
-        internal.trackHeightAtStart = view.trackHeight(trackId)
-        internal.slots = []
-        for (let i = 0; i < view.trackCount; ++i) {
-            const id = view.trackIdAt(i)
-            internal.slots.push({ id: id, top: view.trackY(id) + view.scrollY, height: view.trackHeight(id) })
-        }
-        if (!begun.ok) timeline.report(begun)
-    }
-    function reorderTarget(trackId, y) {
-        const content = y + view.scrollY
-        for (let i = 0; i < internal.slots.length; ++i) {
-            const slot = internal.slots[i]
-            if (content < slot.top + slot.height / 2) return slot.id === trackId ? "" : slot.id
-        }
-        return ""
-    }
-    function finishTrackGesture() {
-        const operation = internal.trackOperation
-        internal.trackOperation = ""
-        if (operation.length > 0) timeline.report(timeline.model.commitEdit(operation))
+        return headerColumn.cancelGesture() || lanesCancelled
     }
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 3
@@ -325,9 +222,7 @@ T.Control {
 
     QtObject {
         id: internal
-        property string trackOperation: ""
-        property real trackHeightAtStart: 0
-        property var slots: []
+        property var rangeTarget: null
     }
 
     Connections {
@@ -343,11 +238,6 @@ T.Control {
             if (!timeline.model.hasClip(timeline.currentClipId)) timeline.currentClipId = ""
             if (timeline.model.trackIds().indexOf(timeline.currentTrackId) < 0) timeline.currentTrackId = ""
         }
-        function onEditInvalidated(operationId, reason) {
-            if (operationId !== internal.trackOperation) return
-            internal.trackOperation = ""
-            timeline.report({ ok: false, error: reason })
-        }
     }
 
     Tk.TimelineTimingEditor {
@@ -358,6 +248,9 @@ T.Control {
         rippleMode: timeline.rippleMode
         anchorItem: timingAnchor
         onEdited: function(result) { timeline.report(result) }
+        onRangeEdited: function(start, end) {
+            if (internal.rangeTarget) internal.rangeTarget.commitRange(start, end)
+        }
         onClosed: timeline.forceActiveFocus()
     }
 
@@ -374,8 +267,7 @@ T.Control {
             Tk.Mono {
                 objectName: "timelinePlayheadReadout"
                 anchors.centerIn: parent
-                text: timeline.model ? (void timeline.model.revision,
-                      timeline.model.formatTicks(timeline.effectivePlayheadTicks, timeline.displayMode, timeline.dropFrame)) : ""
+                text: timeline.playheadLabel
                 color: Tk.Theme.color.text
                 Accessible.role: Accessible.StaticText
                 Accessible.name: qsTr("Playhead %1").arg(text)
@@ -405,6 +297,36 @@ T.Control {
             onScrubbed: function(units) {
                 timeline.seek(view.ticksForX((units - timeline.originSeconds) * view.pixelsPerSecond))
             }
+            // AGENT-CONTRACT: the loop band shows the transport's acknowledged
+            // loop (WP-047); a committed drag only requests a new loop.
+            Tk.TimeSelection {
+                id: loopRange
+                objectName: "timelineLoopRange"
+                anchors.fill: parent
+                kind: "loop"
+                allowEmpty: false
+                viewport: view
+                model: timeline.model
+                enabled: !!timeline.transportModel && timeline.transportModel.canLoop
+                startTicks: timeline.transportModel && timeline.transportModel.loopEnabled && timeline.model
+                            ? timeline.model.samplesToTicksText(timeline.transportModel.loopStartSample) : ""
+                endTicks: timeline.transportModel && timeline.transportModel.loopEnabled && timeline.model
+                          ? timeline.model.samplesToTicksText(timeline.transportModel.loopEndSample) : ""
+                snapEnabled: timeline.snapEnabled
+                snapGrid: timeline.snapGrid
+                snapPixels: timeline.snapPixels
+                playheadTicks: timeline.effectivePlayheadTicks
+                displayMode: timeline.displayMode
+                dropFrame: timeline.dropFrame
+                onRangeCommitted: function(start, end) {
+                    timeline.transportModel.requestLoop(true, timeline.model.ticksToSamplesText(start, Tk.TimeMap.Floor),
+                                                        timeline.model.ticksToSamplesText(end, Tk.TimeMap.Ceil))
+                }
+                onRangeRejected: function(reason) { timeline.report({ ok: false, error: reason }) }
+                onRangeCleared: timeline.transportModel.requestLoop(false, timeline.transportModel.loopStartSample,
+                                                                    timeline.transportModel.loopEndSample)
+                onNumericEditRequested: timeline.openRangeEditor(loopRange)
+            }
         }
         Tk.MarkerLane {
             id: markerLaneItem
@@ -421,60 +343,18 @@ T.Control {
             onEditRejected: function(reason) { timeline.report({ ok: false, error: reason }) }
             onMarkerActivated: function(id) { timeline.seek(timeline.model.markerData(id).position) }
         }
-        Item {
+        Tk.EditTimelineHeaders {
             id: headerColumn
-            objectName: "timelineTrackHeaders"
             Tk.Grid.row: 2
             Tk.Grid.column: 0
-            clip: true
-            Accessible.role: Accessible.Grouping
-            Accessible.name: qsTr("Tracks")
-            Rectangle { anchors.fill: parent; color: Tk.Theme.color.headerBg }
-            Repeater {
-                model: view.tracks
-                delegate: Tk.TrackHeader {
-                    required property string key
-                    required trackId
-                    required name
-                    required kind
-                    required muted
-                    required solo
-                    required armed
-                    required locked
-                    required hidden
-                    required routing
-                    required trackColor
-                    required clipCount
-                    required preview
-                    required property real trackY
-                    required property real trackHeight
-                    y: trackY
-                    width: headerColumn.width
-                    height: trackHeight
-                    current: trackId === timeline.currentTrackId
-                    onSelectRequested: function(id) { timeline.currentTrackId = id; timeline.forceActiveFocus() }
-                    onPropertyRequested: function(id, property, value) { timeline.requestTrackProperty(id, property, value) }
-                    onRenameRequested: function(id, text) { timeline.requestTrackProperty(id, "name", text) }
-                    onHeightStepRequested: function(id, steps) {
-                        timeline.requestTrackProperty(id, "height", Math.round(view.trackHeight(id) + steps * Tk.Theme.space.lg))
-                    }
-                    onResizeStarted: function(id) { timeline.beginTrackGesture("resizeTrack", id) }
-                    onResizeMoved: function(id, delta) {
-                        if (internal.trackOperation.length > 0)
-                            timeline.model.updateEdit(internal.trackOperation, { trackHeight: Math.round(Math.max(
-                                Tk.Theme.size.row, internal.trackHeightAtStart + delta)) })
-                    }
-                    onResizeFinished: timeline.finishTrackGesture()
-                    onResizeCanceled: timeline.cancelActiveEdit()
-                    onReorderStarted: function(id, y) { timeline.beginTrackGesture("reorderTrack", id) }
-                    onReorderMoved: function(id, y) {
-                        if (internal.trackOperation.length > 0)
-                            timeline.model.updateEdit(internal.trackOperation, { beforeTrackId: timeline.reorderTarget(id, y) })
-                    }
-                    onReorderFinished: timeline.finishTrackGesture()
-                    onReorderCanceled: timeline.cancelActiveEdit()
-                }
+            viewport: view
+            model: timeline.model
+            currentTrackId: timeline.currentTrackId
+            onTrackSelected: function(id) {
+                timeline.currentTrackId = id
+                timeline.forceActiveFocus()
             }
+            onEditReported: function(result) { timeline.report(result) }
         }
         Tk.EditTimelineLanes {
             id: lanesItem
@@ -518,6 +398,7 @@ T.Control {
                 if (!timeline.model.setEditRange(start, end)) timeline.report({ ok: false, error: timeline.model.lastError })
             }
             onRangeCleared: timeline.model.clearEditRange()
+            onRangeNumericEditRequested: timeline.openRangeEditor(lanesItem.editRange)
             Item {
                 id: timingAnchor
                 objectName: "timelineTimingAnchor"
