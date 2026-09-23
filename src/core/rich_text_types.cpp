@@ -34,6 +34,20 @@ CharFormat CharFormatPatch::applied(CharFormat format) const
     return format;
 }
 
+void CharFormatPatch::merge(const CharFormatPatch &later)
+{
+    if (later.family) family = later.family;
+    if (later.sizePt) sizePt = later.sizePt;
+    if (later.weight) weight = later.weight;
+    if (later.italic) italic = later.italic;
+    if (later.underline) underline = later.underline;
+    if (later.strike) strike = later.strike;
+    if (later.color) color = later.color;
+    if (later.background) background = later.background;
+    if (later.href) href = later.href;
+    if (later.verticalAlign) verticalAlign = later.verticalAlign;
+}
+
 bool ParagraphFormatPatch::isEmpty() const
 {
     return !alignment && !direction && !indentStartPt && !indentEndPt

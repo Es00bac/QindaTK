@@ -109,6 +109,19 @@ qt_add_qml_module(qindatk
         core/rich_text_structure.cpp core/rich_text_fragment.cpp
         core/rich_text_codec.cpp core/rich_text_codec_read.cpp
         core/rich_text_codec.h core/rich_text_codec_p.h
+        core/rich_text_layout.h core/rich_text_layout_p.h core/rich_text_shaping_p.h
+        core/rich_text_shaping.cpp core/rich_text_pagination.cpp core/rich_text_table_flow.cpp
+        core/rich_text_pages.cpp core/rich_text_mapping.cpp core/rich_text_navigation.cpp
+        core/rich_text_painter.cpp core/rich_text_objects.cpp core/rich_text_objects.h
+        core/rich_text_graphemes.cpp core/rich_text_graphemes.h
+        core/rich_text_area.cpp core/rich_text_area.h core/rich_text_area_input.cpp
+        core/rich_text_area_edit.cpp core/rich_text_area_commands.cpp
+        core/rich_text_format_state.cpp core/rich_text_format_state.h
+        core/rich_text_page_model.cpp core/rich_text_page_model.h core/rich_text_visible_pages.h
+        core/rich_text_tile.cpp core/rich_text_tile.h
+        core/rich_text_clipboard.cpp core/rich_text_clipboard.h
+        core/rich_text_html.cpp core/rich_text_html.h
+        core/rich_text_session_adapter.cpp core/rich_text_session_adapter.h
         core/property_binding.cpp core/property_binding.h
         core/undo_service.cpp core/undo_service.h
         core/validation_model.cpp core/validation_model.h

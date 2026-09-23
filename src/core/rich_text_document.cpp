@@ -6,6 +6,7 @@
 #include <QFontDatabase>
 #include <QJsonDocument>
 #include <QSaveFile>
+#include <QUrl>
 
 namespace QindaTK {
 using namespace RichText;
@@ -438,7 +439,10 @@ bool RichTextDocument::saveToFile(const QString &path)
 
 bool RichTextDocument::loadFromFile(const QString &path)
 {
-    QFile file(path);
+    // Accepts a local path or a file:/qrc: URL (QML's Qt.resolvedUrl).
+    const QUrl url(path);
+    QFile file(url.scheme() == u"file" ? url.toLocalFile()
+               : url.scheme() == u"qrc" ? u':' + url.path() : path);
     if (!file.open(QIODevice::ReadOnly)) {
         reject(ErrorCode::Unavailable, QStringLiteral("Cannot read %1").arg(path));
         return false;

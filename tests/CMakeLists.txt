@@ -116,6 +116,11 @@ set_tests_properties(tst_canvas_render_rhi PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 qindatk_add_test(tst_rich_text_model)
 qindatk_add_test(tst_rich_text_codec)
+qindatk_add_test(tst_rich_text_layout)
+qindatk_add_test(tst_rich_text_scale)
+qindatk_add_test(tst_rich_text_editing)
+qindatk_add_test(tst_rich_text_views)
+qindatk_add_test(tst_rich_text_session)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)

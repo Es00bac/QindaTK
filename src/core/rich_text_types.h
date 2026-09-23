@@ -58,6 +58,7 @@ struct CharFormatPatch {
     std::optional<VerticalAlign> verticalAlign;
     bool isEmpty() const;
     CharFormat applied(CharFormat format) const;
+    void merge(const CharFormatPatch &later); // later's set members win
 };
 
 struct ParagraphFormat {
