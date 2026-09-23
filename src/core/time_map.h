@@ -10,6 +10,15 @@
 
 namespace QindaTK {
 
+namespace detail {
+// Internal fixed-width exact intermediate. Four 32-bit limbs cover every
+// product permitted by TimeMap's validated input ranges on all C++17 compilers.
+struct TimeMapWide {
+    quint32 limb[4] = {};
+    bool negative = false;
+};
+} // namespace detail
+
 // Signed, exact storage domains. Conversions quantize only at their boundary.
 struct SamplePosition { qint64 value = 0; };
 struct FrameIndex { qint64 value = 0; };
@@ -71,14 +80,14 @@ private:
         qint64 microsecondsPerQuarter = 500000;
         int numerator = 4;
         int denominator = 4;
-        __int128 startUnits = 0; // ticks * microseconds/quarter, accumulated exactly
+        detail::TimeMapWide startUnits; // ticks * microseconds/quarter, accumulated exactly
     };
     static std::optional<qint64> parseInteger(const QString &text);
-    static std::optional<qint64> quantize(__int128 numerator, __int128 denominator, Rounding rounding);
+    static std::optional<qint64> quantize(detail::TimeMapWide numerator, quint64 denominator, Rounding rounding);
     static QVariantMap good(qint64 value);
     static QVariantMap bad(const QString &reason);
     static int segmentForTick(const std::vector<Segment> &segments, qint64 tick);
-    int segmentForSample(__int128 sampleDelta) const;
+    int segmentForSample(detail::TimeMapWide sampleDelta) const;
     void reject(const QString &reason);
     int m_sampleRate = 48000;
     RationalFrameRate m_frameRate;

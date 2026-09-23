@@ -24,6 +24,12 @@ void TimeMapTest::frameRateAndRounding() {
     QCOMPARE(map.frameToSample(QStringLiteral("1"), TimeMap::Ceil).value("value").toString(), QStringLiteral("1602"));
     QCOMPARE(map.frameToSample(QStringLiteral("-1"), TimeMap::Floor).value("value").toString(), QStringLiteral("-1602"));
     QCOMPARE(map.frameToSample(QStringLiteral("-1"), TimeMap::NearestAway).value("value").toString(), QStringLiteral("-1602"));
+    map.setSampleRate(1);
+    QVERIFY(map.setFrameRate(2, 1));
+    QCOMPARE(map.frameToSample(QStringLiteral("1"), TimeMap::NearestAway).value("value").toString(), QStringLiteral("1"));
+    QCOMPARE(map.frameToSample(QStringLiteral("-1"), TimeMap::NearestAway).value("value").toString(), QStringLiteral("-1"));
+    QCOMPARE(map.frameToSample(QStringLiteral("-1"), TimeMap::Ceil).value("value").toString(), QStringLiteral("0"));
+    map.setSampleRate(48000);
     QVERIFY(map.setFrameRate(24, 1));
     QCOMPARE(map.frameToSample(QStringLiteral("100")).value("value").toString(), QStringLiteral("200000"));
     QVERIFY(map.setFrameRate(60000, 2002));
@@ -46,8 +52,14 @@ void TimeMapTest::tempoSegmentsAndNegativeTime() {
     QCOMPARE(map.sampleToTick(QStringLiteral("-24000")).value("value").toString(), QStringLiteral("-960"));
     QCOMPARE(map.sampleToTick(QStringLiteral("48000")).value("value").toString(), QStringLiteral("1920"));
     QCOMPARE(map.sampleToTick(QStringLiteral("47999"), TimeMap::Floor).value("value").toString(), QStringLiteral("1919"));
+    map.setSampleRate(500000);
+    map.setTicksPerQuarter(1);
+    map.setTempoSegments({QVariantMap{{"tick", "0"}, {"microsecondsPerQuarter", "1"},
+                                      {"numerator", 4}, {"denominator", 4}}});
+    QCOMPARE(map.tickToSample(QStringLiteral("1"), TimeMap::NearestAway).value("value").toString(), QStringLiteral("1"));
+    QCOMPARE(map.tickToSample(QStringLiteral("-1"), TimeMap::NearestAway).value("value").toString(), QStringLiteral("-1"));
     map.setSampleRate(44100);
-    QCOMPARE(map.tickToSample(QStringLiteral("960")).value("value").toString(), QStringLiteral("22050"));
+    QCOMPARE(map.tickToSample(QStringLiteral("960")).value("value").toString(), QStringLiteral("42"));
 }
 
 void TimeMapTest::timecodeBoundary() {
@@ -69,6 +81,11 @@ void TimeMapTest::timecodeBoundary() {
         const QString label = map.formatTimecode(frame, true).value("value").toString();
         QCOMPARE(map.parseTimecode(label, true).value("value").toString(), frame);
     }
+    for (qint64 index : {std::numeric_limits<qint64>::min(), std::numeric_limits<qint64>::max()}) {
+        const QString frame = QString::number(index);
+        const QString label = map.formatTimecode(frame, true).value("value").toString();
+        QCOMPARE(map.parseTimecode(label, true).value("value").toString(), frame);
+    }
     QVERIFY(map.setFrameRate(60000, 1001));
     QCOMPARE(map.formatTimecode(QStringLiteral("3600"), true).value("value").toString(), QStringLiteral("00:01:00;04"));
     QCOMPARE(map.formatTimecode(QStringLiteral("35964"), true).value("value").toString(), QStringLiteral("00:10:00;00"));
@@ -83,8 +100,7 @@ void TimeMapTest::precisionSafeFacade() {
     const QString hugeFrame = QStringLiteral("5000000000000000");
     const QVariantMap sample = map.frameToSample(hugeFrame);
     QVERIFY(sample.value("ok").toBool());
-    const __int128 n = static_cast<__int128>(5000000000000000LL) * 48000 * 1001;
-    QCOMPARE(sample.value("value").toString(), QString::number(static_cast<qint64>((n + 15000) / 30000)));
+    QCOMPARE(sample.value("value").toString(), QStringLiteral("8008000000000000000"));
     QCOMPARE(map.sampleToFrame(sample.value("value").toString()).value("value").toString(), hugeFrame);
     QCOMPARE(map.compareExact(QStringLiteral("9007199254740993"), QStringLiteral("9007199254740992"))
                  .value("value").toString(), QStringLiteral("1"));
@@ -92,6 +108,8 @@ void TimeMapTest::precisionSafeFacade() {
                  .value("value").toDouble(), 40.0);
     QCOMPARE(map.pixelToSample(40.0, QStringLiteral("9007199254740997"), 2.0)
                  .value("value").toString(), QStringLiteral("9007199254741017"));
+    QVERIFY(!map.sampleToPixel(QStringLiteral("9007199254740993"), QStringLiteral("0"), 0.000001)
+                 .value("ok").toBool());
     map.setOriginSample(QStringLiteral("9007199254740997"));
     QCOMPARE(map.frameToSample(QStringLiteral("0")).value("value").toString(), QStringLiteral("9007199254740997"));
     map.setOriginSample(QString::number(std::numeric_limits<qint64>::min()));

@@ -9,25 +9,131 @@
 
 namespace QindaTK {
 namespace {
-constexpr __int128 million = 1000000;
+using Wide = detail::TimeMapWide;
+constexpr quint64 million = 1000000;
 constexpr qint64 maximumTempo = 60000000; // 1 to 60,000,000 us/quarter
 constexpr qint64 maximumRatePart = 1000000;
 constexpr qint64 maximumSegmentCount = 4096;
 
-std::optional<qint64> narrow(__int128 value) {
-    if (value < std::numeric_limits<qint64>::min() || value > std::numeric_limits<qint64>::max()) return {};
-    return static_cast<qint64>(value);
+Wide wide(qint64 value) {
+    const bool negative = value < 0;
+    const quint64 magnitude = negative ? static_cast<quint64>(-(value + 1)) + 1 : static_cast<quint64>(value);
+    Wide result;
+    result.limb[0] = static_cast<quint32>(magnitude);
+    result.limb[1] = static_cast<quint32>(magnitude >> 32);
+    result.negative = negative;
+    return result;
 }
 
-__int128 rounded(__int128 n, __int128 d, TimeMap::Rounding rounding) {
-    __int128 q = n / d;
-    const __int128 r = n % d;
-    if (r != 0) {
-        if (rounding == TimeMap::Floor && n < 0) --q;
-        else if (rounding == TimeMap::Ceil && n > 0) ++q;
-        else if (rounding == TimeMap::NearestAway && (r < 0 ? -r : r) * 2 >= d) q += n < 0 ? -1 : 1;
+bool zero(const Wide &value) {
+    return value.limb[0] == 0 && value.limb[1] == 0 && value.limb[2] == 0 && value.limb[3] == 0;
+}
+
+Wide negate(Wide value) {
+    if (!zero(value)) value.negative = !value.negative;
+    return value;
+}
+
+int compareMagnitude(const Wide &a, const Wide &b) {
+    for (int index = 3; index >= 0; --index) {
+        if (a.limb[index] != b.limb[index]) return a.limb[index] > b.limb[index] ? 1 : -1;
     }
-    return q;
+    return 0;
+}
+
+int compare(const Wide &a, const Wide &b) {
+    if (a.negative != b.negative) return a.negative ? -1 : 1;
+    const int magnitude = compareMagnitude(a, b);
+    return a.negative ? -magnitude : magnitude;
+}
+
+Wide add(Wide a, Wide b) {
+    Wide result;
+    if (a.negative == b.negative) {
+        quint64 carry = 0;
+        for (int index = 0; index < 4; ++index) {
+            const quint64 sum = static_cast<quint64>(a.limb[index]) + b.limb[index] + carry;
+            result.limb[index] = static_cast<quint32>(sum);
+            carry = sum >> 32;
+        }
+        Q_ASSERT(carry == 0); // validated input bounds keep magnitude below 2^128
+        result.negative = a.negative && !zero(result);
+    } else {
+        const int order = compareMagnitude(a, b);
+        const Wide &larger = order >= 0 ? a : b;
+        const Wide &smaller = order >= 0 ? b : a;
+        quint64 borrow = 0;
+        for (int index = 0; index < 4; ++index) {
+            const quint64 subtrahend = static_cast<quint64>(smaller.limb[index]) + borrow;
+            result.limb[index] = static_cast<quint32>(static_cast<quint64>(larger.limb[index]) - subtrahend);
+            borrow = larger.limb[index] < subtrahend ? 1 : 0;
+        }
+        result.negative = larger.negative && !zero(result);
+    }
+    return result;
+}
+
+Wide subtract(Wide a, Wide b) { return add(a, negate(b)); }
+
+Wide multiply(Wide value, quint64 factor) {
+    // All factors at call sites are validated below 2^32.
+    Q_ASSERT(factor <= std::numeric_limits<quint32>::max());
+    quint64 carry = 0;
+    for (int index = 0; index < 4; ++index) {
+        const quint64 product = static_cast<quint64>(value.limb[index]) * factor + carry;
+        value.limb[index] = static_cast<quint32>(product);
+        carry = product >> 32;
+    }
+    Q_ASSERT(carry == 0);
+    if (zero(value)) value.negative = false;
+    return value;
+}
+
+struct Divided { Wide quotient; quint64 remainder = 0; };
+Divided divide(Wide value, quint64 divisor) {
+    Q_ASSERT(divisor != 0 && divisor < (quint64{1} << 63));
+    Divided result;
+    for (int bit = 127; bit >= 0; --bit) {
+        result.remainder = (result.remainder << 1) | ((value.limb[bit / 32] >> (bit % 32)) & 1u);
+        if (result.remainder >= divisor) {
+            result.remainder -= divisor;
+            result.quotient.limb[bit / 32] |= quint32{1} << (bit % 32);
+        }
+    }
+    result.quotient.negative = value.negative && !zero(result.quotient);
+    return result;
+}
+
+Wide rounded(Wide value, quint64 divisor, TimeMap::Rounding rounding) {
+    const Divided parts = divide(value, divisor);
+    Wide answer = parts.quotient;
+    if (parts.remainder != 0) {
+        if (rounding == TimeMap::Floor && value.negative) answer = subtract(answer, wide(1));
+        else if (rounding == TimeMap::Ceil && !value.negative) answer = add(answer, wide(1));
+        else if (rounding == TimeMap::NearestAway && parts.remainder >= (divisor + 1) / 2)
+            answer = add(answer, wide(value.negative ? -1 : 1));
+    }
+    return answer;
+}
+
+std::optional<qint64> narrow(const Wide &value) {
+    if (value.limb[2] != 0 || value.limb[3] != 0) return {};
+    const quint64 magnitude = (static_cast<quint64>(value.limb[1]) << 32) | value.limb[0];
+    if (!value.negative) {
+        if (magnitude > static_cast<quint64>(std::numeric_limits<qint64>::max())) return {};
+        return static_cast<qint64>(magnitude);
+    }
+    const quint64 minMagnitude = quint64{1} << 63;
+    if (magnitude > minMagnitude) return {};
+    if (magnitude == minMagnitude) return std::numeric_limits<qint64>::min();
+    return -static_cast<qint64>(magnitude);
+}
+
+long double asLongDouble(const Wide &value) {
+    long double magnitude = 0;
+    for (int index = 3; index >= 0; --index)
+        magnitude = magnitude * 4294967296.0L + value.limb[index];
+    return value.negative ? -magnitude : magnitude;
 }
 
 QString padded(qint64 value, int width) {
@@ -46,7 +152,7 @@ std::optional<qint64> TimeMap::parseInteger(const QString &text) {
     return ok ? std::optional<qint64>(value) : std::nullopt;
 }
 
-std::optional<qint64> TimeMap::quantize(__int128 n, __int128 d, Rounding rounding) {
+std::optional<qint64> TimeMap::quantize(Wide n, quint64 d, Rounding rounding) {
     if (d <= 0) return {};
     return narrow(rounded(n, d, rounding));
 }
@@ -121,11 +227,11 @@ void TimeMap::setTempoSegments(const QVariantList &list) {
             reject(QStringLiteral("tempo segments need ascending nonnegative ticks, tempo 1..60000000, and valid meter"));
             return;
         }
-        Segment segment{*tick, *tempo, numerator, denominator, 0};
+        Segment segment{*tick, *tempo, numerator, denominator, {}};
         if (!next.empty()) {
             const Segment &previous = next.back();
-            segment.startUnits = previous.startUnits +
-                static_cast<__int128>(segment.tick - previous.tick) * previous.microsecondsPerQuarter;
+            segment.startUnits = add(previous.startUnits,
+                multiply(wide(segment.tick - previous.tick), static_cast<quint64>(previous.microsecondsPerQuarter)));
         }
         next.push_back(segment);
     }
@@ -139,43 +245,48 @@ int TimeMap::segmentForTick(const std::vector<Segment> &segments, qint64 tick) {
     return it == segments.begin() ? 0 : static_cast<int>(it - segments.begin() - 1);
 }
 
-int TimeMap::segmentForSample(__int128 delta) const {
-    const __int128 scaled = delta * m_ppq * million;
+int TimeMap::segmentForSample(Wide delta) const {
+    const Wide scaled = multiply(multiply(delta, static_cast<quint64>(m_ppq)), million);
     const auto it = std::upper_bound(m_segments.begin(), m_segments.end(), scaled,
-        [this](__int128 value, const Segment &segment) { return value < segment.startUnits * m_sampleRate; });
+        [this](const Wide &value, const Segment &segment) {
+            return compare(value, multiply(segment.startUnits, static_cast<quint64>(m_sampleRate))) < 0;
+        });
     return it == m_segments.begin() ? 0 : static_cast<int>(it - m_segments.begin() - 1);
 }
 
 std::optional<SamplePosition> TimeMap::fromFrame(FrameIndex frame, Rounding rounding) const {
-    const __int128 delta = rounded(static_cast<__int128>(frame.value) * m_sampleRate * m_frameRate.denominator,
-                                    m_frameRate.numerator, rounding);
-    const auto absolute = narrow(static_cast<__int128>(m_originSample) + delta);
+    const Wide delta = rounded(multiply(multiply(wide(frame.value), static_cast<quint64>(m_sampleRate)),
+                                       static_cast<quint64>(m_frameRate.denominator)),
+                               static_cast<quint64>(m_frameRate.numerator), rounding);
+    const auto absolute = narrow(add(wide(m_originSample), delta));
     return absolute ? std::optional<SamplePosition>(SamplePosition{*absolute}) : std::nullopt;
 }
 
 std::optional<FrameIndex> TimeMap::toFrame(SamplePosition sample, Rounding rounding) const {
-    const __int128 delta = static_cast<__int128>(sample.value) - m_originSample;
-    const auto frame = quantize(delta * m_frameRate.numerator,
-                                static_cast<__int128>(m_sampleRate) * m_frameRate.denominator, rounding);
+    const Wide delta = subtract(wide(sample.value), wide(m_originSample));
+    const auto frame = quantize(multiply(delta, static_cast<quint64>(m_frameRate.numerator)),
+                                static_cast<quint64>(m_sampleRate) * m_frameRate.denominator, rounding);
     return frame ? std::optional<FrameIndex>(FrameIndex{*frame}) : std::nullopt;
 }
 
 std::optional<SamplePosition> TimeMap::fromTick(MusicalTick tick, Rounding rounding) const {
     const Segment &segment = m_segments.at(static_cast<size_t>(segmentForTick(m_segments, tick.value)));
-    const __int128 units = segment.startUnits +
-                           (static_cast<__int128>(tick.value) - segment.tick) * segment.microsecondsPerQuarter;
-    const __int128 delta = rounded(units * m_sampleRate, static_cast<__int128>(m_ppq) * million, rounding);
-    const auto absolute = narrow(static_cast<__int128>(m_originSample) + delta);
+    const Wide units = add(segment.startUnits,
+        multiply(subtract(wide(tick.value), wide(segment.tick)), static_cast<quint64>(segment.microsecondsPerQuarter)));
+    const Wide delta = rounded(multiply(units, static_cast<quint64>(m_sampleRate)),
+                               static_cast<quint64>(m_ppq) * million, rounding);
+    const auto absolute = narrow(add(wide(m_originSample), delta));
     return absolute ? std::optional<SamplePosition>(SamplePosition{*absolute}) : std::nullopt;
 }
 
 std::optional<MusicalTick> TimeMap::toTick(SamplePosition sample, Rounding rounding) const {
-    const __int128 difference = static_cast<__int128>(sample.value) - m_originSample;
+    const Wide difference = subtract(wide(sample.value), wide(m_originSample));
     const Segment &segment = m_segments.at(static_cast<size_t>(segmentForSample(difference)));
-    const __int128 n = difference * m_ppq * million - segment.startUnits * m_sampleRate;
-    const auto offset = quantize(n, static_cast<__int128>(segment.microsecondsPerQuarter) * m_sampleRate, rounding);
+    const Wide n = subtract(multiply(multiply(difference, static_cast<quint64>(m_ppq)), million),
+                            multiply(segment.startUnits, static_cast<quint64>(m_sampleRate)));
+    const auto offset = quantize(n, static_cast<quint64>(segment.microsecondsPerQuarter) * m_sampleRate, rounding);
     if (!offset) return {};
-    const auto tick = narrow(static_cast<__int128>(segment.tick) + *offset);
+    const auto tick = narrow(add(wide(segment.tick), wide(*offset)));
     return tick ? std::optional<MusicalTick>(MusicalTick{*tick}) : std::nullopt;
 }
 
@@ -214,23 +325,28 @@ QVariantMap TimeMap::formatTimecode(const QString &text, bool dropFrame) const {
     const qint64 nominal = (m_frameRate.numerator * 2 + m_frameRate.denominator) /
                            (2 * m_frameRate.denominator);
     if (nominal < 1 || nominal > 120) return bad(QStringLiteral("timecode nominal rate must be 1..120"));
-    __int128 count = *input < 0 ? -static_cast<__int128>(*input) : static_cast<__int128>(*input);
+    Wide count = wide(*input);
+    if (count.negative) count = negate(count);
     if (dropFrame) {
         const qint64 drop = nominal == 30 ? 2 : 4;
         const qint64 perTen = nominal * 600 - drop * 9;
         const qint64 perMinute = nominal * 60 - drop;
-        const __int128 remainder = count % perTen;
-        count += (count / perTen) * drop * 9 +
-                 (remainder < drop ? 0 : (remainder - drop) / perMinute * drop);
+        const Divided ten = divide(count, static_cast<quint64>(perTen));
+        const Wide dropped = add(multiply(ten.quotient, static_cast<quint64>(drop * 9)),
+            wide(ten.remainder < static_cast<quint64>(drop) ? 0 :
+                 static_cast<qint64>((ten.remainder - drop) / perMinute * drop)));
+        count = add(count, dropped);
     }
-    const qint64 frames = static_cast<qint64>(count % nominal);
-    count /= nominal;
-    const qint64 seconds = static_cast<qint64>(count % 60);
-    count /= 60;
-    const qint64 minutes = static_cast<qint64>(count % 60);
-    const qint64 hours = static_cast<qint64>(count / 60);
+    const Divided framePart = divide(count, static_cast<quint64>(nominal));
+    const qint64 frames = static_cast<qint64>(framePart.remainder);
+    const Divided secondPart = divide(framePart.quotient, 60);
+    const qint64 seconds = static_cast<qint64>(secondPart.remainder);
+    const Divided minutePart = divide(secondPart.quotient, 60);
+    const qint64 minutes = static_cast<qint64>(minutePart.remainder);
+    const auto hours = narrow(minutePart.quotient);
+    if (!hours) return bad(QStringLiteral("timecode hours out of range"));
     const QString result = (*input < 0 ? QStringLiteral("-") : QString()) +
-        padded(hours, 2) + QLatin1Char(':') + padded(minutes, 2) + QLatin1Char(':') +
+        padded(*hours, 2) + QLatin1Char(':') + padded(minutes, 2) + QLatin1Char(':') +
         padded(seconds, 2) + (dropFrame ? QLatin1Char(';') : QLatin1Char(':')) + padded(frames, 2);
     return {{QStringLiteral("ok"), true}, {QStringLiteral("value"), result}};
 }
@@ -257,13 +373,18 @@ QVariantMap TimeMap::parseTimecode(const QString &label, bool dropFrame) const {
     const qint64 drop = dropFrame ? (nominal == 30 ? 2 : 4) : 0;
     if (dropFrame && minutes % 10 != 0 && seconds == 0 && frames < drop)
         return bad(QStringLiteral("skipped drop-frame label"));
-    const __int128 totalMinutes = static_cast<__int128>(hours) * 60 + minutes;
-    __int128 count = (((static_cast<__int128>(hours) * 60 + minutes) * 60 + seconds) * nominal + frames);
-    count -= drop * (totalMinutes - totalMinutes / 10);
-    if (match.captured(1) == QStringLiteral("-")) count = -count;
-    if (count < std::numeric_limits<qint64>::min() || count > std::numeric_limits<qint64>::max())
+    const Wide totalMinutes = add(multiply(wide(hours), 60), wide(minutes));
+    Wide count = add(multiply(add(multiply(totalMinutes, 60), wide(seconds)),
+                              static_cast<quint64>(nominal)), wide(frames));
+    if (dropFrame) {
+        const Wide droppedMinutes = subtract(totalMinutes, divide(totalMinutes, 10).quotient);
+        count = subtract(count, multiply(droppedMinutes, static_cast<quint64>(drop)));
+    }
+    if (match.captured(1) == QStringLiteral("-")) count = negate(count);
+    const auto result = narrow(count);
+    if (!result)
         return bad(QStringLiteral("frame index out of range"));
-    return good(static_cast<qint64>(count));
+    return good(*result);
 }
 
 QVariantMap TimeMap::sampleToPixel(const QString &sample, const QString &viewportOriginSample,
@@ -272,9 +393,13 @@ QVariantMap TimeMap::sampleToPixel(const QString &sample, const QString &viewpor
     if (!position || !origin) return bad(QStringLiteral("invalid decimal sample position"));
     if (!std::isfinite(pixelsPerSample) || pixelsPerSample <= 0)
         return bad(QStringLiteral("pixels per sample must be positive and finite"));
-    const __int128 delta = static_cast<__int128>(*position) - *origin;
+    const Wide delta = subtract(wide(*position), wide(*origin));
+    Wide magnitude = delta;
+    magnitude.negative = false;
+    if (compareMagnitude(magnitude, wide(9007199254740992LL)) > 0)
+        return bad(QStringLiteral("sample displacement exceeds precise display range"));
     // Rendering is relative to the visible origin, never to absolute session time.
-    const long double pixel = static_cast<long double>(delta) * pixelsPerSample;
+    const long double pixel = asLongDouble(delta) * pixelsPerSample;
     if (!std::isfinite(pixel) || std::abs(pixel) > 9007199254740992.0L)
         return bad(QStringLiteral("pixel displacement exceeds precise display range"));
     return {{QStringLiteral("ok"), true}, {QStringLiteral("value"), static_cast<double>(pixel)}};
@@ -293,10 +418,10 @@ QVariantMap TimeMap::pixelToSample(double pixel, const QString &viewportOriginSa
     if (rounding == Floor) rounded = std::floor(displacement);
     else if (rounding == Ceil) rounded = std::ceil(displacement);
     else if (rounding == NearestAway) rounded = std::round(displacement);
-    const __int128 result = static_cast<__int128>(*origin) + static_cast<__int128>(rounded);
-    if (result < std::numeric_limits<qint64>::min() || result > std::numeric_limits<qint64>::max())
+    const auto result = narrow(add(wide(*origin), wide(static_cast<qint64>(rounded))));
+    if (!result)
         return bad(QStringLiteral("sample position out of range"));
-    return good(static_cast<qint64>(result));
+    return good(*result);
 }
 
 } // namespace QindaTK
