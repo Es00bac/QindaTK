@@ -11,6 +11,8 @@ TestCase {
     width: 480
     height: 100
 
+    SignalSpy { id: paintedSpy }
+
     Component {
         id: rulerComponent
         Tk.Ruler {
@@ -46,6 +48,11 @@ TestCase {
         waitForRendering(ruler)
         const canvas = findCanvas(ruler)
         verify(canvas !== null)
+        paintedSpy.target = canvas
+        paintedSpy.signalName = "painted"
+        paintedSpy.clear()
+        canvas.requestPaint()
+        tryVerify(function() { return paintedSpy.count > 0 }, 1000)
 
         const beforeWidth = ruler.width
         const beforeHeight = ruler.height
@@ -53,6 +60,7 @@ TestCase {
         const beforeY = ruler.y
         const before = canvas.toDataURL("image/png")
         verify(before.length > 100)
+        paintedSpy.clear()
 
         ruler.pixelsPerUnit = 20
         compare(ruler.width, beforeWidth)
@@ -60,6 +68,9 @@ TestCase {
         compare(ruler.x, beforeX)
         compare(ruler.y, beforeY)
 
+        // A Canvas with Cooperative rendering may finish after the property
+        // binding runs. Compare pixels only after its documented paint fence.
+        tryVerify(function() { return paintedSpy.count > 0 }, 1000)
         tryVerify(function() {
             return canvas.toDataURL("image/png") !== before
         }, 1000)
