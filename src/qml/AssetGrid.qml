@@ -91,7 +91,14 @@ T.Control {
                     requestKind: "thumbnail"
                     document: root.document
                     viewId: root.viewId
+                    // AGENT-GUARD: GridView can retain offscreen delegates without
+                    // pooling them (notably the former current item on Qt 6.8).
+                    // Keep requests inside the viewport plus one prefetch cell.
                     active: root.enabled && tile.displayActive && tile.resourceId.length > 0
+                            && tile.x + tile.width > tiles.contentX - tiles.cellWidth
+                            && tile.x < tiles.contentX + tiles.width + tiles.cellWidth
+                            && tile.y + tile.height > tiles.contentY - tiles.cellHeight
+                            && tile.y < tiles.contentY + tiles.height + tiles.cellHeight
                     selected: root.selectionModel && root.selectionModel.selectedIds.indexOf(tile.stableId) >= 0
                     caption: ""
                     tooltip: tile.labelText

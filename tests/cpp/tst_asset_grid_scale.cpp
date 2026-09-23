@@ -76,6 +76,22 @@ QStringList activeSubscriptions(QObject *gridView)
     }
     return ids;
 }
+int activeTileCount(QObject *gridView)
+{
+    int count=0;
+    for (QObject *tile:delegates(gridView,QStringLiteral("assetGridDelegate"))) {
+        QObject *thumbnail=tile->findChild<QObject *>(QStringLiteral("assetGridThumbnail_")
+            +tile->property("stableId").toString());
+        if (thumbnail && thumbnail->property("active").toBool()) ++count;
+    }
+    return count;
+}
+bool allReleased(const AssetProvider &provider,const QStringList &ids)
+{
+    for (const QString &id:ids)
+        if (!provider.asset(id).isEmpty()) return false;
+    return true;
+}
 bool pressAccessible(QObject *item)
 {
     auto *access=QAccessible::queryAccessibleInterface(item);
@@ -221,8 +237,14 @@ void AssetGridScaleTest::hundredThousandAssetsUseBoundedRealProviderAndAccessibl
     QTRY_COMPARE_WITH_TIMEOUT(selection.currentId(),assetId(count-1),10000);
     const qint64 endNavigationMs=timer.elapsed();
     QTRY_VERIFY_WITH_TIMEOUT(delegateAt(gridView,QStringLiteral("assetGridDelegate"),count-1),10000);
-    for (const QString &oldId:firstSubscriptions)
-        QVERIFY2(provider.asset(oldId).isEmpty(),qPrintable(oldId));
+    QObject *lastTile=delegateAt(gridView,QStringLiteral("assetGridDelegate"),count-1);
+    QObject *lastThumbnail=lastTile->findChild<QObject *>(QStringLiteral("assetGridThumbnail_")+assetId(count-1));
+    QVERIFY(lastThumbnail);
+    QTRY_COMPARE_WITH_TIMEOUT(lastThumbnail->property("assetState").toString(),QStringLiteral("ready"),10000);
+    QTRY_VERIFY_WITH_TIMEOUT(allReleased(provider,firstSubscriptions),10000);
+    QVERIFY(activeTileCount(gridView)>0);
+    QTRY_COMPARE_WITH_TIMEOUT(provider.subscriptionCount(),activeTileCount(gridView),10000);
+    QCOMPARE(provider.subscriptionCount(),activeSubscriptions(gridView).size());
     const int endDelegateCount=delegates(gridView,QStringLiteral("assetGridDelegate")).size();
     QVERIFY(endDelegateCount>0 && endDelegateCount<128);
     QVERIFY(provider.subscriptionCount()<=endDelegateCount);
@@ -232,6 +254,10 @@ void AssetGridScaleTest::hundredThousandAssetsUseBoundedRealProviderAndAccessibl
         if (row<0 || row>=count) continue;
         QCOMPARE(tile->property("stableId").toString(),assetId(row));
         QCOMPARE(tile->property("resourceId").toString(),resourceId(row));
+        QObject *thumbnail=tile->findChild<QObject *>(QStringLiteral("assetGridThumbnail_")+assetId(row));
+        QVERIFY(thumbnail);
+        if (!thumbnail->property("subscriptionId").toString().isEmpty())
+            QVERIFY(thumbnail->property("active").toBool());
     }
     QTest::keyClick(&window,Qt::Key_Left);
     QCOMPARE(selection.currentId(),assetId(count-2));
@@ -239,7 +265,8 @@ void AssetGridScaleTest::hundredThousandAssetsUseBoundedRealProviderAndAccessibl
     QCOMPARE(gridActivated.size(),2);
     QCOMPARE(gridActivated.last().first().toString(),assetId(count-2));
     qInfo() << "100k End navigation ms" << endNavigationMs
-            << "end delegates" << endDelegateCount << "cache bytes" << provider.cacheBytes();
+            << "end delegates" << endDelegateCount << "active subscriptions"
+            << provider.subscriptionCount() << "cache bytes" << provider.cacheBytes();
 
     Density::instance()->setMode(Density::Comfortable);
     Theme::instance()->setPreset(QStringLiteral("sloom-light"));
