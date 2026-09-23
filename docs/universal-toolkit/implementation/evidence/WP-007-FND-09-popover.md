@@ -58,7 +58,7 @@ inside the Overlay. `docs/controls.md` records the live-update behavior.
 - `python tools/scripts/gen_catalog.py` completed and left the generated
   catalog unchanged; no generated type metadata changed.
 
-After integration, Qt 6.11.1 and 6.8.3 Debug builds and all 16 current
+After the earlier direct-movement repair, Qt 6.11.1 and 6.8.3 Debug builds and all 16 then-current
 CTest targets passed on each version. A separate `qtk-preview` scene opened
 the popover, moved its anchor to the host's lower-right edge, and used a
 300ms settle time. The dump showed `Rectangle#movingAnchor 275,170 40x24`

@@ -110,6 +110,32 @@ TestCase {
         compare(findChild(swatches, "swatch_0").entry.name, "Black")
     }
 
+    function test_swatches_keyboard_and_accessible_actions() {
+        const swatches = make(swatchesComponent)
+        const spy = createTemporaryObject(signalSpyComponent, root,
+            { target: swatches, signalName: "selected" })
+        const first = findChild(swatches, "swatch_0")
+        verify(first !== null)
+        compare(first.Accessible.name, "Black")
+        verify(first.Accessible.focusable)
+        first.forceActiveFocus()
+        verify(first.Accessible.focused)
+        keyClick(Qt.Key_Space)
+        compare(spy.count, 1)
+        first.Accessible.pressAction()
+        compare(spy.count, 2)
+        swatches.current = "#000000"
+        compare(spy.count, 2)
+        verify(first.Accessible.checked)
+
+        swatches.enabled = false
+        verify(!first.Accessible.focusable)
+        first.Accessible.pressAction()
+        keyClick(Qt.Key_Return)
+        mouseClick(first)
+        compare(spy.count, 2)
+    }
+
     function test_color_button_opens_swatches_and_selects() {
         const button = make(colorButtonComponent)
         const spy = createTemporaryObject(signalSpyComponent, root, { target: button, signalName: "colorSelected" })

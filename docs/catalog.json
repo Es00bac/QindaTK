@@ -1078,6 +1078,10 @@
         {
           "name": "entry",
           "parameters": "index"
+        },
+        {
+          "name": "selectIndex",
+          "parameters": "index"
         }
       ],
       "enums": {},
@@ -6526,7 +6530,8 @@
       "bridge": false,
       "objectNames": [
         "treeChevron",
-        "treeEditor"
+        "treeEditor",
+        "treeFocusRing"
       ]
     },
     {

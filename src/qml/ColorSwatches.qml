@@ -35,6 +35,13 @@ Item {
                  "color": raw.color }
     }
 
+    function selectIndex(index) {
+        if (!swatches.enabled || index < 0 || index >= swatches.colors.length) {
+            return
+        }
+        swatches.selected(swatches.entry(index).color)
+    }
+
     Tk.Flex {
         id: column
         direction: Tk.Flex.Column
@@ -59,11 +66,14 @@ Item {
                     objectName: "swatch_" + index
                     implicitWidth: swatches.swatchSize + Tk.Theme.space.sm
                     implicitHeight: implicitWidth
-                    activeFocusOnTab: true
+                    activeFocusOnTab: swatches.enabled
 
                     Accessible.role: Accessible.Button
                     Accessible.name: entry.name
                     Accessible.checked: isCurrent
+                    Accessible.focusable: swatches.enabled
+                    Accessible.focused: cell.activeFocus
+                    Accessible.onPressAction: swatches.selectIndex(cell.index)
 
                     Rectangle {
                         anchors.centerIn: parent
@@ -86,9 +96,12 @@ Item {
                         visible: cell.activeFocus
                     }
                     HoverHandler { id: hover }
-                    TapHandler { onTapped: swatches.selected(cell.swatchColor) }
-                    Keys.onSpacePressed: swatches.selected(cell.swatchColor)
-                    Keys.onReturnPressed: swatches.selected(cell.swatchColor)
+                    TapHandler {
+                        enabled: swatches.enabled
+                        onTapped: swatches.selectIndex(cell.index)
+                    }
+                    Keys.onSpacePressed: swatches.selectIndex(cell.index)
+                    Keys.onReturnPressed: swatches.selectIndex(cell.index)
                     Tk.ToolTip {
                         text: cell.entry.name
                         visible: hover.hovered
