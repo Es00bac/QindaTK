@@ -20,14 +20,33 @@ Tk.ListRow {
     // it has renamed the real thing.
     property bool editable: false
     readonly property bool editing: editor.visible
-
     signal expansionToggled(bool expanded)
     signal renamed(string text)
 
     indent: tree.depth * Tk.Theme.space.lg
+    focusPolicy: Qt.StrongFocus
+    activeFocusOnTab: enabled && (expandable || editable)
+
+    Accessible.role: Accessible.TreeItem
+    Accessible.name: tree.text
+    Accessible.description: tree.expandable
+                              ? tree.expanded ? qsTr("Expanded") : qsTr("Collapsed")
+                              : ""
+    Accessible.focusable: enabled && (expandable || editable)
+    Accessible.focused: activeFocus
+
+    Rectangle {
+        z: 1
+        anchors.fill: parent
+        anchors.margins: -Tk.Theme.size.focusRing
+        color: "transparent"
+        border.width: Tk.Theme.size.focusRing
+        border.color: Tk.Theme.color.focus
+        visible: tree.visualFocus && tree.enabled
+    }
 
     function toggle() {
-        if (!tree.expandable) {
+        if (!tree.enabled || !tree.expandable) {
             return
         }
         tree.expanded = !tree.expanded
@@ -35,7 +54,7 @@ Tk.ListRow {
     }
 
     function startEditing() {
-        if (!tree.editable) {
+        if (!tree.enabled || !tree.editable) {
             return
         }
         editor.text = tree.text
@@ -46,6 +65,40 @@ Tk.ListRow {
     function cancelEditing() {
         editor.visible = false
     }
+
+    function activate() {
+        if (tree.expandable) {
+            tree.toggle()
+        } else if (tree.editable) {
+            tree.startEditing()
+        }
+    }
+
+    Keys.onSpacePressed: function(event) {
+        if (!tree.editing && tree.enabled && tree.expandable) {
+            tree.toggle()
+            event.accepted = true
+        }
+    }
+    Keys.onReturnPressed: function(event) {
+        if (!tree.editing && tree.enabled && tree.expandable) {
+            tree.toggle()
+            event.accepted = true
+        }
+    }
+    Keys.onEnterPressed: function(event) {
+        if (!tree.editing && tree.enabled && tree.expandable) {
+            tree.toggle()
+            event.accepted = true
+        }
+    }
+    Keys.onPressed: function(event) {
+        if (!tree.editing && event.key === Qt.Key_F2 && tree.enabled && tree.editable) {
+            tree.startEditing()
+            event.accepted = true
+        }
+    }
+    Accessible.onPressAction: tree.activate()
 
     onDoubleClicked: tree.editable ? tree.startEditing() : tree.toggle()
 
@@ -91,7 +144,7 @@ Tk.ListRow {
             color: Tk.Theme.color.textMuted
         }
         TapHandler {
-            enabled: tree.expandable
+            enabled: tree.enabled && tree.expandable
             onTapped: tree.toggle()
         }
     }

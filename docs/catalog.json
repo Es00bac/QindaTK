@@ -6506,6 +6506,10 @@
         {
           "name": "cancelEditing",
           "parameters": ""
+        },
+        {
+          "name": "activate",
+          "parameters": ""
         }
       ],
       "enums": {},
