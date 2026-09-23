@@ -90,7 +90,9 @@ Wrapping multiline text input whose natural height grows with content.
 
 **Source:** [src/qml/TextArea.qml](../../../src/qml/TextArea.qml) · **Base:** `T.TextArea` · **Kind:** QML component.
 
-rows sets the minimum visible lines; mono/error/tooltip style it. Place in Scroll for bounded height. Inherited text editing is useful for notes; paginated word processing, revisions and large-document virtualization are separate capabilities.
+rows sets the minimum visible lines; mono/error/tooltip style it. `text` changes immediately during typing, `editingFinished` marks focus loss (including after owner synchronization while focused), and Escape does not roll text back. It has no distinct draft/commit/cancel or cross-version user-only edit signal; Qt's inherited `textEdited` exists only since 6.9 while QindaTK supports 6.8. Read-only/disabled block user edits but permit owner assignment. Place in Scroll for bounded height. Inherited text editing is useful for notes; paginated word processing, revisions and large-document virtualization are separate capabilities.
+
+**Declared signals:** `editingFinished()` (inherited; emitted when focus is lost, not a user-change notification).
 
 **Declared members:** `rows: int`, `mono: bool`, `error: bool`, `tooltip: string`, `minimumHeight: real` (ro).
 
