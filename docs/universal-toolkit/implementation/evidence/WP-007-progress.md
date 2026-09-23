@@ -66,13 +66,27 @@ FND-07 through FND-10.
   artwork stays at `size.rulerMarker`; overlapping targets choose the nearest
   marker and exact ties follow model order. Touch edge-drag and insertion tests
   are recorded in [ruler marker evidence](WP-007-FIX-F04-ruler-markers.md).
-  Draggable markers now have keyboard and accessible adjustment actions;
-  native screen-reader delivery remains a platform qualification.
+  Draggable markers now have keyboard and accessible adjustment actions. A
+  separate named, focusable insertion-position control can move to a precise
+  pixel position and request `tabAdded(position)` by Enter or accessible
+  press. Owner marker assignment stays silent. Native screen-reader delivery
+  remains a platform qualification.
+- `Splitter` seams now have accessible Splitter roles, stable names, Tab focus,
+  arrow and accessible resize operations, and a themed focus ring. The new
+  action respects both adjacent panes' minimum and maximum sizes and retains
+  template pointer/touch behavior. Both orientations and a later seam are
+  covered in [Splitter evidence](WP-007-FIX-F04-splitter.md).
 - `DockFloating`'s eight resize handles now expose themed Touch targets,
   distinct corner/edge hit regions, keyboard and accessible Splitter actions,
   and a visible focus ring. Every accepted resize stays model-owned through
   `DockModel.setFloatingRect`; constrained tiny frames disable an edge target
   when it cannot fit without overlap. [Focused evidence](WP-007-FND-07-touch.md).
+- Docked and floating panels now expose a named Place button and Shift+F10
+  path. A host-owned dialog offers legal zone, relative, lane, group and tab
+  order destinations plus bounded floating X/Y drafts. Apply makes one
+  `DockModel` change and Cancel makes none. A 480×320 Touch 3× text review
+  shortened its header copy so its scrollable fields remain reachable.
+  [Focused evidence](WP-007-FIX-F04-dock-placement.md).
 - `TextField` blocks its custom clear paths when read-only or disabled;
   `SearchField` now debounces user edits while programmatic synchronization
   remains silent. `TextField` and `TextArea` describe read-only/error state.
@@ -180,9 +194,12 @@ FND-07 through FND-10.
 ## Verification
 
 On both Qt 6.11.1 and isolated Qt 6.8.3, integrated Debug builds, all
-19 current CTest targets and `all_qmllint` exited 0 at integration source
-commit `a500767`. The lint targets still report existing nonfatal warnings,
-especially under Qt 6.8.3; their exit status is the gate recorded here.
+20 current CTest targets and `all_qmllint` exited 0 at integration source
+commit `54148b2`. A subsequent narrow DockPlacementDialog copy adjustment and
+scroll reachability regression passed the focused 10-case QML file on both
+versions; the next complete gate will include that change and ongoing gallery
+review. The lint targets still report existing nonfatal warnings, especially
+under Qt 6.8.3; their exit status is the gate recorded here.
 The new QML tests cover
 pointer/keyboard/assistive-action signal paths, disabled behavior and group
 state synchronization. These signal tests do not establish native screen-reader
@@ -237,9 +254,10 @@ popover visible at the lower-right boundary.
 
 ## Still open
 
-Audit remaining custom-composite operations for F04; native assistive bridge
-delivery remains WP-092 platform qualification. FND-07 still requires broad
-high-contrast, text-scale and hit-target workflow coverage;
+The [F04 closeout audit](WP-007-FIX-F04-closeout.md) now records QML operation
+paths for its previously pointer-only composite actions; native assistive
+bridge delivery remains WP-092 platform qualification. FND-07 still requires
+broad high-contrast, text-scale and hit-target workflow coverage;
 [D-016](../../../decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
 records the conditional FND-08 decision to retain process-wide theming;
 FND-09 has a per-screen source contract and dynamic ComboBox popup coverage,

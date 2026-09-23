@@ -17,7 +17,7 @@ Tk.Dialog {
         && host.model.hasPanel(panelId) && host.panelInfo(panelId).visible === true
     objectName: "dockPlacementDialog"
     title: qsTr("Place %1").arg(host.panelTitle(panelId))
-    subtitle: qsTr("Choose a destination, or move a floating panel by its horizontal and vertical position. Apply commits; Cancel leaves placement unchanged.")
+    subtitle: qsTr("Choose placement.")
     primaryText: qsTr("Apply")
     primaryEnabled: validPanel && choices.length > 0 && !horizontal.inputInvalid && !vertical.inputInvalid
 

@@ -150,4 +150,42 @@ TestCase {
         compare(host.model.panel("f").hidden, true)
         compare(acceptedSpy.count, 1)
     }
+
+    function test_small_touch_large_text_keeps_position_fields_reachable() {
+        const window = root.Window.window
+        const previousWidth = window.width
+        const previousHeight = window.height
+        const previousDensity = Tk.Density.modeName
+        const previousScale = Tk.Density.textScale
+        try {
+            window.width = 480
+            window.height = 320
+            Tk.Density.modeName = "touch"
+            Tk.Density.textScale = 3
+            const host = setup()
+            host.width = 480
+            host.height = 320
+            host.openPlacement("f")
+            const d = dialog(host)
+            tryCompare(d, "opened", true)
+            const body = d.contentItem
+            const y = find(body, "dockPlacementY")
+            verify(y !== null)
+            verify(d.y >= 0 && d.y + d.height <= window.height)
+            verify(body.viewportHeight >= Tk.Theme.size.controlSm)
+            verify(body.scrollableY)
+            y.inputItem.forceActiveFocus(Qt.TabFocusReason)
+            tryVerify(function() { return body.contentY > 0 })
+            const draftY = y.value
+            keyClick(Qt.Key_Down)
+            compare(y.value, draftY - Tk.Theme.space.lg)
+            compare(host.model.panel("f").y, 100)
+            d.reject()
+        } finally {
+            Tk.Density.textScale = previousScale
+            Tk.Density.modeName = previousDensity
+            window.width = previousWidth
+            window.height = previousHeight
+        }
+    }
 }

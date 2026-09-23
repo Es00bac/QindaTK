@@ -65,3 +65,18 @@ The existing docking example automatically exposes the new header actions.
 operation and stable object names. Native screen-reader action delivery,
 physical input and native platform qualification remain WP-092; this evidence
 covers QML keyboard/accessibility contracts and model effects only.
+
+## Integrated small-window review
+
+A 480×320 Touch, 3× text, high-contrast-dark preview exposed a dialog defect:
+the initial long subtitle occupied 262px of the 272px capped popup, leaving
+its scrolling body hidden under the footer. The subtitle now reads “Choose
+placement.” The opened replacement grab shows the destination picker and
+footer within the popup; the body scrolls to the X/Y fields. Its dump reports
+`PopupItem#DockPlacementDialog 24,24 432x272`, `Scroll#dialogBody 0,97
+432x101`, `ComboBox#dockPlacementDestination 0,0 408x48`, and
+`NumberField#dockPlacementY 0,108 408x48`. A new focused QML test resizes the
+window to 480×320 at Touch 3×, focuses the Y field, checks that the body
+scrolls to it, changes the draft by keyboard, and confirms the model remains
+unchanged before Apply. The ignored capture is
+`/tmp/qindatk-dock-placement-small-final.png` in this environment.
