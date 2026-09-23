@@ -187,10 +187,29 @@ T.Control {
     }
 
     contentItem: Item {
-        implicitWidth: (labelText.visible ? labelText.implicitWidth + Tk.Theme.space.sm : 0)
-                       + prefixText.implicitWidth + input.implicitWidth + suffixText.implicitWidth
+        implicitWidth: (labelText.visible ? labelMetrics.advanceWidth + Tk.Theme.space.sm : 0)
+                       + prefixMetrics.advanceWidth + input.implicitWidth + suffixMetrics.advanceWidth
                        + Tk.Theme.space.xs * 2
         implicitHeight: input.implicitHeight
+
+        // Text with elision needs a width before it can calculate its painted
+        // width.  Measuring independently avoids a zero-width binding loop
+        // for NumberField's inline label, prefix, and suffix.
+        TextMetrics {
+            id: labelMetrics
+            font: labelText.font
+            text: control.label
+        }
+        TextMetrics {
+            id: prefixMetrics
+            font: prefixText.font
+            text: control.prefix
+        }
+        TextMetrics {
+            id: suffixMetrics
+            font: suffixText.font
+            text: control.suffix
+        }
 
         Tk.Caption {
             id: labelText
@@ -200,14 +219,14 @@ T.Control {
             color: scrubHandler.active ? Tk.Theme.color.accentText : Tk.Theme.color.textMuted
             font.weight: Font.DemiBold
             height: parent.height
-            width: visible ? implicitWidth : 0
+            width: visible ? Math.ceil(labelMetrics.advanceWidth) : 0
         }
         Tk.Caption {
             id: prefixText
             visible: control.prefix.length > 0
             text: control.prefix
             x: labelText.width + (labelText.visible ? Tk.Theme.space.sm : 0)
-            width: visible ? implicitWidth : 0
+            width: visible ? Math.ceil(prefixMetrics.advanceWidth) + 1 : 0
             height: parent.height
         }
         TextInput {
@@ -252,7 +271,7 @@ T.Control {
             visible: control.suffix.length > 0
             text: control.suffix
             anchors.right: parent.right
-            width: visible ? implicitWidth : 0
+            width: visible ? Math.ceil(suffixMetrics.advanceWidth) + 1 : 0
             height: parent.height
         }
     }

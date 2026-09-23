@@ -4,7 +4,7 @@ import QindaTK as Tk
 
 Section {
     title: "Buttons and chips"
-    note: "Button · IconButton · Chip · Segmented · ToolBar · Badge · ProgressBar · Spinner"
+    note: "Button · IconButton · Chip · Segmented · PillSwitcher · ToolBar · Badge · ProgressBar · Spinner"
 
     GalleryRow {
         label: "Button variants"
@@ -57,6 +57,26 @@ Section {
         Tk.Segmented { model: [{ "text": "Edit stage", "iconName": "pencil" }, { "text": "Rendered", "iconName": "monitor" }]; currentIndex: 1 }
         Tk.Segmented { model: ["S", "M", "L"]; small: true; currentIndex: 1 }
         Tk.Segmented { model: ["Off", "On"]; enabled: false }
+    }
+    GalleryRow {
+        label: "Pill switcher"
+        Tk.PillSwitcher {
+            model: [
+                { "text": "Flow", "value": "flow", "iconName": "workflow", "accent": Tk.Theme.color.accent },
+                { "text": "Video", "value": "editor", "iconName": "film", "accent": Tk.Theme.color.info },
+                { "text": "Image", "value": "image", "iconName": "image", "accent": Tk.Theme.color.danger },
+                { "text": "Paper", "value": "paper", "iconName": "file-text", "accent": Tk.Theme.color.warning }
+            ]
+            currentIndex: 1
+            showLabels: false
+            tooltip: "Workspace"
+        }
+        Tk.PillSwitcher {
+            model: ["Design", "Preview", "Export"]
+            currentIndex: 1
+            showActiveMarker: false
+            small: true
+        }
     }
     GalleryRow {
         label: "ToolBar"

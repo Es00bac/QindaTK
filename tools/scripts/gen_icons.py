@@ -37,7 +37,7 @@ folder-open folder-plus frame fullscreen gamepad-2 gauge git-branch grid-2x2 gri
 group hand hash heading heart hexagon highlighter history house image image-off images import indent-increase indent-decrease
 info italic keyboard languages layers layers-2 layout-dashboard layout-grid layout-panel-left layout-template
 link link-2 list list-ordered list-tree loader loader-circle lock lock-open magnet map-pin maximize maximize-2 menu mic minimize
-minimize-2 minus monitor moon mouse-pointer mouse-pointer-2 move move-horizontal move-vertical music navigation
+minimize-2 minus monitor moon mouse-pointer mouse-pointer-2 move move-diagonal-2 move-horizontal move-vertical music navigation
 package paint-bucket paintbrush palette panel-bottom panel-bottom-close panel-left panel-left-close panel-right
 panel-right-close panel-top panel-top-close panels-top-left pause pen pen-tool pencil percent pilcrow pin pin-off
 pipette play plus printer puzzle quote redo redo-2 refresh-cw repeat rotate-ccw rotate-cw route rows-2 rows-3 ruler

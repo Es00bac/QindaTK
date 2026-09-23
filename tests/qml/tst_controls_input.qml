@@ -40,6 +40,10 @@ TestCase {
     Component { id: textArea; Tk.TextArea { rows: 3; width: 200 } }
     Component { id: number; Tk.NumberField { value: 50; from: 0; to: 100; stepSize: 5 } }
     Component { id: numberSmall; Tk.NumberField { small: true } }
+    Component {
+        id: numberDecorated
+        Tk.NumberField { label: "Width"; prefix: "~"; suffix: " px"; value: 50 }
+    }
     Component { id: slider; Tk.Slider { from: 0; to: 10; value: 5; stepSize: 1; width: 100 } }
     Component { id: sliderSmall; Tk.Slider { small: true; width: 100 } }
     Component { id: combo; Tk.ComboBox { model: ["One", "Two", "Three"] } }
@@ -230,6 +234,19 @@ TestCase {
         keyClick(Qt.Key_2)
         keyClick(Qt.Key_Return)
         compare(item.value, 72)
+    }
+
+    function test_numberfield_inline_text_is_visible() {
+        const item = make(numberDecorated)
+        item.width = 240
+        waitForRendering(item)
+        const label = findChild(item, "numberLabel")
+        const input = findChild(item, "numberInput")
+        verify(label !== null && input !== null)
+        compare(label.text, "Width")
+        verify(label.width > 0)
+        verify(input.x > label.x + label.width)
+        verify(input.width < item.width)
     }
 
     function test_slider_keyboard() {

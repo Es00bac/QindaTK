@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-19",
+  "generated": "2026-09-22",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -2488,6 +2488,72 @@
       ]
     },
     {
+      "name": "Filmstrip",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The frames of a clip, in order — most usefully its first and its last.  AGENT-NOTE: an editor scanning a timeline is reading the cut, and a cut is two frames: what the outgoing clip ends on and what the incoming one starts on. A strip of evenly spaced frames looks richer and answers a question nobody asked; head and tail is the default here for that reason, with more frames available when there is width to spend.  AGENT-CONTRACT: `frames` is a list of {source, caption} in display order. The strip never reflows them — it shows as many as fit from the front and the final one last, so the tail frame is always visible however narrow the clip gets. A strip that dropped the tail would hide half of every cut.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Filmstrip.qml",
+      "properties": [
+        {
+          "name": "frames",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "crop",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholderIcon",
+          "type": "string",
+          "default": "\"film\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumFrameWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.thumbnail / 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "root.frames === undefined || root.frames === null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shown",
+          "type": "int",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "filmstrip",
+        "filmstripFrame"
+      ]
+    },
+    {
       "name": "Heading",
       "kind": "qml",
       "base": "Tk.Label",
@@ -2635,6 +2701,49 @@
       "methods": [],
       "enums": {},
       "objectNames": []
+    },
+    {
+      "name": "KeyCap",
+      "kind": "qml",
+      "base": "Row",
+      "description": "A keyboard shortcut, drawn as keys rather than written as a string.  AGENT-NOTE: \"Ctrl+Shift+K\" in running text is read as prose and skimmed past; the same shortcut as three caps is read as keys and remembered. Menus, command palettes and shortcut sheets all want this, and all three were hand-rolling it.  AGENT-CONTRACT: `sequence` is a portable Qt key string (\"Ctrl+Shift+K\"). The separator is normalised here rather than by callers, so a sheet and a menu cannot disagree about whether it is \"+\" or a space.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/KeyCap.qml",
+      "properties": [
+        {
+          "name": "sequence",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "symbolic",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keys",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "keyCap",
+        "keyCapKey",
+        "keyCapLabel"
+      ]
     },
     {
       "name": "KeyValue",
@@ -3527,6 +3636,115 @@
       ]
     },
     {
+      "name": "PillSwitcher",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md): a compact, fully rounded page switcher for top bars. Entries are strings or {text, iconName, value, tooltip, accent, objectName}; programmatic currentIndex changes are silent and activated(index, value) reports user changes only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PillSwitcher.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showLabels",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showActiveMarker",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "control.model === undefined || control.model === null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentValue",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "itemHeight",
+          "type": "real",
+          "default": "control.small ? Tk.Theme.size.controlSm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "activated",
+          "parameters": "int index, var value"
+        }
+      ],
+      "methods": [
+        {
+          "name": "entry",
+          "parameters": "index"
+        },
+        {
+          "name": "activate",
+          "parameters": "index"
+        },
+        {
+          "name": "move",
+          "parameters": "from, amount"
+        },
+        {
+          "name": "itemAt",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "objectNames": []
+    },
+    {
       "name": "Popover",
       "kind": "qml",
       "base": "T.Popup",
@@ -3877,6 +4095,105 @@
       "methods": [],
       "enums": {},
       "objectNames": []
+    },
+    {
+      "name": "RangeSlider",
+      "kind": "qml",
+      "base": "T.RangeSlider",
+      "description": "Two handles on one track, for a band rather than a point.  AGENT-CONTRACT (docs/controls-media.md): matches Slider's metrics — a 2px track, a 10px handle (8px small), in a 16px (14px) row — so a range and a value sit on the same inspector grid. `rangeModified(first, second)` fires on user moves from either handle.  AGENT-NOTE: the handles are deliberately allowed to meet and cross-clamp rather than being blocked at each other. A user dragging the upper handle down past the lower one means \"I want this band to start here\", and a slider that simply refuses feels broken; T.RangeSlider's own clamping keeps first <= second, so the band collapses rather than inverting.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RangeSlider.qml",
+      "properties": [
+        {
+          "name": "showValues",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "decimals",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "suffix",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeight",
+          "type": "real",
+          "default": "small ? Tk.Theme.size.icon : Tk.Theme.size.iconLg",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handleSize",
+          "type": "real",
+          "default": "small ? Tk.Theme.space.md : Tk.Theme.size.grip",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackThickness",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "readout",
+          "type": "string",
+          "default": "",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "rangeModified",
+          "parameters": "real first, real second"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "rangeSlider",
+        "rangeSliderBand",
+        "rangeSliderFirstHandle",
+        "rangeSliderSecondHandle",
+        "rangeSliderTrack",
+        "rangeSliderValue"
+      ]
     },
     {
       "name": "Ruler",
@@ -5241,6 +5558,155 @@
       ]
     },
     {
+      "name": "Thumbnail",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "A media tile that is honest about not having a picture yet.  A bin row, a filmstrip frame and a poster frame all want the same thing: an image that may not exist, may still be loading, may have failed, and must occupy its space either way so the row beneath does not jump when it arrives.  AGENT-CONTRACT: `source` may be empty, may point at an asynchronous image provider, and may fail. Each of those is a state a caller can see through `state`, and each draws something: the kind icon while empty or loading, a muted alert glyph on failure. It never draws nothing, and it never resizes itself when the image lands.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Thumbnail.qml",
+      "properties": [
+        {
+          "name": "source",
+          "type": "url",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholderIcon",
+          "type": "string",
+          "default": "\"image\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "caption",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "crop",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "loadState",
+          "type": "string",
+          "default": "root.source.toString().length === 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "thumbnail",
+        "thumbnailCaption",
+        "thumbnailCaptionBand",
+        "thumbnailImage",
+        "thumbnailPlaceholder"
+      ]
+    },
+    {
+      "name": "TimeRuler",
+      "kind": "qml",
+      "base": "Item",
+      "description": "A time scale whose tick density follows the zoom, not the caller.  AGENT-NOTE: every timeline that hand-rolls a ruler ends up with ticks that are unreadably dense when zoomed out and comically sparse when zoomed in, because the step is a constant somebody picked at one zoom level. The step here is chosen from a 1/2/5/10 ladder against the pixels available per label, which is the rule that keeps a chart axis readable at any scale.  AGENT-CONTRACT: `pixelsPerUnit` and `originUnits` are the caller's scroll state; this draws them and never owns them. A ruler that kept its own scroll position would drift from the track area beneath it, and the drift is invisible until someone measures a cut against it.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TimeRuler.qml",
+      "properties": [
+        {
+          "name": "pixelsPerUnit",
+          "type": "real",
+          "default": "24",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "originUnits",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadUnits",
+          "type": "real",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "formatUnit",
+          "type": "var",
+          "default": "function(units) {",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "step",
+          "type": "real",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "scrubbed",
+          "parameters": "real units"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "timeRuler",
+        "timeRulerPlayhead",
+        "timeRulerTicks"
+      ]
+    },
+    {
       "name": "ToolBar",
       "kind": "qml",
       "base": "Tk.Box",
@@ -5629,6 +6095,65 @@
         "viewportScroll",
         "viewportSurface",
         "viewportWheel"
+      ]
+    },
+    {
+      "name": "Waveform",
+      "kind": "qml",
+      "base": "Item",
+      "description": "An audio envelope: peak magnitude per column, mirrored about a centre line.  AGENT-NOTE: this draws its own shape rather than wrapping Tk.Graph, which was tried first and does not fit. Graph fills from the plot EDGE -- GraphMesh::baseline() returns `plot.mirrored ? 0.0 : plot.height` -- so two mirrored series fill to the top and bottom rather than meeting at zero, and a quiet clip renders as tall as a loud one. That is exactly the judgement an editor reads a waveform to make, so the wrapper was abandoned rather than papered over. Giving Graph a fill-to-zero mode would be the better toolkit answer, but it means changing two rendering paths that existing consumers already depend on.  AGENT-CONTRACT: `peaks` are magnitudes in 0..1, one per column, already reduced by the caller. A waveform must be summarised at the width it is drawn; handing this a million samples to reduce on every repaint is the mistake this contract exists to prevent.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Waveform.qml",
+      "properties": [
+        {
+          "name": "peaks",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "default": "Tk.Theme.color.info",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showCentreLine",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "empty",
+          "type": "bool",
+          "default": "root.peaks === undefined || root.peaks === null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "objectNames": [
+        "waveform",
+        "waveformCentreLine",
+        "waveformShape"
       ]
     },
     {
