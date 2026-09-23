@@ -2,6 +2,7 @@
 #include "stylus_handler.h"
 
 #include <QPointingDevice>
+#include <QPointer>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickItem>
@@ -27,20 +28,29 @@ class TstStylusHandler final : public QObject {
     struct Scene {
         QQuickView view;
         QQuickItem *root = nullptr;
-        StylusHandler *handler = nullptr;
+        QPointer<StylusHandler> handler;
+        QPointer<StylusHandler> competitor;
     };
 
-    std::unique_ptr<Scene> makeScene(const QString &extra = {})
+    std::unique_ptr<Scene> makeScene(const QString &extra = {}, bool competing = false,
+                                     bool competingFirst = false)
     {
         auto scene = std::make_unique<Scene>();
         scene->view.engine()->addImportPath(QStringLiteral(QINDATK_BUILD_QML_DIR));
         scene->view.setResizeMode(QQuickView::SizeRootObjectToView);
         scene->view.resize(400, 300);
         QQmlComponent component(scene->view.engine());
-        component.setData(("import QtQuick\nimport QindaTK as Tk\n"
-                           "Rectangle { objectName: \"canvas\"; width: 400; height: 300\n"
-                           "  Tk.StylusHandler { objectName: \"stylus\" " + extra + " } }")
-                              .toUtf8(),
+        QString source = "import QtQuick\nimport QindaTK as Tk\n"
+            "Rectangle { objectName: \"canvas\"; width: 400; height: 300\n";
+        if (competing && competingFirst) {
+            source += "  Tk.StylusHandler { objectName: \"competitor\" }\n";
+        }
+        source += "  Tk.StylusHandler { objectName: \"stylus\" " + extra + " }\n";
+        if (competing && !competingFirst) {
+            source += "  Tk.StylusHandler { objectName: \"competitor\" }\n";
+        }
+        source += "}";
+        component.setData(source.toUtf8(),
                           QUrl(QStringLiteral("inline.qml")));
         if (component.isError()) {
             for (const QQmlError &error : component.errors()) {
@@ -51,6 +61,7 @@ class TstStylusHandler final : public QObject {
         if (scene->root != nullptr) {
             scene->root->setParentItem(scene->view.contentItem());
             scene->handler = scene->root->findChild<StylusHandler *>(QStringLiteral("stylus"));
+            scene->competitor = scene->root->findChild<StylusHandler *>(QStringLiteral("competitor"));
         }
         scene->view.show();
         return scene;
@@ -106,12 +117,23 @@ private slots:
         QSignalSpy began(scene->handler, &StylusHandler::began);
         QSignalSpy moved(scene->handler, &StylusHandler::moved);
         QSignalSpy ended(scene->handler, &StylusHandler::ended);
+        QSignalSpy activeChanged(scene->handler, &StylusHandler::activeChanged);
+        QSignalSpy grabChanged(scene->handler, &StylusHandler::grabChanged);
+        qreal pressureAtActivation = 0.0;
+        connect(scene->handler, &StylusHandler::activeChanged, scene->handler, [&] {
+            if (scene->handler->active()) {
+                pressureAtActivation = scene->handler->pressure();
+            }
+        });
 
         tabletSequence(&scene->view, m_stylus, QPointF(100, 100), QPointF(130, 110), 0.8, 12.0);
 
         QCOMPARE(began.count(), 1);
         QCOMPARE(moved.count(), 1);
         QCOMPARE(ended.count(), 1);
+        QCOMPARE(activeChanged.count(), 2);
+        QVERIFY(grabChanged.count() >= 2);
+        QCOMPARE(pressureAtActivation, 0.8);
         const auto first = began.first().first().value<StylusSample>();
         QCOMPARE(first.position, QPointF(100, 100));
         QCOMPARE(first.pressure, 0.8);
@@ -189,6 +211,121 @@ private slots:
         tabletSequence(&scene->view, m_stylus, QPointF(300, 250), QPointF(310, 260), 0.8, 0.0);
         QCOMPARE(began.count(), 0);
     }
+
+    void facadeAndPrivateBackendAreItemChildren()
+    {
+        auto scene = makeScene();
+        QVERIFY(scene->handler != nullptr);
+        QVERIFY(QTest::qWaitForWindowExposed(&scene->view));
+        QCOMPARE(scene->handler->parentItem(), scene->root);
+        QCOMPARE(scene->handler->QObject::parent(), static_cast<QObject *>(scene->root));
+        QCOMPARE(scene->handler->target(), scene->root);
+        QVERIFY(scene->handler->enabled());
+        QVERIFY(!scene->handler->active());
+        QVERIFY(scene->handler->children().isEmpty());
+
+        bool foundPrivateSibling = false;
+        for (QObject *child : scene->root->children()) {
+            if (child != scene->handler
+                && QByteArray(child->metaObject()->className()).contains("QQuickPointerDeviceHandler")) {
+                foundPrivateSibling = true;
+                QCOMPARE(child->parent(), static_cast<QObject *>(scene->root));
+            }
+        }
+        QVERIFY(foundPrivateSibling);
+    }
+
+    void reparentingKeepsInputAliveAndDestroyingParentCleansUp()
+    {
+        auto scene = makeScene();
+        QVERIFY(scene->handler != nullptr);
+        QVERIFY(QTest::qWaitForWindowExposed(&scene->view));
+
+        QPointer<StylusHandler> handler = scene->handler;
+        QQuickItem *oldParent = scene->root;
+        auto *newParent = new QQuickItem(scene->view.contentItem());
+        newParent->setPosition(QPointF(180, 150));
+        newParent->setSize(QSizeF(180, 140));
+        handler->setParentItem(newParent);
+        QCOMPARE(handler->parentItem(), newParent);
+        QCOMPARE(handler->QObject::parent(), static_cast<QObject *>(newParent));
+        QCOMPARE(handler->target(), newParent);
+
+        delete oldParent;
+        scene->root = nullptr;
+        QVERIFY(handler != nullptr);
+        QSignalSpy began(handler, &StylusHandler::began);
+        tabletSequence(&scene->view, m_stylus, QPointF(205, 175), QPointF(215, 180), 0.7, 2.0);
+        QCOMPARE(began.count(), 1);
+        QCOMPARE(began.first().first().value<StylusSample>().position, QPointF(25, 25));
+
+        delete newParent;
+        QVERIFY(handler.isNull());
+    }
+
+    void competingHandlersEmitOneBegan()
+    {
+        for (const bool competitorFirst : {false, true}) {
+            auto scene = makeScene({}, true, competitorFirst);
+            QVERIFY(scene->handler != nullptr);
+            QVERIFY(scene->competitor != nullptr);
+            QVERIFY(QTest::qWaitForWindowExposed(&scene->view));
+            QSignalSpy began(scene->handler, &StylusHandler::began);
+            QSignalSpy competitorBegan(scene->competitor, &StylusHandler::began);
+
+            tabletSequence(&scene->view, m_stylus,
+                           QPointF(100, 100), QPointF(130, 110), 0.8, 0.0);
+
+            QCOMPARE(began.count() + competitorBegan.count(), 1);
+        }
+    }
+
+    void enabledAcceptedSettingsAndMarginAreForwarded()
+    {
+        auto scene = makeScene();
+        QVERIFY(scene->handler != nullptr);
+        QVERIFY(QTest::qWaitForWindowExposed(&scene->view));
+        QSignalSpy began(scene->handler, &StylusHandler::began);
+        QSignalSpy marginChanged(scene->handler, &StylusHandler::marginChanged);
+        QSignalSpy permissionsChanged(scene->handler, &StylusHandler::grabPermissionChanged);
+
+        scene->handler->setMargin(-3.0);
+        QCOMPARE(scene->handler->margin(), -3.0);
+        QCOMPARE(marginChanged.count(), 1);
+        scene->handler->setGrabPermissions(StylusHandler::ApprovesCancellation);
+        QCOMPARE(permissionsChanged.count(), 1);
+        QVERIFY(scene->handler->grabPermissions().testFlag(StylusHandler::ApprovesCancellation));
+
+        scene->handler->setEnabled(false);
+        QVERIFY(!scene->handler->enabled());
+        tabletSequence(&scene->view, m_stylus, QPointF(100, 100), QPointF(110, 105), 0.8, 0.0);
+        QCOMPARE(began.count(), 0);
+
+        scene->handler->setEnabled(true);
+        scene->handler->setAcceptedDevices(QInputDevice::DeviceType::Mouse);
+        tabletSequence(&scene->view, m_stylus, QPointF(100, 100), QPointF(110, 105), 0.8, 0.0);
+        QCOMPARE(began.count(), 0);
+
+        scene->handler->setAcceptedDevices(QInputDevice::DeviceType::Stylus);
+        scene->handler->setAcceptedButtons(Qt::RightButton);
+        tabletSequence(&scene->view, m_stylus, QPointF(100, 100), QPointF(110, 105), 0.8, 0.0);
+        QCOMPARE(began.count(), 0);
+
+        scene->handler->setAcceptedButtons(Qt::LeftButton);
+        tabletSequence(&scene->view, m_stylus, QPointF(100, 100), QPointF(110, 105), 0.8, 0.0);
+        QCOMPARE(began.count(), 1);
+    }
+
+    void qmlPointerHandlerGrabValuesRemainCompatible()
+    {
+        auto scene = makeScene(QStringLiteral(
+            "; grabPermissions: PointerHandler.CanTakeOverFromItems | PointerHandler.ApprovesCancellation"));
+        QVERIFY(scene->handler != nullptr);
+        QVERIFY(QTest::qWaitForWindowExposed(&scene->view));
+        QVERIFY(scene->handler->grabPermissions().testFlag(StylusHandler::CanTakeOverFromItems));
+        QVERIFY(scene->handler->grabPermissions().testFlag(StylusHandler::ApprovesCancellation));
+    }
+
 };
 
 QTEST_MAIN(TstStylusHandler)

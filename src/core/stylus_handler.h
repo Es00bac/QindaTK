@@ -1,31 +1,18 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
-// Tk.StylusHandler: pen input for a canvas item, with pressure, tilt,
-// rotation and the pen/eraser pointer type.
-//
-// AGENT-NOTE: QtQuick never hands a QTabletEvent to QQuickItem::event(),
-// and a QML PointHandler only ever sees the mouse events Qt synthesises
-// from unhandled tablet events (pressure 0, device "core pointer"). The one
-// place the raw tablet event is reachable is a QQuickPointerDeviceHandler
-// subclass, which is why this class exists and why it includes a private
-// header (the second private-API use in the toolkit after LayoutInfo;
-// docs/decisions.md D-013). Verified against Qt 6.11.1 with
-// QWindowSystemInterface::handleTabletEvent.
-//
-// AGENT-GUARD: a handler receives a LOCALISED COPY of the event, so
-// accepting it here does not stop Qt from synthesising a mouse event for
-// the same tablet sample. The mouse fallback therefore only accepts mouse
-// events whose source is MouseEventNotSynthesized, or every stroke would be
-// sampled twice.
-
-#include <QtQuick/private/qquickpointerdevicehandler_p.h>
-
+#include <QInputDevice>
+#include <QObject>
 #include <QPointF>
 #include <QPointingDevice>
+#include <QPointer>
+#include <QQuickItem>
+#include <QtQml/QQmlParserStatus>
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
+
+class StylusInputHandler;
 
 // One pen sample in the parent item's coordinates. A value type in QML:
 // `onMoved: (sample) => ink.add(sample.position, sample.pressure)`.
@@ -60,10 +47,17 @@ public:
     [[nodiscard]] QString pointerTypeName() const;
 };
 
-class StylusHandler : public QQuickPointerDeviceHandler {
+// Public, private-API-free proxy for the Qt pointer-device implementation.
+// The implementation is parented to the QQuickItem, never to this QObject.
+class StylusHandler : public QObject, public QQmlParserStatus {
     Q_OBJECT
+    Q_INTERFACES(QQmlParserStatus)
     QML_NAMED_ELEMENT(StylusHandler)
-    // Live values of the most recent sample (bindable from QML).
+    Q_CLASSINFO("ParentProperty", "parent")
+    Q_PROPERTY(QQuickItem *parent READ parentItem WRITE setParentItem NOTIFY parentChanged)
+    Q_PROPERTY(QQuickItem *target READ target WRITE setTarget NOTIFY targetChanged)
+    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
+    Q_PROPERTY(bool active READ active NOTIFY activeChanged)
     Q_PROPERTY(QPointF position READ position NOTIFY sampleChanged)
     Q_PROPERTY(qreal pressure READ pressure NOTIFY sampleChanged)
     Q_PROPERTY(qreal tiltX READ tiltX NOTIFY sampleChanged)
@@ -71,10 +65,44 @@ class StylusHandler : public QQuickPointerDeviceHandler {
     Q_PROPERTY(qreal rotation READ rotation NOTIFY sampleChanged)
     Q_PROPERTY(QString pointerType READ pointerType NOTIFY sampleChanged)
     Q_PROPERTY(int buttons READ buttons NOTIFY sampleChanged)
-    // Pressure reported for the mouse fallback (a mouse has none).
     Q_PROPERTY(qreal mousePressure READ mousePressure WRITE setMousePressure NOTIFY mousePressureChanged)
+    Q_PROPERTY(QInputDevice::DeviceTypes acceptedDevices READ acceptedDevices WRITE setAcceptedDevices NOTIFY acceptedDevicesChanged)
+    Q_PROPERTY(QPointingDevice::PointerTypes acceptedPointerTypes READ acceptedPointerTypes WRITE setAcceptedPointerTypes NOTIFY acceptedPointerTypesChanged)
+    Q_PROPERTY(Qt::MouseButtons acceptedButtons READ acceptedButtons WRITE setAcceptedButtons NOTIFY acceptedButtonsChanged)
+    Q_PROPERTY(Qt::KeyboardModifiers acceptedModifiers READ acceptedModifiers WRITE setAcceptedModifiers NOTIFY acceptedModifiersChanged)
+    Q_PROPERTY(qreal margin READ margin WRITE setMargin NOTIFY marginChanged)
+    Q_PROPERTY(GrabPermissions grabPermissions READ grabPermissions WRITE setGrabPermissions NOTIFY grabPermissionChanged)
+
 public:
-    explicit StylusHandler(QQuickItem *parent = nullptr);
+    enum GrabPermission {
+        TakeOverForbidden = 0x0,
+        CanTakeOverFromHandlersOfSameType = 0x01,
+        CanTakeOverFromHandlersOfDifferentType = 0x02,
+        CanTakeOverFromItems = 0x04,
+        CanTakeOverFromAnything = 0x0F,
+        ApprovesTakeOverByHandlersOfSameType = 0x10,
+        ApprovesTakeOverByHandlersOfDifferentType = 0x20,
+        ApprovesTakeOverByItems = 0x40,
+        ApprovesCancellation = 0x80,
+        ApprovesTakeOverByAnything = 0xF0
+    };
+    Q_ENUM(GrabPermission)
+    Q_DECLARE_FLAGS(GrabPermissions, GrabPermission)
+    Q_FLAG(GrabPermissions)
+
+    explicit StylusHandler(QObject *parent = nullptr);
+    ~StylusHandler() override;
+
+    void classBegin() override;
+    void componentComplete() override;
+
+    [[nodiscard]] QQuickItem *parentItem() const { return m_parentItem; }
+    void setParentItem(QQuickItem *parent);
+    [[nodiscard]] QQuickItem *target() const;
+    void setTarget(QQuickItem *target);
+    [[nodiscard]] bool enabled() const { return m_enabled; }
+    void setEnabled(bool enabled);
+    [[nodiscard]] bool active() const { return m_active; }
 
     [[nodiscard]] QPointF position() const { return m_last.position; }
     [[nodiscard]] qreal pressure() const { return m_last.pressure; }
@@ -84,28 +112,71 @@ public:
     [[nodiscard]] QString pointerType() const { return m_last.pointerTypeName(); }
     [[nodiscard]] int buttons() const { return m_last.buttons; }
     [[nodiscard]] const StylusSample &lastSample() const { return m_last; }
+
     [[nodiscard]] qreal mousePressure() const { return m_mousePressure; }
     void setMousePressure(qreal pressure);
+    [[nodiscard]] QInputDevice::DeviceTypes acceptedDevices() const { return m_acceptedDevices; }
+    void setAcceptedDevices(QInputDevice::DeviceTypes devices);
+    [[nodiscard]] QPointingDevice::PointerTypes acceptedPointerTypes() const { return m_acceptedPointerTypes; }
+    void setAcceptedPointerTypes(QPointingDevice::PointerTypes types);
+    [[nodiscard]] Qt::MouseButtons acceptedButtons() const { return m_acceptedButtons; }
+    void setAcceptedButtons(Qt::MouseButtons buttons);
+    [[nodiscard]] Qt::KeyboardModifiers acceptedModifiers() const { return m_acceptedModifiers; }
+    void setAcceptedModifiers(Qt::KeyboardModifiers modifiers);
+    [[nodiscard]] qreal margin() const { return m_margin; }
+    void setMargin(qreal margin);
+    [[nodiscard]] GrabPermissions grabPermissions() const { return m_grabPermissions; }
+    void setGrabPermissions(GrabPermissions permissions);
 
 signals:
-    // The gesture: one began, any number of moved, one ended. `canceled`
-    // (from QQuickPointerHandler) fires when a grab is taken away; treat it
-    // as an ended without a final sample.
     void began(const QindaTK::StylusSample &sample);
     void moved(const QindaTK::StylusSample &sample);
     void ended(const QindaTK::StylusSample &sample);
+    void canceled(const QEventPoint &point);
     void sampleChanged();
     void mousePressureChanged();
-
-protected:
-    bool wantsPointerEvent(QPointerEvent *event) override;
-    void handlePointerEventImpl(QPointerEvent *event) override;
+    void parentChanged();
+    void targetChanged();
+    void enabledChanged();
+    void activeChanged();
+    void acceptedDevicesChanged();
+    void acceptedPointerTypesChanged();
+    void acceptedButtonsChanged();
+    void acceptedModifiersChanged();
+    void marginChanged();
+    void grabPermissionChanged();
+    void grabChanged(QPointingDevice::GrabTransition transition, const QEventPoint &point);
 
 private:
-    [[nodiscard]] StylusSample sampleFrom(QPointerEvent *event, const QEventPoint &point) const;
+    friend class StylusInputHandler;
 
+    void ensureInputHandler();
+    void setActiveFromInputHandler(bool active);
+    void dispatchBegin(const StylusSample &sample);
+    void dispatchMove(const StylusSample &sample);
+    void dispatchEnd(const StylusSample &sample);
+
+    QPointer<QQuickItem> m_parentItem;
+    QPointer<QQuickItem> m_target;
+    QPointer<QObject> m_inputHandler;
+    bool m_targetWasSet = false;
+    bool m_componentComplete = false;
+    bool m_enabled = true;
+    bool m_active = false;
     StylusSample m_last;
     qreal m_mousePressure = 0.6;
+    QInputDevice::DeviceTypes m_acceptedDevices = QInputDevice::DeviceType::Stylus
+        | QInputDevice::DeviceType::Mouse | QInputDevice::DeviceType::Airbrush
+        | QInputDevice::DeviceType::Puck;
+    QPointingDevice::PointerTypes m_acceptedPointerTypes = QPointingDevice::PointerType::Pen
+        | QPointingDevice::PointerType::Eraser | QPointingDevice::PointerType::Generic;
+    Qt::MouseButtons m_acceptedButtons = Qt::LeftButton | Qt::MiddleButton | Qt::RightButton;
+    Qt::KeyboardModifiers m_acceptedModifiers = Qt::NoModifier;
+    qreal m_margin = 0.0;
+    GrabPermissions m_grabPermissions = GrabPermissions(CanTakeOverFromItems)
+        | ApprovesCancellation;
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(StylusHandler::GrabPermissions)
 
 } // namespace QindaTK

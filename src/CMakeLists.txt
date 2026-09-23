@@ -69,11 +69,8 @@ target_include_directories(qindatk PUBLIC
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
     PRIVATE Qt6::Svg)
-# AGENT-NOTE: QuickPrivate is PUBLIC because <qindatk/stylus_handler.h>
-# derives from QQuickPointerDeviceHandler (a private class): any C++ user of
-# that header needs the private include path. LayoutInfo keeps its private
-# includes out of its header.
-target_link_libraries(qindatk PUBLIC Qt6::QuickPrivate)
+# Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
+target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
 
 # ---- optional bridge to the QindaQt desktop's QST-1 tokens (pure QML) ----
 # Importing QindaTK.QindaQt requires QindaQt.Tokens at run time; the module
