@@ -161,6 +161,7 @@ Rectangle {
                 PopupsSection { filter: search.text }
                 OfficeSection { filter: search.text }
                 TelemetrySection { filter: search.text }
+                QuerySection { filter: search.text }
                 DockingSection { filter: search.text }
                 ThemeSection { filter: search.text }
             }

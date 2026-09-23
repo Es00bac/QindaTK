@@ -98,3 +98,36 @@ synchronous; schedule it on a worker only with a thread-safe immutable source.
 No joins, sorting, computed fields, incremental refresh, partial drill-through
 pages, hierarchy expansion or persistence layer are included in this core
 package. Those operations require explicit provider contracts and UI work.
+
+## QML editor and result view
+
+`FilterBar` edits field/operator/value clauses and emits a typed predicate
+object. Invalid drafts are retained and reported beside the controls; callers
+must check `valid` before submitting. Integer literals remain strings in the
+JSON object, preserving values outside JavaScript's exact-number range. Null
+checks have dedicated `isNull` and `isNotNull` operators. Clause groups use
+explicit AND or OR nodes.
+
+`QueryBuilder` uses the schema and source revision supplied by
+`QueryController`. Its field-axis selector assigns each field to no axis, the
+row axis or the column axis. Measure rows pair a field with a supported
+aggregate. The generated JSON follows the version-1 `QueryEngine` shape and
+contains request ID, schema ID/revision, source revision, predicate,
+parameters, row and column dimensions, and measures. `loadSpec()` restores
+the editor from a saved JSON spec. Preview requests pass that object to
+`QueryController`; it executes asynchronously and only publishes a result
+for its active request ID. Hosts can persist the emitted spec separately.
+
+`PivotView` reads stable row and column IDs, labels and aggregate values from
+the controller's read-only result model. It displays at most 50 by 24 cells
+at once (`maxRows`/`maxColumns` can lower those limits) and provides row and
+column paging, so all bounded result
+IDs stay reachable without instantiating every cell. Activating a cell emits
+the exact row ID, column ID and source row IDs from aggregate provenance.
+Editing and clipboard operations are not offered by this view; the host can
+map provenance to a separate source-data or detail view.
+
+The controls currently support flat AND/OR clauses and one level of row/column
+field assignment. The core accepts recursively nested predicate trees; a
+recursive group editor, nested field hierarchies, incremental refresh and
+remote-provider progress UI remain later work.

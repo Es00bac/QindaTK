@@ -5536,6 +5536,144 @@
       ]
     },
     {
+      "name": "FilterBar",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Composes typed filter leaves; owner receives a version-independent predicate tree and decides when to submit it.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FilterBar.qml",
+      "properties": [
+        {
+          "name": "fields",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clauses",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "conjunction",
+          "type": "string",
+          "default": "\"and\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Filter rows\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "valid",
+          "type": "bool",
+          "default": "validationError.length === 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validationError",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "predicateChanged",
+          "parameters": "var predicate"
+        },
+        {
+          "name": "clausesEdited",
+          "parameters": "var clauses"
+        },
+        {
+          "name": "conjunctionEdited",
+          "parameters": "string conjunction"
+        },
+        {
+          "name": "clauseRemoved",
+          "parameters": "int index"
+        }
+      ],
+      "methods": [
+        {
+          "name": "fieldById",
+          "parameters": "id"
+        },
+        {
+          "name": "fieldIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "operatorIndex",
+          "parameters": "clause"
+        },
+        {
+          "name": "clauseRowFieldType",
+          "parameters": "clause"
+        },
+        {
+          "name": "addClause",
+          "parameters": ""
+        },
+        {
+          "name": "updateClause",
+          "parameters": "index, key, value"
+        },
+        {
+          "name": "removeClause",
+          "parameters": "index"
+        },
+        {
+          "name": "typedValue",
+          "parameters": "c"
+        },
+        {
+          "name": "toPredicate",
+          "parameters": ""
+        },
+        {
+          "name": "publish",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "filterAdd",
+        "filterBoolean_",
+        "filterClause_",
+        "filterConjunction",
+        "filterField_",
+        "filterOperator_",
+        "filterRemove_",
+        "filterValidation",
+        "filterValue_"
+      ]
+    },
+    {
       "name": "FindReplaceBar",
       "kind": "qml",
       "base": "Tk.Box",
@@ -8582,6 +8720,238 @@
       ]
     },
     {
+      "name": "PivotView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Read-only, bounded rendering of QueryController's result snapshot. Every displayed aggregate can request drill-through using source-row provenance.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PivotView.qml",
+      "properties": [
+        {
+          "name": "controller",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxRows",
+          "type": "int",
+          "default": "50",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxColumns",
+          "type": "int",
+          "default": "24",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowPage",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnPage",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowHeaderWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.panelMinWidth * 0.55",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.fieldWidth * 0.8",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Pivot results; activate a value to inspect its source rows\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "totalRows",
+          "type": "int",
+          "default": "controller && controller.resultModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "totalColumns",
+          "type": "int",
+          "default": "controller && controller.resultModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowPageSize",
+          "type": "int",
+          "default": "Math.min(50, Math.max(1, maxRows))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnPageSize",
+          "type": "int",
+          "default": "Math.min(24, Math.max(1, maxColumns))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowPageCount",
+          "type": "int",
+          "default": "Math.max(1, Math.ceil(totalRows / rowPageSize))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnPageCount",
+          "type": "int",
+          "default": "Math.max(1, Math.ceil(totalColumns / columnPageSize))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowOffset",
+          "type": "int",
+          "default": "Math.min(rowPage, rowPageCount - 1) * rowPageSize",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnOffset",
+          "type": "int",
+          "default": "Math.min(columnPage, columnPageCount - 1) * columnPageSize",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleRows",
+          "type": "int",
+          "default": "Math.max(0, Math.min(rowPageSize, totalRows - rowOffset))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleColumns",
+          "type": "int",
+          "default": "Math.max(0, Math.min(columnPageSize, totalColumns - columnOffset))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "truncated",
+          "type": "bool",
+          "default": "totalRows > visibleRows || totalColumns > visibleColumns",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowLabels",
+          "type": "var",
+          "default": "controller ? controller.rowLabels : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnLabels",
+          "type": "var",
+          "default": "controller ? controller.columnLabels : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "drillThrough",
+          "parameters": "string rowId, string columnId, var sourceRows"
+        }
+      ],
+      "methods": [
+        {
+          "name": "rowId",
+          "parameters": "index"
+        },
+        {
+          "name": "columnId",
+          "parameters": "index"
+        },
+        {
+          "name": "labelFor",
+          "parameters": "labels, id, fallback"
+        },
+        {
+          "name": "valueText",
+          "parameters": "value"
+        },
+        {
+          "name": "activateCell",
+          "parameters": "row, column"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "pivotCell_",
+        "pivotColumnHeaders",
+        "pivotColumn_",
+        "pivotColumnsNext",
+        "pivotColumnsPage",
+        "pivotColumnsPrevious",
+        "pivotCornerHeader",
+        "pivotPaging",
+        "pivotRowHeader_",
+        "pivotRow_",
+        "pivotRowsNext",
+        "pivotRowsPage",
+        "pivotRowsPrevious",
+        "pivotStatus",
+        "pivotViewport"
+      ]
+    },
+    {
       "name": "Popover",
       "kind": "qml",
       "base": "T.Popup",
@@ -9093,6 +9463,231 @@
       "objectNames": [
         "propertyEditor",
         "propertyLabel"
+      ]
+    },
+    {
+      "name": "QueryBuilder",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Typed visual editor for QueryEngine's version-1 JSON contract. This control never builds executable text; the controller validates and runs the AST.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/QueryBuilder.qml",
+      "properties": [
+        {
+          "name": "controller",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "schema",
+          "type": "var",
+          "default": "controller ? controller.schema : ({ \"id\": \"\", \"revision\": \"\", \"fields\": [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sourceRevision",
+          "type": "string",
+          "default": "controller && controller.source ? controller.source.revision : \"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clauses",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "conjunction",
+          "type": "string",
+          "default": "\"and\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowFields",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnFields",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "measures",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "querySpec",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Build a typed query and pivot layout\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "loadDiagnostic",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fields",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "diagnostic",
+          "type": "string",
+          "default": "controller ? controller.diagnostic : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "default": "controller ? controller.status : \"idle\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "queryRequested",
+          "parameters": "var query"
+        },
+        {
+          "name": "queryBuilt",
+          "parameters": "var query"
+        },
+        {
+          "name": "previewRequested",
+          "parameters": "string requestId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "has",
+          "parameters": "list, id"
+        },
+        {
+          "name": "setAxis",
+          "parameters": "index, axisIndex"
+        },
+        {
+          "name": "axisIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "addMeasure",
+          "parameters": ""
+        },
+        {
+          "name": "updateMeasure",
+          "parameters": "index, key, value"
+        },
+        {
+          "name": "removeMeasure",
+          "parameters": "index"
+        },
+        {
+          "name": "measureIdExists",
+          "parameters": "id"
+        },
+        {
+          "name": "compileSpec",
+          "parameters": ""
+        },
+        {
+          "name": "publish",
+          "parameters": ""
+        },
+        {
+          "name": "requestPreview",
+          "parameters": ""
+        },
+        {
+          "name": "loadSpec",
+          "parameters": "spec"
+        },
+        {
+          "name": "rejectLoad",
+          "parameters": "message"
+        },
+        {
+          "name": "fieldById",
+          "parameters": "id"
+        },
+        {
+          "name": "fieldIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "measureFunctions",
+          "parameters": "type"
+        },
+        {
+          "name": "measureFunctionIndex",
+          "parameters": "measure"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "queryAggregate_",
+        "queryAxisField_",
+        "queryAxisPanel",
+        "queryAxis_",
+        "queryCancel",
+        "queryDiagnostic",
+        "queryFilterBar",
+        "queryMeasureAdd",
+        "queryMeasureField_",
+        "queryMeasureRemove_",
+        "queryMeasure_",
+        "queryPreview"
       ]
     },
     {

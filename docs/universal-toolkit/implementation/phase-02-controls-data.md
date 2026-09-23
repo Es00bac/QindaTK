@@ -188,7 +188,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-029"></a>
 ## WP-029 — Implement filters, query building and pivots
 
-**Implementation lead:** Sol. **Status:** active (C++ core; controls pending). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Sol. **Status:** review (integrated core and controls; qualification pending). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** [DAT-07 FilterBar](../proposed/03-data-views.md#dat-07), [DAT-08 QueryBuilder](../proposed/03-data-views.md#dat-08), [DAT-09 PivotView](../proposed/03-data-views.md#dat-09)
 
@@ -251,7 +251,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-032"></a>
 ## WP-032 — Build event, diff and resource views
 
-**Implementation lead:** Luna. **Status:** planned. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-024](phase-02-controls-data.md#wp-024), [WP-027](phase-02-controls-data.md#wp-027), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Luna. **Status:** active (event-log sublane; diff/resource pending). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-024](phase-02-controls-data.md#wp-024), [WP-027](phase-02-controls-data.md#wp-027), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** [DAT-18 EventLogView](../proposed/03-data-views.md#dat-18), [DAT-19 DiffView](../proposed/03-data-views.md#dat-19), [DAT-20 ResourceTable](../proposed/03-data-views.md#dat-20)
 
