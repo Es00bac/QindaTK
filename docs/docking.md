@@ -167,7 +167,21 @@ invisible surface reaches 48 logical px without widening the dock lane.
 | right-click a tab | menu: Take out of group / Float / Close |
 | header buttons | collapse (`collapse`), float/dock (`floatPanel`/`dock`), close (`hide`) |
 | floating header drag | `moveFloating` (clamped to the host) plus dock targets |
-| floating edges/corners | `setFloatingRect` (8 handles) |
+| floating edges/corners | `setFloatingRect` (8 focusable handles; themed expanded targets) |
+
+Floating resize handles use `Theme.size.seamTarget` across their edge, and
+corner squares use a distinct target up to that size. In Touch density the
+targets reach 48 logical px while the frame and its painted header/content
+geometry remain unchanged. Corners occupy the ends of each edge target, so
+edge and corner hit regions meet without overlapping. The handles expose
+named `Accessible.Splitter` actions, a visible focus outline, arrow-key
+resizing along their applicable axes, and accessible increase/decrease.
+All accepted input routes call `DockModel.setFloatingRect` and honor the
+panel's minimum size. On panels smaller than the target layout, corner targets
+shrink to at most half the frame's width and height; an edge handle whose
+remaining non-overlapping segment cannot contain a target is disabled. This
+preserves distinct, safe hit areas but cannot guarantee 48px targets for a
+panel whose minimum dimensions are below the space required for eight handles.
 | press anywhere on a floating panel | `bringToFront` |
 | collapse button on a floating panel | shade to the header (host-side state) |
 | Escape in a focused floating panel | `hide` |

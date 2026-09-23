@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
 
@@ -164,20 +165,85 @@ Item {
                 required property var modelData
                 readonly property int ex: modelData.ex
                 readonly property int ey: modelData.ey
-                readonly property real grip: Tk.Theme.size.seam + 2
+                readonly property string side: ex < 0 ? (ey < 0 ? "topLeft" : ey > 0 ? "bottomLeft" : "left")
+                                                       : ex > 0 ? (ey < 0 ? "topRight" : ey > 0 ? "bottomRight" : "right")
+                                                                : (ey < 0 ? "top" : "bottom")
+                readonly property string accessibleSide: side.replace(/([A-Z])/g, " $1").toLowerCase()
+                readonly property real grip: Tk.Theme.size.seamTarget
                 readonly property real corner: Tk.Theme.size.handle
-                x: ex < 0 ? -grip / 2 : ex > 0 ? frame.width - grip / 2 : corner
-                y: ey < 0 ? -grip / 2 : ey > 0 ? frame.height - grip / 2 : corner
-                width: ex === 0 ? frame.width - corner * 2 : (ey === 0 ? grip : corner)
-                height: ey === 0 ? frame.height - corner * 2 : (ex === 0 ? grip : corner)
+                readonly property real cornerTarget: Math.min(Math.max(corner, Tk.Theme.size.seamTarget), frame.width / 2, frame.height / 2)
+                readonly property bool edgeTargetFits: ex !== 0 && ey === 0
+                    ? frame.height - 2 * cornerTarget >= Tk.Theme.size.seamTarget
+                    : ey !== 0 && ex === 0
+                        ? frame.width - 2 * cornerTarget >= Tk.Theme.size.seamTarget : true
+                objectName: "dockFloatingResize_" + frame.panelId + "_" + side
+                x: ex < 0 ? 0 : ex > 0 ? frame.width - (ey === 0 ? grip : cornerTarget) : cornerTarget
+                y: ey < 0 ? 0 : ey > 0 ? frame.height - (ex === 0 ? grip : cornerTarget) : cornerTarget
+                width: ex === 0 ? Math.max(0, frame.width - 2 * cornerTarget) : (ey === 0 ? grip : cornerTarget)
+                height: ey === 0 ? Math.max(0, frame.height - 2 * cornerTarget) : (ex === 0 ? grip : cornerTarget)
                 z: 20
 
+                activeFocusOnTab: enabled && visible
+                Accessible.role: Accessible.Splitter
+                Accessible.name: qsTr("Resize %1 of %2").arg(handle.accessibleSide).arg(frame.host.panelTitle(frame.panelId))
+                Accessible.description: qsTr("Arrow keys resize this floating panel. Increase and decrease adjust its size.")
+                Accessible.focusable: handle.enabled && handle.visible
+                Accessible.focused: handle.activeFocus
+                Accessible.onIncreaseAction: handle.resizeBy(1, 1)
+                Accessible.onDecreaseAction: handle.resizeBy(-1, -1)
+                enabled: edgeTargetFits
+
+                function resizeBy(horizontal, vertical) {
+                    if (!handle.enabled || !frame.visible || frame.info.fixedSize === true) {
+                        return
+                    }
+                    const step = Tk.Theme.space.lg
+                    const start = Qt.rect(frame.x, frame.y, frame.width, frame.info.height)
+                    handle.resizeFrom(start, handle.ex * horizontal * step, handle.ey * vertical * step)
+                }
+
+                function resizeFrom(start, dx, dy) {
+                    if (!handle.enabled || frame.info.fixedSize === true) return
+                    const w = Math.max(frame.minW, start.width + dx)
+                    const h = Math.max(frame.minH, start.height + dy)
+                    const x = handle.ex < 0 ? start.x + start.width - w : start.x
+                    const y = handle.ey < 0 ? start.y + start.height - h : start.y
+                    frame.host.model.setFloatingRect(frame.panelId, x, y, w, h)
+                }
+
+                Keys.onPressed: function(event) {
+                    if (!handle.enabled) return
+                    if (event.key === Qt.Key_Left && handle.ex !== 0) {
+                        handle.resizeBy(-1, 0); event.accepted = true
+                    } else if (event.key === Qt.Key_Right && handle.ex !== 0) {
+                        handle.resizeBy(1, 0); event.accepted = true
+                    } else if (event.key === Qt.Key_Up && handle.ey !== 0) {
+                        handle.resizeBy(0, -1); event.accepted = true
+                    } else if (event.key === Qt.Key_Down && handle.ey !== 0) {
+                        handle.resizeBy(0, 1); event.accepted = true
+                    }
+                }
+
+                Rectangle {
+                    objectName: handle.objectName + "_focus"
+                    anchors.fill: parent
+                    anchors.margins: -Tk.Theme.size.focusRing
+                    color: "transparent"
+                    border.width: Tk.Theme.size.focusRing
+                    border.color: Tk.Theme.color.focus
+                    visible: handle.activeFocus && handle.enabled
+                }
+
                 HoverHandler {
+                    enabled: handle.enabled
                     cursorShape: handle.ex === 0 ? Qt.SizeVerCursor
                                : handle.ey === 0 ? Qt.SizeHorCursor
                                : (handle.ex === handle.ey ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor)
                 }
                 DragHandler {
+                    objectName: "dockFloatingResizeDrag_" + frame.panelId + "_" + handle.side
+                    enabled: handle.enabled
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchScreen
                     target: null
                     dragThreshold: 1
                     property rect start: Qt.rect(0, 0, 0, 0)
@@ -190,13 +256,7 @@ Item {
                         if (!active) {
                             return
                         }
-                        let w = start.width + (handle.ex > 0 ? translation.x : handle.ex < 0 ? -translation.x : 0)
-                        let h = start.height + (handle.ey > 0 ? translation.y : handle.ey < 0 ? -translation.y : 0)
-                        w = Math.max(w, frame.minW)
-                        h = Math.max(h, frame.minH)
-                        const x = handle.ex < 0 ? start.x + start.width - w : start.x
-                        const y = handle.ey < 0 ? start.y + start.height - h : start.y
-                        frame.host.model.setFloatingRect(frame.panelId, x, y, w, h)
+                        handle.resizeFrom(start, translation.x * handle.ex, translation.y * handle.ey)
                     }
                 }
             }

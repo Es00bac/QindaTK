@@ -163,6 +163,13 @@ horizontal seam by `Theme.space.lg`; accessible increase/decrease uses the
 same signed delta path as dragging. It emits `dragged(delta)` and leaves lane
 extents and slot shares to `DockZone` and `DockModel`. Its visible focus ring
 is `<divider objectName>_focus`.
+`DockFloating` exposes eight named `Accessible.Splitter` resize handles
+(`dockFloatingResize_<panelId>_<side>`). Arrow keys resize each handle's
+applicable axes; accessible increase/decrease and pointer drag share
+`DockModel.setFloatingRect` and its minimum-size rules. Focus is outlined with
+a themed ring. `Theme.size.seamTarget` supplies expanded edge and corner
+targets without changing frame geometry; very small panels shrink corner
+targets and disable edge targets that cannot fit without overlap.
 
 ## Size table (compact density)
 
@@ -180,7 +187,7 @@ is `<divider objectName>_focus`.
 | `size.menuItem` | 22 | Menu items, ComboBox rows |
 | `size.icon` / `iconSm` / `iconLg` | 14 / 12 / 16 | icons in controls / small controls / chips |
 | `size.seam` | 4 | Painted splitter and dock divider thickness |
-| `size.seamTarget` | 16 | Dock divider and Splitter cross-axis hit area; 48px minimum in Touch density |
+| `size.seamTarget` | 16 | Dock divider, Splitter, and DockFloating resize hit targets; 48px minimum in Touch density when panel geometry permits |
 | `size.scrollbar` | 8 | ScrollBar thumb |
 | `size.labelWidth` | 96 | PropertyRow label column |
 | `size.fieldWidth` | 120 | default width of a lone field |

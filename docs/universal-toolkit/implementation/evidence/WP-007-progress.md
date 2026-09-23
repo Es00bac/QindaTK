@@ -61,7 +61,13 @@ FND-07 through FND-10.
   artwork stays at `size.rulerMarker`; overlapping targets choose the nearest
   marker and exact ties follow model order. Touch edge-drag and insertion tests
   are recorded in [ruler marker evidence](WP-007-FIX-F04-ruler-markers.md).
-  Marker keyboard and native accessibility actions remain an open F04 gap.
+  Draggable markers now have keyboard and accessible adjustment actions;
+  native screen-reader delivery remains a platform qualification.
+- `DockFloating`'s eight resize handles now expose themed Touch targets,
+  distinct corner/edge hit regions, keyboard and accessible Splitter actions,
+  and a visible focus ring. Every accepted resize stays model-owned through
+  `DockModel.setFloatingRect`; constrained tiny frames disable an edge target
+  when it cannot fit without overlap. [Focused evidence](WP-007-FND-07-touch.md).
 - `TextField` blocks its custom clear paths when read-only or disabled;
   `SearchField` now debounces user edits while programmatic synchronization
   remains silent. `TextField` and `TextArea` describe read-only/error state.

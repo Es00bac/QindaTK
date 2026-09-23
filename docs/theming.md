@@ -162,7 +162,9 @@ keeps small toggle rows at their desktop geometry while providing a 48px
 Touch surface. Actionable StatusField uses `size.control` for its Touch target,
 and StatusBar places its top rule outside that content height. DockDivider uses
 `seamTarget` (16px base) for its handler margin, leaving the seam width
-unchanged.
+unchanged. DockFloating uses the same role for expanded edge and corner resize
+targets while preserving frame geometry; constrained small frames may have
+smaller targets to keep the eight sides distinct.
 
 `ColorSwatches` uses `controlSm` as the minimum width and height for each
 square cell. In Touch this provides a 48×48px input area while the swatch

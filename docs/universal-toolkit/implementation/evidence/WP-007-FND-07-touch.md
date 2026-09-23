@@ -196,10 +196,43 @@ per-panel content reflow remain separate application responsibilities.
 The full focused `tst_qml` target passes on Qt 6.11.1 and Qt 6.8.3 in the
 worker's isolated `build/narrow` and `build/qt68` directories. Both include
 the scrolled seam/tab interaction regression. `gen_catalog.py` was run;
-no toolkit API or catalog entry changed.
+at that earlier change point, no toolkit API or catalog entry had changed.
 After integration, the focused `DockOverflow` scene also passed on both Qt
 versions. Resizing the focused Scroll to an unscrollable viewport exposed a
 Qt focus warning; `Tk.Scroll` now retains its tab stop while focused and
 releases it after focus leaves. The focused `ScrollNested` scene passed on
 both versions, and the integrated `DockOverflow` run no longer emits that
 warning.
+
+## Floating resize handles
+
+`DockFloating` gives its eight edge/corner handles explicit target geometry
+inside the frame perimeter. Edge thickness uses `Theme.size.seamTarget` (16px
+in Compact and at least 48px in Touch); corners are square targets capped at
+half the frame width and height. The handles do not paint beyond their themed
+focus outline, and they do not change the frame's model geometry. Corners own
+the ends of the edge strips, leaving non-overlapping hit regions. When an
+edge's remaining segment is shorter than `seamTarget`, that edge is disabled;
+small panels can consequently have under-48px corner targets or unavailable
+edge actions rather than overlapping targets.
+
+All eight handles are named `Accessible.Splitter` items. Arrow keys operate
+on each handle's relevant axis; accessible increase/decrease and synthetic
+touch dragging use the same resize helper and call
+`DockModel.setFloatingRect`, which preserves the model's minimum-size policy.
+The visible focus outline is themed. `tests/qml/tst_dock_floating_handles.qml`
+checks Touch edge/corner dimensions and separation, a synthetic touch resize,
+Compact accessibility naming and action, arrow-key resizing, and focus ring.
+
+The Compact/Touch preview dump and opened captures are recorded in the change's
+build artifacts (`build/floating-handles/floating-handles-*.dump` and `.png`).
+For the docking example's 240×200 floating frame, the Compact dump reports
+`Item#dockFloatingResize_history_left 0,16 16x168` and
+`Item#dockFloatingResize_history_topLeft 0,0 16x16`; Touch reports
+`0,48 48x104` and `0,0 48x48` respectively. A focused Touch review grab also
+shows `dockFloatingResize_review_topLeft_focus -3,-3 54x54` around the 48px
+corner target. The frame remains the same 240×200 in both dumps. The preview
+contains a standard floating frame whose handles fit their targets; this does
+not claim all configured minimum panel sizes can provide 48px targets at all
+eight sides. Physical touch and native screen-reader behavior still require
+platform testing.
