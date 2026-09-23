@@ -29,6 +29,12 @@ failed `importValues` changes no known value. Unknown scoped keys are kept
 as orphaned values and reported through `unsupportedKeysImported`, so an
 uninstalled plugin's preferences survive a save and later reinstall.
 
+`PreferencesDialog` starts a fresh stage when opened. Escape, Cancel, or
+closing its popup discards that stage and resets its search/category filters.
+Return/Enter validates the focused editor and applies the full stage only on
+success. Validation reveals a setting hidden by filters and focuses its editor
+so the error can be corrected.
+
 `SettingsPersistence` stores `{version:2, values, extensions}`. Each value
 is tagged with an exact scalar type (`bool`, `int`, `uint`, `longlong`,
 `ulonglong`, `double`, `string`, `bytes`, `strings`). Integer values are

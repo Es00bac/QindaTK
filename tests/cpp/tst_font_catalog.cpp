@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "font_catalog.h"
+#include <QFont>
 #include <QFontDatabase>
+#include <QRawFont>
 #include <QtTest>
 
 using namespace QindaTK;
@@ -72,6 +74,44 @@ private slots:
             QVERIFY(axis.value(QStringLiteral("default")).toDouble()
                     <= axis.value(QStringLiteral("maximum")).toDouble());
         }
+    }
+    void selectedFaceGlyphCoverageIsExplicitAndBounded()
+    {
+        FontCatalog catalog;
+        QString family;
+        QString style;
+        for (const auto &value : catalog.families()) {
+            const auto face = value.toMap();
+            const QString candidate = face.value(QStringLiteral("family")).toString();
+            const QString candidateStyle = face.value(QStringLiteral("styles")).toStringList().value(0);
+            const QRawFont raw = QRawFont::fromFont(QFontDatabase::font(candidate, candidateStyle, 12));
+            if (raw.isValid() && raw.supportsCharacter(uint('A'))
+                && !raw.supportsCharacter(0x10ffffu)) {
+                family = candidate;
+                style = candidateStyle;
+                break;
+            }
+        }
+        if (family.isEmpty()) QSKIP("No installed face with the coverage fixture pair");
+        QVERIFY(catalog.faceMetadata(family, style).value(QStringLiteral("coverageMetadataAvailable")).toBool());
+        QString sample = QStringLiteral("AA");
+        sample.append(QChar(0xdbff));
+        sample.append(QChar(0xdfff));
+        const auto coverage = catalog.checkGlyphCoverage(family, style, sample);
+        QVERIFY(coverage.value(QStringLiteral("available")).toBool());
+        QVERIFY(!coverage.value(QStringLiteral("complete")).toBool());
+        QCOMPARE(coverage.value(QStringLiteral("checkedCount")).toInt(), 3);
+        QCOMPARE(coverage.value(QStringLiteral("unsupportedCodepoints")).toStringList(),
+                 QStringList{QStringLiteral("U+10FFFF")});
+        QCOMPARE(coverage.value(QStringLiteral("unsupportedCount")).toInt(), 1);
+        QVERIFY(catalog.checkGlyphCoverage(family, style, QStringLiteral("A"))
+                    .value(QStringLiteral("complete")).toBool());
+        QVERIFY(!catalog.checkGlyphCoverage(QStringLiteral("QindaTK Fixture Missing Font 89B56"),
+                                            style, sample).value(QStringLiteral("available")).toBool());
+        QVERIFY(!catalog.checkGlyphCoverage(family, style, QString(4097, QChar('A')))
+                    .value(QStringLiteral("available")).toBool());
+        QVERIFY(!catalog.checkGlyphCoverage(family, style, QString(QChar(0xd800)))
+                    .value(QStringLiteral("available")).toBool());
     }
 };
 

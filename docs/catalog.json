@@ -1100,6 +1100,30 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "siblingPending",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "siblingRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "siblingAnchor",
+          "type": "Item",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -1109,10 +1133,14 @@
         },
         {
           "name": "siblingsRequested",
-          "parameters": "string id"
+          "parameters": "string id, string requestId"
         }
       ],
       "methods": [
+        {
+          "name": "hasSiblingAction",
+          "parameters": "segment"
+        },
         {
           "name": "naturalPathWidth",
           "parameters": ""
@@ -1124,6 +1152,10 @@
         {
           "name": "showSiblings",
           "parameters": "segment, anchor"
+        },
+        {
+          "name": "supplySiblings",
+          "parameters": "id, requestId, items"
         }
       ],
       "enums": {},
@@ -1138,6 +1170,7 @@
         "breadcrumbSegment_",
         "breadcrumbSelect_",
         "breadcrumbSiblingMenu",
+        "breadcrumbSiblings_",
         "breadcrumbViewport"
       ]
     },
@@ -3107,6 +3140,22 @@
           "required": false
         },
         {
+          "name": "minValue",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxValue",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "\"\"",
@@ -3207,6 +3256,18 @@
           "parameters": "value"
         },
         {
+          "name": "clearValue",
+          "parameters": ""
+        },
+        {
+          "name": "rangeKey",
+          "parameters": "value"
+        },
+        {
+          "name": "inRange",
+          "parameters": "value"
+        },
+        {
           "name": "cancelDraft",
           "parameters": ""
         }
@@ -3220,6 +3281,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "dateTimeClear",
         "dateTimeCommit",
         "dateTimeInput",
         "dateTimeValidation"
@@ -6481,7 +6543,7 @@
       "name": "FontFeaturesEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "FontCatalog supplies face-level OpenType metadata; a host binding supplies editable formatting state. Glyph/script shaping support is not inferred.",
+      "description": "FontCatalog supplies face-level metadata and cmap coverage; a host binding supplies editable formatting state. Glyph shaping support is not inferred.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/FontFeaturesEditor.qml",
@@ -6528,6 +6590,14 @@
         },
         {
           "name": "fontStyle",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sampleText",
           "type": "string",
           "default": "\"\"",
           "readonly": false,
@@ -6589,6 +6659,22 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "glyphCoverage",
+          "type": "var",
+          "default": "sampleText.length > 0 && fontProvider && fontProvider.families",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "coverageDescription",
+          "type": "string",
+          "default": "sampleText.length === 0 ? \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -6615,6 +6701,7 @@
         "fontFeatureReset_",
         "fontFeatureRow_",
         "fontFeature_",
+        "fontGlyphCoverage",
         "fontMetadataUnavailable"
       ]
     },
@@ -8692,6 +8779,10 @@
         {
           "name": "destinationRequested",
           "parameters": "string id, string destination"
+        },
+        {
+          "name": "routeReconciled",
+          "parameters": "string previousId, string currentId"
         }
       ],
       "methods": [
@@ -8710,6 +8801,18 @@
         {
           "name": "activate",
           "parameters": "entry"
+        },
+        {
+          "name": "validRoute",
+          "parameters": "id"
+        },
+        {
+          "name": "reconcileCurrent",
+          "parameters": ""
+        },
+        {
+          "name": "confirmRoute",
+          "parameters": "id"
         }
       ],
       "enums": {},
@@ -10340,8 +10443,16 @@
         {
           "name": "filteredSettings",
           "type": "var",
-          "default": "buildFilteredSettings()",
-          "readonly": true,
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filteredSignature",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
           "defaultProperty": false,
           "required": false
         }
@@ -10366,11 +10477,31 @@
           "parameters": ""
         },
         {
+          "name": "refreshFilteredSettings",
+          "parameters": ""
+        },
+        {
           "name": "beginChanges",
           "parameters": ""
         },
         {
+          "name": "discardStage",
+          "parameters": ""
+        },
+        {
           "name": "cancelChanges",
+          "parameters": ""
+        },
+        {
+          "name": "focusedEditor",
+          "parameters": ""
+        },
+        {
+          "name": "focusInBody",
+          "parameters": ""
+        },
+        {
+          "name": "submitChanges",
           "parameters": ""
         },
         {
@@ -19701,7 +19832,7 @@
       "name": "FontCatalog",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Installed-family/style discovery plus OpenType fvar and layout feature tags from the resolved face. Glyph coverage and per-script shaping remain outside this service and are reported unavailable.",
+      "description": "Installed-family/style discovery plus OpenType tables and face-level cmap coverage. Shaping, feature eligibility and fallback remain outside this service.",
       "singleton": false,
       "attached": null,
       "file": "src/core/font_catalog.h",
@@ -19732,6 +19863,11 @@
           "name": "faceMetadata",
           "returns": "QVariantMap",
           "parameters": "const QString &family, const QString &style = {}"
+        },
+        {
+          "name": "checkGlyphCoverage",
+          "returns": "QVariantMap",
+          "parameters": "const QString &family, const QString &style, const QString &sampleText"
         },
         {
           "name": "search",

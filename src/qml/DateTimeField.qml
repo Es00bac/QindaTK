@@ -12,6 +12,9 @@ T.Control {
     property bool dateOnly: false
     property string dateFormat: "yyyy-MM-dd"
     property string dateTimeFormat: "yyyy-MM-dd HH:mm"
+    // Inclusive canonical ISO date bounds in dateOnly mode, UTC ISO instants otherwise.
+    property string minValue: ""
+    property string maxValue: ""
     property string tooltip: ""
     property string draft: ""
     property string resolutionState: "idle"
@@ -23,7 +26,7 @@ T.Control {
 
     signal valueModified(string canonicalValue)
 
-    implicitWidth: input.implicitWidth + (resolutionCandidates.length > 1 ? candidatePicker.implicitWidth : 0)
+    implicitWidth: column.implicitWidth
     implicitHeight: column.implicitHeight
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
@@ -49,6 +52,7 @@ T.Control {
         candidateIndex = -1
     }
     function commitDraft() {
+        if (draft.trim().length === 0) return clearValue()
         if (!localeService) return false
         if (dateOnly) {
             const parsedDate = localeService.parseDate(draft, dateFormat)
@@ -70,6 +74,7 @@ T.Control {
         return commitCanonical(resolutionCandidates[index])
     }
     function commitCanonical(value) {
+        if (value.length > 0 && !inRange(value)) return false
         if (!binding || !binding.begin()) return false
         if (!binding.update(value)) { binding.cancel(); return false }
         if (!binding.commit()) {
@@ -81,9 +86,32 @@ T.Control {
         }
         draft = displayCanonical(value)
         validationError = ""
-        resolutionState = "valid"
+        resolutionState = value.length > 0 ? "valid" : "idle"
         valueModified(value)
         return true
+    }
+    function clearValue() { return commitCanonical("") }
+    function rangeKey(value) {
+        if (!value) return NaN
+        if (dateOnly) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return NaN
+            const key = Date.parse(value + "T00:00:00Z")
+            return isFinite(key) && new Date(key).toISOString().slice(0, 10) === value ? key : NaN
+        }
+        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)) return NaN
+        return Date.parse(value)
+    }
+    function inRange(value) {
+        const key = rangeKey(value)
+        const low = minValue.length > 0 ? rangeKey(minValue) : -Infinity
+        const high = maxValue.length > 0 ? rangeKey(maxValue) : Infinity
+        if (!isFinite(key) || isNaN(low) || isNaN(high) || low > high) {
+            validationError = qsTr("Invalid date range configuration")
+        } else if (key < low || key > high) {
+            validationError = qsTr("Value is outside the allowed range")
+        } else return true
+        if (resolutionState !== "ambiguous") resolutionState = "invalid"
+        return false
     }
     function cancelDraft() { loadValue() }
 
@@ -125,6 +153,15 @@ T.Control {
                 tooltip: qsTr("Apply date and time")
                 enabled: !field.readOnly && field.draft.length > 0
                 onClicked: field.commitDraft()
+            }
+            Tk.Button {
+                objectName: "dateTimeClear"
+                text: qsTr("Clear")
+                small: true
+                variant: "ghost"
+                tooltip: qsTr("Clear date and time")
+                enabled: !field.readOnly && (field.canonicalValue.length > 0 || field.draft.length > 0)
+                onClicked: field.clearValue()
             }
         }
         Tk.Flex {

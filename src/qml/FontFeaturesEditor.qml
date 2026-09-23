@@ -3,8 +3,8 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// FontCatalog supplies face-level OpenType metadata; a host binding supplies
-// editable formatting state. Glyph/script shaping support is not inferred.
+// FontCatalog supplies face-level metadata and cmap coverage; a host binding
+// supplies editable formatting state. Glyph shaping support is not inferred.
 T.Control {
     id: rootItem
     property var fontMetadata: null
@@ -13,6 +13,7 @@ T.Control {
     property var featureBindings: ({})
     property string fontFamily: ""
     property string fontStyle: ""
+    property string sampleText: ""
     property string tooltip: ""
     hoverEnabled: true
     readonly property var effectiveFontMetadata: fontMetadata || (fontProvider && fontProvider.families && fontProvider.faceMetadata
@@ -22,14 +23,24 @@ T.Control {
     readonly property bool featureMetadataAvailable: metadataAvailable && effectiveFontMetadata.featureMetadataAvailable === true
     readonly property var axes: axisMetadataAvailable && effectiveFontMetadata.axes ? effectiveFontMetadata.axes : []
     readonly property var features: featureMetadataAvailable && effectiveFontMetadata.features ? effectiveFontMetadata.features : []
+    readonly property var glyphCoverage: sampleText.length > 0 && fontProvider && fontProvider.families
+        && typeof fontProvider.checkGlyphCoverage === "function"
+        ? fontProvider.checkGlyphCoverage(fontFamily, fontStyle, sampleText)
+        : ({ available: false, reason: qsTr("A font catalog and sample text are required") })
+    readonly property string coverageDescription: sampleText.length === 0 ? ""
+        : !glyphCoverage.available ? qsTr("Glyph coverage unavailable: %1").arg(glyphCoverage.reason || qsTr("selected face unavailable"))
+        : glyphCoverage.complete ? qsTr("All sample code points are present in this face. Shaping and fallback are unverified.")
+        : qsTr("Unsupported by this face: %1. Shaping and fallback are unverified.")
+            .arg(glyphCoverage.unsupportedCodepoints.slice(0, 12).join(", ")
+                 + (glyphCoverage.unsupportedCount > 12 ? qsTr(" and %1 more").arg(glyphCoverage.unsupportedCount - 12) : ""))
 
     implicitWidth: column.implicitWidth
     implicitHeight: column.implicitHeight
     Accessible.role: Accessible.Grouping
     Accessible.name: tooltip || qsTr("Font features")
-    Accessible.description: !metadataAvailable ? qsTr("Font metadata unavailable")
+    Accessible.description: (!metadataAvailable ? qsTr("Font metadata unavailable")
         : (!axisMetadataAvailable || !featureMetadataAvailable) ? qsTr("Font axes or feature support metadata unavailable")
-        : fontFamily + " " + fontStyle
+        : fontFamily + " " + fontStyle) + (coverageDescription.length > 0 ? ". " + coverageDescription : "")
 
     function updateBinding(binding, value) {
         if (!binding || !binding.writable || !binding.begin()) return false
@@ -49,6 +60,16 @@ T.Control {
             visible: !rootItem.axisMetadataAvailable && !rootItem.featureMetadataAvailable
             text: !rootItem.metadataAvailable ? qsTr("Font metadata unavailable") : qsTr("Font axes and feature support metadata unavailable")
             color: Tk.Theme.color.textMuted
+        }
+        Tk.Caption {
+            objectName: "fontGlyphCoverage"
+            visible: rootItem.sampleText.length > 0
+            text: rootItem.coverageDescription
+            color: rootItem.glyphCoverage.available && !rootItem.glyphCoverage.complete
+                   ? Tk.Theme.color.danger : Tk.Theme.color.textMuted
+            wrapMode: Text.Wrap
+            Accessible.role: Accessible.StaticText
+            Accessible.name: text
         }
         Repeater {
             model: rootItem.axes
