@@ -34,6 +34,7 @@ public:
     QString undoText() const;
     QString redoText() const;
     bool isClean() const;
+    bool isClean(PropertyDocument *document) const;
     QString cleanRevision() const;
     quint64 memoryLimit() const { return m_memoryLimit; }
     QString memoryLimitString() const { return QString::number(m_memoryLimit); }
@@ -43,6 +44,7 @@ public:
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
     Q_INVOKABLE void markClean();
+    void markClean(PropertyDocument *document);
     Q_INVOKABLE bool beginMacro(const QString &label);
     Q_INVOKABLE bool endMacro();
     Q_INVOKABLE bool cancelMacro();

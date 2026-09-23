@@ -71,6 +71,7 @@ signals:
 private:
     friend class EditTransaction;
     friend class UndoService;
+    friend class ReferenceDocumentCodec;
     struct EntityState {
         QHash<QString, QVariant> values;
         QSet<QString> readOnlyProperties;

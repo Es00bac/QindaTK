@@ -144,6 +144,82 @@ private:
     }
 
 private slots:
+    void extensionEditDuringSaveKeepsDirtyWithoutClaimingRecovery()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        auto store = std::make_shared<ControlledDocumentStore>();
+        DocumentManager manager;
+        manager.recoveryManager()->setDirectory(temp.filePath(QStringLiteral("recovery")));
+        manager.setStore(store);
+        auto *session = manager.createReferenceDocument();
+        QVERIFY(session);
+        const QString path = temp.filePath(QStringLiteral("extensions.qtk"));
+        QSignalSpy saved(session, &DocumentSession::saveFinished);
+        session->setExtensions({{QStringLiteral("label"), QStringLiteral("one")}});
+        QVERIFY(session->requestSaveAs(path));
+        QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 1, 5000);
+        QVERIFY(!session->isDirty());
+        QVERIFY(!session->recovered());
+
+        session->setExtensions({{QStringLiteral("label"), QStringLiteral("two")}});
+        store->pauseOneSave();
+        QVERIFY(session->requestSave());
+        QVERIFY(store->waitUntilPaused());
+        session->setExtensions({{QStringLiteral("label"), QStringLiteral("three")}});
+        store->releaseSave();
+        QTRY_COMPARE_WITH_TIMEOUT(saved.size(), 2, 5000);
+        QVERIFY(saved.constLast().at(0).toBool());
+        QVERIFY(session->isDirty());
+        QVERIFY(!session->recovered());
+        const auto onDisk = ReferenceDocumentCodec::decode(store->bytes(path));
+        QVERIFY(onDisk.has_value());
+        QCOMPARE(onDisk->extensions.value(QStringLiteral("label")).toString(),
+                 QStringLiteral("two"));
+    }
+
+    void olderRecoveryCannotOverwriteNewerSavedRevision()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        PropertyDocument source;
+        const EntityId target = addGain(&source, 1.0);
+        QVERIFY(target.isValid());
+        const auto oldSnapshot = ReferenceDocumentCodec::capture(source);
+        QVERIFY(oldSnapshot);
+        const QString path = temp.filePath(QStringLiteral("newer.qtk"));
+        AtomicDocumentStore disk;
+        const auto first = disk.save({oldSnapshot, path, FileExpectation::Missing, {}, {}});
+        QVERIFY(!first.error);
+        UndoService undo;
+        QVERIFY(undo.addDocument(&source));
+        EditTransaction edit;
+        edit.setDocument(&source);
+        edit.setUndoService(&undo);
+        QVERIFY(edit.begin({target}, QStringLiteral("gain"), QStringLiteral("Newer")));
+        QVERIFY(edit.update(8.0));
+        QVERIFY(edit.commit());
+        const auto newSnapshot = ReferenceDocumentCodec::capture(source);
+        QVERIFY(newSnapshot);
+        const auto second = disk.save({newSnapshot, path,
+                                       FileExpectation::MatchingHash, first.sha256, {}});
+        QVERIFY(!second.error);
+        const QByteArray newestBytes = disk.load(path).bytes;
+
+        DocumentManager manager;
+        manager.recoveryManager()->setDirectory(temp.filePath(QStringLiteral("recovery")));
+        QVERIFY(!manager.recoveryManager()->record(oldSnapshot));
+        auto *restored = manager.restoreRecovered(source.documentIdString(), path);
+        QVERIFY(restored);
+        QVERIFY(restored->isDirty());
+        QCOMPARE(restored->savedRevision(), QStringLiteral("0"));
+        QSignalSpy finished(restored, &DocumentSession::saveFinished);
+        QVERIFY(restored->requestSave());
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 5000);
+        QVERIFY(!finished.constFirst().at(0).toBool());
+        QCOMPARE(disk.load(path).bytes, newestBytes);
+    }
+
     void asynchronousSaveKeepsNewerEditsDirtyAcrossTwoDocuments()
     {
         QTemporaryDir temp;

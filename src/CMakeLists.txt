@@ -42,7 +42,12 @@ qt_add_qml_module(qindatk
         core/command_context.cpp core/command_context.h
         core/command_registry.cpp core/command_registry.h
         core/edit_transaction.cpp core/edit_transaction.h
+        core/document_store.cpp core/document_store.h
+        core/document_session.cpp core/document_session.h
+        core/document_manager.cpp core/document_manager.h
+        core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h
+        core/reference_document_codec.cpp core/reference_document_codec.h
         core/property_binding.cpp core/property_binding.h
         core/undo_service.cpp core/undo_service.h
         core/validation_model.cpp core/validation_model.h
@@ -81,7 +86,7 @@ target_include_directories(qindatk PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
-    PRIVATE Qt6::Svg)
+    PRIVATE Qt6::Svg Qt6::Concurrent)
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
 

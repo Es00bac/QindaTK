@@ -107,6 +107,13 @@ bool UndoService::isClean() const
     return state && state->macroLabel.isEmpty() && state->cleanCursor == state->cursor;
 }
 
+bool UndoService::isClean(PropertyDocument *document) const
+{
+    auto it = m_histories.constFind(document ? document->documentIdString() : QString{});
+    return it != m_histories.cend() && it->document == document
+        && it->macroLabel.isEmpty() && it->cleanCursor == it->cursor;
+}
+
 QString UndoService::cleanRevision() const
 {
     const auto *state = activeHistory();
@@ -256,11 +263,16 @@ bool UndoService::redo()
 
 void UndoService::markClean()
 {
+    markClean(m_active);
+}
+
+void UndoService::markClean(PropertyDocument *document)
+{
     Q_ASSERT(thread() == QThread::currentThread());
-    auto *state = history(m_active);
+    auto *state = history(document);
     if (!state || !state->macroLabel.isEmpty()) return;
     state->cleanCursor = state->cursor;
-    state->cleanRevision = m_active->revision().value;
+    state->cleanRevision = document->revision().value;
     emit changed();
 }
 

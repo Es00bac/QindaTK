@@ -15,11 +15,11 @@ worktree the Qt 6.11 staging prefix is `build/qt611-stage`:
 ```sh
 cmake -S tests/consumer/persistence -B build/wp013-consumer -G Ninja \
   -DCMAKE_PREFIX_PATH="$PWD/build/qt611-stage" -DCMAKE_BUILD_TYPE=Debug
-cmake --build build/wp013-consumer
+python3 -c 'import re, subprocess; s=subprocess.check_output(["portageq", "envvar", "MAKEOPTS"], text=True); j=re.search(r"(?:^|\s)-j\s*(\d+)", s); l=re.search(r"(?:^|\s)-l\s*(\d+)", s); assert j and l, s; subprocess.check_call(["ninja", "-C", "build/wp013-consumer", "-j"+j.group(1), "-l"+l.group(1)])'
 QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
   build/wp013-consumer/qindatk_persistence_consumer
 ```
 
-For direct Ninja builds, use the job and load limits reported by
-`portageq envvar MAKEOPTS`; never override Portage configuration or reduce
-parallelism. The command above inherits the configured `-j24 -l24` settings.
+The build command reads the configured job and load limits from
+`portageq envvar MAKEOPTS` and passes their equivalent to direct Ninja. It
+does not change Portage's configuration.

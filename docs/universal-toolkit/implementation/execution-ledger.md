@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: WP-001 through WP-007 and WP-010 through WP-012 accepted; WP-013 ready.** Sol updates this ledger during
+**Execution state: WP-001 through WP-007 and WP-010 through WP-013 accepted; WP-014 active.** Sol updates this ledger during
 execution. Use `planned`, `ready`, `active`, `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
 record. Keep unrelated ready work moving. A row reaches `accepted` only through
@@ -25,8 +25,8 @@ as though a later fix had already passed the earlier run.
 | [WP-010 — Define typed cross-layer contracts and capability discovery](phase-01-services.md#wp-010) | 01 | Sol | accepted | [Typed contracts, dual-Qt tests and installed consumer](evidence/WP-010.md) |
 | [WP-011 — Unify commands, contexts, shortcuts and focus](phase-01-services.md#wp-011) | 01 | Sol | accepted | [Dual-Qt command workflow, IME/focus tests and installed consumer](evidence/WP-011.md) |
 | [WP-012 — Implement reversible editing, stable selection and properties](phase-01-services.md#wp-012) | 01 | Sol | accepted | [Dual-Qt transactional editing, selection, validation and installed consumer](evidence/WP-012.md) |
-| [WP-013 — Implement document sessions, persistence and crash recovery](phase-01-services.md#wp-013) | 01 | Sol | ready | — |
-| [WP-014 — Persist settings and workspace state](phase-01-services.md#wp-014) | 01 | Sol | planned | — |
+| [WP-013 — Implement document sessions, persistence and crash recovery](phase-01-services.md#wp-013) | 01 | Sol | accepted | [Dual-Qt persistence/recovery, fault matrix, visual fixture and installed consumer](evidence/WP-013.md) |
+| [WP-014 — Persist settings and workspace state](phase-01-services.md#wp-014) | 01 | Sol | active | — |
 | [WP-015 — Implement asynchronous jobs and asset services](phase-01-services.md#wp-015) | 01 | Sol | planned | — |
 | [WP-016 — Implement clipboard and drag/drop protocols](phase-01-services.md#wp-016) | 01 | Sol | planned | — |
 | [WP-017 — Provide accessibility, locale and gesture services](phase-01-services.md#wp-017) | 01 | Sol | planned | — |

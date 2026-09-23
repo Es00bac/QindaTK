@@ -8158,6 +8158,262 @@
       "bridge": false
     },
     {
+      "name": "DocumentManager",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/document_manager.h",
+      "properties": [
+        {
+          "name": "sessions",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "activeSession",
+          "type": "QindaTK::DocumentSession *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "recoveryManager",
+          "type": "QindaTK::RecoveryManager *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "createReferenceDocument",
+          "returns": "DocumentSession *",
+          "parameters": ""
+        },
+        {
+          "name": "openReferenceDocument",
+          "returns": "DocumentSession *",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "restoreRecovered",
+          "returns": "DocumentSession *",
+          "parameters": "const QString &documentId, const QString &originalPath = {}"
+        },
+        {
+          "name": "findSession",
+          "returns": "DocumentSession *",
+          "parameters": "const QString &documentId"
+        },
+        {
+          "name": "activate",
+          "returns": "bool",
+          "parameters": "const QString &documentId"
+        },
+        {
+          "name": "duplicateView",
+          "returns": "QString",
+          "parameters": "const QString &documentId"
+        },
+        {
+          "name": "viewsFor",
+          "returns": "QStringList",
+          "parameters": "const QString &documentId"
+        },
+        {
+          "name": "closeDocument",
+          "returns": "bool",
+          "parameters": "const QString &documentId, ClosePolicy policy"
+        },
+        {
+          "name": "requestSaveAll",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "DocumentSession",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "GUI-thread lifecycle facade for a single authoritative reference document. Save inputs are immutable; only the file adapter runs on a worker thread.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/document_session.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::PropertyDocument *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "uri",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "title",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "savedRevision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "dirty",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "loading",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "saving",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "externalChanged",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "recovered",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "autosaveDelayMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "requestSave",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "requestSaveAs",
+          "returns": "bool",
+          "parameters": "const QString &path, bool overwriteExisting = false"
+        },
+        {
+          "name": "cancelSave",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "checkExternalChange",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "autosaveNow",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "EditTransaction",
       "kind": "cpp",
       "base": "QObject",
@@ -9528,6 +9784,67 @@
           "name": "containsId",
           "returns": "bool",
           "parameters": "const QString &id"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RecoveryManager",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Autosave bytes are stored separately from the user's document file. A journal scan accepts only complete, hashed, schema-valid frames.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/recovery_manager.h",
+      "properties": [
+        {
+          "name": "directory",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maxJournalEntries",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maxJournalBytes",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "inspectId",
+          "returns": "QVariantMap",
+          "parameters": "const QString &documentId"
+        },
+        {
+          "name": "discardId",
+          "returns": "bool",
+          "parameters": "const QString &documentId"
         }
       ],
       "enums": {},

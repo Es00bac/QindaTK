@@ -15,6 +15,7 @@ pages below are the reference.
 | [application-contracts.md](application-contracts.md) | Strong IDs, revisions, exact QML values, snapshots, cancellation and capability discovery |
 | [commands.md](commands.md) | Scoped command contexts, registry and bindings, shortcut routing, focus restoration, and menu/toolbar/palette adapters |
 | [editing.md](editing.md) | Reference document, reversible transactions, per-document undo, stable selection, property projection and validation |
+| [persistence.md](persistence.md) | Reference document sessions, versioned file format, atomic save, multi-document close and recovery behavior |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
 | [docking.md](docking.md) | DockModel operations, zones/lanes/groups, the JSON schema, DockHost gestures |
 | [qindastudio-migration.md](qindastudio-migration.md) | Moving QindaStudio onto QindaTK: type map (StudioPanel, DockHost, StudioPill, StudioIcon, StudioTheme → QindaTK), build integration, migration order |

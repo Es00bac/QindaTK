@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution beginning.** WP-010 through WP-012 are accepted; WP-013 is ready. Other
+**Execution beginning.** WP-010 through WP-013 are accepted; WP-014 is active. Other
 packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
@@ -79,7 +79,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-013"></a>
 ## WP-013 — Implement document sessions, persistence and crash recovery
 
-**Implementation lead:** Sol. **Status:** ready. **Depends on:** [WP-012](phase-01-services.md#wp-012)
+**Implementation lead:** Sol. **Status:** accepted. **Depends on:** [WP-012](phase-01-services.md#wp-012)
 
 **Proposal scope:** [APP-07 DocumentSession](../proposed/01-application-services.md#app-07), [APP-08 DocumentManager](../proposed/01-application-services.md#app-08), [APP-18 RecoveryManager](../proposed/01-application-services.md#app-18)
 
@@ -102,7 +102,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-014"></a>
 ## WP-014 — Persist settings and workspace state
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-013](phase-01-services.md#wp-013)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-013](phase-01-services.md#wp-013)
 
 **Proposal scope:** [APP-09 WorkspaceSession](../proposed/01-application-services.md#app-09), [APP-12 SettingsModel](../proposed/01-application-services.md#app-12)
 

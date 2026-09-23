@@ -580,3 +580,22 @@ undoable structure changes or concurrent overlapping previews must implement
 the corresponding model adapter; the reference model conservatively clears
 history on such changes. QML exact 64-bit values use decimal strings. See
 [editing.md](editing.md) for APIs and behavior.
+
+## D-029 — Capture immutable save revisions and keep recovery separate
+
+**Context.** A file write can outlive its initiating edit. Later edits,
+external replacement and process interruption must not imply a current save.
+
+**Decision.** `DocumentSession` captures immutable bytes on the GUI thread.
+`DocumentStore` writes on a worker; the local adapter uses `QSaveFile` and a
+last-known file hash. Only a receipt matching the live revision and extension
+generation marks undo clean or discards recovery. `RecoveryManager` validates
+hashed frames in a separate journal/checkpoint pair keyed by document UUID.
+Restored content stays dirty. `DocumentManager` keeps one session per document
+ID and canonical path while multiple views share its undo history.
+
+**Consequences.** Save As can require explicit overwrite. Close with Save
+waits for completion and remains blocked by newer edits. Recovery never
+silently replaces the original file. Hash checks are not an interprocess lock.
+The reference codec's supported types and limits are in
+[persistence.md](persistence.md); richer formats need their own adapter.

@@ -71,7 +71,7 @@ struct ColorValue {
 
 enum class ErrorCode {
     None, InvalidArgument, Unsupported, Unavailable, Cancelled,
-    StaleRevision, StaleGeneration, Validation, BackendFailure
+    StaleRevision, StaleGeneration, Validation, BackendFailure, Conflict
 };
 struct OperationError {
     ErrorCode code = ErrorCode::None;
