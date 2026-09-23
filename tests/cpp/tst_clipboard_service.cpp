@@ -185,6 +185,7 @@ private slots:
             TransferOperation::Link,
             {{id, TransferItemKind::Object, {{QStringLiteral("name"), QStringLiteral("Linked")}}}}};
         QVERIFY(!f.service.copyPayload(payload));
+        QVERIFY(!f.service.canPaste());
         const auto inspection = f.service.inspectPaste(&f.document, f.target, QStringLiteral("objects"));
         QCOMPARE(inspection.value(QStringLiteral("state")).toString(), QStringLiteral("unsupported"));
         QVERIFY(inspection.value(QStringLiteral("message")).toString().contains(QStringLiteral("link adapter")));
@@ -207,8 +208,10 @@ private slots:
         f.undo.markClean();
         QVERIFY(!f.service.cutObjects(&f.document, f.source, QStringLiteral("objects"), {a}));
         QVERIFY(f.service.cutPending());
+        QVERIFY(f.service.canPaste());
         QVERIFY(!f.service.paste(&f.document, &f.undo, f.source, QStringLiteral("objects")));
         QVERIFY(!f.service.cutPending());
+        QVERIFY(!f.service.canPaste());
         const QVariantList moved = f.document.value(f.source, QStringLiteral("objects")).toList();
         QCOMPARE(moved.size(), 2);
         QCOMPARE(moved[0].toMap().value(QStringLiteral("id")).toString(), b.toString());
@@ -231,14 +234,38 @@ private slots:
             {QStringLiteral("id"), id.toString()}, {QStringLiteral("name"), QStringLiteral("A")}}}));
         QVERIFY(!seed.commitEdit());
         QVERIFY(!f.service.cutObjects(&f.document, f.source, QStringLiteral("objects"), {id}));
+        QVERIFY(f.service.canPaste());
         const EntityId unrelated = EntityId::create();
         QVERIFY(f.document.addEntity(unrelated));
+        QVERIFY(!f.service.cutPending());
+        QVERIFY(!f.service.canPaste());
         const auto before = f.document.value(f.source, QStringLiteral("objects"));
         const auto failure = f.service.paste(&f.document, &f.undo, f.source, QStringLiteral("objects"));
         QVERIFY(failure);
         QCOMPARE(failure.code, ErrorCode::StaleRevision);
         QCOMPARE(f.document.value(f.source, QStringLiteral("objects")), before);
         QVERIFY(!f.service.cutPending());
+    }
+
+    void replacingClipboardClearsCutAndRecomputesCanPaste()
+    {
+        Fixture f;
+        const EntityId id = EntityId::create();
+        EditTransaction seed;
+        seed.setDocument(&f.document);
+        seed.setUndoService(&f.undo);
+        QVERIFY(seed.begin({f.source}, QStringLiteral("objects"), QStringLiteral("Seed object")));
+        QVERIFY(!seed.updateValue(QVariantList{QVariantMap{
+            {QStringLiteral("id"), id.toString()}, {QStringLiteral("name"), QStringLiteral("A")}}}));
+        QVERIFY(!seed.commitEdit());
+        QVERIFY(!f.service.cutObjects(&f.document, f.source, QStringLiteral("objects"), {id}));
+        QVERIFY(f.service.cutPending());
+        QVERIFY(f.service.canPaste());
+        f.clipboard.setRaw(QStringLiteral("text/plain"), QByteArrayLiteral("replacement"));
+        QVERIFY(!f.service.cutPending());
+        QVERIFY(f.service.canPaste());
+        QCOMPARE(f.service.inspectPaste(&f.document, f.target, QStringLiteral("text"))
+                     .value(QStringLiteral("state")).toString(), QStringLiteral("ready"));
     }
 };
 

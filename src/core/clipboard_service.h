@@ -39,7 +39,9 @@ public:
 
     QStringList availableFormats() const { return m_formats; }
     bool canPaste() const { return m_canPaste; }
-    bool cutPending() const { return !m_cutEnvelope.isEmpty(); }
+    bool cutPending() const
+    { return !m_cutEnvelope.isEmpty() && m_cutDocument
+        && m_cutDocument->revision().value == m_cutRevision; }
     QString lastError() const { return m_lastError; }
     QStringList lossWarnings() const { return m_lossWarnings; }
     void setAdapter(ClipboardAdapter *adapter);
@@ -98,6 +100,7 @@ private:
                            qsizetype insertionIndex = -1) const;
     OperationError publishPayload(const TransferPayload &payload);
     void refresh();
+    bool clearPendingCut();
     OperationError fail(ErrorCode code, const QString &message,
                         const QString &field = {}) const;
     void setError(const OperationError &error);
@@ -112,6 +115,7 @@ private:
     QString m_cutCollection;
     QString m_cutProperty;
     quint64 m_cutRevision = 0;
+    QPointer<PropertyDocument> m_cutDocument;
     QByteArray m_cutEnvelope;
 };
 

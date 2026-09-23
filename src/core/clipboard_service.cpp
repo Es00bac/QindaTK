@@ -176,27 +176,44 @@ void ClipboardService::refresh()
     if (mime) formats = mime->formats();
     std::sort(formats.begin(), formats.end());
     bool supported = false;
+    std::optional<TransferPayload> internal;
     if (mime && mime->hasFormat(QString::fromLatin1(TransferPayloadCodec::InternalMime))) {
         OperationError decodeError;
-        supported = bool(TransferPayloadCodec::decode(
-            mime->data(QString::fromLatin1(TransferPayloadCodec::InternalMime)), &decodeError));
+        internal = TransferPayloadCodec::decode(
+            mime->data(QString::fromLatin1(TransferPayloadCodec::InternalMime)), &decodeError);
+        supported = internal && internal->operation == TransferOperation::Copy;
     } else if (mime) {
         supported = mime->hasFormat(QStringLiteral("text/plain"))
             || mime->hasFormat(QStringLiteral("image/png"));
     }
+    const QByteArray internalBytes = mime && mime->hasFormat(
+        QString::fromLatin1(TransferPayloadCodec::InternalMime))
+        ? mime->data(QString::fromLatin1(TransferPayloadCodec::InternalMime)) : QByteArray{};
+    bool cutChanged = false;
     if (!m_cutEnvelope.isEmpty()
         && (!mime || !mime->hasFormat(QString::fromLatin1(TransferPayloadCodec::InternalMime))
-            || mime->data(QString::fromLatin1(TransferPayloadCodec::InternalMime)) != m_cutEnvelope)) {
-        m_cutEnvelope.clear();
-        m_cutSourceDocument.clear();
-        m_cutCollection.clear();
-        m_cutProperty.clear();
-        m_cutRevision = 0;
+            || internalBytes != m_cutEnvelope)) {
+        cutChanged = clearPendingCut();
     }
-    if (formats == m_formats && supported == m_canPaste) return;
+    if (internal && internal->operation == TransferOperation::Move)
+        supported = cutPending() && internalBytes == m_cutEnvelope
+            && internal->sourceDocumentId.toString() == m_cutSourceDocument;
+    if (formats == m_formats && supported == m_canPaste && !cutChanged) return;
     m_formats = formats;
     m_canPaste = supported;
     emit changed();
+}
+
+bool ClipboardService::clearPendingCut()
+{
+    const bool hadCut = !m_cutEnvelope.isEmpty();
+    m_cutEnvelope.clear();
+    m_cutSourceDocument.clear();
+    m_cutCollection.clear();
+    m_cutProperty.clear();
+    m_cutRevision = 0;
+    m_cutDocument = nullptr;
+    return hadCut;
 }
 
 OperationError ClipboardService::publishPayload(const TransferPayload &payload)
@@ -315,7 +332,10 @@ OperationError ClipboardService::cutObjects(PropertyDocument *document,
     m_cutCollection = collection.toString();
     m_cutProperty = propertyId;
     m_cutRevision = document->revision().value;
-    emit changed();
+    m_cutDocument = document;
+    connect(document, &QObject::destroyed, this, [this] { refresh(); });
+    connect(document, &PropertyDocument::changed, this, &ClipboardService::refresh);
+    refresh();
     return {};
 }
 
@@ -469,11 +489,8 @@ OperationError ClipboardService::paste(PropertyDocument *document, UndoService *
     PreparedPaste prepared;
     if (auto failure = prepare(document, target, propertyId, &prepared, insertionIndex)) {
         if (failure.code == ErrorCode::StaleRevision) {
-            m_cutEnvelope.clear();
-            m_cutSourceDocument.clear();
-            m_cutCollection.clear();
-            m_cutProperty.clear();
-            m_cutRevision = 0;
+            clearPendingCut();
+            refresh();
         }
         setError(failure);
         return failure;
@@ -498,11 +515,8 @@ OperationError ClipboardService::paste(PropertyDocument *document, UndoService *
         return failure;
     }
     if (prepared.payload.operation == TransferOperation::Move) {
-        m_cutEnvelope.clear();
-        m_cutSourceDocument.clear();
-        m_cutCollection.clear();
-        m_cutProperty.clear();
-        m_cutRevision = 0;
+        clearPendingCut();
+        refresh();
     }
     m_lastError.clear();
     m_lossWarnings = prepared.warnings;
