@@ -87,6 +87,8 @@ Item {
         }
         Tk.Button {
             id: zoomReadoutButton
+            // AGENT-GUARD: Tk.Button already maps accessible press to click;
+            // a second local press handler would emit resetRequested twice.
             objectName: "zoomReadout"
             text: Math.round(zoom.value * 100) + "%"
             tooltip: qsTr("Reset zoom")
@@ -94,7 +96,6 @@ Item {
             Accessible.name: qsTr("Reset zoom")
             Accessible.description: qsTr("Current zoom %1%").arg(Math.round(zoom.value * 100))
             onClicked: zoom.reset()
-            Accessible.onPressAction: if (enabled) click()
             Keys.onReturnPressed: event => { event.accepted = true; click() }
             Keys.onEnterPressed: event => { event.accepted = true; click() }
             implicitWidth: Math.max(Tk.Theme.size.action + Tk.Theme.space.sm,

@@ -1,10 +1,11 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # WP-007 — Interaction and accessibility progress
 
-**Status: active.** The [source inventory](WP-007-inventory.md) identified
-pointer-only SectionHeader disclosure and TimeRuler scrubbing. Those two
-repairs are integrated; WP-007 still owns the remaining F04 audit and
-FND-07 through FND-10.
+**Status: accepted at the recorded QML/Linux support level.** The
+[source inventory](WP-007-inventory.md) identified pointer-only SectionHeader
+disclosure and TimeRuler scrubbing. Their repairs and the subsequent F04,
+FND-07 through FND-10 coverage are summarized here; the
+[acceptance record](WP-007.md) maps each assigned obligation to evidence.
 
 ## Integrated repairs
 
@@ -204,12 +205,11 @@ FND-07 through FND-10.
 ## Verification
 
 On both Qt 6.11.1 and isolated Qt 6.8.3, integrated Debug builds, all
-20 current CTest targets and `all_qmllint` exited 0 at integration source
-commit `54148b2`. A subsequent narrow DockPlacementDialog copy adjustment and
-scroll reachability regression passed the focused 10-case QML file on both
-versions; the next complete gate will include that change and ongoing gallery
-review. The lint targets still report existing nonfatal warnings, especially
-under Qt 6.8.3; their exit status is the gate recorded here.
+20 current CTest targets and `all_qmllint` exited 0 on the final WP-007
+source, including dock placement, Menu sizing, gallery review, basic-action
+deduplication and NumberField Touch steps. The lint targets still report
+existing nonfatal warnings, especially under Qt 6.8.3; their exit status is
+the gate recorded here.
 The new QML tests cover
 pointer/keyboard/assistive-action signal paths, disabled behavior and group
 state synchronization. These signal tests do not establish native screen-reader
@@ -239,9 +239,10 @@ layout defect: `AbstractButton#segment_0 0,0 147x22` contained a
 `Label 0,-4 131x30`. The new resolved minimum-size rule raised that segment
 to `0,0 147x34` and placed the label at `0,2 131x30`; the gallery header
 grew from 40 to 52px. Both before and after PNGs were opened. The after
-capture shows the segment text fitting vertically; some fixed horizontal
-chrome still crowds or elides at this scale, so FND-07 and WP-007 remain
-open. Ignored captures are `build/gallery-text-scale-2.png` and
+capture shows the segment text fitting vertically. Later narrow-gallery,
+Menu and section repairs address the crowding observed at this intermediate
+stage; their evidence is linked in the acceptance record. Ignored captures are
+`build/gallery-text-scale-2.png` and
 `build/gallery-text-scale-2-rows.png`.
 
 The same 2× gallery then exposed a horizontal header defect: `SearchField#sectionFilter`
@@ -252,8 +253,8 @@ and `Scroll#galleryScroll 0,79 1280x721`; a focused QtTest checks that the
 search field remains inside the header. At 3× text the header grows to 142px,
 the search field remains `220x48`, and the content Scroll starts at y=142.
 Both 2× and 3× software captures were opened. This repairs the gallery
-workflow example, while broader control and hit-target qualification remains
-open.
+workflow example. The later Touch target and narrow gallery evidence completes
+the current-control review at the declared level.
 
 The integrated moving-anchor popover preview was dumped and grabbed after
 the popup opened and the anchor moved in a 320×200 window. The dump showed
@@ -262,16 +263,18 @@ the popup opened and the anchor moved in a 320×200 window. The dump showed
 `build/popover-moving-anchor.png` capture was opened and showed the whole
 popover visible at the lower-right boundary.
 
-## Still open
+## Support limits and later qualification
 
-The [F04 closeout audit](WP-007-FIX-F04-closeout.md) now records QML operation
-paths for its previously pointer-only composite actions; native assistive
-bridge delivery remains WP-092 platform qualification. FND-07 still requires
-broad high-contrast, text-scale and hit-target workflow coverage;
-[D-016](../../../decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
-records the conditional FND-08 decision to retain process-wide theming;
-FND-09 has a per-screen source contract and dynamic ComboBox popup coverage,
-while physical two-screen placement remains WP-092 platform work;
-FND-10's [applicability audit](WP-007-FND-10-applicability.md) records the
-remaining owner policies and native qualifications. No WP-007 acceptance is
-claimed.
+The [F04 closeout audit](WP-007-FIX-F04-closeout.md) records QML operation
+paths for the previously pointer-only composites. Native screen-reader bridge,
+physical touch and two-screen compositor behavior remain WP-092 platform
+qualification. FND-07 has theme role, contrast-pair, 3× text, Touch target
+and representative narrow workflow evidence, including every gallery section;
+this is a toolkit usability baseline rather than certification of every
+possible application composition. [D-016](../../../decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
+retains process-wide theming, so mixed-theme windows are outside the published
+contract. FND-09 covers source-level per-screen work-area changes and dynamic
+popup behavior; FND-10's [applicability audit](WP-007-FND-10-applicability.md)
+defines relevant owner policies and separates editor states from passive
+displays. New controls inherit this baseline and are checked in their owning
+packages.

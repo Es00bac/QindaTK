@@ -60,3 +60,8 @@ not modified by the review harness.
 Qt 6.11.1. `cmake --build --preset dev --target all_qmllint` exits successfully
 with existing module warnings. Only Qt 6.11.1 is installed in this environment;
 Qt 6.8 verification was not available.
+
+After integration, the gallery-section and full QML fixtures also passed in
+the isolated Qt 6.8.3 build. The integrated source passed all 20 CTest targets
+and `all_qmllint` on both Qt 6.11.1 and 6.8.3. The worker environment limit
+above remains the historical scope of that isolated review.

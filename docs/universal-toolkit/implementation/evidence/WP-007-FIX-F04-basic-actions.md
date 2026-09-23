@@ -23,3 +23,10 @@ also exposed six duplicate-activation assertions in composite consumers that
 provide their own `Accessible.onPressAction` alongside the shared wrapper
 action (ZoomControl and DockPlacementDialog); those redundant overrides must
 be removed during integration.
+
+Integration removed the redundant handlers from `ZoomControl`,
+`DockPlacementDialog`, `DockFrame` and `DockFloating`. The composite now relies
+on its child `Tk.Button` or `Tk.IconButton` for one accessible press-to-click
+operation. On the integrated source, Qt 6.11.1 and Qt 6.8.3 each passed all
+20 CTest targets and `all_qmllint`; the six duplicate-activation failures no
+longer reproduce. Native screen-reader delivery remains WP-092 qualification.

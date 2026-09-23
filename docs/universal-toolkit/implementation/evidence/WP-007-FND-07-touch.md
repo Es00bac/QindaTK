@@ -43,8 +43,9 @@ and a preset switch/reset. In the integrated Touch 3× preview,
 `RangeSlider#reviewRange 0,260 520x48` have tracks centred at y=23 and
 handles at y=17. The ignored `build/wp007-controls-touch-3x.png` was opened
 and inspected. [Menu width and large-text geometry](WP-007-FND-07-menu.md)
-are covered separately. Other custom handlers, narrower application workflows
-and physical devices remain to check.
+are covered separately. Representative custom handlers and narrow gallery
+workflows are covered below and in the linked FND-07 evidence; physical-device
+delivery remains WP-092 qualification.
 
 Small `CheckBox`, `Switch` and `RadioButton` rows now use the derived
 `Theme.size.toggleTargetSm` role (16px Compact, 19px Comfortable, 48px
@@ -79,6 +80,23 @@ The opened Compact dump reports `Item#swatch_0 0,0 20x20` with a
 `build/wp007-swatches-compact.png` and `build/wp007-swatches-touch.png` in
 the swatch worker worktree. Physical touch hardware and native assistive
 traversal remain unqualified.
+
+`NumberField` previously divided its narrow step strip into two controls
+inside one row, leaving each arrow smaller than a Touch target. In Touch it
+now displays Increase and Decrease beside each other at `size.controlSm` by
+`size.controlSm`; Compact and Comfortable retain the stacked hover/focus
+strip. Accessible SpinBox increase/decrease and the arrow Button press actions
+share `step()` with pointer and keyboard input. The focused
+`tst_numberfield_touch_step.qml` checks edge touch, target separation,
+accessible steps, one notification per accepted change, silent owner update
+and disabled rejection. The opened Touch dark/light previews show a 360×48
+field with readable digits and two non-overlapping arrows. The dump reports
+`NumberField#reviewNumber 20,20 360x48`, `numberStepUp 0,0 48x48`, and
+`numberStepDown 48,0 48x48`. The opened Compact preview retains the original
+24px field with hidden 14×11 stacked hover targets. The focused QML fixture
+passed on Qt 6.11 and 6.8; the integrated source later passed all 20 CTest
+targets and `all_qmllint` on both versions. Ignored captures are
+`/tmp/qindatk-number-step-{touch,touch-light,compact}.png` here.
 
 At 480×320, Touch density and 3× text, the gallery header previously grew
 to 333px, leaving `Scroll#galleryScroll 0,333 480x0`; its 549px density

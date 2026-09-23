@@ -5,7 +5,8 @@ import QindaTK as Tk
 
 // AGENT-CONTRACT (docs/controls.md): the inspector number field. 24px
 // (small 20), mono digits, optional inline `label` ("W"), `prefix`/`suffix`
-// readouts, ▲▼ step buttons on hover, and scrubbing: dragging horizontally
+// readouts, ▲▼ step buttons on hover (always visible in Touch), and scrubbing:
+// dragging horizontally
 // on the label or the field changes the value by `scrubSensitivity` units
 // per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel
 // steps. `value` is always clamped to [from, to] and rounded to `decimals`.
@@ -13,7 +14,7 @@ import QindaTK as Tk
 // resolved only by a valid user commit. Invalid drafts stay visible and
 // `inputInvalid` reports them. `valueModified(value)` fires for user edits
 // and reset, while a programmatic `value = x` is silent. objectNames:
-// "numberInput", "numberLabel".
+// "numberInput", "numberLabel", "numberStepUp", "numberStepDown".
 T.Control {
     id: control
 
@@ -142,6 +143,8 @@ T.Control {
     Accessible.description: control.inputInvalid ? qsTr("Invalid value")
                              : control.mixed ? qsTr("Multiple values")
                              : control.error ? qsTr("Error") : ""
+    Accessible.onIncreaseAction: control.step(1, Qt.NoModifier)
+    Accessible.onDecreaseAction: control.step(-1, Qt.NoModifier)
 
     Tk.ToolTip {
         text: control.tooltip
@@ -177,15 +180,18 @@ T.Control {
     // control before its z -1 background and a tap parented there is lost.
     Item {
         id: stepColumn
-        visible: control.stepButtons && control.enabled && control.editable && (control.hovered || control.editing)
-        width: Tk.Theme.size.iconSm + Tk.Theme.space.xs
+        readonly property bool touchTargets: Tk.Density.modeName === "touch"
+        visible: control.stepButtons && control.enabled && control.editable
+                 && (touchTargets || control.hovered || control.editing)
+        width: touchTargets ? Tk.Theme.size.controlSm * 2
+                            : Tk.Theme.size.iconSm + Tk.Theme.space.xs
         z: 1
         anchors.right: parent.right
         anchors.rightMargin: Tk.Theme.space.xs
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.topMargin: Tk.Theme.size.border
-        anchors.bottomMargin: Tk.Theme.size.border
+        anchors.topMargin: touchTargets ? 0 : Tk.Theme.size.border
+        anchors.bottomMargin: touchTargets ? 0 : Tk.Theme.size.border
 
         Repeater {
             model: 2
@@ -193,9 +199,13 @@ T.Control {
                 required property int index
                 readonly property int direction: index === 0 ? 1 : -1
                 objectName: index === 0 ? "numberStepUp" : "numberStepDown"
-                width: stepColumn.width
-                height: stepColumn.height / 2
-                y: index * height
+                width: stepColumn.touchTargets ? stepColumn.width / 2 : stepColumn.width
+                height: stepColumn.touchTargets ? stepColumn.height : stepColumn.height / 2
+                x: stepColumn.touchTargets ? index * width : 0
+                y: stepColumn.touchTargets ? 0 : index * height
+                Accessible.role: Accessible.Button
+                Accessible.name: direction > 0 ? qsTr("Increase value") : qsTr("Decrease value")
+                Accessible.onPressAction: control.step(direction, Qt.NoModifier)
                 Rectangle {
                     anchors.fill: parent
                     radius: Tk.Theme.radius.xs

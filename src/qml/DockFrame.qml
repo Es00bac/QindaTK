@@ -88,6 +88,8 @@ FocusScope {
 
     Tk.Panel {
         id: panel
+        // AGENT-GUARD: IconButton owns accessible press-to-click routing;
+        // invoking openPlacement again here would open the dialog twice.
         actions: Tk.IconButton {
             id: placementButton
             objectName: "dockPlacement_" + frame.activeId
@@ -95,7 +97,6 @@ FocusScope {
             iconName: "move"
             tooltip: qsTr("Place %1").arg(frame.host.panelTitle(frame.activeId))
             onClicked: frame.host.openPlacement(frame.activeId)
-            Accessible.onPressAction: if (placementButton.enabled) frame.host.openPlacement(frame.activeId)
         }
         anchors.fill: parent
         title: host.panelTitle(frame.activeId)

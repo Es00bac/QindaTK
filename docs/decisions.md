@@ -262,7 +262,8 @@ implementation of per-window theming. Existing QML and C++ theme calls keep
 their behavior. Future scoped work must cover inheritance across item trees,
 popup reparenting, window movement, runtime scope changes, density and text
 scale, and the bridge's global-token policy before advertising mixed-theme
-windows. The other WP-007 foundations still require implementation and tests.
+windows. The other WP-007 foundations are tracked in the package's integrated
+acceptance record; this decision does not imply per-window theme support.
 
 ## D-017 — Raise text-bearing chrome heights for user text zoom
 

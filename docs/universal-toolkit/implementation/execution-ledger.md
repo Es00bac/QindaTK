@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: WP-001 through WP-006 accepted; WP-007 active.** Sol updates this ledger during
+**Execution state: WP-001 through WP-007 accepted; WP-010 ready.** Sol updates this ledger during
 execution. Use `planned`, `ready`, `active`, `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
 record. Keep unrelated ready work moving. A row reaches `accepted` only through
@@ -21,8 +21,8 @@ as though a later fix had already passed the earlier run.
 | [WP-004 — Make the catalog a reliable API inventory](phase-00-baseline.md#wp-004) | 00 | Luna | accepted | [101-entry catalog and generator evidence](evidence/WP-004.md) |
 | [WP-005 — Isolate private Qt dependencies and establish support targets](phase-00-baseline.md#wp-005) | 00 | Sol | accepted | [Qt 6.8.3/6.11.1 implementation and staged-consumer evidence](evidence/WP-005.md); [D-015](../../decisions.md#d-015--keep-private-qt-behind-a-public-stylus-facade) |
 | [WP-006 — Complete layout and scrolling contracts](phase-00-baseline.md#wp-006) | 00 | Sol | accepted | [Integrated guarantees, tests, pixels and support limits](evidence/WP-006.md) |
-| [WP-007 — Harden theme, popup and control interaction behavior](phase-00-baseline.md#wp-007) | 00 | Sol | active | [Source inventory](evidence/WP-007-inventory.md); [integrated progress](evidence/WP-007-progress.md); [touch targets](evidence/WP-007-FND-07-touch.md); [popup focus and bounds](evidence/WP-007-FND-09-focus.md); [NumberField editing states](evidence/WP-007-FND-10-numberfield.md); [text input semantics](evidence/WP-007-FND-10-text-inputs.md); [RangeSlider interaction](evidence/WP-007-FIX-F04-range-slider.md); [TreeRow interaction](evidence/WP-007-FIX-F04-tree-row.md); [ColorSwatches interaction](evidence/WP-007-FIX-F04-swatches.md); [Ruler marker targeting](evidence/WP-007-FIX-F04-ruler-markers.md); [toggle accessibility](evidence/WP-007-FIX-F04-toggles.md); [selection composites](evidence/WP-007-FIX-F04-selection-composites.md); [DataTable selection and rows](evidence/WP-007-FIX-F04-data-table.md); [DockTabStrip interaction](evidence/WP-007-FIX-F04-dock-tabs.md); [DockDivider interaction](evidence/WP-007-FIX-F04-dock-dividers.md); [Box/Card actions](evidence/WP-007-FIX-F04-box-card.md); [F04 closeout](evidence/WP-007-FIX-F04-closeout.md); [Splitter keyboard actions](evidence/WP-007-FIX-F04-splitter.md); [dock placement](evidence/WP-007-FIX-F04-dock-placement.md); [large-text gallery](evidence/WP-007-FND-07-large-text-sections.md); [control-state applicability](evidence/WP-007-FND-10-applicability.md) |
-| [WP-010 — Define typed cross-layer contracts and capability discovery](phase-01-services.md#wp-010) | 01 | Sol | planned | — |
+| [WP-007 — Harden theme, popup and control interaction behavior](phase-00-baseline.md#wp-007) | 00 | Sol | accepted | [Integrated acceptance, scope and support limits](evidence/WP-007.md); [detailed progress](evidence/WP-007-progress.md) |
+| [WP-010 — Define typed cross-layer contracts and capability discovery](phase-01-services.md#wp-010) | 01 | Sol | ready | Dependencies accepted; scope in [phase 01](phase-01-services.md#wp-010) |
 | [WP-011 — Unify commands, contexts, shortcuts and focus](phase-01-services.md#wp-011) | 01 | Sol | planned | — |
 | [WP-012 — Implement reversible editing, stable selection and properties](phase-01-services.md#wp-012) | 01 | Sol | planned | — |
 | [WP-013 — Implement document sessions, persistence and crash recovery](phase-01-services.md#wp-013) | 01 | Sol | planned | — |

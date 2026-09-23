@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**PLANNED — no implementation or execution is claimed by this plan.**
+**Execution beginning.** WP-010 is ready after baseline acceptance. Other
+packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -15,7 +16,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-010"></a>
 ## WP-010 — Define typed cross-layer contracts and capability discovery
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-004](phase-00-baseline.md#wp-004), [WP-005](phase-00-baseline.md#wp-005), [WP-006](phase-00-baseline.md#wp-006), [WP-007](phase-00-baseline.md#wp-007)
+**Implementation lead:** Sol. **Status:** ready. **Depends on:** [WP-004](phase-00-baseline.md#wp-004), [WP-005](phase-00-baseline.md#wp-005), [WP-006](phase-00-baseline.md#wp-006), [WP-007](phase-00-baseline.md#wp-007)
 
 **Proposal scope:** [APP-20 CapabilityRegistry](../proposed/01-application-services.md#app-20)
 

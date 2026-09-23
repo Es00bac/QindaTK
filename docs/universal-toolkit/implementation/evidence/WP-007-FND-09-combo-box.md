@@ -53,5 +53,8 @@ validator-rejected and disabled submissions emit no `accepted`. Qt's
 defines `accepted` as the user text-submission signal and `activated` as a
 user selection signal. The app decides whether to add novel text to the model.
 
-Multiple monitors, work-area changes and native assistive announcements
-remain outside this slice. FND-09 and WP-007 remain active.
+Multiple monitors, work-area changes and native assistive announcements were
+outside this isolated slice. The integrated [monitor work-area fixture](WP-007-FND-09-monitor.md)
+subsequently covers synthetic per-screen changes; real compositor and native
+announcement behavior remain WP-092 qualification. The package's final
+disposition is in [WP-007 acceptance](WP-007.md).

@@ -85,6 +85,8 @@ Tk.Dialog {
         padding: Tk.Theme.space.md
         borderTop: Tk.Theme.size.border
         borderColor: Tk.Theme.color.divider
+        // AGENT-GUARD: Tk.Button routes Accessible.pressAction through click.
+        // Local accessible handlers here would accept/reject twice.
         Tk.Flex {
             direction: Tk.Flex.Row
             justify: Tk.Flex.End
@@ -93,7 +95,6 @@ Tk.Dialog {
                 objectName: "dialogSecondary"
                 text: qsTr("Cancel")
                 onClicked: dialog.reject()
-                Accessible.onPressAction: if (enabled) dialog.reject()
             }
             Tk.Button {
                 id: placementApply
@@ -102,7 +103,6 @@ Tk.Dialog {
                 variant: "accent"
                 available: dialog.primaryEnabled
                 onClicked: dialog.accept()
-                Accessible.onPressAction: if (enabled) dialog.accept()
             }
         }
     }
