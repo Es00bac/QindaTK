@@ -12,6 +12,16 @@ T.MenuItem {
 
     property string shortcut: ""
     property string iconName: ""
+    property string tooltip: ""
+    property Tk.CommandRegistry commandRegistry: null
+    property Tk.ShortcutMap shortcutMap: null
+    property string commandId: ""
+    readonly property bool commandBound: commandRegistry !== null && commandId.length > 0
+    property Tk.CommandBinding commandBinding: Tk.CommandBinding {
+        registry: item.commandRegistry
+        shortcutMap: item.shortcutMap
+        commandId: item.commandId
+    }
     property bool danger: false
     // A member of an exclusive group: a dot instead of a check when checked.
     // Exclusivity itself is the owner's (an action model, a ButtonGroup).
@@ -20,9 +30,35 @@ T.MenuItem {
 
     Accessible.role: Accessible.MenuItem
     Accessible.name: accessibleText
+    Accessible.description: item.commandBound ? item.commandBinding.reason : item.tooltip
     Accessible.focusable: item.enabled
     Accessible.checked: item.checked
     Accessible.onPressAction: if (item.enabled) item.click()
+
+    Tk.ToolTip {
+        text: item.commandBound && item.commandBinding.reason.length > 0
+              ? item.commandBinding.reason : item.tooltip
+        visible: text.length > 0 && item.hovered
+        delay: Tk.Theme.motion.tooltipDelay
+    }
+
+    function syncCommand() {
+        if (!item.commandBound)
+            return
+        item.text = item.commandBinding.label
+        item.iconName = item.commandBinding.iconName
+        item.shortcut = item.commandBinding.shortcut
+        item.enabled = item.commandBinding.enabled
+        item.checkable = item.commandBinding.checkable
+        item.checked = item.commandBinding.checked
+    }
+    onCommandBindingChanged: syncCommand()
+    Component.onCompleted: syncCommand()
+    Connections {
+        target: item.commandBinding
+        function onChanged() { item.syncCommand() }
+    }
+    onTriggered: if (item.commandBound) item.commandBinding.trigger()
 
     // AGENT-NOTE: Flex gives the label basis zero so its measured width does
     // not contribute to the content row's implicit width. Measure the menu

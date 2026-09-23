@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution beginning.** WP-010 is accepted and WP-011 is ready. Other
+**Execution beginning.** WP-010 and WP-011 are accepted; WP-012 is ready. Other
 packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
@@ -39,7 +39,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-011"></a>
 ## WP-011 — Unify commands, contexts, shortcuts and focus
 
-**Implementation lead:** Sol. **Status:** ready. **Depends on:** [WP-010](phase-01-services.md#wp-010)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-011.md). **Depends on:** [WP-010](phase-01-services.md#wp-010)
 
 **Proposal scope:** [APP-01 CommandRegistry](../proposed/01-application-services.md#app-01), [APP-02 CommandContext](../proposed/01-application-services.md#app-02), [APP-03 ShortcutMap](../proposed/01-application-services.md#app-03), [PLT-08 FocusManager](../proposed/08-platform-integrations.md#plt-08)
 
@@ -58,7 +58,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-012"></a>
 ## WP-012 — Implement reversible editing, stable selection and properties
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-011](phase-01-services.md#wp-011)
+**Implementation lead:** Sol. **Status:** ready. **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-011](phase-01-services.md#wp-011)
 
 **Proposal scope:** [APP-04 UndoService](../proposed/01-application-services.md#app-04), [APP-05 EditTransaction](../proposed/01-application-services.md#app-05), [APP-06 SelectionModel](../proposed/01-application-services.md#app-06), [APP-10 PropertyBinding](../proposed/01-application-services.md#app-10), [APP-11 ValidationModel](../proposed/01-application-services.md#app-11)
 

@@ -39,7 +39,11 @@ qt_add_qml_module(qindatk
     SOURCES
         core/application_contracts.cpp core/application_contracts.h
         core/capability_registry.cpp core/capability_registry.h
+        core/command_context.cpp core/command_context.h
+        core/command_registry.cpp core/command_registry.h
+        core/shortcut_map.cpp core/shortcut_map.h
         core/density.cpp core/density.h
+        core/focus_manager.cpp core/focus_manager.h
         core/dock_model.cpp core/dock_model.h core/dock_model_p.h
         core/dock_model_ops.cpp
         core/dock_model_store.cpp

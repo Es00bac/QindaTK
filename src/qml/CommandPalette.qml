@@ -14,6 +14,10 @@ T.Popup {
     id: commandPalette
 
     property var commands: []
+    // When set, the registry is the live source of rows and the activation
+    // path calls its single guarded trigger() entry point.
+    property Tk.CommandRegistry registry: null
+    property Tk.ShortcutMap shortcutMap: null
     property string placeholderText: qsTr("Type a command…")
     property int maxVisible: 10
     property alias filterText: input.text
@@ -41,7 +45,9 @@ T.Popup {
 
     function rebuild() {
         const needle = input.text.trim().toLowerCase()
-        const source = Array.isArray(commandPalette.commands) ? commandPalette.commands : []
+        const source = commandPalette.registry
+                ? commandPalette.registry.paletteCommands()
+                : (Array.isArray(commandPalette.commands) ? commandPalette.commands : [])
         const sections = []
         const bySection = {}
         for (let i = 0; i < source.length; ++i) {
@@ -71,9 +77,15 @@ T.Popup {
                     "header": false,
                     "id": c.id !== undefined ? String(c.id) : "",
                     "label": c.label !== undefined ? String(c.label) : "",
-                    "shortcut": c.shortcut !== undefined ? String(c.shortcut) : "",
+                    "shortcut": commandPalette.shortcutMap
+                        && commandPalette.shortcutMap.hasBinding(c.id)
+                        ? commandPalette.shortcutMap.displaySequence(c.id)
+                        : (c.shortcut !== undefined ? String(c.shortcut) : ""),
                     "iconName": c.iconName !== undefined ? String(c.iconName) : "",
-                    "enabled": c.enabled !== false
+                    "enabled": c.enabled !== false,
+                    "checked": c.checked === true,
+                    "checkable": c.checkable === true,
+                    "reason": c.reason !== undefined ? String(c.reason) : ""
                 })
             }
         }
@@ -102,10 +114,26 @@ T.Popup {
         if (!commandPalette.enabled || row === undefined || row.header || !row.enabled) {
             return
         }
+        const accepted = !commandPalette.registry
+                || commandPalette.registry.trigger(row.id)
+        if (!accepted) {
+            commandPalette.rebuild()
+            return
+        }
         commandPalette.activated(row.id)
         commandPalette.close()
     }
     onCommandsChanged: rebuild()
+    onRegistryChanged: rebuild()
+    onShortcutMapChanged: rebuild()
+    Connections {
+        target: commandPalette.registry
+        function onChanged() { commandPalette.rebuild() }
+    }
+    Connections {
+        target: commandPalette.shortcutMap
+        function onChanged() { commandPalette.rebuild() }
+    }
     onAboutToShow: {
         input.text = ""
         rebuild()
@@ -165,6 +193,8 @@ T.Popup {
 
                 Accessible.role: row.command ? Accessible.ListItem : Accessible.StaticText
                 Accessible.name: row.modelData.label
+                Accessible.description: row.modelData.reason !== undefined
+                                        ? row.modelData.reason : ""
                 Accessible.selectable: row.command && row.modelData.enabled
                 Accessible.selected: row.command && row.current
                 Accessible.focusable: row.command && row.modelData.enabled

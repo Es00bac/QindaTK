@@ -1258,6 +1258,99 @@
       ]
     },
     {
+      "name": "CommandButton",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Toolbar friendly button backed by one semantic command. The contained Button remains the sole pointer, keyboard and accessibility activation surface; all accepted activations call CommandBinding.trigger() once.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CommandButton.qml",
+      "properties": [
+        {
+          "name": "registry",
+          "type": "Tk.CommandRegistry",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shortcutMap",
+          "type": "Tk.ShortcutMap",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "commandId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconOnly",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "button",
+          "type": "alias",
+          "default": "button",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "disabledReason",
+          "type": "string",
+          "default": "binding.reason",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "triggered",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "commandButtonAction"
+      ]
+    },
+    {
       "name": "CommandPalette",
       "kind": "qml",
       "base": "T.Popup",
@@ -1270,6 +1363,22 @@
           "name": "commands",
           "type": "var",
           "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "registry",
+          "type": "Tk.CommandRegistry",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shortcutMap",
+          "type": "Tk.ShortcutMap",
+          "default": "null",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -3571,6 +3680,54 @@
           "required": false
         },
         {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "commandRegistry",
+          "type": "Tk.CommandRegistry",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shortcutMap",
+          "type": "Tk.ShortcutMap",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "commandId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "commandBound",
+          "type": "bool",
+          "default": "commandRegistry !== null && commandId.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "commandBinding",
+          "type": "Tk.CommandBinding",
+          "default": "Tk.CommandBinding {",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "danger",
           "type": "bool",
           "default": "false",
@@ -3596,7 +3753,12 @@
         }
       ],
       "signals": [],
-      "methods": [],
+      "methods": [
+        {
+          "name": "syncCommand",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -7434,6 +7596,225 @@
       "bridge": false
     },
     {
+      "name": "CommandBinding",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "QML-facing projection of one semantic action. Presentation controls bind to its live label, enabled/checked state and reason, then call trigger().",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/command_registry.h",
+      "properties": [
+        {
+          "name": "registry",
+          "type": "QindaTK::CommandRegistry *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "shortcutMap",
+          "type": "QObject *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "commandId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "label",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "iconName",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "shortcut",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "checked",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "checkable",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "reason",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "trigger",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CommandContext",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Application-owned scope tree. The active path, not creation order, decides command precedence; owners are weak and disappearing subtrees are pruned.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/command_context.h",
+      "properties": [
+        {
+          "name": "activeToken",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "activeScopeId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "pushScope",
+          "returns": "QString",
+          "parameters": "const QString &scopeId, QObject *owner, const QString &parentToken = {}"
+        },
+        {
+          "name": "activate",
+          "returns": "bool",
+          "parameters": "const QString &token"
+        },
+        {
+          "name": "removeScope",
+          "returns": "bool",
+          "parameters": "const QString &token"
+        },
+        {
+          "name": "contains",
+          "returns": "bool",
+          "parameters": "const QString &token"
+        },
+        {
+          "name": "updateScope",
+          "returns": "bool",
+          "parameters": "const QString &token, const QVariantMap &values"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CommandRegistry",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Descriptors are global to an application; handlers are owned by live scope instances. One invocation resolves one most-specific handler and executes it once, regardless of whether the request came from menu, button or palette.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/command_registry.h",
+      "properties": [
+        {
+          "name": "context",
+          "type": "CommandContext *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "query",
+          "returns": "QVariantMap",
+          "parameters": "const QString &commandId"
+        },
+        {
+          "name": "paletteCommands",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "trigger",
+          "returns": "bool",
+          "parameters": "const QString &commandId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "Density",
       "kind": "cpp",
       "base": "QObject",
@@ -7970,6 +8351,61 @@
       "registrationKind": "qml_anonymous",
       "exported": false,
       "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "FocusManager",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "FocusManager tracks transient UI surfaces such as menus, dialogs, and popovers. enterSurface() returns an opaque restoration token and records the currently focused item/window through weak pointers. activate() may focus the surface target. closeSurface() removes that surface and nested surfaces; focus returns to the saved target only if focus is still inside the closing surface tree (or was cleared). This guard prevents a late popup close from stealing focus after the user explicitly moved elsewhere. A destroyed owner or target is treated as closed, and a destroyed saved item is never restored. QML can pass Item targets directly and retain tokens as strings; applications should keep one manager per window.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/focus_manager.h",
+      "properties": [
+        {
+          "name": "activeToken",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "enterSurface",
+          "returns": "QString",
+          "parameters": "QObject *owner, QQuickItem *target = nullptr, QQuickWindow *window = nullptr, const QString &parentToken = {}"
+        },
+        {
+          "name": "activate",
+          "returns": "bool",
+          "parameters": "const QString &token"
+        },
+        {
+          "name": "deactivate",
+          "returns": "bool",
+          "parameters": "const QString &token"
+        },
+        {
+          "name": "closeSurface",
+          "returns": "bool",
+          "parameters": "const QString &token"
+        },
+        {
+          "name": "contains",
+          "returns": "bool",
+          "parameters": "const QString &token"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
       "valueType": false,
       "bridge": false
     },
@@ -8809,6 +9245,117 @@
       "methods": [
         {
           "name": "refresh",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ShortcutMap",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Window-local keyboard routing for semantic commands. Bindings use portable QKeySequence text for storage and native text only for presentation. A scopeToken is a live CommandContext token; an empty token is window-global.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/shortcut_map.h",
+      "properties": [
+        {
+          "name": "registry",
+          "type": "QindaTK::CommandRegistry *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "window",
+          "type": "QQuickWindow *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "chordTimeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pendingChord",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "bind",
+          "returns": "bool",
+          "parameters": "const QString &commandId, const QString &portableSequence, const QString &scopeToken = {}, bool allowInTextInput = false"
+        },
+        {
+          "name": "bindCommand",
+          "returns": "bool",
+          "parameters": "const QString &commandId, const QString &scopeToken = {}, bool allowInTextInput = false"
+        },
+        {
+          "name": "unbind",
+          "returns": "bool",
+          "parameters": "const QString &commandId, const QString &scopeToken = {}"
+        },
+        {
+          "name": "setOverride",
+          "returns": "bool",
+          "parameters": "const QString &commandId, const QString &portableSequence"
+        },
+        {
+          "name": "resetOverride",
+          "returns": "void",
+          "parameters": "const QString &commandId"
+        },
+        {
+          "name": "overrides",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "loadOverrides",
+          "returns": "bool",
+          "parameters": "const QVariantMap &values"
+        },
+        {
+          "name": "displaySequence",
+          "returns": "QString",
+          "parameters": "const QString &commandId"
+        },
+        {
+          "name": "hasBinding",
+          "returns": "bool",
+          "parameters": "const QString &commandId"
+        },
+        {
+          "name": "conflicts",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "dispatchPortable",
+          "returns": "bool",
+          "parameters": "const QString &portableStroke, bool textInput = false, bool composing = false"
+        },
+        {
+          "name": "cancelChord",
           "returns": "void",
           "parameters": ""
         }

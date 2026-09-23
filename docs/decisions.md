@@ -517,3 +517,38 @@ QML exchanges large revisions and ticks as strings, and applications must
 resolve IDs again after model resets. The first optional pack owns its
 plugin/discovery and installed-package policy, with a core-only consumer as
 a regression gate. See [application contracts](application-contracts.md).
+
+## D-027 — Route semantic commands through scoped handlers
+
+**Context.** Menus, toolbars and the palette can present the same semantic
+operation, but independent callbacks can target the wrong document after a
+focus or document switch. Handlers owned by a closed view must not stay live.
+
+**Decision.** Give each operation a stable ID and descriptor. An
+application-owned `CommandContext` stores scope instances with opaque tokens,
+parent links, explicit activation, typed snapshot values and weak QObject
+owners. `CommandRegistry` resolves a handler from the active path, most
+specific first; a successful invocation captures a `CommandInvocationContext`
+and calls one handler. Removing a scope subtree or its owner invalidates the
+corresponding handlers. Keep descriptors global to the registry and register
+handlers against live scope tokens. State callbacks report presentation
+state; callers invalidate the registry when their inputs change.
+
+Use `CommandBinding` and the current `MenuItem`, `CommandButton` and
+`CommandPalette` adapters to connect presentations. `ToolBar` remains a
+container; direct `Button`, unbound `MenuItem` and caller-fed palette behavior
+remain available. `ShortcutMap` routes portable key sequences through a
+window event filter, ranks active scope bindings above global bindings,
+reports same-rank ambiguities, supports timed chords and leaves ordinary
+text-editing input and IME composition to the editor by default. `FocusManager`
+records weak item/window references for transient surfaces and restores only
+when focus remains in the closing surface tree or has been cleared.
+
+**Consequences.** A descriptor alone is not invokable: the active path needs a
+live handler whose state is enabled. Applications own scope activation,
+window attachment, shortcut persistence and conflict handling. Current focus
+restoration is item-based and guarded against focus theft; it does not yet
+store a stable logical focus identifier or automatically choose a document
+editor target. Text input that opts into a shortcut can intentionally consume
+typing keys, and system/third-party shortcut conflicts are outside the map.
+See [commands.md](commands.md) for APIs and remaining integration limits.
