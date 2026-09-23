@@ -187,10 +187,17 @@ reading identically; `tst_telemetry` asserts this for every preset.
 
 `mode` (enum) and `modeName` (`"compact"`, `"comfortable"`, `"touch"`;
 `"dense"` is accepted as compact) are both writable. `scaleFonts` (default
-false) also scales the type ramp. `px(v)` and `scaled(v)` scale a value by
-hand. Radii, motion and opacity never scale; the 1px border does not scale
-either because `size.border` is scalable but rounds back to 1 at every
-mode.
+false) scales the type ramp with density. `textScale` (default `1.0`) is an
+independent user text zoom for `Tk.Theme.font`; it is clamped to `0.5`–`3.0`
+and ignores non-finite values. The effective font factor is `textScale`, or
+`textScale × Density.scale` when `scaleFonts` is enabled. Assigning `1.0`
+resets user text zoom without changing density or `scaleFonts`. For example,
+`Tk.Density.textScale = 1.25` enlarges text by 25% while leaving spacing and
+control sizes alone. JSON and QST font sizes remain the unscaled base ramp,
+so changing or resetting text zoom never compounds previously published
+font sizes. `px(v)` and `scaled(v)` scale a value by hand. Radii, motion and
+opacity never scale; the 1px border does not scale either because
+`size.border` is scalable but rounds back to 1 at every mode.
 
 ## Presets
 

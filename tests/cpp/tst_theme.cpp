@@ -5,6 +5,8 @@
 #include <QMetaProperty>
 #include <QtTest>
 
+#include <limits>
+
 using namespace QindaTK;
 
 class TstTheme final : public QObject {
@@ -13,6 +15,8 @@ private slots:
     void init()
     {
         Density::instance()->setMode(Density::Compact);
+        Density::instance()->setScaleFonts(false);
+        Density::instance()->setTextScale(1.0);
         Theme::instance()->applyPreset(QStringLiteral("sloom-dark"));
     }
     void roleTableCoversEveryProperty()
@@ -89,6 +93,66 @@ private slots:
         Density::instance()->setScaleFonts(true);
         QCOMPARE(theme->font()->body(), 14.0);
         Density::instance()->setScaleFonts(false);
+    }
+    void independentTextScaleComposesWithDensityAndResets()
+    {
+        Theme *theme = Theme::instance();
+        Density *density = Density::instance();
+        density->setMode(Density::Comfortable);
+        density->setTextScale(1.5);
+        QCOMPARE(theme->font()->body(), 18.0);
+        QCOMPARE(theme->size()->metric(QStringLiteral("control")), 29.0);
+
+        density->setScaleFonts(true);
+        QCOMPARE(theme->font()->body(), 22.0);
+        QCOMPARE(theme->font()->caption(), 18.0);
+
+        density->setTextScale(1.0);
+        QCOMPARE(theme->font()->body(), 14.0);
+        density->setScaleFonts(false);
+        QCOMPARE(theme->font()->body(), 12.0);
+        density->setMode(Density::Compact);
+    }
+    void textScaleClampsAndIgnoresNonFiniteValues()
+    {
+        Density *density = Density::instance();
+        Theme *theme = Theme::instance();
+        density->setTextScale(99.0);
+        QCOMPARE(density->textScale(), 3.0);
+        QCOMPARE(theme->font()->body(), 36.0);
+        density->setTextScale(-2.0);
+        QCOMPARE(density->textScale(), 0.5);
+        QCOMPARE(theme->font()->body(), 6.0);
+        density->setTextScale(std::numeric_limits<qreal>::quiet_NaN());
+        QCOMPARE(density->textScale(), 0.5);
+        density->setTextScale(std::numeric_limits<qreal>::infinity());
+        QCOMPARE(density->textScale(), 0.5);
+        density->setTextScale(1.0);
+    }
+    void textScaleKeepsJsonAndQstFontBases()
+    {
+        Theme *theme = Theme::instance();
+        Density *density = Density::instance();
+        density->setTextScale(1.5);
+        QVERIFY(theme->loadJson(QStringLiteral(
+            R"({"colors":{"bg":"#101010"},"font":{"body":13}})")));
+        QCOMPARE(theme->font()->body(), 20.0);
+        density->setTextScale(1.0);
+        QCOMPARE(theme->font()->body(), 13.0);
+
+        density->setTextScale(1.5);
+        const QVariantMap tokens{
+            {QStringLiteral("bg"), QVariantMap{{QStringLiteral("base"), QColor("#101010")}}},
+            {QStringLiteral("fg"), QVariantMap{{QStringLiteral("default"), QColor("#eeeeee")}}},
+            {QStringLiteral("accent"), QVariantMap{{QStringLiteral("default"), QColor("#3399ff")},
+                                                    {QStringLiteral("fg"), QColor("#000000")}}},
+            {QStringLiteral("type"), QVariantMap{{QStringLiteral("caption"), 9.0},
+                                                  {QStringLiteral("body"), 10.5}}},
+        };
+        QVERIFY(theme->applyQst(tokens));
+        QCOMPARE(theme->font()->body(), 21.0);
+        density->setTextScale(1.0);
+        QCOMPARE(theme->font()->body(), 14.0);
     }
     void applyRolesDerives()
     {

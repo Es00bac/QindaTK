@@ -38,9 +38,9 @@ Process-wide sizing policy for compact, comfortable and touch interfaces.
 
 **Source:** [src/core/density.h](../../../src/core/density.h) · **Base:** `QObject` · **Kind:** C++ singleton.
 
-mode/modeName choose scales 1.0, 1.2 and 1.5. space and size ladders scale and round; scaleFonts optionally scales typography. px rounds; scaled preserves fractional values. A larger density alone does not supply touch gestures or accessible hit targets for every custom part.
+mode/modeName choose scales 1.0, 1.2 and 1.5. space and size ladders scale and round; scaleFonts optionally composes density with typography. textScale independently changes the Tk.Theme.font ramp (0.5–3.0, default 1.0) without changing layout metrics. px rounds; scaled preserves fractional values. A larger density alone does not supply touch gestures or accessible hit targets for every custom part.
 
-**Declared members:** `mode: Mode`, `modeName: QString`, `scale: qreal` (ro), `scaleFonts: bool`.
+**Declared members:** `mode: Mode`, `modeName: QString`, `scale: qreal` (ro), `scaleFonts: bool`, `textScale: qreal`.
 
 **Declared signals:** `changed()`.
 

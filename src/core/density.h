@@ -24,6 +24,7 @@ class Density : public QObject {
     Q_PROPERTY(QString modeName READ modeName WRITE setModeName NOTIFY changed)
     Q_PROPERTY(qreal scale READ scale NOTIFY changed)
     Q_PROPERTY(bool scaleFonts READ scaleFonts WRITE setScaleFonts NOTIFY changed)
+    Q_PROPERTY(qreal textScale READ textScale WRITE setTextScale NOTIFY changed)
 
 public:
     enum Mode { Compact, Comfortable, Touch };
@@ -39,6 +40,10 @@ public:
     [[nodiscard]] qreal scale() const;
     [[nodiscard]] bool scaleFonts() const { return m_scaleFonts; }
     void setScaleFonts(bool scaleFonts);
+    // Independent user text zoom, composed with scaleFonts when enabled.
+    // Values are constrained to [0.5, 3.0]; non-finite values are ignored.
+    [[nodiscard]] qreal textScale() const { return m_textScale; }
+    void setTextScale(qreal textScale);
 
     // A base metric scaled and rounded to whole pixels; `scaled` keeps the
     // fraction for callers that round themselves.
@@ -53,6 +58,7 @@ private:
 
     Mode m_mode = Compact;
     bool m_scaleFonts = false;
+    qreal m_textScale = 1.0;
 };
 
 } // namespace QindaTK

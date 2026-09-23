@@ -440,7 +440,6 @@ void Theme::rescale()
     const qreal scale = Density::instance()->scale();
     m_space->rescale(scale);
     m_size->rescale(scale);
-    ThemePresets::rescaleFonts(*this, Density::instance()->scaleFonts() ? scale : 1.0);
     ThemePresets::applyMotion(*this, m_reducedMotion);
     finishUpdate();
 }
@@ -448,6 +447,9 @@ void Theme::rescale()
 void Theme::finishUpdate()
 {
     ++m_generation;
+    const qreal densityScale = Density::instance()->scaleFonts()
+        ? Density::instance()->scale() : 1.0;
+    ThemePresets::rescaleFonts(*this, densityScale * Density::instance()->textScale());
     // AGENT-GUARD: ramps are derived from the colour roles, so they must be
     // rebuilt before changed() lets any binding read Theme.ramp again.
     m_ramp->rebuild(*m_color);

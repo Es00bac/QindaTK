@@ -6882,6 +6882,13 @@
           "default": "",
           "readonly": false,
           "constant": false
+        },
+        {
+          "name": "textScale",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
         }
       ],
       "signals": [],

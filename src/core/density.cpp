@@ -5,6 +5,7 @@
 #include <QQmlEngine>
 
 #include <cmath>
+#include <algorithm>
 
 namespace QindaTK {
 
@@ -79,6 +80,19 @@ void Density::setScaleFonts(bool scaleFonts)
         return;
     }
     m_scaleFonts = scaleFonts;
+    emit changed();
+}
+
+void Density::setTextScale(qreal textScale)
+{
+    if (!std::isfinite(textScale)) {
+        return;
+    }
+    const qreal bounded = std::clamp(textScale, 0.5, 3.0);
+    if (bounded == m_textScale) {
+        return;
+    }
+    m_textScale = bounded;
     emit changed();
 }
 
