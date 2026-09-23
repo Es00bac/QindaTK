@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 00 — Baseline and existing foundations
 
-**PLANNED — no implementation or execution is claimed by this plan.**
+**Execution in progress.** The live status and evidence are in the
+[execution ledger](execution-ledger.md); the remaining package instructions
+on this page describe required future work.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -15,7 +17,8 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-001"></a>
 ## WP-001 — Capture the execution baseline and prepare isolated work
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** None; first execution package.
+**Implementation lead:** Sol. **Status:** accepted; see
+[baseline evidence](evidence/WP-001.md). **Depends on:** None; first execution package.
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Complete implementation plan — Sol orchestration
 
-**Planning handoff, 2026-09-22. No implementation or agent orchestration has
-started.** This extends the [audit and proposal book](../README.md) into an
+**Execution started on 2026-09-22; see the [live ledger](execution-ledger.md).**
+This extends the [audit and proposal book](../README.md) into an
 executable program: **84 work packages, all 212 proposed additions, and 64
 supporting obligations**. GPT 6 Sol is the sole orchestrator and integration
 owner. GPT 6 Luna handles bounded implementation work. GPT 6 Astra is available
@@ -17,9 +17,9 @@ for specific hard problems and returns its result to Sol.
    initializes evidence and takes ownership of this plan. The current dirty tree
    is part of the audited baseline; starting from HEAD alone would omit work.
 
-No CLI flags, persistent agent configuration or model switch have been applied
-by this planning task. Model identifiers in the manifest describe the requested
-roles; the executing session must actually provide those models and delegation.
+The requested model assignments are recorded in the manifest and delegation
+rules. The [baseline evidence](evidence/WP-001.md) records the integration
+worktree and actual build/test environment.
 
 ## What completion means
 

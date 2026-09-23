@@ -1,7 +1,7 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
   "schema_version": 1,
-  "status": "planning-only",
+  "status": "executing",
   "baseline_head": "89d5ca39a13c974d2877597a39d0fe6db88fbaf0",
   "baseline_includes_dirty_working_tree": true,
   "orchestrator": "gpt-6-sol",
@@ -26,7 +26,7 @@
     {"id": "08", "title": "Qualification and complete handoff", "document": "phase-08-qualification.md"}
   ],
   "packages": [
-    {"id": "WP-001", "title": "Capture the execution baseline and prepare isolated work", "phase": "00", "owner": "Sol", "depends_on": [], "proposals": [], "support": [], "document": "phase-00-baseline.md#wp-001", "status": "planned"},
+    {"id": "WP-001", "title": "Capture the execution baseline and prepare isolated work", "phase": "00", "owner": "Sol", "depends_on": [], "proposals": [], "support": [], "document": "phase-00-baseline.md#wp-001", "status": "accepted"},
     {"id": "WP-002", "title": "Resolve the three source behavior findings", "phase": "00", "owner": "Luna", "depends_on": ["WP-001"], "proposals": [], "support": ["FIX-F01", "FIX-F02", "FIX-F03"], "document": "phase-00-baseline.md#wp-002", "status": "planned"},
     {"id": "WP-003", "title": "Repair layout, token and documentation drift", "phase": "00", "owner": "Luna", "depends_on": ["WP-001"], "proposals": [], "support": ["FIX-F05", "FIX-F06", "DOC-01"], "document": "phase-00-baseline.md#wp-003", "status": "planned"},
     {"id": "WP-004", "title": "Make the catalog a reliable API inventory", "phase": "00", "owner": "Luna", "depends_on": ["WP-001"], "proposals": [], "support": ["FIX-F07"], "document": "phase-00-baseline.md#wp-004", "status": "planned"},
