@@ -126,3 +126,16 @@ Compact dumps retain 4px seams with 16px targets, and Comfortable retains
 and Qt 6.8.3 both pass the complete QML suite and `all_qmllint` (existing
 nonfatal warnings).
 Physical touch hardware and native assistive traversal remain unqualified.
+
+## Open narrow docking workflow
+
+A 480×320 Touch, 3× text and high-contrast-dark preview of
+`examples/docking/Main.qml` exposes a separate responsive layout gap. The
+opened `build/wp007-docking-stress.png` shows the timeline but squeezes the
+three side/centre lanes. The dump records `Flex#dockLane_left_0 0,0 230x9`,
+`Flex#dockLane_center_0 0,0 0x220`, `Flex#dockLane_right_0 6,0 280x9`,
+and `Item#dockCanvas 0,229 0x0`. The configured 230px left and 280px right
+extents cannot fit with a useful centre in a 480px host. This workflow needs
+an explicit small-window lane policy and tests before FND-07 can claim broad
+docking usability. The ignored fixture and dump are
+`build/wp007-docking-stress.{qml,dump}` in the integration worktree.
