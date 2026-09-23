@@ -196,6 +196,22 @@ TestCase {
         compare(scroll.contentY, 0)
     }
 
+    function test_focused_viewport_releases_tab_stop_after_overflow_ends() {
+        const scroll = createTemporaryObject(horizontalScene, root)
+        verify(scroll)
+        tryVerify(() => scroll.scrollableX)
+        scroll.forceActiveFocus()
+        verify(scroll.activeFocus)
+        verify(scroll.activeFocusOnTab)
+        scroll.width = 400
+        tryVerify(() => !scroll.scrollableX)
+        verify(scroll.activeFocus)
+        verify(scroll.activeFocusOnTab)
+        root.forceActiveFocus()
+        tryVerify(() => !scroll.activeFocus)
+        tryVerify(() => !scroll.activeFocusOnTab)
+    }
+
     function test_canvasWheelChainsAtDocumentEdge() {
         const scene = createTemporaryObject(canvasScene, root)
         const outer = findChild(scene, "canvasOuterScroll")

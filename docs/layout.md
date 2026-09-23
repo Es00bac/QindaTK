@@ -467,7 +467,9 @@ one themed row step, Page Up/Down by a viewport page less one row, and
 Home/End at the vertical bounds. A key that cannot move the focused viewport
 passes to its ancestor; `interactive: false` suppresses its keyboard movement.
 Horizontal overflow stays hidden by default. `accessibleName` names the
-focusable Pane for assistive technology.
+focusable Pane for assistive technology. A viewport stays a tab stop while it
+holds focus if a resize removes overflow; after focus leaves, it drops from
+tab traversal until scrolling is needed again.
 
 When a descendant gains focus, each Scroll reveals it. An outer Scroll
 reveals an inner Scroll viewport as a unit; the inner one reveals the actual

@@ -35,7 +35,10 @@ Item {
     // viewport from scrolling to a deep item before inner scrolling settles.
     readonly property bool _qindaScrollViewport: true
 
-    activeFocusOnTab: interactive && (scrollableX || scrollableY)
+    // AGENT-GUARD: Qt rejects clearing activeFocusOnTab while this viewport
+    // owns focus. Retain the tab stop until focus leaves after a resize that
+    // removes overflow; otherwise the old true value can remain stuck.
+    activeFocusOnTab: interactive && (scrollableX || scrollableY || activeFocus)
     Accessible.role: Accessible.Pane
     Accessible.name: accessibleName
     Accessible.focusable: activeFocusOnTab
