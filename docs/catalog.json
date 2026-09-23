@@ -1693,7 +1693,7 @@
       "name": "DockDivider",
       "kind": "qml",
       "base": "Rectangle",
-      "description": "The draggable seam between two dock lanes, between a lane and the canvas, or between two slots of a lane (`share: true`). It reports incremental deltas; the host turns them into DockModel extents or shares, so a seam can never drag a lane below its declared minimum.",
+      "description": "The resizable seam between two dock lanes, between a lane and the canvas, or between two slots of a lane (`share: true`). Pointer, keyboard and accessible operations report deltas; the host applies them to the DockModel, so this item never owns placement or extent state. Left/Right and Up/Down follow the seam axis; focused seams show a themed outline so keyboard users can tell which boundary they will move.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/DockDivider.qml",
@@ -1710,6 +1710,22 @@
           "name": "share",
           "type": "bool",
           "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyboardStep",
+          "type": "real",
+          "default": "Tk.Theme.space.lg",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -1737,7 +1753,12 @@
           "parameters": ""
         }
       ],
-      "methods": [],
+      "methods": [
+        {
+          "name": "moveBy",
+          "parameters": "delta"
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",

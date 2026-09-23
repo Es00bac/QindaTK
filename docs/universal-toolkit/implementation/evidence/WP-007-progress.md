@@ -112,6 +112,11 @@ FND-07 through FND-10.
   navigate and activate through `DockModel`; Space/Return/Enter, pointer and
   accessible press use the same guarded activation signal. Owner model updates
   remain silent. [Focused evidence](WP-007-FIX-F04-dock-tabs.md).
+- `DockDivider` seams now expose a focusable Splitter role. Arrow keys and
+  accessible increase/decrease send seam-axis deltas through the existing
+  `DockZone` callbacks into `DockModel`; disabled host ancestry blocks them.
+  The themed focus ring leaves seam geometry unchanged.
+  [Focused evidence](WP-007-FIX-F04-dock-dividers.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,

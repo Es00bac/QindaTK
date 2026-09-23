@@ -127,6 +127,7 @@ size itself fills the frame body; several children anchor themselves.
 | lane | `dockLane_<zone>_<lane>` | width/height = model extent (`Tk.Flex.basis`) |
 | lane seam | `dockDivider_<zone>_<lane>` | drawn after the lane (left/top/center) or before it (right/bottom) |
 | share seam | `dockShareSeam_<zone>_<lane>_<index>` | between slot `index` and `index + 1` |
+| divider focus ring | `<divider objectName>_focus` | visible theme focus outline while a dock divider is focused |
 | frame | `dockFrame_<activeId>` | one slot; named after its active panel |
 | content container | `dockContent_<panelId>` | one per member; inactive tabs are invisible, never destroyed |
 | tab strip / tab / focus ring | `dockTabStrip_<activeId>` / `dockTab_<panelId>` / `dockTabFocus_<panelId>` | only for groups; PageTabList/PageTab semantics, active selection, visible focused ring |
@@ -150,6 +151,9 @@ invisible surface reaches 48 logical px without widening the dock lane.
 | --- | --- |
 | drag a lane seam | `setLaneExtent` (floored at the panels' minimum) |
 | drag the seam between two stacked slots | `setShare` on both, keeping their total |
+| focus a vertical seam, then Left/Right | emit a negative/positive local horizontal delta through the same resize path as dragging |
+| focus a horizontal seam, then Up/Down | emit a negative/positive local vertical delta through the same resize path as dragging |
+| accessible increase/decrease on a seam | emit a positive/negative `Theme.space.lg` delta on the seam axis through the host callbacks |
 | click a tab | `activateInGroup` |
 | focus a tab, then Left/Right or Home/End | move focus and activate through `activateInGroup`; the model remains the selection authority |
 | Space/Return/Enter or accessible press on a tab | `activateInGroup`; emits `DockTabStrip.tabActivated(panelId)` only when a different tab is accepted |

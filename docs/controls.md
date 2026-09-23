@@ -154,6 +154,12 @@ Space/Return/Enter and the accessible press action activate through
 `tabActivated(panelId)` reports accepted user selection. The visible focus
 ring is `dockTabFocus_<panelId>`; `tabItem(index)` exposes a current delegate
 for focus management by host code.
+`DockDivider` is a focusable `Accessible.Splitter` named by its `tooltip` or
+“Resize dock panels”. Left/Right moves a vertical seam and Up/Down moves a
+horizontal seam by `Theme.space.lg`; accessible increase/decrease uses the
+same signed delta path as dragging. It emits `dragged(delta)` and leaves lane
+extents and slot shares to `DockZone` and `DockModel`. Its visible focus ring
+is `<divider objectName>_focus`.
 
 ## Size table (compact density)
 
