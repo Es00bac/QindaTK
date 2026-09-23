@@ -56,6 +56,34 @@ TestCase {
     Component { id: zoomComponent; Tk.ZoomControl { value: 1.0 } }
     Component { id: emptyComponent; Tk.EmptyState { title: "No markers"; text: "Add one with M."; width: 240 } }
     Component { id: cardComponent; Tk.Card { interactive: true; width: 240; Tk.Label { text: "Card" } } }
+    Component { id: ordinaryLabelComponent; Tk.Label { text: "Copy this label" } }
+    Component { id: selectableLabelComponent; Tk.Label { text: "Copy this label"; selectable: true } }
+    Component { id: labelPasteTargetComponent; Tk.TextField { width: 180 } }
+
+    function test_label_selection_and_copy() {
+        const ordinary = createTemporaryObject(ordinaryLabelComponent, root)
+        const selectable = createTemporaryObject(selectableLabelComponent, root, { y: 40 })
+        compare(ordinary.selectable, false)
+        compare(selectable.implicitWidth, ordinary.implicitWidth)
+        compare(selectable.implicitHeight, ordinary.implicitHeight)
+        compare(findChild(ordinary, "selectableText").visible, false)
+
+        const editor = findChild(selectable, "selectableText")
+        verify(editor !== null)
+        editor.forceActiveFocus()
+        verify(editor.activeFocus)
+        keyClick(Qt.Key_A, Qt.ControlModifier)
+        compare(editor.selectedText, selectable.text)
+        keyClick(Qt.Key_C, Qt.ControlModifier)
+
+        const pasteTarget = createTemporaryObject(labelPasteTargetComponent, root, { y: 80 })
+        pasteTarget.forceActiveFocus()
+        keyClick(Qt.Key_V, Qt.ControlModifier)
+        compare(pasteTarget.text, selectable.text)
+
+        mouseDrag(editor, 2, editor.height / 2, editor.width - 2, editor.height / 2, 6)
+        verify(editor.selectedText.length > 0)
+    }
 
     function test_tab_strip() {
         const strip = createTemporaryObject(tabStripComponent, root)
