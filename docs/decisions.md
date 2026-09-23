@@ -411,10 +411,9 @@ measured Compact and Comfortable chrome remains the desktop baseline.
 **Decision.** After density and text-scale resolution, raise interactive
 vertical size roles `controlSm`, `control`, `controlLg`, `row`, `rowLg`, `tab`,
 `menuItem`, `header`, `timeRuler`, `sliderTarget`, `sliderTargetSm` and
-`toggleTargetSm` to at
-least 48 logical pixels in Touch
-mode. The 48px outer row leaves at least 44px for a joined control's inner
-button after two 2px borders. Larger authored or font-derived values win. Keep the authored metric
+`toggleTargetSm` to at least 48 logical pixels in Touch mode. The 48px outer
+row leaves at least 44px for a joined control's inner button after two 2px
+borders. Larger authored or font-derived values win. Keep the authored metric
 bases intact; switching back to Compact or Comfortable recomputes their
 original resolved heights. Icon artwork and fixed noninteractive metrics do
 not grow solely because of this floor.
@@ -424,3 +423,31 @@ interaction area while their internal art can remain visually compact.
 This role floor does not enlarge a control that ignores the relevant theme
 size or guarantee every custom pointer handler has a 44px target. WP-007
 continues auditing those controls and whole-workflow reachability.
+
+## D-023 — Separate owner state from user-intent notifications
+
+**Context.** Application state can arrive through bindings, document loads,
+undo/redo, collaboration or user input. An app cannot treat every property
+change as a new local edit. The existing controls mix template state signals
+with custom `activated`, `valueModified` and `colorEdited` signals, so the
+distinction needs a documented baseline before adding more controls.
+
+**Decision.** A control's public value, selection or checked property is the
+state the owner can assign. A named interaction signal such as `activated`,
+`selected`, `valueModified` or `rangeModified` reports a validated user
+operation only. Direct owner assignment changes the property and its normal
+property-change notification without emitting that interaction signal.
+Pointer, keyboard and accessible actions call the same guarded operation and
+produce one interaction signal for one accepted operation. Disabled and
+read-only gates apply to those operations, never to owner assignment. An
+explicit `reset()` is an operation and documents whether it emits. Editable
+controls preserve a draft until commit or cancel; invalid drafts remain
+visible with an error state where the control supports parsing. Mixed state is
+used only for aggregate selection and must clear on the first accepted edit.
+
+**Consequences.** Hosts can bind values without causing edit feedback loops
+and can use interaction signals for undo entries or document commands. New
+controls document the applicability of default/reset, mixed, invalid draft,
+read-only, disabled, focus and accessible action behavior. Existing controls
+are audited against this contract in WP-007; unsupported capabilities and
+legacy exceptions must be stated per control instead of implied.

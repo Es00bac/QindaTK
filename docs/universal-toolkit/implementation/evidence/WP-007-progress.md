@@ -67,6 +67,11 @@ FND-07 through FND-10.
   selected PageTab state and guarded keyboard/assistive selection. TabStrip
   focus follows the selected tab.
   [Focused evidence](WP-007-FIX-F04-selection-composites.md).
+- [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
+  and the [control interaction baseline](../../../control-interaction.md)
+  now define owner assignment, accepted user signals, draft commit/cancel,
+  applicability of mixed/default/invalid states, focus and assistive paths
+  for later controls. The current-control audit is still in progress.
 
 ## Verification
 
