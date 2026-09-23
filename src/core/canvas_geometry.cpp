@@ -222,6 +222,15 @@ QRect SpatialIndex::cellRange(const QRectF &b) const
     return QRect(QPoint(cell(b.left()), cell(b.top())), QPoint(cell(b.right()), cell(b.bottom())));
 }
 
+static qint64 cellCount(const QRect &cells)
+{
+    // QRect::width()/height() are int and overflow when the clamped cell
+    // interval spans both ends of the ±2^30 index range.
+    const qint64 columns = qMax<qint64>(0, qint64(cells.right()) - cells.left() + 1);
+    const qint64 rows = qMax<qint64>(0, qint64(cells.bottom()) - cells.top() + 1);
+    return columns * rows;
+}
+
 void SpatialIndex::insert(CanvasObjectId id, const QRectF &bounds)
 {
     remove(id);
@@ -231,7 +240,7 @@ void SpatialIndex::insert(CanvasObjectId id, const QRectF &bounds)
     }
     Entry entry{bounds, false};
     const QRect cells = cellRange(bounds);
-    if (qsizetype(cells.width()) * cells.height() > kMaxCellsPerObject) {
+    if (cellCount(cells) > kMaxCellsPerObject) {
         entry.oversize = true;
         m_oversize.append(id);
     } else {
@@ -287,8 +296,7 @@ QVector<CanvasObjectId> SpatialIndex::query(const QRectF &region) const
         return result;
     }
     const QRect cells = cellRange(region);
-    const qsizetype cellCount = qsizetype(cells.width()) * cells.height();
-    if (cellCount > m_entries.size()) {
+    if (cellCount(cells) > m_entries.size()) {
         // Cheaper to scan every entry than to walk mostly empty cells.
         for (auto it = m_entries.cbegin(); it != m_entries.cend(); ++it) {
             ++m_lastVisited;

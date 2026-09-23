@@ -1674,7 +1674,8 @@
       "objectNames": [
         "canvasFocusRing",
         "canvasOverlay",
-        "canvasOverlaySlot"
+        "canvasOverlaySlot",
+        "canvasView"
       ]
     },
     {

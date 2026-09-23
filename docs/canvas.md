@@ -90,9 +90,10 @@ invalidates everything (load, clear, layer order).
 
 `CanvasDocument` is the reference implementation. It keeps a bounded undo
 history (`historyLimit`, default 256 edits) and a uniform-grid spatial index
-(512-unit cells; objects spanning more than 256 cells go in a flat list). It
-also has `populateFixture(count, seed, withImage)`, a deterministic fixture
-that is loaded without history.
+(512-unit cells; objects spanning more than 256 cells go in a flat list).
+Cell-span arithmetic uses 64-bit endpoint differences, including for finite
+bounds that cross both clamped index limits. `populateFixture(count, seed,
+withImage)` loads a deterministic fixture without history.
 
 <a id="open-seams"></a>
 ### Open seams (not claimed)
@@ -216,6 +217,11 @@ square and covers `tilePixels / 2^lod` document units, so tiles are never
 magnified. A tile appears on screen at (½, 1] of its pixel size. Rotation and
 fractional zoom are applied by one transform node, so panning and rotating
 reuse tiles.
+
+Tile keys use signed 32-bit x/y indices. Planning includes boundary tiles at
+`INT_MIN` and `INT_MAX`, and clips the visible interval to that range before
+iteration. A view wholly beyond the addressable grid produces no tiles and
+shows the canvas colour; panning back restores rendering.
 
 Visible tiles are those whose rectangle meets the rotated view quad. They are
 ordered nearest-centre first. Their number is bounded by

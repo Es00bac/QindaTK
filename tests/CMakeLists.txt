@@ -94,6 +94,7 @@ qindatk_add_test(tst_query_core)
 qindatk_add_test(tst_canvas_core)
 qindatk_add_test(tst_canvas_tools)
 qindatk_add_test(tst_canvas_render)
+qindatk_add_test(tst_canvas_tile_limits)
 qindatk_add_test(tst_canvas_input)
 # The same binary again on the RHI adaptation: sceneGraphBackend() exercises
 # the geometry provider there and QSKIPs when no offscreen GPU context exists.

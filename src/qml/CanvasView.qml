@@ -16,6 +16,7 @@ import QindaTK as Tk
 // that needs no rotation, tools or picking (docs/canvas.md#viewport).
 Tk.CanvasSurface {
     id: view
+    objectName: "canvasView"
 
     property string accessibleName: qsTr("Document canvas")
     // Items placed here draw above the document in view coordinates.

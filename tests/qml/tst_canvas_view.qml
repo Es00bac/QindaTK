@@ -63,6 +63,7 @@ TestCase {
     function test_contract_and_accessibility() {
         const scene = make()
         const view = scene.leftCanvas
+        compare(view.objectName, "canvasView")
         compare(view.Accessible.role, Accessible.Canvas)
         compare(view.Accessible.name, "Artboard")
         verify(view.activeFocusOnTab)

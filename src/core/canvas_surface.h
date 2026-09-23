@@ -163,6 +163,7 @@ private:
     QVariantMap m_hoverHit;
     CanvasObjectId m_hoverObject = 0;
     Pointer m_pointer = Pointer::None;
+    Qt::MouseButton m_mouseButton = Qt::NoButton;
     QPointF m_lastPan;
     QPointF m_touchCentroid;
     qreal m_touchDistance = 0;

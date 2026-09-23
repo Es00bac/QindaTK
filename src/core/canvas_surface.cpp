@@ -75,6 +75,7 @@ void CanvasSurface::setToolController(ToolController *controller)
     if (m_tools == controller) {
         return;
     }
+    cancelPointer(QStringLiteral("view-detached"));
     if (m_tools) {
         m_tools->viewDetached(m_viewId);
         disconnect(m_tools, nullptr, this, nullptr);
@@ -109,6 +110,7 @@ void CanvasSurface::setViewId(const QString &id)
     if (id.isEmpty() || id == m_viewId) {
         return;
     }
+    cancelPointer(QStringLiteral("view-detached"));
     if (m_tools) {
         m_tools->viewDetached(m_viewId);
     }

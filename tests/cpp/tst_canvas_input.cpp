@@ -3,6 +3,7 @@
 // gestures. Every path must move only the view pose.
 #include "canvas_surface.h"
 
+#include <QMouseEvent>
 #include <QNativeGestureEvent>
 #include <QPointingDevice>
 #include <QQuickWindow>
@@ -64,6 +65,7 @@ private slots:
     void secondFingerCancelsToolGesture();
     void nativeGestures();
     void nonInteractiveIgnoresInput();
+    void secondaryButtonReleaseKeepsPrimaryGesture();
 };
 
 void TstCanvasInput::wheelZoomIsCursorAnchored()
@@ -198,6 +200,44 @@ void TstCanvasInput::nonInteractiveIgnoresInput()
     QCOMPARE(f.view->pose(), pose);
     QVERIFY(!f.tools.gestureActive());
     QVERIFY(f.documentUntouched());
+}
+
+void TstCanvasInput::secondaryButtonReleaseKeepsPrimaryGesture()
+{
+    Fixture f;
+    f.tools.setActiveTool(QStringLiteral("rectangle"));
+    f.window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&f.window));
+    const quint64 revision = f.doc.revision();
+    auto send = [&](QEvent::Type type, QPointF at, Qt::MouseButton button, Qt::MouseButtons down) {
+        QMouseEvent event(type, at, at, f.window.mapToGlobal(at.toPoint()),
+                          button, down, Qt::NoModifier);
+        QCoreApplication::sendEvent(f.view, &event);
+    };
+    send(QEvent::MouseButtonPress, {40, 40}, Qt::LeftButton, Qt::LeftButton);
+    send(QEvent::MouseMove, {120, 100}, Qt::NoButton, Qt::LeftButton);
+    QVERIFY(f.tools.gestureActive());
+    send(QEvent::MouseButtonPress, {120, 100}, Qt::RightButton,
+         Qt::LeftButton | Qt::RightButton);
+    send(QEvent::MouseButtonRelease, {120, 100}, Qt::RightButton, Qt::LeftButton);
+    QVERIFY(f.tools.gestureActive());
+    QCOMPARE(f.doc.revision(), revision);
+    send(QEvent::MouseMove, {150, 130}, Qt::NoButton, Qt::LeftButton);
+    send(QEvent::MouseButtonRelease, {150, 130}, Qt::LeftButton, Qt::NoButton);
+    QCOMPARE(f.tools.lastOutcome(), QStringLiteral("committed"));
+    QCOMPARE(f.doc.revision(), revision + 1);
+    QCOMPARE(f.doc.objectCount(), 2);
+
+    // A middle-button pan must likewise survive an unrelated release.
+    const CanvasViewPose before = f.view->pose();
+    send(QEvent::MouseButtonPress, {100, 100}, Qt::MiddleButton, Qt::MiddleButton);
+    send(QEvent::MouseButtonPress, {100, 100}, Qt::RightButton,
+         Qt::MiddleButton | Qt::RightButton);
+    send(QEvent::MouseButtonRelease, {100, 100}, Qt::RightButton, Qt::MiddleButton);
+    send(QEvent::MouseMove, {125, 110}, Qt::NoButton, Qt::MiddleButton);
+    send(QEvent::MouseButtonRelease, {125, 110}, Qt::MiddleButton, Qt::NoButton);
+    QVERIFY(f.view->pose() != before);
+    QCOMPARE(f.doc.revision(), revision + 1);
 }
 
 QTEST_MAIN(TstCanvasInput)

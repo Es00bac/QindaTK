@@ -64,6 +64,7 @@ void CanvasSurface::cancelPointer(const QString &reason)
         m_tools->cancel(reason);
     }
     m_pointer = Pointer::None;
+    m_mouseButton = Qt::NoButton;
     m_touchNavigating = false;
     setKeepMouseGrab(false);
     setKeepTouchGrab(false);
@@ -89,6 +90,7 @@ void CanvasSurface::mousePressEvent(QMouseEvent *event)
     }
     if (event->button() == Qt::MiddleButton) {
         m_pointer = Pointer::Pan;
+        m_mouseButton = Qt::MiddleButton;
         m_lastPan = event->position();
         setKeepMouseGrab(true);
         event->accept();
@@ -100,6 +102,7 @@ void CanvasSurface::mousePressEvent(QMouseEvent *event)
                                            deviceOf(event), pressureOf(event)),
                                  this, this)) {
         m_pointer = Pointer::Tool;
+        m_mouseButton = Qt::LeftButton;
         setKeepMouseGrab(true);
     }
     event->accept();
@@ -114,6 +117,7 @@ void CanvasSurface::mouseMoveEvent(QMouseEvent *event)
         if (!m_tools->updateGesture(m_viewId, toolInput(event->position(), event->modifiers(),
                                                         deviceOf(event), pressureOf(event)))) {
             m_pointer = Pointer::None; // the gesture ended elsewhere (Escape, tool switch)
+            m_mouseButton = Qt::NoButton;
             setKeepMouseGrab(false);
         }
     }
@@ -122,11 +126,18 @@ void CanvasSurface::mouseMoveEvent(QMouseEvent *event)
 
 void CanvasSurface::mouseReleaseEvent(QMouseEvent *event)
 {
+    // The button that began this pointer owns its release. A second button
+    // can be pressed during a drag without finishing the tool or pan.
+    if (m_mouseButton == Qt::NoButton || event->button() != m_mouseButton) {
+        event->accept();
+        return;
+    }
     if (m_pointer == Pointer::Tool && m_tools) {
         m_tools->endGesture(m_viewId, toolInput(event->position(), event->modifiers(),
                                                 deviceOf(event), pressureOf(event)));
     }
     m_pointer = Pointer::None;
+    m_mouseButton = Qt::NoButton;
     setKeepMouseGrab(false);
     updateHover(event->position());
     event->accept();
@@ -138,6 +149,7 @@ void CanvasSurface::mouseUngrabEvent()
         m_tools->lostGrab(m_viewId);
     }
     m_pointer = Pointer::None;
+    m_mouseButton = Qt::NoButton;
     setKeepMouseGrab(false);
 }
 
@@ -232,6 +244,7 @@ void CanvasSurface::touchEvent(QTouchEvent *event)
         if (p.state() == QEventPoint::Pressed && m_pointer == Pointer::None && m_tools
             && m_tools->beginGesture(m_viewId, input, this, this)) {
             m_pointer = Pointer::Tool;
+            m_mouseButton = Qt::NoButton;
             setKeepTouchGrab(true);
         } else if (m_pointer == Pointer::Tool && m_tools) {
             m_tools->updateGesture(m_viewId, input);
@@ -243,6 +256,7 @@ void CanvasSurface::touchEvent(QTouchEvent *event)
                                                     CanvasDevice::Touch, 1.0));
         }
         m_pointer = Pointer::None;
+        m_mouseButton = Qt::NoButton;
         m_touchNavigating = false;
         setKeepTouchGrab(false);
     }
@@ -333,6 +347,7 @@ void CanvasSurface::keyPressEvent(QKeyEvent *event)
         if (m_tools && m_tools->gestureActive()) {
             m_tools->escape();
             m_pointer = Pointer::None;
+            m_mouseButton = Qt::NoButton;
             setKeepMouseGrab(false);
             event->accept();
             return;

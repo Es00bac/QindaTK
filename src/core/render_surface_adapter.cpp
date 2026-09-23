@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <tuple>
 
 namespace QindaTK {
@@ -49,13 +50,27 @@ QVector<CanvasTileKey> visible(const CanvasViewPose &pose, const QSizeF &viewSiz
     const qreal size = tileDocumentSize(lod, tilePixels);
     const QPolygonF view = CanvasTransform::visibleDocumentPolygon(pose, viewSize);
     const QRectF b = view.boundingRect();
-    const int x0 = int(std::floor(b.left() / size));
-    const int x1 = int(std::floor(b.right() / size));
-    const int y0 = int(std::floor(b.top() / size));
-    const int y1 = int(std::floor(b.bottom() / size));
-    for (int y = y0; y <= y1; ++y) {
-        for (int x = x0; x <= x1; ++x) {
-            const CanvasTileKey key{lod, x, y};
+    const qreal left = std::floor(b.left() / size);
+    const qreal right = std::floor(b.right() / size);
+    const qreal top = std::floor(b.top() / size);
+    const qreal bottom = std::floor(b.bottom() / size);
+    constexpr qreal low = std::numeric_limits<int>::min();
+    constexpr qreal high = std::numeric_limits<int>::max();
+    // AGENT-GUARD: tile keys have signed 32-bit coordinates. A finite pose
+    // can still cross that limit; checked conversion and wider loop counters
+    // prevent an out-of-range cast or INT_MAX increment from hanging a frame.
+    if (!std::isfinite(left) || !std::isfinite(right) || !std::isfinite(top)
+        || !std::isfinite(bottom) || left > high || right < low
+        || top > high || bottom < low) {
+        return keys;
+    }
+    const qint64 x0 = qint64(std::max(left, low));
+    const qint64 x1 = qint64(std::min(right, high));
+    const qint64 y0 = qint64(std::max(top, low));
+    const qint64 y1 = qint64(std::min(bottom, high));
+    for (qint64 y = y0; y <= y1; ++y) {
+        for (qint64 x = x0; x <= x1; ++x) {
+            const CanvasTileKey key{lod, int(x), int(y)};
             const QPolygonF tile(tileRect(key, tilePixels));
             if (CanvasGeometry::outlineTouchesRegion(tile, true, view)) {
                 keys << key;

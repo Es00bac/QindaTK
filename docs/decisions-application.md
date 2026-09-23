@@ -196,7 +196,7 @@ destroyed provider or changed snapshot cancels pending requests. Hosts must
 recheck revisions at commit time and keep cancellation reversible. The toolkit
 never mutates the source documents.
 
-## D-042 — Tile spatial documents in document space behind one render boundary
+## D-044 — Tile spatial documents in document space behind one render boundary
 
 **Context.** A spatial editor must pan, zoom and rotate a large document in
 several synchronized views, and pick and edit it in stable document

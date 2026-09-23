@@ -43,6 +43,7 @@ private slots:
     void panMovesContentByDelta();
     void fitRotated();
     void spatialIndexMatchesBruteForce();
+    void spatialIndexHugeBoundsStayBounded();
     void documentCommitUndoDamage();
     void staleEditRejected();
     void overlapAndLayerOrder();
@@ -201,6 +202,20 @@ void TstCanvasCore::spatialIndexMatchesBruteForce()
         std::sort(expected.begin(), expected.end());
         QCOMPARE(index.query(region), expected);
     }
+}
+
+void TstCanvasCore::spatialIndexHugeBoundsStayBounded()
+{
+    CanvasGeometry::SpatialIndex index(64);
+    const QRectF huge(-1e13, -1e13, 2e13, 2e13);
+    index.insert(7, huge);
+    QCOMPARE(index.size(), 1);
+    QCOMPARE(index.query(QRectF(0, 0, 10, 10)), QVector<CanvasObjectId>{7});
+    QCOMPARE(index.lastVisited(), 1);
+    QCOMPARE(index.query(huge), QVector<CanvasObjectId>{7});
+    QCOMPARE(index.lastVisited(), 1);
+    index.remove(7);
+    QVERIFY(index.query(QRectF(0, 0, 10, 10)).isEmpty());
 }
 
 void TstCanvasCore::documentCommitUndoDamage()
