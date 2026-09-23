@@ -162,3 +162,9 @@ The full focused `tst_qml` target passes on Qt 6.11.1 and Qt 6.8.3 in the
 worker's isolated `build/narrow` and `build/qt68` directories. Both include
 the scrolled seam/tab interaction regression. `gen_catalog.py` was run;
 no toolkit API or catalog entry changed.
+After integration, the focused `DockOverflow` scene also passed on both Qt
+versions. Resizing the focused Scroll to an unscrollable viewport exposed a
+Qt focus warning; `Tk.Scroll` now retains its tab stop while focused and
+releases it after focus leaves. The focused `ScrollNested` scene passed on
+both versions, and the integrated `DockOverflow` run no longer emits that
+warning.
