@@ -153,7 +153,10 @@ Space/Return/Enter and the accessible press action activate through
 `DockModel.activateInGroup`; owner model updates only update selection.
 `tabActivated(panelId)` reports accepted user selection. The visible focus
 ring is `dockTabFocus_<panelId>`; `tabItem(index)` exposes a current delegate
-for focus management by host code.
+for focus management by host code. Horizontal pointer drags reorder through
+`DockModel.moveInGroup` without activating the dragged panel. A vertical drag
+tears it off through the host drag lifecycle. Reordering can recreate the
+strip and its delegates; acquire them again after structural model changes.
 `DockDivider` is a focusable `Accessible.Splitter` named by its `tooltip` or
 “Resize dock panels”. Left/Right moves a vertical seam and Up/Down moves a
 horizontal seam by `Theme.space.lg`; accessible increase/decrease uses the

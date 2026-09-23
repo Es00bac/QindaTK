@@ -191,6 +191,61 @@ TestCase {
         compare(tabB.Accessible.selected, true)
     }
 
+    function test_group_tab_drag_reorders_without_activation() {
+        const host = createTemporaryObject(hostComponent, root)
+        host.model.groupWith("c", "b")
+        host.model.activateInGroup("b")
+        tryVerify(function() { return findItem(host, "dockTabStrip_b") !== null })
+        const strip = findItem(host, "dockTabStrip_b")
+        const tabC = findItem(host, "dockTab_c")
+        const activated = createTemporaryObject(spyComponent, root,
+                                                { target: strip, signalName: "tabActivated" })
+        compare(strip.panelIds, ["b", "c"])
+        // Delegates exist before Flex has placed their ancestors. Dispatch only
+        // after a rendered frame, otherwise the gesture misses the actual tab.
+        verify(waitForRendering(host))
+        mouseDrag(tabC, tabC.width / 2, tabC.height / 2, -tabC.width - 30, 0)
+        // Reordering rebuilds the structural frame/strip; never inspect the
+        // destroyed delegate captured before the model mutation.
+        tryVerify(function() {
+            const updated = findItem(host, "dockTabStrip_b")
+            return updated !== null && updated.panelIds.join(",") === "c,b"
+        })
+        compare(findItem(host, "dockTabStrip_b").activeId, "b")
+        compare(activated.count, 0)
+        compare(host.dragging, false)
+    }
+
+    function test_group_tab_drag_can_tear_off() {
+        const host = createTemporaryObject(hostComponent, root)
+        host.model.groupWith("c", "b")
+        tryVerify(function() { return findItem(host, "dockTabStrip_c") !== null })
+        verify(waitForRendering(host))
+        const tabC = findItem(host, "dockTab_c")
+        const start = tabC.mapToItem(host, tabC.width / 2, tabC.height / 2)
+        const target = host.canvasItem.mapToItem(host, host.canvasItem.width / 2,
+                                                 host.canvasItem.height / 2)
+        const dropped = createTemporaryObject(spyComponent, root,
+                                              { target: host, signalName: "panelDropped" })
+        const dragging = createTemporaryObject(spyComponent, root,
+                                               { target: host, signalName: "draggingChanged" })
+        mousePress(host, start.x, start.y)
+        mouseMove(host, start.x, start.y + 20, 20, Qt.LeftButton)
+        mouseMove(host, start.x, start.y + 40, 20, Qt.LeftButton)
+        tryCompare(host, "dragging", true)
+        compare(host.dragId, "c")
+        compare(dragging.count, 1)
+        mouseMove(host, target.x, target.y, 20, Qt.LeftButton)
+        compare(Math.round(host.dragPointer.x), Math.round(target.x))
+        compare(Math.round(host.dragPointer.y), Math.round(target.y))
+        mouseRelease(host, target.x, target.y)
+        tryCompare(host, "dragging", false)
+        compare(dragging.count, 2)
+        compare(dropped.count, 1)
+        compare(dropped.signalArguments[0][0], "c")
+        compare(host.model.panel("c").mode, "floating")
+    }
+
     function test_lane_extent_follows_model() {
         const host = createTemporaryObject(hostComponent, root)
         tryVerify(function() { return findItem(host, "dockLane_right_0") !== null })
