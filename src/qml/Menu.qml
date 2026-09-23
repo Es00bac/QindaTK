@@ -11,10 +11,29 @@ import QindaTK as Tk
 T.Menu {
     id: menu
 
-    property real minWidth: 160
+    property real minWidth: Tk.Theme.size.menuMinWidth
 
-    implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
-                            contentWidth + leftPadding + rightPadding, menu.minWidth)
+    readonly property real _widestItem: {
+        let widest = 0
+        for (let i = 0; i < menu.count; ++i) {
+            const entry = menu.itemAt(i)
+            if (entry && entry.visible) widest = Math.max(widest, entry.implicitWidth)
+        }
+        return widest
+    }
+    readonly property real _horizontalRoom: {
+        let room = workArea.availableGeometry.width
+        const window = menu.parent ? menu.parent.Window.window : null
+        if (window) room = Math.min(room, window.width)
+        return Math.max(0, room - 2 * menu.margins)
+    }
+    readonly property real _naturalWidth: Math.max(
+        implicitBackgroundWidth + leftInset + rightInset,
+        _widestItem + leftPadding + rightPadding, menu.minWidth)
+    // AGENT-GUARD: use item natural widths before Qt creates Popup.Window;
+    // Flex's growing label otherwise leaves a 160px menu with elided text.
+    implicitWidth: _horizontalRoom > 0 ? Math.min(_naturalWidth, _horizontalRoom)
+                                      : _naturalWidth
     readonly property real naturalHeight: Math.max(
         implicitBackgroundHeight + topInset + bottomInset,
         contentHeight + topPadding + bottomPadding)
@@ -55,7 +74,7 @@ T.Menu {
         implicitWidth: menu.minWidth
         implicitHeight: Tk.Theme.size.menuItem
         color: Tk.Theme.color.popoverBg
-        border.width: 1
+        border.width: Tk.Theme.size.border
         border.color: Tk.Theme.color.popoverBorder
         radius: Tk.Theme.radius.md
     }
@@ -67,6 +86,6 @@ T.Menu {
         NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: Tk.Theme.motion.fast }
     }
 
-    T.Overlay.modal: Rectangle { color: "transparent" }
-    T.Overlay.modeless: Rectangle { color: "transparent" }
+    T.Overlay.modal: Rectangle { color: Tk.Theme.alpha(Tk.Theme.color.overlay, Tk.Theme.opacity.hidden) }
+    T.Overlay.modeless: Rectangle { color: Tk.Theme.alpha(Tk.Theme.color.overlay, Tk.Theme.opacity.hidden) }
 }

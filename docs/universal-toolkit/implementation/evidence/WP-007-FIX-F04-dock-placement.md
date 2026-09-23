@@ -78,5 +78,7 @@ footer within the popup; the body scrolls to the X/Y fields. Its dump reports
 `NumberField#dockPlacementY 0,108 408x48`. A new focused QML test resizes the
 window to 480×320 at Touch 3×, focuses the Y field, checks that the body
 scrolls to it, changes the draft by keyboard, and confirms the model remains
-unchanged before Apply. The ignored capture is
-`/tmp/qindatk-dock-placement-small-final.png` in this environment.
+unchanged before Apply. Dark and light high-contrast captures were opened and
+show the same reachable field and footer geometry. The ignored captures are
+`/tmp/qindatk-dock-placement-small-final.png` and
+`/tmp/qindatk-dock-placement-small-light.png` in this environment.

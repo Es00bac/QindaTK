@@ -24,8 +24,16 @@ T.MenuItem {
     Accessible.checked: item.checked
     Accessible.onPressAction: if (item.enabled) item.click()
 
+    // AGENT-NOTE: Flex gives the label basis zero so its measured width does
+    // not contribute to the content row's implicit width. Measure the menu
+    // entry from the children's natural widths for Menu's popup sizing.
+    readonly property real _naturalContentWidth: menuItemText.implicitWidth
+        + (iconSlot.visible ? iconSlot.implicitWidth + item.spacing : 0)
+        + (shortcutText.visible ? shortcutText.implicitWidth + item.spacing : 0)
+        + (submenuArrow.visible ? submenuArrow.implicitWidth + item.spacing : 0)
+
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
-                            implicitContentWidth + leftPadding + rightPadding)
+                            _naturalContentWidth + leftPadding + rightPadding)
     implicitHeight: Tk.Theme.size.menuItem
     leftPadding: Tk.Theme.space.sm
     rightPadding: Tk.Theme.space.sm
@@ -45,6 +53,7 @@ T.MenuItem {
         gap: item.spacing
 
         Item {
+            id: iconSlot
             implicitWidth: Tk.Theme.size.icon
             implicitHeight: Tk.Theme.size.icon
             visible: item.iconName.length > 0 || item.checkable
@@ -59,6 +68,7 @@ T.MenuItem {
             }
         }
         Tk.Label {
+            id: menuItemText
             objectName: "menuItemText"
             // '&' marks the mnemonic for the keyboard; '&&' is a literal.
             text: item.accessibleText
@@ -69,6 +79,7 @@ T.MenuItem {
             Tk.Flex.basis: 0
         }
         Tk.Caption {
+            id: shortcutText
             visible: item.shortcut.length > 0
             text: item.shortcut
             Tk.Flex.shrink: 0
@@ -76,6 +87,7 @@ T.MenuItem {
             leftPadding: Tk.Theme.space.xl - item.spacing
         }
         Tk.Icon {
+            id: submenuArrow
             visible: item.subMenu !== null
             name: "chevron-right"
             size: Tk.Theme.size.iconSm
@@ -85,10 +97,11 @@ T.MenuItem {
     }
 
     background: Rectangle {
-        implicitWidth: 120
+        implicitWidth: Tk.Theme.size.menuItemMinWidth
         implicitHeight: Tk.Theme.size.menuItem
         radius: Tk.Theme.radius.xs
-        color: item.highlighted || item.down ? Tk.Theme.color.hover : "transparent"
+        color: item.highlighted || item.down ? Tk.Theme.color.hover
+              : Tk.Theme.alpha(Tk.Theme.color.hover, Tk.Theme.opacity.hidden)
         Behavior on color { ColorAnimation { duration: Tk.Theme.motion.fast } }
     }
 }

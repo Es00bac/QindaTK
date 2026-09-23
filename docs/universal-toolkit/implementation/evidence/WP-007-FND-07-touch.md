@@ -42,8 +42,9 @@ and a preset switch/reset. In the integrated Touch 3× preview,
 `Slider#reviewSlider 0,194 520x48` and
 `RangeSlider#reviewRange 0,260 520x48` have tracks centred at y=23 and
 handles at y=17. The ignored `build/wp007-controls-touch-3x.png` was opened
-and inspected. Menu geometry, other custom handlers, narrower application
-workflows and physical devices remain to check.
+and inspected. [Menu width and large-text geometry](WP-007-FND-07-menu.md)
+are covered separately. Other custom handlers, narrower application workflows
+and physical devices remain to check.
 
 Small `CheckBox`, `Switch` and `RadioButton` rows now use the derived
 `Theme.size.toggleTargetSm` role (16px Compact, 19px Comfortable, 48px

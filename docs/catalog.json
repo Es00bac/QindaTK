@@ -3480,7 +3480,7 @@
         {
           "name": "minWidth",
           "type": "real",
-          "default": "160",
+          "default": "Tk.Theme.size.menuMinWidth",
           "readonly": false,
           "defaultProperty": false,
           "required": false

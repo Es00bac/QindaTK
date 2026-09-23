@@ -143,6 +143,11 @@ FND-07 through FND-10.
   pass on both supported Qt versions. Physical mixed-monitor compositor
   behavior remains a WP-092 qualification.
   [Focused evidence](WP-007-FND-09-monitor.md).
+- `MenuItem` now reports the natural width of its label, icon, shortcut and
+  submenu arrow to `Menu`; the popup uses that width up to the host/screen
+  limit. A 480×320 Touch 3× test covers high-contrast dark/light, visible
+  ordinary labels, a full accessible name for an overlong label, and Escape.
+  [Focused evidence](WP-007-FND-07-menu.md).
 - `ZoomControl`'s percentage readout is now keyboard focusable and exposes a
   guarded accessible reset action. Owner zoom synchronization stays silent;
   disabled user operations are ignored.
