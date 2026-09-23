@@ -4937,6 +4937,22 @@
         {
           "name": "format",
           "parameters": "value"
+        },
+        {
+          "name": "moveMarkerTo",
+          "parameters": "markerData, position"
+        },
+        {
+          "name": "moveMarkerBy",
+          "parameters": "markerData, direction, sourceItem"
+        },
+        {
+          "name": "removeTab",
+          "parameters": "markerData"
+        },
+        {
+          "name": "markerName",
+          "parameters": "kind"
         }
       ],
       "enums": {},

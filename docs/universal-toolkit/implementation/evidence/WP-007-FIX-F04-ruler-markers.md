@@ -1,41 +1,63 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
-# WP-007 / FIX-F04 + FND-07 — Ruler marker hit targeting
+# WP-007 / F04 + FND-07 — Ruler marker interaction
 
-**Scope:** the existing horizontal `Ruler` marker pointer/touch path. This is
-a control-family slice and does not close F04 or certify native accessibility.
+## Scope
 
-The previous hit test accepted pointer positions only within the painted
-`markerSize`. In Touch, the marker hit radius now follows
-`Theme.size.controlSm / 2` (24 logical pixels) while `Canvas#rulerMarker_<id>`
-continues to paint at `Theme.size.rulerMarker`. Hit testing chooses the
-nearest marker on the same ruler half; exact-distance ties keep the first
-entry in the owner's marker list. A gesture already accepted on a marker
-continues to drag that marker even if the pointer crosses another marker's
-target. Double-clicking an empty point still emits `tabAdded(position)`.
+This slice covers horizontal ruler marker interaction. It keeps the marker
+model owner-controlled and the existing Canvas artwork separate from keyboard,
+assistive and pointer hit behavior.
 
-`tests/qml/tst_ruler_marker_targets.qml` sends a synthetic touch near the edge
-of the Touch hit radius and verifies `markerMoved(id, position)`. It also
-checks selection when two marker target intervals overlap, stable exact-tie
-resolution, unchanged painted marker size, and double-click tab insertion in
-an empty region. Existing `tst_controls_structure.qml` continues to exercise
-Compact marker dragging and empty-region double-click insertion.
+## Touch targeting
 
-**F04 residual:** marker delegates are Canvas visuals. They have no individual
-Accessible role/name/value, focus stop, keyboard movement, or assistive
-increase/decrease action. The single `MouseArea#rulerMarkerArea` accepts
-pointer/touch gestures only. Adding accessible marker controls requires a
-separate per-marker interaction representation that shares the owner's
-marker model and keeps Canvas paint geometry separate; this slice records but
-does not implement that behavior. Do not treat this as F04 closure.
+In Touch, the marker hit radius follows `Theme.size.controlSm / 2` (24 logical
+pixels) while `Canvas#rulerMarker_<id>` continues to paint at
+`Theme.size.rulerMarker`. Hit testing chooses the nearest marker on the same
+ruler half; exact-distance ties keep the first entry in the owner's marker
+list. A gesture already accepted on a marker continues to drag that marker
+even if the pointer crosses another marker's target. Double-clicking an empty
+point still emits `tabAdded(position)`.
 
-On Qt 6.11.1, `ctest --test-dir build/wp007-ruler-markers -R '^tst_qml$'`
-passes; `all_qmllint` exits successfully with the repository's existing
-nonfatal warnings. The preview dump reports Compact
-`Ruler#markerRulerReview 8,8 300x22` and
-`CanvasItem#rulerMarker_left 76,12 9x9`; Touch reports
-`Ruler#markerRulerReview 12,12 300x48` and
-`CanvasItem#rulerMarker_left 73,32 14x14`. Thus the authored, density-scaled
-marker artwork is unchanged by the larger hit radius. Both captures were
-opened and inspected. Dump/grab artifacts are
-`build/wp007-ruler-markers-compact.{dump,png}` and
-`build/wp007-ruler-markers-touch.{dump,png}` in the ruler-marker worktree.
+## Keyboard and accessibility
+
+Draggable horizontal markers are individual accessible Slider items with
+stable `rulerMarker_<id>` object and accessibility ids, localized names, focus
+state and a description of their current pixel position. A themed outline
+appears while a marker has focus. Left/Right and accessible increase/decrease
+adjust by `Tk.Theme.space.unit` pixels, clamp to the ruler bounds and use the
+same `markerMoved(id, position)` operation as pointer dragging. Focus follows
+the marker when the owner replaces its marker array in response to the signal.
+
+Markers with `draggable: false` are exposed as static text and reject keyboard,
+assistive and pointer edits. Disabling the ruler blocks user changes while
+owner assignment to `markers` remains silent. Delete removes a focused
+draggable tab through the existing `tabRemoved(id)` signal; other marker kinds
+are not deleted. Tab creation remains a pointer double-click operation.
+
+## Verification
+
+- `portageq envvar MAKEOPTS` returned `-j24 -l24`; direct Ninja builds used
+  those same live job and load values.
+- Full CTest passed 19/19 on Qt 6.11.1 and 6.8.3. The focused QML suite was
+  rerun after the final marker changes on both versions and passed.
+- `all_qmllint` completed successfully on both versions. Qt 6.8 emits existing
+  static type-map warnings for ThemeMetrics and the optional QindaQt token
+  bridge; these do not fail the lint target.
+- The Compact preview dump reported `Ruler 40,70 500x22`,
+  `CanvasItem#rulerMarker_left 146,12 9x9`, and a visible `Rectangle -2,-2
+  13x13` focus outline. The Touch dump reported `Ruler 40,70 500x48`,
+  `CanvasItem#rulerMarker_left 143,32 14x14`, and a visible `Rectangle -3,-3
+  20x20` outline. Compact and Touch `--grab` captures were opened and reviewed;
+  marker artwork keeps its density-sized geometry and the outline is visible.
+- `tst_ruler_marker_accessibility.qml` covers keyboard and assistive changes,
+  focus restoration after owner replacement, accessible name/role/position,
+  both bounds, read-only/disabled guards, silent owner updates and Delete for
+  tabs. `tst_ruler_marker_targets.qml` retains synthetic Touch edge coverage,
+  nearest-target and exact-tie resolution, unchanged artwork geometry, and
+  empty-region double-click insertion. `tst_controls_structure.qml` covers
+  Compact marker dragging and insertion.
+
+## Limits
+
+Native screen-reader announcements and action names still need testing on
+supported desktop accessibility backends. Marker keyboard movement is in
+pixel coordinates; applications continue to own snapping and marker storage.
