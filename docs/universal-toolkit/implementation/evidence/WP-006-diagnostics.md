@@ -103,3 +103,24 @@ of the row. Ignored captures are
 `build/layout-diagnostics-rtl-{compact,comfortable}.png` in the
 integration worktree. RTL Grid and Stack support remain separate WP-006
 work, so this is a Flex repair rather than a package acceptance.
+
+## Subsequent Stack direction and Box support decision
+
+`Tk.Stack.layoutDirection` now uses the same explicit RTL contract as Flex
+(D-019). A QtTest starts with asymmetric 10px left/30px right padding and
+40px/60px inset children at x=30/295, switches to RTL and asserts x=310/25,
+then switches back. The Stack diagnostic uses RTL with physical padding and
+left/right attached insets. The integration dump reports
+`Stack#rtlStack 492,146 220x44`, `Rectangle#rtlStackLeft 160,0 40x24`
+and `Rectangle#rtlStackRight 10,0 40x24`. Compact and comfortable
+960×760 software captures were opened; the cyan left-inset child appears
+on the physical right. Ignored captures are
+`build/layout-diagnostics-stack-{compact,comfortable}.png`.
+
+FND-04 takes its conditional documentation path: `Tk.Box` per-side rules
+remain square rectangular overlays even when its background has a radius.
+`clipContent` uses a rectangular padding box. `docs/layout.md` and the source
+contract now state this limit and recommend `radius: 0` with per-side rules;
+the diagnostic label describes square edges. The compact and comfortable
+software captures visibly show the square cyan top-left corner. This records
+the supported behavior without claiming rounded per-side clipping.

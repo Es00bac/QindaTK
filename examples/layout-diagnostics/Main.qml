@@ -41,6 +41,24 @@ Item {
         Rectangle { objectName: "rtlStartA"; implicitWidth: 48; implicitHeight: 24; color: Tk.Theme.color.accent }
         Rectangle { objectName: "rtlStartB"; implicitWidth: 48; implicitHeight: 24; color: Tk.Theme.color.accentSubtle }
     }
+    Tk.Stack {
+        objectName: "rtlStack"
+        x: 492; y: 146; width: 220; height: 44
+        paddingLeft: 5; paddingRight: 15
+        layoutDirection: Qt.RightToLeft
+        Rectangle {
+            objectName: "rtlStackLeft"
+            implicitWidth: 40; implicitHeight: 24
+            color: Tk.Theme.color.accent
+            Tk.Stack.fill: false; Tk.Stack.left: 5
+        }
+        Rectangle {
+            objectName: "rtlStackRight"
+            implicitWidth: 40; implicitHeight: 24
+            color: Tk.Theme.color.accentSubtle
+            Tk.Stack.fill: false; Tk.Stack.right: 5
+        }
+    }
     Tk.Box {
         objectName: "roundedSideBorder"
         x: 252; y: 202; width: 180; height: 84
@@ -51,7 +69,7 @@ Item {
         borderTop: 1
         borderColor: Tk.Theme.color.accent
         padding: 8
-        Tk.Label { objectName: "borderLabel"; text: "Rounded per-side edge" }
+        Tk.Label { objectName: "borderLabel"; text: "Square per-side edges" }
     }
     Tk.Scroll {
         objectName: "outerScroll"
