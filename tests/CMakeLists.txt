@@ -43,6 +43,7 @@ qindatk_add_test(tst_edit_transaction)
 qindatk_add_test(tst_property_binding)
 qindatk_add_test(tst_edit_workflow)
 qindatk_add_test(tst_reference_document_codec)
+qindatk_add_test(tst_settings_model)
 qindatk_add_test(tst_document_session)
 qindatk_add_test(tst_selection_model)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
