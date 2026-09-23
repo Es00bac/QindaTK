@@ -22,6 +22,7 @@ struct ChartHistogramResult {
     quint64 overflow = 0;
     quint64 missing = 0;
     quint64 inRange = 0;
+    int normalization = 0;
     bool valid() const { return error.isEmpty(); }
 };
 

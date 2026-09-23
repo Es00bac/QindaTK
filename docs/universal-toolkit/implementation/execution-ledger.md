@@ -42,7 +42,7 @@ as though a later fix had already passed the earlier run.
 | [WP-027 — Implement virtual lists, trees and asset grids](phase-02-controls-data.md#wp-027) | 02 | Luna | review | [100k-model, lazy tree and bounded-delegate checks](evidence/WP-027.md) |
 | [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | review | [Sparse core, bounded visual grid and interaction checks](evidence/WP-028.md) |
 | [WP-029 — Implement filters, query building and pivots](phase-02-controls-data.md#wp-029) | 02 | Sol | active | [C++ query/pivot foundation in isolated lane](evidence/WP-029.md) |
-| [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | active | [C++ chart foundation in isolated lane](evidence/WP-030.md) |
+| [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | review | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | planned | — |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | planned | — |
 | [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | planned | — |

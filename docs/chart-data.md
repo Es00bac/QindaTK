@@ -4,8 +4,8 @@
 WP-030 introduces a typed C++ foundation for general charts. The public
 headers are `chart_axis.h`, `chart_series.h`, `chart_data.h`, and
 `chart_histogram.h`. `ChartAxis` and `ChartSeries` are registered as QML
-types, but dataset ingestion and geometry in this stage are C++ APIs. A
-`ChartView`/legend/renderer will use these contracts in the visual stage.
+types, while the visual stage adds the bounded QML dataset adapter and
+`ChartView`/legend/renderer over these contracts.
 The existing sample-order telemetry `Graph` and `GraphSeries` are unchanged.
 
 ## Axes and units
@@ -80,11 +80,42 @@ each bin width. Empty data displays zero in every mode. Channel and unit
 labels come from the caller; image analysis must provide color-context meaning
 for channels. This core does not infer bins or image color spaces.
 
-## Current boundary
+## QML visual adapter
 
-The typed foundation does not yet provide visual drawing, zoom/pan gestures,
-legend controls, accessibility navigation, or image/vector export. The table
-and CSV functions provide the data for an accessible alternative and data
-export, but a later ChartView must connect them to interaction and the format
-and job services. The renderer must test GPU and software paths and keep
-telemetry `Graph` compatibility before WP-030 can be accepted.
+`Tk.ChartDataset` is the bounded QML/model ingestion adapter. Use `seriesId`
+(the QML-safe form of the series ID) and a unique `pointId` on each point.
+`appendPoint(map)`, `replacePoints(list)`, `removePoint(id)` and `get(row)`
+update a `QAbstractListModel`. Capacity is clamped to 2–100,000 points per
+series; appending at capacity removes the oldest retained point. A date point
+must pass `utcMs` as a signed 64-bit decimal string; numeric `x` is for numeric
+axes only. Rejected input leaves the existing rows unchanged and sets
+`lastError`. When no dataset color is set, `ChartView` resolves it from the
+current Theme roles.
+
+`Tk.ChartView` joins its default `ChartDataset` list to the typed axes and
+draws `ChartData::project()` output through `ChartRenderer`, a
+`QQuickPaintedItem`. It retains full source data for hit testing, `selectedPoint`,
+the virtual `tableModel`, and `csvData()`. Rendering is decimated separately
+with a configurable 32–10,000 point paint limit; the framework caps one plot
+at 64 datasets and 200,000 projected points. `setViewport()` works in
+normalized axis fractions, `zoom()` keeps an anchor fixed, the wheel zooms,
+and middle-drag pans. Line, step, area, stacked-area, grouped/stacked bars,
+waterfall, scatter, bubble and vector marks use core-projected coordinates.
+`setHistogram()` accepts explicit edges and counts, uses `ChartHistogram`
+normalization, and adds bins to the accessible table. It requires a numeric or
+logarithmic X axis with a matching unit and a numeric Y axis whose range
+includes zero; logarithmic X bins must have positive lower edges.
+
+`renderImage(size)` returns a bounded `QImage` through the same paint routine
+used by the widget and emits `exportImageReady`. `exportPng(path, size)` and
+`exportSvg(path, size)` write bounded 1–8192px output through the same painter
+to an atomic file. The QML `exportRequested` signal remains a seam for host
+format and job services; these renderer methods provide file output without
+integrating an application-wide export job/format pipeline. `showDataTable`
+switches to a virtual `Tk.DataTable` over full-resolution point and histogram
+rows, including bubble size and vector dx/dy columns. The sample-order
+telemetry `Tk.Graph` remains a separate compatible control.
+
+GPU and software visual checks plus the installed consumer check are
+acceptance gates for WP-030; source availability alone does not mark this
+package accepted.

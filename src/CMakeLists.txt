@@ -102,6 +102,9 @@ qt_add_qml_module(qindatk
         core/chart_axis.cpp core/chart_axis.h
         core/chart_series.cpp core/chart_series.h
         core/chart_data.cpp core/chart_data.h
+        core/chart_dataset.cpp core/chart_dataset.h
+        core/chart_renderer.cpp core/chart_renderer.h
+        core/chart_table_model.cpp core/chart_table_model.h
         core/chart_histogram.cpp core/chart_histogram.h
         core/graph.cpp core/graph.h
         core/graph_mesh.cpp core/graph_mesh.h

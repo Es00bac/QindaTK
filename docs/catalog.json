@@ -1506,6 +1506,226 @@
       "objectNames": []
     },
     {
+      "name": "ChartLegend",
+      "kind": "qml",
+      "base": "Item",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ChartLegend.qml",
+      "properties": [
+        {
+          "name": "datasets",
+          "type": "list<Tk.ChartDataset>",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Chart series visibility\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rowGap",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "visibilityRequested",
+          "parameters": "string seriesId, bool visible"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "chartLegend",
+        "legendItem_",
+        "legendItems"
+      ]
+    },
+    {
+      "name": "ChartView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ChartView.qml",
+      "properties": [
+        {
+          "name": "datasets",
+          "type": "alias",
+          "default": "renderer.datasets",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "xAxis",
+          "type": "alias",
+          "default": "horizontalAxis",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "yAxis",
+          "type": "alias",
+          "default": "verticalAxis",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Chart\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSeriesId",
+          "type": "string",
+          "default": "renderer.selectedSeriesId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedPointId",
+          "type": "string",
+          "default": "renderer.selectedPointId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tableModel",
+          "type": "var",
+          "default": "renderer.tableModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "horizontalViewFraction",
+          "type": "real",
+          "default": "renderer.viewX",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "verticalViewFraction",
+          "type": "real",
+          "default": "renderer.viewY",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "histogramError",
+          "type": "string",
+          "default": "renderer.histogramError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pointSelected",
+          "parameters": "string seriesId, string pointId"
+        },
+        {
+          "name": "exportRequested",
+          "parameters": "string format, var image"
+        }
+      ],
+      "methods": [
+        {
+          "name": "csvData",
+          "parameters": ""
+        },
+        {
+          "name": "renderImage",
+          "parameters": "size"
+        },
+        {
+          "name": "exportPng",
+          "parameters": "path, size"
+        },
+        {
+          "name": "exportSvg",
+          "parameters": "path, size"
+        },
+        {
+          "name": "setHistogram",
+          "parameters": "edges, counts, normalization, channel, unit"
+        },
+        {
+          "name": "setViewport",
+          "parameters": "xStart, xEnd, yStart, yEnd"
+        },
+        {
+          "name": "zoom",
+          "parameters": "factor, xAnchor, yAnchor"
+        },
+        {
+          "name": "pan",
+          "parameters": "xFraction, yFraction"
+        },
+        {
+          "name": "selectedPoint",
+          "parameters": ""
+        },
+        {
+          "name": "navigateSelection",
+          "parameters": "key"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "chartDataTable",
+        "chartFocusRing",
+        "chartPlot",
+        "chartView"
+      ]
+    },
+    {
       "name": "CheckBox",
       "kind": "qml",
       "base": "T.CheckBox",
@@ -13756,6 +13976,353 @@
           "name": "categoryIndex",
           "returns": "int",
           "parameters": "const QString &category"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ChartDataset",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "Bounded QML ingestion boundary. Date coordinates enter as decimal strings, never as JavaScript Numbers; model rows retain the source point IDs.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/chart_dataset.h",
+      "properties": [
+        {
+          "name": "seriesId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "name",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "kind",
+          "type": "Kind",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "stackKey",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sizeUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "baseline",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "visible",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "capacity",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "color",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hasColor",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fillColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "appendPoint",
+          "returns": "bool",
+          "parameters": "const QVariantMap &row"
+        },
+        {
+          "name": "replacePoints",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows"
+        },
+        {
+          "name": "removePoint",
+          "returns": "bool",
+          "parameters": "const QString &pointId"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ChartRenderer",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/chart_renderer.h",
+      "properties": [
+        {
+          "name": "xAxis",
+          "type": "ChartAxis *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yAxis",
+          "type": "ChartAxis *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "datasets",
+          "type": "QQmlListProperty<QindaTK::ChartDataset>",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "axisColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "defaultSeriesColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "histogramColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "metrics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paintPointLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedSeriesId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedPointId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "viewX",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "viewY",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tableModel",
+          "type": "ChartTableModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "histogramError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "histogramChannel",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "histogramUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setViewport",
+          "returns": "void",
+          "parameters": "double xStart, double xEnd, double yStart, double yEnd"
+        },
+        {
+          "name": "pan",
+          "returns": "void",
+          "parameters": "double xFraction, double yFraction"
+        },
+        {
+          "name": "zoom",
+          "returns": "void",
+          "parameters": "double factor, double xAnchor = 0.5, double yAnchor = 0.5"
+        },
+        {
+          "name": "csv",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "selectedPoint",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "navigateSelection",
+          "returns": "bool",
+          "parameters": "int key"
+        },
+        {
+          "name": "renderImage",
+          "returns": "QImage",
+          "parameters": "const QSize &size"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        },
+        {
+          "name": "setHistogram",
+          "returns": "bool",
+          "parameters": "const QVariantList &edges, const QVariantList &counts, int normalization = ChartHistogram::Count, const QString &channel = {}, const QString &unit = {}"
         }
       ],
       "enums": {},

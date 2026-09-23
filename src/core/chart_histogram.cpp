@@ -41,6 +41,7 @@ ChartHistogramResult ChartHistogram::fromSamples(const QVector<double> &edges,
 {
     ChartHistogramResult result = initial(edges, channel, unit);
     if (!result.valid()) return result;
+    result.normalization = int(mode);
     for (double value : samples) {
         if (!std::isfinite(value)) { ++result.missing; continue; }
         if (value < edges.first()) { ++result.underflow; continue; }
@@ -61,6 +62,7 @@ ChartHistogramResult ChartHistogram::fromCounts(const QVector<double> &edges,
 {
     ChartHistogramResult result = initial(edges, channel, unit);
     if (!result.valid()) return result;
+    result.normalization = int(mode);
     if (counts.size() != result.bins.size()) {
         result.error = QStringLiteral("One count is required per bin"); return result;
     }

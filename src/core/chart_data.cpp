@@ -188,6 +188,9 @@ QVector<ChartTableRow> ChartData::table(const QVector<ChartSeries *> &series, co
                     : xAxis.kind() == ChartAxis::Category ? p.category
                     : QString::number(p.x, 'g', 17);
             row.y = p.gap ? QString() : QString::number(p.y, 'g', 17);
+            row.size = p.gap ? QString() : QString::number(p.size, 'g', 17);
+            row.dx = p.gap ? QString() : QString::number(p.dx, 'g', 17);
+            row.dy = p.gap ? QString() : QString::number(p.dy, 'g', 17);
             row.category = p.category; row.xUnit = s->xUnit(); row.yUnit = s->yUnit();
             row.gap = p.gap; rows.append(row);
         }
@@ -196,9 +199,9 @@ QVector<ChartTableRow> ChartData::table(const QVector<ChartSeries *> &series, co
 }
 QByteArray ChartData::csv(const QVector<ChartTableRow> &rows)
 {
-    QString output = QStringLiteral("series_id,series_name,point_id,x,y,category,x_unit,y_unit,gap\r\n");
+    QString output = QStringLiteral("series_id,series_name,point_id,x,y,size,dx,dy,category,x_unit,y_unit,gap\r\n");
     for (const ChartTableRow &r : rows) {
-        const QStringList fields = {r.seriesId, r.seriesName, r.pointId, r.x, r.y,
+        const QStringList fields = {r.seriesId, r.seriesName, r.pointId, r.x, r.y, r.size, r.dx, r.dy,
                                     r.category, r.xUnit, r.yUnit, r.gap ? QStringLiteral("true") : QStringLiteral("false")};
         QStringList escaped;
         for (const QString &field : fields) escaped.append(csvField(field));

@@ -49,6 +49,9 @@ struct ChartTableRow {
     QString pointId;
     QString x; // exact decimal UTC milliseconds for date axes
     QString y;
+    QString size;
+    QString dx;
+    QString dy;
     QString category;
     QString xUnit;
     QString yUnit;

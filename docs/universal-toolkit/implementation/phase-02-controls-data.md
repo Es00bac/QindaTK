@@ -207,7 +207,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-030"></a>
 ## WP-030 — Build the general chart framework
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-027](phase-02-controls-data.md#wp-027)
+**Implementation lead:** Sol. **Status:** review. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-027](phase-02-controls-data.md#wp-027)
 
 **Proposal scope:** [DAT-10 ChartView](../proposed/03-data-views.md#dat-10), [DAT-11 ChartAxis](../proposed/03-data-views.md#dat-11), [DAT-12 ChartSeries](../proposed/03-data-views.md#dat-12), [DAT-13 ChartLegend](../proposed/03-data-views.md#dat-13), [DAT-15 Histogram](../proposed/03-data-views.md#dat-15)
 
