@@ -214,6 +214,181 @@
       ]
     },
     {
+      "name": "ArtboardView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/canvas.md#artboards): the host owns board records and commits; this layer only maps, paints, and reports document-space gestures.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ArtboardView.qml",
+      "properties": [
+        {
+          "name": "surface",
+          "type": "Item",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "boardData",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeBoardId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Artboards\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameColor",
+          "type": "color",
+          "default": "Tk.Theme.color.controlBorder",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeFrameColor",
+          "type": "color",
+          "default": "Tk.Theme.color.accent",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lineWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.border",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handleSize",
+          "type": "real",
+          "default": "Tk.Theme.size.controlSm",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "geometryRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "boardPolygons",
+          "type": "var",
+          "default": "mappedBoards()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "boardActivateRequested",
+          "parameters": "string boardId"
+        },
+        {
+          "name": "boardArrangePreview",
+          "parameters": "string boardId, point startDocumentPoint, point currentDocumentPoint"
+        },
+        {
+          "name": "boardArrangeFinished",
+          "parameters": "string boardId, point currentDocumentPoint"
+        },
+        {
+          "name": "boardArrangeCanceled",
+          "parameters": "string boardId, point originalDocumentPoint"
+        },
+        {
+          "name": "boardResizePreview",
+          "parameters": "string boardId, point startDocumentPoint, point currentDocumentPoint"
+        },
+        {
+          "name": "boardResizeFinished",
+          "parameters": "string boardId, point currentDocumentPoint"
+        },
+        {
+          "name": "boardResizeCanceled",
+          "parameters": "string boardId, point originalDocumentPoint"
+        }
+      ],
+      "methods": [
+        {
+          "name": "validRect",
+          "parameters": "rect"
+        },
+        {
+          "name": "documentCorners",
+          "parameters": "rect"
+        },
+        {
+          "name": "mappedBoards",
+          "parameters": ""
+        },
+        {
+          "name": "documentPoint",
+          "parameters": "localPoint"
+        },
+        {
+          "name": "contains",
+          "parameters": "point, rect"
+        },
+        {
+          "name": "boardAt",
+          "parameters": "localPoint"
+        },
+        {
+          "name": "resizeHit",
+          "parameters": "board, localPoint"
+        },
+        {
+          "name": "cancelGesture",
+          "parameters": ""
+        },
+        {
+          "name": "finishGesture",
+          "parameters": "point"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "artboardFocusRing_",
+        "artboardFrames",
+        "artboardGestureSurface",
+        "artboardLabel_",
+        "artboardName",
+        "artboardView"
+      ]
+    },
+    {
       "name": "AssetFilmstrip",
       "kind": "qml",
       "base": "Item",

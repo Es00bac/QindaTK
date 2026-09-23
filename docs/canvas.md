@@ -322,6 +322,18 @@ host owns guide persistence and the edit transaction. The
 [guide scene](../examples/spatial-canvas/GuideScene.qml) shows both orientations
 over a rotated page.
 
+`Tk.ArtboardView` is an application overlay for host-owned artboard records.
+Each record has a stable `id`, document-space `rect`, `name` and optional
+`background`; `activeBoardId` marks the resize affordance. It maps and paints
+the board frames through the CanvasView pose and exposes accessible board
+labels. A press/release requests activation. Dragging within a board reports
+arrange preview/finish/cancel with start and current document points; dragging
+the active board's bottom-right handle reports resize intent with the same
+semantics. The active press snapshots its board ID and starting point, so an
+owner refresh of `boardData` cannot retarget that gesture. Escape suppresses
+the rest of that press. The view does not own geometry, apply previews, clip
+content, persist, export or provide undo; those remain domain responsibilities.
+
 <a id="spatial-snapping"></a>
 ## Spatial snapping
 
