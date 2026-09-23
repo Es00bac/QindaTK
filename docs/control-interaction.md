@@ -5,6 +5,8 @@ This is the baseline for current-control repairs in WP-007 and new controls
 in the universal toolkit plan. [D-023](decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
 defines the state and notification choice. [controls.md](controls.md) names
 each current type's actual properties, operations and signals.
+The WP-007 [current-control applicability audit](universal-toolkit/implementation/evidence/WP-007-FND-10-applicability.md)
+maps every catalog family to this contract and its focused evidence.
 
 ## State and notifications
 

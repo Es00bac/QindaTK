@@ -1,0 +1,101 @@
+<!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
+# WP-007 / FND-10 — Current control applicability audit
+
+**Scope:** Every public QML family listed by [the control catalog](../../../controls.md),
+audited against the owner-state and user-operation contract in
+[`control-interaction.md`](../../../control-interaction.md). This is a source
+and evidence map, not a claim that every family is fully repaired or that
+native accessibility backends are qualified.
+
+## Reading this audit
+
+- **Owner** means the app assigns the public value/model; assignment is not a
+  user action. An interaction signal is listed where the control exposes one.
+- **N/A** means the concept has no meaningful control behavior for that
+  family. In particular, `error` decoration is not the same as a parser's
+  invalid draft, and focusability is not required for passive content.
+- **App policy** means QindaTK deliberately leaves defaults, mixed aggregate
+  values, validation, command effects, or model reconciliation to the owner.
+- **Implemented** means the source and cited QML fixture cover the behavior;
+  it does not imply native screen-reader or physical-device qualification.
+- Common template `enabled` behavior exists for template controls. Where a
+  custom composite has a guarded action, this audit cites its focused test.
+
+## Editing and value controls
+
+| Family (public types) | Reset/default | Mixed | Invalid/read-only | Disabled | Owner vs user notification | Focus and accessible operation | Source and focused evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Text presentation (`Label`, `Caption`, `Overline`, `Mono`, `Heading`, `KeyCap`) | App sets text; reset N/A | N/A | No parsing or editor; `disabled` on Label is presentation state | Presentation only | Text/property changes are owner state; no edit signal | Static text semantics; selectable Label adds copy/selection, not an action | `src/qml/{Label,Caption,Overline,Mono,Heading,KeyCap}.qml`; `tst_controls_structure.qml` |
+| `TextField`, `SearchField`, `TextArea` | App owns text/default; no reset API | N/A | TextArea live edits; invalid parsing N/A. `readOnly` blocks user edits, owner assignment remains allowed | User edits/clear actions gated; owner sync remains allowed | TextArea has no portable user-only signal on Qt 6.8; `editingFinished` is focus loss. Search debounce follows user edits; owner sync is silent. TextField clear emits `cleared`; submit signals are operations. | Native text editing and selection; read-only/error descriptions. Not all custom actions use one shared signal contract. | `src/qml/{TextField,SearchField,TextArea}.qml`; [text-input evidence](WP-007-FND-10-text-inputs.md); `tests/qml/tst_textarea_editing.qml`, `tst_controls_input.qml` |
+| `NumberField` | `defaultValue` + `reset()`; emits `valueModified` when effective value changes or mixed resolves | Supported; preserved on focus, cleared by valid accepted edit | Invalid draft retained and exposed by `inputInvalid`; `editable: false` gates editing | Pointer, keyboard, scrub, wheel and step paths guarded | Owner `value` assignment silent; accepted edit/reset emits `valueModified`; focus end is `editingFinished` | SpinBox role/name/description; focused editor, keyboard and scrub; no separate accessible reset button contract | `src/qml/NumberField.qml`; [NumberField evidence](WP-007-FND-10-numberfield.md); `tests/qml/tst_controls_input.qml` |
+| `Slider`, `RangeSlider` | App owns bounds/value and reset policy | App must supply aggregate representation if needed | No draft parser; readonly N/A | Template disabled gate; RangeSlider endpoint operations guarded | Owner values silent; keyboard/assistive changes use user change signal (`valueModified`); Slider also exposes movement | Slider formatted accessible value/name; RangeSlider named focusable slider and increase/decrease; focused fixture covers keyboard/actions | `src/qml/{Slider,RangeSlider}.qml`; `tests/qml/tst_media.qml` |
+| `ZoomControl`, `Viewport` | ZoomControl reset is an explicit `resetRequested` command; Viewport fit/reset policy is owner-owned | App policy | N/A | User actions guarded; owner zoom sync remains allowed | Owner zoom assignment silent; changed user zoom emits `valueModified` / `zoomModified`; reset command can fire at current default | ZoomControl value readout/reset action; Viewport Pane with pan/zoom keys and accessible increase/decrease | `src/qml/{ZoomControl,Viewport}.qml`; `tests/qml/tst_viewport_accessibility.qml`, `tst_controls_telemetry.qml` |
+| `ColorField` | App owns color/default; no reset API | App policy | Hex invalid draft remains visible; read-only blocks input and picker; owner color assignment re-syncs draft | User edits/picker guarded | Owner `color`/`applyHex()` silent; valid changed user commit emits `colorEdited`; picker request is an operation | Group name/description; editable-text child and named picker Button with press action | `src/qml/ColorField.qml`; [ColorField evidence](WP-007-FND-10-colorfield.md); `tests/qml/tst_color_field_editing.qml` |
+| `ColorButton`, `ColorSwatches` | App owns palette/current/default; no reset API | App policy | No invalid parsing; readonly N/A | Disabled selection/open paths guarded | Owner color/current silent; accepted swatch emits `colorSelected` or `selected`; custom picker request is separate | Button and swatch names, selection state, focus/press paths; synthetic touch target is tested | `src/qml/{ColorButton,ColorSwatches}.qml`; `tests/qml/tst_controls_office.qml` |
+| `ComboBox` | App owns model/current index/default | App policy; no mixed display contract | Editable text parser/commit semantics not specified by this audit; selection is not a text draft | Template selection gate; model validity/reconciliation is app-owned | Owner index assignment silent; accepted user selection emits `activated` | Popup selection state and keyboard interaction; native assistive delivery and monitor workarea remain qualified separately | `src/qml/ComboBox.qml`; [ComboBox evidence](WP-007-FND-09-combo-box.md); `tests/qml/tst_combo_popup_motion.qml` |
+| `ProgressBar`, `Spinner`, `Sparkline`, `Waveform` | App owns progress/data/running state | N/A; no multi-selection editing | No parser/editor | `enabled` is not an edit gate; running/indeterminate state controls presentation | Data/property updates are owner-driven; no user-change signal | Read-only progress or graphic descriptions where exposed; no keyboard action required | `src/qml/{ProgressBar,Spinner,Sparkline,Waveform}.qml`; `tests/qml/tst_media.qml`, `tst_waveform_geometry.qml` |
+
+## Selection, command, and composite controls
+
+| Family (public types) | Reset/default | Mixed / invalid / read-only | Disabled | Owner vs user notification | Focus and accessible operation | Source and focused evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| Toggles (`CheckBox`, `Switch`, `RadioButton`) | App supplies default checked state; no `reset()` | CheckBox supports tristate/partial; switch/radio mixed N/A; invalid/read-only N/A | Template click guard; user press gated | Owner checked/checkState assignment is silent; `toggled` is user interaction | Role, name, checked/focused state and accessible press path | `src/qml/{CheckBox,Switch,RadioButton}.qml`; [toggle evidence](WP-007-FIX-F04-toggles.md); `tests/qml/tst_controls_input.qml` |
+| Choice composites (`Segmented`, `PillSwitcher`, `TabStrip`, `DockTabStrip`) | App supplies model and initial selection | Mixed/invalid/read-only N/A | Disabled model items are visible but skipped and cannot activate | Owner selection/model assignment silent; `activated`/`tabActivated` for accepted user operation | PageTabList/PageTab selection, focus, keyboard and assistive activation; DockTabStrip delegates arrangement/selection to `DockModel` | `src/qml/{Segmented,PillSwitcher,TabStrip,DockTabStrip}.qml`; [selection evidence](WP-007-FIX-F04-selection-composites.md), [dock tab evidence](WP-007-FIX-F04-dock-tabs.md); `tests/qml/tst_selection_composites.qml`, `tst_pill_switcher.qml`, `tst_dock.qml` |
+| Generic actions (`Button`, `IconButton`, `Chip`) | App/action owner defines initial checked/active state | Mixed/invalid/read-only N/A | Template `enabled` gates action | Owner checked state is property state; click/toggle signals represent action | Template button semantics and keyboard handling; icon-only accessible name depends on `tooltip`. This audit found no single focused fixture covering all three types' accessible action paths. | `src/qml/{Button,IconButton,Chip}.qml`; `tests/qml/tst_controls_input.qml`, `tst_controls_office.qml` |
+| `Box`, `Card`, `StatusField` | App owns content/status/default | Mixed/invalid/read-only N/A | Passive Box/Card have no action; disabled interactive actions reject input. StatusField has explicit static/actionable modes | Owner text/content changes silent; actionable activation emits one `clicked` | Interactive Box/Card and actionable StatusField expose named Button, focus ring, key and assistive press; passive/static forms do not become tab stops | `src/qml/{Box,Card,StatusField}.qml`; [Box/Card evidence](WP-007-FIX-F04-box-card.md), [StatusField evidence](WP-007-FIX-F04-status-field.md); `tests/qml/tst_box_card_accessibility.qml`, `tst_status_field_accessibility.qml` |
+| Section disclosure (`SectionHeader`, `PropertyGroup`) | App owns initial collapsed state; no implicit reset | N/A | Disabled/noncollapsible header does not toggle | Owner collapsed assignment syncs group; accepted toggle emits operation | Conditional Button/StaticText role; Tab/Space/Return/Enter and accessible press share guarded toggle | `src/qml/{SectionHeader,PropertyGroup}.qml`; `tests/qml/tst_section_header_accessibility.qml` |
+| Tree and list entries (`TreeRow`, `ListRow`) | App owns expanded/selected state and defaults | Mixed/invalid/read-only N/A; inline rename parser/commit validation is app-defined | Disabled rows remain labeled but reject actions; TreeRow expansion/rename controls guarded | Owner expanded/selected assignment silent; accepted activation/expansion/rename uses its documented signal | TreeItem/ListItem name, selected/focus state; key and assistive press; TreeRow F2 rename | `src/qml/{TreeRow,ListRow}.qml`; [TreeRow evidence](WP-007-FIX-F04-tree-row.md), [ListRow evidence](WP-007-FIX-F04-list-row.md); `tests/qml/tst_tree_row_accessibility.qml`, `tst_list_row_accessibility.qml` |
+| `DataTable` | App owns current index, model and default selection | Mixed/invalid/read-only N/A | Disabled table/rows and nonsortable headers are not user operations | Owner `currentIndex`/model changes and arrow navigation silent; accepted row activation emits `activated`; sorting/resizing emit requests | Table/realized Row and ColumnHeader identities, selected state, row press, sortable header press, resize increase/decrease | `src/qml/DataTable.qml`; [DataTable evidence](WP-007-FIX-F04-data-table.md); `tests/qml/tst_data_table_accessibility.qml`, `tst_data_table_headers.qml` |
+| Menu commands (`MenuItem`, `MenuBar`) | App owns checked/action state and defaults | Radio exclusivity/app validation owner-owned | Disabled entries remain visible but cannot focus/activate | Owner checked assignment silent; keyboard/mnemonic/assistive action emits `triggered` | MenuItem/MenuBar roles and mnemonic-clean names; Space/Return/Alt and accessible press | `src/qml/{MenuItem,MenuBar,Menu}.qml`; [menu evidence](WP-007-FIX-F04-menu-actions.md); `tests/qml/tst_menu_actions_accessibility.qml` |
+| Popup commands (`Dialog`, `PromptDialog`, `MessageDialog`, `CommandPalette`, `Popover`) | Owner controls open/close and command defaults | Validation is owner policy; no generic mixed/read-only editor contract | Disabled command rows skipped; disabled dialog primary rejects acceptance | Command list/owner changes silent; accepted command emits `activated`; dialog accepted/rejected outcomes follow explicit operations | Popup focus entry/return and command names/selection have fixtures; other popups need native backend qualification | `src/qml/{Dialog,PromptDialog,MessageDialog,CommandPalette,Popover}.qml`; [popup focus evidence](WP-007-FND-09-focus.md), [Dialog/Palette evidence](WP-007-FIX-F04-dialog-palette.md); `tests/qml/tst_popup_focus.qml` |
+| Time navigation (`TimeRuler`, `Ruler`) | App owns playhead/marker arrays and defaults | Invalid/read-only N/A; aggregate/mixed time selection is app policy | Disabled rulers and non-draggable markers reject edits | Owner playhead/marker changes silent; user operations emit `scrubbed` / `markerMoved`; marker deletion is a separate request | TimeRuler range/value slider actions; Ruler draggable markers have per-id Slider names, focus, key and accessible increase/decrease; static markers are not actions | `src/qml/{TimeRuler,Ruler}.qml`; [TimeRuler focused test](../../../../tests/qml/tst_time_ruler_accessibility.qml), [Ruler marker evidence](WP-007-FIX-F04-ruler-markers.md); `tests/qml/tst_ruler_marker_accessibility.qml` |
+| Dock manipulation (`DockDivider`, `DockFloating`, `DockHost`, `DockZone`, `DockFrame`, `DockPanel`, `DockDropOverlay`) | `DockModel` owns layout, active panel and extents; `resetLayout()`/presets are explicit model commands | Mixed/invalid/read-only N/A | Host/model constraints and enabled state govern gestures; remaining handle/input qualification is tracked in WP-007 progress | QML reports gestures/requests; `DockModel` applies arrangement. User drag/resize requests are distinct from owner model updates | Dock tabs/dividers have focused tests; floating-panel resize handles and native assistive operations are not yet broadly evidenced | `src/qml/{DockDivider,DockFloating,DockHost,DockZone,DockFrame,DockPanel,DockDropOverlay,DockTabStrip}.qml`; [divider evidence](WP-007-FIX-F04-dock-dividers.md), [dock drag evidence](WP-007-dock-tab-drag.md); `tests/qml/tst_dock_divider_accessibility.qml`, `tst_dock.qml` |
+
+## Passive displays and structural components
+
+These types do not edit a value. Reset, mixed, parser-invalid and read-only
+states are therefore **N/A** unless a host control explicitly supplies such
+meaning. Their text, geometry, visibility and data are owner/model state;
+their update does not imply a user action.
+
+| Family (public types) | Interaction applicability | Names, focus, and evidence |
+| --- | --- | --- |
+| Static status/media (`Badge`, `EmptyState`, `Thumbnail`, `Notice`, `Filmstrip`) | No edit/reset/mixed/invalid/read-only contract. `Notice` dismissal is a user request; presentation visibility/content remain owner state. | Static text/graphic/alert names as implemented; passive types need not be Tab stops. `src/qml/{Badge,EmptyState,Thumbnail,Notice,Filmstrip}.qml`; `tests/qml/tst_media.qml`, `tst_controls_telemetry.qml` |
+| Telemetry (`Graph`, `GraphSeries`, `Meter`, `Sparkline`) | App/model owns samples, ranges and appearance; `clear()` is a data command, not a form reset | Mixed/invalid/read-only editing N/A; nonfinite GraphSeries samples normalize to zero by its data contract | Not user-edit controls | App append/clear/property operations update display state; no user-edit signal contract | Read-only data display; labels or accessible descriptions belong to the host composition. `src/core/graph.*`, `src/core/graph_series.*`, `src/core/meter.*`, `src/qml/Sparkline.qml`; `tests/qml/tst_controls_telemetry.qml` |
+| Layout primitives (`Flex`, `Grid`, `Stack`, `Box` when passive, `Scroll`, `Spacer`) | Structural sizing/overflow/placement state; not form editing. Scroll position can change through user navigation but is not an edit notification. | Scroll has a Pane name and focus only when needed for keyboard/nested reveal; other containers are structural. `docs/layout.md`; `tests/qml/tst_scroll_nested.qml`, `tests/cpp/tst_layout.cpp` |
+| Separators and chrome (`Divider`, `ToolSeparator`, `MenuSeparator`, `ToolBar`, `StatusBar`, `Island`, `Panel`) | Structure/presentation; Panel close/collapse/float and toolbar child actions are explicit host requests, not edits to a field | Interactive panel affordances are separate child controls; containers are not focus stops by default. `src/qml/{Divider,ToolSeparator,MenuSeparator,ToolBar,StatusBar,Island,Panel}.qml`; `tests/qml/tst_controls_structure.qml`, `tst_dock.qml` |
+| Scroll and resize infrastructure (`ScrollBar`, `Splitter`) | Position/extent is navigation/layout state; owner controls range/constraints | Mixed/invalid/read-only N/A | Enabled state gates template/user resize behavior | User scroll/resize updates navigation/layout; not field edit notifications | ScrollBar inherits its Flickable; Splitter relies on `T.SplitView` pane semantics. `src/qml/{ScrollBar,Splitter}.qml`; `tests/qml/tst_scroll_nested.qml`, `tst_splitter_targets.qml` |
+| Table schema (`TableColumn`) | Owner supplies column metadata/model | N/A | `visible`, `sortable`, `resizable` are capability/configuration, not editing state | Owner schema changes; sort/resize requests originate from DataTable actions | QtObject metadata is not independently focusable; headers expose interaction through DataTable | `src/qml/TableColumn.qml`, `src/qml/DataTable.qml`; `tests/qml/tst_data_table_headers.qml` |
+| Property editors' structure (`PropertyRow`, `PropertyGroup`, `KeyValue`) | Owner supplies label/value/group state; PropertyGroup collapse is presentation state | Mixed/invalid/read-only behavior belongs to child field | Child fields apply their own guards | Child edit signals belong to child control; group disclosure is an explicit operation | PropertyRow groups a named label with its child; PropertyGroup header has disclosure semantics; KeyValue is a static pair. No independent field operation | `src/qml/{PropertyRow,PropertyGroup,KeyValue}.qml`; `tests/qml/tst_section_header_accessibility.qml`, `tst_controls_structure.qml` |
+| Input modality helper (`StylusHandler`) | No application value/default | N/A | N/A | Reports/recognizes stylus proximity and input state; not a user-edit notification | Attached input helper, not independently focusable or an accessible action | `src/qml/StylusHandler.qml`; `tests/qml/tst_controls_input.qml` |
+| Window, icon and tooltip (`AppWindow`, `Icon`, `ToolTip`) | Infrastructure/decoration; owner config/state only; no reset/mixed/invalid/read-only edit semantics | Accessibility belongs to the containing control/window and popup content; decoration is not an action. `src/qml/{AppWindow,Icon,ToolTip}.qml`; smoke/layout fixtures |
+
+## Audit findings and limits
+
+1. FND-10 has a shared policy and detailed contracts for the repaired families,
+   but **no toolkit-wide reset API or default-value convention**: only
+   `NumberField` has `defaultValue`/`reset()`. `ZoomControl` exposes a reset
+   command and DockHost a layout-reset command; both are owner operations.
+2. **Mixed state is intentionally narrow**: NumberField and tristate CheckBox
+   represent it. Other value controls need owner-provided aggregate
+   presentation or an explicit future component contract.
+3. **Invalid draft is distinct from error decoration.** NumberField and
+   ColorField retain parser-invalid drafts. TextField/TextArea `error` is
+   owner-supplied feedback; text is otherwise live. ComboBox editable text,
+   TreeRow rename validation, and app-specific form validation are not
+   specified as common parsers here.
+4. Read-only is not a universal property. It applies to text editors,
+   ColorField and NumberField's `editable` mode; other controls use their
+   semantic operation model or owner-level disabling.
+5. The focused QML tests establish code paths under Qt 6.8/6.11 where noted.
+   They do not establish platform accessibility API mapping, screen-reader
+   announcement quality, IME behavior, virtualized-table traversal, or native
+   menu/workarea behavior. Those limitations are tracked by WP-007/FND-09 and
+   the universal plan's platform qualification work.
+6. `tests/qml/tst_controls_input.qml` groups many input cases under one Qt
+   Quick Test target. A cited file proves focused fixture coverage only when
+   the relevant case exists; it is not evidence of every platform path.
+
+This inventory feeds the still-open FND-10 line in
+[WP-007 progress](WP-007-progress.md). It does not close that gate or accept
+WP-007.

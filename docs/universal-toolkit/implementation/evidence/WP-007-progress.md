@@ -225,5 +225,7 @@ FND-09 requires monitor/work-area and dynamic ComboBox popup qualification;
 [the monitor gap audit](WP-007-FND-09-monitor.md) identifies the per-screen
 geometry bridge and native two-screen check still needed;
 FND-10 requires uniform
-editing state and notification contracts across remaining controls. No
+editing state and notification contracts across remaining controls; the
+[current-control applicability audit](WP-007-FND-10-applicability.md) maps
+the catalog families and remaining qualification. No
 WP-007 acceptance is claimed.
