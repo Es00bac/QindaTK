@@ -447,13 +447,73 @@ TestCase {
     function test_combobox_selection() {
         const item = make(combo)
         compare(item.currentText, "One")
+        spy.target = item
+        spy.signalName = "activated"
+        spy.clear()
         item.currentIndex = 2
         compare(item.displayText, "Three")
+        compare(spy.count, 0)
+        item.currentIndex = 0
         const popup = findChild(item, "comboPopup")
         verify(popup !== null)
+        const list = popup.contentItem
+        item.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        tryVerify(function() { return item.popup.visible })
+        compare(item.highlightedIndex, 0)
+        keyClick(Qt.Key_Down)
+        keyClick(Qt.Key_Return)
+        tryVerify(function() { return !item.popup.visible })
+        compare(item.currentIndex, 1)
+        compare(spy.count, 1)
+        compare(item.activeFocus, true)
+        item.popup.open()
+        tryVerify(function() { return item.popup.visible && list.count === 3 })
+        compare(list.itemAtIndex(0).Accessible.selected, false)
+        compare(list.itemAtIndex(1).Accessible.selected, true)
+        mouseClick(list.itemAtIndex(2))
+        tryVerify(function() { return !item.popup.visible })
+        compare(item.currentIndex, 2)
+        compare(spy.count, 2)
         item.popup.open()
         tryVerify(function() { return item.popup.visible })
+        keyClick(Qt.Key_Escape)
+        tryVerify(function() { return !item.popup.visible })
+        compare(item.currentIndex, 2)
+        compare(item.activeFocus, true)
         item.popup.close()
+    }
+
+    function test_combobox_popup_fits_short_host() {
+        const host = root.Window.window
+        const oldWidth = host.width
+        const oldHeight = host.height
+        const oldTextScale = Tk.Density.textScale
+        try {
+            host.width = 220
+            host.height = 140
+            tryVerify(function() { return host.contentItem.height === 140 })
+            Tk.Density.textScale = 3
+            const item = make(combo)
+            item.model = ["One", "Two", "Three", "Four", "Five", "Six",
+                          "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"]
+            item.width = 180
+            item.y = 100
+            item.popup.open()
+            tryVerify(function() { return item.popup.visible && item.popup.height > 0 })
+            const popupTop = item.popup.contentItem.mapToItem(host.contentItem, 0, 0).y
+            const list = item.popup.contentItem
+            verify(popupTop >= 0)
+            verify(popupTop + item.popup.height <= host.contentItem.height + 0.5)
+            verify(list.contentHeight > list.height)
+            verify(list.itemAtIndex(0).height >= Tk.Theme.font.small + 2 * Tk.Theme.space.xs)
+            verify(list.height > 0)
+            item.popup.close()
+        } finally {
+            host.width = oldWidth
+            host.height = oldHeight
+            Tk.Density.textScale = oldTextScale
+        }
     }
 
     function test_progress_and_badge() {

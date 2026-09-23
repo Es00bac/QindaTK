@@ -1138,7 +1138,7 @@
       "name": "ComboBox",
       "kind": "qml",
       "base": "T.ComboBox",
-      "description": "AGENT-CONTRACT (docs/controls.md): the 24px (small 20) picker on inputBg with a chevron, whose popup (objectName \"comboPopup\") is a Menu-styled list of 22px rows, at most 12 visible before it scrolls. `textRole` and `iconRole` read the model; a JS array of strings works with no roles. `placeholderText` shows while currentIndex is -1. `editable` turns the content into a text input, as T.ComboBox defines.",
+      "description": "AGENT-CONTRACT (docs/controls.md): the 24px (small 20) picker on inputBg with a chevron, whose popup (objectName \"comboPopup\") is a Menu-styled list with host-bounded height and scrolling. Rows fit scaled text and expose selected state; `textRole` and `iconRole` read the model. A JS array of strings needs no roles. `placeholderText` shows while currentIndex is -1. `editable` turns the content into a text input, as T.ComboBox defines.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ComboBox.qml",
@@ -1198,10 +1198,26 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "popupGap",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
       "methods": [
+        {
+          "name": "popupRoom",
+          "parameters": ""
+        },
+        {
+          "name": "popupOpensAbove",
+          "parameters": ""
+        },
         {
           "name": "textFor",
           "parameters": "model"

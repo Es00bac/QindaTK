@@ -5,10 +5,10 @@ import QindaTK as Tk
 
 // AGENT-CONTRACT (docs/controls.md): the 24px (small 20) picker on inputBg
 // with a chevron, whose popup (objectName "comboPopup") is a Menu-styled
-// list of 22px rows, at most 12 visible before it scrolls. `textRole`
-// and `iconRole` read the model; a JS array of strings works with no
-// roles. `placeholderText` shows while currentIndex is -1. `editable`
-// turns the content into a text input, as T.ComboBox defines.
+// list with host-bounded height and scrolling. Rows fit scaled text and
+// expose selected state; `textRole` and `iconRole` read the model. A JS
+// array of strings needs no roles. `placeholderText` shows while currentIndex
+// is -1. `editable` turns the content into a text input, as T.ComboBox defines.
 T.ComboBox {
     id: control
 
@@ -20,6 +20,27 @@ T.ComboBox {
     readonly property real controlHeight: small ? Tk.Theme.size.controlSm : Tk.Theme.size.control
     readonly property real edgePadding: Tk.Theme.space.sm + 2
     readonly property string roleName: control.textRole.length > 0 ? control.textRole : "modelData"
+    readonly property real popupGap: Tk.Theme.space.xs
+
+    function popupRoom() {
+        const overlay = T.Overlay.overlay
+        if (overlay === null) return Tk.Theme.size.menuItem * 12
+        const origin = control.mapToItem(overlay, 0, 0)
+        const margin = Tk.Theme.space.xs
+        const below = overlay.height - origin.y - control.height - popupGap - margin
+        const above = origin.y - popupGap - margin
+        return Math.max(0, Math.max(below, above) - popup.topPadding - popup.bottomPadding)
+    }
+
+    function popupOpensAbove() {
+        const overlay = T.Overlay.overlay
+        if (overlay === null) return false
+        const origin = control.mapToItem(overlay, 0, 0)
+        const margin = Tk.Theme.space.xs
+        const below = overlay.height - origin.y - control.height - popupGap - margin
+        const above = origin.y - popupGap - margin
+        return below < popup.implicitHeight && above > below
+    }
 
     function textFor(model) {
         if (model === undefined || model === null) return ""
@@ -61,7 +82,8 @@ T.ComboBox {
         required property var model
         required property int index
         width: ListView.view ? ListView.view.width : implicitWidth
-        height: Tk.Theme.size.menuItem
+        height: Math.max(Tk.Theme.size.menuItem,
+                         Tk.Theme.font.small + 2 * Tk.Theme.space.xs)
         text: control.textFor(model)
         highlighted: control.highlightedIndex === index
         hoverEnabled: control.hoverEnabled
@@ -70,6 +92,7 @@ T.ComboBox {
         rightPadding: Tk.Theme.space.md
         Accessible.role: Accessible.ListItem
         Accessible.name: text
+        Accessible.selected: row.index === control.currentIndex
 
         background: Rectangle {
             radius: Tk.Theme.radius.xs
@@ -162,9 +185,10 @@ T.ComboBox {
 
     popup: T.Popup {
         objectName: "comboPopup"
-        y: control.height + Tk.Theme.space.xs
+        x: 0
+        y: control.popupOpensAbove() ? -height - control.popupGap : control.height + control.popupGap
         width: control.width
-        implicitHeight: Math.min(contentHeight, Tk.Theme.size.menuItem * 12) + topPadding + bottomPadding
+        implicitHeight: Math.min(contentHeight, Tk.Theme.size.menuItem * 12, control.popupRoom()) + topPadding + bottomPadding
         padding: Tk.Theme.space.xs
         closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutside
 
