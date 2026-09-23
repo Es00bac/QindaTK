@@ -132,7 +132,7 @@ QML properties, so `Tk.Theme.space.md` binds and updates. `space` and
 | `space` | `unit` 4, `xs` 2, `sm` 4, `md` 8, `lg` 12, `xl` 16, `xxl` 24, `xxxl` 32 |
 | `radius` | `none` 0, `xs` 2, `sm` 4, `md` 6, `lg` 10, `xl` 14, `full` 999 |
 | `size` | `controlSm` 20, `control` 24, `controlLg` 28, `sliderTarget` 16, `sliderTargetSm` 14, `toggleTargetSm` 16, `seamTarget` 16, `chip` 32, `action` 36, `row` 22, `rowLg` 28, `header` 24, `tab` 22, `toolbar` 36, `statusBar` 22, `menuItem` 22, `menuMinWidth` 160, `menuItemMinWidth` 120, `icon` 14, `iconSm` 12, `iconLg` 16, `iconXl` 20, `seam` 4, `scrollbar` 8, `labelWidth` 96, `fieldWidth` 120, `panelMinWidth` 200, `panelMinHeight` 120, `border` 1, `focusRing` 2, `grip` 10, `handle` 14, `dropEdge` 28, `tableColumn` 80, `dialogWidth` 420, `rulerLength` 200, `rulerMarker` 9, `sparkline` 56, `sparklineHeight` 14, `meter` 6, `graphMinHeight` 40, `thumbnail` 72, `thumbnailHeight` 40, `waveformHeight` 28, `timeRuler` 22 |
-| `motion` | `instant` 0, `fast` 80, `base` 140, `slow` 220, `tooltipDelay` 600, `tooltipTimeout` 6000 (ms); reduced motion zeroes delay and animation durations but retains the tooltip's reading time |
+| `motion` | `instant` 0, `fast` 80, `base` 140, `slow` 220, `tooltipDelay` 600, `tooltipTimeout` 6000, `toastTimeout` 6000 (ms); reduced motion zeroes delay and animation durations but retains tooltip/toast reading time |
 | `opacity` | `hidden` 0, `full` 1, `disabled` 0.45, `muted` 0.7, `island` 0.72, `ghost` 0.55, `scrim` 0.65 |
 
 The `size` values are measurements of Sloom Studio at 100% (see

@@ -242,6 +242,50 @@ private slots:
         QVERIFY(!undo.canUndo());
         QVERIFY(!undo.isClean());
     }
+
+    void historyEntriesNavigateByStableIdentityAndRetireBranches()
+    {
+        PropertyDocument document;
+        UndoService undo;
+        setup(document, undo);
+        const EntityId target = EntityId::create();
+        QVERIFY(document.addEntity(target));
+        undo.markClean();
+        const auto editValue = [&](double value, const QString &label,
+                                   const QString &mergeKey = {}) {
+            EditTransaction edit;
+            configure(edit, document, undo);
+            if (!edit.begin({target}, QStringLiteral("gain"), label, mergeKey)) return false;
+            return !edit.updateValue(value) && !edit.commitEdit();
+        };
+        QVERIFY(editValue(1.0, QStringLiteral("First"), QStringLiteral("nudge")));
+        const QString firstId = undo.historyEntries().first().toMap().value(QStringLiteral("entryId")).toString();
+        QVERIFY(!firstId.isEmpty());
+        QVERIFY(editValue(2.0, QStringLiteral("Merged"), QStringLiteral("nudge")));
+        QCOMPARE(undo.historyEntries().size(), 1);
+        QCOMPARE(undo.historyEntries().first().toMap().value(QStringLiteral("entryId")).toString(), firstId);
+        QVERIFY(editValue(3.0, QStringLiteral("Second")));
+        const QString secondId = undo.historyEntries().last().toMap().value(QStringLiteral("entryId")).toString();
+        QVERIFY(secondId != firstId);
+        QCOMPARE(undo.historyIndex(), 2);
+        QCOMPARE(undo.cleanIndex(), 0);
+        QVERIFY(undo.navigateToHistoryEntry(firstId));
+        QCOMPARE(document.value(target, QStringLiteral("gain")), QVariant(2.0));
+        QCOMPARE(undo.historyIndex(), 1);
+        QVERIFY(!undo.historyEntries().last().toMap().value(QStringLiteral("applied")).toBool());
+        QVERIFY(undo.navigateToHistoryIndex(0));
+        QVERIFY(undo.isClean());
+        QVERIFY(undo.navigateToHistoryEntry(secondId));
+        QCOMPARE(document.value(target, QStringLiteral("gain")), QVariant(3.0));
+        QVERIFY(undo.navigateToHistoryEntry(firstId));
+        QVERIFY(editValue(4.0, QStringLiteral("New branch")));
+        QVERIFY(!undo.navigateToHistoryEntry(secondId));
+        QCOMPARE(undo.historyIndex(), 2);
+        QCOMPARE(document.value(target, QStringLiteral("gain")), QVariant(4.0));
+        QVERIFY(document.removeEntity(target));
+        QVERIFY(undo.historyEntries().isEmpty());
+        QVERIFY(!undo.navigateToHistoryEntry(firstId));
+    }
 };
 
 QTEST_MAIN(TstEditTransaction)

@@ -87,6 +87,27 @@ TestCase {
         verify(adopted.signalArguments[0][0] !== null)
     }
 
+    function test_dismissed_import_never_adopts_late_job_result() {
+        const fixture = createTemporaryObject(dialogsComponent, root)
+        verify(fixture)
+        const importer = findChild(fixture, "importDialog")
+        const adopted = createTemporaryObject(signalSpyComponent, root,
+            { target: importer, signalName: "importAdopted" })
+        importer.formatId = "text.utf8"
+        importer.sourceUrl = Qt.resolvedUrl("fixtures/plain_text.txt")
+        tryVerify(function() { return importer.plan.ok === true })
+        importer.open()
+        tryVerify(function() { return importer.visible })
+        importer.startOrRetry()
+        verify(importer.jobId.length > 0)
+        importer.reject()
+        tryVerify(function() { return !importer.visible })
+        compare(importer.jobId, "")
+        wait(250)
+        compare(adopted.count, 0)
+        compare(fixture.manager.sessions.length, 0)
+    }
+
     function test_replace_policy_does_not_bypass_preflight() {
         const fixture = createTemporaryObject(dialogsComponent, root)
         verify(fixture)

@@ -28,10 +28,9 @@ Item {
     function measureAt(index) {
         const measured = measurements.itemAt(index)
         if (measured) return measured.implicitWidth
-        const e = entries()[index]
-        return Math.max(Tk.Theme.size.control, (e.label || e.id || "").length * Tk.Theme.font.body * 0.58
-                       + (e.iconName ? Tk.Theme.size.icon + Tk.Theme.space.xs : 0)
-                       + Tk.Theme.space.md * 2)
+        // Delegates are created asynchronously; fit runs again when their
+        // measured widths become available.
+        return Tk.Theme.size.control
     }
     function groupKey(entry, index) { return entry.groupId ? "g:" + entry.groupId : "i:" + index }
     function fit() {
@@ -104,8 +103,10 @@ Item {
                     ? (bar.compact ? Tk.Theme.size.iconSm : Tk.Theme.size.icon) : 0
             implicitWidth: Math.max(Tk.Theme.size.control,
                 (modelData.iconOnly === true ? 0 : labelMetrics.width)
-                + iconWidth + (iconWidth > 0 && effectiveLabel.length > 0 ? Tk.Theme.space.xs + 2 : 0)
-                + (bar.compact ? (Tk.Theme.space.sm + 2) * 2 : Tk.Theme.space.md * 2))
+                + iconWidth + (iconWidth > 0 && effectiveLabel.length > 0
+                    ? Tk.Theme.space.xs + Tk.Theme.size.focusRing : 0)
+                + (bar.compact ? (Tk.Theme.space.sm + Tk.Theme.size.focusRing) * 2
+                               : Tk.Theme.space.md * 2))
             implicitHeight: bar.compact ? Tk.Theme.size.controlSm : Tk.Theme.size.control
             TextMetrics {
                 id: labelMetrics

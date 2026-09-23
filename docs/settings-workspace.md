@@ -11,7 +11,14 @@ state intact. The reference document file remains owned by `DocumentSession`.
 
 Register a `SettingDescriptor` before loading: key, `SettingScope` (`App`,
 `Document`, `Workspace`), exact `QMetaType`, default value, optional validator
-and `restartRequired`. App scope has no instance ID. Document and workspace
+and `restartRequired`. Optional `label`, `category` and `description` provide
+presentation metadata; an omitted category uses the key's first dotted
+segment, and an omitted label uses the key itself. The read-only `settings`
+list enumerates registered rows in scoped-key order with `scopedKey`, `key`,
+`scope`, `instanceId`, `defaultValue`, `valueType`, presentation metadata,
+`restartRequired`, `currentValue` and `stagedValue`. A preferences editor can
+search this schema without inventing setting types or enumerating orphaned
+values. App scope has no instance ID. Document and workspace
 scopes require a nonempty instance ID without a colon. Exported keys are
 `app:<key>`, `document:<instance>:<key>` and
 `workspace:<instance>:<key>`. In-memory committed values remain at their

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 02 — Common controls and scalable data
 
-**PLANNED — no implementation or execution is claimed by this plan.**
+**Execution underway.** WP-020 and WP-022 are active; other packages remain planned.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -15,7 +15,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-020"></a>
 ## WP-020 — Build command controls and adaptive toolbars
 
-**Implementation lead:** Luna. **Status:** planned. **Depends on:** [WP-011](phase-01-services.md#wp-011), [WP-017](phase-01-services.md#wp-017)
+**Implementation lead:** Luna. **Status:** active. **Depends on:** [WP-011](phase-01-services.md#wp-011), [WP-017](phase-01-services.md#wp-017)
 
 **Proposal scope:** [CTL-01 SplitButton](../proposed/02-controls-navigation.md#ctl-01), [CTL-02 MenuButton](../proposed/02-controls-navigation.md#ctl-02), [CTL-03 ToolShelf](../proposed/02-controls-navigation.md#ctl-03), [CTL-05 CommandBar](../proposed/02-controls-navigation.md#ctl-05), [CTL-06 OverflowToolBar](../proposed/02-controls-navigation.md#ctl-06)
 
@@ -34,7 +34,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-021"></a>
 ## WP-021 — Build document and application navigation
 
-**Implementation lead:** Luna. **Status:** planned. **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-020](phase-02-controls-data.md#wp-020)
+**Implementation lead:** Luna. **Status:** review. **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-020](phase-02-controls-data.md#wp-020)
 
 **Proposal scope:** [CTL-04 Ribbon](../proposed/02-controls-navigation.md#ctl-04), [CTL-07 DocumentTabs](../proposed/02-controls-navigation.md#ctl-07), [CTL-08 NavigationRail](../proposed/02-controls-navigation.md#ctl-08), [CTL-09 BreadcrumbBar](../proposed/02-controls-navigation.md#ctl-09)
 
@@ -53,7 +53,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-022"></a>
 ## WP-022 — Build reusable typed inspectors
 
-**Implementation lead:** Luna. **Status:** planned. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-017](phase-01-services.md#wp-017)
+**Implementation lead:** Luna. **Status:** active. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-017](phase-01-services.md#wp-017)
 
 **Proposal scope:** [CTL-12 Inspector](../proposed/02-controls-navigation.md#ctl-12), [CTL-13 MixedValueField](../proposed/02-controls-navigation.md#ctl-13), [CTL-14 UnitField](../proposed/02-controls-navigation.md#ctl-14), [CTL-16 VectorField](../proposed/02-controls-navigation.md#ctl-16), [CTL-17 TransformEditor](../proposed/02-controls-navigation.md#ctl-17), [CTL-24 FormGroup](../proposed/02-controls-navigation.md#ctl-24)
 
@@ -72,7 +72,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-023"></a>
 ## WP-023 — Add expression, path and token editors
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022)
+**Implementation lead:** Sol. **Status:** review. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022)
 
 **Proposal scope:** [CTL-15 ExpressionField](../proposed/02-controls-navigation.md#ctl-15), [CTL-20 FilePathField](../proposed/02-controls-navigation.md#ctl-20), [CTL-21 TokenField](../proposed/02-controls-navigation.md#ctl-21)
 
@@ -91,7 +91,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-024"></a>
 ## WP-024 — Add typography and calendar value pickers
 
-**Implementation lead:** Luna. **Status:** planned. **Depends on:** [WP-017](phase-01-services.md#wp-017), [WP-022](phase-02-controls-data.md#wp-022)
+**Implementation lead:** Luna. **Status:** review. **Depends on:** [WP-017](phase-01-services.md#wp-017), [WP-022](phase-02-controls-data.md#wp-022)
 
 **Proposal scope:** [CTL-18 FontPicker](../proposed/02-controls-navigation.md#ctl-18), [CTL-19 FontFeaturesEditor](../proposed/02-controls-navigation.md#ctl-19), [CTL-22 DateTimeField](../proposed/02-controls-navigation.md#ctl-22), [CTL-23 CalendarPicker](../proposed/02-controls-navigation.md#ctl-23)
 
@@ -110,7 +110,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-025"></a>
 ## WP-025 — Add preferences, shortcut editing and find/replace
 
-**Implementation lead:** Luna. **Status:** planned. **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-022](phase-02-controls-data.md#wp-022), [WP-023](phase-02-controls-data.md#wp-023)
+**Implementation lead:** Luna. **Status:** review. **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-022](phase-02-controls-data.md#wp-022), [WP-023](phase-02-controls-data.md#wp-023)
 
 **Proposal scope:** [CTL-10 ShortcutEditor](../proposed/02-controls-navigation.md#ctl-10), [CTL-11 PreferencesDialog](../proposed/02-controls-navigation.md#ctl-11), [CTL-25 FindReplaceBar](../proposed/02-controls-navigation.md#ctl-25)
 
@@ -129,7 +129,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-026"></a>
 ## WP-026 — Add history, notifications and task feedback
 
-**Implementation lead:** Luna. **Status:** planned. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015), [WP-020](phase-02-controls-data.md#wp-020)
+**Implementation lead:** Luna. **Status:** review. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015), [WP-020](phase-02-controls-data.md#wp-020)
 
 **Proposal scope:** [APP-17 HistoryView](../proposed/01-application-services.md#app-17), [CTL-26 NotificationCenter](../proposed/02-controls-navigation.md#ctl-26), [CTL-27 Toast](../proposed/02-controls-navigation.md#ctl-27), [CTL-28 TaskCenter](../proposed/02-controls-navigation.md#ctl-28)
 
@@ -148,7 +148,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-027"></a>
 ## WP-027 — Implement virtual lists, trees and asset grids
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-016](phase-01-services.md#wp-016), [WP-017](phase-01-services.md#wp-017)
+**Implementation lead:** Luna. **Status:** review. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-016](phase-01-services.md#wp-016), [WP-017](phase-01-services.md#wp-017)
 
 **Proposal scope:** [DAT-01 VirtualList](../proposed/03-data-views.md#dat-01), [DAT-02 VirtualTree](../proposed/03-data-views.md#dat-02), [DAT-03 AssetGrid](../proposed/03-data-views.md#dat-03)
 
@@ -167,7 +167,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-028"></a>
 ## WP-028 — Implement editable two-dimensional grids
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-022](phase-02-controls-data.md#wp-022), [WP-027](phase-02-controls-data.md#wp-027)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-022](phase-02-controls-data.md#wp-022), [WP-027](phase-02-controls-data.md#wp-027)
 
 **Proposal scope:** [DAT-04 EditableGrid](../proposed/03-data-views.md#dat-04), [DAT-05 HeaderView](../proposed/03-data-views.md#dat-05), [DAT-06 RangeSelectionOverlay](../proposed/03-data-views.md#dat-06)
 
@@ -207,7 +207,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-030"></a>
 ## WP-030 — Build the general chart framework
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-027](phase-02-controls-data.md#wp-027)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-027](phase-02-controls-data.md#wp-027)
 
 **Proposal scope:** [DAT-10 ChartView](../proposed/03-data-views.md#dat-10), [DAT-11 ChartAxis](../proposed/03-data-views.md#dat-11), [DAT-12 ChartSeries](../proposed/03-data-views.md#dat-12), [DAT-13 ChartLegend](../proposed/03-data-views.md#dat-13), [DAT-15 Histogram](../proposed/03-data-views.md#dat-15)
 

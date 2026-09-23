@@ -599,3 +599,27 @@ waits for completion and remains blocked by newer edits. Recovery never
 silently replaces the original file. Hash checks are not an interprocess lock.
 The reference codec's supported types and limits are in
 [persistence.md](persistence.md); richer formats need their own adapter.
+
+## D-030 — Keep sparse grid edits authoritative and bridge shared undo explicitly
+
+**Context.** A two-axis grid can have millions of addressable cells. Storing a
+`PropertyDocument` entity per cell or `SelectionModel` ID per selected cell
+would materialize data that a virtual view never shows. `UndoService` records
+`PropertyDocument` property changes, not arbitrary grid ranges. A second
+implicit history under a shared Undo command could replay one edit twice.
+
+**Decision.** `EditableGridModel` is a `QAbstractTableModel` with stable row
+and column IDs, a lazy baseline source, sparse committed overrides, compact
+range endpoints, and bounded visible cell queries. It validates a whole range
+before atomic commit and records a single local inverse step by default.
+An explicit `externalUndo` mode disables local navigation. The host records
+the emitted transaction UUID and full change set in its document history and
+replays it through a guarded grid history method. Reorder and insertion keep
+ID-based history; removal invalidates history to avoid stale targets.
+
+**Consequences.** Hosts that use shared undo must choose external mode and
+release retired transaction IDs. The grid bridge checks transaction
+provenance, current revision, identity generation and cell values before
+applying a whole step. `PropertyDocument` and `UndoService` remain unchanged.
+The view and domain must supply accessible virtual cells, labels, persistence
+and formula evaluation. See [editable-grid.md](editable-grid.md).

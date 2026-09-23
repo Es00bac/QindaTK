@@ -172,6 +172,12 @@ Tk.ShortcutMap {
 `setOverride(id, sequence)`, `resetOverride(id)`, `overrides()` and
 `loadOverrides(map)` provide per-command portable-text persistence. Overrides
 are held by this object; the host chooses where and when to save them.
+The read-only `bindings` list exposes each command ID, scope token, active
+state, default/override/effective portable sequences and text-input policy.
+`validateOverrides(map)` checks a proposed full override map without changing
+live bindings. It returns `{ok, conflicts, error}` using the same active-scope
+rank and exact/prefix overlap rules as dispatch; a shortcut editor can stage,
+explain and reject a conflict before calling `loadOverrides`.
 `displaySequence(id)` returns native-formatted text for the most-specific
 active binding; `hasBinding(id)` distinguishes an unbound command from an
 explicitly cleared override. `conflicts()` reports overlapping

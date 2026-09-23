@@ -28,6 +28,19 @@ to their QML layout mirroring and keep document bidi content separate. Only
 locales, calendars and time zones available through the selected Qt runtime
 are accepted; translation catalogs are application content.
 
+Date pickers use `classifyLocalDateTime(text,format)` before committing a wall
+time. It returns `valid` with one canonical ISO UTC instant, `ambiguous` with
+two candidate instants, `nonexistent` for a daylight-saving gap, or `invalid`.
+The picker must ask the user to choose a candidate in an overlap and cannot
+silently normalize a gap. `formatDate`/`parseDate` carry all-day values as
+Gregorian ISO `YYYY-MM-DD` strings without applying a time zone.
+`monthGrid(year,month,minIso,maxIso)` takes year/month in the configured
+calendar and returns 42 date cells with stable Gregorian ISO IDs, localized
+labels, bounds and weekday order. `calendarFields(dateIso)` converts an ISO
+date to that calendar's year/month/day; `shiftMonth` navigates its native
+month sequence. A UI should use these methods rather than JavaScript's
+Gregorian month math when a non-Gregorian calendar is active.
+
 `GestureRouter` accepts one semantic pointer gesture per view while allowing
 independent views to work concurrently. A caller passes stable view, pointer
 and target IDs, device, intent, owner and optional configured but inactive

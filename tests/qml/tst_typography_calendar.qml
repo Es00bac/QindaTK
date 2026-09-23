@@ -12,6 +12,7 @@ TestCase {
     height: 520
 
     Tk.LocaleService { id: locale; localeName: "en_US"; timeZoneId: "America/Los_Angeles" }
+    Tk.FontCatalog { id: installedFonts }
     Tk.Flex {
         anchors.fill: parent
         anchors.margins: Tk.Theme.space.md
@@ -41,6 +42,8 @@ TestCase {
     }
 
     Component { id: pickerComponent; Tk.FontPicker { width: 260; tooltip: "Font" } }
+    Component { id: realPickerComponent; Tk.FontPicker { width: 280; fontProvider: installedFonts } }
+    Component { id: realFeaturesComponent; Tk.FontFeaturesEditor { width: 280; fontProvider: installedFonts } }
     Component { id: localeComponent; Tk.LocaleService { localeName: "en_US"; timeZoneId: "America/Los_Angeles" } }
     Component { id: datetimeComponent; Tk.DateTimeField { width: 360; dateTimeFormat: "yyyy-MM-dd HH:mm" } }
     Component { id: calendarComponent; Tk.CalendarPicker { width: 280; selectedDate: "2024-02-29" } }
@@ -57,6 +60,31 @@ TestCase {
         compare(fontPicker.filteredFamilies[0], "Noto Sans")
         verify(findChild(fontPicker, "fontAvailabilityState").visible)
         compare(fontPicker.Accessible.name, "Font family")
+        compare(findChild(fontPicker, "fontSpecimenText").font.family, Tk.Theme.font.family)
+    }
+
+    function test_installed_face_metadata_and_specimen_are_connected() {
+        verify(installedFonts.families.length > 0)
+        const preferred = installedFonts.resolveFamily("Newsreader")
+        const selected = preferred.installed ? preferred : installedFonts.families[0]
+        const picker = createTemporaryObject(realPickerComponent, root, { family: selected.family, style: selected.styles[0] })
+        const editor = createTemporaryObject(realFeaturesComponent, root,
+            { fontFamily: selected.family, fontStyle: selected.styles[0] })
+        verify(picker && editor)
+        compare(picker.selectedMissing, false)
+        compare(findChild(picker, "fontSpecimenText").font.family, selected.family)
+        compare(picker.selectedFaceMetadata.family, selected.family)
+        compare(editor.effectiveFontMetadata.family, selected.family)
+        verify(editor.axisMetadataAvailable || editor.featureMetadataAvailable)
+        if (editor.axes.length > 0)
+            verify(findChild(editor, "fontAxis_" + editor.axes[0].tag))
+        if (editor.features.length > 0)
+            verify(findChild(editor, "fontFeature_" + editor.features[0].tag))
+        const missing = createTemporaryObject(realPickerComponent, root,
+            { family: "QindaTK Fixture Missing Font 89B56" })
+        verify(missing.selectedMissing)
+        compare(missing.family, "QindaTK Fixture Missing Font 89B56")
+        compare(findChild(missing, "fontSpecimenText").font.family, installedFonts.fallbackFamily)
     }
 
     function test_font_features_show_unsupported_metadata_without_enabling_edit() {

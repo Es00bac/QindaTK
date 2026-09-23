@@ -83,7 +83,7 @@ T.Control {
                 TapHandler {
                     acceptedButtons: Qt.LeftButton
                     gesturePolicy: TapHandler.ReleaseWithinBounds
-                    onTapped: root.selectRow(rowHost.index, 0)
+                    onTapped: function(eventPoint) { root.selectRow(rowHost.index, eventPoint.modifiers) }
                 }
                 Accessible.role: Accessible.ListItem
                 Accessible.name: rowHost.labelText

@@ -29,6 +29,28 @@ private:
     }
 
 private slots:
+    void proposedOverridesExposeBindingsAndRejectConflictsWithoutMutation()
+    {
+        ShortcutMap map;
+        QVERIFY(map.bind(QStringLiteral("first"), QStringLiteral("Ctrl+J")));
+        QVERIFY(map.bind(QStringLiteral("second"), QStringLiteral("Ctrl+K")));
+        const auto rows = map.bindings();
+        QCOMPARE(rows.size(), 2);
+        QCOMPARE(rows.first().toMap().value(QStringLiteral("commandId")).toString(),
+                 QStringLiteral("first"));
+        QCOMPARE(rows.first().toMap().value(QStringLiteral("defaultSequence")).toString(),
+                 QStringLiteral("Ctrl+J"));
+        const auto before = map.overrides();
+        const auto proposed = map.validateOverrides({{QStringLiteral("second"), QStringLiteral("Ctrl+J")}});
+        QVERIFY(!proposed.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(proposed.value(QStringLiteral("conflicts")).toList().size(), 1);
+        QCOMPARE(map.overrides(), before);
+        QVERIFY(map.validateOverrides({{QStringLiteral("second"), QStringLiteral("Ctrl+L")}})
+                    .value(QStringLiteral("ok")).toBool());
+        QVERIFY(!map.validateOverrides({{QStringLiteral("unknown"), QStringLiteral("Ctrl+L")}})
+                    .value(QStringLiteral("ok")).toBool());
+    }
+
     void portableBindingsDispatchAndOverridesRoundTrip()
     {
         CommandContext context;

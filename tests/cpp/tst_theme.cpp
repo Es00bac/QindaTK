@@ -292,6 +292,7 @@ private slots:
         QCOMPARE(theme->motion()->metric(QStringLiteral("base")), 0.0);
         QCOMPARE(theme->motion()->metric(QStringLiteral("tooltipDelay")), 0.0);
         QCOMPARE(theme->motion()->metric(QStringLiteral("tooltipTimeout")), 6000.0);
+        QCOMPARE(theme->motion()->metric(QStringLiteral("toastTimeout")), 6000.0);
         theme->setReducedMotion(false);
         QCOMPARE(theme->motion()->metric(QStringLiteral("base")), 140.0);
         QCOMPARE(theme->motion()->metric(QStringLiteral("tooltipDelay")), 600.0);

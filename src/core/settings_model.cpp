@@ -279,6 +279,40 @@ QVariantMap SettingsModel::exportValues() const
     return result;
 }
 
+QVariantList SettingsModel::settings() const
+{
+    QVariantList rows;
+    QStringList keys = m_entries.keys();
+    keys.sort();
+    for (const auto &id : keys) {
+        const auto &entry = m_entries.value(id);
+        const auto &descriptor = entry.descriptor;
+        QString scope;
+        switch (descriptor.scope) {
+        case SettingScope::App: scope = QStringLiteral("app"); break;
+        case SettingScope::Document: scope = QStringLiteral("document"); break;
+        case SettingScope::Workspace: scope = QStringLiteral("workspace"); break;
+        }
+        const auto category = descriptor.category.isEmpty()
+            ? descriptor.key.section(QLatin1Char('.'), 0, 0) : descriptor.category;
+        rows.append(QVariantMap{
+            {QStringLiteral("scopedKey"), id},
+            {QStringLiteral("key"), descriptor.key},
+            {QStringLiteral("scope"), scope},
+            {QStringLiteral("instanceId"), entry.instanceId},
+            {QStringLiteral("defaultValue"), descriptor.defaultValue},
+            {QStringLiteral("valueType"), QString::fromUtf8(descriptor.valueType.name())},
+            {QStringLiteral("label"), descriptor.label.isEmpty() ? descriptor.key : descriptor.label},
+            {QStringLiteral("category"), category},
+            {QStringLiteral("description"), descriptor.description},
+            {QStringLiteral("restartRequired"), descriptor.restartRequired},
+            {QStringLiteral("currentValue"), entry.committed},
+            {QStringLiteral("stagedValue"), m_staging ? m_staged.value(id, entry.committed)
+                                                           : entry.committed}});
+    }
+    return rows;
+}
+
 bool SettingsModel::importValues(const QVariantMap &values)
 {
     if (!onOwnerThread() || m_staging)

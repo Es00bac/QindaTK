@@ -27,7 +27,7 @@ T.Button {
     implicitHeight: Tk.Theme.size.control
     leftPadding: Tk.Theme.space.md
     rightPadding: Tk.Theme.space.md
-    spacing: Tk.Theme.space.xs + 2
+    spacing: Tk.Theme.space.xs + Tk.Theme.size.focusRing
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
     Accessible.role: Accessible.Button
@@ -47,8 +47,8 @@ T.Button {
                                         : Tk.Theme.color.controlBorder
         Rectangle {
             anchors.fill: parent
-            anchors.margins: -1
-            radius: parent.radius + 1
+            anchors.margins: -Tk.Theme.size.border
+            radius: parent.radius + Tk.Theme.size.border
             color: Tk.Theme.alpha(Tk.Theme.color.bg, Tk.Theme.opacity.hidden)
             border.width: Tk.Theme.size.focusRing
             border.color: Tk.Theme.color.focus

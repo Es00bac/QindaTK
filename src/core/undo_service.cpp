@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "undo_service.h"
 #include <QThread>
+#include <QUuid>
 #include <limits>
 
 namespace QindaTK {
@@ -120,6 +121,56 @@ QString UndoService::cleanRevision() const
     return state ? QString::number(state->cleanRevision) : QString{};
 }
 
+QVariantList UndoService::historyEntries() const
+{
+    QVariantList result;
+    const auto *state = activeHistory();
+    if (!state) return result;
+    result.reserve(state->steps.size());
+    for (qsizetype i = 0; i < state->steps.size(); ++i) {
+        const auto &step = state->steps[i];
+        result.append(QVariantMap{{QStringLiteral("entryId"), step.id},
+                                  {QStringLiteral("label"), step.label},
+                                  {QStringLiteral("index"), int(i + 1)},
+                                  {QStringLiteral("applied"), i < state->cursor},
+                                  {QStringLiteral("clean"), i + 1 == state->cleanCursor}});
+    }
+    return result;
+}
+
+int UndoService::historyIndex() const
+{
+    const auto *state = activeHistory();
+    return state ? int(state->cursor) : 0;
+}
+
+int UndoService::cleanIndex() const
+{
+    const auto *state = activeHistory();
+    return state ? int(state->cleanCursor) : -1;
+}
+
+bool UndoService::navigateToHistoryIndex(int index)
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    const auto *state = activeHistory();
+    if (!state || !state->macroLabel.isEmpty() || index < 0 || index > state->steps.size())
+        return fail(QStringLiteral("History position unavailable"));
+    while (historyIndex() > index) if (!undo()) return false;
+    while (historyIndex() < index) if (!redo()) return false;
+    return true;
+}
+
+bool UndoService::navigateToHistoryEntry(const QString &entryId)
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    const auto *state = activeHistory();
+    if (!state || entryId.isEmpty()) return fail(QStringLiteral("History entry unavailable"));
+    for (qsizetype i = 0; i < state->steps.size(); ++i)
+        if (state->steps[i].id == entryId) return navigateToHistoryIndex(int(i + 1));
+    return fail(QStringLiteral("History entry unavailable"));
+}
+
 bool UndoService::fail(const QString &message)
 {
     m_lastError = message;
@@ -206,7 +257,8 @@ bool UndoService::record(PropertyDocument *document, const QString &label,
         prior.bytes = cost(prior.changes);
         prior.label = label;
     } else {
-        state->steps.append({label, mergeKey, changes, cost(changes)});
+        state->steps.append({QUuid::createUuid().toString(QUuid::WithoutBraces),
+                             label, mergeKey, changes, cost(changes)});
         ++state->cursor;
     }
     quint64 used = 0;

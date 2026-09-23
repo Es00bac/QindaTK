@@ -62,6 +62,37 @@ state transitions, numerical answers, lifecycle failures and boundary cases.
    regression suite. Broaden testing only for a concrete remaining risk or gate.
 8. Update docs/evidence/status together and move on once verification is adequate.
 
+## Parallel lane and test cadence
+
+Keep one integration branch as the source of truth. Assign each active lane an
+explicit file/API boundary and its own build directory. Use separate worktrees
+for new concurrent lanes so a newly globbed QML file does not reconfigure every
+lane's build; a changed QML-exposed C++ type can also regenerate the whole QML
+cache, so batch those contract edits before the integrated build. Integrate
+complete commits in batches. Lane owners write complete
+files, notify Sol before changing a shared CMake target, test runner, public
+model, or theme role, and report their commit and remaining risks. Sol owns
+shared-file integration, ledger status, the generated catalog, and the main
+branch handoff. Do not merge an unverified partial lane into `main`.
+
+Run checks at the narrowest useful scope, then widen them when the integrated
+source changes or a specific risk calls for it:
+
+| Moment | Checks and owner |
+| --- | --- |
+| During a lane | Owner builds affected targets, runs focused behavior and failure tests, and checks changed QML with qmllint. A visual claim gets compact/comfortable geometry and inspected pixels. Do not rerun the entire repository suite for every edit. |
+| When a lane is ready | Owner sends the commit, focused results, preview evidence, and API/lifecycle risks. Sol reviews the actual source and records the package as `review` until integration evidence passes. |
+| After a coherent integration batch | Sol reconfigures for newly added QML, runs affected C++/QML tests against the shared tree, then one repository regression pass. Reuse existing build directories. If a failure is local, rerun only its failing target while repairing it. |
+| At a phase or support boundary | Sol runs the required supported-Qt, staged-consumer, catalog, visual, performance, and domain gates for the changed contracts. A release claim still needs the full final acceptance gate. |
+
+Record the exact revision and environment for each result. A result can be
+reused while its inputs and contracts remain unchanged; a later edit to a
+shared dependency invalidates its affected checks. Remove completed lane
+worktrees with `git worktree remove` after confirming they are clean, while
+retaining branch refs and preserving active or unrelated worktrees. Build
+outputs can be deleted after their evidence has been captured and no lane uses
+them. This cadence changes *when* checks run, not what must pass for acceptance.
+
 Commands come from the live repository instructions. Read
 `portageq envvar MAKEOPTS` before deriving direct build backend job/load arguments;
 never change the configured value or reduce limits for a worker. Use isolated

@@ -43,7 +43,7 @@ T.CheckBox {
     Tk.ToolTip {
         text: control.tooltip
         visible: control.tooltip.length > 0 && control.hovered
-        delay: 600
+        delay: Tk.Theme.motion.tooltipDelay
     }
 
     background: Item {

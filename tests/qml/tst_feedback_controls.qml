@@ -21,7 +21,22 @@ TestCase {
             property alias entries: entries
             ListModel { id: entries }
             Tk.NotificationCenter { id: center; objectName: "notificationCenter"; notificationModel: entries; anchors.fill: parent }
-            Component.onCompleted: entries.append({ notificationId: "notify-1", severity: "warning", title: "Missing media", message: "Relink the source file.", source: "Import", timestamp: "Now", read: false, actions: [{ id: "media.relink", label: "Relink" }] })
+            Component.onCompleted: entries.append({ notificationId: "notify-1", severity: "warning", title: "Missing media", message: "Relink the source file.", source: "Import", timestamp: "Now", read: false, repeatCount: 1, actions: [{ id: "media.relink", label: "Relink" }] })
+        }
+    }
+    Component {
+        id: queuedToastComponent
+        Item {
+            width: 500
+            height: 300
+            property alias notices: notices
+            property alias toast: toast
+            property alias firstCenter: firstCenter
+            property alias secondCenter: secondCenter
+            Tk.NotificationModel { id: notices }
+            Tk.Toast { id: toast; notificationModel: notices; duration: Tk.Theme.motion.base * 2 }
+            Tk.NotificationCenter { id: firstCenter; notificationModel: notices; width: 240; height: 200 }
+            Tk.NotificationCenter { id: secondCenter; notificationModel: notices; x: 250; width: 240; height: 200 }
         }
     }
     Component {
@@ -90,6 +105,24 @@ TestCase {
         compare(toast.remaining, remaining)
         root.forceActiveFocus()
         tryVerify(function() { return !toast.visible }, Tk.Theme.motion.base * 4)
+    }
+
+    function test_queued_failure_toast_expires_but_stays_in_both_centers() {
+        const fixture = createTemporaryObject(queuedToastComponent, root)
+        verify(fixture)
+        const id = fixture.toast.announce("Render failed", "Codec unavailable", "error", "render")
+        verify(id.length > 0)
+        tryVerify(function() { return fixture.toast.visible })
+        compare(fixture.toast.notificationId, id)
+        compare(fixture.firstCenter.count(), 1)
+        compare(fixture.secondCenter.count(), 1)
+        tryVerify(function() { return !fixture.toast.visible }, Tk.Theme.motion.base * 5)
+        compare(fixture.notices.count, 1)
+        compare(fixture.notices.get(0).notificationId, id)
+        compare(fixture.notices.post("Render failed", "Codec unavailable", "error", "render"), id)
+        compare(fixture.notices.get(0).repeatCount, 2)
+        compare(fixture.firstCenter.count(), 1)
+        compare(fixture.secondCenter.count(), 1)
     }
 
     function test_history_navigates_stable_entries_and_base_state() {

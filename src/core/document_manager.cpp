@@ -58,7 +58,9 @@ DocumentSession *DocumentManager::adopt(std::unique_ptr<PropertyDocument> docume
     };
     session->setRecoveryManager(m_recovery);
     m_sessions.append(session);
-    m_views.insert(QUuid::createUuid().toString(QUuid::WithoutBraces), session->documentId());
+    const QString viewId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_views.insert(viewId, session->documentId());
+    m_viewOrder.append(viewId);
     connect(session, &DocumentSession::changed, this, &DocumentManager::changed);
     activate(session->documentId());
     emit changed();
@@ -159,6 +161,10 @@ QString DocumentManager::duplicateView(const QString &documentId)
     if (!findSession(documentId)) return {};
     const QString viewId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     m_views.insert(viewId, documentId);
+    const QStringList siblings = viewsFor(documentId);
+    const int after = siblings.isEmpty() ? m_viewOrder.size()
+                                         : m_viewOrder.indexOf(siblings.last()) + 1;
+    m_viewOrder.insert(after, viewId);
     emit changed();
     return viewId;
 }
@@ -166,10 +172,33 @@ QString DocumentManager::duplicateView(const QString &documentId)
 QStringList DocumentManager::viewsFor(const QString &documentId) const
 {
     QStringList result;
-    for (auto it = m_views.cbegin(); it != m_views.cend(); ++it)
-        if (it.value() == documentId) result.append(it.key());
-    result.sort();
+    for (const QString &viewId : m_viewOrder)
+        if (m_views.value(viewId) == documentId) result.append(viewId);
     return result;
+}
+
+bool DocumentManager::moveView(const QString &viewId, const QString &beforeViewId)
+{
+    if (!m_views.contains(viewId) || (!beforeViewId.isEmpty() && !m_views.contains(beforeViewId)))
+        return false;
+    if (viewId == beforeViewId) return true;
+    const QStringList prior = m_viewOrder;
+    m_viewOrder.removeAll(viewId);
+    const int target = beforeViewId.isEmpty() ? m_viewOrder.size()
+                                            : m_viewOrder.indexOf(beforeViewId);
+    m_viewOrder.insert(target, viewId);
+    if (m_viewOrder != prior) emit changed();
+    return true;
+}
+
+bool DocumentManager::removeView(const QString &documentId, const QString &viewId)
+{
+    if (!findSession(documentId) || m_views.value(viewId) != documentId
+        || viewsFor(documentId).size() <= 1) return false;
+    m_views.remove(viewId);
+    m_viewOrder.removeAll(viewId);
+    emit changed();
+    return true;
 }
 
 bool DocumentManager::setViewIds(const QString &documentId, const QStringList &viewIds)
@@ -181,10 +210,32 @@ bool DocumentManager::setViewIds(const QString &documentId, const QStringList &v
             || (m_views.contains(id) && m_views.value(id) != documentId)) return false;
         requested.insert(id);
     }
+    int insertAt = m_viewOrder.size();
+    for (int i = 0; i < m_viewOrder.size(); ++i)
+        if (m_views.value(m_viewOrder[i]) == documentId) { insertAt = i; break; }
     for (auto it = m_views.begin(); it != m_views.end();)
         if (it.value() == documentId) it = m_views.erase(it);
         else ++it;
-    for (const QString &id : requested) m_views.insert(id, documentId);
+    for (int i = m_viewOrder.size() - 1; i >= 0; --i)
+        if (!m_views.contains(m_viewOrder[i])) m_viewOrder.removeAt(i);
+    for (const QString &id : viewIds) {
+        m_views.insert(id, documentId);
+        m_viewOrder.insert(insertAt++, id);
+    }
+    emit changed();
+    return true;
+}
+
+bool DocumentManager::setViewOrder(const QStringList &viewIds)
+{
+    if (viewIds.size() != m_views.size()) return false;
+    QSet<QString> unique;
+    for (const QString &id : viewIds) {
+        if (!m_views.contains(id) || unique.contains(id)) return false;
+        unique.insert(id);
+    }
+    if (m_viewOrder == viewIds) return true;
+    m_viewOrder = viewIds;
     emit changed();
     return true;
 }
@@ -196,6 +247,8 @@ bool DocumentManager::remove(DocumentSession *session)
     for (auto it = m_views.begin(); it != m_views.end();)
         if (it.value() == id) it = m_views.erase(it);
         else ++it;
+    for (int i = m_viewOrder.size() - 1; i >= 0; --i)
+        if (!m_views.contains(m_viewOrder[i])) m_viewOrder.removeAt(i);
     if (m_active == session) {
         m_active = m_sessions.isEmpty() ? nullptr : m_sessions.last();
         m_undo->setActiveDocument(m_active ? m_active->document() : nullptr);

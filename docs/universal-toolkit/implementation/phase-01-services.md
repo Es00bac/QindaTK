@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution beginning.** WP-010 through WP-015 and WP-017 are accepted; WP-016 is active. Other
+**Execution underway.** WP-010 through WP-018 are accepted; WP-019 is active. Other
 packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
@@ -142,7 +142,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-016"></a>
 ## WP-016 — Implement clipboard and drag/drop protocols
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-016.md). **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015)
 
 **Proposal scope:** [APP-15 ClipboardService](../proposed/01-application-services.md#app-15), [APP-16 DragDropService](../proposed/01-application-services.md#app-16)
 
@@ -180,7 +180,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-018"></a>
 ## WP-018 — Add native window, file and desktop integration
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-017](phase-01-services.md#wp-017)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-018.md). **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-017](phase-01-services.md#wp-017)
 
 **Proposal scope:** [PLT-01 WindowHost](../proposed/08-platform-integrations.md#plt-01), [PLT-03 FileDialogAdapter](../proposed/08-platform-integrations.md#plt-03), [PLT-05 DesktopIntegration](../proposed/08-platform-integrations.md#plt-05)
 
@@ -199,7 +199,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-019"></a>
 ## WP-019 — Establish format registry and import/export jobs
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-016](phase-01-services.md#wp-016), [WP-018](phase-01-services.md#wp-018)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-016](phase-01-services.md#wp-016), [WP-018](phase-01-services.md#wp-018)
 
 **Proposal scope:** [PLT-17 ImportDialog](../proposed/08-platform-integrations.md#plt-17), [PLT-18 ExportDialog](../proposed/08-platform-integrations.md#plt-18), [PLT-20 FormatRegistry](../proposed/08-platform-integrations.md#plt-20)
 

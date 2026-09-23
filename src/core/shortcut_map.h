@@ -25,6 +25,7 @@ class ShortcutMap : public QObject {
     Q_PROPERTY(QQuickWindow *window READ window WRITE setWindow NOTIFY windowChanged)
     Q_PROPERTY(int chordTimeoutMs READ chordTimeoutMs WRITE setChordTimeoutMs NOTIFY chordTimeoutMsChanged)
     Q_PROPERTY(QString pendingChord READ pendingChord NOTIFY pendingChordChanged)
+    Q_PROPERTY(QVariantList bindings READ bindings NOTIFY changed)
 public:
     explicit ShortcutMap(QObject *parent = nullptr);
     ~ShortcutMap() override;
@@ -49,6 +50,8 @@ public:
     Q_INVOKABLE QString displaySequence(const QString &commandId) const;
     Q_INVOKABLE bool hasBinding(const QString &commandId) const;
     Q_INVOKABLE QVariantList conflicts() const;
+    Q_INVOKABLE QVariantList bindings() const;
+    Q_INVOKABLE QVariantMap validateOverrides(const QVariantMap &values) const;
     Q_INVOKABLE bool dispatchPortable(const QString &portableStroke,
                                       bool textInput = false, bool composing = false);
     Q_INVOKABLE void cancelChord();

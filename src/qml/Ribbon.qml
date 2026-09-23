@@ -52,7 +52,22 @@ Item {
         return true
     }
     function activateItem(groupId, itemId) {
-        itemRequested(currentTabId, String(groupId), String(itemId))
+        const groups = currentTab && currentTab.groups ? currentTab.groups : []
+        for (let g = 0; g < groups.length; ++g) {
+            if (String(groups[g].id) !== String(groupId)) continue
+            const items = groups[g].items || []
+            for (let i = 0; i < items.length; ++i) {
+                const item = items[i]
+                if (String(item.id || item.commandId) !== String(itemId)) continue
+                // AGENT-GUARD: key tips must use the same contextual command
+                // authority as the pointer-activated CommandButton.
+                if (item.commandId && commandRegistry
+                    && !commandRegistry.trigger(String(item.commandId))) return false
+                itemRequested(currentTabId, String(groupId), String(itemId))
+                return true
+            }
+        }
+        return false
     }
     function onKey(event) {
         if (event.key === Qt.Key_Alt) { keyTipsVisible = !keyTipsVisible; return true }
@@ -219,7 +234,7 @@ Item {
                                             small: modelData.size !== "large"
                                             tooltip: modelData.tooltip || modelData.label || ""
                                             Accessible.name: modelData.label || modelData.commandId
-                                            onTriggered: ribbon.activateItem(groupDelegate.modelData.id, modelData.id || modelData.commandId)
+                                            onTriggered: ribbon.itemRequested(ribbon.currentTabId, String(groupDelegate.modelData.id), String(modelData.id || modelData.commandId))
                                         }
                                     }
                                     Component {

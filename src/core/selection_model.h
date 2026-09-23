@@ -31,6 +31,8 @@ public:
     Q_INVOKABLE bool extendTo(const QString &id, const QStringList &orderedVisibleIds);
     Q_INVOKABLE bool clear();
     Q_INVOKABLE bool reconcileLiveIds(const QStringList &allModelIds);
+    // Source-model removal only. Filtered-out IDs remain selected.
+    Q_INVOKABLE bool removeIds(const QStringList &removedIds);
     Q_INVOKABLE bool resetModel(const QStringList &allModelIds,
                                 const QString &resetGeneration);
 

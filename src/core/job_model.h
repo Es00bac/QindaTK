@@ -17,6 +17,9 @@ namespace QindaTK {
 struct JobResult {
     QVariantMap output;
     OperationError error;
+    // A durable, irreversible output has been committed. Cancellation after
+    // this point cannot truthfully label the deliverable as canceled.
+    bool committed = false;
 };
 using JobProgress = std::function<void(double)>;
 using JobWork = std::function<JobResult(const CancellationToken &, const JobProgress &)>;

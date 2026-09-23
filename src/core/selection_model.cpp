@@ -146,6 +146,25 @@ bool SelectionModel::reconcileLiveIds(const QStringList &allModelIds)
     return true;
 }
 
+bool SelectionModel::removeIds(const QStringList &removedIds)
+{
+    if (!onOwnerThread()) return false;
+    const auto removed = parseUniqueIds(removedIds);
+    if (!removed) return false;
+    QSet<QUuid> removedSet;
+    for (const auto &id : *removed) removedSet.insert(id.value);
+    QVector<EntityId> selection;
+    selection.reserve(m_selection.size());
+    for (const auto &id : m_selection)
+        if (!removedSet.contains(id.value)) selection.push_back(id);
+    const EntityId current = m_current.isValid() && !removedSet.contains(m_current.value)
+        ? m_current : EntityId{};
+    const EntityId anchor = m_anchor.isValid() && !removedSet.contains(m_anchor.value)
+        ? m_anchor : EntityId{};
+    publishModelChange(selection, current, anchor, m_generation, false);
+    return true;
+}
+
 bool SelectionModel::resetModel(const QStringList &allModelIds,
                                 const QString &generationText)
 {

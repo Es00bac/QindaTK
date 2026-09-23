@@ -72,18 +72,23 @@ Tk.Box {
                 required property string timestamp
                 required property bool read
                 required property var actions
+                required property var model
+                readonly property int repeatCount: model.repeatCount === undefined ? 1 : Number(model.repeatCount)
                 objectName: "notification_" + notificationId
                 width: notificationList.width
                 visible: control.showRead || !read
                 implicitHeight: visible ? notice.implicitHeight : 0
                 Accessible.role: Accessible.ListItem
                 Accessible.name: (read ? qsTr("Read") : qsTr("Unread")) + ", " + title + ". " + message
+                                 + (repeatCount > 1 ? qsTr(" Repeated %1 times.").arg(repeatCount) : "")
 
                 Tk.Notice {
                     id: notice
                     objectName: "notificationNotice_" + notificationRow.notificationId
                     anchors.fill: parent
-                    title: notificationRow.title
+                    title: notificationRow.repeatCount > 1
+                           ? qsTr("%1 (%2)").arg(notificationRow.title).arg(notificationRow.repeatCount)
+                           : notificationRow.title
                     text: notificationRow.message
                     variant: notificationRow.severity === "error" ? "danger" : notificationRow.severity
                     dismissible: true

@@ -331,6 +331,35 @@ private slots:
         QCOMPARE(manager.findSession(id), session);
         QVERIFY(manager.viewsFor(id).contains(view));
         QVERIFY(session->isDirty());
+        QVERIFY(manager.removeView(id, view));
+        QCOMPARE(manager.viewsFor(id).size(), 1);
+        QVERIFY(!manager.removeView(id, manager.viewsFor(id).first()));
+        QVERIFY(session->isDirty());
+    }
+
+    void viewOrderUsesStableIdsAndSurvivesReorderAndRemoval()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        DocumentManager manager;
+        manager.recoveryManager()->setDirectory(temp.path());
+        auto *first = manager.createReferenceDocument();
+        auto *second = manager.createReferenceDocument();
+        QVERIFY(first && second);
+        const QString firstView = manager.viewsFor(first->documentId()).first();
+        const QString secondView = manager.viewsFor(second->documentId()).first();
+        const QString duplicate = manager.duplicateView(first->documentId());
+        QCOMPARE(manager.orderedViewIds(), (QStringList{firstView, duplicate, secondView}));
+        QVERIFY(manager.moveView(secondView, firstView));
+        QCOMPARE(manager.orderedViewIds(), (QStringList{secondView, firstView, duplicate}));
+        QVERIFY(manager.moveView(duplicate));
+        QCOMPARE(manager.orderedViewIds(), (QStringList{secondView, firstView, duplicate}));
+        QVERIFY(!manager.moveView(QStringLiteral("missing"), firstView));
+        QVERIFY(!manager.setViewOrder(QStringList{firstView, firstView, duplicate}));
+        QVERIFY(manager.removeView(first->documentId(), duplicate));
+        QCOMPARE(manager.orderedViewIds(), (QStringList{secondView, firstView}));
+        QVERIFY(manager.closeDocument(first->documentId(), DocumentManager::ClosePolicy::Discard));
+        QCOMPARE(manager.orderedViewIds(), QStringList{secondView});
     }
 
     void recoveryUsesLastValidRevisionAfterTruncatedTailAndReopens()

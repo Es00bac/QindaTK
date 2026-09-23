@@ -14,6 +14,8 @@ FocusScope {
     property string variant: "info"
     property string actionText: ""
     property string actionId: ""
+    property string notificationId: ""
+    property Tk.NotificationModel notificationModel: null
     property int duration: Tk.Theme.motion.toastTimeout
     property int remaining: duration
     property bool paused: pointer.hovered || activeFocus
@@ -21,6 +23,7 @@ FocusScope {
     signal dismissed()
     signal actionRequested(string actionId)
 
+    visible: false
     implicitWidth: notice.implicitWidth
     implicitHeight: notice.implicitHeight
     Accessible.role: Accessible.AlertMessage
@@ -29,6 +32,25 @@ FocusScope {
     function show() {
         remaining = duration
         visible = true
+    }
+    function announce(titleText, messageText, severity, source, actions) {
+        if (!notificationModel) return ""
+        return notificationModel.post(titleText, messageText, severity || "info",
+                                      source || "", actions || [])
+    }
+    function presentNext() {
+        if (visible || !notificationModel) return false
+        const next = notificationModel.takeNextToast()
+        if (!next || !next.notificationId) return false
+        notificationId = next.notificationId
+        title = next.title || ""
+        message = next.message || ""
+        variant = next.severity === "error" ? "danger" : next.severity
+        const action = next.actions && next.actions.length > 0 ? next.actions[0] : null
+        actionId = action ? String(action.id || "") : ""
+        actionText = action ? String(action.label || "") : ""
+        show()
+        return true
     }
     function dismiss() {
         if (!visible) return
@@ -40,6 +62,13 @@ FocusScope {
         if (actionText.length === 0) return
         actionRequested(actionId)
         dismiss()
+    }
+    onDismissed: Qt.callLater(function() { control.presentNext() })
+    onNotificationModelChanged: Qt.callLater(function() { control.presentNext() })
+    Component.onCompleted: Qt.callLater(function() { control.presentNext() })
+    Connections {
+        target: control.notificationModel
+        function onPosted() { control.presentNext() }
     }
 
     HoverHandler { id: pointer }

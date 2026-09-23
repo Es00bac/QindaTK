@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: WP-001 through WP-007, WP-010 through WP-015, and WP-017 accepted; WP-016 and WP-046 active.** Sol updates this ledger during
+**Execution state: WP-001 through WP-007, WP-010 through WP-018, and WP-046 accepted; WP-019 through WP-027 and WP-047 in review or active work.** Sol updates this ledger during
 execution. Use `planned`, `ready`, `active`, `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
 record. Keep unrelated ready work moving. A row reaches `accepted` only through
@@ -28,21 +28,21 @@ as though a later fix had already passed the earlier run.
 | [WP-013 — Implement document sessions, persistence and crash recovery](phase-01-services.md#wp-013) | 01 | Sol | accepted | [Dual-Qt persistence/recovery, fault matrix, visual fixture and installed consumer](evidence/WP-013.md) |
 | [WP-014 — Persist settings and workspace state](phase-01-services.md#wp-014) | 01 | Sol | accepted | [Dual-Qt settings/workspace, monitor recovery, dock restore and installed consumer](evidence/WP-014.md) |
 | [WP-015 — Implement asynchronous jobs and asset services](phase-01-services.md#wp-015) | 01 | Sol | accepted | [Dual-Qt jobs/assets, undoable relinks, installed consumer and preview](evidence/WP-015.md) |
-| [WP-016 — Implement clipboard and drag/drop protocols](phase-01-services.md#wp-016) | 01 | Sol | active | — |
+| [WP-016 — Implement clipboard and drag/drop protocols](phase-01-services.md#wp-016) | 01 | Sol | accepted | [Dual-Qt transfer workflow, installed consumer and limits](evidence/WP-016.md) |
 | [WP-017 — Provide accessibility, locale and gesture services](phase-01-services.md#wp-017) | 01 | Sol | accepted | [Qt 6.11/6.8, external AT-SPI action, RTL preview and installed consumer](evidence/WP-017.md) |
-| [WP-018 — Add native window, file and desktop integration](phase-01-services.md#wp-018) | 01 | Sol | planned | — |
-| [WP-019 — Establish format registry and import/export jobs](phase-01-services.md#wp-019) | 01 | Sol | planned | — |
-| [WP-020 — Build command controls and adaptive toolbars](phase-02-controls-data.md#wp-020) | 02 | Luna | planned | — |
-| [WP-021 — Build document and application navigation](phase-02-controls-data.md#wp-021) | 02 | Luna | planned | — |
-| [WP-022 — Build reusable typed inspectors](phase-02-controls-data.md#wp-022) | 02 | Luna | planned | — |
-| [WP-023 — Add expression, path and token editors](phase-02-controls-data.md#wp-023) | 02 | Sol | planned | — |
-| [WP-024 — Add typography and calendar value pickers](phase-02-controls-data.md#wp-024) | 02 | Luna | planned | — |
-| [WP-025 — Add preferences, shortcut editing and find/replace](phase-02-controls-data.md#wp-025) | 02 | Luna | planned | — |
-| [WP-026 — Add history, notifications and task feedback](phase-02-controls-data.md#wp-026) | 02 | Luna | planned | — |
-| [WP-027 — Implement virtual lists, trees and asset grids](phase-02-controls-data.md#wp-027) | 02 | Sol | planned | — |
-| [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | planned | — |
+| [WP-018 — Add native window, file and desktop integration](phase-01-services.md#wp-018) | 01 | Sol | accepted | [Dual-Qt native-window tests and installed base/optional consumers](evidence/WP-018.md) |
+| [WP-019 — Establish format registry and import/export jobs](phase-01-services.md#wp-019) | 01 | Sol | review | [Implementation and integrated checks](evidence/WP-019.md) |
+| [WP-020 — Build command controls and adaptive toolbars](phase-02-controls-data.md#wp-020) | 02 | Luna | review | [Implementation and integrated checks](evidence/WP-020.md) |
+| [WP-021 — Build document and application navigation](phase-02-controls-data.md#wp-021) | 02 | Luna | review | [Focused navigation checks](evidence/WP-021.md) |
+| [WP-022 — Build reusable typed inspectors](phase-02-controls-data.md#wp-022) | 02 | Luna | review | [Implementation and integrated checks](evidence/WP-022.md) |
+| [WP-023 — Add expression, path and token editors](phase-02-controls-data.md#wp-023) | 02 | Sol | review | [Focused editor and provider checks](evidence/WP-023.md) |
+| [WP-024 — Add typography and calendar value pickers](phase-02-controls-data.md#wp-024) | 02 | Luna | review | [Provider and editor checks; mixed/reset followup active](evidence/WP-024.md) |
+| [WP-025 — Add preferences, shortcut editing and find/replace](phase-02-controls-data.md#wp-025) | 02 | Luna | review | [Focused persistence, search and undo checks](evidence/WP-025.md) |
+| [WP-026 — Add history, notifications and task feedback](phase-02-controls-data.md#wp-026) | 02 | Luna | review | [Focused feedback checks](evidence/WP-026.md) |
+| [WP-027 — Implement virtual lists, trees and asset grids](phase-02-controls-data.md#wp-027) | 02 | Luna | review | [100k-model, lazy tree and bounded-delegate checks](evidence/WP-027.md) |
+| [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | active | [C++ grid foundation in isolated lane](evidence/WP-028.md) |
 | [WP-029 — Implement filters, query building and pivots](phase-02-controls-data.md#wp-029) | 02 | Sol | planned | — |
-| [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | planned | — |
+| [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | active | [C++ chart foundation in isolated lane](evidence/WP-030.md) |
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | planned | — |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | planned | — |
 | [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | planned | — |
@@ -52,8 +52,8 @@ as though a later fix had already passed the earlier run.
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | planned | — |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | planned | — |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | planned | — |
-| [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | active | — |
-| [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | planned | — |
+| [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
+| [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | review | [Clock and transport-bar checks](evidence/WP-047.md) |
 | [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | planned | — |
 | [WP-049 — Implement tempo and automation editing](phase-03-authoring.md#wp-049) | 03 | Sol | planned | — |
 | [WP-050 — Implement rich text and paginated document editing](phase-04-office.md#wp-050) | 04 | Sol | planned | — |

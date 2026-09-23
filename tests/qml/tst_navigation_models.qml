@@ -42,6 +42,25 @@ TestCase {
         }
     }
     Component {
+        id: commandRibbonComponent
+        Item {
+            property var serviceFixture: preferencesFixtures.create()
+            property alias ribbon: ribbon
+            property var registry: serviceFixture ? serviceFixture.commandRegistry : null
+            Tk.Ribbon {
+                id: ribbon
+                width: 240
+                commandRegistry: parent.registry
+                tabs: [{ id: "file", label: "File", groups: [
+                    { id: "actions", label: "Actions", items: [
+                        { id: "save", label: "Save", commandId: "file.save", keyTip: "S" },
+                        { id: "missing", label: "Unavailable", commandId: "file.missing", keyTip: "U" }
+                    ] }
+                ] }]
+            }
+        }
+    }
+    Component {
         id: breadcrumbComponent
         Tk.BreadcrumbBar {
             width: 150
@@ -90,6 +109,31 @@ TestCase {
         ribbon.forceActiveFocus()
         keyClick(Qt.Key_Left)
         compare(ribbon.currentTabId, "home")
+    }
+
+    function test_ribbon_key_tips_use_registry_command_authority() {
+        const fixture = createTemporaryObject(commandRibbonComponent, root)
+        verify(fixture && fixture.serviceFixture.ready)
+        const ribbon = fixture.ribbon
+        const invoked = createTemporaryObject(spyComponent, root,
+            { target: fixture.registry, signalName: "invoked" })
+        const requested = createTemporaryObject(spyComponent, root,
+            { target: ribbon, signalName: "itemRequested" })
+        ribbon.keyTipsVisible = true
+        verify(ribbon.onKey({ key: Qt.Key_S, text: "S" }))
+        compare(invoked.count, 1)
+        compare(requested.count, 1)
+        const save = findChild(ribbon, "ribbonItem_save")
+        verify(save)
+        const button = findChild(save, "commandButtonAction")
+        verify(button && button.enabled)
+        button.click()
+        compare(invoked.count, 2)
+        compare(requested.count, 2)
+        ribbon.keyTipsVisible = true
+        verify(ribbon.onKey({ key: Qt.Key_U, text: "U" }))
+        compare(invoked.count, 2)
+        compare(requested.count, 2)
     }
 
     function test_navigation_rail_hidden_routes_compact_and_keyboard() {

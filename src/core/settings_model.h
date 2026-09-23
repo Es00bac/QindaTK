@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QMetaType>
 #include <QVariantMap>
+#include <QVariantList>
 #include <QtQml/qqmlregistration.h>
 #include <functional>
 
@@ -20,6 +21,9 @@ struct SettingDescriptor final {
     QVariant defaultValue;
     bool restartRequired = false;
     std::function<OperationError(const QVariant &)> validate;
+    QString label;
+    QString category;
+    QString description;
 };
 
 // In-memory typed descriptor and staging layer. Persistence and schema
@@ -33,6 +37,7 @@ class SettingsModel : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap values READ exportValues NOTIFY valuesChanged)
     Q_PROPERTY(QVariantMap orphanedValues READ orphanedValues NOTIFY valuesChanged)
+    Q_PROPERTY(QVariantList settings READ settings NOTIFY stateChanged)
 
 public:
     explicit SettingsModel(QObject *parent = nullptr);
@@ -43,6 +48,7 @@ public:
     [[nodiscard]] QString error() const { return m_error.message; }
     [[nodiscard]] QVariantMap exportValues() const;
     [[nodiscard]] QVariantMap orphanedValues() const { return m_orphaned; }
+    [[nodiscard]] QVariantList settings() const;
     [[nodiscard]] QVariant value(const QString &key, SettingScope scope = SettingScope::App,
                                  const QString &instanceId = {}) const;
     [[nodiscard]] QVariant stagedValue(const QString &key, SettingScope scope = SettingScope::App,

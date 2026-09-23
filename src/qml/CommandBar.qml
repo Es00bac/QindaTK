@@ -105,8 +105,9 @@ Item {
                         enabled: binding !== null && binding.writable
                         onValueModified: function(v) {
                             if (!binding) return
-                            if (!binding.editing) binding.begin()
-                            if (binding.update(v) && !pressed) binding.commit()
+                            if (!binding.editing && !binding.begin()) return
+                            if (!binding.update(v)) { binding.cancel(); return }
+                            if (!pressed) binding.commit()
                         }
                         onPressedChanged: {
                             if (!binding) return

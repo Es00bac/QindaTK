@@ -3,22 +3,25 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// Axes and features are supplied by the shaping/provider layer. Unsupported
-// metadata remains visible and disabled instead of being guessed.
+// FontCatalog supplies face-level OpenType metadata; a host binding supplies
+// editable formatting state. Glyph/script shaping support is not inferred.
 T.Control {
     id: rootItem
     property var fontMetadata: null
+    property var fontProvider: null
     property var axisBindings: ({})
     property var featureBindings: ({})
     property string fontFamily: ""
     property string fontStyle: ""
     property string tooltip: ""
     hoverEnabled: true
-    readonly property bool metadataAvailable: !!fontMetadata && fontMetadata.available === true
-    readonly property bool axisMetadataAvailable: metadataAvailable && fontMetadata.axisMetadataAvailable === true
-    readonly property bool featureMetadataAvailable: metadataAvailable && fontMetadata.featureMetadataAvailable === true
-    readonly property var axes: axisMetadataAvailable && fontMetadata.axes ? fontMetadata.axes : []
-    readonly property var features: featureMetadataAvailable && fontMetadata.features ? fontMetadata.features : []
+    readonly property var effectiveFontMetadata: fontMetadata || (fontProvider && fontProvider.families && fontProvider.faceMetadata
+        ? fontProvider.faceMetadata(fontFamily, fontStyle) : null)
+    readonly property bool metadataAvailable: !!effectiveFontMetadata && effectiveFontMetadata.available === true
+    readonly property bool axisMetadataAvailable: metadataAvailable && effectiveFontMetadata.axisMetadataAvailable === true
+    readonly property bool featureMetadataAvailable: metadataAvailable && effectiveFontMetadata.featureMetadataAvailable === true
+    readonly property var axes: axisMetadataAvailable && effectiveFontMetadata.axes ? effectiveFontMetadata.axes : []
+    readonly property var features: featureMetadataAvailable && effectiveFontMetadata.features ? effectiveFontMetadata.features : []
 
     implicitWidth: column.implicitWidth
     implicitHeight: column.implicitHeight
@@ -50,19 +53,31 @@ T.Control {
         Repeater {
             model: rootItem.axes
             delegate: Tk.PropertyRow {
+                id: axisRow
                 required property var modelData
+                readonly property var axisBinding: rootItem.bindingFor(modelData, rootItem.axisBindings)
                 objectName: "fontAxis_" + (modelData.tag || index)
                 label: modelData.name || modelData.tag || qsTr("Axis")
-                hint: modelData.supported === false ? qsTr("Unsupported by selected font") : (modelData.tag || "")
+                hint: modelData.supported === false ? qsTr("Unsupported by selected font") : ""
                 Tk.UnitField {
+                    anchors.fill: parent
+                    visible: !!axisRow.axisBinding
                     enabled: modelData.supported !== false
-                    binding: rootItem.bindingFor(modelData, rootItem.axisBindings)
+                    binding: axisRow.axisBinding
                     label: modelData.tag || modelData.name || ""
                     tooltip: (modelData.name || modelData.tag || qsTr("Font axis")) + (modelData.tag ? " · " + modelData.tag : "")
                     from: modelData.minimum === undefined ? -1e6 : Number(modelData.minimum)
                     to: modelData.maximum === undefined ? 1e6 : Number(modelData.maximum)
                     precision: modelData.precision === undefined ? 2 : Number(modelData.precision)
                     stepSize: modelData.step === undefined ? 1 : Number(modelData.step)
+                }
+                Tk.Caption {
+                    anchors.fill: parent
+                    visible: !axisRow.axisBinding
+                    text: qsTr("Default %1 · range %2–%3")
+                        .arg(Number(modelData.default)).arg(Number(modelData.minimum))
+                        .arg(Number(modelData.maximum))
+                    color: Tk.Theme.color.textMuted
                 }
             }
         }
@@ -82,14 +97,15 @@ T.Control {
                     text: featureRow.modelData.name || featureRow.modelData.tag || qsTr("OpenType feature")
                     tooltip: (featureRow.modelData.tag || "")
                         + (featureRow.modelData.supported === false ? " · " + qsTr("Unsupported by selected font") : "")
+                        + (!featureRow.featureBinding ? " · " + qsTr("Current setting unavailable without a formatting target") : "")
                         + (featureRow.featureBinding && featureRow.featureBinding.mixed ? " · " + qsTr("Mixed values") : "")
                     enabled: rootItem.metadataAvailable && featureRow.modelData.supported !== false
                              && featureRow.featureBinding && featureRow.featureBinding.writable
-                    tristate: featureRow.featureBinding !== null && featureRow.featureBinding.mixed
+                    tristate: !featureRow.featureBinding || featureRow.featureBinding.mixed
                     checkState: featureRow.featureBinding
                         ? featureRow.featureBinding.mixed ? Qt.PartiallyChecked
                           : Boolean(featureRow.featureBinding.value) ? Qt.Checked : Qt.Unchecked
-                        : Boolean(featureRow.modelData.value) ? Qt.Checked : Qt.Unchecked
+                        : Qt.PartiallyChecked
                     Accessible.description: tooltip
                     onClicked: rootItem.updateBinding(featureRow.featureBinding, checkState === Qt.Checked)
                 }

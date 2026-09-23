@@ -64,6 +64,15 @@ Tk.Dialog {
     }
     function jobState() { return formatRegistry && jobId ? formatRegistry.jobs.job(jobId) : ({}) }
     function cancelJob() { if (busy && formatRegistry && jobId) formatRegistry.jobs.cancelJob(jobId) }
+    onAboutToHide: {
+        // AGENT-GUARD: a dismissed dialog must never adopt a late import result.
+        // Clear identity even after accept so an unrelated job update cannot
+        // adopt the same completed import twice.
+        if (busy) cancelJob()
+        jobId = ""
+        requestId = ""
+        busy = false
+    }
     onFormatIdChanged: { allowLossy = false; refreshPlan() }
     onSourceUrlChanged: refreshPlan()
     onAllowLossyChanged: refreshPlan()
@@ -198,6 +207,7 @@ Tk.Dialog {
             control.busy = false
             if (state.state === "succeeded") {
                 const session = control.formatRegistry.adoptImport(control.documentManager, control.jobId)
+                control.jobId = ""
                 if (session) { control.statusText = qsTr("Import complete."); control.importAdopted(session); control.accept() }
                 else { control.statusText = control.formatRegistry.lastError; control.operationFailed(control.statusText) }
             } else {

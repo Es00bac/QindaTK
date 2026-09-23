@@ -2,6 +2,7 @@
 #include "time_map.h"
 
 #include <QtTest/QtTest>
+#include <QJsonDocument>
 #include <limits>
 
 using namespace QindaTK;
@@ -13,6 +14,7 @@ private slots:
     void tempoSegmentsAndNegativeTime();
     void timecodeBoundary();
     void precisionSafeFacade();
+    void serializedCrossDomainPositions();
     void validationAndOverflow();
 };
 
@@ -124,6 +126,28 @@ void TimeMapTest::precisionSafeFacade() {
     QVERIFY(map.sampleToTick(QString::number(std::numeric_limits<qint64>::max())).value("ok").toBool());
 }
 
+void TimeMapTest::serializedCrossDomainPositions() {
+    TimeMap source;
+    const QString frame = QStringLiteral("5000000000000000");
+    const QString sample = source.frameToSample(frame).value("value").toString();
+    const QString tick = source.sampleToTick(sample).value("value").toString();
+    QVERIFY(!tick.isEmpty());
+    const QVariantMap persisted{{QStringLiteral("frame"), frame},
+                                {QStringLiteral("sample"), sample},
+                                {QStringLiteral("tick"), tick},
+                                {QStringLiteral("segments"), source.tempoSegments()}};
+    const QJsonDocument bytes = QJsonDocument::fromVariant(persisted);
+    const QVariantMap reopened = QJsonDocument::fromJson(bytes.toJson()).toVariant().toMap();
+    QCOMPARE(reopened.value("frame").toString(), frame);
+    QCOMPARE(reopened.value("sample").toString(), sample);
+    QCOMPARE(reopened.value("tick").toString(), tick);
+    TimeMap restored;
+    restored.setTempoSegments(reopened.value("segments").toList());
+    QCOMPARE(restored.frameToSample(frame).value("value").toString(), sample);
+    QCOMPARE(restored.sampleToTick(sample).value("value").toString(), tick);
+    QCOMPARE(restored.tickToSample(tick).value("value").toString(), sample);
+}
+
 void TimeMapTest::validationAndOverflow() {
     TimeMap map;
     QVERIFY(!map.frameToSample(QStringLiteral("1e9")).value("ok").toBool());
@@ -135,6 +159,10 @@ void TimeMapTest::validationAndOverflow() {
     map.setSampleRate(0);
     QCOMPARE(map.sampleRate(), 48000);
     const auto old = map.tempoSegments();
+    map.setTempoSegments({QVariantMap{{"tick", 9007199254740992.0},
+                                      {"microsecondsPerQuarter", "500000"},
+                                      {"numerator", 4}, {"denominator", 4}}});
+    QCOMPARE(map.tempoSegments(), old);
     map.setTempoSegments({QVariantMap{{"tick", "1"}, {"microsecondsPerQuarter", "500000"},
                                       {"numerator", 4}, {"denominator", 4}}});
     QCOMPARE(map.tempoSegments(), old);

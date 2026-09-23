@@ -25,6 +25,31 @@ private:
     }
 
 private slots:
+    void exposesTypedSchemaAndStagedValuesForPreferences()
+    {
+        SettingsModel model;
+        auto descriptor = intSetting(QStringLiteral("audio.buffer"), 256,
+                                     SettingScope::App, true);
+        descriptor.label = QStringLiteral("Buffer size");
+        descriptor.category = QStringLiteral("Audio");
+        descriptor.description = QStringLiteral("Audio callback buffer in frames");
+        QVERIFY(model.registerSetting(descriptor));
+        auto row = model.settings().first().toMap();
+        QCOMPARE(row.value(QStringLiteral("scopedKey")).toString(), QStringLiteral("app:audio.buffer"));
+        QCOMPARE(row.value(QStringLiteral("valueType")).toString(), QStringLiteral("int"));
+        QCOMPARE(row.value(QStringLiteral("category")).toString(), QStringLiteral("Audio"));
+        QCOMPARE(row.value(QStringLiteral("label")).toString(), QStringLiteral("Buffer size"));
+        QCOMPARE(row.value(QStringLiteral("currentValue")).toInt(), 256);
+        QVERIFY(row.value(QStringLiteral("restartRequired")).toBool());
+        QVERIFY(model.beginStage());
+        QVERIFY(model.setValue(QStringLiteral("app:audio.buffer"), 512));
+        row = model.settings().first().toMap();
+        QCOMPARE(row.value(QStringLiteral("currentValue")).toInt(), 256);
+        QCOMPARE(row.value(QStringLiteral("stagedValue")).toInt(), 512);
+        model.cancel();
+        QCOMPARE(model.settings().first().toMap().value(QStringLiteral("stagedValue")).toInt(), 256);
+    }
+
     void stagedValuesApplyOrCancel()
     {
         SettingsModel model;

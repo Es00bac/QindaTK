@@ -96,6 +96,23 @@ private slots:
         QVERIFY(host.closeWindow(id, true));
         QVERIFY(!host.window(id));
     }
+    void destroyedExternalWindowReleasesItsView()
+    {
+        DocumentManager documents;
+        auto *session = documents.createReferenceDocument();
+        const QString documentId = session->documentId();
+        auto *external = new QQuickWindow;
+        WindowHost host;
+        host.setDocumentManager(&documents);
+        const QString first = host.registerWindow(external, documentId);
+        const QString second = host.createWindow(documentId);
+        QVERIFY(!first.isEmpty() && !second.isEmpty());
+        QCOMPARE(documents.viewsFor(documentId).size(), 2);
+        delete external;
+        QCOMPARE(host.windows().size(), 1);
+        QCOMPARE(documents.viewsFor(documentId).size(), 1);
+        QVERIFY(host.closeWindow(second, true));
+    }
     void screenGeometryAndUnavailableScreen()
     {
         WindowHost host;

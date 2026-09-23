@@ -154,6 +154,167 @@ QVariantMap LocaleService::parseDateTime(const QString &text, const QString &for
     return success(inZone);
 }
 
+QVariantMap LocaleService::classifyLocalDateTime(const QString &text,
+                                                  const QString &format) const
+{
+    if (format.isEmpty())
+        return {{QStringLiteral("status"), QStringLiteral("invalid")},
+                {QStringLiteral("error"), QStringLiteral("A date/time format is required")}};
+    const QCalendar calendar(m_calendarId);
+    // Locale's default local-zone parser normalizes DST gaps before we can
+    // inspect the requested wall time. Parse the fields under UTC first, then
+    // resolve those unchanged fields in the configured target zone.
+    const QDateTime parsed = m_locale.toDateTime(mapDigitsToLatin(text) + QStringLiteral(" UTC"),
+                                                 format + QStringLiteral(" t"), calendar);
+    if (!parsed.isValid())
+        return {{QStringLiteral("status"), QStringLiteral("invalid")},
+                {QStringLiteral("error"), QStringLiteral("Invalid local date/time")}};
+    const QDate date = parsed.date();
+    const QTime time = parsed.time();
+    const auto strict = QDateTime(date, time, m_timeZone,
+                                  QDateTime::TransitionResolution::Reject);
+    if (strict.isValid())
+        return {{QStringLiteral("status"), QStringLiteral("valid")},
+                {QStringLiteral("candidates"), QVariantList{
+                    strict.toUTC().toString(Qt::ISODateWithMs)}},
+                {QStringLiteral("error"), QString{}}};
+    const auto before = QDateTime(date, time, m_timeZone,
+                                  QDateTime::TransitionResolution::PreferBefore);
+    const auto after = QDateTime(date, time, m_timeZone,
+                                 QDateTime::TransitionResolution::PreferAfter);
+    const auto sameWallTime = [&](const QDateTime &candidate) {
+        return candidate.isValid() && candidate.date() == date && candidate.time() == time;
+    };
+    if (!sameWallTime(before) || !sameWallTime(after)
+        || before.toMSecsSinceEpoch() == after.toMSecsSinceEpoch())
+        return {{QStringLiteral("status"), QStringLiteral("nonexistent")},
+                {QStringLiteral("candidates"), QVariantList{}},
+                {QStringLiteral("error"), QStringLiteral("Local time does not exist in selected zone")}};
+    QVariantList candidates;
+    const auto append = [&](const QDateTime &candidate) {
+        if (!sameWallTime(candidate)) return;
+        const QString utc = candidate.toUTC().toString(Qt::ISODateWithMs);
+        if (!candidates.contains(utc)) candidates.append(utc);
+    };
+    append(before);
+    append(after);
+    std::sort(candidates.begin(), candidates.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toString() < b.toString();
+    });
+    return {{QStringLiteral("status"), QStringLiteral("ambiguous")},
+            {QStringLiteral("candidates"), candidates},
+            {QStringLiteral("error"), QString{}}};
+}
+
+QString LocaleService::formatDate(const QString &dateIso, const QString &format) const
+{
+    const QDate date = QDate::fromString(dateIso, Qt::ISODate);
+    if (!date.isValid()) return {};
+    const QString pattern = format.isEmpty() ? QStringLiteral("yyyy-MM-dd") : format;
+    const QString text = m_locale.toString(date, QStringView(pattern), QCalendar(m_calendarId));
+    return m_numberingSystem == QStringLiteral("latn") ? mapDigitsToLatin(text)
+                                                        : mapDigitsToLocale(text);
+}
+
+QVariantMap LocaleService::parseDate(const QString &text, const QString &format) const
+{
+    if (format.isEmpty()) return failure(QStringLiteral("A date format is required"));
+    const QDate date = m_locale.toDate(mapDigitsToLatin(text), format, QCalendar(m_calendarId));
+    if (!date.isValid()) return failure(QStringLiteral("Invalid date"));
+    return success(date.toString(Qt::ISODate));
+}
+
+QVariantMap LocaleService::monthGrid(int year, int month, const QString &minDateIso,
+                                     const QString &maxDateIso) const
+{
+    const QCalendar calendar(m_calendarId);
+    const QDate first = calendar.dateFromParts(year, month, 1);
+    const QDate minimum = minDateIso.isEmpty() ? QDate{} : QDate::fromString(minDateIso, Qt::ISODate);
+    const QDate maximum = maxDateIso.isEmpty() ? QDate{} : QDate::fromString(maxDateIso, Qt::ISODate);
+    if (!first.isValid() || (!minDateIso.isEmpty() && !minimum.isValid())
+        || (!maxDateIso.isEmpty() && !maximum.isValid())
+        || (minimum.isValid() && maximum.isValid() && minimum > maximum))
+        return {{QStringLiteral("ok"), false},
+                {QStringLiteral("error"), QStringLiteral("Invalid calendar month or date bounds")}};
+    const int startDay = int(m_locale.firstDayOfWeek());
+    const int offset = (calendar.dayOfWeek(first) - startDay + 7) % 7;
+    const QDate gridStart = first.addDays(-offset);
+    QVariantList weekdays;
+    QVariantList cells;
+    for (int index = 0; index < 7; ++index)
+        weekdays.append(calendar.standaloneWeekDayName(m_locale, (startDay + index - 1) % 7 + 1,
+                                                       QLocale::ShortFormat));
+    for (int index = 0; index < 42; ++index) {
+        const QDate date = gridStart.addDays(index);
+        const auto parts = calendar.partsFromDate(date);
+        const bool enabled = (!minimum.isValid() || date >= minimum)
+            && (!maximum.isValid() || date <= maximum);
+        cells.append(QVariantMap{{QStringLiteral("date"), date.toString(Qt::ISODate)},
+                                 {QStringLiteral("day"), parts.day},
+                                 {QStringLiteral("label"), mapDigitsToLocale(m_locale.toString(parts.day))},
+                                 {QStringLiteral("inMonth"), parts.year == year && parts.month == month},
+                                 {QStringLiteral("enabled"), enabled},
+                                 {QStringLiteral("today"), date == QDate::currentDate()}});
+    }
+    return {{QStringLiteral("ok"), true},
+            {QStringLiteral("year"), year}, {QStringLiteral("month"), month},
+            {QStringLiteral("monthLabel"),
+                calendar.standaloneMonthName(m_locale, month, year) + QLatin1Char(' ')
+                    + mapDigitsToLocale(m_locale.toString(year))},
+            {QStringLiteral("firstDayOfWeek"), startDay},
+            {QStringLiteral("weekdayLabels"), weekdays},
+            {QStringLiteral("cells"), cells}};
+}
+
+QVariantMap LocaleService::shiftMonth(int year, int month, int delta) const
+{
+    const QCalendar calendar(m_calendarId);
+    if (!calendar.isDateValid(year, month, 1) || delta < -1200 || delta > 1200)
+        return {{QStringLiteral("ok"), false},
+                {QStringLiteral("error"), QStringLiteral("Invalid calendar month or shift")}};
+    while (delta > 0) {
+        if (month < calendar.monthsInYear(year)) ++month;
+        else {
+            ++year;
+            if (year == 0 && !calendar.hasYearZero()) ++year;
+            month = 1;
+        }
+        --delta;
+    }
+    while (delta < 0) {
+        if (month > 1) --month;
+        else {
+            --year;
+            if (year == 0 && !calendar.hasYearZero()) --year;
+            month = calendar.monthsInYear(year);
+        }
+        ++delta;
+    }
+    if (!calendar.isDateValid(year, month, 1))
+        return {{QStringLiteral("ok"), false},
+                {QStringLiteral("error"), QStringLiteral("Calendar month is outside supported range")}};
+    return {{QStringLiteral("ok"), true},
+            {QStringLiteral("year"), year}, {QStringLiteral("month"), month}};
+}
+
+QVariantMap LocaleService::calendarFields(const QString &dateIso) const
+{
+    const QDate date = QDate::fromString(dateIso, Qt::ISODate);
+    if (!date.isValid())
+        return {{QStringLiteral("ok"), false},
+                {QStringLiteral("error"), QStringLiteral("Invalid date")}};
+    const auto parts = QCalendar(m_calendarId).partsFromDate(date);
+    return {{QStringLiteral("ok"), true},
+            {QStringLiteral("year"), parts.year},
+            {QStringLiteral("month"), parts.month},
+            {QStringLiteral("day"), parts.day}};
+}
+
+QString LocaleService::todayDateIso() const
+{
+    return QDate::currentDate().toString(Qt::ISODate);
+}
+
 QString LocaleService::formatUnit(double value, const QString &unit, int precision) const
 {
     if (!qIsFinite(value) || unit.trimmed().isEmpty()) return {};

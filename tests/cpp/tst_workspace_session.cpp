@@ -248,7 +248,6 @@ private slots:
         DockModel dock;
         QVERIFY(workspace.restore(&documents, &dock));
         QStringList expectedViews{firstView, secondView};
-        expectedViews.sort();
         QCOMPARE(documents.viewsFor(existingId), expectedViews);
         QCOMPARE(documents.sessions().size(), 1);
         QCOMPARE(workspace.unavailableDocuments(), QStringList({missingId}));

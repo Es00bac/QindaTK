@@ -4,6 +4,7 @@
 #include "property_document.h"
 #include <QObject>
 #include <QPointer>
+#include <QVariantList>
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
@@ -23,6 +24,9 @@ class UndoService : public QObject {
     Q_PROPERTY(QString cleanRevision READ cleanRevision NOTIFY changed)
     Q_PROPERTY(QString memoryLimit READ memoryLimitString WRITE setMemoryLimitString NOTIFY changed)
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
+    Q_PROPERTY(QVariantList historyEntries READ historyEntries NOTIFY changed)
+    Q_PROPERTY(int historyIndex READ historyIndex NOTIFY changed)
+    Q_PROPERTY(int cleanIndex READ cleanIndex NOTIFY changed)
 public:
     explicit UndoService(QObject *parent = nullptr) : QObject(parent) {}
     bool addDocument(PropertyDocument *document);
@@ -41,6 +45,11 @@ public:
     void setMemoryLimit(quint64 bytes);
     void setMemoryLimitString(const QString &bytes);
     QString lastError() const { return m_lastError; }
+    QVariantList historyEntries() const;
+    int historyIndex() const;
+    int cleanIndex() const;
+    Q_INVOKABLE bool navigateToHistoryIndex(int index);
+    Q_INVOKABLE bool navigateToHistoryEntry(const QString &entryId);
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
     Q_INVOKABLE void markClean();
@@ -55,6 +64,7 @@ signals:
 private:
     friend class EditTransaction;
     struct Step {
+        QString id;
         QString label;
         QString mergeKey;
         QVector<PropertyChange> changes;

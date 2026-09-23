@@ -8,8 +8,32 @@ Item {
 
     Tk.ClipboardService { objectName: "installedClipboard" }
     Tk.DragDropService { objectName: "installedDragDrop" }
-    Tk.LocaleService { objectName: "installedLocale" }
+    Tk.LocaleService { id: locale; objectName: "installedLocale" }
     Tk.GestureRouter { objectName: "installedGesture" }
+    Tk.TimeMap { objectName: "installedTimeMap" }
+    Tk.WindowHost { objectName: "installedWindowHost" }
+    Tk.FileDialogAdapter { id: fileDialog; objectName: "installedFileDialog" }
+    Tk.DesktopIntegration { objectName: "installedDesktopIntegration" }
+    Tk.DocumentManager { id: documents; objectName: "installedDocuments" }
+    Tk.FormatRegistry { id: formats; objectName: "installedFormatRegistry" }
+    Tk.FontCatalog { id: fonts; objectName: "installedFontCatalog" }
+    Tk.CommandBar { objectName: "installedCommandBar"; visible: false }
+    Tk.OverflowToolBar { objectName: "installedOverflowToolBar"; visible: false }
+    Tk.Inspector { objectName: "installedInspector"; visible: false }
+    Tk.FontPicker { objectName: "installedFontPicker"; fontProvider: fonts; visible: false }
+    Tk.DateTimeField { objectName: "installedDateTimeField"; localeService: locale; visible: false }
+    Tk.CalendarPicker { objectName: "installedCalendarPicker"; localeService: locale; visible: false }
+    Tk.ImportDialog {
+        objectName: "installedImportDialog"
+        formatRegistry: formats
+        fileDialogAdapter: fileDialog
+        documentManager: documents
+    }
+    Tk.ExportDialog {
+        objectName: "installedExportDialog"
+        formatRegistry: formats
+        fileDialogAdapter: fileDialog
+    }
     Tk.AccessibilityAdapter {
         objectName: "installedAccessibility"
         width: parent.width

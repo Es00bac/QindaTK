@@ -369,6 +369,17 @@ bool WorkspaceSession::restore(DocumentManager *documents, DockModel *dock)
                 ids.append(view.toMap().value(QStringLiteral("viewId")).toString());
         if (!ids.isEmpty()) documents->setViewIds(id, ids);
     }
+    // Workspace records preserve tab order even when a document was missing.
+    // Keep unrelated already-open views after the restored sequence.
+    QStringList orderedViews;
+    const QStringList liveViews = documents->orderedViewIds();
+    for (const QVariant &view : this->views()) {
+        const QString id = view.toMap().value(QStringLiteral("viewId")).toString();
+        if (liveViews.contains(id) && !orderedViews.contains(id)) orderedViews.append(id);
+    }
+    for (const QString &id : liveViews)
+        if (!orderedViews.contains(id)) orderedViews.append(id);
+    documents->setViewOrder(orderedViews);
     const QString active = activeDocumentId();
     if (!active.isEmpty() && documents->findSession(active)) documents->activate(active);
     m_unavailableDocuments = unavailable;

@@ -179,6 +179,56 @@ private slots:
         QVERIFY(!model.cancelJob(running));
     }
 
+    void cancellationAfterDurableCommitReportsSuccess()
+    {
+        JobModel model;
+        Gate committedGate;
+        QSignalSpy finished(&model, &JobModel::jobFinished);
+        const QString id = model.enqueue(quickJob(QStringLiteral("committed-export"),
+            QStringLiteral("Export"), 0,
+            [&committedGate](const CancellationToken &, const JobProgress &) {
+                // The worker has crossed its irreversible output commit.
+                JobResult result;
+                result.output = {{QStringLiteral("uri"), QStringLiteral("file:///saved")}};
+                result.committed = true;
+                committedGate.enterAndWait();
+                return result;
+            }));
+        QVERIFY(!id.isEmpty());
+        QVERIFY(committedGate.waitForEntered(1));
+        QVERIFY(model.cancelJob(id));
+        QCOMPARE(stateOf(model, id), QStringLiteral("cancelling"));
+        committedGate.release();
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 5000);
+        QCOMPARE(stateOf(model, id), QStringLiteral("succeeded"));
+        QCOMPARE(model.job(id).value(QStringLiteral("result")).toMap()
+                     .value(QStringLiteral("uri")).toString(), QStringLiteral("file:///saved"));
+    }
+
+    void failureRetainsStructuredDiagnostics()
+    {
+        JobModel model;
+        QSignalSpy finished(&model, &JobModel::jobFinished);
+        const QString id = model.enqueue(quickJob(QStringLiteral("failed-export"),
+            QStringLiteral("Export"), 0,
+            [](const CancellationToken &, const JobProgress &) {
+                JobResult result;
+                result.error = {ErrorCode::BackendFailure, QStringLiteral("Cannot write"),
+                                QStringLiteral("/destination"), QStringLiteral("file")};
+                result.output = {{QStringLiteral("error"), QVariantMap{
+                    {QStringLiteral("code"), QStringLiteral("BackendFailure")},
+                    {QStringLiteral("fieldPath"), QStringLiteral("/destination")}}}};
+                return result;
+            }));
+        QVERIFY(!id.isEmpty());
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 5000);
+        QCOMPARE(stateOf(model, id), QStringLiteral("failed"));
+        const auto diagnostic = model.job(id).value(QStringLiteral("result")).toMap()
+            .value(QStringLiteral("error")).toMap();
+        QCOMPARE(diagnostic.value(QStringLiteral("fieldPath")).toString(),
+                 QStringLiteral("/destination"));
+    }
+
     void progressIsObservableAndBackendFailuresAreReported()
     {
         JobModel model;

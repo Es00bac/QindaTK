@@ -3,7 +3,11 @@
 
 This standalone consumer compiles against staged public QindaTK headers and
 imports the installed QML module. It instantiates clipboard, drag/drop,
-accessibility, locale and gesture services and checks their stable object names.
+accessibility, locale, gesture, exact TimeMap, window, file-dialog and desktop
+services and checks their stable object names. It also instantiates the format
+registry, font catalog, import/export dialogs, command bars, typed inspector
+and font/calendar controls. It deliberately links only the base QindaTK
+package, proving that Qt Widgets is optional.
 The package's focused tests exercise behavior; this consumer checks packaging
 and public type registration on the selected Qt runtime.
 

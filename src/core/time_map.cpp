@@ -215,6 +215,11 @@ void TimeMap::setTempoSegments(const QVariantList &list) {
     for (const QVariant &item : list) {
         if (!item.canConvert<QVariantMap>()) { reject(QStringLiteral("invalid tempo segment")); return; }
         const QVariantMap map = item.toMap();
+        // AGENT-GUARD: QML Number cannot carry large exact tick IDs. Accept
+        // decimal strings only, matching the precision-safe method facade.
+        if (map.value(QStringLiteral("tick")).metaType().id() != QMetaType::QString) {
+            reject(QStringLiteral("tempo segment tick must be an exact decimal string")); return;
+        }
         const auto tick = parseInteger(map.value(QStringLiteral("tick")).toString());
         const auto tempo = parseInteger(map.value(QStringLiteral("microsecondsPerQuarter")).toString());
         bool nOk = false, dOk = false;

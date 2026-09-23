@@ -89,6 +89,85 @@ in [layout.md](layout.md); theming in [theming.md](theming.md); docking in
 | `ColorSwatches` | Item | `colors` (list of colour strings or `{name, color}`), `current`, `columns` (8), `customButton`, `swatchSize`; `selectIndex(index)` | `selected(color)`, `customRequested()` | a `Tk.Grid` of authored-size swatches (16px in Compact); each cell is at least `size.controlSm`, which resolves to 48px in Touch, while the swatch artwork remains centred at its authored size. The one equal to `current` is ringed in accent; tap, Space, Enter or accessible press on a focused swatch selects through one guarded action. Disabled swatches reject user actions; programmatic `current` changes are silent. Tooltips and accessible names carry the swatch names. objectNames `swatchGrid`, `swatch_<index>`, `swatchCustom`. |
 | `ColorField` | T.Control | `color`, `showHex`, `small`, `error`, `readOnly`, `tooltip`; read-only `inputInvalid` | `colorEdited(color)`, `pickRequested()` | 16px swatch (checkerboard behind alpha, objectName `colorSwatch`) + a bare mono hex input inside the field's own frame (objectName `colorHex`; `#rgb`, `#rrggbb`, `#aarrggbb`, bare hex accepted). Invalid hex stays visible after Return or focus loss, sets `inputInvalid` and the danger border; Escape restores the committed colour. `applyHex(text)` is a silent programmatic update; only a changed valid user commit emits `colorEdited`. The swatch is a keyboard and accessible Button action; `readOnly` and `enabled: false` block edits and picker requests while preserving programmatic `color`/`applyHex` updates. The accessible text editor reports the current value and invalid recovery hint. |
 
+## Command composition and typed inspectors
+
+All command rows read enabled, checked, label and disabled-reason state from
+`CommandRegistry` when a registry and command ID are supplied. Menu choices
+use the same command invocation path. Editor controls receive an existing
+`PropertyBinding`; they do not create or own document content. A rejected
+edit cancels its preview, and an accepted user edit is one undo transaction.
+
+| Type | Base | Main properties and actions | Internal objectNames and behavior |
+| --- | --- | --- | --- |
+| `SplitButton` | Item with two template buttons | `registry`, `shortcutMap`, `commandId`, `menuModel`, `small`, `tooltip`; `triggered()`, `openMenu()` | `splitPrimary`, `splitMenuButton`. Main segment invokes its command; arrow opens choices without invoking the main command. Escape returns focus to the arrow. |
+| `MenuButton` | T.Button | `registry`, `shortcutMap`, `menuModel`, `selectedCommandId`, `showSelectedCommand`, `tooltip`; `choiceTriggered(commandId)`, `openMenu()` | Menu-only activation. Selection may show the bound label/icon; disabled choice state follows the registry. |
+| `ToolShelf` | Item | `tools`, `activeToolId`, `temporaryToolId`, `orientation`, `tooltip`; `toolRequested`, `temporaryToolRequested`, `temporaryToolReleased`; `beginTemporaryTool`, `endTemporaryTool` | `tool_<id>`. Arrow keys walk enabled tools; temporary-tool requests are explicit and the host owns lasting tool state. |
+| `CommandBar` | Item | `registry`, `shortcutMap`, `model`, `defaultOrder`, `customizedOrder`, `compact`, `tooltip`; `setOrder`, `resetOrder`, `orderChanged` | `commandSlot_<id>`, `propertyCommand_<id>`. Stable IDs drive user order. Property slots use `PropertyBinding` transactions. |
+| `OverflowToolBar` | Item | `registry`, `shortcutMap`, `model`, `gap`, `compact`, `tooltip`; read-only `visibleIndices`, `overflowIndices`; `overflowChanged(commandIds)` | `measure_<id>`, `toolbarCommand_<id>`, `toolbarOverflowButton`, `overflowCommand_<id>`. Measures rendered labels, spills complete groups by priority and moves focus to the overflow menu when its focused command spills. |
+| `Inspector` | Item | `properties` descriptors (`id`, `label`, `binding`, `editorType`, units/help), `filterText`, `tooltip`, `labelWidth` | `inspectorRow_<id>`. Numeric, vector and text editors share mixed/reset/error presentation and edit through supplied bindings. `FormGroup` supplies expandable grouping where needed. |
+| `MixedValueField` | T.Control | `binding`, `label`, `helpText`, `mixedText`, `showReset`, `tooltip`; `beginEdit`, `updateEdit`, `commitEdit`, `cancelEdit`, `reset` | `mixedValueEditor`, `mixedValueState`, `mixedValueReset`. Mixed, unset, invalid and read-only states stay distinct; focus alone does not replace a mixed value. |
+| `UnitField` | Item around NumberField | `binding`, `displayUnit`, `units`, `unitScale`, `unitOffset`, `precision`, `from`, `to`, `stepSize`, `tooltip`; `setUnit`, `edit`, `valueModified` | Canonical value is `display * unitScale + unitOffset`. Switching units changes presentation only. Invalid conversion metadata disables editing; commit uses the binding transaction. |
+| `VectorField` | Item | `binding`, `componentLabels`, `componentUnits`, `precision`, `stepSize`, `tooltip`; `editComponent(index,value)` | `vectorComponent_<index>`. `PropertyBinding.updateComponent` patches each selected target independently, preserving untouched axes even when the whole selection is mixed, then commits one undo step. |
+| `TransformEditor` | Item | `translationBinding`, `rotationBinding`, `scaleBinding`, `pivotBinding`, `boundsBinding`, `tooltip` | Composes typed rows through `UnitField` and `VectorField`. A host geometry adapter owns matrix decomposition and coordinate conventions. |
+| `FormGroup` | Item | `title`, `collapsed`, `collapsible`, `validationItems`, `spacing`; `focusFirstInvalid()` | `formGroupHeader`, `formGroupBody`. Groups rows, reports invalid and pending counts separately, expands and focuses the first invalid editor. |
+| `ExpressionField` | Item | `binding`, `localeService`, `symbols`, `units`, `draft`, `errorMessage`, `errorOffset`, `label`, `tooltip`; `previewDraft`, `commitDraft`; `previewed`, `expressionCommitted` | `expressionInput`. `ExpressionEvaluator` parses a bounded numeric/unit grammar with allowlisted functions and exact scoped symbol keys; commits a canonical value through one binding transaction. Invalid drafts retain a location and never mutate the document. |
+| `FilePathField` | Item | `binding`, `dialogAdapter`, `uriValidator`, `mode`, `mimeTypes`, `draft`, `recentPaths`, `validationStatus`, `label`, `tooltip`; `setDraft`, `inspectDraft`, `commitDraft`, `browse`, `cancelBrowse`; `pathCommitted`, `openRequested`, `browseRequested` | `pathInput`, `pathBrowse`, `pathOpen`. Local file URIs are validated; remote availability is reported as unknown. Browse and validation completions are matched against request/draft/document revisions before a binding commit. |
+| `TokenField` | Item | `binding`, `completionProvider`, `duplicatePolicy` (`value`, `label`, `allow`), `tokens`, `draft`, `suggestions`, `label`, `tooltip`; `commitDraft`, `appendCandidates`, `removeAt`, `move`, `queryCompletion`; `tokenAdded`, `tokenRemoved`, `tokenReordered` | `tokenItem`, `tokenChip`, `tokenRemove`, `tokenInput`, `tokenSuggestion`. Tokens keep stable UUIDs across reorder, split pasted text into bounded candidates and commit the typed list through one binding transaction. Completion results are rejected after draft/edit/document revision changes; IME composition does not prematurely commit. |
+
+## Application and document navigation
+
+These controls present host-owned routes, commands and document sessions. Stable
+IDs carry identity; displayed labels can change without moving the underlying
+selection or saved tab order. `DocumentTabs` reads and mutates the authoritative
+`DocumentManager` view order. A dirty last view needs a host close decision;
+the control emits `closeRequested` and waits for `completeClose`.
+
+| Type | Base | Main properties and actions | Internal objectNames and behavior |
+| --- | --- | --- | --- |
+| `Ribbon` | Item | `tabs`, `contextIds`, `currentTabId`, `commandRegistry`, `shortcutMap`, `collapsed`, `keyTipsVisible`, `tooltip`; `activateTab`, `activateItem`; `tabChanged`, `itemRequested` | `ribbonTab_<id>`, `ribbonCollapseButton`, `ribbonGroupViewport`, `ribbonGroup_<id>`, `ribbonItem_<id>`, `ribbonAction_<id>`. Tabs declare groups and items by stable ID; contextual tabs appear only for matching context IDs. Pointer and key-tip activation of command items both pass through the registry; action items report requests. Arrow keys switch tabs, Alt shows key tips, and narrow groups scroll horizontally. |
+| `DocumentTabs` | Item | `documentManager`, `currentViewId`, read-only `activeDocumentId`, `entries`, `pendingDocuments`, `errorText`, `tooltip`; `refresh`, `requestClose`, `completeClose`, `closeOthers`, `requestReorder`; `viewActivated`, `closeRequested`, `closeFailed`, `reorderRequested` | `documentTabsViewport`, `documentTab_<viewId>`, `documentTabSelect_<viewId>`, `documentTabError`. Each session view gets a tab; activation calls `DocumentManager.activate`, and dragging calls its `moveView`. Closing one of several views removes only that view. Dirty last-view close remains pending for host confirmation; a blocked close clears pending state and reports its reason. Left/Right/Home/End focus and activate tabs. |
+| `NavigationRail` | Item | `groups`, `currentId`, `expanded`, `expandedWidth`, `compactWidth`, `tooltip`; read-only `entries`; `destinationRequested(id,destination)` | `navigationGroup_<id>`, `navigationItem_<id>`, `navigationButton_<id>`. Groups contain route entries with stable IDs and optional icon, badge, `visible`, `allowed` and `enabled` states. Hidden or disallowed routes are omitted. Compact mode keeps icon buttons and accessible labels. Arrow/Home/End navigation skips disabled entries; the host owns route state. |
+| `BreadcrumbBar` | Item | `path`, `itemMaximumWidth`, `siblingParentId`, `siblingItems`, `tooltip`; `activate`, `showSiblings`; `navigateRequested(id)`, `siblingsRequested(id)` | `breadcrumbViewport`, `breadcrumbSegment_<id>`, `breadcrumbSelect_<id>`, `breadcrumbSiblingMenu`. Path labels elide within a real horizontal scroll viewport. Ancestors navigate by stable ID; sibling choices use a menu. When sibling data is absent, `siblingsRequested` asks the host to supply it. |
+
+## History, notifications and task feedback
+
+`UndoService`, `NotificationModel` and `JobModel` own these views' state. See
+[history-feedback.md](history-feedback.md) for identity, lifetime and retry
+rules. Notification action IDs are requests to the host; it must recheck the
+current command context. A task retry likewise asks the host to validate the
+source and destination before it starts new work.
+
+| Type | Base | Main properties and actions | Internal objectNames and behavior |
+| --- | --- | --- | --- |
+| `HistoryView` | Box | `undoService`, `listHeight`, read-only `historyRows`; `navigate(entryId)`, `goToHistoryIndex(index)` | `historyView`, `historyUndo`, `historyRedo`, `historyPosition`, `historyCleanState`, `historyEntries`, `historyRow_<entryId>`, `historyEntry_<entryId>`, `historyEmpty`, `historyLastError`. Shows the active document's transient undo history, applied steps and clean marker. Navigation delegates to guarded service operations; a retired branch ID cannot replay. |
+| `NotificationCenter` | Box | `notificationModel`, `showRead`, `listHeight`; `count`, `markRead`, `dismissNotification`, `activate`; `actionRequested(notificationId,actionId)` | `notificationCenter`, `notificationCount`, `notificationList`, `notification_<id>`, `notificationNotice_<id>`, `notificationAction_<id>_<actionId>`, `notificationMarkRead_<id>`, `notificationEmpty`. Renders bounded model records with severity, source/time, read state, repeat count, dismiss and action controls. Repeated failures share one ID. Actions emit IDs and mark the record read. |
+| `Toast` | FocusScope | `notificationModel`, `notificationId`, `title`, `message`, `variant`, `actionText`, `actionId`, `duration`, `remaining`, `paused`; `show`, `announce`, `presentNext`, `dismiss`, `activateAction`; `dismissed`, `actionRequested(actionId)` | `toast`, `toastNotice`, `toastAction`. `announce` posts through the bounded notification queue; expiration leaves the persistent notice intact. Hover or keyboard focus pauses the themed countdown; action and dismissal are keyboard accessible. The host resolves action IDs. |
+| `TaskCenter` | Box | `jobModel`, `showFinished`, `expandedJobId`, `listHeight`; `cancelTask`, `requestRetry`, `openResult`; `cancelRequested(jobId)`, `retryRequested(jobId)`, `resultRequested(jobId,result)` | `taskCenter`, `taskCenterCounts`, `taskCenterClearFinished`, `taskCenterList`, `taskRow_<jobId>`, `taskProgress_<jobId>`, `taskDetail_<jobId>`, `taskCancel_<jobId>`, `taskRetry_<jobId>`, `taskOpenResult_<jobId>`, `taskCenterEmpty`. Enumerates job states and progress, allows cancellation, reports retry requests for failed work, and offers committed results. Closing this view never cancels a job. |
+
+## Typography, calendar and format dialogs
+
+`FontPicker` and `FontFeaturesEditor` use provider metadata rather than
+guessing installed coverage or OpenType support. `FontCatalog` enumerates
+installed families/styles and a fallback. It reads the resolved face's
+OpenType `fvar`, `GSUB` and `GPOS` tables for variable-axis bounds and feature
+tags. Malformed tables report unavailable metadata; glyph coverage and
+per-script shaping remain unknown. All-day dates remain ISO date
+strings; instants remain UTC ISO strings. `LocaleService` controls localized
+presentation and classifies DST gaps and repeated local times before a
+`DateTimeField` commits.
+
+| Type | Base | Main properties and actions | Internal objectNames and behavior |
+| --- | --- | --- | --- |
+| `FontPicker` | Item | `binding`, `styleBinding`, `fontProvider`, `family`, `style`, `searchText`, `specimenText`, `includeMissingSelection`, `tooltip`; read-only `selectedFaceMetadata`; `requestSelection(family,style)`, `requestStyle(style)`; `fontSelectionRequested` | `fontSearch`, `fontFamilyPicker`, `fontStylePicker`, `fontSpecimen`, `fontSpecimenText`, `fontAvailabilityState`. Search filters installed families; the specimen renders the selected face or explicit fallback. A missing family retains its name. Family/style edits use bindings and a shared undo macro when both change. |
+| `FontFeaturesEditor` | T.Control | `fontProvider` or explicit `fontMetadata`, `fontFamily`, `fontStyle`, `axisBindings`, `featureBindings`, `tooltip`; read-only `effectiveFontMetadata`; `updateBinding` | `fontMetadataUnavailable`, `fontAxis_<tag>`, `fontFeature_<tag>`, `fontFeatureReset_<tag>`. Actual face metadata supplies axes and feature tags. Unsupported or unbound settings remain visible and disabled. A mixed feature uses the partial checkbox state; editing or resetting to the schema default is one binding transaction and one undo step. |
+| `DateTimeField` | T.Control | `binding`, `localeService`, `dateOnly`, `dateFormat`, `dateTimeFormat`, `draft`, `resolutionState`, `validationError`, `resolutionCandidates`, `tooltip`; `commitDraft()`, `chooseCandidate(index)`, `cancelDraft()`; `valueModified` | `dateTimeInput`, `dateTimeCommit`, `dateTimeValidation`. Date-only mode commits an ISO date without time or zone. For an ambiguous local time, the field shows both actual UTC candidates and requires a choice; a nonexistent local time reports an error and cannot commit. Escape restores the committed value. |
+| `CalendarPicker` | Item | `localeService`, `selectedDate`, `minDate`, `maxDate`, `markedDates`, `rangeMode`, `rangeStart`, `rangeEnd`, `shownYear`, `shownMonth`, `tooltip`; `showDate`, `shiftMonth`, `activateCell`; `dateSelected`, `dateRangeSelected` | `calendarMonthLabel`, `calendarGrid`. `LocaleService.monthGrid` supplies calendar-native headings and stable ISO date IDs. Arrow keys move by day/week, PageUp/PageDown change month, Return selects; disabled dates cannot be selected. The calendar includes named weekday headers and day actions. |
+| `ImportDialog` | T.Dialog | `formatRegistry`, `fileDialogAdapter`, `documentManager`, `sourceUrl`, `formatId`, `plan`, `jobId`, `allowLossy`; `refreshPlan()`, `startOrRetry()`, `cancelJob()`; `importAdopted(session)`, `operationFailed(message)` | `importDialog`, `importSourcePath`, `importChooseSource`, `importFormat`, `importLossAcknowledgement`, `importPreflightStatus`, `importWarning`, `importLoss`, `importPreview`, `importProgress`, `importFooter`, `importStart`. Shows only providers with an import operation, reviews the preflight report, passes approved options to the job and adopts only after success. Closing abandons the job identity and requests cancellation, so a late result cannot open a document. |
+| `ExportDialog` | T.Dialog | `formatRegistry`, `fileDialogAdapter`, `documentSession` or `document`, `destinationUrl`, `formatId`, `conflictPolicy`, `allowLossy`, `allowExtensionMismatch`, UTF-8 options, `plan`, `jobId`; `refreshPlan()`, `startOrRetry()`, `cancelJob()`; `exportFinished(result)`, `operationFailed(message)` | `exportDialog`, `exportDestinationPath`, `exportChooseDestination`, `exportFormat`, `exportEntityId`, `exportLineEnding`, `exportBom`, `exportConflictPolicy`, `exportExtensionMismatch`, `exportLossAcknowledgement`, `exportPreflightStatus`, `exportWarning`, `exportLoss`, `exportPreview`, `exportProgress`, `exportFooter`, `exportStart`. Shows only export-capable providers; replacement requires a matching destination hash and losses require explicit acknowledgement. Export does not mark a session clean. |
+
+See [format-registry.md](format-registry.md) for provider scope, preflight
+receipts, job states and the difference between export and Save.
+
 ## Pen input
 
 | Type | Base | Properties | Signals | Notes |
@@ -157,8 +236,25 @@ Readings over time and against a limit. `Tk.Graph` draws on the scene graph;
 | --- | --- | --- | --- | --- |
 | `Graph` | Item (C++) | `series` (default property, list of `GraphSeries`), `capacity` 120, `minValue` 0, `maxValue` 100, `autoScale`, `autoScaleFloor` 1, `headroom` 1.15, read-only `effectiveMax`, `mirrored`, `gridRows`, `gridColumns`, `gridColor`, `baselineColor` | — | Time series; samples enter at the right. `append(v)` (first series), `appendTo(i, v)`, `appendRow([...])` (one sample per series, keeping them aligned; a short row repeats each series' last value rather than injecting a zero), `clear()`, `seriesAt(i)`, `seriesCount()`. Implicit size 160×48. `mirrored` hangs the trace from the top edge, for a send series under a receive series. |
 | `GraphSeries` | QObject (C++) | `color`, `ramp`, `fill`, `fillOpacity` 0.45, `lineWidth` 1.5, `visible`, `label`, `values`, read-only `count`/`last`/`peak`/`capacity` | — | A fixed-capacity ring buffer: `append(v)` is O(1) and never reallocates. `at(0)` is the **oldest** retained sample. Non-finite samples are stored as 0. The owning Graph sets `capacity`, so every series on one graph shares an x axis. |
+| `ChartAxis` | QObject (C++) | `kind`, `minimum`/`maximum`, `minimumUtc`/`maximumUtc` decimal strings, `categories`, `unit`, `timeZoneId`, `reversed`, read-only `valid`/`error` | — | Typed plot scale. C++ date coordinates are exact UTC milliseconds. `map()`/`unmap()` reject date axes; use `mapUtc()`/`unmapUtc()` from C++. See [chart-data.md](chart-data.md). |
+| `ChartSeries` | QObject (C++) | `id`, `name`, `kind`, `stackKey`, `xUnit`, `yUnit`, `sizeUnit`, `baseline`, `visible`, `capacity`, read-only `count` | — | Typed C++ point collection for general charts; stable series/point IDs, bounded updates and explicit gaps. Data ingestion is C++ in this stage. See [chart-data.md](chart-data.md). |
 | `Sparkline` | Graph (QML) | `color`, `ramp`, `fill`, `fillOpacity` 0.35, `lineWidth` 1, `values`, read-only `last`/`peak`, `tooltip` | — | One-series Graph sized for a list row or table cell (`size.sparkline` × `size.sparklineHeight`). No grid, no baseline. `append(v)` passes through. |
 | `Meter` | QQuickPaintedItem (C++) | `value`, `from` 0, `to` 100, read-only `position`, `color`, `trackColor`, `ramp`, `rampMode` (`Meter.ByPosition` default, `Meter.ByValue`), `segments` 0, `segmentGap` 1, `radius` 1, `vertical`, read-only `valueColor` | — | How hard something is working now — not how far a task has run, which is `ProgressBar`. `segments` > 0 draws btop's blocks, each at its own ramp position; `ByValue` colours the whole fill by the current reading. Bind a label's colour to `valueColor` so the number agrees with the bar. Implicit size 80×8. |
+
+## Virtual collections
+
+`Tk.VirtualCollectionAdapter` indexes materialized model rows by stable `id`
+role and keeps selected IDs separate from view row positions. With a separate
+`identityModel`, filtering a proxy does not erase selected source items;
+removing a source item does. Tree expansion projects only visible descendants
+and loads lazy children through the source model. A 4,096-ID ceiling on range
+requests prevents an accidental whole-model copy into QML.
+
+| Type | Base | Main properties and actions | Stable objectNames and behavior |
+| --- | --- | --- | --- |
+| `VirtualList` | T.Control | `model`, `identityModel`, `selectionModel`, `idRole`, `labelRole`, `secondaryRole`, `iconRole`, `emptyText`, `tooltip`; `selectRow(index, modifiers)`; `activated(id)`, `contextRequested(id, position)` | `virtualList`, `virtualListView`, `virtualListDelegate`, `virtualListEmpty`. A recycling ListView keeps delegates bounded; rows select by ID, keyboard Up/Down changes selection and Enter activates. The host applies sort/filter to its model. |
+| `VirtualTree` | T.Control | `model`, `identityModel`, `selectionModel`, `idRole`, role names, `flatProjection`, `tooltip`; `requestExpansion`, `requestRename`, `requestMove`; `activated`, `expansionRequested`, `renameRequested`, `moveRequested` | `virtualTree`, `virtualTreeView`, `virtualTreeDelegate`, `treeDisclosure_<id>`, `treeRow_<id>`. A hierarchical source gets a C++ visible-row projection. Expansion can fetch lazy children; collapse hides them while retaining a selected child's stable ID. `flatProjection` accepts a host-provided visible-row model. Rename/move signals are requests to the document model. |
+| `AssetGrid` | T.Control | `model`, `identityModel`, `selectionModel`, `provider`, `document`, `viewId`, `resourceRole`, `labelRole`, `captionRole`, `tileWidth`, `tileHeight`, `tileSpacing`, `tooltip`; `activated(id)`, `contextRequested(id, position)` | `assetGrid`, `assetGridView`, `assetGridDelegate`, `assetGridThumbnail_<id>`, `assetGridCaption`, `assetGridEmpty`. GridView recycles tiles; pooled thumbnails stop subscriptions and a reused tile refreshes its resource ID. Selection follows IDs. |
 
 ## Tables
 
@@ -206,6 +302,19 @@ user requests only. Dialog objectNames: `dockPlacementDialog`,
 `dockPlacementDestination`, `dockPlacementX`, `dockPlacementY`, `dialogPrimary`,
 `dialogSecondary`. See [docking](docking.md#keyboard-and-accessible-panel-placement)
 for bounds, stale-state guards and focus restoration.
+
+## Transport
+
+`Tk.TransportBar` is a themed `Tk.ToolBar` bound to `Tk.TransportModel`.
+It shows the acknowledged sample position as timecode, frames, samples or
+ticks through `TimeMap`. Play, stop, record, locate, loop and punch actions
+submit requests to the model; the bar does not advance a media clock. Space,
+R, L, P, Home and Left/Right are the keyboard actions. The bar reports engine
+capability and device errors in its disabled control tooltips and status text.
+Its stable parts are `transportPlay`, `transportStop`, `transportRecord`,
+`transportLocateStart`, `transportLoop`, `transportPunch`, `transportTime` and
+`transportStatus`. A real media engine must implement the `TransportAdapter`
+interface; `TestTransportClock` is a deterministic contract fixture.
 
 ## Size table (compact density)
 

@@ -23,7 +23,7 @@ class WindowHost : public QObject {
 public:
     explicit WindowHost(QObject *parent = nullptr);
     ~WindowHost() override;
-    DocumentManager *documentManager() const { return m_documents; }
+    DocumentManager *documentManager() const;
     void setDocumentManager(DocumentManager *manager);
     QVariantList windows() const;
     QString activeWindowId() const { return m_activeId; }

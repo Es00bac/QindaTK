@@ -72,6 +72,26 @@ private slots:
         QCOMPARE(modified.size(), 0);
     }
 
+    void sourceRemovalKeepsFilteredSelectionWithoutFullEnumeration()
+    {
+        SelectionModel model;
+        const QString a = id(1), hidden = id(2), c = id(3);
+        QVERIFY(model.select(a));
+        QVERIFY(model.toggle(hidden));
+        QVERIFY(model.toggle(c));
+        QSignalSpy modified(&model, &SelectionModel::selectionModified);
+        QVERIFY(model.removeIds({a}));
+        QCOMPARE(model.selectedIds(), (QStringList{hidden, c}));
+        QCOMPARE(model.currentId(), c);
+        QVERIFY(model.anchorId().isEmpty());
+        QCOMPARE(modified.size(), 0);
+        QVERIFY(model.removeIds({c}));
+        QCOMPARE(model.selectedIds(), QStringList{hidden});
+        QVERIFY(model.currentId().isEmpty());
+        QVERIFY(!model.removeIds({QStringLiteral("bad-id")}));
+        QCOMPARE(model.selectedIds(), QStringList{hidden});
+    }
+
     void modelResetReconcilesSelectionAndPublishesDecimalGenerationSilently()
     {
         SelectionModel model;

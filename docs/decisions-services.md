@@ -81,3 +81,58 @@ chrome direction remains separate from bidi content direction.
 grabs and view/target invalidation. **Consequences.** Locale changes do not
 rewrite a dirty document, and competing pen/touch/mouse paths cannot commit
 the same view edit twice.
+
+## D-036 — Exact time storage with decimal QML transfer
+
+**Context.** Audio samples, video frames and musical ticks can exceed the
+exact integer range of QML `Number`; tempo and rational frame rates need
+repeatable rounding. **Decision.** `TimeMap` stores signed 64-bit positions,
+uses exact bounded 128-bit intermediates, and transfers positions as decimal
+strings through QML. Piecewise constant tempo uses integer microseconds per
+quarter. Floating point is confined to relative visible pixel transforms,
+which reject spans outside the exact display range. **Consequences.** Long
+sessions and cross-domain conversions do not silently round identifiers;
+unsupported drop-frame rates, overflow and malformed positions report errors.
+
+## D-037 — Keep native dialogs optional to the core package
+
+**Context.** Native file picking benefits from platform dialogs, while
+QindaTK's reusable controls and QML module must work in a `QGuiApplication`
+without Qt Widgets. **Decision.** `FileDialogAdapter` is a backend-injected
+core service with explicit unavailable and canceled states. A separate
+`QindaTKWidgets` package supplies the Qt Widgets dialog backend for hosts
+using `QApplication`. `WindowHost` binds native `QQuickWindow` lifetimes to
+`DocumentManager` view IDs, with dirty final-view close guarded by document
+state. **Consequences.** Core consumers need no Widgets link dependency;
+desktop-specific operations are capability-gated and require target-platform
+qualification.
+
+## D-038 — Approve each format operation against a frozen input
+
+**Context.** A format name or extension says little about editable content,
+losses or whether a source or destination changed while a user reviewed a
+preview. **Decision.** Providers advertise import, export and roundtrip
+separately. `FormatRegistry` preflights an immutable byte source or document
+snapshot, reports bounded previews and losses, and returns source, revision or
+destination-hash receipts in its options. Starting a job with those options
+rechecks the approved input; lossy output requires explicit acknowledgement.
+Workers never mutate live documents. Import adoption is a separate GUI-thread
+step after success, and export writes through `QSaveFile`. **Consequences.**
+The built-in native reference and strict UTF-8 text paths can make precise
+fidelity claims without implying support for unrelated vendor formats. A
+late cancellation after commit is reported as committed output, not an erased
+file.
+
+## D-039 — Keep civil dates separate from ambiguous instants
+
+**Context.** An all-day date has no time zone, while a local clock reading can
+occur twice or not at all at a daylight-saving transition. **Decision.**
+`LocaleService` stores all-day values as ISO dates and formats them through
+the configured calendar. It parses local date/time fields without the host
+zone normalizing them first, then classifies the result in the configured
+zone as valid, ambiguous or nonexistent. An ambiguous value exposes both UTC
+instants and requires the user to choose; a nonexistent value cannot commit.
+`CalendarPicker` uses calendar-native month fields but emits stable ISO date
+identities. **Consequences.** Locale and display-calendar changes never
+silently rewrite document values, and date-only values never acquire a time
+or offset by accident.

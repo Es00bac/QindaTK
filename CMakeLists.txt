@@ -18,6 +18,8 @@ option(QINDATK_BUILD_EXAMPLES "Build the gallery and studio-shell examples" ON)
 option(QINDATK_BUILD_TOOLS "Build qtk-preview (headless render/dump tool)" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg Concurrent)
+# Native QFileDialog is an optional adapter; base qindatk stays QtQuick-only.
+find_package(Qt6 6.8 QUIET COMPONENTS Widgets)
 # AGENT-NOTE: QuickPrivate serves layout_info.cpp (anchor/explicit size
 # detection) and StylusHandler's implementation-only tablet event path (D-015).
 # Official Qt SDKs define Qt6::QuickPrivate from the Qt6Quick package;
@@ -38,6 +40,7 @@ qt_standard_project_setup(REQUIRES 6.8)
 # (`-I ${CMAKE_BINARY_DIR}/qml`, or QML_IMPORT_PATH). Installed builds land
 # under ${QT6_INSTALL_QML} which is already on the engine's default path.
 set(QT_QML_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/qml")
+set(QINDATK_WITH_WIDGETS FALSE)
 
 function(qindatk_enable_warnings target)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -75,3 +78,18 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/QindaTKConfig.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/QindaTKConfigVersion.cmake"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/QindaTK")
+
+if(QINDATK_WITH_WIDGETS)
+    configure_package_config_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/QindaTKWidgetsConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/QindaTKWidgetsConfig.cmake"
+        INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/QindaTKWidgets")
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/QindaTKWidgetsConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/QindaTKWidgetsConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/QindaTKWidgetsConfigVersion.cmake"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/QindaTKWidgets")
+endif()

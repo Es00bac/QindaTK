@@ -18,6 +18,7 @@ WindowHost::~WindowHost()
 {
     for (const auto &record : m_records) releaseView(record);
 }
+DocumentManager *WindowHost::documentManager() const { return m_documents; }
 void WindowHost::setDocumentManager(DocumentManager *manager)
 {
     if (m_documents == manager) return;
@@ -106,6 +107,9 @@ QString WindowHost::registerWindow(QQuickWindow *window, const QString &document
     connect(window, &QObject::destroyed, this, [this, id] {
         const int index = indexOf(id);
         if (index < 0) return;
+        // AGENT-GUARD: a host view must be released even when an external
+        // owner destroys its window without sending a native close event.
+        releaseView(m_records.at(index));
         m_records.removeAt(index);
         updateActive();
         emit windowClosed(id);

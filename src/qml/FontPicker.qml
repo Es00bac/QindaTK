@@ -3,8 +3,8 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// Provider metadata is authoritative. No coverage, axis or feature capability
-// is inferred from a font family name or from Qt's fallback rendering.
+// Provider metadata is authoritative. The specimen makes fallback explicit;
+// no coverage or feature capability is inferred from the rendered glyphs.
 Item {
     id: picker
     property Tk.PropertyBinding binding: null
@@ -14,6 +14,7 @@ Item {
     property string style: ""
     property string searchText: ""
     property string tooltip: ""
+    property string specimenText: qsTr("Aa Bb Cc 0123 fi ffi")
     property bool includeMissingSelection: true
     readonly property var familyEntries: fontProvider && fontProvider.families ? fontProvider.families : []
     readonly property var filteredFamilies: filterFamilies(searchText)
@@ -23,6 +24,8 @@ Item {
     readonly property string fallbackFamily: selectedEntry && selectedEntry.fallbackFamily ? selectedEntry.fallbackFamily
         : fontProvider && fontProvider.fallbackFamily ? fontProvider.fallbackFamily : ""
     readonly property bool metadataAvailable: !!fontProvider && familyEntries.length > 0
+    readonly property var selectedFaceMetadata: fontProvider && fontProvider.faceMetadata && !selectedMissing
+        ? fontProvider.faceMetadata(family, style) : ({})
 
     signal fontSelectionRequested(string family, string style)
 
@@ -118,6 +121,24 @@ Item {
             tooltip: qsTr("Font style")
             enabled: familyBox.enabled && styleChoices.length > 0 && !picker.selectedMissing && picker.styleBinding && picker.styleBinding.writable
             onActivated: function(index) { picker.requestStyle(String(styleChoices[index])) }
+        }
+        Tk.Box {
+            objectName: "fontSpecimen"
+            width: familyBox.width
+            padding: Tk.Theme.space.sm
+            color: Tk.Theme.color.panelAlt
+            borderColor: Tk.Theme.color.divider
+            Tk.Label {
+                objectName: "fontSpecimenText"
+                text: picker.specimenText
+                font.family: picker.selectedMissing
+                    ? (picker.fallbackFamily || Tk.Theme.font.family)
+                    : (picker.family || Tk.Theme.font.family)
+                font.styleName: picker.selectedMissing ? "" : picker.style
+                font.pixelSize: Tk.Theme.font.title
+                elide: Text.ElideRight
+                Accessible.name: qsTr("Font specimen: %1").arg(text)
+            }
         }
         Tk.Caption {
             objectName: "fontAvailabilityState"

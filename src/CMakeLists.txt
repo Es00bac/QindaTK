@@ -50,6 +50,14 @@ qt_add_qml_module(qindatk
         core/settings_persistence.cpp core/settings_persistence.h
         core/workspace_session.cpp core/workspace_session.h
         core/job_model.cpp core/job_model.h
+        core/notification_model.cpp core/notification_model.h
+        core/expression_evaluator.cpp core/expression_evaluator.h
+        core/find_replace_service.cpp core/find_replace_service.h
+        core/virtual_collection_adapter.cpp core/virtual_collection_adapter.h
+        core/transport_model.cpp core/transport_model.h
+        core/test_transport_clock.cpp core/test_transport_clock.h
+        core/uri_validator.cpp core/uri_validator.h
+        core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h
         core/resource_resolver_async.cpp
         core/document_resource_links.cpp core/document_resource_links.h
@@ -60,7 +68,15 @@ qt_add_qml_module(qindatk
         core/drag_drop_service.cpp core/drag_drop_service.h
         core/property_collection_drop_target.cpp
         core/locale_service.cpp core/locale_service.h
+        core/font_catalog.cpp core/font_catalog.h
         core/accessibility_adapter.cpp core/accessibility_adapter.h
+        core/window_host.cpp core/window_host.h
+        core/file_dialog_adapter.cpp core/file_dialog_adapter.h
+        core/desktop_integration.cpp core/desktop_integration.h
+        core/format_registry.cpp core/format_registry.h
+        core/format_io.cpp core/format_io.h
+        core/native_reference_format.cpp
+        core/plain_text_format.cpp
         core/asset_provider.cpp core/asset_provider.h
         core/file_asset_backend.cpp
         core/recovery_manager.cpp core/recovery_manager.h
@@ -70,7 +86,8 @@ qt_add_qml_module(qindatk
         core/undo_service.cpp core/undo_service.h
         core/validation_model.cpp core/validation_model.h
         core/selection_model.cpp core/selection_model.h
-        core/shortcut_map.cpp core/shortcut_map.h
+        core/editable_grid_model.cpp core/editable_grid_model.h
+        core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h
         core/density.cpp core/density.h
         core/focus_manager.cpp core/focus_manager.h
         core/dock_model.cpp core/dock_model.h core/dock_model_p.h
@@ -78,6 +95,10 @@ qt_add_qml_module(qindatk
         core/dock_model_store.cpp
         core/flex.cpp core/flex.h
         core/grid.cpp core/grid.h
+        core/chart_axis.cpp core/chart_axis.h
+        core/chart_series.cpp core/chart_series.h
+        core/chart_data.cpp core/chart_data.h
+        core/chart_histogram.cpp core/chart_histogram.h
         core/graph.cpp core/graph.h
         core/graph_mesh.cpp core/graph_mesh.h
         core/graph_nodes.cpp
@@ -107,6 +128,26 @@ target_link_libraries(qindatk
     PRIVATE Qt6::Svg Qt6::Concurrent)
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
+
+if(TARGET Qt6::Widgets)
+    add_library(qindatk_widgets STATIC
+        platform_widgets/native_file_dialog_backend.cpp
+        platform_widgets/native_file_dialog_backend.h)
+    set_target_properties(qindatk_widgets PROPERTIES EXPORT_NAME qindatk_widgets)
+    qindatk_enable_warnings(qindatk_widgets)
+    target_include_directories(qindatk_widgets PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/core>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform_widgets>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/qindatk>)
+    target_link_libraries(qindatk_widgets PUBLIC qindatk Qt6::Widgets)
+    install(TARGETS qindatk_widgets EXPORT QindaTKWidgetsTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(EXPORT QindaTKWidgetsTargets NAMESPACE QindaTK::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/QindaTKWidgets)
+    install(FILES platform_widgets/native_file_dialog_backend.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/qindatk)
+    set(QINDATK_WITH_WIDGETS TRUE PARENT_SCOPE)
+endif()
 
 # ---- optional bridge to the QindaQt desktop's QST-1 tokens (pure QML) ----
 # Importing QindaTK.QindaQt requires QindaQt.Tokens at run time; the module

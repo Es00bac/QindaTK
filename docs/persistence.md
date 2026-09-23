@@ -24,6 +24,9 @@ Applications generally define descriptors and entities on its
 the canonical local path and document UUID, so reopening an active file selects
 the existing session. `duplicateView(id)` returns another stable view UUID for
 the same session; it does not duplicate the document or undo history.
+`removeView(documentId, viewId)` removes a non-last view identity without
+closing a dirty session; the final view closes through `closeDocument` and its
+save/discard negotiation.
 
 `DocumentSession::requestSave()` needs an existing URI. Use
 `requestSaveAs(path, overwriteExisting)` for a new destination. The default

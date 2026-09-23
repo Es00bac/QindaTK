@@ -39,6 +39,20 @@ public:
                                        const QString &format = QString()) const;
     Q_INVOKABLE QVariantMap parseDateTime(const QString &text,
                                           const QString &format) const;
+    // Local wall-clock parsing is classified before an instant is chosen.
+    // Candidate instants are exact ISO-8601 UTC strings, never JS dates.
+    Q_INVOKABLE QVariantMap classifyLocalDateTime(const QString &text,
+                                                  const QString &format) const;
+    Q_INVOKABLE QString formatDate(const QString &dateIso,
+                                   const QString &format = QString()) const;
+    Q_INVOKABLE QVariantMap parseDate(const QString &text, const QString &format) const;
+    // Date-only calendar projection; cell IDs remain Gregorian ISO dates.
+    Q_INVOKABLE QVariantMap monthGrid(int year, int month,
+                                     const QString &minDateIso = {},
+                                     const QString &maxDateIso = {}) const;
+    Q_INVOKABLE QVariantMap shiftMonth(int year, int month, int delta) const;
+    Q_INVOKABLE QVariantMap calendarFields(const QString &dateIso) const;
+    Q_INVOKABLE QString todayDateIso() const;
     Q_INVOKABLE QString formatUnit(double value, const QString &unit,
                                    int precision = -1) const;
     // Returns the direction of the first strong character. Document content

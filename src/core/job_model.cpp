@@ -227,12 +227,16 @@ void JobModel::finish(const std::shared_ptr<Entry> &entry, const JobResult &resu
                && m_viewGenerations.value(entry->spec.viewId) != entry->viewGeneration) {
         entry->state = Stale;
         entry->error = QStringLiteral("View generation changed");
-    } else if (entry->cancellation.token().isCancelled()) {
+    } else if (entry->cancellation.token().isCancelled()
+               && !(result.committed && !result.error)) {
         entry->state = Cancelled;
         entry->error = QStringLiteral("Cancelled");
     } else if (result.error) {
         entry->state = Failed;
         entry->error = result.error.message;
+        // Retain structured diagnostics (format, field, backend) for the UI.
+        // A failed job is still terminal and cannot expose a success receipt.
+        entry->result = result.output;
     } else {
         entry->state = Succeeded;
         entry->progress = 100;

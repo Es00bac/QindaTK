@@ -108,6 +108,20 @@ TestCase {
         verify(selection.selectedIds.length === 1)
     }
 
+    function test_pointerModifiersReachStableIdSelection() {
+        selection.clear()
+        list.listView.positionViewAtBeginning()
+        const first = list.listView.itemAtIndex(0)
+        const second = list.listView.itemAtIndex(1)
+        verify(first && second)
+        mouseClick(first, 12, 10, Qt.LeftButton)
+        compare(selection.selectedIds.length, 1)
+        mouseClick(second, 12, 10, Qt.LeftButton, Qt.ControlModifier)
+        compare(selection.selectedIds.length, 2)
+        verify(selection.selectedIds.indexOf(list.collectionAdapter.idAt(0)) >= 0)
+        verify(selection.selectedIds.indexOf(list.collectionAdapter.idAt(1)) >= 0)
+    }
+
     function test_treeRequestsExpansionByStableIdAndModelOwnsState() {
         const id = rowId(0)
         expansionSpy.clear()
