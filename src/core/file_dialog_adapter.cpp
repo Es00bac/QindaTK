@@ -22,8 +22,13 @@ QVariantMap FileDialogAdapter::resultMap(const FileDialogResult &result)
     case FileDialogResult::Status::Unsupported: status = QStringLiteral("unsupported"); break;
     }
     QVariantList urls;
-    for (const auto &url : result.urls) urls << url;
-    return {{"status", status}, {"urls", urls}, {"message", result.message}};
+    QStringList encodedUrls;
+    for (const auto &url : result.urls) {
+        urls << url;
+        encodedUrls << url.toString(QUrl::FullyEncoded);
+    }
+    return {{"status", status}, {"urls", urls}, {"encodedUrls", encodedUrls},
+            {"message", result.message}};
 }
 QString FileDialogAdapter::request(const QString &mode, const QStringList &mimeTypes,
                                    const QUrl &initialUrl, const QString &title,

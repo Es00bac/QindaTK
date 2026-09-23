@@ -116,9 +116,10 @@ T.Control {
             control.browseRequestId = ""
             if (control.browseRevision !== control.draftRevision
                     || control.browseDocumentRevision !== control.documentRevision()) return
-            if (result.status === "accepted" && result.urls.length > 0) {
-                const selected = result.urls[0]
-                control.setDraft(selected.toString())
+            if (result.status === "accepted" && result.encodedUrls.length > 0) {
+                // AGENT-CONTRACT: FileDialogAdapter provides FullyEncoded URI
+                // strings; QML QUrl.toString() decodes escapes on some Qt versions.
+                control.setDraft(result.encodedUrls[0])
                 control.commitDraft()
             } else if (result.status === "error" || result.status === "unsupported") {
                 control.errorMessage = result.message

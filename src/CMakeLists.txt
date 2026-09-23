@@ -53,7 +53,9 @@ qt_add_qml_module(qindatk
         core/notification_model.cpp core/notification_model.h
         core/expression_evaluator.cpp core/expression_evaluator.h
         core/find_replace_service.cpp core/find_replace_service.h
+        core/diff_model.cpp core/diff_model.h
         core/virtual_collection_adapter.cpp core/virtual_collection_adapter.h
+        core/event_log_model.cpp core/event_log_model.h
         core/transport_model.cpp core/transport_model.h
         core/test_transport_clock.cpp core/test_transport_clock.h
         core/uri_validator.cpp core/uri_validator.h
@@ -87,6 +89,7 @@ qt_add_qml_module(qindatk
         core/validation_model.cpp core/validation_model.h
         core/selection_model.cpp core/selection_model.h
         core/editable_grid_model.cpp core/editable_grid_model.h
+        core/resource_plan_model.cpp core/resource_plan_model.h
         core/editable_grid_mode.cpp
         core/query_spec.cpp core/query_eval.cpp core/query_pivot.cpp core/query_core.h
         core/query_grid_adapter.cpp core/query_grid_adapter.h

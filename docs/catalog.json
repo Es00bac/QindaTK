@@ -3128,6 +3128,110 @@
       ]
     },
     {
+      "name": "DiffView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/diff-view.md): model computes aligned, read-only rows. Buttons only request a decision through DiffModel's host adapter.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DiffView.qml",
+      "properties": [
+        {
+          "name": "diffModel",
+          "type": "Tk.DiffModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sideBySide",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Differences\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentHunkId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "leftDelegate",
+          "type": "Component",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rightDelegate",
+          "type": "Component",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hunkCount",
+          "type": "int",
+          "default": "diffModel ? diffModel.hunkCount : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "navigationRequested",
+          "parameters": "string hunkId"
+        },
+        {
+          "name": "decisionRequested",
+          "parameters": "string requestId, string hunkId, string action"
+        }
+      ],
+      "methods": [
+        {
+          "name": "navigate",
+          "parameters": "step"
+        },
+        {
+          "name": "request",
+          "parameters": "action"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "diffError",
+        "diffLeftCell",
+        "diffRegion",
+        "diffRightCell",
+        "diffRows",
+        "diffToolbar",
+        "diffView"
+      ]
+    },
+    {
       "name": "Divider",
       "kind": "qml",
       "base": "Rectangle",
@@ -4839,6 +4943,105 @@
       "objectNames": [
         "emptyText",
         "emptyTitle"
+      ]
+    },
+    {
+      "name": "EventLogView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/EventLogView.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.EventLogModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "followTail",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listView",
+          "type": "alias",
+          "default": "events",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEventId",
+          "type": "string",
+          "default": "model ? model.selectedEventId : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "exportRequested",
+          "parameters": "string csv"
+        },
+        {
+          "name": "detailRequested",
+          "parameters": "string eventId, string details"
+        }
+      ],
+      "methods": [
+        {
+          "name": "scrollToTail",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "eventLogContent",
+        "eventLogCount",
+        "eventLogDetails",
+        "eventLogEmpty",
+        "eventLogExport",
+        "eventLogFilters",
+        "eventLogFollow",
+        "eventLogFromUtc",
+        "eventLogMode",
+        "eventLogRow_",
+        "eventLogRows",
+        "eventLogRowsHost",
+        "eventLogSeverityFilter",
+        "eventLogSourceFilter",
+        "eventLogSummary",
+        "eventLogTextFilter",
+        "eventLogToUtc",
+        "eventLogView",
+        "eventMessage",
+        "eventSeverity",
+        "eventSource",
+        "eventTimestamp"
       ]
     },
     {
@@ -9931,6 +10134,306 @@
         "rangeSliderSecondHandle",
         "rangeSliderTrack",
         "rangeSliderValue"
+      ]
+    },
+    {
+      "name": "ResourceTable",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: ResourcePlanModel owns allocation, capacity, unit, conflict and history state; this view owns stable-id focus and pixel scroll offsets.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ResourceTable.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.ResourcePlanModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Resource allocation table\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeResourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeBucketId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollX",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollY",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceColumnWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.tableColumn * 2.5",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bucketColumnWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.tableColumn",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.header",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingResourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingBucketId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollAnchorResourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollAnchorBucketId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollAnchorRowOffset",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scrollAnchorBucketOffset",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dataEpoch",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bodyWidth",
+          "type": "real",
+          "default": "Math.max(0, width - resourceColumnWidth)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bodyHeight",
+          "type": "real",
+          "default": "Math.max(0, height - headerHeight)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeRow",
+          "type": "int",
+          "default": "model ? model.resourceIndex(activeResourceId) : -1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeColumn",
+          "type": "int",
+          "default": "model ? model.bucketIndex(activeBucketId) : -1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleRows",
+          "type": "var",
+          "default": "collectRows()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleBuckets",
+          "type": "var",
+          "default": "collectBuckets()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleCellRecords",
+          "type": "var",
+          "default": "collectCells()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "currentCellChanged",
+          "parameters": "string resourceId, string bucketId"
+        },
+        {
+          "name": "editCommitted",
+          "parameters": "string resourceId, string bucketId, real allocation"
+        },
+        {
+          "name": "editRejected",
+          "parameters": "string reason"
+        }
+      ],
+      "methods": [
+        {
+          "name": "accessibleDescription",
+          "parameters": ""
+        },
+        {
+          "name": "collectRows",
+          "parameters": ""
+        },
+        {
+          "name": "collectBuckets",
+          "parameters": ""
+        },
+        {
+          "name": "collectCells",
+          "parameters": ""
+        },
+        {
+          "name": "resourceSummaryText",
+          "parameters": "id"
+        },
+        {
+          "name": "resourceSummaryAccessible",
+          "parameters": "id"
+        },
+        {
+          "name": "setCurrent",
+          "parameters": "row, column"
+        },
+        {
+          "name": "moveCurrent",
+          "parameters": "rowDelta, columnDelta"
+        },
+        {
+          "name": "ensureCurrentVisible",
+          "parameters": ""
+        },
+        {
+          "name": "clampScroll",
+          "parameters": ""
+        },
+        {
+          "name": "beginCellEdit",
+          "parameters": ""
+        },
+        {
+          "name": "commitCellEdit",
+          "parameters": "candidate"
+        },
+        {
+          "name": "cancelCellEdit",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "resourceActiveCell",
+        "resourceAllocationEditor",
+        "resourceBucketHeader_",
+        "resourceBucketHeaders",
+        "resourceCellViewport",
+        "resourceCell_",
+        "resourceCornerHeader",
+        "resourceRowHeader_",
+        "resourceRowHeaders",
+        "resourceTable",
+        "resourceTableWheel"
       ]
     },
     {
@@ -15468,6 +15971,155 @@
       "bridge": false
     },
     {
+      "name": "DiffModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/diff_model.h",
+      "properties": [
+        {
+          "name": "leftRevision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rightRevision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hunks",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hunkCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "transactionAdapter",
+          "type": "QindaTK::DiffTransactionAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pageProvider",
+          "type": "QindaTK::DiffPageProvider *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setDocuments",
+          "returns": "bool",
+          "parameters": "const QStringList &left, const QStringList &right, const QString &leftRevision, const QString &rightRevision"
+        },
+        {
+          "name": "setPageProvider",
+          "returns": "bool",
+          "parameters": "DiffPageProvider *provider, const QString &leftRevision, const QString &rightRevision"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "hunkAt",
+          "returns": "QVariantMap",
+          "parameters": "int index"
+        },
+        {
+          "name": "requestDecision",
+          "returns": "QString",
+          "parameters": "const QString &hunkId, const QString &action, const QString &expectedLeftRevision, const QString &expectedRightRevision"
+        },
+        {
+          "name": "cancelDecision",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "hunkRow",
+          "returns": "int",
+          "parameters": "const QString &hunkId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "DiffPageProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A host may back a large or structured comparison with indexed/paged storage. Only requested regions and hunks are fetched; ownership stays with the host.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/diff_model.h",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "DiffTransactionAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the host owns source documents and the transaction. Returning true means the request was queued, not committed. Cancellation must prevent a queued operation from committing; a completed operation is reported by supplying new document snapshots/revisions to DiffModel.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/diff_model.h",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "DockModel",
       "kind": "cpp",
       "base": "QObject",
@@ -16571,6 +17223,144 @@
           "name": "releaseHistoryTransaction",
           "returns": "bool",
           "parameters": "const QString &transactionId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "EventLogModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "GUI-thread event window. Producers may append a batch; retention and model notifications are applied once per batch, never once per event.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/event_log_model.h",
+      "properties": [
+        {
+          "name": "maxEntries",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "retainedCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastRejectedCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedEventId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "severityFilter",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sourceFilter",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "textFilter",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fromUtc",
+          "type": "QDateTime",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "toUtc",
+          "type": "QDateTime",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "appendEvent",
+          "returns": "int",
+          "parameters": "const QVariantMap &event"
+        },
+        {
+          "name": "appendEvents",
+          "returns": "int",
+          "parameters": "const QVariantList &events"
+        },
+        {
+          "name": "selectEvent",
+          "returns": "bool",
+          "parameters": "const QString &eventId"
+        },
+        {
+          "name": "clearSelection",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "eventAt",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "eventById",
+          "returns": "QVariantMap",
+          "parameters": "const QString &eventId"
+        },
+        {
+          "name": "indexOfEventId",
+          "returns": "int",
+          "parameters": "const QString &eventId"
+        },
+        {
+          "name": "exportCsv",
+          "returns": "QString",
+          "parameters": "const QStringList &eventIds = {}"
         }
       ],
       "enums": {},
@@ -18772,6 +19562,173 @@
           "name": "discardId",
           "returns": "bool",
           "parameters": "const QString &documentId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ResourcePlanModel",
+      "kind": "cpp",
+      "base": "QAbstractTableModel",
+      "description": "Bounded allocation matrix. Allocation and capacity are values in the resource's declared unit; each bucket is an independent capacity period.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/resource_plan_model.h",
+      "properties": [
+        {
+          "name": "resourceCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "bucketCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "resourceIdAt",
+          "returns": "QString",
+          "parameters": "int row"
+        },
+        {
+          "name": "bucketIdAt",
+          "returns": "QString",
+          "parameters": "int column"
+        },
+        {
+          "name": "resourceName",
+          "returns": "QString",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "bucketName",
+          "returns": "QString",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "unit",
+          "returns": "QString",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "resourceIndex",
+          "returns": "int",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "bucketIndex",
+          "returns": "int",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "allocation",
+          "returns": "qreal",
+          "parameters": "const QString &resourceId, const QString &bucketId"
+        },
+        {
+          "name": "capacity",
+          "returns": "qreal",
+          "parameters": "const QString &resourceId, const QString &bucketId"
+        },
+        {
+          "name": "overAllocated",
+          "returns": "bool",
+          "parameters": "const QString &resourceId, const QString &bucketId"
+        },
+        {
+          "name": "resourceUsage",
+          "returns": "qreal",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "resourceCapacity",
+          "returns": "qreal",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "resourceConflict",
+          "returns": "bool",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "bucketSummary",
+          "returns": "QVariantMap",
+          "parameters": "const QString &bucketId"
+        },
+        {
+          "name": "setResources",
+          "returns": "bool",
+          "parameters": "const QVariantList &resources"
+        },
+        {
+          "name": "setBuckets",
+          "returns": "bool",
+          "parameters": "const QVariantList &buckets"
+        },
+        {
+          "name": "requestAllocation",
+          "returns": "bool",
+          "parameters": "const QString &resourceId, const QString &bucketId, qreal value"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
         }
       ],
       "enums": {},

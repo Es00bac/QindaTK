@@ -157,3 +157,41 @@ increment schema revisions on metadata changes, and must check query request
 identity before publishing results. Exact decimal finance, joins, sorting and
 incremental aggregation need later provider implementations. See
 [query-pivot.md](query-pivot.md).
+
+## D-042 — Bound event streams by count and payload
+
+**Context.** A high-rate event source can outlive the visible window and can
+submit unusually large text fields. Bounding only the number of rows leaves a
+large per-row payload capable of exhausting memory. A paused view must also
+remain an inspection view, not a reason to stop ingestion or grow history.
+
+**Decision.** EventLogModel retains a finite row count and UTF-8 payload budget,
+and stages each append batch under a separate byte ceiling. It rejects an
+oversized or malformed record whole. Producers use one batch API call for a
+burst. Filtering is synchronous over the bounded window. View pause records a
+stable visible event ID and offset; it never pauses ingestion or retention.
+CSV returns bounded data for the host to route through its own export job.
+
+**Consequences.** Accepted records remain intact and source IDs remain stable
+through filtering and eviction of other rows. Hosts can detect rejection from
+the accepted count and choose a durable export path. This policy applies to
+the initial EventLogModel; remote log storage, paging, and time-indexed query
+engines need a separate provider contract.
+
+## D-043 — Diff presentation uses immutable revision snapshots
+
+**Context.** A comparison may contain a few edited lines or tens of thousands
+of structured regions. The view must never commit a merge while rendering or
+allow a queued decision to target a later document revision.
+
+**Decision.** DiffModel uses bounded deterministic alignment for small local
+text snapshots and an indexed DiffPageProvider for large or structured
+comparisons. Both carry opaque source revisions and stable hunk/conflict IDs.
+DiffView reads visible regions only. Accept/reject sends a typed DiffDecision
+with expected revisions to a host-owned DiffTransactionAdapter; the host
+performs the transaction and publishes a new snapshot.
+
+**Consequences.** Large providers own their alignment and ID stability. A
+destroyed provider or changed snapshot cancels pending requests. Hosts must
+recheck revisions at commit time and keep cancellation reversible. The toolkit
+never mutates the source documents.

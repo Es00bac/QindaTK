@@ -228,7 +228,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-031"></a>
 ## WP-031 — Complete analytical chart and scheduling families
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-028](phase-02-controls-data.md#wp-028), [WP-029](phase-02-controls-data.md#wp-029), [WP-030](phase-02-controls-data.md#wp-030)
+**Implementation lead:** Sol. **Status:** active (Heatmap sublane; remaining families pending). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-028](phase-02-controls-data.md#wp-028), [WP-029](phase-02-controls-data.md#wp-029), [WP-030](phase-02-controls-data.md#wp-030)
 
 **Proposal scope:** [DAT-14 Heatmap](../proposed/03-data-views.md#dat-14), [DAT-16 DistributionPlot](../proposed/03-data-views.md#dat-16), [DAT-17 GanttView](../proposed/03-data-views.md#dat-17)
 
@@ -251,7 +251,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-032"></a>
 ## WP-032 — Build event, diff and resource views
 
-**Implementation lead:** Luna. **Status:** active (event-log sublane; diff/resource pending). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-024](phase-02-controls-data.md#wp-024), [WP-027](phase-02-controls-data.md#wp-027), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Luna. **Status:** review (all three views integrated; dual-Qt acceptance pending). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-024](phase-02-controls-data.md#wp-024), [WP-027](phase-02-controls-data.md#wp-027), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** [DAT-18 EventLogView](../proposed/03-data-views.md#dat-18), [DAT-19 DiffView](../proposed/03-data-views.md#dat-19), [DAT-20 ResourceTable](../proposed/03-data-views.md#dat-20)
 

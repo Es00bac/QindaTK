@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: WP-001 through WP-007, WP-010 through WP-018, and WP-046 accepted; WP-019 through WP-030 and WP-047 in review or active work, with WP-032 in implementation.** Sol updates this ledger during
+**Execution state: WP-001 through WP-007, WP-010 through WP-018, and WP-046 accepted; WP-019 through WP-030 and WP-047 in review or active work, with WP-031 and WP-032 in implementation.** Sol updates this ledger during
 execution. Use `planned`, `ready`, `active`, `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
 record. Keep unrelated ready work moving. A row reaches `accepted` only through
@@ -43,8 +43,8 @@ as though a later fix had already passed the earlier run.
 | [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | review | [Sparse core, bounded visual grid and interaction checks](evidence/WP-028.md) |
 | [WP-029 — Implement filters, query building and pivots](phase-02-controls-data.md#wp-029) | 02 | Sol | review | [Typed core](evidence/WP-029.md); [visual editor and pivot evidence](evidence/WP-029-visual.md) |
 | [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | review | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
-| [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | planned | — |
-| [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | active | [Event-log sublane active; diff/resource views pending](evidence/WP-032.md) |
+| [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | active | [Heatmap sublane active](evidence/WP-031.md) |
+| [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | review | [Event, diff and resource integration status](evidence/WP-032.md) |
 | [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | planned | — |
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | planned | — |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | planned | — |
