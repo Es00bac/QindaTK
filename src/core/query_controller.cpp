@@ -35,11 +35,11 @@ void collectPredicateFields(const QueryPredicate &predicate, QSet<QString> *fiel
 
 struct QueryController::Run {
     QuerySpec spec;
-    QuerySchema schema;
-    QString sourceRevision;
-    QStringList fields;
-    QVector<QueryRow> rows;
-    qsizetype cursor = 0;
+    QuerySchema schema, joinedSchema;
+    QString sourceRevision, joinedRevision;
+    QStringList fields, joinedFields;
+    QVector<QueryRow> rows, joinedRows;
+    qsizetype cursor = 0, joinedCursor = 0;
     std::atomic_bool cancelled{false};
 };
 
@@ -65,10 +65,33 @@ void QueryController::setSource(EditableGridModel *source)
     emit sourceChanged();
 }
 
+void QueryController::setJoinSource(EditableGridModel *source)
+{
+    if (m_joinSource == source) return;
+    if (m_joinSource) disconnect(m_joinSource, nullptr, this, nullptr);
+    invalidate({}); m_joinSource = source;
+    if (m_joinSource) {
+        connect(m_joinSource, &EditableGridModel::cellsChanged, this, [this]() {
+            invalidate(QStringLiteral("Join source changed during query"));
+        });
+        connect(m_joinSource, &QObject::destroyed, this, [this]() {
+            m_joinSource = nullptr; invalidate(QStringLiteral("Join source was destroyed"));
+            emit joinSourceChanged();
+        });
+    }
+    emit joinSourceChanged();
+}
+
 void QueryController::setSchema(const QVariantMap &schema)
 {
     if (m_schemaMap == schema) return;
     invalidate({}); m_schemaMap = schema; emit schemaChanged();
+}
+
+void QueryController::setJoinSchema(const QVariantMap &schema)
+{
+    if (m_joinSchemaMap == schema) return;
+    invalidate({}); m_joinSchemaMap = schema; emit joinSchemaChanged();
 }
 
 void QueryController::setQuery(const QVariantMap &query)
@@ -93,7 +116,7 @@ void QueryController::clearResult()
 {
     EditableGridModel *old = m_resultModel;
     m_resultModel = nullptr; m_result = {};
-    m_rowLabels.clear(); m_columnLabels.clear();
+    m_rowLabels.clear(); m_columnLabels.clear(); m_rowParents.clear();
     if (old) old->deleteLater();
     emit resultChanged();
 }
@@ -151,6 +174,8 @@ QStringList QueryController::requestedFields(const QuerySpec &spec)
     QSet<QString> fields;
     collectPredicateFields(spec.filter, &fields);
     for (const auto &id : spec.rowFields + spec.columnFields) fields.insert(id);
+    for (const auto &id : spec.projection) fields.insert(id);
+    for (const auto &entry : spec.sort) fields.insert(entry.fieldId);
     for (const auto &measure : spec.measures)
         if (measure.function != QueryMeasure::Function::CountRows) fields.insert(measure.fieldId);
     QStringList result = fields.values(); result.sort(); return result;
@@ -173,23 +198,52 @@ bool QueryController::refresh()
     if (!QueryEngine::fromJson(QJsonObject::fromVariantMap(m_queryMap), &spec, &error))
         return fail(error);
     m_requestId = spec.id; emit statusChanged();
-    const QString validation = QueryEngine::validate(schema, spec, QueryCapabilities::local());
+    QuerySchema joinedSchema;
+    const bool joins = !spec.join.sourceId.isEmpty();
+    QuerySchema effective = schema;
+    if (joins) {
+        if (!m_joinSource) return fail(QStringLiteral("No join source"));
+        if (!parseSchema(m_joinSchemaMap, &joinedSchema, &error)) return fail(error);
+        if (joinedSchema.id != spec.join.sourceId || joinedSchema.revision != spec.join.schemaRevision
+            || m_joinSource->revision() != spec.join.sourceRevision)
+            return fail(QStringLiteral("Stale joined source or schema"));
+        for (auto field : joinedSchema.fields) {
+            field.id = joinedSchema.id + QLatin1Char('.') + field.id;
+            field.nullable |= spec.join.leftOuter;
+            effective.fields.append(field);
+        }
+    }
+    const QString validation = QueryEngine::validate(effective, spec, QueryCapabilities::local());
     if (!validation.isEmpty()) return fail(validation);
     if (m_source->revision() != spec.sourceRevision)
         return fail(QStringLiteral("Stale source revision"));
     GridQuerySource gridSource(m_source, schema);
     if (gridSource.schema().revision != schema.revision)
         return fail(QStringLiteral("Schema fields no longer match source"));
-    const QStringList fields = requestedFields(spec);
+    QStringList fields = requestedFields(spec), joinedFields;
+    if (joins) {
+        GridQuerySource joinedGrid(m_joinSource, joinedSchema);
+        if (joinedGrid.schema().revision != joinedSchema.revision)
+            return fail(QStringLiteral("Joined schema fields no longer match source"));
+        fields.clear();
+        for (const auto &field : schema.fields) fields.append(field.id);
+        for (const auto &field : joinedSchema.fields) joinedFields.append(field.id);
+    }
     const qsizetype count = gridSource.rowCount();
     const QueryLimits limits;
-    if (count < 0 || count > limits.maxScanRows
-        || count * fields.size() > m_maxSnapshotValues)
+    const qsizetype joinedCount = joins ? m_joinSource->rowCount() : 0;
+    if (count < 0 || count > limits.maxScanRows || joinedCount < 0
+        || joinedCount > limits.maxScanRows
+        || count * fields.size() + joinedCount * joinedFields.size()
+           > (joins ? std::min<qsizetype>(m_maxSnapshotValues, limits.maxJoinValues)
+                    : m_maxSnapshotValues))
         return fail(QStringLiteral("Snapshot limit exceeded"));
     auto run = std::make_shared<Run>();
     run->spec = std::move(spec); run->schema = std::move(schema);
     run->sourceRevision = m_source->revision(); run->fields = fields;
-    run->rows.reserve(count);
+    run->joinedSchema = joinedSchema; run->joinedRevision = joins ? m_joinSource->revision() : QString();
+    run->joinedFields = joinedFields;
+    run->rows.reserve(count); run->joinedRows.reserve(joinedCount);
     m_run = run;
     const quint64 generation = ++m_generation;
     setStatus(QStringLiteral("running"));
@@ -205,17 +259,33 @@ void QueryController::collect(quint64 generation)
     if (m_source->revision() != run->sourceRevision) {
         invalidate(QStringLiteral("Source changed during query")); return;
     }
+    if (!run->spec.join.sourceId.isEmpty()
+        && (!m_joinSource || m_joinSource->revision() != run->joinedRevision)) {
+        invalidate(QStringLiteral("Join source changed during query")); return;
+    }
     GridQuerySource gridSource(m_source, run->schema);
     if (gridSource.schema().revision != run->schema.revision) {
         invalidate(QStringLiteral("Schema changed during query")); return;
     }
-    const qsizetype end = std::min(run->cursor + 128, gridSource.rowCount());
-    for (; run->cursor < end; ++run->cursor)
-        run->rows.append(gridSource.rowAt(run->cursor, run->fields));
+    if (run->cursor < gridSource.rowCount()) {
+        const qsizetype end = std::min(run->cursor + 128, gridSource.rowCount());
+        for (; run->cursor < end; ++run->cursor)
+            run->rows.append(gridSource.rowAt(run->cursor, run->fields));
+    } else if (!run->spec.join.sourceId.isEmpty()) {
+        GridQuerySource joinedGrid(m_joinSource, run->joinedSchema);
+        if (joinedGrid.schema().revision != run->joinedSchema.revision) {
+            invalidate(QStringLiteral("Join schema changed during query")); return;
+        }
+        const qsizetype end = std::min(run->joinedCursor + 128, joinedGrid.rowCount());
+        for (; run->joinedCursor < end; ++run->joinedCursor)
+            run->joinedRows.append(joinedGrid.rowAt(run->joinedCursor, run->joinedFields));
+    }
     if (m_source->revision() != run->sourceRevision) {
         invalidate(QStringLiteral("Source changed during query")); return;
     }
-    if (run->cursor < gridSource.rowCount()) {
+    if (run->cursor < gridSource.rowCount()
+        || (!run->spec.join.sourceId.isEmpty() && m_joinSource
+            && run->joinedCursor < m_joinSource->rowCount())) {
         QTimer::singleShot(0, this, [this, generation]() { collect(generation); });
         return;
     }
@@ -228,7 +298,10 @@ void QueryController::collect(quint64 generation)
     });
     watcher->setFuture(QtConcurrent::run([run]() {
         const SnapshotSource source(run->schema, run->sourceRevision, run->rows);
-        return QueryEngine::execute(source, run->spec, {}, &run->cancelled);
+        if (run->spec.join.sourceId.isEmpty())
+            return QueryEngine::execute(source, run->spec, {}, &run->cancelled);
+        const SnapshotSource joined(run->joinedSchema, run->joinedRevision, run->joinedRows);
+        return QueryEngine::executeJoined(source, joined, run->spec, {}, &run->cancelled);
     }));
 }
 
@@ -237,7 +310,10 @@ void QueryController::publish(quint64 generation, const QueryResult &result)
     if (generation != m_generation || !m_run || !m_source) return;
     const auto run = m_run;
     if (run->cancelled.load(std::memory_order_relaxed)) return;
-    if (m_source->revision() != run->sourceRevision || result.queryId != run->spec.id
+    if (m_source->revision() != run->sourceRevision
+        || (!run->spec.join.sourceId.isEmpty()
+            && (!m_joinSource || m_joinSource->revision() != run->joinedRevision))
+        || result.queryId != run->spec.id
         || result.sourceRevision != run->sourceRevision) {
         invalidate(QStringLiteral("Stale query result")); return;
     }
@@ -253,6 +329,8 @@ void QueryController::publish(quint64 generation, const QueryResult &result)
     m_result = result;
     for (const auto &id : result.rowIds) m_rowLabels.insert(id, result.labels.value(id));
     for (const auto &id : result.columnIds) m_columnLabels.insert(id, result.labels.value(id));
+    for (auto it = result.rowParents.cbegin(); it != result.rowParents.cend(); ++it)
+        m_rowParents.insert(it.key(), it.value());
     m_run.reset();
     emit resultChanged();
     setStatus(QStringLiteral("complete"));
@@ -263,4 +341,20 @@ QVariant QueryController::cellValue(const QString &rowId, const QString &columnI
 { return m_resultModel ? m_resultModel->cellValue(rowId, columnId) : QVariant{}; }
 QStringList QueryController::sourceRows(const QString &rowId, const QString &columnId) const
 { return m_resultModel ? m_result.sourceRows(rowId, columnId) : QStringList{}; }
+
+QVariantList QueryController::sourceReferences(const QString &rowId, const QString &columnId) const
+{
+    QVariantList refs;
+    if (!m_resultModel) return refs;
+    for (const auto &id : m_result.sourceRows(rowId, columnId)) {
+        const auto pair = m_result.joinedLineage.value(id);
+        if (pair.size() == 2) {
+            refs.append(QVariantMap{{"sourceId", m_schemaMap.value("id")}, {"rowId", pair.at(0)}});
+            if (!pair.at(1).isEmpty())
+                refs.append(QVariantMap{{"sourceId", m_joinSchemaMap.value("id")},
+                                        {"rowId", pair.at(1)}});
+        } else refs.append(QVariantMap{{"sourceId", m_schemaMap.value("id")}, {"rowId", id}});
+    }
+    return refs;
+}
 } // namespace QindaTK

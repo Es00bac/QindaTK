@@ -9751,6 +9751,14 @@
           "required": false
         },
         {
+          "name": "collapsedRows",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "rowHeaderWidth",
           "type": "real",
           "default": "Tk.Theme.size.panelMinWidth * 0.55",
@@ -9775,9 +9783,25 @@
           "required": false
         },
         {
+          "name": "rowParents",
+          "type": "var",
+          "default": "controller && controller.rowParents ? controller.rowParents : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayedRowIds",
+          "type": "var",
+          "default": "collectRows()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "totalRows",
           "type": "int",
-          "default": "controller && controller.resultModel",
+          "default": "displayedRowIds.length",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -9887,6 +9911,22 @@
       ],
       "methods": [
         {
+          "name": "collectRows",
+          "parameters": ""
+        },
+        {
+          "name": "hasChildren",
+          "parameters": "id"
+        },
+        {
+          "name": "rowDepth",
+          "parameters": "id"
+        },
+        {
+          "name": "toggleRow",
+          "parameters": "id"
+        },
+        {
           "name": "rowId",
           "parameters": "index"
         },
@@ -9923,6 +9963,7 @@
         "pivotColumnsPage",
         "pivotColumnsPrevious",
         "pivotCornerHeader",
+        "pivotExpand_",
         "pivotPaging",
         "pivotRowHeader_",
         "pivotRow_",
@@ -10730,6 +10771,94 @@
           "required": false
         },
         {
+          "name": "detailMode",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "projection",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sortField",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sortAscending",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sortNullsLast",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "joinEnabled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "joinLeftOuter",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "joinLeftField",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "joinRightField",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "joinSchema",
+          "type": "var",
+          "default": "controller ? controller.joinSchema : ({ \"id\": \"\", \"revision\": \"\", \"fields\": [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "joinSourceRevision",
+          "type": "string",
+          "default": "controller && controller.joinSource",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "querySpec",
           "type": "var",
           "default": "null",
@@ -10756,7 +10885,7 @@
         {
           "name": "fields",
           "type": "var",
-          "default": "{",
+          "default": "availableFields(joinEnabled)",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -10794,8 +10923,16 @@
       ],
       "methods": [
         {
+          "name": "availableFields",
+          "parameters": "withJoin"
+        },
+        {
           "name": "has",
           "parameters": "list, id"
+        },
+        {
+          "name": "setProjected",
+          "parameters": "id, checked"
         },
         {
           "name": "setAxis",
@@ -10838,6 +10975,10 @@
           "parameters": "spec"
         },
         {
+          "name": "applyTransforms",
+          "parameters": "nextProjection, nextSort, nextJoin"
+        },
+        {
           "name": "rejectLoad",
           "parameters": "message"
         },
@@ -10878,7 +11019,77 @@
         "queryMeasureField_",
         "queryMeasureRemove_",
         "queryMeasure_",
-        "queryPreview"
+        "queryPreview",
+        "queryTransformPanel"
+      ]
+    },
+    {
+      "name": "QueryTransformPanel",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Editor surface for the bounded detail projection and one typed join.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/QueryTransformPanel.qml",
+      "properties": [
+        {
+          "name": "builder",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Join, project and sort typed query fields\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "baseFields",
+          "type": "var",
+          "default": "builder && builder.schema ? builder.schema.fields || [] : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rightFields",
+          "type": "var",
+          "default": "builder && builder.joinSchema ? builder.joinSchema.fields || [] : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "indexOf",
+          "parameters": "fields, id"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "queryDetailMode",
+        "queryJoinEnabled",
+        "queryJoinLeftField",
+        "queryJoinLeftOuter",
+        "queryJoinRightField",
+        "queryProject_",
+        "querySortAscending",
+        "querySortField",
+        "querySortNullsLast"
       ]
     },
     {
@@ -22235,7 +22446,21 @@
           "constant": false
         },
         {
+          "name": "joinSource",
+          "type": "QindaTK::EditableGridModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "schema",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "joinSchema",
           "type": "QVariantMap",
           "default": "",
           "readonly": false,
@@ -22264,6 +22489,13 @@
         },
         {
           "name": "columnLabels",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rowParents",
           "type": "QVariantMap",
           "default": "",
           "readonly": true,
@@ -22319,6 +22551,21 @@
           "name": "sourceRows",
           "returns": "QStringList",
           "parameters": "const QString &rowId, const QString &columnId"
+        },
+        {
+          "name": "sourceReferences",
+          "returns": "QVariantList",
+          "parameters": "const QString &rowId, const QString &columnId"
+        },
+        {
+          "name": "saveQuery",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "reopenQuery",
+          "returns": "bool",
+          "parameters": "const QString &document"
         }
       ],
       "enums": {},

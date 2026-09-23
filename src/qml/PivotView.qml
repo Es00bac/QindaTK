@@ -12,11 +12,13 @@ Item {
     property int maxColumns: 24
     property int rowPage: 0
     property int columnPage: 0
+    property var collapsedRows: []
     property real rowHeaderWidth: Tk.Theme.size.panelMinWidth * 0.55
     property real columnWidth: Tk.Theme.size.fieldWidth * 0.8
     property string tooltip: qsTr("Pivot results; activate a value to inspect its source rows")
-    readonly property int totalRows: controller && controller.resultModel
-                                    ? controller.resultModel.rowCount : 0
+    readonly property var rowParents: controller && controller.rowParents ? controller.rowParents : ({})
+    readonly property var displayedRowIds: collectRows()
+    readonly property int totalRows: displayedRowIds.length
     readonly property int totalColumns: controller && controller.resultModel
                                        ? controller.resultModel.columnCount : 0
     readonly property int rowPageSize: Math.min(50, Math.max(1, maxRows))
@@ -41,12 +43,48 @@ Item {
         function onResultChanged() {
             pivot.rowPage = 0
             pivot.columnPage = 0
+            pivot.collapsedRows = []
         }
+    }
+
+    function collectRows() {
+        const output = []
+        if (!controller || !controller.resultModel) return output
+        for (let i = 0; i < controller.resultModel.rowCount; ++i) {
+            const id = controller.resultModel.rowIdAt(i)
+            let parent = rowParents[id]
+            let hidden = false
+            for (let depth = 0; parent && depth < 16; ++depth) {
+                if (collapsedRows.indexOf(parent) >= 0) { hidden = true; break }
+                parent = rowParents[parent]
+            }
+            if (!hidden) output.push(id)
+        }
+        return output
+    }
+    function hasChildren(id) {
+        for (const child in rowParents) if (rowParents[child] === id) return true
+        return false
+    }
+    function rowDepth(id) {
+        let depth = 0
+        let parent = rowParents[id]
+        while (parent && depth < 16) { ++depth; parent = rowParents[parent] }
+        return depth
+    }
+    function toggleRow(id) {
+        if (!hasChildren(id)) return
+        const next = collapsedRows.slice()
+        const index = next.indexOf(id)
+        if (index >= 0) next.splice(index, 1)
+        else next.push(id)
+        collapsedRows = next
+        rowPage = Math.min(rowPage, rowPageCount - 1)
     }
 
     function rowId(index) {
         if (!controller || !controller.resultModel || index < 0 || index >= visibleRows) return ""
-        const value = controller.resultModel.rowIdAt(index + rowOffset)
+        const value = displayedRowIds[index + rowOffset]
         return value === undefined || value === null ? "" : String(value)
     }
     function columnId(index) {
@@ -283,12 +321,30 @@ Item {
                                     implicitHeight: Tk.Theme.size.header
                                     color: Tk.Theme.color.headerBg
                                     paddingLeft: Tk.Theme.space.sm
-                                    Tk.Label {
+                                    Tk.Flex {
                                         anchors.fill: parent
-                                        text: pivot.labelFor(pivot.rowLabels, rowItem.rowKey, rowItem.rowKey)
-                                        elide: Text.ElideRight
-                                        Accessible.role: Accessible.RowHeader
-                                        Accessible.name: text
+                                        direction: Tk.Flex.Row
+                                        align: Tk.Flex.Center
+                                        gap: Tk.Theme.space.xs
+                                        paddingLeft: Tk.Theme.space.sm
+                                                     + pivot.rowDepth(rowItem.rowKey) * Tk.Theme.space.sm
+                                        Tk.Button {
+                                            objectName: "pivotExpand_" + rowItem.rowKey
+                                            visible: pivot.hasChildren(rowItem.rowKey)
+                                            text: pivot.collapsedRows.indexOf(rowItem.rowKey) >= 0 ? "+" : "−"
+                                            small: true
+                                            tooltip: pivot.collapsedRows.indexOf(rowItem.rowKey) >= 0
+                                                     ? qsTr("Expand dimension") : qsTr("Collapse dimension")
+                                            Accessible.name: tooltip
+                                            onClicked: pivot.toggleRow(rowItem.rowKey)
+                                        }
+                                        Tk.Label {
+                                            text: pivot.labelFor(pivot.rowLabels, rowItem.rowKey, rowItem.rowKey)
+                                            elide: Text.ElideRight
+                                            Tk.Flex.grow: 1
+                                            Accessible.role: Accessible.RowHeader
+                                            Accessible.name: text
+                                        }
                                     }
                                 }
                                 Repeater {

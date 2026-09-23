@@ -31,6 +31,26 @@ use an extended precision accumulator and return a `double`; a host requiring
 exact currency/decimal arithmetic must provide its own backend. A non-finite
 number or an invalid source type rejects the refresh.
 
+Detail mode uses a nonempty `projection` of schema field IDs, no axes and no
+measures. Up to four typed `sort` descriptors specify field ID, ascending
+direction and whether nulls come last. Ties resolve by stable source row ID.
+The result has one row per matched record, columns `field:<fieldId>`, and
+one source-row provenance ID per cell. Invalid values or output beyond the
+cell/provenance limits reject the whole refresh.
+
+One optional `join` descriptor names a second schema/source revision, left
+and right key fields, and inner versus left-outer behavior. Key types must
+match exactly; null keys never match. A left join retains an unmatched left
+row and supplies nulls for right fields. Joined fields use
+`<sourceId>.<fieldId>` in filter, projection, sort and aggregation descriptors.
+One-to-many matches produce one joined record per pair. Composite row IDs
+use length-prefixed source/row IDs and a distinct unmatched tag, so pairs
+cannot alias. `sourceRows` returns joined record IDs;
+`sourceReferences(rowId, columnId)` resolves them to `{sourceId,rowId}`
+references for host drill-through. The local caps are 100,000 rows per input,
+100,000 joined rows and 500,000 materialized field values, plus the
+controller's `maxSnapshotValues`. Capability or revision mismatches reject.
+
 ## Identity and drill-through
 
 Dimension IDs hash the ordered typed dimension values; they stay stable when
@@ -40,6 +60,10 @@ provides display labels separately from identity. `sourceRows(rowId, columnId)`
 returns the stable source row IDs that contributed to that aggregate. A blank
 cross-product cell has an empty provenance list and null result (or zero for
 counts). This is a bounded snapshot, not a persistent selection model.
+With two or more row dimensions, each proper prefix is a subtotal row with
+its own stable typed ID and exact contributing source IDs. `rowParents` maps
+each child to its prefix. The view can hide descendants while retaining the
+subtotal and its provenance; grand totals remain separate and last.
 
 `GridQuerySource` projects requested fields from `EditableGridModel` through
 its stable row/column IDs and sparse `cellValue` API. The host supplies the
@@ -69,6 +93,18 @@ On completion, `resultModel` is a read-only `EditableGridModel`. Use
 controller. `resultChanged` fires after the complete snapshot and labels are
 ready. A new query, source or schema invalidates the previous result.
 `cancel()` discards the pending refresh and prevents late publication.
+For a join, set `joinSource` and `joinSchema` before refresh. The controller
+collects both grids on the GUI thread in bounded chunks, checks both
+revisions through publication, and evaluates immutable snapshots on a worker.
+
+`saveQuery()` returns a versioned JSON document containing the typed query
+and field schemas; the host owns file I/O. After recreating sources and
+current schemas, call `reopenQuery(document)`. It checks required field IDs
+and types against saved metadata, rebases compatible schema/source revisions,
+assigns a new request ID and refreshes. Missing or changed required fields
+reject reopening without publishing a result. A host can call
+`QueryBuilder.loadSpec(controller.query)` to restore the visual draft. The
+[joined detail example](../examples/query-transform.qml) exercises this flow.
 
 The controller reads at most 128 source rows per event-loop turn on the
 source's GUI thread, then evaluates an immutable snapshot on a worker. The
@@ -95,9 +131,8 @@ revision and output bounds on return. The provider owns its remote query plan,
 threading, server cancellation and durable data. GUI-thread sources such as
 `GridQuerySource` must be used on their owner thread. Local execution is
 synchronous; schedule it on a worker only with a thread-safe immutable source.
-No joins, sorting, computed fields, incremental refresh, partial drill-through
-pages, hierarchy expansion or persistence layer are included in this core
-package. Those operations require explicit provider contracts and UI work.
+Computed fields, incremental refresh, partial drill-through pages, column
+hierarchy expansion and host file persistence remain separate provider work.
 
 ## QML editor and result view
 
@@ -127,7 +162,7 @@ the exact row ID, column ID and source row IDs from aggregate provenance.
 Editing and clipboard operations are not offered by this view; the host can
 map provenance to a separate source-data or detail view.
 
-The controls currently support flat AND/OR clauses and one level of row/column
-field assignment. The core accepts recursively nested predicate trees; a
-recursive group editor, nested field hierarchies, incremental refresh and
-remote-provider progress UI remain later work.
+The controls support flat AND/OR clauses, typed join/projection/sort editing,
+row/column field assignment and row-prefix expand/collapse. The core accepts
+recursively nested predicate trees; a recursive group editor and remote
+provider progress UI remain later work.

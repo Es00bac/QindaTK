@@ -56,6 +56,19 @@ struct QueryMeasure {
     QString fieldId;
     Function function = Function::CountRows;
 };
+struct QuerySort {
+    QString fieldId;
+    bool ascending = true;
+    bool nullsLast = true;
+};
+struct QueryJoin {
+    QString sourceId;
+    QString schemaRevision;
+    QString sourceRevision;
+    QString leftField;
+    QString rightField;
+    bool leftOuter = false;
+};
 struct QuerySpec {
     QString id;
     QString schemaId;
@@ -66,6 +79,9 @@ struct QuerySpec {
     QStringList rowFields;
     QStringList columnFields;
     QVector<QueryMeasure> measures;
+    QStringList projection;
+    QVector<QuerySort> sort;
+    QueryJoin join;
 };
 struct QueryCapabilities {
     QSet<QueryPredicate::Compare> comparisons;
@@ -75,6 +91,9 @@ struct QueryCapabilities {
     bool provenance = false;
     bool cancellation = false;
     bool remoteExecution = false;
+    bool projection = false;
+    bool sorting = false;
+    bool joining = false;
     static QueryCapabilities local();
 };
 struct QueryLimits {
@@ -82,6 +101,8 @@ struct QueryLimits {
     qsizetype maxGroups = 10000;
     qsizetype maxOutputCells = 100000;
     qsizetype maxProvenanceIds = 100000;
+    qsizetype maxJoinedRows = 100000;
+    qsizetype maxJoinValues = 500000;
     int maxPredicateDepth = 24;
     int maxPredicateNodes = 256;
 };
@@ -94,10 +115,14 @@ struct QueryResult {
     QStringList rowIds;
     QStringList columnIds;
     QHash<QString, QString> labels;
+    QHash<QString, QString> rowParents;
     // Keyed by row ID + U+001F + column ID. Values are typed; null is distinct
     // from a source error or an empty aggregate.
     QHash<QString, QueryValue> cells;
     QHash<QString, QStringList> provenance;
+    // A joined record ID maps to {left source row ID, right source row ID}.
+    // A null right ID denotes the unmatched side of a left join.
+    QHash<QString, QStringList> joinedLineage;
     qsizetype scannedRows = 0;
     qsizetype matchedRows = 0;
     QueryValue cell(const QString &rowId, const QString &columnId) const;
@@ -129,10 +154,17 @@ public:
     static QueryResult execute(const QuerySource &source, const QuerySpec &spec,
                                const QueryLimits &limits = {},
                                const std::atomic_bool *cancel = nullptr);
+    static QueryResult executeJoined(const QuerySource &left, const QuerySource &right,
+                                    const QuerySpec &spec, const QueryLimits &limits = {},
+                                    const std::atomic_bool *cancel = nullptr);
     static QueryTruth evaluate(const QueryPredicate &predicate, const QueryRow &row,
                                const QuerySpec &spec);
     static QJsonObject toJson(const QuerySpec &spec);
     static bool fromJson(const QJsonObject &json, QuerySpec *spec, QString *error);
+private:
+    static QueryResult executeDetail(const QuerySource &source, const QuerySpec &spec,
+                                     const QueryLimits &limits,
+                                     const std::atomic_bool *cancel);
 };
 
 QString queryCellKey(const QString &rowId, const QString &columnId);

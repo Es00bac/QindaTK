@@ -93,6 +93,7 @@ qt_add_qml_module(qindatk
         core/resource_plan_model.cpp core/resource_plan_model.h
         core/editable_grid_mode.cpp
         core/query_spec.cpp core/query_eval.cpp core/query_pivot.cpp core/query_core.h
+        core/query_detail.cpp core/query_join.cpp core/query_persistence.cpp
         core/query_grid_adapter.cpp core/query_grid_adapter.h
         core/query_controller.cpp core/query_controller.h
         core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h

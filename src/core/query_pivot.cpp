@@ -2,6 +2,7 @@
 #include "query_core.h"
 #include <QSet>
 #include <cmath>
+#include <functional>
 
 namespace QindaTK {
 int queryCompareValues(const QueryValue &, const QueryValue &, bool *);
@@ -149,6 +150,10 @@ QueryResult QueryEngine::execute(const QuerySource &source, const QuerySpec &spe
         }
         return result;
     }
+    if (!spec.join.sourceId.isEmpty())
+        return reject(QStringLiteral("Join requires a joined source adapter"));
+    if (!spec.projection.isEmpty())
+        return executeDetail(source, spec, limits, cancel);
     const qsizetype count = source.rowCount();
     if (count < 0 || count > limits.maxScanRows) return reject(QStringLiteral("Scan limit exceeded"));
     QHash<QString, QueryField> fields;
@@ -193,14 +198,27 @@ QueryResult QueryEngine::execute(const QuerySource &source, const QuerySpec &spe
             return reject(QStringLiteral("Invalid dimension value"));
         const QString rowId = queryAxisId(QStringLiteral("row"), rowValues);
         const QString columnId = queryAxisId(QStringLiteral("column"), columnValues);
-        const QStringList rowTargets = spec.rowFields.isEmpty()
-                                           ? QStringList{rowId} : QStringList{rowId, totalRow};
+        QStringList rowTargets;
+        if (spec.rowFields.isEmpty()) rowTargets.append(rowId);
+        else {
+            for (int depth = 1; depth <= rowValues.size(); ++depth) {
+                const QVector<QueryValue> prefix = rowValues.mid(0, depth);
+                const QString prefixId = queryAxisId(QStringLiteral("row"), prefix);
+                rowTargets.append(prefixId);
+                if (depth > 1)
+                    result.rowParents.insert(prefixId, queryAxisId(QStringLiteral("row"),
+                                                                    rowValues.mid(0, depth - 1)));
+            }
+            rowTargets.append(totalRow);
+        }
         const QStringList columnTargets = spec.columnFields.isEmpty()
                                               ? QStringList{columnId} : QStringList{columnId, totalColumn};
         for (const QString &target : rowTargets) {
             if (!seenRows.contains(target)) {
                 seenRows.insert(target); result.rowIds.append(target);
-                result.labels.insert(target, target == totalRow ? QStringLiteral("Total") : axisLabel(rowValues));
+                const int depth = rowTargets.indexOf(target) + 1;
+                result.labels.insert(target, target == totalRow ? QStringLiteral("Total")
+                                     : axisLabel(rowValues.mid(0, depth)));
             }
         }
         for (const QString &target : columnTargets) {
@@ -252,6 +270,26 @@ QueryResult QueryEngine::execute(const QuerySource &source, const QuerySpec &spe
     }
     if (result.rowIds.size() * result.columnIds.size() > limits.maxOutputCells)
         return reject(QStringLiteral("Output matrix limit exceeded"));
+    if (!result.rowParents.isEmpty()) {
+        // AGENT-GUARD: prefix rows precede all descendants regardless of
+        // source encounter order; collapse in PivotView assumes contiguous
+        // groups while IDs, values and provenance remain unchanged.
+        QHash<QString, QStringList> children;
+        QStringList roots, ordered;
+        for (const auto &id : result.rowIds) {
+            if (id == totalRow) continue;
+            const QString parent = result.rowParents.value(id);
+            if (parent.isEmpty()) roots.append(id);
+            else children[parent].append(id);
+        }
+        std::function<void(const QString &)> visit = [&](const QString &id) {
+            ordered.append(id);
+            for (const auto &child : children.value(id)) visit(child);
+        };
+        for (const auto &root : roots) visit(root);
+        if (result.rowIds.contains(totalRow)) ordered.append(totalRow);
+        result.rowIds = std::move(ordered);
+    }
     if (result.rowIds.removeAll(totalRow)) result.rowIds.append(totalRow);
     if (spec.columnFields.size()) {
         for (const auto &measure : spec.measures) {
