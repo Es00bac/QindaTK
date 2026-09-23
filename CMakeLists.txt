@@ -21,8 +21,12 @@ find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg)
 # AGENT-NOTE: QuickPrivate currently serves layout_info.cpp (anchor/explicit
 # size detection) and StylusHandler's raw tablet event path (D-013). The
 # installed stylus header still exposes a private Qt base until WP-005.
+# Official Qt SDKs define Qt6::QuickPrivate from the Qt6Quick package;
+# distro Qt packages may instead provide a separate Qt6QuickPrivate config.
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
-find_package(Qt6QuickPrivate 6.8 REQUIRED)
+if(NOT TARGET Qt6::QuickPrivate)
+    find_package(Qt6QuickPrivate 6.8 REQUIRED)
+endif()
 if(BUILD_TESTING)
     find_package(Qt6 6.8 REQUIRED COMPONENTS Test QuickTest)
 endif()

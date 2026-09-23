@@ -3,14 +3,15 @@
 
 This is the initial WP-005 qualification record as of 2026-09-23. A
 configuration is supported only for the operations actually exercised below.
-The minimum in `CMakeLists.txt` is Qt 6.8; it is a build requirement, not yet
-a verified runtime claim. [WP-005 evidence](universal-toolkit/implementation/evidence/WP-005-baseline.md)
+The minimum in `CMakeLists.txt` is Qt 6.8; an isolated Qt 6.8.3 build and
+test now qualify the existing baseline, while the new facade and installed
+consumer remain open. [WP-005 evidence](universal-toolkit/implementation/evidence/WP-005-baseline.md)
 records the installed-consumer reproduction.
 
 | Host and Qt | Build / QML | Rendering | Input | Installed C++ consumer | Status |
 | --- | --- | --- | --- | --- | --- |
 | Gentoo Linux, Qt 6.11.1 | Debug integration build and all 15 CTest targets passed | Headless offscreen software; compact/comfortable captures inspected | Synthetic pen, eraser, mouse and touch delivery in `tst_stylus_handler`; no physical tablet run | Existing installed package consumer configured, built and loaded QML; it still inherits `QuickPrivate` | Verified only for these paths |
-| Gentoo Linux, Qt 6.8.x | No local Qt 6.8 install found | Not run | Not run | Not run | Open WP-005 gate |
+| Gentoo Linux, isolated Qt 6.8.3 SDK | Debug build and all 15 CTest targets passed with optional QindaQt desktop bridge disabled | Headless offscreen software and example instantiation passed | Synthetic pen, eraser, mouse and touch test passed; no physical tablet run | New facade/staged consumer not run yet | Baseline verified; WP-005 boundary gate open |
 | Gentoo Linux, Qt 6.11.1 on Wayland/GPU | Wayland session and render device present | Direct GPU and multi-monitor behavior not qualified here | Physical pen/assistive devices not qualified | — | Later WP-088/092 gates |
 | Windows and macOS | Not built | Not run | Not run | Not run | No support claim |
 
@@ -21,18 +22,22 @@ selects an internal-handler/public-facade boundary. Its effect on the
 installed package must be rechecked after implementation; this matrix does
 not report that pending change as verified.
 
-## Candidate Qt 6.8 test environment
+## Isolated Qt 6.8 test environment
 
 The [official Qt 6.8.3 Linux GCC 64 repository](https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_683/qt6_683/)
-publishes an isolated desktop SDK component. The
-[Qt installer CLI](https://doc.qt.io/qt-6.8/get-and-install-qt-cli.html)
-supports a user-selected root but may require Qt account login; no install
-has been performed. The Desktop payload metadata lists about 193 MiB
-compressed, before installer, tool, documentation or example dependencies.
+publishes an isolated desktop SDK component. `aqtinstall` 3.3.0 fetched its
+seven official archive payloads into the ignored `build/qt68-sdk` directory
+without touching system Qt or Portage. The first external 7z extraction
+attempt failed in aqt; retrying qtbase with its internal extractor completed
+the SDK. The Desktop payload metadata lists about 193 MiB compressed and
+the extracted SDK occupies about 1.6 GiB here.
 The [Qt 6.8 Linux configuration list](https://doc.qt.io/qt-6.8/linux.html)
-does not include this Gentoo host, so a prebuilt SDK must be tried rather
-than assumed compatible. No Docker/Podman runtime is installed locally;
-an isolated user SDK is the first route under investigation.
+does not include this Gentoo host. The successful headless run establishes
+this configuration's tested paths, not general distro certification. The
+official SDK contains the private pointer-handler header and defines
+`Qt6::QuickPrivate` from `Qt6QuickTargets.cmake`; it has no separate
+`Qt6QuickPrivateConfig.cmake`. The top-level build now accepts either Qt
+package layout.
 
 ## Qt upgrade and qualification procedure
 
