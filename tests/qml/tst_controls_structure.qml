@@ -386,6 +386,8 @@ TestCase {
         compare(zoom.value, 1.0)
         const readout = findChild(zoom, "zoomReadout")
         verify(readout !== null)
+        const clicked = createTemporaryObject(signalSpyComponent, root,
+                                              { target: readout, signalName: "clicked" })
         compare(readout.Accessible.role, Accessible.Button)
         compare(readout.Accessible.name, "Reset zoom")
         compare(readout.Accessible.description, "Current zoom 100%")
@@ -393,22 +395,26 @@ TestCase {
         verify(readout.activeFocus)
         verify(readout.visualFocus)
         keyClick(Qt.Key_Return)
+        compare(clicked.count, 1)
         compare(reset.count, 1)
         compare(modified.count, 2) // reset at 100% is unchanged
         zoom.value = 3 // owner synchronization is silent
         compare(modified.count, 2)
         compare(reset.count, 1)
         keyClick(Qt.Key_Space)
+        compare(clicked.count, 2)
         compare(zoom.value, 1.0)
         compare(reset.count, 2)
         compare(modified.count, 3)
         zoom.value = 3
         keyClick(Qt.Key_Enter)
+        compare(clicked.count, 3)
         compare(zoom.value, 1.0)
         compare(reset.count, 3)
         compare(modified.count, 4)
         zoom.value = 2
         readout.Accessible.pressAction()
+        compare(clicked.count, 4)
         compare(zoom.value, 1.0)
         compare(reset.count, 4)
         compare(modified.count, 5)
@@ -419,6 +425,7 @@ TestCase {
         zoom.zoomOut()
         zoom.reset()
         readout.Accessible.pressAction()
+        compare(clicked.count, 4)
         compare(zoom.value, 2) // owner can still synchronize disabled state
         compare(reset.count, 4)
         compare(modified.count, 5)

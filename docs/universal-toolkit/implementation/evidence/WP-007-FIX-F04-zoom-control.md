@@ -31,5 +31,16 @@ show active focus, so focus-ring visibility is established by the button's
 existing themed visual-focus path and keyboard interaction test, not by this
 capture.
 
+Integration kept the readout's actual text in the toolkit's monospaced
+`Tk.Mono` content item and routed accessible press through the button's
+`click()` path. The focused QML test now confirms `clicked` fires once for
+Return, Space, Enter and accessible press, and never fires while disabled.
+The integrated 260×80 preview was dumped, grabbed and opened:
+`ZoomControl#reviewZoom 72,28 97x24` contains
+`Button#zoomReadout 26,0 45x24 "200%"` and `Mono 8,0 29x24 "200%"`;
+its focus rectangle is `-1,-1 47x26` and visible. The PNG shows that ring
+around the readable monospaced percentage. Ignored artifacts are
+`build/wp007-zoom-review.{qml,png}`.
+
 This is focused control evidence only; no overall WP-007 acceptance is
 claimed.

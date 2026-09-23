@@ -86,22 +86,29 @@ Item {
             onClicked: zoom.zoomOut()
         }
         Tk.Button {
+            id: zoomReadoutButton
             objectName: "zoomReadout"
             text: Math.round(zoom.value * 100) + "%"
             tooltip: qsTr("Reset zoom")
             variant: "ghost"
             Accessible.name: qsTr("Reset zoom")
             Accessible.description: qsTr("Current zoom %1%").arg(Math.round(zoom.value * 100))
-            font.family: Tk.Theme.font.monoFamily
-            font.pixelSize: Tk.Theme.font.body
             onClicked: zoom.reset()
-            Accessible.onPressAction: if (enabled) zoom.reset()
+            Accessible.onPressAction: if (enabled) click()
             Keys.onReturnPressed: event => { event.accepted = true; click() }
             Keys.onEnterPressed: event => { event.accepted = true; click() }
             implicitWidth: Math.max(Tk.Theme.size.action + Tk.Theme.space.sm,
-                                    text.length * Tk.Theme.font.body + Tk.Theme.space.md * 2)
+                                    readoutText.implicitWidth + leftPadding + rightPadding)
             implicitHeight: Tk.Theme.size.control
             Tk.Flex.shrink: 0
+            contentItem: Tk.Mono {
+                id: readoutText
+                text: zoomReadoutButton.text
+                color: zoomReadoutButton.textColor
+                font.pixelSize: Tk.Theme.font.body
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
         }
         Tk.IconButton {
             objectName: "zoomIn"
