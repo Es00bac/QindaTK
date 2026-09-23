@@ -155,7 +155,7 @@ FND-07 through FND-10.
 
 On both Qt 6.11.1 and isolated Qt 6.8.3, integrated Debug builds, all
 19 current CTest targets and `all_qmllint` exited 0 at integration source
-commit `1f30b69`. The lint targets still report existing nonfatal warnings,
+commit `a500767`. The lint targets still report existing nonfatal warnings,
 especially under Qt 6.8.3; their exit status is the gate recorded here.
 The new QML tests cover
 pointer/keyboard/assistive-action signal paths, disabled behavior and group

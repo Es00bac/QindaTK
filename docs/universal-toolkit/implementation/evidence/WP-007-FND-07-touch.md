@@ -113,7 +113,7 @@ this is an example workflow check rather than contrast certification for
 every control. Ignored captures are `/tmp/qindatk-gallery-hc-{dark,light}-touch.png`
 and `/tmp/qindatk-gallery-touch3-hc-{dark,light}.png`.
 
-At integration source commit `1f30b69`, Qt 6.11.1 and 6.8.3 each passed the
+At integration source commit `a500767`, Qt 6.11.1 and 6.8.3 each passed the
 full 19-target CTest suite and `all_qmllint`.
 
 ## Divider seams

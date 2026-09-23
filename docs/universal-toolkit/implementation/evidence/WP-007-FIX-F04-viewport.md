@@ -14,7 +14,7 @@ emit `zoomModified`.
 
 `ViewportAccessibility` checks focus/name/ring, pan and zoom keys, accessible
 zoom, silent owner assignment, disabled interaction, and document-child focus.
-The focused Qt 6.11.1 suite passed 5/5. The opened Compact preview shows a
+The focused Qt 6.11.1 and Qt 6.8.3 suites each passed 5/5. The opened Compact preview shows a
 cyan focus outline around the unchanged 320×220 viewport; the dump reports
 `Viewport#reviewViewport 0,0 320x220`, `Rectangle#viewportFocusRing
 0,0 320x220`, `Scroll#viewportScroll 0,0 320x220` and a 500×420 content
