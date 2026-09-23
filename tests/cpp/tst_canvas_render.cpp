@@ -498,9 +498,12 @@ void TstCanvasRender::sceneGraphBackend()
         || window.rendererInterface()->graphicsApi() == QSGRendererInterface::Null) {
         QSKIP("no hardware-backed RHI available for this offscreen window");
     }
-    const QPointF probe = view.mapFromDocument(QPointF(50, 50));
+    const QPointF documentProbe(50, 50);
     QTRY_COMPARE(view.renderSurface()->effectiveBackend(), QStringLiteral("scenegraph"));
-    QTRY_VERIFY(close(pixelAt(&window, probe), Qt::red));
+    // A fit can finish after window exposure; sample the current pose while
+    // waiting for the first rendered frame instead of retaining a stale pixel.
+    QTRY_VERIFY(close(pixelAt(&window, view.mapFromDocument(documentProbe)), Qt::red));
+    const QPointF probe = view.mapFromDocument(documentProbe);
     const QColor gpu = pixelAt(&window, probe);
     const quint64 generation = view.renderSurface()->resourceGeneration();
     view.setBackend(QStringLiteral("software"));
