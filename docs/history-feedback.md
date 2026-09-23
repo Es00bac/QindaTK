@@ -43,5 +43,7 @@ call `cancelJob(id)`. Retry must be an application command that revalidates
 the source, document revision and destination before submitting a new job;
 the view emits a retry request instead of replaying old worker closures.
 Closing or dismissing a task view does not cancel its job. A successful
-result can include `committed: true`, which matters if cancellation arrived
-after an atomic output commit.
+result exposes `committed: true` when the worker's authoritative
+`JobResult::committed` flag is set, even if its output omitted that key.
+The model removes an untrusted `committed` output key when the flag is false.
+This matters when cancellation arrives after an atomic output commit.

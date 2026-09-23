@@ -174,15 +174,22 @@ TestCase {
         const cancel = findChild(runningRow, "taskCancel_job.running")
         const retry = findChild(failedRow, "taskRetry_job.failed")
         const committedRetry = findChild(completedRow, "taskRetry_job.done")
+        const openResult = findChild(completedRow, "taskOpenResult_job.done")
+        const resultSpy = createTemporaryObject(signalSpyComponent, root, { target: center, signalName: "resultRequested" })
         verify(cancel && cancel.visible)
         verify(retry && retry.visible)
         verify(committedRetry && !committedRetry.visible)
+        verify(openResult && openResult.visible)
         cancel.click()
         retry.click()
+        openResult.click()
         compare(cancelSpy.count, 1)
         compare(cancelSpy.signalArguments[0][0], "job.running")
         compare(retrySpy.count, 1)
         compare(retrySpy.signalArguments[0][0], "job.failed")
+        compare(resultSpy.count, 1)
+        compare(resultSpy.signalArguments[0][0], "job.done")
+        compare(resultSpy.signalArguments[0][1].destination, "file:///tmp/out.qtk")
     }
 
     Component { id: signalSpyComponent; SignalSpy { } }
