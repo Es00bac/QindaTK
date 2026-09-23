@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 03 — Spatial editing and exact time
 
-**Execution underway.** WP-046 is accepted; other packages remain planned.
+**Execution underway.** WP-046 and WP-047 are accepted, WP-040 is in review,
+and WP-048 is active in an isolated lane. Other packages remain planned.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -15,7 +16,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-040"></a>
 ## WP-040 — Build the spatial canvas and rendering boundary
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-033](phase-02-controls-data.md#wp-033)
+**Implementation lead:** Sol. **Status:** review ([evidence](evidence/WP-040.md); WP-033 dependency still planned). **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-033](phase-02-controls-data.md#wp-033)
 
 **Proposal scope:** [CAN-01 CanvasView](../proposed/04-canvas-color.md#can-01), [CAN-02 ToolController](../proposed/04-canvas-color.md#can-02), [CAN-03 HitTestService](../proposed/04-canvas-color.md#can-03), [PLT-10 RenderSurfaceAdapter](../proposed/08-platform-integrations.md#plt-10)
 
@@ -160,7 +161,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-047"></a>
 ## WP-047 — Connect transport state to an authoritative clock
 
-**Implementation lead:** Sol. **Status:** review. **Depends on:** [WP-011](phase-01-services.md#wp-011), [WP-015](phase-01-services.md#wp-015), [WP-046](phase-03-authoring.md#wp-046)
+**Implementation lead:** Sol. **Status:** accepted. **Depends on:** [WP-011](phase-01-services.md#wp-011), [WP-015](phase-01-services.md#wp-015), [WP-046](phase-03-authoring.md#wp-046)
 
 **Proposal scope:** [AUD-02 TransportModel](../proposed/06-audio-music.md#aud-02), [AUD-03 TransportBar](../proposed/06-audio-music.md#aud-03)
 
@@ -179,7 +180,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-048"></a>
 ## WP-048 — Implement the shared edit timeline
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041), [WP-047](phase-03-authoring.md#wp-047)
+**Implementation lead:** Sol. **Status:** active (isolated Opus lane; not integrated). **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041), [WP-047](phase-03-authoring.md#wp-047)
 
 **Proposal scope:** [AUD-04 EditTimeline](../proposed/06-audio-music.md#aud-04), [AUD-05 TrackHeader](../proposed/06-audio-music.md#aud-05), [AUD-06 ClipItem](../proposed/06-audio-music.md#aud-06), [AUD-07 TimeSelection](../proposed/06-audio-music.md#aud-07), [AUD-08 MarkerLane](../proposed/06-audio-music.md#aud-08)
 

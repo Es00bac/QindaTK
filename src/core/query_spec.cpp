@@ -173,6 +173,7 @@ QueryCapabilities QueryCapabilities::local()
     for (int i = 0; i < functionNames.size(); ++i)
         caps.aggregates.insert(QueryMeasure::Function(i));
     caps.grouping = caps.pivot = caps.provenance = caps.cancellation = true;
+    caps.projection = caps.sorting = caps.joining = true;
     return caps;
 }
 
@@ -186,13 +187,26 @@ QJsonObject QueryEngine::toJson(const QuerySpec &spec)
     for (auto it = spec.parameters.cbegin(); it != spec.parameters.cend(); ++it)
         params[it.key()] = queryValueToJson(it.value());
     out["parameters"] = params;
-    QJsonArray rows, columns, measures;
+    QJsonArray rows, columns, measures, projection, sort;
     for (const QString &id : spec.rowFields) rows.append(id);
     for (const QString &id : spec.columnFields) columns.append(id);
     for (const auto &measure : spec.measures)
         measures.append(QJsonObject{{"id", measure.id}, {"field", measure.fieldId},
                                     {"function", functionNames.at(int(measure.function))}});
     out["rows"] = rows; out["columns"] = columns; out["measures"] = measures;
+    for (const QString &field : spec.projection) projection.append(field);
+    for (const auto &entry : spec.sort)
+        sort.append(QJsonObject{{"field", entry.fieldId}, {"ascending", entry.ascending},
+                                {"nullsLast", entry.nullsLast}});
+    if (!projection.isEmpty()) out["projection"] = projection;
+    if (!sort.isEmpty()) out["sort"] = sort;
+    if (!spec.join.sourceId.isEmpty())
+        out["join"] = QJsonObject{{"sourceId", spec.join.sourceId},
+                                   {"schemaRevision", spec.join.schemaRevision},
+                                   {"sourceRevision", spec.join.sourceRevision},
+                                   {"leftField", spec.join.leftField},
+                                   {"rightField", spec.join.rightField},
+                                   {"leftOuter", spec.join.leftOuter}};
     return out;
 }
 
@@ -233,8 +247,36 @@ bool QueryEngine::fromJson(const QJsonObject &json, QuerySpec *spec, QString *er
         parsed.measures.append({obj.value("id").toString(), obj.value("field").toString(),
                                 QueryMeasure::Function(fn)});
     }
+    if (json.contains("projection") && !json.value("projection").isArray())
+        return fail(QStringLiteral("Invalid projection"));
+    for (const auto &entry : json.value("projection").toArray()) {
+        if (!entry.isString()) return fail(QStringLiteral("Invalid projection field"));
+        parsed.projection.append(entry.toString());
+    }
+    if (json.contains("sort") && !json.value("sort").isArray())
+        return fail(QStringLiteral("Invalid sort"));
+    for (const auto &entry : json.value("sort").toArray()) {
+        if (!entry.isObject()) return fail(QStringLiteral("Invalid sort entry"));
+        const auto item = entry.toObject();
+        if (!item.value("field").isString() || !item.value("ascending").isBool()
+            || !item.value("nullsLast").isBool()) return fail(QStringLiteral("Invalid sort entry"));
+        parsed.sort.append({item.value("field").toString(), item.value("ascending").toBool(),
+                            item.value("nullsLast").toBool()});
+    }
+    if (json.contains("join")) {
+        if (!json.value("join").isObject()) return fail(QStringLiteral("Invalid join"));
+        const auto item = json.value("join").toObject();
+        if (!item.value("sourceId").isString() || !item.value("schemaRevision").isString()
+            || !item.value("sourceRevision").isString() || !item.value("leftField").isString()
+            || !item.value("rightField").isString() || !item.value("leftOuter").isBool())
+            return fail(QStringLiteral("Invalid join"));
+        parsed.join = {item.value("sourceId").toString(), item.value("schemaRevision").toString(),
+                       item.value("sourceRevision").toString(), item.value("leftField").toString(),
+                       item.value("rightField").toString(), item.value("leftOuter").toBool()};
+    }
     if (parsed.rowFields.size() > 16 || parsed.columnFields.size() > 16
-        || parsed.measures.size() > 64) return fail(QStringLiteral("Query shape limit exceeded"));
+        || parsed.measures.size() > 64 || parsed.projection.size() > 64
+        || parsed.sort.size() > 4) return fail(QStringLiteral("Query shape limit exceeded"));
     *spec = std::move(parsed);
     if (error) error->clear();
     return true;
@@ -268,7 +310,30 @@ QString QueryEngine::validate(const QuerySchema &schema, const QuerySpec &spec,
         return QStringLiteral("Grouping unsupported");
     if (!spec.columnFields.isEmpty() && !caps.pivot) return QStringLiteral("Pivot unsupported");
     if (!caps.provenance || !caps.cancellation) return QStringLiteral("Required backend capability missing");
-    if (spec.measures.isEmpty() || spec.measures.size() > 64) return QStringLiteral("Invalid measure count");
+    const bool detail = !spec.projection.isEmpty();
+    if (detail && (!caps.projection || !spec.measures.isEmpty()
+                   || !spec.rowFields.isEmpty() || !spec.columnFields.isEmpty()))
+        return QStringLiteral("Detail projection cannot contain pivot measures or axes");
+    if (!detail && (spec.measures.isEmpty() || spec.measures.size() > 64))
+        return QStringLiteral("Invalid measure count");
+    if (spec.projection.size() > 64 || spec.sort.size() > 4)
+        return QStringLiteral("Projection or sort limit exceeded");
+    QSet<QString> projected;
+    for (const QString &id : spec.projection) {
+        if (!fields.contains(id) || projected.contains(id))
+            return QStringLiteral("Invalid projection field");
+        projected.insert(id);
+    }
+    if (!spec.sort.isEmpty() && (!detail || !caps.sorting))
+        return QStringLiteral("Sort requires supported detail projection");
+    QSet<QString> sorted;
+    for (const auto &entry : spec.sort) {
+        if (!fields.contains(entry.fieldId) || sorted.contains(entry.fieldId))
+            return QStringLiteral("Invalid sort field");
+        sorted.insert(entry.fieldId);
+    }
+    if (!spec.join.sourceId.isEmpty() && !caps.joining)
+        return QStringLiteral("Join unsupported");
     for (const auto &measure : spec.measures) {
         if (measure.id.isEmpty() || measure.id.contains(QChar(0x1f)) || measureIds.contains(measure.id)
             || !caps.aggregates.contains(measure.function)) return QStringLiteral("Invalid measure");
@@ -283,7 +348,8 @@ QString QueryEngine::validate(const QuerySchema &schema, const QuerySpec &spec,
         }
     }
     if (limits.maxScanRows < 0 || limits.maxGroups < 1 || limits.maxOutputCells < 1
-        || limits.maxProvenanceIds < 0 || limits.maxPredicateDepth < 1
+        || limits.maxProvenanceIds < 0 || limits.maxJoinedRows < 1
+        || limits.maxJoinValues < 1 || limits.maxPredicateDepth < 1
         || limits.maxPredicateNodes < 1) return QStringLiteral("Invalid query limits");
     int nodes = 0;
     return validatePredicate(spec.filter, fields, spec, caps, limits, 0, &nodes);

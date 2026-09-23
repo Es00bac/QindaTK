@@ -72,6 +72,17 @@ TestCase {
         }
     }
     Component {
+        id: asyncBreadcrumbComponent
+        Tk.BreadcrumbBar {
+            width: 180
+            path: [
+                { id: "root", label: "Workspace" },
+                { id: "folder", label: "Folder", siblingProvider: true },
+                { id: "file", label: "File" }
+            ]
+        }
+    }
+    Component {
         id: tabsComponent
         Item {
             property alias manager: manager
@@ -149,6 +160,40 @@ TestCase {
         verify(findChild(rail, "navigationButton_files"))
     }
 
+    function test_navigation_route_confirmation_and_reconciliation() {
+        const restored = createTemporaryObject(railComponent, root, { currentId: "jobs" })
+        verify(restored)
+        compare(restored.currentId, "files") // Hidden persisted destination is reconciled.
+        const rail = createTemporaryObject(railComponent, root)
+        verify(rail)
+        compare(rail.currentId, "files")
+        const requested = createTemporaryObject(spyComponent, root,
+            { target: rail, signalName: "destinationRequested" })
+        const reconciled = createTemporaryObject(spyComponent, root,
+            { target: rail, signalName: "routeReconciled" })
+        const media = rail.entries.find(function(entry) { return entry.id === "media" })
+        verify(rail.activate(media))
+        compare(requested.count, 1)
+        compare(rail.currentId, "files") // A host refusal leaves the active route intact.
+        verify(rail.confirmRoute("media"))
+        compare(rail.currentId, "media")
+        verify(findChild(rail, "navigationButton_media").Accessible.selected)
+        verify(!rail.confirmRoute("jobs")) // Hidden route cannot become active.
+        compare(rail.currentId, "media")
+        rail.currentId = "missing" // Invalid restored route resolves to a visible entry.
+        compare(rail.currentId, "files")
+        compare(reconciled.count, 1)
+        rail.confirmRoute("media")
+        rail.groups = [{ id: "work", label: "Workspace", entries: [
+            { id: "files", label: "Files", destination: "route.files", iconName: "files" }
+        ] }]
+        compare(rail.currentId, "files")
+        compare(reconciled.count, 2)
+        verify(!rail.activate(media)) // Stale delegate data cannot request removed routes.
+        rail.groups = [{ id: "work", label: "Workspace", entries: [] }]
+        compare(rail.currentId, "")
+    }
+
     function test_breadcrumb_uses_ids_and_scrolls_deep_paths() {
         const bar = createTemporaryObject(breadcrumbComponent, root)
         verify(bar)
@@ -160,6 +205,40 @@ TestCase {
         verify(findChild(bar, "breadcrumbSegment_file"))
         bar.showSiblings(bar.path[1])
         compare(bar.siblingItems.length, 2)
+    }
+
+    function test_breadcrumb_async_sibling_request_and_stale_result() {
+        const bar = createTemporaryObject(asyncBreadcrumbComponent, root)
+        verify(bar)
+        const button = findChild(bar, "breadcrumbSiblings_folder")
+        verify(button && button.visible)
+        const requested = createTemporaryObject(spyComponent, root,
+            { target: bar, signalName: "siblingsRequested" })
+        button.click()
+        compare(requested.count, 1)
+        compare(requested.signalArguments[0][0], "folder")
+        const firstId = requested.signalArguments[0][1]
+        verify(bar.siblingPending)
+        button.click()
+        compare(requested.count, 2)
+        const currentId = requested.signalArguments[1][1]
+        verify(firstId !== currentId)
+        verify(!bar.supplySiblings("folder", firstId, [{ id: "stale", label: "Stale" }]))
+        verify(!bar.supplySiblings("other", currentId, [{ id: "wrong", label: "Wrong" }]))
+        compare(bar.siblingItems.length, 0)
+        verify(bar.supplySiblings("folder", currentId, [
+            { id: "folder", label: "Folder" }, { id: "sibling", label: "Sibling" }
+        ]))
+        compare(bar.siblingPending, false)
+        compare(bar.siblingItems.length, 2)
+        tryVerify(function() { return findChild(bar, "breadcrumbSiblingMenu").visible })
+        verify(!bar.supplySiblings("folder", currentId, []))
+        verify(bar.showSiblings(bar.path[1], button))
+        const removedPathRequest = bar.siblingRequestId
+        bar.path = [{ id: "root", label: "Workspace" }]
+        compare(bar.siblingPending, false)
+        verify(!bar.supplySiblings("folder", removedPathRequest,
+                                   [{ id: "late", label: "Late" }]))
     }
 
     function test_document_tabs_wait_for_authoritative_close_result() {

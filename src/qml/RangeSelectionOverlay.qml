@@ -12,13 +12,14 @@ Item {
     property real scrollY: 0
     property real rowHeaderWidth: 0
     property real headerHeight: 0
+    property int geometryEpoch: 0
     readonly property var rectangles: resolveRectangles()
     clip: true
     Accessible.ignored: true
 
     function resolveRectangles() {
         const result = []
-        if (!gridModel) return result
+        if (geometryEpoch < 0 || !gridModel) return result
         const ranges = gridModel.ranges
         for (let i = 0; i < ranges.length; ++i) {
             const range = ranges[i]
@@ -40,6 +41,12 @@ Item {
             }
         }
         return result
+    }
+
+    Connections {
+        target: overlay.gridModel
+        function onStructureChanged() { overlay.geometryEpoch += 1 }
+        function onGeometryChanged() { overlay.geometryEpoch += 1 }
     }
 
     function split(first, last, frozenCount) {

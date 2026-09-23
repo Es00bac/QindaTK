@@ -491,3 +491,56 @@ refreshes the geometry synchronously before display.
 work-area limitations (especially multi-monitor X11) remain visible and are
 not replaced with guessed geometry. Native mixed-monitor placement and scale
 changes require the physical platform qualification in WP-092.
+
+## D-026 — Gantt dates project through a working calendar
+
+**Context.** A schedule edit over a weekend or DST boundary cannot be
+represented faithfully by adding a fixed count of wall-clock pixels or local
+hours. A view also cannot own document-level dependency and undo policy.
+
+**Decision.** Task instants cross QML as exact UTC millisecond strings.
+`GanttCalendar` maps them through local working intervals, counting actual
+elapsed minutes and compressing nonworking time. `GanttTaskModel` keeps stable
+UUID row identity and a separate validated preview. A host transaction
+adapter accepts or rejects the entire schedule change and supplies undo.
+
+**Consequences.** Timeline/grid selection can share `SelectionModel`, and
+previews never mutate committed data. Hosts own resource constraints,
+persisted undo and calendar boundary-time policy. The bundled adapter is a
+reference finish-to-start planner only.
+
+## D-030 — Polar plots declare bearing and radial semantics outside Cartesian axes
+
+**Context.** A Cartesian `ChartAxis` fraction does not determine a bearing,
+wraparound, category sector, direction or radial distance. Reusing it for
+polar marks would let paint and hit testing disagree about the same point.
+
+**Decision.** The polar family uses one explicit transform for paint,
+projection, inverse coordinates and hit testing. Zero is north; positive
+angles are clockwise by default. Numeric input declares degrees or radians;
+categorical input declares a unique order. Radial values declare an
+increasing nonnegative domain and unit. Source rows keep stable IDs and
+remain available for table and export.
+
+**Consequences.** A missing category, incomplete radar polygon or value
+outside the radial domain surfaces as an error rather than plausible but
+false geometry. Cartesian chart APIs remain unchanged. CSV records the
+coordinate convention so the display can be interpreted outside the view.
+
+## D-045 — Chart axes own linked viewports; selections keep source domains
+
+**Context.** Sharing a chart scale while each renderer stores independent
+pan/zoom fractions produces mismatched ticks and hit coordinates. Histogram
+bin selection also loses its meaning if it reports only painted pixels.
+
+**Decision.** `ChartAxis` owns a normalized viewport with a separate change
+signal from domain changes. A `ChartView` may use an external axis instance;
+sharing that instance links its domain and viewport across views. Chart
+annotations keep stable IDs and original coordinates in an atomic model.
+Histogram selection is a renderer-owned typed object with source bin indices,
+exact domain edges, units and final-edge inclusivity.
+
+**Consequences.** A domain edit resets the shared viewport for every linked
+view. Hosts that need only X synchronization share only X. The annotation
+model and histogram selection do not infer analysis or color context; the
+host supplies those source semantics.

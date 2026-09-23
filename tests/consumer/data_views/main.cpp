@@ -57,5 +57,22 @@ int main(int argc, char **argv)
                    == QStringList{QStringLiteral("source-east")};
         break;
     }
-    return foundEast ? 0 : 6;
+    if (!foundEast) return 6;
+
+    const QString saved = query->saveQuery();
+    if (saved.isEmpty() || !saved.contains(QStringLiteral("documentVersion"))) return 7;
+    if (!query->reopenQuery(saved)) return 8;
+    if (query->status() != QStringLiteral("complete")) {
+        QEventLoop loop;
+        QTimer deadline;
+        deadline.setSingleShot(true);
+        QObject::connect(&deadline, &QTimer::timeout, &loop, &QEventLoop::quit);
+        QObject::connect(query, &QindaTK::QueryController::statusChanged, &loop,
+                         [&] { if (query->status() == QStringLiteral("complete")
+                                   || query->status() == QStringLiteral("rejected")) loop.quit(); });
+        deadline.start(5000);
+        loop.exec();
+    }
+    return query->status() == QStringLiteral("complete")
+        && query->resultModel() && query->resultModel()->readOnly() ? 0 : 9;
 }

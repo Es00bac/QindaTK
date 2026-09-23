@@ -12,8 +12,17 @@ Item {
     property real itemMaximumWidth: Tk.Theme.size.fieldWidth
     property string siblingParentId: ""
     property var siblingItems: []
+    property bool siblingPending: false
+    property string siblingRequestId: ""
+    property Item siblingAnchor: null
+    property int _siblingSerial: 0
     signal navigateRequested(string id)
-    signal siblingsRequested(string id)
+    signal siblingsRequested(string id, string requestId)
+
+    function hasSiblingAction(segment) {
+        return (segment.siblings && segment.siblings.length > 0)
+            || segment.siblingProvider === true
+    }
 
     function naturalPathWidth() {
         let result = 0
@@ -21,7 +30,7 @@ Item {
             const segment = path[i]
             const label = String(segment.label || segment.id)
             result += Math.min(itemMaximumWidth, label.length * Tk.Theme.font.caption * 0.6 + Tk.Theme.space.md * 2)
-            if (segment.siblings && segment.siblings.length) result += Tk.Theme.size.control
+            if (hasSiblingAction(segment)) result += Tk.Theme.size.control
             if (i < path.length - 1) {
                 result += Tk.Theme.font.caption * 0.6 + Tk.Theme.space.xs * 2
             }
@@ -39,15 +48,41 @@ Item {
         return true
     }
     function showSiblings(segment, anchor) {
+        if (!segment || !hasSiblingAction(segment)) return false
+        siblingAnchor = anchor || null
+        siblingParentId = String(segment.id)
         if (segment.siblings && segment.siblings.length) {
             siblingItems = segment.siblings
-            siblingParentId = String(segment.id)
+            siblingPending = false
+            siblingRequestId = ""
+            siblingMenu.popup(siblingAnchor)
         } else {
             siblingItems = []
-            siblingParentId = String(segment.id)
-            siblingsRequested(siblingParentId)
+            siblingPending = true
+            siblingRequestId = "breadcrumb-" + (++_siblingSerial)
+            siblingsRequested(siblingParentId, siblingRequestId)
         }
-        if (siblingItems.length) siblingMenu.popup(anchor)
+        return true
+    }
+    function supplySiblings(id, requestId, items) {
+        if (!siblingPending || String(id) !== siblingParentId
+            || String(requestId) !== siblingRequestId) return false
+        siblingPending = false
+        siblingRequestId = ""
+        siblingItems = items && typeof items.length === "number" ? items : []
+        if (siblingItems.length > 0) siblingMenu.popup(siblingAnchor)
+        return true
+    }
+    onPathChanged: {
+        // A path replacement can recycle the popup anchor even when an ID is
+        // reused. A late result must not open against the new hierarchy.
+        if (siblingMenu && siblingMenu.visible) siblingMenu.close()
+        if (siblingPending) {
+            siblingPending = false
+            siblingRequestId = ""
+            siblingItems = []
+            siblingAnchor = null
+        }
     }
 
     Tk.Scroll {
@@ -83,8 +118,8 @@ Item {
                         String(modelData.label || modelData.id).length * Tk.Theme.font.caption * 0.6 + Tk.Theme.space.md * 2)
                     readonly property real separatorWidth: index < bar.path.length - 1
                         ? Tk.Theme.font.caption * 0.6 + Tk.Theme.space.xs * 2 : 0
-                    implicitWidth: buttonWidth + (modelData.siblings && modelData.siblings.length ? Tk.Theme.size.control : 0) + separatorWidth
-                    Tk.Flex.minWidth: buttonWidth + (modelData.siblings && modelData.siblings.length ? Tk.Theme.size.control : 0) + separatorWidth
+                    implicitWidth: buttonWidth + (bar.hasSiblingAction(modelData) ? Tk.Theme.size.control : 0) + separatorWidth
+                    Tk.Flex.minWidth: buttonWidth + (bar.hasSiblingAction(modelData) ? Tk.Theme.size.control : 0) + separatorWidth
                     implicitHeight: Tk.Theme.size.control
                     T.Button {
                         id: segmentButton
@@ -109,7 +144,8 @@ Item {
                     }
                     Tk.IconButton {
                         id: siblingButton
-                        visible: modelData.siblings !== undefined && modelData.siblings.length > 0
+                        objectName: "breadcrumbSiblings_" + modelData.id
+                        visible: bar.hasSiblingAction(modelData)
                         anchors.left: segmentButton.right
                         anchors.verticalCenter: parent.verticalCenter
                         iconName: "chevron-down"

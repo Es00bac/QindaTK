@@ -1,11 +1,23 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: WP-001 through WP-007, WP-010 through WP-018, and WP-046 accepted; WP-019 through WP-030 and WP-047 in review or active work, with WP-032 in implementation.** Sol updates this ledger during
-execution. Use `planned`, `ready`, `active`, `review`, `accepted`, or `blocked`.
+**Execution state: 32 packages accepted, WP-040 in review, four active, and 47 planned.**
+Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
+`review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
 record. Keep unrelated ready work moving. A row reaches `accepted` only through
 the [completion gate](acceptance.md).
+
+## Review batch closed
+
+WP-020 and WP-022 were accepted earlier. The remaining 12 review packages
+passed the consolidated Qt 6.11/6.8 repository, QML lint, staged-consumer and
+visual gates recorded in the [2026-09-23 acceptance record](evidence/review-acceptance-2026-09-23.md).
+WP-031 subsequently passed its own installed-consumer gate and is accepted.
+WP-040 is a new review item with its WP-033 dependency still open. WP-048,
+WP-050 and WP-055 are active in separate Opus worktrees; their draft code is
+not yet integrated or accepted. WP-033 is active in the shared integration
+tree to prove the common workbench before WP-040 can close.
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -31,37 +43,37 @@ as though a later fix had already passed the earlier run.
 | [WP-016 — Implement clipboard and drag/drop protocols](phase-01-services.md#wp-016) | 01 | Sol | accepted | [Dual-Qt transfer workflow, installed consumer and limits](evidence/WP-016.md) |
 | [WP-017 — Provide accessibility, locale and gesture services](phase-01-services.md#wp-017) | 01 | Sol | accepted | [Qt 6.11/6.8, external AT-SPI action, RTL preview and installed consumer](evidence/WP-017.md) |
 | [WP-018 — Add native window, file and desktop integration](phase-01-services.md#wp-018) | 01 | Sol | accepted | [Dual-Qt native-window tests and installed base/optional consumers](evidence/WP-018.md) |
-| [WP-019 — Establish format registry and import/export jobs](phase-01-services.md#wp-019) | 01 | Sol | review | [Implementation and integrated checks](evidence/WP-019.md) |
-| [WP-020 — Build command controls and adaptive toolbars](phase-02-controls-data.md#wp-020) | 02 | Luna | review | [Implementation and integrated checks](evidence/WP-020.md) |
-| [WP-021 — Build document and application navigation](phase-02-controls-data.md#wp-021) | 02 | Luna | review | [Focused navigation checks](evidence/WP-021.md) |
-| [WP-022 — Build reusable typed inspectors](phase-02-controls-data.md#wp-022) | 02 | Luna | review | [Implementation and integrated checks](evidence/WP-022.md) |
-| [WP-023 — Add expression, path and token editors](phase-02-controls-data.md#wp-023) | 02 | Sol | review | [Focused editor and provider checks](evidence/WP-023.md) |
-| [WP-024 — Add typography and calendar value pickers](phase-02-controls-data.md#wp-024) | 02 | Luna | review | [Provider and editor checks; mixed/reset followup active](evidence/WP-024.md) |
-| [WP-025 — Add preferences, shortcut editing and find/replace](phase-02-controls-data.md#wp-025) | 02 | Luna | review | [Focused persistence, search and undo checks](evidence/WP-025.md) |
-| [WP-026 — Add history, notifications and task feedback](phase-02-controls-data.md#wp-026) | 02 | Luna | review | [Focused feedback checks](evidence/WP-026.md) |
-| [WP-027 — Implement virtual lists, trees and asset grids](phase-02-controls-data.md#wp-027) | 02 | Luna | review | [100k-model, lazy tree and bounded-delegate checks](evidence/WP-027.md) |
-| [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | review | [Sparse core, bounded visual grid and interaction checks](evidence/WP-028.md) |
-| [WP-029 — Implement filters, query building and pivots](phase-02-controls-data.md#wp-029) | 02 | Sol | review | [Typed core](evidence/WP-029.md); [visual editor and pivot evidence](evidence/WP-029-visual.md) |
-| [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | review | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
-| [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | planned | — |
-| [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | active | [Event-log sublane active; diff/resource views pending](evidence/WP-032.md) |
-| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | planned | — |
-| [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | planned | — |
+| [WP-019 — Establish format registry and import/export jobs](phase-01-services.md#wp-019) | 01 | Sol | accepted | [Implementation and integrated checks](evidence/WP-019.md) |
+| [WP-020 — Build command controls and adaptive toolbars](phase-02-controls-data.md#wp-020) | 02 | Luna | accepted | [Dual-Qt command controls and overflow acceptance](evidence/WP-020.md) |
+| [WP-021 — Build document and application navigation](phase-02-controls-data.md#wp-021) | 02 | Luna | accepted | [Focused navigation checks](evidence/WP-021.md) |
+| [WP-022 — Build reusable typed inspectors](phase-02-controls-data.md#wp-022) | 02 | Luna | accepted | [Dual-Qt inspector transactions and mixed-state acceptance](evidence/WP-022.md) |
+| [WP-023 — Add expression, path and token editors](phase-02-controls-data.md#wp-023) | 02 | Sol | accepted | [Dual-Qt editor/provider behavior and installed consumers; dependency gate passed](evidence/WP-023.md) |
+| [WP-024 — Add typography and calendar value pickers](phase-02-controls-data.md#wp-024) | 02 | Luna | accepted | [Provider and editor checks; mixed/reset follow-up passed](evidence/WP-024.md) |
+| [WP-025 — Add preferences, shortcut editing and find/replace](phase-02-controls-data.md#wp-025) | 02 | Luna | accepted | [Focused persistence, search and undo checks](evidence/WP-025.md) |
+| [WP-026 — Add history, notifications and task feedback](phase-02-controls-data.md#wp-026) | 02 | Luna | accepted | [Focused feedback checks](evidence/WP-026.md) |
+| [WP-027 — Implement virtual lists, trees and asset grids](phase-02-controls-data.md#wp-027) | 02 | Luna | accepted | [100k-model, lazy tree and bounded-delegate checks](evidence/WP-027.md) |
+| [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | accepted | [Sparse core, bounded visual grid and interaction checks](evidence/WP-028.md) |
+| [WP-029 — Implement filters, query building and pivots](phase-02-controls-data.md#wp-029) | 02 | Sol | accepted | [Typed core](evidence/WP-029.md); [visual editor and pivot evidence](evidence/WP-029-visual.md) |
+| [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | accepted | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
+| [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | accepted | [Seven families, dual-Qt suite and installed consumer](evidence/WP-031.md) |
+| [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | accepted | [Event, diff and resource integration status](evidence/WP-032.md) |
+| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | active | [Two-document workbench integration in progress](evidence/WP-033.md) |
+| [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | review | [Integrated dual-Qt, pixels and installed consumer; WP-033 dependency open](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | planned | — |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | planned | — |
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | planned | — |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | planned | — |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | planned | — |
 | [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
-| [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | review | [Clock and transport-bar checks](evidence/WP-047.md) |
-| [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | planned | — |
+| [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | accepted | [Clock and transport-bar checks](evidence/WP-047.md) |
+| [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | active | Isolated Opus lane; integration pending |
 | [WP-049 — Implement tempo and automation editing](phase-03-authoring.md#wp-049) | 03 | Sol | planned | — |
-| [WP-050 — Implement rich text and paginated document editing](phase-04-office.md#wp-050) | 04 | Sol | planned | — |
+| [WP-050 — Implement rich text and paginated document editing](phase-04-office.md#wp-050) | 04 | Sol | active | Isolated Opus lane; integration pending |
 | [WP-051 — Add publishing structure, styles and tables](phase-04-office.md#wp-051) | 04 | Sol | planned | — |
 | [WP-052 — Add equations, references and document review](phase-04-office.md#wp-052) | 04 | Sol | planned | — |
 | [WP-053 — Implement printing and publishing preflight](phase-04-office.md#wp-053) | 04 | Sol | planned | — |
 | [WP-054 — Implement PDF viewing and annotation](phase-04-office.md#wp-054) | 04 | Sol | planned | — |
-| [WP-055 — Implement a workbook and spreadsheet editing stack](phase-04-office.md#wp-055) | 04 | Sol | planned | — |
+| [WP-055 — Implement a workbook and spreadsheet editing stack](phase-04-office.md#wp-055) | 04 | Sol | active | Isolated Opus lane; G-1–G-8 and full package scope remain under review |
 | [WP-056 — Implement slide authoring and presentation](phase-04-office.md#wp-056) | 04 | Sol | planned | — |
 | [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | planned | — |
 | [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | planned | — |

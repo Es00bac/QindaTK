@@ -33,6 +33,20 @@ int main(int argc, char **argv)
     if (!check(view && dataset && root->property("datasetReady").toBool(),
                2, "ChartView and three stable-ID data rows"))
         return 2;
+    if (!check(root->property("annotationsReady").toBool(), 12,
+               "installed annotation model"))
+        return 12;
+    QVariant annotationCsv;
+    if (!check(QMetaObject::invokeMethod(root, "annotationCsvData",
+                                        Q_RETURN_ARG(QVariant, annotationCsv))
+                   && annotationCsv.toString().contains(QStringLiteral("review-note")),
+               13, "installed annotation CSV API"))
+        return 13;
+    QVariant linkedZoom;
+    if (!check(QMetaObject::invokeMethod(root, "zoomLinked",
+                                        Q_RETURN_ARG(QVariant, linkedZoom))
+                   && linkedZoom.toBool(), 14, "installed shared-axis zoom"))
+        return 14;
 
     QVariant selected;
     if (!check(QMetaObject::invokeMethod(root, "selectFirstPoint",

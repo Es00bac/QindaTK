@@ -3,6 +3,14 @@
 #include "property_document.h"
 
 #include <QSignalSpy>
+#include <QAccessible>
+#include <QQmlComponent>
+#include <QQmlContext>
+#include <QQmlEngine>
+#include <QQmlExpression>
+#include <QQuickItem>
+#include <QQuickWindow>
+#include <QScopedPointer>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QtTest>
@@ -70,6 +78,33 @@ QString stateOf(const JobModel &model, const QString &id)
 {
     return model.job(id).value(QStringLiteral("state")).toString();
 }
+
+QStringList *activeAnnouncements = nullptr;
+void captureAnnouncement(QAccessibleEvent *event)
+{
+    if (activeAnnouncements && event->type() == QAccessible::Announcement)
+        activeAnnouncements->append(
+            static_cast<QAccessibleAnnouncementEvent *>(event)->message());
+}
+class AnnouncementCapture final {
+public:
+    explicit AnnouncementCapture(QStringList &messages)
+        : m_wasActive(QAccessible::isActive()),
+          m_previous(QAccessible::installUpdateHandler(&captureAnnouncement))
+    {
+        activeAnnouncements = &messages;
+        QAccessible::setActive(true);
+    }
+    ~AnnouncementCapture()
+    {
+        activeAnnouncements = nullptr;
+        QAccessible::installUpdateHandler(m_previous);
+        QAccessible::setActive(m_wasActive);
+    }
+private:
+    bool m_wasActive;
+    QAccessible::UpdateHandler m_previous;
+};
 
 } // namespace
 
@@ -203,6 +238,8 @@ private slots:
         QCOMPARE(stateOf(model, id), QStringLiteral("succeeded"));
         QCOMPARE(model.job(id).value(QStringLiteral("result")).toMap()
                      .value(QStringLiteral("uri")).toString(), QStringLiteral("file:///saved"));
+        QCOMPARE(model.job(id).value(QStringLiteral("result")).toMap()
+                     .value(QStringLiteral("committed")).toBool(), true);
     }
 
     void failureRetainsStructuredDiagnostics()
@@ -217,7 +254,8 @@ private slots:
                                 QStringLiteral("/destination"), QStringLiteral("file")};
                 result.output = {{QStringLiteral("error"), QVariantMap{
                     {QStringLiteral("code"), QStringLiteral("BackendFailure")},
-                    {QStringLiteral("fieldPath"), QStringLiteral("/destination")}}}};
+                    {QStringLiteral("fieldPath"), QStringLiteral("/destination")}}},
+                    {QStringLiteral("committed"), true}};
                 return result;
             }));
         QVERIFY(!id.isEmpty());
@@ -227,6 +265,8 @@ private slots:
             .value(QStringLiteral("error")).toMap();
         QCOMPARE(diagnostic.value(QStringLiteral("fieldPath")).toString(),
                  QStringLiteral("/destination"));
+        QVERIFY(!model.job(id).value(QStringLiteral("result")).toMap()
+                     .contains(QStringLiteral("committed")));
     }
 
     void progressIsObservableAndBackendFailuresAreReported()
@@ -369,7 +409,123 @@ private slots:
         QVERIFY(model.job(QStringLiteral("prune-0")).isEmpty());
         QVERIFY(!model.job(QStringLiteral("prune-319")).isEmpty());
     }
+
+    void toastAnnouncesActionThroughAccessibility()
+    {
+        QStringList messages;
+        AnnouncementCapture capture(messages);
+        QQmlEngine engine;
+        engine.addImportPath(QStringLiteral(QINDATK_BUILD_QML_DIR));
+        QQmlComponent component(&engine);
+        component.setData(R"(
+import QtQuick
+import QindaTK as Tk
+Item {
+    width: 420; height: 120
+    Tk.NotificationModel { id: notices }
+    Tk.Toast { id: toast; objectName: "liveToast"; notificationModel: notices; duration: 100000 }
+    function post() {
+        toast.announce("Export ready", "Saved to disk", "success", "export",
+                       [{id: "open.result", label: "Open result"}])
+    }
+})", QUrl());
+        QScopedPointer<QObject> fixture(component.create());
+        QVERIFY2(fixture, qPrintable(component.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(fixture.data());
+        QVERIFY(item);
+        QQuickWindow window;
+        item->setParentItem(window.contentItem());
+        window.show();
+        QTest::qWait(20);
+        QVERIFY(QMetaObject::invokeMethod(fixture.data(), "post"));
+        QTRY_VERIFY_WITH_TIMEOUT(messages.contains(QStringLiteral(
+            "Export ready. Saved to disk. Action available: Open result")), 1000);
+        auto *toast = fixture->findChild<QObject *>(QStringLiteral("liveToast"));
+        QVERIFY(toast);
+        QVERIFY(toast->property("visible").toBool());
+        item->setParentItem(nullptr);
+    }
+
+    void concurrentTaskCenterLifecycleUsesRealJobs()
+    {
+        JobModel model;
+        model.setMaxConcurrent(2);
+        Gate cancelledGate, survivorGate;
+        std::atomic_bool sawCancellation = false;
+        QQmlEngine engine;
+        engine.addImportPath(QStringLiteral(QINDATK_BUILD_QML_DIR));
+        engine.rootContext()->setContextProperty(QStringLiteral("liveJobs"), &model);
+        QQmlComponent component(&engine);
+        component.setData(R"(
+import QtQuick
+import QindaTK as Tk
+Tk.TaskCenter {
+    objectName: "liveTaskCenter"
+    width: 620; height: 320
+    jobModel: liveJobs
+})", QUrl());
+        QScopedPointer<QObject> panel(component.create());
+        QVERIFY2(panel, qPrintable(component.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(panel.data());
+        QVERIFY(item);
+        QQuickWindow window;
+        item->setParentItem(window.contentItem());
+        window.show();
+        QTest::qWait(20);
+        QSignalSpy requested(panel.data(), SIGNAL(cancelRequested(QString)));
+        QSignalSpy finished(&model, &JobModel::jobFinished);
+        QVERIFY(!model.enqueue(quickJob(QStringLiteral("cancel-me"), QStringLiteral("Cancel me"), 0,
+            [&cancelledGate, &sawCancellation](const CancellationToken &token, const JobProgress &) {
+                cancelledGate.enterAndWait();
+                sawCancellation = token.isCancelled();
+                return JobResult{};
+            })).isEmpty());
+        QVERIFY(!model.enqueue(quickJob(QStringLiteral("survivor"), QStringLiteral("Keep running"), 0,
+            [&survivorGate](const CancellationToken &, const JobProgress &) {
+                survivorGate.enterAndWait();
+                JobResult result;
+                result.output = {{QStringLiteral("uri"), QStringLiteral("file:///saved")}};
+                result.committed = true;
+                return result;
+            })).isEmpty());
+        QVERIFY(cancelledGate.waitForEntered(1));
+        QVERIFY(survivorGate.waitForEntered(1));
+        auto *list = panel->findChild<QObject *>(QStringLiteral("taskCenterList"));
+        QVERIFY(list);
+        QTRY_COMPARE_WITH_TIMEOUT(list->property("count").toInt(), 2, 1000);
+        QCOMPARE(stateOf(model, QStringLiteral("survivor")), QStringLiteral("running"));
+        QQmlExpression cancel(engine.rootContext(), panel.data(),
+                              QStringLiteral("cancelTask('cancel-me')"));
+        QVERIFY(cancel.evaluate().toBool());
+        QVERIFY2(!cancel.hasError(), qPrintable(cancel.error().toString()));
+        QCOMPARE(requested.size(), 1);
+        QCOMPARE(requested.constFirst().at(0).toString(), QStringLiteral("cancel-me"));
+        QCOMPARE(stateOf(model, QStringLiteral("cancel-me")), QStringLiteral("cancelling"));
+        QCOMPARE(stateOf(model, QStringLiteral("survivor")), QStringLiteral("running"));
+        item->setParentItem(nullptr);
+        panel.reset(); // Closing the view must not cancel either worker.
+        QCOMPARE(stateOf(model, QStringLiteral("survivor")), QStringLiteral("running"));
+        cancelledGate.release(); survivorGate.release();
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 2, 5000);
+        QCOMPARE(stateOf(model, QStringLiteral("cancel-me")), QStringLiteral("cancelled"));
+        QCOMPARE(stateOf(model, QStringLiteral("survivor")), QStringLiteral("succeeded"));
+        QVERIFY(sawCancellation.load());
+        const QVariantMap receipt = model.job(QStringLiteral("survivor"))
+            .value(QStringLiteral("result")).toMap();
+        QCOMPARE(receipt.value(QStringLiteral("committed")).toBool(), true);
+        QCOMPARE(receipt.value(QStringLiteral("uri")).toString(), QStringLiteral("file:///saved"));
+        QVERIFY(model.job(QStringLiteral("cancel-me")).value(QStringLiteral("result")).toMap().isEmpty());
+        QScopedPointer<QObject> reopened(component.create());
+        QVERIFY2(reopened, qPrintable(component.errorString()));
+        auto *reopenedItem = qobject_cast<QQuickItem *>(reopened.data());
+        QVERIFY(reopenedItem);
+        reopenedItem->setParentItem(window.contentItem());
+        auto *reopenedList = reopened->findChild<QObject *>(QStringLiteral("taskCenterList"));
+        QVERIFY(reopenedList);
+        QTRY_COMPARE_WITH_TIMEOUT(reopenedList->property("count").toInt(), 2, 1000);
+        reopenedItem->setParentItem(nullptr);
+    }
 };
 
-QTEST_GUILESS_MAIN(TstJobModel)
+QTEST_MAIN(TstJobModel)
 #include "tst_job_model.moc"

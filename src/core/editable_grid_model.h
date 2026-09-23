@@ -77,6 +77,10 @@ public:
     Q_INVOKABLE bool setDimensions(int rows, int columns);
     Q_INVOKABLE bool setRowIds(const QStringList &ids);
     Q_INVOKABLE bool setColumnIds(const QStringList &ids);
+    Q_INVOKABLE bool insertRowsAt(int index, const QStringList &ids);
+    Q_INVOKABLE bool insertColumnsAt(int index, const QStringList &ids);
+    Q_INVOKABLE bool removeRowsAt(int index, int count);
+    Q_INVOKABLE bool removeColumnsAt(int index, int count);
     Q_INVOKABLE QString rowIdAt(int index) const;
     Q_INVOKABLE QString columnIdAt(int index) const;
     Q_INVOKABLE int rowIndex(const QString &id) const;
@@ -151,6 +155,8 @@ private:
     struct Range { QString ar, ac, br, bc; };
     bool fail(const QString &reason);
     bool setIds(QStringList ids, bool rowAxis);
+    bool insertIds(int index, const QStringList &ids, bool rowAxis);
+    bool removeIds(int index, int count, bool rowAxis);
     bool moveId(const QString &id, const QString &beforeId, bool rowAxis);
     bool resizeId(const QString &id, qreal size, bool rowAxis);
     bool setDefaultSize(qreal size, bool rowAxis);

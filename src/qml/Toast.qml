@@ -28,6 +28,8 @@ FocusScope {
     implicitHeight: notice.implicitHeight
     Accessible.role: Accessible.AlertMessage
     Accessible.name: control.title.length > 0 ? control.title + ". " + control.message : control.message
+    Accessible.description: control.actionText.length > 0
+        ? qsTr("Action available: %1").arg(control.actionText) : ""
 
     function show() {
         remaining = duration
@@ -82,7 +84,15 @@ FocusScope {
             if (control.remaining === 0) control.dismiss()
         }
     }
-    onVisibleChanged: if (visible) remaining = duration
+    // AGENT-CONTRACT: a newly presented toast announces its message and
+    // available action through Qt's live accessibility event, including
+    // toasts posted by NotificationModel while focus remains elsewhere.
+    onVisibleChanged: if (visible) {
+        remaining = duration
+        if (Accessible.name.length > 0)
+            Accessible.announce(Accessible.name + (Accessible.description.length > 0
+                ? ". " + Accessible.description : ""))
+    }
     onDurationChanged: if (visible) remaining = duration
 
     Tk.Notice {

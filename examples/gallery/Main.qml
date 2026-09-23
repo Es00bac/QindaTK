@@ -162,7 +162,17 @@ Rectangle {
                 OfficeSection { filter: search.text }
                 TelemetrySection { filter: search.text }
                 TimelineSection { filter: search.text }
+                ChartReviewSection { filter: search.text }
+                PlanningSection { filter: search.text }
+                CanvasSection { filter: search.text }
                 QuerySection { filter: search.text }
+                DiffSection { filter: search.text }
+                HeatmapSection { filter: search.text }
+                DistributionSection { filter: search.text }
+                FinancialSection { filter: search.text }
+                PolarSection { filter: search.text }
+                UncertaintySection { filter: search.text }
+                PartWholeSection { filter: search.text }
                 DockingSection { filter: search.text }
                 ThemeSection { filter: search.text }
             }

@@ -12,8 +12,10 @@ Item {
     property real expandedWidth: Tk.Theme.size.panelMinWidth
     property real compactWidth: Tk.Theme.size.controlLg + Tk.Theme.space.md
     property string tooltip: qsTr("Application navigation")
+    property bool _ready: false
     readonly property var entries: flattenedEntries()
     signal destinationRequested(string id, string destination)
+    signal routeReconciled(string previousId, string currentId)
 
     implicitWidth: expanded ? expandedWidth : compactWidth
     implicitHeight: body.implicitHeight
@@ -58,10 +60,46 @@ Item {
     }
     function activate(entry) {
         if (!entry || entry.kind !== "entry" || !entry.enabled) return false
-        currentId = entry.id
-        destinationRequested(entry.id, entry.destination)
+        const current = entries.find(function(candidate) {
+            return candidate.kind === "entry" && candidate.enabled
+                && candidate.id === String(entry.id)
+        })
+        if (!current) return false
+        // AGENT-CONTRACT: destinationRequested is an intent. The host confirms
+        // its authoritative route with confirmRoute; a refused route must not
+        // change the selected destination.
+        destinationRequested(current.id, current.destination)
         return true
     }
+    function validRoute(id) {
+        return entries.some(function(entry) {
+            return entry.kind === "entry" && entry.enabled && entry.id === String(id)
+        })
+    }
+    function reconcileCurrent() {
+        if (validRoute(currentId)) return true
+        const previous = currentId
+        const first = entries.find(function(entry) {
+            return entry.kind === "entry" && entry.enabled
+        })
+        const fallback = first ? first.id : ""
+        if (previous !== fallback) {
+            currentId = fallback
+            routeReconciled(previous, fallback)
+        }
+        return false
+    }
+    function confirmRoute(id) {
+        if (!validRoute(id)) {
+            reconcileCurrent()
+            return false
+        }
+        currentId = String(id)
+        return true
+    }
+    onEntriesChanged: if (_ready) reconcileCurrent()
+    onCurrentIdChanged: if (_ready) reconcileCurrent()
+    Component.onCompleted: { _ready = true; reconcileCurrent() }
 
     Tk.Scroll {
         id: viewport

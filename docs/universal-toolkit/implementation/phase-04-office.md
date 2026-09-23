@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 04 — Documents and Office workflows
 
-**PLANNED — no implementation or execution is claimed by this plan.**
+**Execution underway in isolated lanes.** WP-050 and WP-055 have unintegrated
+Opus worktrees; their dependencies and acceptance gates remain open. Other
+packages are planned.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -15,7 +17,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-050"></a>
 ## WP-050 — Implement rich text and paginated document editing
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-024](phase-02-controls-data.md#wp-024), [WP-025](phase-02-controls-data.md#wp-025), [WP-033](phase-02-controls-data.md#wp-033), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** active (isolated Opus lane; not integrated). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-024](phase-02-controls-data.md#wp-024), [WP-025](phase-02-controls-data.md#wp-025), [WP-033](phase-02-controls-data.md#wp-033), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [OFF-01 RichTextEditor](../proposed/05-documents-office.md#off-01), [OFF-02 RichDocumentView](../proposed/05-documents-office.md#off-02), [OFF-03 FormatBar](../proposed/05-documents-office.md#off-03), [OFF-05 PageNavigator](../proposed/05-documents-office.md#off-05)
 
@@ -116,7 +118,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-055"></a>
 ## WP-055 — Implement a workbook and spreadsheet editing stack
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Sol. **Status:** active (isolated Opus lane; full scope unfinished and not integrated). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** [OFF-14 SheetView](../proposed/05-documents-office.md#off-14), [OFF-15 FormulaBar](../proposed/05-documents-office.md#off-15), [OFF-16 WorkbookTabs](../proposed/05-documents-office.md#off-16), [OFF-17 ConditionalFormatEditor](../proposed/05-documents-office.md#off-17), [OFF-18 DataValidationEditor](../proposed/05-documents-office.md#off-18)
 

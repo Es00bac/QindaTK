@@ -63,6 +63,9 @@ TestCase {
         }
     }
     SignalSpy { id: expansionSpy; target: tree; signalName: "expansionRequested" }
+    SignalSpy { id: gridActivationSpy; target: grid; signalName: "activated" }
+    SignalSpy { id: gridContextSpy; target: grid; signalName: "contextRequested" }
+    SignalSpy { id: treeActivationSpy; target: tree; signalName: "activated" }
 
     function initTestCase() {
         for (let i = 0; i < 240; ++i) {
@@ -123,6 +126,46 @@ TestCase {
         verify(selection.selectedIds.indexOf(list.collectionAdapter.idAt(1)) >= 0)
     }
 
+    function test_gridPointerModifiersFocusKeyboardAndActivation() {
+        selection.clear()
+        grid.gridView.contentY = 0
+        tryVerify(function() { return grid.gridView.itemAtIndex(0) !== null }, 3000)
+        const first = grid.gridView.itemAtIndex(0)
+        const second = grid.gridView.itemAtIndex(1)
+        verify(first && second)
+        mouseClick(first, 12, 12, Qt.LeftButton)
+        compare(selection.currentId, grid.collectionAdapter.idAt(0))
+        verify(grid.activeFocus)
+        mouseClick(second, 12, 12, Qt.LeftButton, Qt.ControlModifier)
+        compare(selection.selectedIds.length, 2)
+        gridContextSpy.clear()
+        mouseClick(first, 12, 12, Qt.RightButton)
+        compare(gridContextSpy.count, 1)
+        compare(gridContextSpy.signalArguments[0][0], grid.collectionAdapter.idAt(0))
+        grid.forceActiveFocus()
+        keyClick(Qt.Key_End)
+        compare(selection.currentId, grid.collectionAdapter.idAt(records.count - 1))
+        keyClick(Qt.Key_Left)
+        compare(selection.currentId, grid.collectionAdapter.idAt(records.count - 2))
+        gridActivationSpy.clear()
+        keyClick(Qt.Key_Return)
+        compare(gridActivationSpy.count, 1)
+        compare(gridActivationSpy.signalArguments[0][0], selection.currentId)
+    }
+
+    function test_treeKeyboardActivatesCurrentStableId() {
+        const first = tree.collectionAdapter.idAt(0)
+        verify(selection.select(first))
+        tree.forceActiveFocus()
+        verify(tree.activeFocus)
+        keyClick(Qt.Key_Down)
+        compare(selection.currentId, tree.collectionAdapter.idAt(1))
+        treeActivationSpy.clear()
+        keyClick(Qt.Key_Return)
+        compare(treeActivationSpy.count, 1)
+        compare(treeActivationSpy.signalArguments[0][0], selection.currentId)
+    }
+
     function test_treeRequestsExpansionByStableIdAndModelOwnsState() {
         const id = rowId(0)
         expansionSpy.clear()
@@ -137,6 +180,10 @@ TestCase {
     }
 
     function test_recycled_asset_delegates_release_thumbnail_subscriptions() {
+        // The keyboard-navigation case may leave the shared grid at its end.
+        // Start at the top so this case always exercises a real recycle.
+        grid.gridView.contentY = 0
+        tryCompare(grid.gridView, "contentY", 0)
         const beforeRequests = fakeProvider.requestCount
         const beforeReleases = fakeProvider.releaseCount
         verify(beforeRequests > 0)

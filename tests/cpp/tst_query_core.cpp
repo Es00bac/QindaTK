@@ -17,12 +17,13 @@ public:
                                                 {"amount", QueryType::Number, true}}};
     QString version = QStringLiteral("rev-1");
     QVector<QueryRow> rows;
+    QueryCapabilities supported = QueryCapabilities::local();
     mutable std::atomic_bool *cancelAfterTwo = nullptr;
     bool changeSchemaAfterTwo = false;
     QuerySchema schema() const override { return metadata; }
     QString revision() const override { return version; }
     qsizetype rowCount() const override { return rows.size(); }
-    QueryCapabilities capabilities() const override { return QueryCapabilities::local(); }
+    QueryCapabilities capabilities() const override { return supported; }
     QueryRow rowAt(qsizetype index, const QStringList &requested) const override
     {
         if (cancelAfterTwo && index == 2) cancelAfterTwo->store(true);
@@ -87,6 +88,7 @@ private slots:
     void typedFilterNullAndSerialization();
     void staleSchemaCapabilityAndCancellation();
     void gridSourceAndResultAdapter();
+    void joinedDetailAndHierarchy();
 };
 
 void QueryCoreTest::pivotTotalsAndProvenance()
@@ -227,6 +229,90 @@ void QueryCoreTest::gridSourceAndResultAdapter()
     QCOMPARE(resultGrid->cellValue(rowId("East"), col).toDouble(), 10.0);
     QVERIFY(grid.setData(grid.index(1, 1), 7.0));
     QCOMPARE(QueryEngine::execute(source, query).status, QueryResult::Status::Rejected);
+}
+
+void QueryCoreTest::joinedDetailAndHierarchy()
+{
+    auto sales = fixture();
+    FixtureSource catalog;
+    catalog.metadata = {"catalog", "catalog-1", {{"sku", QueryType::Text, false},
+                                                 {"category", QueryType::Text, false}}};
+    catalog.version = QStringLiteral("catalog-rev-1");
+    catalog.rows = {{"p1", {{"sku", QueryValue::text("A")},
+                            {"category", QueryValue::text("Tools")}}},
+                    {"p2", {{"sku", QueryValue::text("A")},
+                            {"category", QueryValue::text("Supplies")}}}};
+    auto query = spec();
+    query.rowFields.clear(); query.columnFields.clear(); query.measures.clear();
+    query.projection = {"region", "catalog.category", "amount"};
+    query.sort = {{"catalog.category", true, true}, {"amount", false, true}};
+    query.join = {"catalog", "catalog-1", "catalog-rev-1", "product", "sku", true};
+    QuerySpec decoded; QString error;
+    QVERIFY(QueryEngine::fromJson(QueryEngine::toJson(query), &decoded, &error));
+    QCOMPARE(decoded.join.sourceId, QStringLiteral("catalog"));
+    QCOMPARE(decoded.projection, query.projection);
+    QCOMPARE(decoded.sort.first().fieldId, QStringLiteral("catalog.category"));
+    const auto result = QueryEngine::executeJoined(sales, catalog, query);
+    QCOMPARE(result.status, QueryResult::Status::Complete);
+    QCOMPARE(result.rowIds.size(), 8);
+    QCOMPARE(result.columnIds, (QStringList{"field:region", "field:catalog.category", "field:amount"}));
+    QCOMPARE(result.cell(result.rowIds.first(), "field:catalog.category").data.toString(),
+             QStringLiteral("Supplies"));
+    QCOMPARE(result.cell(result.rowIds.last(), "field:catalog.category").type, QueryType::Null);
+    const auto first = result.rowIds.first();
+    QCOMPARE(result.sourceRows(first, "field:amount"), (QStringList{first}));
+    QCOMPARE(result.joinedLineage.value(first).size(), 2);
+    QCOMPARE(result.joinedLineage.value(first).at(1), QStringLiteral("p2"));
+    auto reversed = catalog;
+    std::reverse(reversed.rows.begin(), reversed.rows.end());
+    const auto rerun = QueryEngine::executeJoined(sales, reversed, query);
+    QCOMPARE(rerun.status, QueryResult::Status::Complete);
+    QCOMPARE(rerun.rowIds, result.rowIds);
+    QueryLimits limits; limits.maxJoinedRows = 7;
+    QCOMPARE(QueryEngine::executeJoined(sales, catalog, query, limits).status,
+             QueryResult::Status::Rejected);
+    query.join.sourceRevision = QStringLiteral("stale");
+    QCOMPARE(QueryEngine::executeJoined(sales, catalog, query).status,
+             QueryResult::Status::Rejected);
+    query.join.sourceRevision = catalog.version;
+    query.join.leftOuter = false;
+    QCOMPARE(QueryEngine::executeJoined(sales, catalog, query).rowIds.size(), 6);
+    query.filter.kind = Kind::Compare;
+    query.filter.fieldId = QStringLiteral("catalog.category");
+    query.filter.comparison = Compare::Equal;
+    query.filter.literal = QueryValue::text(QStringLiteral("Tools"));
+    QCOMPARE(QueryEngine::executeJoined(sales, catalog, query).matchedRows, qsizetype(3));
+    query.filter.kind = Kind::IsNull;
+    query.join.leftOuter = true;
+    QCOMPARE(QueryEngine::executeJoined(sales, catalog, query).matchedRows, qsizetype(2));
+    catalog.supported.joining = false;
+    QCOMPARE(QueryEngine::executeJoined(sales, catalog, query).status, QueryResult::Status::Rejected);
+
+    auto hierarchy = spec();
+    hierarchy.rowFields = {"region", "product"};
+    hierarchy.columnFields.clear();
+    const auto pivot = QueryEngine::execute(sales, hierarchy);
+    QCOMPARE(pivot.status, QueryResult::Status::Complete);
+    const QString east = rowId("East");
+    const QString eastA = queryAxisId(QStringLiteral("row"),
+                                     {QueryValue::text("East"), QueryValue::text("A")});
+    const QString sumColumn = queryAxisId(QStringLiteral("column"), {})
+                              + QStringLiteral(":measure:sum");
+    QCOMPARE(pivot.rowParents.value(eastA), east);
+    QCOMPARE(pivot.cell(east, sumColumn).data.toDouble(), 30.0);
+    QCOMPARE(pivot.cell(eastA, sumColumn).data.toDouble(), 30.0);
+    QCOMPARE(pivot.sourceRows(east, sumColumn),
+             (QStringList{"r1", "r2", "r3"}));
+    QCOMPARE(pivot.cell(QStringLiteral("total:rows"), sumColumn).data.toDouble(), 50.0);
+    auto interleaved = fixture();
+    std::swap(interleaved.rows[1], interleaved.rows[3]);
+    const auto ordered = QueryEngine::execute(interleaved, hierarchy);
+    QCOMPARE(ordered.status, QueryResult::Status::Complete);
+    const QString west = rowId("West");
+    QVERIFY(ordered.rowIds.indexOf(eastA) < ordered.rowIds.indexOf(west));
+    for (const QString &id : ordered.rowIds)
+        if (ordered.rowParents.value(id) == east)
+            QVERIFY(ordered.rowIds.indexOf(id) < ordered.rowIds.indexOf(west));
 }
 
 QTEST_MAIN(QueryCoreTest)

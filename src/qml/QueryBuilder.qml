@@ -14,17 +14,36 @@ Item {
     property var rowFields: []
     property var columnFields: []
     property var measures: []
+    property bool detailMode: false
+    property var projection: []
+    property string sortField: ""
+    property bool sortAscending: true
+    property bool sortNullsLast: true
+    property bool joinEnabled: false
+    property bool joinLeftOuter: false
+    property string joinLeftField: ""
+    property string joinRightField: ""
+    property var joinSchema: controller ? controller.joinSchema : ({ "id": "", "revision": "", "fields": [] })
+    property string joinSourceRevision: controller && controller.joinSource
+                                        ? controller.joinSource.revision : ""
     property var querySpec: null
     property string tooltip: qsTr("Build a typed query and pivot layout")
     property string loadDiagnostic: ""
     property int _sequence: 0
     property int _measureSequence: 0
-    readonly property var fields: {
+    readonly property var fields: availableFields(joinEnabled)
+    function availableFields(withJoin) {
         const output = []
         const input = schema && schema.fields ? schema.fields : []
         for (let i = 0; i < input.length; ++i)
             output.push({ "id": input[i].id, "type": input[i].type,
                           "label": input[i].label || input[i].id })
+        if (withJoin && joinSchema && joinSchema.id && joinSchema.fields)
+            for (let i = 0; i < joinSchema.fields.length; ++i) {
+                const field = joinSchema.fields[i]
+                output.push({ "id": joinSchema.id + "." + field.id, "type": field.type,
+                              "label": (field.label || field.id) + " (" + joinSchema.id + ")" })
+            }
         return output
     }
     readonly property string diagnostic: controller ? controller.diagnostic : ""
@@ -35,6 +54,14 @@ Item {
     signal previewRequested(string requestId)
 
     function has(list, id) { return list.indexOf(id) >= 0 }
+    function setProjected(id, checked) {
+        const next = projection.slice()
+        const index = next.indexOf(id)
+        if (checked && index < 0) next.push(id)
+        if (!checked && index >= 0) next.splice(index, 1)
+        projection = next
+        publish()
+    }
     function setAxis(index, axisIndex) {
         if (index < 0 || index >= fields.length) return
         const id = fields[index].id
@@ -87,7 +114,10 @@ Item {
         return false
     }
     function compileSpec() {
-        if (!schema || !schema.id || !schema.revision || !sourceRevision || measures.length === 0)
+        if (!schema || !schema.id || !schema.revision || !sourceRevision
+            || (detailMode ? projection.length === 0 : measures.length === 0)
+            || (joinEnabled && (!joinSchema.id || !joinSchema.revision || !joinSourceRevision
+                                || !joinLeftField || !joinRightField)))
             return null
         ++_sequence
         const predicate = filterEditor.toPredicate()
@@ -95,11 +125,22 @@ Item {
         for (let i = 0; i < measures.length; ++i)
             serializedMeasures.push({ "id": measures[i].id, "field": measures[i].field,
                                      "function": measures[i].function })
-        return { "version": 1, "id": "qml-query-" + Date.now() + "-" + _sequence,
+        const spec = { "version": 1, "id": "qml-query-" + Date.now() + "-" + _sequence,
                  "schemaId": schema.id, "schemaRevision": schema.revision,
                  "sourceRevision": sourceRevision, "filter": predicate,
-                 "parameters": ({}), "rows": rowFields.slice(), "columns": columnFields.slice(),
-                 "measures": serializedMeasures }
+                 "parameters": ({}), "rows": detailMode ? [] : rowFields.slice(),
+                 "columns": detailMode ? [] : columnFields.slice(),
+                 "measures": detailMode ? [] : serializedMeasures }
+        if (detailMode) {
+            spec.projection = projection.slice()
+            if (sortField) spec.sort = [{ "field": sortField,
+                                         "ascending": sortAscending, "nullsLast": sortNullsLast }]
+        }
+        if (joinEnabled) spec.join = { "sourceId": joinSchema.id,
+            "schemaRevision": joinSchema.revision, "sourceRevision": joinSourceRevision,
+            "leftField": joinLeftField, "rightField": joinRightField,
+            "leftOuter": joinLeftOuter }
+        return spec
     }
     function publish() {
         const spec = compileSpec()
@@ -126,8 +167,26 @@ Item {
         const nextRows = spec.rows ? spec.rows.slice() : []
         const nextColumns = spec.columns ? spec.columns.slice() : []
         const nextMeasures = spec.measures ? spec.measures.slice() : []
+        const nextProjection = spec.projection ? spec.projection.slice() : []
+        const nextSort = spec.sort && spec.sort.length ? spec.sort[0] : null
+        const nextJoin = spec.join || null
+        const available = availableFields(!!nextJoin)
+        function savedField(id) {
+            for (let i = 0; i < available.length; ++i)
+                if (available[i].id === id) return available[i]
+            return null
+        }
+        if (nextJoin && (!joinSchema || nextJoin.sourceId !== joinSchema.id
+                         || !schema.fields.some(function(f) { return f.id === nextJoin.leftField })
+                         || !joinSchema.fields.some(function(f) { return f.id === nextJoin.rightField })))
+            return rejectLoad(qsTr("Saved join fields are unavailable."))
+        for (const id of nextRows.concat(nextColumns, nextProjection))
+            if (!savedField(id)) return rejectLoad(qsTr("Saved query field is unavailable: %1").arg(id))
+        if (nextSort && !savedField(nextSort.field))
+            return rejectLoad(qsTr("Saved sort field is unavailable."))
         const nextConjunction = spec.filter && spec.filter.kind === "or" ? "or" : "and"
         if (spec.filter && spec.filter.kind === "constant" && spec.filter.value === true) {
+            applyTransforms(nextProjection, nextSort, nextJoin)
             rowFields = nextRows
             columnFields = nextColumns
             measures = nextMeasures
@@ -143,7 +202,7 @@ Item {
             const leaf = leaves[i]
             if (!leaf || (leaf.kind !== "compare" && leaf.kind !== "isNull" && leaf.kind !== "isNotNull"))
                 return rejectLoad(qsTr("This saved query uses a predicate group the editor cannot represent."))
-            const field = fieldById(leaf.field)
+            const field = savedField(leaf.field)
             if (!field) return rejectLoad(qsTr("Saved query field '%1' is missing from the current schema.").arg(leaf.field))
             const v = leaf.literal || (leaf.parameter && spec.parameters
                                       ? spec.parameters[leaf.parameter] : null) || {}
@@ -161,6 +220,7 @@ Item {
             }
             parsed.push({ "field": leaf.field, "type": field.type, "op": op, "value": value })
         }
+        applyTransforms(nextProjection, nextSort, nextJoin)
         rowFields = nextRows
         columnFields = nextColumns
         measures = nextMeasures
@@ -169,6 +229,17 @@ Item {
         querySpec = spec
         loadDiagnostic = ""
         return true
+    }
+    function applyTransforms(nextProjection, nextSort, nextJoin) {
+        joinEnabled = !!nextJoin
+        joinLeftOuter = nextJoin ? !!nextJoin.leftOuter : false
+        joinLeftField = nextJoin ? nextJoin.leftField : ""
+        joinRightField = nextJoin ? nextJoin.rightField : ""
+        detailMode = nextProjection.length > 0
+        projection = nextProjection
+        sortField = nextSort ? nextSort.field : ""
+        sortAscending = nextSort ? !!nextSort.ascending : true
+        sortNullsLast = nextSort ? !!nextSort.nullsLast : true
     }
     function rejectLoad(message) {
         loadDiagnostic = message
@@ -217,6 +288,11 @@ Item {
             onConjunctionEdited: function(next) { builder.conjunction = next }
             onPredicateChanged: builder.publish()
         }
+        Tk.QueryTransformPanel {
+            objectName: "queryTransformPanel"
+            width: content.width
+            builder: builder
+        }
         Tk.Box {
             objectName: "queryAxisPanel"
             width: content.width
@@ -230,9 +306,9 @@ Item {
                 anchors.fill: parent
                 direction: Tk.Flex.Column
                 gap: Tk.Theme.space.xs
-                Tk.Label { text: qsTr("Group fields"); accent: true }
+                Tk.Label { visible: !builder.detailMode; text: qsTr("Group fields"); accent: true }
                 Repeater {
-                    model: builder.fields.length
+                    model: builder.detailMode ? 0 : builder.fields.length
                     delegate: Tk.Flex {
                         required property int index
                         objectName: "queryAxisField_" + builder.fields[index].id
@@ -249,9 +325,9 @@ Item {
                         }
                     }
                 }
-                Tk.Label { text: qsTr("Measures"); accent: true }
+                Tk.Label { visible: !builder.detailMode; text: qsTr("Measures"); accent: true }
                 Repeater {
-                    model: builder.measures.length
+                    model: builder.detailMode ? 0 : builder.measures.length
                     delegate: Tk.Flex {
                         required property int index
                         readonly property var measure: builder.measures[index]
@@ -298,6 +374,7 @@ Item {
                     Tk.Button {
                         objectName: "queryMeasureAdd"
                         text: qsTr("Add measure")
+                        visible: !builder.detailMode
                         tooltip: qsTr("Add an aggregate value")
                         enabled: builder.fields.length > 0
                         onClicked: builder.addMeasure()

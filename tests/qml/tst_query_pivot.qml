@@ -114,6 +114,78 @@ TestCase {
         verify(builder.measures[0].id !== builder.measures[1].id)
     }
 
+    function test_visual_join_projection_sort_roundtrip() {
+        const builder = createTemporaryObject(builderComponent, root)
+        verify(builder !== null)
+        builder.joinSchema = ({ id: "catalog", revision: "c2", fields: [
+            { id: "region", type: "text", label: "Region" },
+            { id: "category", type: "text", label: "Category" }
+        ] })
+        builder.joinSourceRevision = "right-8"
+        builder.joinEnabled = true
+        builder.joinLeftField = "region"
+        builder.joinRightField = "region"
+        builder.joinLeftOuter = true
+        builder.detailMode = true
+        builder.setProjected("region", true)
+        builder.setProjected("catalog.category", true)
+        builder.sortField = "catalog.category"
+        builder.sortAscending = false
+        builder.publish()
+        const spec = builder.querySpec
+        compare(spec.projection.join(","), "region,catalog.category")
+        compare(spec.sort[0].field, "catalog.category")
+        compare(spec.sort[0].ascending, false)
+        compare(spec.join.rightField, "region")
+        compare(spec.join.leftOuter, true)
+        compare(spec.measures.length, 0)
+        verify(findChild(builder, "queryTransformPanel") !== null)
+        verify(findChild(builder, "queryProject_catalog.category") !== null)
+        verify(findChild(builder, "querySortField") !== null)
+        builder.joinEnabled = false
+        builder.detailMode = false
+        compare(builder.loadSpec(spec), true)
+        compare(builder.joinEnabled, true)
+        compare(builder.detailMode, true)
+        compare(builder.sortField, "catalog.category")
+    }
+
+    function test_pivot_dimension_collapse_preserves_prefix_provenance() {
+        const top = "row:region"
+        const leaf = "row:region/product"
+        const controller = {
+            status: "complete", diagnostic: "",
+            rowLabels: ({ "row:region": "East", "row:region/product": "East / A",
+                          "total:rows": "Total" }),
+            columnLabels: ({ "sum": "Sum" }),
+            rowParents: ({ "row:region/product": "row:region" }),
+            resultModel: {
+                rowCount: 3, columnCount: 1,
+                rowIdAt: function(i) { return [top, leaf, "total:rows"][i] },
+                columnIdAt: function(i) { return "sum" }
+            },
+            cellValue: function(r, c) { return r === top ? 30 : 10 },
+            sourceRows: function(r, c) { return r === top ? ["r1", "r2"] : ["r1"] }
+        }
+        const pivot = createTemporaryObject(pivotComponent, root, { controller: controller })
+        verify(pivot !== null)
+        compare(pivot.totalRows, 3)
+        const spy = createTemporaryObject(spyComponent, root,
+                                          { target: pivot, signalName: "drillThrough" })
+        waitForRendering(pivot)
+        const expand = findChild(pivot, "pivotExpand_" + top)
+        verify(expand !== null)
+        mouseClick(expand)
+        compare(pivot.totalRows, 2)
+        compare(pivot.displayedRowIds.join(","), top + ",total:rows")
+        const cell = findChild(pivot, "pivotCell_0_0")
+        mouseClick(cell)
+        compare(spy.signalArguments[0][2].join(","), "r1,r2")
+        mouseClick(expand)
+        compare(pivot.totalRows, 3)
+        compare(pivot.displayedRowIds[1], leaf)
+    }
+
     function test_pivot_display_is_bounded_and_drills_through_read_only_result() {
         const rows = ["row:one", "row:two"]
         const columns = ["column:a", "column:b"]

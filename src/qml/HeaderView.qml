@@ -23,9 +23,8 @@ T.Control {
     readonly property var sections: sectionRecords()
 
     function sectionRecords() {
-        const epoch = geometryEpoch
         const result = []
-        if (!gridModel || width <= 0 || height <= 0) return result
+        if (geometryEpoch < 0 || !gridModel || width <= 0 || height <= 0) return result
         const regions = gridModel.visibleRegions(
                     horizontal ? width : Math.max(rowHeaderWidth,
                                                    gridModel.defaultColumnSize * 2),

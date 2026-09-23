@@ -53,7 +53,9 @@ qt_add_qml_module(qindatk
         core/notification_model.cpp core/notification_model.h
         core/expression_evaluator.cpp core/expression_evaluator.h
         core/find_replace_service.cpp core/find_replace_service.h
+        core/diff_model.cpp core/diff_model.h
         core/virtual_collection_adapter.cpp core/virtual_collection_adapter.h
+        core/event_log_model.cpp core/event_log_model.h
         core/transport_model.cpp core/transport_model.h
         core/test_transport_clock.cpp core/test_transport_clock.h
         core/uri_validator.cpp core/uri_validator.h
@@ -99,8 +101,11 @@ qt_add_qml_module(qindatk
         core/validation_model.cpp core/validation_model.h
         core/selection_model.cpp core/selection_model.h
         core/editable_grid_model.cpp core/editable_grid_model.h
+        core/editable_grid_structure.cpp
+        core/resource_plan_model.cpp core/resource_plan_model.h
         core/editable_grid_mode.cpp
         core/query_spec.cpp core/query_eval.cpp core/query_pivot.cpp core/query_core.h
+        core/query_detail.cpp core/query_join.cpp core/query_persistence.cpp
         core/query_grid_adapter.cpp core/query_grid_adapter.h
         core/query_controller.cpp core/query_controller.h
         core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h
@@ -116,8 +121,27 @@ qt_add_qml_module(qindatk
         core/chart_data.cpp core/chart_data.h
         core/chart_dataset.cpp core/chart_dataset.h
         core/chart_renderer.cpp core/chart_renderer.h
+        core/chart_renderer_annotations.cpp
+        core/chart_renderer_data.cpp
+        core/chart_annotation_model.cpp core/chart_annotation_model.h
+        core/chart_histogram_selection.cpp core/chart_histogram_selection.h
         core/chart_table_model.cpp core/chart_table_model.h
         core/chart_histogram.cpp core/chart_histogram.h
+        core/distribution_model.cpp core/distribution_model.h
+        core/gantt_calendar.cpp core/gantt_calendar.h
+        core/gantt_task_model.cpp core/gantt_task_model.h
+        core/heatmap_model.cpp core/heatmap_model.h
+        core/heatmap_renderer.cpp core/heatmap_renderer.h
+        core/ohlc_model.cpp core/ohlc_model.h
+        core/part_whole_model.cpp core/part_whole_model.h
+        core/part_whole_layout.cpp core/part_whole_layout.h
+        core/part_whole_renderer.cpp core/part_whole_renderer.h
+        core/polar_transform.cpp core/polar_transform.h
+        core/polar_data_model.cpp core/polar_data_model.h
+        core/polar_renderer.cpp core/polar_renderer_paint.cpp core/polar_renderer.h
+        core/target_model.cpp core/target_model.h
+        core/uncertainty_model.cpp core/uncertainty_model.h
+        core/uncertainty_renderer.cpp core/uncertainty_renderer.h
         core/graph.cpp core/graph.h
         core/graph_mesh.cpp core/graph_mesh.h
         core/graph_nodes.cpp
@@ -131,6 +155,23 @@ qt_add_qml_module(qindatk
         core/screen_work_area.cpp core/screen_work_area.h
         core/stack.cpp core/stack.h
         core/stylus_handler.cpp core/stylus_handler.h
+        core/canvas_transform.cpp core/canvas_transform.h
+        core/canvas_object.h
+        core/canvas_geometry.cpp core/canvas_geometry.h
+        core/canvas_document.cpp core/canvas_document.h
+        core/canvas_document_qml.cpp
+        core/hit_test_service.cpp core/hit_test_service.h
+        core/tool_controller.cpp core/tool_controller.h
+        core/canvas_tools.cpp
+        core/canvas_render.h
+        core/canvas_painter.cpp
+        core/canvas_tessellator.cpp
+        core/render_surface_adapter.cpp core/render_surface_adapter.h
+        core/canvas_view_state.cpp core/canvas_view_state.h
+        core/canvas_surface.cpp core/canvas_surface.h
+        core/canvas_surface_input.cpp
+        core/canvas_surface_nodes.cpp core/canvas_surface_nodes.h
+        core/canvas_overlay.cpp core/canvas_overlay.h
         core/svg_path.cpp core/svg_path.h
         core/theme.cpp core/theme.h
         core/theme_presets.cpp core/theme_presets.h

@@ -158,7 +158,80 @@ identity before publishing results. Exact decimal finance, joins, sorting and
 incremental aggregation need later provider implementations. See
 [query-pivot.md](query-pivot.md).
 
-## D-044 — Keep timeline placement in an exact tick model and views delegate-free
+## D-042 — Bound event streams by count and payload
+
+**Context.** A high-rate event source can outlive the visible window and can
+submit unusually large text fields. Bounding only the number of rows leaves a
+large per-row payload capable of exhausting memory. A paused view must also
+remain an inspection view, not a reason to stop ingestion or grow history.
+
+**Decision.** EventLogModel retains a finite row count and UTF-8 payload budget,
+and stages each append batch under a separate byte ceiling. It rejects an
+oversized or malformed record whole. Producers use one batch API call for a
+burst. Filtering is synchronous over the bounded window. View pause records a
+stable visible event ID and offset; it never pauses ingestion or retention.
+CSV returns bounded data for the host to route through its own export job.
+
+**Consequences.** Accepted records remain intact and source IDs remain stable
+through filtering and eviction of other rows. Hosts can detect rejection from
+the accepted count and choose a durable export path. This policy applies to
+the initial EventLogModel; remote log storage, paging, and time-indexed query
+engines need a separate provider contract.
+
+## D-043 — Diff presentation uses immutable revision snapshots
+
+**Context.** A comparison may contain a few edited lines or tens of thousands
+of structured regions. The view must never commit a merge while rendering or
+allow a queued decision to target a later document revision.
+
+**Decision.** DiffModel uses bounded deterministic alignment for small local
+text snapshots and an indexed DiffPageProvider for large or structured
+comparisons. Both carry opaque source revisions and stable hunk/conflict IDs.
+DiffView reads visible regions only. Accept/reject sends a typed DiffDecision
+with expected revisions to a host-owned DiffTransactionAdapter; the host
+performs the transaction and publishes a new snapshot.
+
+**Consequences.** Large providers own their alignment and ID stability. A
+destroyed provider or changed snapshot cancels pending requests. Hosts must
+recheck revisions at commit time and keep cancellation reversible. The toolkit
+never mutates the source documents.
+
+## D-044 — Tile spatial documents in document space behind one render boundary
+
+**Context.** A spatial editor must pan, zoom and rotate a large document in
+several synchronized views, and pick and edit it in stable document
+coordinates. It must render through both Qt's software adaptation (headless
+CI, llvmpipe) and a GPU scene graph. Qt Quick's render thread may tear down
+every GPU handle at any time: on a backend change, a window change or device
+loss. Tool previews must never leak into document state or undo.
+
+**Decision.** A view is a pose `{center, zoom, rotation}` held in a shareable
+`CanvasViewState`. Views that share one state are synchronized, and
+navigation never edits the document. The document is reached only through
+`CanvasDocumentAdapter`. Its only mutation is an all-or-nothing `commit` of a
+`CanvasEdit` that rejects stale `before` states and reports damage in
+document coordinates. `ToolController` owns one gesture at a time. Previews
+stay in the tool; `end` commits exactly one edit, and every interruption
+cancels without touching the document. Rendering tiles the document **in
+document space** at a power-of-two LOD (`ceil(log2(zoom·dpr))`), so
+rotation and fractional zoom are one transform and tiles survive pans and
+turns. `RenderSurfaceAdapter` owns planning, damage, a per-frame budget and a
+byte-bounded LRU cache of CPU-side tile content (software images or
+scene-graph vertex runs). It publishes an immutable frame. The render thread
+reads only that frame. It keeps every GPU handle inside the item's node tree
+and rebuilds the tree whenever the resource generation changes.
+
+**Consequences.** No QML object ever owns a render-thread resource, so Qt's
+teardown releases handles on the right thread, and context loss costs one
+re-upload from the CPU cache. The software adaptation cannot draw custom
+geometry, so the scene-graph provider falls back there and reports why.
+Picking tolerance is in logical pixels (`px / zoom`). Degenerate objects are
+kept but neither drawn nor picked. Until WP-033 proves a shared session for
+spatial documents, `CanvasDocument` keeps its own bounded history behind the
+adapter. Snapping, selection handles and guides (WP-041) and colour transforms
+(WP-043) plug into the published contracts. See [canvas.md](canvas.md).
+
+## D-045 — Keep timeline placement in an exact tick model and views delegate-free
 
 **Context.** An edit timeline must move, trim, split and ripple thousands of
 clips with sample- and frame-exact results, undo each gesture exactly, and

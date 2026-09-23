@@ -19,6 +19,13 @@ flips normalized coordinates. Numeric/log ticks use a 1/2/5 ladder and log
 ticks use powers of ten. Category ticks show every label. Time labels use the
 declared IANA `timeZoneId`; an invalid zone invalidates the axis.
 
+The axis owns a validated normalized `viewportStart`/`viewportEnd` pair,
+initially `[0,1]`. Assign one `Tk.ChartAxis` instance to the same orientation
+on multiple `ChartView`s to link it. Zoom, pan and `setViewport` update that
+axis; every connected renderer uses its fractions for ticks, marks and hit
+testing. The other orientation can remain independent. Changing an axis
+domain resets its viewport to `[0,1]`.
+
 DateTime coordinates are signed 64 bit **UTC milliseconds**. C++ callers set
 `setUtcDomain()` and use `mapUtc()` / `unmapUtc()`. QML domain properties are
 decimal strings (`minimumUtc` and `maximumUtc`), preserving values beyond
@@ -80,6 +87,29 @@ each bin width. Empty data displays zero in every mode. Channel and unit
 labels come from the caller; image analysis must provide color-context meaning
 for channels. This core does not infer bins or image color spaces.
 
+`ChartRenderer.histogramSelection` is a typed, read-only domain range.
+`selectHistogramBins(first,last)` accepts contiguous source-bin indices,
+normalizes their order and exposes exact `lower`, `upper`, `unit`, `channel`,
+`normalization` and inclusivity. The lower edge is included; the upper edge
+is included only when the selection reaches the final source bin. Clicking
+or dragging over painted bars emits `histogramRangeSelected`. Replacing the
+histogram clears the previous selection, including on failure.
+
+## Chart annotations
+
+`ChartAnnotationModel` atomically replaces at most 1024 source-coordinate
+records with unique stable `id`s. `Point` has one X coordinate and Y;
+`VerticalLine` has X; `HorizontalLine` has Y. X is exactly one numeric `x`,
+ordered `category`, or exact decimal-string `utcMs`, matching the axis kind.
+Each applicable coordinate declares `xUnit` or `yUnit` matching its axis.
+Values must be finite and bounded, category names must exist on the axis,
+and incompatible annotations report `annotationError` instead of painting
+misplaced marks. The same axis transform and viewport draw labels/lines,
+resolve `annotationAt` and `selectAnnotationAt`, and export PNG/SVG.
+`annotationCsvData()` preserves full source coordinates, IDs and units;
+`showAnnotationTable` exposes the complete model in an accessible table.
+See [the focused example](../examples/chart-review/Main.qml).
+
 ## QML visual adapter
 
 `Tk.ChartDataset` is the bounded QML/model ingestion adapter. Use `seriesId`
@@ -119,3 +149,63 @@ telemetry `Tk.Graph` remains a separate compatible control.
 GPU and software visual checks plus the installed consumer check are
 acceptance gates for WP-030; source availability alone does not mark this
 package accepted.
+
+## Heatmap matrix adapter (DAT-14)
+
+`Tk.HeatmapModel` declares rows/columns, numeric X/Y domains and units, or
+ordered X/Y category labels. Row zero is the top of the matrix. Numeric
+coordinates are band centers; Y values descend from the declared maximum.
+Domains, color bounds and category lists must be valid and complete; `valid`
+and `error` expose malformed declarations and rendering stays empty until fixed.
+Values are finite numbers or members of `valueCategories`. The caller declares
+`colorMinimum`/`colorMaximum` in `valueUnit`; colors clamp at those bounds.
+Unset cells and explicit null cells are missing, never zero. `setCell` requires
+a stable unique ID and rejects invalid input without changing the matrix.
+
+The sparse model stores only supplied cells. `tile()` aggregates a bounded
+viewport into at most 4096 bins and reports minimum, maximum, present count,
+missing count and category state. At overview zoom `Tk.HeatmapRenderer` paints
+both extrema in split tiles and hatches tiles containing missing cells. It
+creates no per-cell QML delegates. `requestTile()` emits only the latest
+request and revision; `cancelTile()` invalidates pending delivery. Onscreen,
+PNG and SVG rendering use the same data-coordinate paint path. Image dimensions
+are limited to 1–8192 pixels per side. `Tk.Heatmap` exposes cell navigation and
+announces the selected ID, value or missing state, coordinates and units as an
+accessible cell alternative. Pointer drag and Shift+arrow select a rectangular
+region; `selectedRegion` reports half-open row and column bounds.
+
+## Part-to-whole and hierarchy displays (WP-031)
+
+`Tk.PartWholeModel` accepts an ordered forest of `{id, parentId, label, value}`
+records. IDs are unique and stable; replacing the set is atomic. Values must be
+finite and nonnegative. A numeric zero is a known zero share. An absent or null
+leaf value is **missing** and has unknown magnitude. Negative or nonfinite
+values are rejected with `lastError`; the model never takes an absolute value
+or silently treats missing as zero.
+
+An internal node may omit `value`, in which case its known total is derived
+from children. A declared parent value must equal the complete sum of its
+children within a relative tolerance of 1e-9. A parent with missing descendants
+cannot declare a total; its derived `knownTotal` is the sum of known children
+and `complete` is false. A view therefore labels the denominator as *known*
+and reports `missingCount` and `zeroCount`. Sibling order is input order. The adapter rejects
+cycles, absent parents, depth beyond 8 and more than 4096 nodes.
+
+`Tk.PartWholeView` selects the children of a sole root as the top-level
+comparison; otherwise it compares the forest roots. Pie and donut angles use
+`360 × part / known total`; donut has a half-radius hole. Treemap uses
+alternating horizontal/vertical partitions whose areas are proportional to
+known totals. Sunburst uses proportional nested arcs and one radial band per
+visible depth. Missing and zero nodes have no area/angle, but retain stable
+identity and appear in the accessible `Tk.DataTable`, with a distinct status.
+`geometryFor(id)` exposes the normalized area or angle for numerical checking.
+Selection/hit testing preserve stable IDs. Screen, PNG and SVG all use one
+painter and the same geometry. The view caps output to 8192 pixels per side.
+
+## Polar coordinate family
+
+VIS-08 uses a dedicated [PolarView and PolarDataModel](polar.md) because
+Cartesian `ChartAxis.map()` fractions do not encode bearing, wraparound,
+category sectors or radial distance. The polar transform is shared by paint,
+inverse coordinates and hit testing. Its declared units and category order
+travel with full-resolution CSV and the accessible table.

@@ -9,7 +9,7 @@ Item {
     Tk.EditableGridModel {
         id: inventory
         Component.onCompleted: {
-            setDimensions(100000, 36)
+            setDimensions(100000, 100)
             frozenRows = 1
             frozenColumns = 2
             beginEdit("Seed inventory preview")
@@ -44,7 +44,7 @@ Item {
                 Tk.Label {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Asset inventory · 100,000 rows × 36 columns"
+                    text: "Asset inventory · 100,000 rows × 100 columns"
                     color: Tk.Theme.color.text
                     font.pixelSize: Tk.Theme.font.body
                 }

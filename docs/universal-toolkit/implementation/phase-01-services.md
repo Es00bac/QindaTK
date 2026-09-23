@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution underway.** WP-010 through WP-018 are accepted; WP-019 is active. Other
-packages remain planned until their dependencies and acceptance gates are met.
+**Execution underway.** WP-010 through WP-019 are accepted. Later phase
+packages retain their own dependencies and acceptance gates.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -199,7 +199,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-019"></a>
 ## WP-019 — Establish format registry and import/export jobs
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-016](phase-01-services.md#wp-016), [WP-018](phase-01-services.md#wp-018)
+**Implementation lead:** Sol. **Status:** accepted. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-016](phase-01-services.md#wp-016), [WP-018](phase-01-services.md#wp-018)
 
 **Proposal scope:** [PLT-17 ImportDialog](../proposed/08-platform-integrations.md#plt-17), [PLT-18 ExportDialog](../proposed/08-platform-integrations.md#plt-18), [PLT-20 FormatRegistry](../proposed/08-platform-integrations.md#plt-20)
 

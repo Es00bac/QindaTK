@@ -87,6 +87,36 @@ TestCase {
         compare(findChild(missing, "fontSpecimenText").font.family, installedFonts.fallbackFamily)
     }
 
+    function test_font_editor_reports_selected_face_missing_codepoint() {
+        let selected = null
+        for (let i = 0; i < installedFonts.families.length; ++i) {
+            const candidate = installedFonts.families[i]
+            const style = candidate.styles[0]
+            const pair = installedFonts.checkGlyphCoverage(candidate.family, style, "A\uDBFF\uDFFF")
+            if (pair.available && pair.unsupportedCodepoints.indexOf("U+10FFFF") >= 0
+                    && installedFonts.checkGlyphCoverage(candidate.family, style, "A").complete) {
+                selected = { family: candidate.family, style: style }
+                break
+            }
+        }
+        verify(selected !== null)
+        const editor = createTemporaryObject(realFeaturesComponent, root,
+            { fontFamily: selected.family, fontStyle: selected.style, sampleText: "A\uDBFF\uDFFF" })
+        verify(editor)
+        compare(editor.glyphCoverage.checkedCount, 2)
+        compare(editor.glyphCoverage.unsupportedCodepoints[0], "U+10FFFF")
+        const status = findChild(editor, "fontGlyphCoverage")
+        verify(status && status.visible)
+        verify(status.text.includes("U+10FFFF"))
+        verify(editor.Accessible.description.includes("U+10FFFF"))
+        editor.sampleText = "A"
+        verify(editor.glyphCoverage.complete)
+        verify(status.text.includes("Shaping and fallback are unverified"))
+        editor.fontFamily = "QindaTK Fixture Missing Font 89B56"
+        verify(!editor.glyphCoverage.available)
+        verify(status.text.includes("unavailable"))
+    }
+
     function test_font_features_show_unsupported_metadata_without_enabling_edit() {
         verify(features.metadataAvailable)
         compare(features.axes.length, 1)
@@ -224,5 +254,48 @@ TestCase {
         verify(fixture.undoService.undo())
         compare(fixture.document.valueFor(fixture.firstId, "allDay"), "2024-02-29")
         compare(field.canonicalValue, "2024-02-29")
+    }
+
+    function test_date_range_and_clear_are_transactional() {
+        const fixture = inspectorFixtures.create()
+        const service = createTemporaryObject(localeComponent, root)
+        const field = createTemporaryObject(datetimeComponent, root)
+        field.localeService = service
+        field.binding = fixture.dateBinding
+        field.dateOnly = true
+        field.dateFormat = "M/d/yyyy"
+        field.minValue = "2024-02-29"
+        field.maxValue = "2024-03-01"
+        field.draft = "2/28/2024"
+        verify(!field.commitDraft())
+        verify(field.validationError.includes("allowed range"))
+        compare(fixture.document.valueFor(fixture.firstId, "allDay"), "2024-02-29")
+        field.draft = "3/1/2024"
+        verify(field.commitDraft())
+        compare(fixture.document.valueFor(fixture.firstId, "allDay"), "2024-03-01")
+        const clear = findChild(field, "dateTimeClear")
+        verify(clear && clear.enabled)
+        verify(field.clearValue())
+        compare(fixture.document.valueFor(fixture.firstId, "allDay"), "")
+        verify(fixture.undoService.undo())
+        compare(fixture.document.valueFor(fixture.firstId, "allDay"), "2024-03-01")
+    }
+
+    function test_instant_range_checks_chosen_utc_candidate() {
+        const fixture = inspectorFixtures.create()
+        const service = createTemporaryObject(localeComponent, root)
+        const field = createTemporaryObject(datetimeComponent, root)
+        field.localeService = service
+        field.binding = fixture.instantBinding
+        field.minValue = "2024-11-03T08:00:00.000Z"
+        field.maxValue = "2024-11-03T09:00:00.000Z"
+        field.draft = "2024-11-03 01:30"
+        verify(!field.commitDraft())
+        compare(field.resolutionState, "ambiguous")
+        verify(!field.chooseCandidate(1))
+        verify(field.validationError.includes("allowed range"))
+        compare(fixture.document.valueFor(fixture.firstId, "instant"), "2024-11-03T04:00:00.000Z")
+        verify(field.chooseCandidate(0))
+        compare(fixture.document.valueFor(fixture.firstId, "instant"), field.canonicalValue)
     }
 }

@@ -36,8 +36,8 @@ Rectangle {
             for (let c = 0; c < fields.length; ++c)
                 sourceGrid.stageCell(ids[r], fields[c], rows[r][c])
         sourceGrid.commitEdit()
-        builder.rowFields = ["region"]
-        builder.columnFields = ["quarter"]
+        builder.rowFields = ["region", "quarter"]
+        builder.columnFields = []
         builder.measures = [{ "id": "revenue", "field": "amount", "function": "sum" }]
         builder.requestPreview()
     }
@@ -52,7 +52,7 @@ Rectangle {
             direction: Tk.Flex.Column
             gap: Tk.Theme.space.xs
             Tk.Overline { title: qsTr("Query and pivot"); color: Tk.Theme.color.text; wide: true }
-            Tk.Caption { text: qsTr("Compose typed filters, group dimensions, and drill through to source rows.") }
+            Tk.Caption { text: qsTr("Expand region and quarter subtotals, then drill through to source rows.") }
         }
         Tk.QueryBuilder {
             id: builder

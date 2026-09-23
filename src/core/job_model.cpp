@@ -242,6 +242,12 @@ void JobModel::finish(const std::shared_ptr<Entry> &entry, const JobResult &resu
         entry->progress = 100;
         entry->result = result.output;
     }
+    // AGENT-CONTRACT: TaskCenter's Retry and Open result actions depend on
+    // durable commit. The worker's flag is authoritative; output cannot claim it.
+    if (entry->state == Succeeded || entry->state == Failed) {
+        if (result.committed) entry->result.insert(QStringLiteral("committed"), true);
+        else entry->result.remove(QStringLiteral("committed"));
+    }
     updateRow(rowOf(entry->spec.id));
     emit jobFinished(entry->spec.id, entry->state, entry->result, entry->error);
     prune();

@@ -23,7 +23,8 @@ QPointF screenPoint(const ChartProjectedPoint &p, const QRectF &r,
 }
 }
 
-ChartRenderer::ChartRenderer(QQuickItem *parent) : QQuickPaintedItem(parent)
+ChartRenderer::ChartRenderer(QQuickItem *parent)
+    : QQuickPaintedItem(parent), m_histogramSelection(this)
 {
     setAcceptedMouseButtons(Qt::LeftButton | Qt::MiddleButton);
     setAcceptHoverEvents(true);
@@ -38,17 +39,19 @@ void ChartRenderer::setXAxis(ChartAxis *axis)
     if (m_xAxis) disconnect(m_xAxis, nullptr, this, nullptr);
     m_xAxis = axis;
     if (axis) connect(axis, &ChartAxis::changed, this, [this] {
-        setViewport(0, 1, 0, 1); m_hitDirty = true;
+        if (m_xAxis) m_xAxis->setViewport(0, 1);
+        m_hitDirty = true;
         if (m_xAxis) m_tableModel.reset(seriesPointers(), *m_xAxis, &m_histogram);
-        update();
+        emit annotationsChanged(); update();
     });
+    if (axis) connect(axis, &ChartAxis::viewportChanged, this, &ChartRenderer::syncViewportFromAxes);
     if (axis) connect(axis, &QObject::destroyed, this, [this] {
         m_hitDirty = true;
         if (m_xAxis) m_tableModel.reset(seriesPointers(), *m_xAxis, &m_histogram);
         else m_tableModel.clear();
-        emit axesChanged(); update();
+        emit axesChanged(); emit annotationsChanged(); update();
     });
-    emit axesChanged(); update();
+    syncViewportFromAxes(); emit axesChanged(); emit annotationsChanged(); update();
 }
 void ChartRenderer::setYAxis(ChartAxis *axis)
 {
@@ -56,17 +59,19 @@ void ChartRenderer::setYAxis(ChartAxis *axis)
     if (m_yAxis) disconnect(m_yAxis, nullptr, this, nullptr);
     m_yAxis = axis;
     if (axis) connect(axis, &ChartAxis::changed, this, [this] {
-        setViewport(0, 1, 0, 1); m_hitDirty = true;
+        if (m_yAxis) m_yAxis->setViewport(0, 1);
+        m_hitDirty = true;
         if (m_xAxis) m_tableModel.reset(seriesPointers(), *m_xAxis, &m_histogram);
-        update();
+        emit annotationsChanged(); update();
     });
+    if (axis) connect(axis, &ChartAxis::viewportChanged, this, &ChartRenderer::syncViewportFromAxes);
     if (axis) connect(axis, &QObject::destroyed, this, [this] {
         m_hitDirty = true;
         if (m_xAxis) m_tableModel.reset(seriesPointers(), *m_xAxis, &m_histogram);
         else m_tableModel.clear();
-        emit axesChanged(); update();
+        emit axesChanged(); emit annotationsChanged(); update();
     });
-    emit axesChanged(); update();
+    syncViewportFromAxes(); emit axesChanged(); emit annotationsChanged(); update();
 }
 
 QQmlListProperty<ChartDataset> ChartRenderer::datasets()
@@ -126,14 +131,23 @@ void ChartRenderer::setPaintPointLimit(int v)
 bool ChartRenderer::setHistogram(const QVariantList &edges, const QVariantList &counts,
                                  int normalization, const QString &channel, const QString &unit)
 {
-    if (normalization < ChartHistogram::Count || normalization > ChartHistogram::Density) return false;
+    const auto reject = [this](const QString &message) {
+        m_histogram = {};
+        m_histogram.error = message;
+        m_histogramSelection.clear();
+        if (m_xAxis) m_tableModel.reset(seriesPointers(), *m_xAxis, &m_histogram);
+        emit histogramChanged(); update(); return false;
+    };
+    if (normalization < ChartHistogram::Count || normalization > ChartHistogram::Density)
+        return reject(QStringLiteral("Unknown histogram normalization"));
     QVector<double> edgeValues; QVector<quint64> countValues;
-    if (edges.size() > 100001 || counts.size() > 100000) return false;
+    if (edges.size() > 100001 || counts.size() > 100000)
+        return reject(QStringLiteral("Histogram exceeds 100,000 bins"));
     edgeValues.reserve(edges.size()); countValues.reserve(counts.size());
     for (const QVariant &v : edges) edgeValues.append(v.toDouble());
     for (const QVariant &v : counts) {
         bool ok = false; const qulonglong count = v.toULongLong(&ok);
-        if (!ok) return false;
+        if (!ok) return reject(QStringLiteral("Histogram counts must be nonnegative integers"));
         countValues.append(count);
     }
     auto result = ChartHistogram::fromCounts(edgeValues, countValues,
@@ -151,6 +165,7 @@ bool ChartRenderer::setHistogram(const QVariantList &edges, const QVariantList &
         result.bins.clear();
     }
     m_histogram = std::move(result);
+    m_histogramSelection.clear();
     if (m_xAxis) m_tableModel.reset(seriesPointers(), *m_xAxis, &m_histogram);
     emit histogramChanged(); update();
     return m_histogram.valid();
@@ -175,6 +190,17 @@ QRectF ChartRenderer::plotRect() const
     std::max(0.0, width() - metric("leftMargin") - metric("rightMargin")),
     std::max(0.0, height() - metric("topMargin") - metric("bottomMargin"))); }
 
+void ChartRenderer::syncViewportFromAxes()
+{
+    const double xs = m_xAxis ? m_xAxis->viewportStart() : 0;
+    const double xe = m_xAxis ? m_xAxis->viewportEnd() : 1;
+    const double ys = m_yAxis ? m_yAxis->viewportStart() : 0;
+    const double ye = m_yAxis ? m_yAxis->viewportEnd() : 1;
+    if (xs == m_xStart && xe == m_xEnd && ys == m_yStart && ye == m_yEnd) return;
+    m_xStart = xs; m_xEnd = xe; m_yStart = ys; m_yEnd = ye;
+    m_hitDirty = true; emit viewportChanged(); update();
+}
+
 void ChartRenderer::setViewport(double xs, double xe, double ys, double ye)
 {
     if (!std::isfinite(xs) || !std::isfinite(xe) || !std::isfinite(ys) || !std::isfinite(ye)) return;
@@ -183,8 +209,11 @@ void ChartRenderer::setViewport(double xs, double xe, double ys, double ye)
     ys = std::clamp(ys, 0.0, 1.0); ye = std::clamp(ye, 0.0, 1.0);
     if (xe - xs < minSpan || ye - ys < minSpan) return;
     if (m_xStart == xs && m_xEnd == xe && m_yStart == ys && m_yEnd == ye) return;
-    m_xStart = xs; m_xEnd = xe; m_yStart = ys; m_yEnd = ye;
-    m_hitDirty = true; emit viewportChanged(); update();
+    if (m_xAxis) m_xAxis->setViewport(xs, xe);
+    else { m_xStart = xs; m_xEnd = xe; }
+    if (m_yAxis) m_yAxis->setViewport(ys, ye);
+    else { m_yStart = ys; m_yEnd = ye; }
+    syncViewportFromAxes();
 }
 void ChartRenderer::pan(double dx, double dy)
 {
@@ -201,42 +230,6 @@ void ChartRenderer::zoom(double factor, double xa, double ya)
     const double w = std::clamp(viewX() / factor, 1e-6, 1.0), h = std::clamp(viewY() / factor, 1e-6, 1.0);
     setViewport(std::clamp(x - xa * w, 0.0, 1.0 - w), std::clamp(x + (1 - xa) * w, w, 1.0),
                 std::clamp(y - ya * h, 0.0, 1.0 - h), std::clamp(y + (1 - ya) * h, h, 1.0));
-}
-QString ChartRenderer::csv() const
-{
-    QVector<ChartTableRow> rows;
-    rows.reserve(m_tableModel.count());
-    for (int i = 0; i < m_tableModel.count(); ++i) {
-        const QVariantMap row = m_tableModel.get(i);
-        ChartTableRow item;
-        item.seriesId = row.value(QStringLiteral("seriesId")).toString();
-        item.seriesName = row.value(QStringLiteral("seriesName")).toString();
-        item.pointId = row.value(QStringLiteral("pointId")).toString();
-        item.x = row.value(QStringLiteral("x")).toString();
-        item.y = row.value(QStringLiteral("y")).toString();
-        item.size = row.value(QStringLiteral("size")).toString();
-        item.dx = row.value(QStringLiteral("dx")).toString();
-        item.dy = row.value(QStringLiteral("dy")).toString();
-        item.category = row.value(QStringLiteral("category")).toString();
-        item.xUnit = row.value(QStringLiteral("xUnit")).toString();
-        item.yUnit = row.value(QStringLiteral("yUnit")).toString();
-        item.gap = row.value(QStringLiteral("gap")).toBool();
-        rows.append(std::move(item));
-    }
-    return QString::fromUtf8(ChartData::csv(rows));
-}
-
-QVariantMap ChartRenderer::selectedPoint() const
-{
-    for (auto *d : m_datasets) {
-        if (d && d->id() == m_selectedSeriesId) {
-            for (int i = 0; i < d->rowCount(); ++i) {
-                const QVariantMap row = d->get(i);
-                if (row.value(QStringLiteral("pointId")).toString() == m_selectedPointId) return row;
-            }
-        }
-    }
-    return {};
 }
 void ChartRenderer::rebuildHitIndex() const
 { if (m_hitDirty) { m_hitIndex.rebuild(plot()); m_hitDirty = false; } }
@@ -353,7 +346,8 @@ void ChartRenderer::draw(QPainter *p, const QSizeF &size) const
     }
     if (m_histogram.valid()) {
         p->setPen(QPen(m_axis, metric("gridWidth"))); p->setBrush(m_histogramColor);
-        for (const auto &bin : m_histogram.bins) {
+        for (int binIndex = 0; binIndex < m_histogram.bins.size(); ++binIndex) {
+            const auto &bin = m_histogram.bins.at(binIndex);
             const double x1 = m_xAxis->map(bin.lower), x2 = m_xAxis->map(bin.upper);
             const double y = m_yAxis->map(bin.displayed), base = m_yAxis->map(0);
             if (!std::isfinite(x1) || !std::isfinite(x2) || !std::isfinite(y) || !std::isfinite(base)) continue;
@@ -361,10 +355,19 @@ void ChartRenderer::draw(QPainter *p, const QSizeF &size) const
             const double right = r.left() + (x2 - m_xStart) / viewX() * r.width();
             const double top = r.bottom() - (y - m_yStart) / viewY() * r.height();
             const double bottom = r.bottom() - (base - m_yStart) / viewY() * r.height();
-            p->drawRect(QRectF(left, std::min(top, bottom), std::max(metric("minimumBarWidth"), right - left),
+            p->setPen(QPen(m_histogramSelection.valid()
+                && binIndex >= m_histogramSelection.firstBin()
+                && binIndex <= m_histogramSelection.lastBin()
+                    ? m_defaultSeriesColor : m_axis,
+                m_histogramSelection.valid() && binIndex >= m_histogramSelection.firstBin()
+                    && binIndex <= m_histogramSelection.lastBin()
+                    ? metric("selectionWidth") : metric("gridWidth")));
+            p->drawRect(QRectF(std::min(left, right), std::min(top, bottom),
+                std::max(metric("minimumBarWidth"), std::abs(right - left)),
                 std::max(metric("gridWidth"), std::abs(bottom - top))));
         }
     }
+    drawAnnotations(p, r);
     if (!m_selectedSeriesId.isEmpty()) {
         rebuildHitIndex(); const auto *selected = m_hitIndex.find(m_selectedSeriesId, m_selectedPointId);
         if (selected) { p->setBrush(Qt::NoBrush); p->setPen(QPen(m_axis, metric("selectionWidth")));
@@ -418,6 +421,13 @@ void ChartRenderer::mousePressEvent(QMouseEvent *event)
     const QRectF r = plotRect();
     if (!r.contains(event->position())) return;
     forceActiveFocus();
+    const int bin = histogramBinAt(event->position());
+    if (bin >= 0 && selectHistogramBins(bin, bin)) {
+        m_histogramDragStart = bin; event->accept(); return;
+    }
+    if (selectAnnotationAt(event->position().x(), event->position().y())) {
+        event->accept(); return;
+    }
     rebuildHitIndex();
     const double nx = m_xStart + (event->position().x() - r.left()) / r.width() * viewX();
     const double ny = m_yStart + (r.bottom() - event->position().y()) / r.height() * viewY();
@@ -457,10 +467,25 @@ bool ChartRenderer::navigateSelection(int key)
 }
 void ChartRenderer::mouseMoveEvent(QMouseEvent *event)
 {
+    if (m_histogramDragStart >= 0 && (event->buttons() & Qt::LeftButton)) {
+        const int bin = histogramBinAt(event->position());
+        if (bin >= 0) selectHistogramBins(m_histogramDragStart, bin);
+        event->accept(); return;
+    }
     if (!m_dragging || !(event->buttons() & Qt::MiddleButton)) return;
     const QPointF delta = event->position() - m_dragStart; m_dragStart = event->position();
     const QRectF r = plotRect(); if (r.width() > 0 && r.height() > 0) pan(delta.x() / r.width(), delta.y() / r.height());
     event->accept();
+}
+void ChartRenderer::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && m_histogramDragStart >= 0) {
+        m_histogramDragStart = -1; event->accept(); return;
+    }
+    if (event->button() == Qt::MiddleButton) {
+        m_dragging = false; event->accept(); return;
+    }
+    event->ignore();
 }
 void ChartRenderer::wheelEvent(QWheelEvent *event)
 {

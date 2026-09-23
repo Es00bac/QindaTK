@@ -137,11 +137,13 @@ QVariantMap FontCatalog::faceMetadata(const QString &family, const QString &styl
     QVariantList features;
     bool axisKnown = false;
     bool featuresKnown = false;
+    bool coverageKnown = false;
     if (installed && styleAvailable) {
         const QFont font = QFontDatabase::font(resolved.value(QStringLiteral("family")).toString(),
                                                style.isEmpty() ? styles.value(0) : style, 12);
         const QRawFont raw = QRawFont::fromFont(font);
         if (raw.isValid()) {
+            coverageKnown = true;
             axisKnown = readAxes(raw.fontTable("fvar"), &axes);
             QSet<QString> tags;
             featuresKnown = addLayoutFeatures(raw.fontTable("GSUB"), &tags)
@@ -164,10 +166,66 @@ QVariantMap FontCatalog::faceMetadata(const QString &family, const QString &styl
             {QStringLiteral("fallbackFamily"), m_fallbackFamily},
             {QStringLiteral("axisMetadataAvailable"), axisKnown},
             {QStringLiteral("featureMetadataAvailable"), featuresKnown},
-            {QStringLiteral("coverageMetadataAvailable"), false},
+            {QStringLiteral("coverageMetadataAvailable"), coverageKnown},
             {QStringLiteral("axes"), axes},
             {QStringLiteral("features"), features},
             {QStringLiteral("metadataSource"), QStringLiteral("OpenType tables via QRawFont")}};
+}
+
+QVariantMap FontCatalog::checkGlyphCoverage(const QString &family, const QString &style,
+                                            const QString &sampleText) const
+{
+    // AGENT-CONTRACT: this checks the selected face's cmap only. The editor
+    // must not present it as shaped-text or fallback-font coverage.
+    const auto unavailable = [](const QString &reason) {
+        return QVariantMap{{QStringLiteral("available"), false},
+                           {QStringLiteral("complete"), false},
+                           {QStringLiteral("unsupportedCodepoints"), QStringList{}},
+                           {QStringLiteral("unsupportedCount"), 0},
+                           {QStringLiteral("checkedCount"), 0},
+                           {QStringLiteral("reason"), reason}};
+    };
+    if (sampleText.size() > 4096)
+        return unavailable(QStringLiteral("Sample exceeds 4096 UTF-16 code units"));
+    const auto resolved = resolveFamily(family);
+    const auto styles = resolved.value(QStringLiteral("styles")).toStringList();
+    if (!resolved.value(QStringLiteral("installed")).toBool()
+        || (!style.isEmpty() && !styles.contains(style, Qt::CaseInsensitive)))
+        return unavailable(QStringLiteral("Selected font face is not installed"));
+    const QFont font = QFontDatabase::font(resolved.value(QStringLiteral("family")).toString(),
+                                           style.isEmpty() ? styles.value(0) : style, 12);
+    const QRawFont raw = QRawFont::fromFont(font);
+    if (!raw.isValid()) return unavailable(QStringLiteral("Selected font face could not be loaded"));
+
+    QStringList unsupported;
+    QSet<uint> seen;
+    int checked = 0;
+    for (qsizetype i = 0; i < sampleText.size(); ++i) {
+        const ushort first = sampleText.at(i).unicode();
+        uint codepoint = first;
+        if (first >= 0xd800 && first <= 0xdbff) {
+            if (i + 1 >= sampleText.size())
+                return unavailable(QStringLiteral("Sample contains an unpaired surrogate"));
+            const ushort second = sampleText.at(++i).unicode();
+            if (second < 0xdc00 || second > 0xdfff)
+                return unavailable(QStringLiteral("Sample contains an unpaired surrogate"));
+            codepoint = 0x10000u + (uint(first - 0xd800) << 10) + uint(second - 0xdc00);
+        } else if (first >= 0xdc00 && first <= 0xdfff) {
+            return unavailable(QStringLiteral("Sample contains an unpaired surrogate"));
+        }
+        ++checked;
+        if (seen.contains(codepoint) || raw.supportsCharacter(codepoint)) continue;
+        seen.insert(codepoint);
+        unsupported.append(QStringLiteral("U+%1")
+                               .arg(codepoint, codepoint <= 0xffff ? 4 : 6, 16, QLatin1Char('0'))
+                               .toUpper());
+    }
+    return {{QStringLiteral("available"), true},
+            {QStringLiteral("complete"), unsupported.isEmpty()},
+            {QStringLiteral("unsupportedCodepoints"), unsupported},
+            {QStringLiteral("unsupportedCount"), unsupported.size()},
+            {QStringLiteral("checkedCount"), checked},
+            {QStringLiteral("reason"), QString{}}};
 }
 
 QVariantList FontCatalog::search(const QString &query, int limit) const

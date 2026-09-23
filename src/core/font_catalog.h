@@ -7,9 +7,8 @@
 
 namespace QindaTK {
 
-// Installed-family/style discovery plus OpenType fvar and layout feature tags
-// from the resolved face. Glyph coverage and per-script shaping remain outside
-// this service and are reported unavailable.
+// Installed-family/style discovery plus OpenType tables and face-level cmap
+// coverage. Shaping, feature eligibility and fallback remain outside this service.
 class FontCatalog : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -22,6 +21,9 @@ public:
     Q_INVOKABLE QVariantMap resolveFamily(const QString &requested) const;
     Q_INVOKABLE QVariantMap faceMetadata(const QString &family,
                                          const QString &style = {}) const;
+    Q_INVOKABLE QVariantMap checkGlyphCoverage(const QString &family,
+                                               const QString &style,
+                                               const QString &sampleText) const;
     Q_INVOKABLE QVariantList search(const QString &query, int limit = 100) const;
 signals:
     void changed();

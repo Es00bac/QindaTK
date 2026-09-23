@@ -22,8 +22,11 @@ qualification tasks beyond the single offscreen screen in CI.
 
 `FileDialogAdapter` accepts `open`, `openMultiple`, `save` and `folder` requests
 with MIME filters, an initial URL, title and parent `QWindow`. It returns a
-request ID and emits `finished(id, {status, urls, message})`, where status is
-`accepted`, `canceled`, `error` or `unsupported`. `cancel` emits one terminal
+request ID and emits `finished(id, {status, urls, encodedUrls, message})`, where
+status is `accepted`, `canceled`, `error` or `unsupported`. `urls` contains
+typed `QUrl` values; `encodedUrls` contains their `FullyEncoded` URI strings
+for QML and persistence. The latter avoids Qt-version differences in QML's
+`QUrl.toString()` conversion. `cancel` emits one terminal
 result; a late backend callback is ignored. The adapter checks selected local
 locations again on completion, including a missing/revoked path. Remote URLs
 are unsupported by the shipped backend. Without an injected backend, requests

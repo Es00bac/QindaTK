@@ -3,8 +3,10 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
+#include <cmath>
 #include "chart_dataset.h"
 #include "chart_renderer.h"
+#include "chart_annotation_model.h"
 
 using namespace QindaTK;
 
@@ -16,6 +18,9 @@ private slots:
     void exactUtcInput();
     void rasterContainsPlotPixels();
     void axisDestructionIsSafe();
+    void linkedAxesShareViewport();
+    void annotationIdentityAndCoordinates();
+    void histogramSelectionUsesSourceEdges();
 };
 
 void TestChartDataset::boundedStablePointRows()
@@ -163,6 +168,111 @@ void TestChartDataset::axisDestructionIsSafe()
     QCOMPARE(renderer.yAxis(), nullptr);
     const QImage image = renderer.renderImage(QSize(100, 60));
     QCOMPARE(image.size(), QSize(100, 60));
+}
+
+void TestChartDataset::linkedAxesShareViewport()
+{
+    ChartAxis sharedX, leftY, rightY;
+    sharedX.setMinimum(0); sharedX.setMaximum(100); sharedX.setUnit(QStringLiteral("s"));
+    ChartRenderer left, right;
+    left.setXAxis(&sharedX); left.setYAxis(&leftY);
+    right.setXAxis(&sharedX); right.setYAxis(&rightY);
+    QSignalSpy rightViewport(&right, &ChartRenderer::viewportChanged);
+    left.setViewport(0.2, 0.8, 0.1, 0.9);
+    QCOMPARE(sharedX.viewportStart(), 0.2);
+    QCOMPARE(sharedX.viewportEnd(), 0.8);
+    QCOMPARE(right.viewX(), 0.6);
+    QCOMPARE(right.viewY(), 1.0); // Only the shared axis follows.
+    QVERIFY(rightViewport.size() >= 1);
+    right.pan(0.25, 0);
+    QCOMPARE(left.viewX(), 0.6);
+    QVERIFY(std::abs(sharedX.viewportStart() - 0.05) < 1e-12);
+    QVERIFY(!sharedX.setViewport(-0.1, 0.5));
+    QVERIFY(std::abs(sharedX.viewportStart() - 0.05) < 1e-12);
+    right.setViewport(sharedX.viewportStart(), sharedX.viewportEnd(), 0.2, 0.8);
+    sharedX.setMaximum(200);
+    QCOMPARE(left.viewX(), 1.0);
+    QCOMPARE(right.viewX(), 1.0);
+    QVERIFY(std::abs(right.viewY() - 0.6) < 1e-12);
+    QVERIFY(std::abs(left.viewY() - 0.8) < 1e-12);
+}
+
+void TestChartDataset::annotationIdentityAndCoordinates()
+{
+    ChartAnnotationModel annotations;
+    const QVariantMap point{{QStringLiteral("id"), QStringLiteral("p-1")},
+        {QStringLiteral("label"), QStringLiteral("Peak, measured")},
+        {QStringLiteral("kind"), int(ChartAnnotationModel::Point)},
+        {QStringLiteral("x"), 5.0}, {QStringLiteral("y"), 5.0},
+        {QStringLiteral("xUnit"), QStringLiteral("s")},
+        {QStringLiteral("yUnit"), QStringLiteral("m")}};
+    QVERIFY(annotations.replaceAnnotations({point}));
+    QSignalSpy reset(&annotations, &QAbstractItemModel::modelReset);
+    QVERIFY(!annotations.replaceAnnotations({point, point}));
+    QCOMPARE(annotations.count(), 1);
+    QCOMPARE(reset.size(), 0);
+    ChartAxis x, y;
+    x.setMinimum(0); x.setMaximum(10); x.setUnit(QStringLiteral("s"));
+    y.setMinimum(0); y.setMaximum(10); y.setUnit(QStringLiteral("m"));
+    ChartRenderer renderer;
+    renderer.setWidth(300); renderer.setHeight(200);
+    renderer.setXAxis(&x); renderer.setYAxis(&y);
+    renderer.setAnnotationModel(&annotations);
+    renderer.setMetrics({{QStringLiteral("hitRadius"), 8},
+                         {QStringLiteral("pointRadius"), 4},
+                         {QStringLiteral("lineWidth"), 2}});
+    QCOMPARE(renderer.annotationAt(150, 100).value(QStringLiteral("id")).toString(),
+             QStringLiteral("p-1"));
+    QVERIFY(renderer.selectAnnotationAt(150, 100));
+    QCOMPARE(renderer.selectedAnnotationId(), QStringLiteral("p-1"));
+    QVERIFY(renderer.annotationsCsv().contains(QStringLiteral("\"Peak, measured\"")));
+    QVERIFY(renderer.annotationsCsv().contains(QStringLiteral("\"s\",\"m\"")));
+    x.setUnit(QStringLiteral("ms"));
+    QVERIFY(renderer.annotationError().contains(QStringLiteral("X")));
+    QVERIFY(renderer.annotationAt(150, 100).isEmpty());
+    const QVariantMap exactTime{{QStringLiteral("id"), QStringLiteral("utc-1")},
+        {QStringLiteral("kind"), int(ChartAnnotationModel::Point)},
+        {QStringLiteral("utcMs"), QStringLiteral("9007199254741493")},
+        {QStringLiteral("y"), 5.0}, {QStringLiteral("xUnit"), QStringLiteral("UTC ms")},
+        {QStringLiteral("yUnit"), QStringLiteral("m")}};
+    QVERIFY(annotations.replaceAnnotations({exactTime}));
+    x.setKind(ChartAxis::DateTime);
+    x.setUtcDomain(9007199254740993LL, 9007199254741993LL);
+    x.setUnit(QStringLiteral("UTC ms"));
+    QVERIFY(renderer.annotationError().isEmpty());
+    QCOMPARE(renderer.annotationAt(150, 100).value(QStringLiteral("id")).toString(),
+             QStringLiteral("utc-1"));
+    QCOMPARE(annotations.get(0).value(QStringLiteral("utcMs")).toString(),
+             QStringLiteral("9007199254741493"));
+}
+
+void TestChartDataset::histogramSelectionUsesSourceEdges()
+{
+    ChartAxis x, y;
+    x.setMinimum(0); x.setMaximum(4); x.setUnit(QStringLiteral("signal"));
+    y.setMinimum(0); y.setMaximum(10);
+    ChartRenderer renderer;
+    renderer.setXAxis(&x); renderer.setYAxis(&y);
+    QVERIFY(renderer.setHistogram({0, 1, 3, 4}, {2, 5, 3},
+        ChartHistogram::Count, QStringLiteral("red"), QStringLiteral("signal")));
+    QSignalSpy selected(&renderer, &ChartRenderer::histogramRangeSelected);
+    QVERIFY(renderer.selectHistogramBins(2, 1));
+    auto *range = renderer.histogramSelection();
+    QVERIFY(range->valid());
+    QCOMPARE(range->firstBin(), 1); QCOMPARE(range->lastBin(), 2);
+    QCOMPARE(range->lower(), 1.0); QCOMPARE(range->upper(), 4.0);
+    QVERIFY(range->lowerInclusive()); QVERIFY(range->upperInclusive());
+    QCOMPARE(range->unit(), QStringLiteral("signal"));
+    QCOMPARE(range->channel(), QStringLiteral("red"));
+    QCOMPARE(selected.size(), 1);
+    QVERIFY(renderer.selectHistogramBins(0, 0));
+    QCOMPARE(range->lower(), 0.0); QCOMPARE(range->upper(), 1.0);
+    QVERIFY(!range->upperInclusive());
+    QVERIFY(!renderer.selectHistogramBins(0, 3));
+    QCOMPARE(range->firstBin(), 0);
+    QVERIFY(!renderer.setHistogram({0, 1, 1}, {2, 5},
+        ChartHistogram::Count, QStringLiteral("red"), QStringLiteral("signal")));
+    QVERIFY(!range->valid());
 }
 
 QTEST_MAIN(TestChartDataset)

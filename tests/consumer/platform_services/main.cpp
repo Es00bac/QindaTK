@@ -35,16 +35,36 @@ int main(int argc, char **argv)
         QStringLiteral("installedDocuments"),
         QStringLiteral("installedFormatRegistry"),
         QStringLiteral("installedFontCatalog"),
+        QStringLiteral("installedTransportModel"),
         QStringLiteral("installedCommandBar"),
         QStringLiteral("installedOverflowToolBar"),
+        QStringLiteral("installedRibbon"),
+        QStringLiteral("installedNavigationRail"),
+        QStringLiteral("installedDocumentTabs"),
+        QStringLiteral("installedBreadcrumbBar"),
         QStringLiteral("installedInspector"),
+        QStringLiteral("installedExpressionField"),
+        QStringLiteral("installedFilePathField"),
+        QStringLiteral("installedTokenField"),
         QStringLiteral("installedFontPicker"),
+        QStringLiteral("installedFontFeaturesEditor"),
         QStringLiteral("installedDateTimeField"),
         QStringLiteral("installedCalendarPicker"),
+        QStringLiteral("installedShortcutEditor"),
+        QStringLiteral("installedFindReplaceBar"),
+        QStringLiteral("installedHistoryView"),
+        QStringLiteral("installedNotificationCenter"),
+        QStringLiteral("installedTaskCenter"),
+        QStringLiteral("installedTransportBar"),
+        QStringLiteral("installedPreferencesDialog"),
         QStringLiteral("installedImportDialog"),
         QStringLiteral("installedExportDialog")};
     QObject *root = engine.rootObjects().first();
     for (const QString &name : names)
         if (!root->findChild<QObject *>(name)) return 2;
+    QindaTK::FontCatalog fonts;
+    if (fonts.checkGlyphCoverage(QStringLiteral("QindaTK missing consumer face 6D8C"),
+                                 {}, QStringLiteral("A"))
+            .value(QStringLiteral("available")).toBool()) return 3;
     return 0;
 }

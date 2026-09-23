@@ -49,6 +49,18 @@ void ChartAxis::setUtcDomain(qint64 minimum, qint64 maximum)
     m_minimumUtc = minimum; m_maximumUtc = maximum; m_utcDomainValid = true; emit changed();
 }
 void ChartAxis::setReversed(bool value) { if (m_reversed != value) { m_reversed = value; emit changed(); } }
+bool ChartAxis::setViewport(double start, double end)
+{
+    // AGENT-CONTRACT: sharing one ChartAxis shares its normalized viewport.
+    // Domain changes reset this range in ChartRenderer; viewport signals do not
+    // change domain or trigger ChartAxis::changed feedback loops.
+    if (!std::isfinite(start) || !std::isfinite(end)
+        || start < 0 || end > 1 || end - start < 1e-6) return false;
+    if (m_viewportStart != start || m_viewportEnd != end) {
+        m_viewportStart = start; m_viewportEnd = end; emit viewportChanged();
+    }
+    return true;
+}
 
 QString ChartAxis::error() const
 {
