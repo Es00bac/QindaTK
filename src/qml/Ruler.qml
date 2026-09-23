@@ -259,6 +259,7 @@ Item {
 
     onBandChanged: canvas.requestPaint()
     onOriginChanged: canvas.requestPaint()
+    onPixelsPerUnitChanged: canvas.requestPaint()
     onScaleChanged: canvas.requestPaint()
     onMajorEveryChanged: canvas.requestPaint()
     onMinorEveryChanged: canvas.requestPaint()
