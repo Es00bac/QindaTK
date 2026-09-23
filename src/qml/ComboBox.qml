@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import QtQuick
+import QtQml
 import QtQuick.Templates as T
 import QindaTK as Tk
 
@@ -21,8 +22,27 @@ T.ComboBox {
     readonly property real edgePadding: Tk.Theme.space.sm + 2
     readonly property string roleName: control.textRole.length > 0 ? control.textRole : "modelData"
     readonly property real popupGap: Tk.Theme.space.xs
+    // AGENT-GUARD: mapToItem() alone does not make a binding depend on the
+    // control's x/y. Invalidate both placement bindings when it moves while
+    // the popup is open, or an above popup can remain too tall after a move.
+    property int _popupGeometryRevision: 0
+    property var _anchorAncestors: []
+    onXChanged: ++_popupGeometryRevision
+    onYChanged: ++_popupGeometryRevision
+    onParentChanged: refreshAnchorAncestors()
 
-    function popupRoom() {
+    function refreshAnchorAncestors() {
+        const ancestors = []
+        let item = control.parent
+        while (item !== null) {
+            ancestors.push(item)
+            item = item.parent
+        }
+        control._anchorAncestors = ancestors
+        ++control._popupGeometryRevision
+    }
+
+    function popupRoom(_revision) {
         const overlay = T.Overlay.overlay
         if (overlay === null) return Tk.Theme.size.menuItem * 12
         const origin = control.mapToItem(overlay, 0, 0)
@@ -32,7 +52,7 @@ T.ComboBox {
         return Math.max(0, Math.max(below, above) - popup.topPadding - popup.bottomPadding)
     }
 
-    function popupOpensAbove() {
+    function popupOpensAbove(_revision) {
         const overlay = T.Overlay.overlay
         if (overlay === null) return false
         const origin = control.mapToItem(overlay, 0, 0)
@@ -41,6 +61,24 @@ T.ComboBox {
         const above = origin.y - popupGap - margin
         return below < popup.implicitHeight && above > below
     }
+
+    // AGENT-GUARD: scrolling a Flickable moves its content Item without
+    // changing this control's x/y. Every ancestor can move the mapped popup
+    // origin, so each one invalidates the same placement bindings.
+    Instantiator {
+        model: control._anchorAncestors
+        delegate: Connections {
+            required property var modelData
+            target: modelData
+            function onXChanged() { ++control._popupGeometryRevision }
+            function onYChanged() { ++control._popupGeometryRevision }
+            function onWidthChanged() { ++control._popupGeometryRevision }
+            function onHeightChanged() { ++control._popupGeometryRevision }
+            function onParentChanged() { control.refreshAnchorAncestors() }
+        }
+    }
+
+    Component.onCompleted: refreshAnchorAncestors()
 
     function textFor(model) {
         if (model === undefined || model === null) return ""
@@ -186,9 +224,12 @@ T.ComboBox {
     popup: T.Popup {
         objectName: "comboPopup"
         x: 0
-        y: control.popupOpensAbove() ? -height - control.popupGap : control.height + control.popupGap
+        y: control.popupOpensAbove(control._popupGeometryRevision)
+           ? -height - control.popupGap : control.height + control.popupGap
         width: control.width
-        implicitHeight: Math.min(contentHeight, Tk.Theme.size.menuItem * 12, control.popupRoom()) + topPadding + bottomPadding
+        implicitHeight: Math.min(contentHeight, Tk.Theme.size.menuItem * 12,
+                                 control.popupRoom(control._popupGeometryRevision))
+                        + topPadding + bottomPadding
         padding: Tk.Theme.space.xs
         closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutside
 

@@ -18,4 +18,26 @@ control. The integrated two-version gate is tracked in
 
 This covers the small-host scene. Dynamic movement of an already open combo,
 multiple monitors, work-area changes and native assistive announcements
+were initially outside this slice. Integration then reproduced a direct-move
+failure: opening at y=8 and moving the control to y=100 left a 136px popup
+at y=0, overlapping the control. QML `mapToItem()` did not make the placement
+bindings depend on the control's x/y. An internal geometry revision now
+invalidates both bindings on movement. The repaired 220×140 dump shows
+`ComboBox#movingCombo 8,100 180x24` and `PopupItem#Popup 8,2 180x96`,
+ending above the control. The grab was opened and shows a scrolling popup
+with the selected row visible and no overlap. The focused motion QML test
+passes on Qt 6.11.1. Ignored preview artifacts are
+`build/wp007-combo-motion-review.{qml,png}`.
+
+Ancestor scrolling was then audited with a nested Flickable. Scrolling
+its content by 30px moved the combo from scene y=100 to y=70 but left the
+82px popup at y=0, overlapping the control by 12px. The control now observes
+ancestor geometry, including the Flickable content Item, and remeasures the
+popup through the same internal revision. The repaired dump shows
+`ComboBox#scrollCombo 8,100 180x24` inside content Item y=−30 and
+`PopupItem#Popup 8,2 180x66`, ending before the control's scene y=70.
+The PNG was opened and the focused scroll regression passed on Qt 6.11.1.
+Ignored artifacts are `build/wp007-combo-scroll-review.{qml,png}`.
+
+Multiple monitors, work-area changes and native assistive announcements
 remain outside this slice. FND-09 and WP-007 remain active.

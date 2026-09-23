@@ -1211,12 +1211,16 @@
       "signals": [],
       "methods": [
         {
-          "name": "popupRoom",
+          "name": "refreshAnchorAncestors",
           "parameters": ""
         },
         {
+          "name": "popupRoom",
+          "parameters": "_revision"
+        },
+        {
           "name": "popupOpensAbove",
-          "parameters": ""
+          "parameters": "_revision"
         },
         {
           "name": "textFor",
