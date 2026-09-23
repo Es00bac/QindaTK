@@ -5598,7 +5598,8 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "splitterHandle"
+        "splitterHandle",
+        "splitterHitTarget"
       ]
     },
     {

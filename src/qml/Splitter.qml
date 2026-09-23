@@ -23,13 +23,18 @@ T.SplitView {
                                                               : Tk.Theme.color.seam
         Behavior on color { ColorAnimation { duration: Tk.Theme.motion.fast } }
 
-        // A wider invisible hit area than the painted seam, so a 4px
-        // divider is still easy to grab.
-        containmentMask: Item {
-            x: splitter.orientation === Qt.Horizontal ? -Tk.Theme.space.xs : 0
-            y: splitter.orientation === Qt.Horizontal ? 0 : -Tk.Theme.space.xs
-            width: seam.width + (splitter.orientation === Qt.Horizontal ? Tk.Theme.space.xs * 2 : 0)
-            height: seam.height + (splitter.orientation === Qt.Horizontal ? 0 : Tk.Theme.space.xs * 2)
+        // AGENT-CONTRACT: SplitView filters pointer events delivered to this
+        // child; its handle lookup uses the matching containment mask. The
+        // child gives Qt's delivery agent actual bounds outside the seam.
+        containmentMask: targetArea
+        MouseArea {
+            id: targetArea
+            objectName: "splitterHitTarget"
+            x: splitter.orientation === Qt.Horizontal ? (seam.width - width) / 2 : 0
+            y: splitter.orientation === Qt.Horizontal ? 0 : (seam.height - height) / 2
+            width: splitter.orientation === Qt.Horizontal ? Math.max(seam.width, Tk.Theme.size.seamTarget) : seam.width
+            height: splitter.orientation === Qt.Horizontal ? seam.height : Math.max(seam.height, Tk.Theme.size.seamTarget)
+            acceptedButtons: Qt.LeftButton
         }
     }
 }

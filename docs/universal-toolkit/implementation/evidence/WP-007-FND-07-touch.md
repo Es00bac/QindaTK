@@ -92,14 +92,28 @@ images `build/wp007-divider-touch/docking-compact.png` and
 `build/wp007-divider-touch/docking-touch.png` were opened; no target pixels
 are painted beyond the seam.
 
-Qt `SplitView` remains open in FND-07. Expanding its `containmentMask` to
-48px does not extend the template's touch drag routing beyond the actual
-handle bounds; the standalone reproduction
-[`tst_splitter_touch_hit.qml`](../../../../tests/repros/tst_splitter_touch_hit.qml)
-fails when a touch starts 20px outside the painted handle. Giving the handle
-itself a 48px width in Touch made the drag work, but that width participates
-in pane allocation and changes SplitView layout. That does not meet the
-layout-preserving hit-target requirement, so the experimental change was
-removed. A follow-up needs expanded hit testing integrated with Qt
-SplitView's gesture routing, or a toolkit-owned splitter interaction that
-leaves its layout handle at `size.seam`.
+`Splitter` now uses an expanded `MouseArea#splitterHitTarget` child and the
+same child as its handle containment mask. The child gives Qt's pointer
+delivery agent real bounds outside the painted seam; the template's native
+child event filter then finds the handle through that mask. Native SplitView
+continues to own resizing, pane constraints, and save/restore. The previous
+mask-only experiment failed because it did not provide those delivery bounds;
+its standalone failing repro is replaced by `tests/qml/tst_splitter_targets.qml`.
+
+The tests cover both orientations and both sides of the seam at Compact,
+Comfortable, and Touch densities, including a touch press just inside the
+expanded boundary, no size jump on press, exact 40px movement, release, and
+saved-state restoration. Mouse tests cover native minimum constraints and
+ordinary button input in an adjacent pane outside the target.
+
+The Touch dump shows `Rectangle#splitterHandle 160,0 6x340` with
+`MouseArea#splitterHitTarget -21,0 48x340`, and the vertical equivalent
+`Rectangle#splitterHandle 0,160 340x6` with
+`MouseArea#splitterHitTarget 0,-21 340x48`. The first pane remains 160px;
+the second starts at 166px. The opened `build/splitter-touch.png` in the
+splitter worker worktree confirms that only the 6px seam is painted.
+Compact dumps retain 4px seams with 16px targets, and Comfortable retains
+5px seams with 19px targets; both density captures were also opened. Qt 6.11.1
+and Qt 6.8.3 both pass the complete QML suite and `all_qmllint` (existing
+nonfatal warnings).
+Physical touch hardware and native assistive traversal remain unqualified.
