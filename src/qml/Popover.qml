@@ -55,6 +55,25 @@ T.Popup {
     onWidthChanged: if (visible) reposition()
     onHeightChanged: if (visible) reposition()
     onAnchorItemChanged: if (visible) reposition()
+    onPlacementChanged: if (visible) reposition()
+    onGapChanged: if (visible) reposition()
+    onArrowChanged: if (visible) reposition()
+
+    // AGENT-GUARD: an open popover tracks its anchor and overlay bounds;
+    // otherwise scrolling or resizing the host can leave it detached or
+    // partly off-screen until the caller explicitly invokes reposition().
+    Connections {
+        target: popover.anchorItem
+        function onXChanged() { if (popover.visible) popover.reposition() }
+        function onYChanged() { if (popover.visible) popover.reposition() }
+        function onWidthChanged() { if (popover.visible) popover.reposition() }
+        function onHeightChanged() { if (popover.visible) popover.reposition() }
+    }
+    Connections {
+        target: popover.parent
+        function onWidthChanged() { if (popover.visible) popover.reposition() }
+        function onHeightChanged() { if (popover.visible) popover.reposition() }
+    }
 
     background: Item {
         Rectangle {

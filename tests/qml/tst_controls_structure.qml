@@ -233,6 +233,36 @@ TestCase {
         tryVerify(function() { return !pop.visible })
     }
 
+    function test_popover_tracks_anchor_and_stays_inside_small_host() {
+        const originalWidth = root.width
+        const originalHeight = root.height
+        root.width = 320
+        root.height = 200
+        try {
+            const anchor = createTemporaryObject(cardComponent, root, { x: 24, y: 30 })
+            const pop = createTemporaryObject(popoverComponent, root, { anchorItem: anchor })
+            pop.open()
+            tryVerify(function() { return pop.opened && pop.width > 0 && pop.height > 0 })
+
+            anchor.x = 100
+            tryVerify(function() { return Math.abs(pop.x - 100) < 1 })
+            anchor.x = root.width - 12
+            anchor.y = root.height - 12
+            tryVerify(function() {
+                return pop.x + pop.width <= pop.parent.width - Tk.Theme.space.xs + 1
+                    && pop.y + pop.height <= pop.parent.height - Tk.Theme.space.xs + 1
+            })
+
+            anchor.x = 180
+            tryVerify(function() { return Math.abs(pop.x - 180) < 1 })
+            pop.close()
+            tryVerify(function() { return !pop.visible })
+        } finally {
+            root.width = originalWidth
+            root.height = originalHeight
+        }
+    }
+
     function test_dialog_accepts() {
         const dialog = createTemporaryObject(dialogComponent, root)
         const spy = createTemporaryObject(signalSpyComponent, root, { target: dialog, signalName: "accepted" })
