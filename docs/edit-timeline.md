@@ -111,8 +111,10 @@ changes committed records or the revision; views read committed state plus
 the preview (`effectiveClip`, `editPreview`). Any commit, undo, reload, tempo
 change or policy change while a session is active retires it
 (`editInvalidated(operationId, reason)`); later `update`/`commit` for that ID
-return `StaleRevision`. An invalid preview (policy veto, overlap, lock, kind)
-carries its error and cannot commit. A commit re-runs the policy veto, checks
+return `StaleRevision`. A refused placement (overlap, locked or mismatched
+destination track, negative time, policy veto) stays a preview flagged
+`invalid`, so the view draws where the clip would go; it cannot commit.
+Other errors (a locked source clip, a missing target) leave no preview. A commit re-runs the policy veto, checks
 the history budget and applies atomically; a rejected, stale or cancelled
 edit leaves every record, the revision and the history unchanged. An accepted
 commit is exactly one history step with `transactionId` = the operation ID.

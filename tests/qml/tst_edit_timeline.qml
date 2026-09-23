@@ -145,7 +145,13 @@ TestCase {
         keyClick(Qt.Key_Z, Qt.ControlModifier)
         keyClick(Qt.Key_Z, Qt.ControlModifier)
         compare(session.clipData(clipA).duration, ticks(1))
-        drag(lanes(), 150, 28, 150, 140) // an audio clip onto the video track
+        mousePress(lanes(), 150, 28) // an audio clip onto the video track
+        mouseMove(lanes(), 150, 84)
+        mouseMove(lanes(), 150, 140)
+        verify(clipItem(clipA).invalid) // drawn where it would go, flagged invalid
+        compare(clipItem(clipA).y, 113)
+        verify(findChild(lanes(), "clipGhost_" + clipA))
+        mouseRelease(lanes(), 150, 140)
         compare(session.clipData(clipA).trackId, trackA)
         verify(rejected.count > 0)
         verify(timeline.statusText.length > 0)

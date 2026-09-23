@@ -222,23 +222,24 @@ void TimelinePlanner::planMove(Context &context)
     if (trackDelta != 0) trackDelta = std::clamp(trackDelta, -lowest, int(order.size()) - 1 - highest);
     QHash<QUuid, QUuid> destination;
     QSet<QUuid> moving, sourceTracks;
+    // AGENT-NOTE: a refused destination is a *soft* error: the attempted
+    // placement stays in the plan so the view can draw it as invalid while
+    // the pointer is there; commit still refuses a plan that carries an error.
+    OperationError destinationError;
     for (const auto &clip : targets) {
         moving.insert(clip.id);
         sourceTracks.insert(clip.trackId);
         const QUuid target = trackDelta == 0 ? clip.trackId
                                              : order.at(visibleIndex.value(clip.trackId) + trackDelta);
         destination.insert(clip.id, target);
-        if (trackDelta == 0) continue;
+        if (trackDelta == 0 || destinationError) continue;
         const auto *track = context.model.trackRecord(target);
         if (track->locked)
-            return setError(context, error(ErrorCode::Validation,
-                                           tr("Track “%1” is locked").arg(track->name)));
-        if (policy.requireMatchingTrackKind() && !clip.kind.isEmpty() && !track->kind.isEmpty()
-            && clip.kind != track->kind) {
-            return setError(context, error(ErrorCode::Validation,
-                tr("A %1 clip cannot be placed on the %2 track “%3”")
-                    .arg(clip.kind, track->kind, track->name)));
-        }
+            destinationError = error(ErrorCode::Validation, tr("Track “%1” is locked").arg(track->name));
+        else if (policy.requireMatchingTrackKind() && !clip.kind.isEmpty() && !track->kind.isEmpty()
+                 && clip.kind != track->kind)
+            destinationError = error(ErrorCode::Validation,
+                tr("A %1 clip cannot be placed on the %2 track “%3”").arg(clip.kind, track->kind, track->name));
     }
 
     QVector<QUuid> tracks;
@@ -288,6 +289,7 @@ void TimelinePlanner::planMove(Context &context)
     context.plan.appliedDelta = *delta;
     context.plan.appliedTrackDelta = trackDelta;
     emitClipChanges(context, after);
+    if (destinationError) context.plan.error = destinationError;
 }
 
 void TimelinePlanner::planTrim(Context &context)

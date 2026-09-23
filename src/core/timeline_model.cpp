@@ -279,6 +279,8 @@ void TimelineModel::recomputeContentEnd()
     m_contentEnd = end;
 }
 
+// A plan with an error can still carry its attempted placement (a soft
+// refusal such as an overlap); it previews as invalid and cannot commit.
 bool TimelineModel::hasPreview() const
 {
     return m_session && !m_session->stale && m_session->hasPlan

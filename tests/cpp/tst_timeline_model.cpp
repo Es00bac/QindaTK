@@ -284,6 +284,9 @@ void TimelineModelTest::rejectedEditsLeaveDocumentUnchanged()
     const TimelinePlan plan = model.update(op, at(S / 2));
     QCOMPARE(plan.error.code, ErrorCode::Conflict);
     QVERIFY(!model.editPreview().value(QStringLiteral("ok")).toBool());
+    QVERIFY(model.hasPreview()); // the refused placement previews as invalid
+    QCOMPARE(model.effectiveClip(uid(12))->start, S / 2);
+    QCOMPARE(startOf(model, 12), 2 * S);
     QCOMPARE(model.commit(op).code, ErrorCode::Conflict);
     QCOMPARE(model.contentMap(), before);
     QCOMPARE(model.historyCount(), 0);

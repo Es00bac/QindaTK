@@ -447,6 +447,9 @@ void TimelinePlanner::finish(Context &context)
 {
     auto &changes = context.plan.changes.changes;
     const auto &policy = context.policy;
+    // Placement conflicts below are soft: the change set stays as an invalid
+    // preview (drawn as such) and commit refuses it because of the error.
+    const auto softError = [&context](OperationError failure) { context.plan.error = std::move(failure); };
     if (changes.size() > policy.maxChangesPerEdit())
         return setError(context, error(ErrorCode::Validation,
             tr("This edit changes %1 objects; the limit is %2")
@@ -465,12 +468,12 @@ void TimelinePlanner::finish(Context &context)
         if (change.kind != TimelineChange::Kind::Clip || !change.clipAfter) continue;
         const TimelineClip &clip = *change.clipAfter;
         if (!policy.allowNegativeTime() && clip.start < 0)
-            return setError(context, error(ErrorCode::Validation,
+            return softError(error(ErrorCode::Validation,
                 tr("Clip “%1” would start before zero").arg(clipName(clip))));
         if (policy.overlapMode() != TimelineEditPolicy::RejectOverlap) continue;
         for (const auto &other : context.model.clipsInRange(clip.trackId, clip.start, clip.end())) {
             if (touched.contains(other)) continue;
-            return setError(context, error(ErrorCode::Conflict,
+            return softError(error(ErrorCode::Conflict,
                 tr("Clip “%1” would overlap “%2”")
                     .arg(clipName(clip), clipName(*context.model.clipRecord(other)))));
         }
@@ -481,12 +484,12 @@ void TimelinePlanner::finish(Context &context)
         std::sort(list.begin(), list.end(), [](const auto &a, const auto &b) { return a.start < b.start; });
         for (qsizetype i = 1; i < list.size(); ++i) {
             if (list.at(i - 1).end() > list.at(i).start)
-                return setError(context, error(ErrorCode::Conflict,
+                return softError(error(ErrorCode::Conflict,
                     tr("Clip “%1” would overlap “%2”")
                         .arg(clipName(list.at(i)), clipName(list.at(i - 1)))));
         }
     }
-    if (auto failure = policy.validate(context.model, context.plan.changes)) setError(context, failure);
+    if (auto failure = policy.validate(context.model, context.plan.changes)) softError(failure);
 }
 
 } // namespace QindaTK
