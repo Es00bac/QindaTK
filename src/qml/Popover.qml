@@ -19,6 +19,7 @@ T.Popup {
     parent: T.Overlay.overlay
     modal: false
     dim: false
+    focus: true
     closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutside
     padding: Tk.Theme.space.sm
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,

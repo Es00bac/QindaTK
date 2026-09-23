@@ -31,7 +31,12 @@ T.Popup {
     y: parent ? Math.round(parent.height * 0.12) : 0
     width: parent && parent.width > 0 ? Math.min(560, parent.width - Tk.Theme.space.xl * 2) : 560
     padding: 0
-    implicitHeight: contentItem.implicitHeight + topPadding + bottomPadding
+    // AGENT-GUARD: Keep the palette inside the host even when its command
+    // list is taller; the ListView then scrolls within the available height.
+    implicitHeight: parent && parent.height > 0
+        ? Math.min(contentItem.implicitHeight + topPadding + bottomPadding,
+                   Math.max(0, parent.height - Tk.Theme.space.xl * 2))
+        : contentItem.implicitHeight + topPadding + bottomPadding
 
     function rebuild() {
         const needle = input.text.trim().toLowerCase()
@@ -138,7 +143,7 @@ T.Popup {
             model: palette.rows
             clip: true
             implicitHeight: Math.min(contentHeight, palette.maxVisible * Tk.Theme.size.menuItem + Tk.Theme.space.xs * 2)
-            Tk.Flex.shrink: 0
+            Tk.Flex.shrink: 1
             topMargin: Tk.Theme.space.xs
             bottomMargin: Tk.Theme.space.xs
             boundsBehavior: Flickable.StopAtBounds
