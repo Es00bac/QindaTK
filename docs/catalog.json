@@ -8216,6 +8216,13 @@
           "default": "",
           "readonly": false,
           "constant": false
+        },
+        {
+          "name": "layoutDirection",
+          "type": "Qt::LayoutDirection",
+          "default": "",
+          "readonly": false,
+          "constant": false
         }
       ],
       "signals": [],

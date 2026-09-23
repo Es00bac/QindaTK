@@ -250,6 +250,29 @@ private slots:
         QCOMPARE(scene.item("bar")->width(), 380.0);
         QCOMPARE(scene.item("mid")->x(), 10 + (380 - 50) / 2.0);
     }
+    void stackMirrorsContentBoxForRightToLeft()
+    {
+        Scene scene(QStringLiteral(R"qml(
+            Tk.Stack { layoutDirection: Qt.LeftToRight; paddingLeft: 10; paddingRight: 30
+                Item { objectName: "left"; implicitWidth: 40; implicitHeight: 20; Tk.Stack.fill: false; Tk.Stack.left: 20 }
+                Item { objectName: "right"; implicitWidth: 60; implicitHeight: 20; Tk.Stack.fill: false; Tk.Stack.right: 15 }
+            })qml"));
+        QVERIFY(scene.exposed());
+        auto *stack = qobject_cast<Stack *>(scene.root());
+        QVERIFY(stack);
+        QQuickItem *left = scene.item("left");
+        QQuickItem *right = scene.item("right");
+        QVERIFY(left && right);
+        QTRY_COMPARE(left->x(), 30.0);
+        QCOMPARE(right->x(), 295.0);
+
+        stack->setLayoutDirection(Qt::RightToLeft);
+        QTRY_COMPARE(left->x(), 310.0);
+        QCOMPARE(right->x(), 25.0);
+        stack->setLayoutDirection(Qt::LeftToRight);
+        QTRY_COMPARE(left->x(), 30.0);
+        QCOMPARE(right->x(), 295.0);
+    }
     void nestedImplicitSizes()
     {
         Scene scene(QStringLiteral(R"qml(

@@ -148,7 +148,10 @@ void Stack::doLayout()
         } else if (a && a->centerY()) {
             y = (innerH - h) / 2;
         }
-        child->setPosition(QPointF(padL + x, padT + y));
+        const qreal physicalX = m_layoutDirection == Qt::RightToLeft
+                                    ? padL + innerW - x - w
+                                    : padL + x;
+        child->setPosition(QPointF(physicalX, padT + y));
         child->setSize(QSizeF(std::max<qreal>(w, 0), std::max<qreal>(h, 0)));
         implicitW = std::max(implicitW, implicitChildW + (hasLeft ? left : 0) + (hasRight ? right : 0));
         implicitH = std::max(implicitH, implicitChildH + (hasTop ? top : 0) + (hasBottom ? bottom : 0));

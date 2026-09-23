@@ -297,6 +297,16 @@ Tk.Grid {
 Children stack in declaration order (later on top). Each child either fills
 the padding box or places itself with insets.
 
+`layoutDirection` defaults to `Qt.LeftToRight`. Set it to
+`Qt.RightToLeft` to mirror computed child x positions inside the padded
+content box, including placements made with `Tk.Stack.left` and
+`Tk.Stack.right`. Padding sides remain physical. Applications that follow
+the UI locale can bind `layoutDirection: Qt.application.layoutDirection`.
+
+| Property | Values | Default | Meaning |
+| --- | --- | --- | --- |
+| `layoutDirection` | `Qt.LeftToRight`, `Qt.RightToLeft` | `Qt.LeftToRight` | mirror child x positions within the content box |
+
 | Attached (`Tk.Stack.*`) | Default | Meaning |
 | --- | --- | --- |
 | `top`, `left`, `right`, `bottom` | unset (NaN) | inset from the padding box edge; `inset: n` sets all four |

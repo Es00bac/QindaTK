@@ -74,9 +74,9 @@ C++ container for overlapping surfaces and absolute placement.
 
 **Source:** [src/core/stack.h](../../../src/core/stack.h) · **Base:** `QQuickItem` · **Kind:** C++ type.
 
-Padding establishes the content box; children normally fill it and paint in declaration/z order. Tk.Stack attached insets, centers and fill override placement. Stack owns its implicit size; it does not manage navigable pages or navigation history.
+Padding establishes the content box; children normally fill it and paint in declaration/z order. Tk.Stack attached insets, centers and fill override placement. `layoutDirection` defaults to `Qt.LeftToRight`; `Qt.RightToLeft` mirrors computed child x positions inside the content box while padding values remain physical. Bind to `Qt.application.layoutDirection` to follow the application locale. Stack owns its implicit size; it does not manage navigable pages or navigation history.
 
-**Declared members:** `padding: qreal`, `paddingLeft: qreal`, `paddingTop: qreal`, `paddingRight: qreal`, `paddingBottom: qreal`.
+**Declared members:** `padding: qreal`, `paddingLeft: qreal`, `paddingTop: qreal`, `paddingRight: qreal`, `paddingBottom: qreal`, `layoutDirection: Qt::LayoutDirection`.
 
 **Declared signals:** `layoutPropertyChanged()`.
 

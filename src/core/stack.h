@@ -87,6 +87,9 @@ class Stack : public QQuickItem, public LayoutContainer {
     Q_PROPERTY(qreal paddingTop READ paddingTop WRITE setPaddingTop NOTIFY layoutPropertyChanged)
     Q_PROPERTY(qreal paddingRight READ paddingRight WRITE setPaddingRight NOTIFY layoutPropertyChanged)
     Q_PROPERTY(qreal paddingBottom READ paddingBottom WRITE setPaddingBottom NOTIFY layoutPropertyChanged)
+    // Direction mirrors child x positions inside the content box; padding sides
+    // remain physical. Bind from QML to Qt.application.layoutDirection as needed.
+    Q_PROPERTY(Qt::LayoutDirection layoutDirection READ layoutDirection WRITE setLayoutDirection NOTIFY layoutPropertyChanged)
 
 public:
     explicit Stack(QQuickItem *parent = nullptr);
@@ -104,6 +107,8 @@ public:
     void setPaddingRight(qreal value) { assign(m_paddingRight, value); }
     [[nodiscard]] qreal paddingBottom() const { return m_paddingBottom; }
     void setPaddingBottom(qreal value) { assign(m_paddingBottom, value); }
+    [[nodiscard]] Qt::LayoutDirection layoutDirection() const { return m_layoutDirection; }
+    void setLayoutDirection(Qt::LayoutDirection value) { assign(m_layoutDirection, value); }
 
     Q_INVOKABLE void relayout();
     void invalidateLayout() override;
@@ -136,6 +141,7 @@ private:
     qreal m_paddingTop = -1;
     qreal m_paddingRight = -1;
     qreal m_paddingBottom = -1;
+    Qt::LayoutDirection m_layoutDirection = Qt::LeftToRight;
     bool m_inLayout = false;
     bool m_dirtyDuringLayout = false;
 };
