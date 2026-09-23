@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "flex.h"
+#include "density.h"
 #include "grid.h"
 #include "stack.h"
+#include "theme.h"
 
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -22,6 +24,24 @@ public:
         m_view.resize(size);
         QQmlComponent component(m_view.engine());
         component.setData(("import QtQuick\nimport QindaTK as Tk\n" + qml).toUtf8(), QUrl(QStringLiteral("inline.qml")));
+        if (component.isError()) {
+            for (const QQmlError &error : component.errors()) {
+                qWarning("%s", qPrintable(error.toString()));
+            }
+        }
+        m_root = qobject_cast<QQuickItem *>(component.create());
+        if (m_root != nullptr) {
+            m_root->setParentItem(m_view.contentItem());
+            m_root->setSize(QSizeF(size));
+        }
+        m_view.show();
+    }
+    explicit Scene(const QUrl &url, QSize size)
+    {
+        m_view.engine()->addImportPath(QStringLiteral(QINDATK_BUILD_QML_DIR));
+        m_view.setResizeMode(QQuickView::SizeRootObjectToView);
+        m_view.resize(size);
+        QQmlComponent component(m_view.engine(), url);
         if (component.isError()) {
             for (const QQmlError &error : component.errors()) {
                 qWarning("%s", qPrintable(error.toString()));
@@ -63,6 +83,73 @@ private:
 class TstLayout final : public QObject {
     Q_OBJECT
 private slots:
+    void adaptiveNarrowLayout_data()
+    {
+        QTest::addColumn<int>("density");
+        QTest::addColumn<int>("direction");
+        QTest::newRow("compact-ltr") << int(Density::Compact) << int(Qt::LeftToRight);
+        QTest::newRow("compact-rtl") << int(Density::Compact) << int(Qt::RightToLeft);
+        QTest::newRow("comfortable-ltr") << int(Density::Comfortable) << int(Qt::LeftToRight);
+        QTest::newRow("comfortable-rtl") << int(Density::Comfortable) << int(Qt::RightToLeft);
+    }
+    void adaptiveNarrowLayout()
+    {
+        QFETCH(int, density);
+        QFETCH(int, direction);
+        Density::instance()->setScaleFonts(true);
+        Density::instance()->setMode(static_cast<Density::Mode>(density));
+        Scene scene(QUrl::fromLocalFile(QStringLiteral(QINDATK_ADAPTIVE_FIXTURE)), QSize(360, 300));
+        QVERIFY(scene.root());
+        QVERIFY(scene.exposed());
+        scene.root()->setProperty("interfaceDirection", direction);
+
+        auto *flex = qobject_cast<Flex *>(scene.item("adaptiveFlex"));
+        auto *grid = qobject_cast<Grid *>(scene.item("adaptiveGrid"));
+        auto *stack = qobject_cast<Stack *>(scene.item("adaptiveStack"));
+        QVERIFY(flex && grid && stack);
+        QQuickItem *actionA = scene.item("adaptiveActionPrimary");
+        QQuickItem *actionB = scene.item("adaptiveActionSecondary");
+        QQuickItem *actionC = scene.item("adaptiveActionTertiary");
+        QQuickItem *cardA = scene.item("adaptiveCardA");
+        QQuickItem *cardB = scene.item("adaptiveCardB");
+        QQuickItem *message = scene.item("adaptiveStackMessage");
+        QQuickItem *badge = scene.item("adaptiveStackBadge");
+        QVERIFY(actionA && actionB && actionC && cardA && cardB && message && badge);
+        const auto layoutDirection = static_cast<Qt::LayoutDirection>(direction);
+        flex->setLayoutDirection(layoutDirection);
+        grid->setLayoutDirection(layoutDirection);
+        stack->setLayoutDirection(layoutDirection);
+
+        QTRY_COMPARE(flex->lineCount(), 2);
+        QVERIFY(qAbs(actionA->y() - actionB->y()) < 0.5);
+        QVERIFY(actionC->y() > actionA->y());
+        QTRY_VERIFY(direction == int(Qt::LeftToRight) ? actionA->x() < actionB->x()
+                                                    : actionA->x() > actionB->x());
+        const QQuickItem *leftAction = actionA->x() < actionB->x() ? actionA : actionB;
+        const QQuickItem *rightAction = leftAction == actionA ? actionB : actionA;
+        QVERIFY(rightAction->x() >= leftAction->x() + leftAction->width());
+        QVERIFY(actionA->x() >= 0 && actionA->x() + actionA->width() <= flex->width());
+        QVERIFY(actionB->x() >= 0 && actionB->x() + actionB->width() <= flex->width());
+
+        QTRY_COMPARE(grid->columnCount(), 2);
+        QVERIFY(qAbs(cardA->width() - cardB->width()) < 0.5);
+        QTRY_VERIFY(direction == int(Qt::LeftToRight) ? cardA->x() < cardB->x()
+                                                     : cardA->x() > cardB->x());
+        QCOMPARE(grid->gap(), Theme::instance()->space()->metric(QStringLiteral("xs")));
+
+        const qreal stackInset = Theme::instance()->space()->metric(QStringLiteral("sm"));
+        const qreal badgeReservation = badge->implicitWidth()
+            + Theme::instance()->space()->metric(QStringLiteral("xs"));
+        QVERIFY(qAbs(message->width() - (stack->width() - 2 * stackInset - badgeReservation)) < 0.5);
+        QVERIFY(direction == int(Qt::LeftToRight) ? message->x() + message->width() <= badge->x()
+                                                 : badge->x() + badge->width() <= message->x());
+        QTRY_VERIFY(direction == int(Qt::LeftToRight) ? badge->x() > stack->width() / 2
+                                                     : badge->x() < stack->width() / 2);
+
+        Density::instance()->setMode(Density::Compact);
+        Density::instance()->setScaleFonts(false);
+    }
+
     void responsiveGridResizeAndFit()
     {
         Scene scene(R"QML(

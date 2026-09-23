@@ -39,6 +39,18 @@ records the current observations and unresolved contracts.
   [smoke-light-comfortable.png](../docs/screenshots/smoke-light-comfortable.png),
   [smoke-qinda-dark.png](../docs/screenshots/smoke-qinda-dark.png) (desktop theme via `--qst`)
 
+## adaptive-layout
+
+A 360×300 narrow inspector scene exercises a wrapped action row, auto-fill
+Grid cards, and a Stack overlay with a long message and a reserved badge slot.
+Set `interfaceDirection` to `Qt.RightToLeft` to inspect mirrored placement.
+The focused `tst_layout` matrix checks compact/comfortable density and
+LTR/RTL geometry.
+
+- Run: `qtk-preview examples/adaptive-layout/Main.qml --dump --size 360x300`
+- Screenshot: `qtk-preview examples/adaptive-layout/Main.qml --grab out.png --density comfortable --size 360x300`
+- Exercises: `Flex.Wrap`, responsive `Grid` auto-fill, `Stack` overlay insets, long-label wrapping, density-aware spacing, and logical direction
+
 ## gallery
 
 Every control in [docs/controls.md](../docs/controls.md) in every documented
