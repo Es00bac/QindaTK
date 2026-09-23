@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 32 packages accepted, WP-040 in review, three active, and 48 planned.**
+**Execution state: 32 packages accepted, WP-040 in review, four active, and 47 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -16,7 +16,8 @@ visual gates recorded in the [2026-09-23 acceptance record](evidence/review-acce
 WP-031 subsequently passed its own installed-consumer gate and is accepted.
 WP-040 is a new review item with its WP-033 dependency still open. WP-048,
 WP-050 and WP-055 are active in separate Opus worktrees; their draft code is
-not yet integrated or accepted.
+not yet integrated or accepted. WP-033 is active in the shared integration
+tree to prove the common workbench before WP-040 can close.
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -56,7 +57,7 @@ as though a later fix had already passed the earlier run.
 | [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | accepted | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | accepted | [Seven families, dual-Qt suite and installed consumer](evidence/WP-031.md) |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | accepted | [Event, diff and resource integration status](evidence/WP-032.md) |
-| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | planned | — |
+| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | active | [Two-document workbench integration in progress](evidence/WP-033.md) |
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | review | [Integrated dual-Qt, pixels and installed consumer; WP-033 dependency open](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | planned | — |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | planned | — |

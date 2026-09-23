@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 02 — Common controls and scalable data
 
-**Execution underway.** WP-020 through WP-032 are accepted; WP-033 remains
-planned as recorded in the ledger.
+**Execution underway.** WP-020 through WP-032 are accepted; WP-033 is active
+as recorded in the ledger.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -271,7 +271,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-033"></a>
 ## WP-033 — Prove the shared application framework
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-014](phase-01-services.md#wp-014), [WP-019](phase-01-services.md#wp-019), [WP-020](phase-02-controls-data.md#wp-020), [WP-022](phase-02-controls-data.md#wp-022), [WP-026](phase-02-controls-data.md#wp-026), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Sol. **Status:** active; [integration evidence](evidence/WP-033.md). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-014](phase-01-services.md#wp-014), [WP-019](phase-01-services.md#wp-019), [WP-020](phase-02-controls-data.md#wp-020), [WP-022](phase-02-controls-data.md#wp-022), [WP-026](phase-02-controls-data.md#wp-026), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
