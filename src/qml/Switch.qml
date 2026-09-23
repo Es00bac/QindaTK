@@ -35,6 +35,10 @@ T.Switch {
     Accessible.role: Accessible.CheckBox
     Accessible.name: control.text.length > 0 ? control.text : control.tooltip
     Accessible.description: control.tooltip
+    Accessible.checked: control.checked
+    Accessible.focusable: control.enabled
+    Accessible.focused: control.activeFocus
+    Accessible.onPressAction: if (control.enabled) control.click()
 
     Tk.ToolTip {
         text: control.tooltip

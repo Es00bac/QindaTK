@@ -163,6 +163,64 @@ TestCase {
         verify(item.checked)
     }
 
+    function test_template_toggle_keyboard_and_user_notifications() {
+        for (const component of [checkbox, switchC, radio]) {
+            const item = make(component)
+            spy.target = item
+            spy.signalName = "clicked"
+            spy.clear()
+            item.checked = true
+            compare(spy.count, 0)
+            verify(item.Accessible.checked)
+            item.checked = false
+            compare(spy.count, 0)
+            item.forceActiveFocus()
+            keyClick(Qt.Key_Space)
+            verify(item.checked)
+            compare(spy.count, 1)
+            item.checked = false
+            compare(spy.count, 1)
+            item.Accessible.pressAction()
+            verify(item.checked)
+            compare(spy.count, 2)
+            item.enabled = false
+            keyClick(Qt.Key_Space)
+            item.Accessible.pressAction()
+            verify(item.checked)
+            compare(spy.count, 2)
+        }
+    }
+
+    function test_template_toggled_signal_is_user_only() {
+        for (const component of [checkbox, switchC, radio]) {
+            const item = make(component)
+            spy.target = item
+            spy.signalName = "toggled"
+            spy.clear()
+            item.checked = true
+            compare(spy.count, 0)
+            item.checked = false
+            compare(spy.count, 0)
+            item.forceActiveFocus()
+            keyClick(Qt.Key_Space)
+            compare(spy.count, 1)
+        }
+    }
+
+    function test_tristate_checkbox_keyboard_and_accessible_state() {
+        const item = make(checkboxTri)
+        spy.target = item
+        spy.signalName = "clicked"
+        spy.clear()
+        item.checkState = Qt.PartiallyChecked
+        compare(spy.count, 0)
+        verify(item.Accessible.description.indexOf("Partially checked") >= 0)
+        item.forceActiveFocus()
+        keyClick(Qt.Key_Space)
+        compare(spy.count, 1)
+        verify(item.checkState !== Qt.PartiallyChecked)
+    }
+
     function test_textfield_clear_button() {
         const item = make(textField)
         spy.target = item

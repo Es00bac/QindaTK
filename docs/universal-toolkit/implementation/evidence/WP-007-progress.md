@@ -56,6 +56,10 @@ FND-07 through FND-10.
 - `ColorSwatches` now routes tap, keyboard and accessible press through one
   disabled-aware selection operation. Owner updates to `current` are silent.
   [Focused evidence](WP-007-FIX-F04-swatches.md).
+- `CheckBox`, `Switch` and `RadioButton` now expose live accessible checked
+  and focus state, plus an accessible press path through their template
+  `click()` operation. Mixed CheckBox state is described.
+  [Focused evidence](WP-007-FIX-F04-toggles.md).
 
 ## Verification
 
