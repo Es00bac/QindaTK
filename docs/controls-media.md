@@ -127,7 +127,9 @@ metrics so a range and a value sit on the same inspector grid.
 
 The range is one tab stop. Left/Right changes the upper value; Shift+Left/
 Shift+Right changes the lower value. Home/End collapses or extends the selected
-end, and assistive increase/decrease actions step the upper value. The accessible
+end, and assistive increase/decrease actions step the upper value. If `stepSize`
+is zero, keyboard and assistive steps use one hundredth of the value span,
+including spans smaller than one. The accessible
 name uses `tooltip`, falling back to “Range slider”; its description reports
 both current values. Programmatic value assignments do not emit
 `rangeModified`; disabled ranges ignore keyboard and assistive actions.

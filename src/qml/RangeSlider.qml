@@ -33,7 +33,7 @@ T.RangeSlider {
             return
         }
         const step = control.stepSize > 0 ? control.stepSize
-                                          : Math.max((control.to - control.from) / 100, 1)
+                                          : Math.abs(control.to - control.from) / 100
         if (lower) {
             const value = Math.max(control.from,
                                    Math.min(control.second.value,

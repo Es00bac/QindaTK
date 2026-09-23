@@ -240,6 +240,19 @@ TestCase {
         spy.destroy()
     }
 
+    function test_rangeSliderFractionalRangeKeyboardStep() {
+        const range = createTemporaryObject(rangeComponent, root)
+        verify(range)
+        range.from = 0
+        range.to = 1
+        range.first.value = 0
+        range.second.value = 1
+        range.stepSize = 0
+        range.forceActiveFocus()
+        keyClick(Qt.Key_Right, Qt.ShiftModifier)
+        verify(Math.abs(range.first.value - 0.01) < 0.000001)
+    }
+
     function test_keyCapSplitsASequence() {
         const cap = createTemporaryObject(keyCapComponent, root)
         verify(cap)
