@@ -9198,6 +9198,67 @@
       ]
     },
     {
+      "name": "LayerTree",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "A flat layer list bound to CanvasDocument's current layer facade. Hierarchy, artboards and reordering require model support not present yet.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/LayerTree.qml",
+      "properties": [
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.fieldWidth * 3",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "activateLayer",
+          "parameters": "id"
+        },
+        {
+          "name": "setVisibility",
+          "parameters": "id, visible"
+        },
+        {
+          "name": "setLock",
+          "parameters": "id, locked"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "layerLock_",
+        "layerName_",
+        "layerRow_",
+        "layerTree",
+        "layerTreeEmpty",
+        "layerTreeList",
+        "layerTreeListFrame",
+        "layerTreeTitle",
+        "layerVisibility_"
+      ]
+    },
+    {
       "name": "ListRow",
       "kind": "qml",
       "base": "T.ItemDelegate",
@@ -10167,6 +10228,74 @@
       "bridge": false,
       "objectNames": [
         "navigationButton_"
+      ]
+    },
+    {
+      "name": "NavigatorView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/canvas.md#synchronized-views): mainView owns the authoritative navigation pose; this overview owns only its fitted preview. Pointer navigation changes mainView.viewState center, never document data.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/NavigatorView.qml",
+      "properties": [
+        {
+          "name": "mainView",
+          "type": "Tk.CanvasView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Canvas navigator\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "alias",
+          "default": "previewView",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewportOutline",
+          "type": "alias",
+          "default": "outline",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "fitPreview",
+          "parameters": ""
+        },
+        {
+          "name": "navigateAt",
+          "parameters": "point"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "navigatorPointerArea",
+        "navigatorPreview",
+        "navigatorView",
+        "navigatorViewportOutline"
       ]
     },
     {
@@ -13890,6 +14019,141 @@
       "objectNames": [
         "segmentFocus_",
         "segment_"
+      ]
+    },
+    {
+      "name": "SelectionOverlay",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/canvas.md#overlays, WP-041): the canvas host supplies document-space selectionCorners, or document-space selectionBounds as a fallback, and a CanvasView surface. This item owns only view-space presentation and gesture reporting; a geometry adapter owns validation, snapping, preview and commit.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SelectionOverlay.qml",
+      "properties": [
+        {
+          "name": "surface",
+          "type": "Item",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionBounds",
+          "type": "rect",
+          "default": "Qt.rect(0, 0, 0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionCorners",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handlesEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "accessibleName",
+          "type": "string",
+          "default": "qsTr(\"Selection transform handles\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handleSize",
+          "type": "real",
+          "default": "Tk.Theme.size.controlSm",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "outlineWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.border",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "geometryRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewCorners",
+          "type": "var",
+          "default": "mappedCorners()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewBounds",
+          "type": "rect",
+          "default": "mappedBounds()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "transformFinished",
+          "parameters": "string handle"
+        },
+        {
+          "name": "transformCanceled",
+          "parameters": "string handle"
+        },
+        {
+          "name": "transformNudgeRequested",
+          "parameters": "string handle, real viewDx, real viewDy, int modifiers"
+        }
+      ],
+      "methods": [
+        {
+          "name": "documentCorners",
+          "parameters": ""
+        },
+        {
+          "name": "mappedCorners",
+          "parameters": ""
+        },
+        {
+          "name": "mappedBounds",
+          "parameters": ""
+        },
+        {
+          "name": "handlePoint",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "selectionFrame",
+        "selectionOverlay"
       ]
     },
     {
@@ -29059,7 +29323,7 @@
       "name": "TimelineModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: TimelineModel is the reference authority for timeline placement (WP-048). Views, delegates and QML never own clip, marker or track positions: they read committed state plus the one active preview and submit typed, revision-guarded edits (begin -> update -> commit/cancel). One accepted gesture is one change set and one history step; a rejected, stale or cancelled edit leaves every committed record unchanged. A production host either drives this model as its projection or takes the history through externalUndo (see docs/edit-timeline.md, D-044).",
+      "description": "AGENT-CONTRACT: TimelineModel is the reference authority for timeline placement (WP-048). Views, delegates and QML never own clip, marker or track positions: they read committed state plus the one active preview and submit typed, revision-guarded edits (begin -> update -> commit/cancel). One accepted gesture is one change set and one history step; a rejected, stale or cancelled edit leaves every committed record unchanged. A production host either drives this model as its projection or takes the history through externalUndo (see docs/edit-timeline.md, D-045).",
       "singleton": false,
       "attached": null,
       "file": "src/core/timeline_model.h",

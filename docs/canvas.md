@@ -98,8 +98,8 @@ withImage)` loads a deterministic fixture without history.
 <a id="open-seams"></a>
 ### Open seams (not claimed)
 
-- **WP-033 session.** WP-033 (shared application framework) is still
-  *planned*. The shared `DocumentSession` and `UndoService` are built around
+- **WP-033 session.** WP-033 (shared application framework) is active. The
+  shared `DocumentSession` and `UndoService` are built around
   a `PropertyDocument`. A canvas document therefore owns its own history
   behind the adapter. A later session adapter will bind
   `commit`/`undo`/`redo` to the shared services and persistence without
@@ -108,11 +108,13 @@ withImage)` loads a deterministic fixture without history.
   itself. The router's Edit intent needs a PropertyDocument
   `EditTransaction`, so bridging canvas edits into it is part of the same
   seam.
-- **WP-041.** Snapping, selection overlays, transform handles and guides
-  belong to WP-041. This package exposes the contracts that work needs:
+- **WP-041.** Snapping, authoritative selection geometry, transform edits
+  and guides belong to WP-041. Its `SelectionOverlay` presentation slice now
+  maps a host-supplied selection and reports handle gestures. The canvas
+  exposes the contracts that the remaining work needs:
   `CanvasToolPreview`, `ToolController.selection`, `HitTestService`,
   `CanvasSurface::mapFromDocument` and the `canvasOverlaySlot` item. It
-  implements none of them.
+  does not implement the authoritative selection or snap model.
 
 <a id="hit-testing"></a>
 ## Hit testing
@@ -208,6 +210,13 @@ shared `center` at its own centre, with the same zoom and rotation, at its
 own size and DPR. Navigating in either writes the shared state and never the
 document. A view without a `viewState` uses a private one.
 
+`Tk.NavigatorView` binds a separate fitted preview to `mainView.document`.
+Its outline maps the main view's four corners through document space into the
+preview. A press or drag in the preview sets the main view state's centre;
+the navigator does not change zoom, rotation or document data. The preview
+is noninteractive so it cannot capture canvas editing gestures. WP-042 has
+not yet added artboards or a shared layer-selection model.
+
 <a id="rendering"></a>
 ## Rendering
 
@@ -285,6 +294,18 @@ selection outlines up to `outlineLimit` (512) and then their union bounds,
 and the tool preview), then `canvasOverlaySlot` for application items (the
 view's default property), then `canvasFocusRing`. The overlay draws in view
 coordinates from the same transform the renderer uses.
+
+`Tk.SelectionOverlay` is an application overlay for that slot. The host passes
+four ordered document-space corners, or an axis-aligned `selectionBounds`,
+and the owning `CanvasView` as `surface`. The component maps the corners on
+each view change, paints the frame, and places eight themed handles. Pointer
+events report a handle and document-space start/current points; keyboard and
+accessible actions report a nudge request. The host owns selection identity,
+snapping, constraints, preview, cancellation and the one authoritative commit.
+
+`Tk.LayerTree` reads the current `CanvasDocument.layers` facade and sends
+active, visibility and lock requests back to it. The list is flat. Layer
+hierarchy, reorder and artboard transactions require the WP-042 model work.
 
 <a id="viewport"></a>
 ## Relationship to Viewport

@@ -8,6 +8,11 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
     foreach(dir IN LISTS example_dirs)
         if(IS_DIRECTORY "${dir}" AND EXISTS "${dir}/Main.qml")
             get_filename_component(name "${dir}" NAME)
+            # The workbench QML requires its local C++ DocumentManager host;
+            # its standalone --check is the smoke gate for that example.
+            if(name STREQUAL "workbench")
+                continue()
+            endif()
             add_test(NAME example_${name}
                 COMMAND qtk-preview "${dir}/Main.qml" --check --size 1280x800)
             set_tests_properties(example_${name} PROPERTIES
