@@ -65,6 +65,7 @@ TestCase {
         compare(activated.count, 1)
         verify(third.activeFocus)
         verify(third.Accessible.focused)
+        verify(findChild(third, "segmentFocus_2").visible)
         compare(third.Accessible.selected, true)
 
         disabled.Accessible.pressAction()
@@ -104,6 +105,7 @@ TestCase {
         compare(activated.count, 1)
         verify(third.activeFocus)
         verify(third.Accessible.focused)
+        verify(findChild(third, "pillSwitcherFocus_2").visible)
         keyClick(Qt.Key_Home)
         compare(control.currentIndex, 0)
         compare(activated.count, 2)
@@ -166,6 +168,7 @@ TestCase {
         compare(activated.count, 1)
         verify(first.activeFocus)
         verify(first.Accessible.focused)
+        verify(findChild(first, "tabFocus_0").visible)
         verify(first.Accessible.selected)
 
         disabled.Accessible.pressAction()

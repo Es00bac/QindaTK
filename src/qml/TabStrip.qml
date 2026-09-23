@@ -164,12 +164,13 @@ Item {
                         color: Tk.Theme.color.accent
                     }
                     Rectangle {
+                        objectName: "tabFocus_" + tab.index
                         anchors.fill: parent
                         anchors.margins: -Tk.Theme.size.focusRing
                         color: "transparent"
                         border.width: Tk.Theme.size.focusRing
                         border.color: Tk.Theme.color.focus
-                        visible: tab.visualFocus && tab.enabled
+                        visible: tab.activeFocus && tab.enabled
                     }
                 }
 

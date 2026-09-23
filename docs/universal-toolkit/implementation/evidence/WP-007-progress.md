@@ -60,6 +60,10 @@ FND-07 through FND-10.
   and focus state, plus an accessible press path through their template
   `click()` operation. Mixed CheckBox state is described.
   [Focused evidence](WP-007-FIX-F04-toggles.md).
+- `Segmented`, `PillSwitcher` and `TabStrip` now expose disabled model entries,
+  selected PageTab state and guarded keyboard/assistive selection. TabStrip
+  focus follows the selected tab.
+  [Focused evidence](WP-007-FIX-F04-selection-composites.md).
 
 ## Verification
 

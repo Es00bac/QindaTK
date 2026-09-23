@@ -183,13 +183,14 @@ Item {
                                   : "transparent"
 
                     Rectangle {
+                        objectName: "pillSwitcherFocus_" + segment.index
                         anchors.fill: parent
                         anchors.margins: -Tk.Theme.size.border
                         radius: parent.radius + Tk.Theme.size.border
                         color: "transparent"
                         border.width: Tk.Theme.size.focusRing
                         border.color: Tk.Theme.color.focus
-                        visible: segment.visualFocus
+                        visible: segment.activeFocus && segment.enabled
                     }
                 }
 

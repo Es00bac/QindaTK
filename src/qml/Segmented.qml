@@ -162,13 +162,14 @@ Item {
                         color: Tk.Theme.color.divider
                     }
                     Rectangle {
+                        objectName: "segmentFocus_" + segment.index
                         anchors.fill: parent
                         anchors.margins: -1
                         radius: parent.radius + 1
                         color: "transparent"
                         border.width: Tk.Theme.size.focusRing
                         border.color: Tk.Theme.color.focus
-                        visible: segment.visualFocus
+                        visible: segment.activeFocus && segment.enabled
                     }
                 }
 

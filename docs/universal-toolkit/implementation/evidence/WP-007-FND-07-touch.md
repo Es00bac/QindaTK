@@ -33,6 +33,14 @@ and scrollbar inside the window. Ignored captures are
 `build/gallery-touch-3x-gpu.png` in the integration worktree.
 
 This metric floor covers controls that bind to the named size roles.
-Sliders, splitters, menu geometry, custom handlers, narrower windows and
-physical touch devices still need target and workflow checks before
-FND-07 or WP-007 acceptance.
+`Slider` and `RangeSlider`, including their small variants, now bind their
+template input heights to `Theme.size.sliderTarget` and `sliderTargetSm`.
+The roles resolve to 16/14px in Compact, 19/17px in Comfortable, and at
+least 48px in Touch; track and handle artwork stays centred at its authored
+density size. QML and theme tests exercise the three densities, 1×/3× text,
+and a preset switch/reset. In the integrated Touch 3× preview,
+`Slider#reviewSlider 0,194 520x48` and
+`RangeSlider#reviewRange 0,260 520x48` have tracks centred at y=23 and
+handles at y=17. The ignored `build/wp007-controls-touch-3x.png` was opened
+and inspected. Splitters, small toggle variants, menu geometry, custom
+handlers, narrower windows and physical devices remain to check.

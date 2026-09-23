@@ -26,6 +26,18 @@ PillSwitcher and TabStrip; activation signals report user actions.
 
 **Verification:** `cmake --build build/wp007-selection --target tst_qml`
 completed. `ctest --test-dir build/wp007-selection -R '^tst_qml$'
---output-on-failure` passed. The focused [selection composite tests](../../../tests/qml/tst_selection_composites.qml)
+--output-on-failure` passed. The focused [selection composite tests](../../../../tests/qml/tst_selection_composites.qml)
 cover disabled entries, keyboard focus/selection, accessible activation,
 close-action blocking, and programmatic assignment.
+
+Integration image review found the delegate focus rings stayed hidden after
+`forceActiveFocus(Qt.TabFocusReason)`. `Segmented`, `PillSwitcher` and
+`TabStrip` now show their themed rings when the corresponding delegate has
+active focus, with stable objectNames `segmentFocus_<index>`,
+`pillSwitcherFocus_<index>` and `tabFocus_<index>`. The focused QML test now
+asserts ring visibility. A 520×260 Compact preview dump showed
+`TabButton#tab_0 0,0 49x22` with `Rectangle#tabFocus_0 -2,-2 53x26`
+visible. A Touch 3× dump showed `TabButton#tab_0 0,0 122x48` and its ring
+`-3,-3 128x54`. Both ignored PNGs,
+`build/wp007-controls-compact-focus.png` and
+`build/wp007-controls-touch-3x.png`, were opened and inspected.
