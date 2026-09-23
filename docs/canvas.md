@@ -308,6 +308,10 @@ each view change, paints the frame, and places eight themed handles. Pointer
 events report a handle and document-space start/current points; keyboard and
 accessible actions report a nudge request. The host owns selection identity,
 snapping, constraints, preview, cancellation and the one authoritative commit.
+`Tk.SpatialTransform` can own that edit boundary for a `CanvasDocumentAdapter`:
+connect the overlay's transform request/finish/cancel/nudge signals to its
+matching methods and bind `selectionBounds` to `previewBounds`. It reads the
+selected IDs from the bound `ToolController`.
 
 `Tk.GuideLayer` is another application overlay. The host supplies guide
 records with stable `id`, `orientation` (`vertical` or `horizontal`) and
@@ -343,6 +347,26 @@ feeding back a previously snapped point. One query does not edit a document,
 own selection identity, or commit an undo step. A group move/resize controller
 must choose which anchor points to query and apply the resulting delta in one
 authoritative transaction.
+
+<a id="spatial-transforms"></a>
+## Spatial transforms
+
+`Tk.SpatialTransform` captures the selected objects and document revision on
+the first handle update. It rejects hidden, locked, missing and singular
+objects as a group. Raw document-space pointer updates may pass through the
+bound `SnapModel`, excluding the selection from snap targets. A move uses the
+pointer delta; the eight resize handles scale around the opposite side or
+corner. Alt resizes about the center, and Shift keeps the corner scale uniform.
+The controller accepts negative scale when the resulting object transforms
+remain invertible, and rejects a zero scale. `previewBounds` moves the selection
+frame without mutating the document; `finish` commits all object transforms in
+one `CanvasEdit`, while `cancel` drops the preview. External edits or selection
+changes cancel a gesture. A keyboard nudge maps view pixels through the bound
+`CanvasViewState` rotation and zoom before committing the same operation.
+
+This slice uses the reference canvas edit history. A shared session/undo
+adapter, rotation/pivot handles, numeric inspector equivalence, transformed
+group-bounds policy and richer constraint rules remain WP-041 work.
 
 `Tk.LayerTree` reads the current `CanvasDocument.layers` facade and sends
 active, visibility and lock requests back to it. The list is flat. Layer

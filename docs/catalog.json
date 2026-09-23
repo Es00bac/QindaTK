@@ -28013,6 +28013,115 @@
       "bridge": false
     },
     {
+      "name": "SpatialTransform",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/canvas.md#spatial-transforms): SelectionOverlay reports document-space handle motion; this controller owns the one immutable gesture snapshot and commits a CanvasEdit only on finish. The document never receives preview geometry. ToolController remains the selected-ID source.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_transform_controller.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tools",
+          "type": "QindaTK::ToolController *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "snapModel",
+          "type": "QindaTK::CanvasSnapModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "viewState",
+          "type": "QindaTK::CanvasViewState *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionBounds",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewBounds",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "previewChanged",
+          "parameters": ""
+        },
+        {
+          "name": "gestureFinished",
+          "parameters": "bool committed"
+        },
+        {
+          "name": "gestureCanceled",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "update",
+          "returns": "bool",
+          "parameters": "const QString &handle, QPointF start, QPointF current, int modifiers = 0"
+        },
+        {
+          "name": "finish",
+          "returns": "bool",
+          "parameters": "const QString &handle"
+        },
+        {
+          "name": "cancel",
+          "returns": "bool",
+          "parameters": "const QString &handle = {}"
+        },
+        {
+          "name": "nudge",
+          "returns": "bool",
+          "parameters": "const QString &handle, qreal viewDx, qreal viewDy, int modifiers = 0"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "Stack",
       "kind": "cpp",
       "base": "QQuickItem",
