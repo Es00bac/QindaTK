@@ -160,6 +160,13 @@ than an empty box.
 
 objectNames: `keyCap`, `keyCapRow`, `keyCapKey`, `keyCapLabel`.
 
+## Edit timeline
+
+`TimeRuler` is also the ruler of `Tk.EditTimeline`, which adds track headers,
+virtualized clips with waveform peaks, an edit range, markers and exact
+tick-based editing. See [controls.md](controls.md#edit-timeline) and
+[edit-timeline.md](edit-timeline.md).
+
 ## Theme roles added
 
 `size.thumbnail` 72, `size.thumbnailHeight` 40, `size.waveformHeight` 28,

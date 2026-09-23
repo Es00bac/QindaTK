@@ -28,6 +28,7 @@ pages below are the reference.
 | [time-map.md](time-map.md) | Exact sample/frame/tick conversions, tempo segments, timecode and precision-safe QML values |
 | [native-integration.md](native-integration.md) | Native window/view lifecycle, file dialogs and desktop capability boundaries |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
+| [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |
 | [chart-data.md](chart-data.md) | Typed axes/series, projection, hit identity, decimation, tabular export and histogram bin semantics |
 | [docking.md](docking.md) | DockModel operations, zones/lanes/groups, the JSON schema, DockHost gestures |
 | [qindastudio-migration.md](qindastudio-migration.md) | Moving QindaStudio onto QindaTK: type map (StudioPanel, DockHost, StudioPill, StudioIcon, StudioTheme → QindaTK), build integration, migration order |

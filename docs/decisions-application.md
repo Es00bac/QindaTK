@@ -157,3 +157,31 @@ increment schema revisions on metadata changes, and must check query request
 identity before publishing results. Exact decimal finance, joins, sorting and
 incremental aggregation need later provider implementations. See
 [query-pivot.md](query-pivot.md).
+
+## D-044 — Keep timeline placement in an exact tick model and views delegate-free
+
+**Context.** An edit timeline must move, trim, split and ripple thousands of
+clips with sample- and frame-exact results, undo each gesture exactly, and
+stay responsive with 10,000 clips. Floating-point pixel positions drift under
+zoom; QML Numbers round above 2⁵³; delegates recycled while scrolling cannot
+own a gesture or authoritative state. `UndoService` records `PropertyDocument`
+property changes and invalidates history on structural edits such as a split.
+
+**Decision.** `TimelineModel` stores tracks, clips and markers by UUID with
+signed 64-bit ticks in a declared rational timebase (705,600,000 ticks per
+second by default, which divides common sample rates and frame durations).
+A pure planner resolves typed intents under an explicit `TimelineEditPolicy`
+into complete change sets; one session previews at a time without touching
+committed state, and a revision-guarded commit applies one change set as one
+history step with precondition checks on undo and replay. The model owns a
+local history by default and offers the D-040 external-history bridge.
+`TimelineViewport` maps exact ticks to pixels from integer differences and
+diffs bounded delegate rows by key; views route gestures through its hit
+tests. Media previews use a cancellable, stale-checked provider seam, and
+transfers use the WP-016 payload and drop-target contracts.
+
+**Consequences.** Hosts with their own session model either project into
+`TimelineModel` or take its history through `externalUndo`; domain edit rules
+(overwrite, crossfades, beat-locked clips) are policy subclasses, not view
+code. Snapping is a time-axis provider until WP-041's spatial SnapModel
+exists. See [edit-timeline.md](edit-timeline.md).

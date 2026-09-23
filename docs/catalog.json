@@ -1906,6 +1906,339 @@
       "objectNames": []
     },
     {
+      "name": "ClipItem",
+      "kind": "qml",
+      "base": "Item",
+      "description": "One visible timeline clip: body, label, peaks from the media seam, trim affordances, lock and selection state, or a summary of merged tiny clips.  AGENT-CONTRACT: a ClipItem is presentation. EditTimeline supplies its geometry and exact tick strings from TimelineViewport rows and routes the pointer through TimelineViewport.hitTest, so a clip that scrolls out while it is dragged loses nothing: the gesture belongs to the lane, not to this delegate. The item only emits intents (select, nudge, activate); the model applies them. It releases its media request when pooled or destroyed.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ClipItem.qml",
+      "properties": [
+        {
+          "name": "clipId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipColor",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "locked",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "current",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ghost",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "invalid",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "summary",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "summaryCount",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clippedStart",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clippedEnd",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "startTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "durationTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleSourceStartTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleSourceEndTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "timeText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hoverPart",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mediaProvider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ticksPerSecondNumerator",
+          "type": "string",
+          "default": "\"705600000\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ticksPerSecondDenominator",
+          "type": "string",
+          "default": "\"1\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnPixels",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "clipItem.summary ? qsTr(\"%n clips\", \"\", clipItem.summaryCount)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "peaks",
+          "type": "var",
+          "default": "internal.peaks",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mediaState",
+          "type": "string",
+          "default": "internal.state",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mediaEligible",
+          "type": "bool",
+          "default": "!!clipItem.mediaProvider && !clipItem.summary && !clipItem.ghost",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "Math.max(1, Math.min(4096, Math.round(clipItem.width",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mediaKey",
+          "type": "string",
+          "default": "clipItem.mediaEligible",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "documentColor",
+          "type": "bool",
+          "default": "clipItem.clipColor.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fillColor",
+          "type": "color",
+          "default": "clipItem.summary ? Tk.Theme.color.border",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgeColor",
+          "type": "color",
+          "default": "clipItem.invalid ? Tk.Theme.color.danger",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectRequested",
+          "parameters": "string clipId, int modifiers"
+        },
+        {
+          "name": "nudgeRequested",
+          "parameters": "string clipId, int steps"
+        },
+        {
+          "name": "activated",
+          "parameters": "string clipId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "releaseMedia",
+          "parameters": ""
+        },
+        {
+          "name": "refreshMedia",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "clipBody",
+        "clipFocusRing",
+        "clipKindIcon",
+        "clipLabel",
+        "clipLockIcon",
+        "clipTrimEndHandle",
+        "clipTrimStartHandle",
+        "clipWaveform"
+      ]
+    },
+    {
       "name": "ColorButton",
       "kind": "qml",
       "base": "T.AbstractButton",
@@ -4489,6 +4822,748 @@
         "documentTabSelect_",
         "documentTab_",
         "documentTabsViewport"
+      ]
+    },
+    {
+      "name": "EditTimeline",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "A virtualized multitrack edit timeline: ruler, marker lane, track headers, clip lanes, edit range and scrollbars over one TimelineModel.  AGENT-CONTRACT: TimelineModel owns placement, history and policy; TimelineViewport owns only the view (exact origin tick, zoom, scroll) and the bounded delegate rows. This control keeps the current track/clip IDs and routes pointer, keyboard, numeric and assistive input to the same typed model edits, so each accepted gesture is one undo step and a rejected or cancelled one leaves the document unchanged. Clip selection lives in a SelectionModel by stable ID and survives reorder, moves and scrolling.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/EditTimeline.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.TimelineModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mediaProvider",
+          "type": "Tk.TimelineMediaProvider",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionModel",
+          "type": "Tk.SelectionModel",
+          "default": "fallbackSelection",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "transportModel",
+          "type": "Tk.TransportModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipboard",
+          "type": "Tk.TimelineClipboard",
+          "default": "fallbackClipboard",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapGrid",
+          "type": "string",
+          "default": "\"frames\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rippleMode",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayMode",
+          "type": "string",
+          "default": "\"timecode\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropFrame",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.labelWidth * 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapPixels",
+          "type": "real",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentTrackId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentClipId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit timeline\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewport",
+          "type": "Tk.TimelineViewport",
+          "default": "view",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lanes",
+          "type": "Item",
+          "default": "lanesItem",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "markerLane",
+          "type": "Item",
+          "default": "markerLaneItem",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editRange",
+          "type": "Item",
+          "default": "lanesItem.editRange",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ruler",
+          "type": "Item",
+          "default": "rulerItem",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedClipIds",
+          "type": "var",
+          "default": "timeline.selectionModel ? timeline.selectionModel.selectedIds : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedMap",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "effectivePlayheadTicks",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadLabel",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "lanesItem.gestureActive || markerLaneItem.dragging",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "originSeconds",
+          "type": "real",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleSeconds",
+          "type": "real",
+          "default": "view.viewportWidth / Math.max(1e-9, view.pixelsPerSecond)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rangeStartSeconds",
+          "type": "real",
+          "default": "Math.min(0, timeline.originSeconds)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rangeEndSeconds",
+          "type": "real",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "seekRequested",
+          "parameters": "string ticks"
+        },
+        {
+          "name": "clipActivated",
+          "parameters": "string clipId"
+        },
+        {
+          "name": "editRejected",
+          "parameters": "string reason"
+        },
+        {
+          "name": "editCommitted",
+          "parameters": "string transactionId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "report",
+          "parameters": "result"
+        },
+        {
+          "name": "clipRecord",
+          "parameters": "id"
+        },
+        {
+          "name": "seek",
+          "parameters": "ticks"
+        },
+        {
+          "name": "setCurrentClip",
+          "parameters": "id, reveal"
+        },
+        {
+          "name": "selectClip",
+          "parameters": "id, modifiers"
+        },
+        {
+          "name": "moveCurrentTrack",
+          "parameters": "delta"
+        },
+        {
+          "name": "moveCurrentClip",
+          "parameters": "direction, extend"
+        },
+        {
+          "name": "nudgeSelection",
+          "parameters": "steps, trackDelta"
+        },
+        {
+          "name": "trimSelection",
+          "parameters": "edge, steps"
+        },
+        {
+          "name": "splitAtPlayhead",
+          "parameters": ""
+        },
+        {
+          "name": "deleteSelection",
+          "parameters": "ripple"
+        },
+        {
+          "name": "reorderCurrentTrack",
+          "parameters": "delta"
+        },
+        {
+          "name": "copySelection",
+          "parameters": "cut"
+        },
+        {
+          "name": "pasteAtPlayhead",
+          "parameters": ""
+        },
+        {
+          "name": "openTimingEditor",
+          "parameters": "id"
+        },
+        {
+          "name": "openRangeEditor",
+          "parameters": "selection"
+        },
+        {
+          "name": "zoomBy",
+          "parameters": "factor"
+        },
+        {
+          "name": "cancelActiveEdit",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "timelineCorner",
+        "timelineFocusRing",
+        "timelineHorizontalScrollBar",
+        "timelineLoopRange",
+        "timelinePlayheadReadout",
+        "timelineRuler",
+        "timelineTimingAnchor",
+        "timelineVerticalScrollBar"
+      ]
+    },
+    {
+      "name": "EditTimelineHeaders",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The track-header column of an EditTimeline: one TrackHeader per visible track row, scrolled with the lanes, and the resize/reorder sessions.  AGENT-CONTRACT: header rows come from TimelineViewport, so they share the lanes' vertical scroll and virtualization. A resize or reorder drag is one TimelineModel session previewed live (the rows move before anything is committed); release commits one undo step, a lost grab or Escape cancels. Reorder targets are computed from the committed layout captured at the start, so the previewed order never feeds back into its own destination.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/EditTimelineHeaders.qml",
+      "properties": [
+        {
+          "name": "viewport",
+          "type": "Tk.TimelineViewport",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "Tk.TimelineModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentTrackId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gestureActive",
+          "type": "bool",
+          "default": "internal.operation.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "trackSelected",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "editReported",
+          "parameters": "var result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "report",
+          "parameters": "result"
+        },
+        {
+          "name": "requestProperty",
+          "parameters": "trackId, property, value"
+        },
+        {
+          "name": "beginGesture",
+          "parameters": "kind, trackId"
+        },
+        {
+          "name": "reorderTarget",
+          "parameters": "trackId, y"
+        },
+        {
+          "name": "updateGesture",
+          "parameters": "input"
+        },
+        {
+          "name": "finishGesture",
+          "parameters": ""
+        },
+        {
+          "name": "cancelGesture",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "timelineTrackHeaders"
+      ]
+    },
+    {
+      "name": "EditTimelineLanes",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The track-lane surface of an EditTimeline: lane stripes, clip delegates, the edit range, playhead, snap guide and the single pointer controller.  AGENT-NOTE: one MouseArea owns every clip gesture and hit-tests through TimelineViewport instead of per-delegate handlers. Delegates are recycled as clips scroll in and out (and a dragged clip may leave the viewport during autoscroll); a gesture held by a delegate would die with it. AGENT-GUARD: a drag is exactly one TimelineModel edit session. Every exit path (release, Escape, lost grab, model invalidation) either commits or cancels that session; never leave internal.operationId set on return.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/EditTimelineLanes.qml",
+      "properties": [
+        {
+          "name": "viewport",
+          "type": "Tk.TimelineViewport",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "Tk.TimelineModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mediaProvider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedMap",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedClipIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentClipId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentTrackId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "focusActive",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapGrid",
+          "type": "string",
+          "default": "\"frames\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapPixels",
+          "type": "real",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rippleMode",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayMode",
+          "type": "string",
+          "default": "\"timecode\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropFrame",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editRange",
+          "type": "alias",
+          "default": "editRangeItem",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gestureActive",
+          "type": "bool",
+          "default": "internal.phase === \"drag\" || internal.phase === \"range\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gestureKind",
+          "type": "string",
+          "default": "internal.phase === \"drag\" ? internal.kind : internal.phase",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "var",
+          "default": "internal.preview",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hoverClipId",
+          "type": "string",
+          "default": "internal.hoverClipId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "clipPressed",
+          "parameters": "string clipId, string trackId, int modifiers"
+        },
+        {
+          "name": "emptyPressed",
+          "parameters": "string trackId, int modifiers"
+        },
+        {
+          "name": "emptyClicked",
+          "parameters": "string ticks, int modifiers"
+        },
+        {
+          "name": "clipActivated",
+          "parameters": "string clipId"
+        },
+        {
+          "name": "nudgeRequested",
+          "parameters": "string clipId, int steps"
+        },
+        {
+          "name": "editRejected",
+          "parameters": "string reason"
+        },
+        {
+          "name": "editCommitted",
+          "parameters": "string transactionId"
+        },
+        {
+          "name": "rangeCommitted",
+          "parameters": "string startTicks, string endTicks"
+        },
+        {
+          "name": "rangeCleared",
+          "parameters": ""
+        },
+        {
+          "name": "rangeNumericEditRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "xOf",
+          "parameters": "ticks"
+        },
+        {
+          "name": "timeText",
+          "parameters": "start, duration"
+        },
+        {
+          "name": "trackIndexFor",
+          "parameters": "y"
+        },
+        {
+          "name": "hover",
+          "parameters": "x, y"
+        },
+        {
+          "name": "pointerPressed",
+          "parameters": "x, y, modifiers"
+        },
+        {
+          "name": "pointerMoved",
+          "parameters": "x, y"
+        },
+        {
+          "name": "startGesture",
+          "parameters": ""
+        },
+        {
+          "name": "updateGesture",
+          "parameters": ""
+        },
+        {
+          "name": "pointerReleased",
+          "parameters": "modifiers"
+        },
+        {
+          "name": "cancelGesture",
+          "parameters": ""
+        },
+        {
+          "name": "autoScrollStep",
+          "parameters": "seconds"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "timelineClipRepeater",
+        "timelineClipToolTip",
+        "timelineEditRange",
+        "timelineLaneStripes",
+        "timelineLane_",
+        "timelineLanes",
+        "timelinePlayhead",
+        "timelinePointer",
+        "timelineSnapGuide",
+        "timelineWheel"
       ]
     },
     {
@@ -7207,6 +8282,192 @@
         "rowFocusRing",
         "rowSecondary",
         "rowText"
+      ]
+    },
+    {
+      "name": "MarkerLane",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Editable cues and regions above timeline tracks.  AGENT-CONTRACT: markers are TimelineModel records with stable IDs and exact positions; this lane draws TimelineViewport marker rows and edits through model transactions only. A drag is one MoveMarker session: Escape or a lost grab cancels it and restores the committed position; release commits one undo step. Keyboard: Left/Right choose the previous/next marker, Alt+Left/Right move it one grid step, Delete removes it, F2 or Return renames it and M adds one at the playhead.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MarkerLane.qml",
+      "properties": [
+        {
+          "name": "viewport",
+          "type": "Tk.TimelineViewport",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "Tk.TimelineModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentMarkerId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapGrid",
+          "type": "string",
+          "default": "\"frames\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapPixels",
+          "type": "real",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayMode",
+          "type": "string",
+          "default": "\"timecode\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropFrame",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Markers\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "internal.operationId.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentMarker",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "markerActivated",
+          "parameters": "string markerId"
+        },
+        {
+          "name": "editRejected",
+          "parameters": "string reason"
+        }
+      ],
+      "methods": [
+        {
+          "name": "report",
+          "parameters": "result"
+        },
+        {
+          "name": "formatted",
+          "parameters": "ticks"
+        },
+        {
+          "name": "markerAt",
+          "parameters": "x"
+        },
+        {
+          "name": "select",
+          "parameters": "markerId"
+        },
+        {
+          "name": "step",
+          "parameters": "direction"
+        },
+        {
+          "name": "moveCurrent",
+          "parameters": "steps"
+        },
+        {
+          "name": "addAt",
+          "parameters": "ticks"
+        },
+        {
+          "name": "removeCurrent",
+          "parameters": ""
+        },
+        {
+          "name": "startRename",
+          "parameters": ""
+        },
+        {
+          "name": "finishRename",
+          "parameters": "accept"
+        },
+        {
+          "name": "cancelDrag",
+          "parameters": ""
+        },
+        {
+          "name": "updateDrag",
+          "parameters": ""
+        },
+        {
+          "name": "autoScrollStep",
+          "parameters": "seconds"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "markerFocus_",
+        "markerLabel_",
+        "markerLane",
+        "markerRegion_",
+        "markerRenameEditor"
       ]
     },
     {
@@ -12295,6 +13556,392 @@
       ]
     },
     {
+      "name": "TimeSelection",
+      "kind": "qml",
+      "base": "Item",
+      "description": "An edit, loop or punch range over timeline lanes, with precise endpoints.  AGENT-CONTRACT: startTicks/endTicks are owner state (decimal tick strings). A pointer, keyboard or numeric change is a draft until it commits once through rangeCommitted; rangeCanceled restores the committed range. While an endpoint is dragged the other endpoint is the anchor: dragging past it swaps which handle is the start and the range stays normalized (start <= end). An empty range commits only when allowEmpty is true; otherwise the drag is rejected and the committed range is restored. All tick arithmetic happens in TimelineModel, never in QML Numbers.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TimeSelection.qml",
+      "properties": [
+        {
+          "name": "viewport",
+          "type": "Tk.TimelineViewport",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "Tk.TimelineModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "startTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "endTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "default": "\"edit\" // edit, loop or punch",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "allowEmpty",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "interactive",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapGrid",
+          "type": "string",
+          "default": "\"frames\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapPixels",
+          "type": "real",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayMode",
+          "type": "string",
+          "default": "\"timecode\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropFrame",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "selection.kind === \"loop\" ? qsTr(\"Loop range\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "internal.dragging",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftStartTicks",
+          "type": "string",
+          "default": "internal.dragging ? internal.draftStart : selection.startTicks",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftEndTicks",
+          "type": "string",
+          "default": "internal.dragging ? internal.draftEnd : selection.endTicks",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasRange",
+          "type": "bool",
+          "default": "selection.draftStartTicks.length > 0 && selection.draftEndTicks.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tint",
+          "type": "color",
+          "default": "selection.kind === \"loop\" ? Tk.Theme.color.success",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "startX",
+          "type": "real",
+          "default": "selection.xOf(selection.draftStartTicks)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "endX",
+          "type": "real",
+          "default": "selection.xOf(selection.draftEndTicks)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "rangePreviewed",
+          "parameters": "string startTicks, string endTicks"
+        },
+        {
+          "name": "rangeCommitted",
+          "parameters": "string startTicks, string endTicks"
+        },
+        {
+          "name": "rangeCanceled",
+          "parameters": ""
+        },
+        {
+          "name": "rangeRejected",
+          "parameters": "string reason"
+        },
+        {
+          "name": "rangeCleared",
+          "parameters": ""
+        },
+        {
+          "name": "numericEditRequested",
+          "parameters": "string handle"
+        }
+      ],
+      "methods": [
+        {
+          "name": "xOf",
+          "parameters": "ticks"
+        },
+        {
+          "name": "formatted",
+          "parameters": "ticks"
+        },
+        {
+          "name": "snapped",
+          "parameters": "ticks"
+        },
+        {
+          "name": "normalize",
+          "parameters": "a, b"
+        },
+        {
+          "name": "beginDrag",
+          "parameters": "handle, ticks"
+        },
+        {
+          "name": "updateDrag",
+          "parameters": "ticks"
+        },
+        {
+          "name": "commitDrag",
+          "parameters": ""
+        },
+        {
+          "name": "cancelDrag",
+          "parameters": ""
+        },
+        {
+          "name": "commitRange",
+          "parameters": "start, end"
+        },
+        {
+          "name": "nudge",
+          "parameters": "handle, steps"
+        },
+        {
+          "name": "setNumeric",
+          "parameters": "startText, endText"
+        },
+        {
+          "name": "autoScrollBy",
+          "parameters": "pixels"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "timeSelectionBand",
+        "timeSelectionFocus_",
+        "timeSelectionGrip_",
+        "timeSelectionHandle_",
+        "timeSelection_"
+      ]
+    },
+    {
+      "name": "TimelineTimingEditor",
+      "kind": "qml",
+      "base": "Tk.Popover",
+      "description": "Numeric entry for one clip (start, length, source offset) or one range (start, end) of an EditTimeline.  AGENT-CONTRACT: fields show and parse text in the owner's display mode through TimelineModel (formatTicks/parseTicks for positions, formatDuration/parseDuration for lengths), so no value passes through a QML Number. A field the user did not change keeps its exact value rather than the display-quantized text (a timecode shows whole frames only). In clip mode Apply submits one SetClipTiming edit; in range mode it emits rangeEdited for the owner's TimeSelection to commit. An unparsable field or a rejection keeps the popover open with the reason and changes nothing. Escape or Cancel closes it without an edit.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TimelineTimingEditor.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.TimelineModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayMode",
+          "type": "string",
+          "default": "\"timecode\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropFrame",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rippleMode",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"clip\" // clip or range",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "edited",
+          "parameters": "var result"
+        },
+        {
+          "name": "rangeEdited",
+          "parameters": "string startTicks, string endTicks"
+        }
+      ],
+      "methods": [
+        {
+          "name": "show",
+          "parameters": "field, text, ticks"
+        },
+        {
+          "name": "valueOf",
+          "parameters": "field, parse"
+        },
+        {
+          "name": "openRange",
+          "parameters": "start, end"
+        },
+        {
+          "name": "openClip",
+          "parameters": "id"
+        },
+        {
+          "name": "apply",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "timelineTimingEditor",
+        "timingApply",
+        "timingCancel",
+        "timingError",
+        "timingLengthField",
+        "timingOffsetField",
+        "timingStartField"
+      ]
+    },
+    {
       "name": "Toast",
       "kind": "qml",
       "base": "FocusScope",
@@ -12902,6 +14549,238 @@
       "valueType": false,
       "bridge": false,
       "objectNames": []
+    },
+    {
+      "name": "TrackHeader",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The controls for one timeline track: name, kind, mute/solo/arm/lock/hide, routing summary, a resize seam and a reorder grip.  AGENT-CONTRACT: every value here is owner state from TimelineModel through TimelineViewport track rows. Toggles, rename, resize and reorder emit requests keyed by trackId; nothing changes until the model applies them, so a rejected request leaves the header showing the committed state.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TrackHeader.qml",
+      "properties": [
+        {
+          "name": "trackId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "solo",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "armed",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "locked",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "routing",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackColor",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipCount",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "current",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resizable",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "header.name.length > 0 ? header.name : qsTr(\"Track\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingName",
+          "type": "bool",
+          "default": "nameEditor.visible",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kindIcon",
+          "type": "string",
+          "default": "header.kind === \"video\" ? \"film\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "propertyRequested",
+          "parameters": "string trackId, string property, var value"
+        },
+        {
+          "name": "renameRequested",
+          "parameters": "string trackId, string name"
+        },
+        {
+          "name": "selectRequested",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "heightStepRequested",
+          "parameters": "string trackId, int steps"
+        },
+        {
+          "name": "resizeStarted",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "resizeMoved",
+          "parameters": "string trackId, real delta"
+        },
+        {
+          "name": "resizeFinished",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "resizeCanceled",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "reorderStarted",
+          "parameters": "string trackId, real y"
+        },
+        {
+          "name": "reorderMoved",
+          "parameters": "string trackId, real y"
+        },
+        {
+          "name": "reorderFinished",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "reorderCanceled",
+          "parameters": "string trackId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "startRename",
+          "parameters": ""
+        },
+        {
+          "name": "finishRename",
+          "parameters": "accept"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "trackArm",
+        "trackColor",
+        "trackHeaderFrame",
+        "trackHeader_",
+        "trackKindIcon",
+        "trackLock",
+        "trackMute",
+        "trackName",
+        "trackNameEditor",
+        "trackReorderArea",
+        "trackResize",
+        "trackResizeSeam",
+        "trackRouting",
+        "trackSolo",
+        "trackVisibility"
+      ]
     },
     {
       "name": "TransformEditor",
@@ -20534,6 +22413,1112 @@
           "name": "pixelToSample",
           "returns": "QVariantMap",
           "parameters": "double pixel, const QString &viewportOriginSample, double pixelsPerSample, Rounding rounding = NearestAway"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TimelineClipboard",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/timeline_transfer.h",
+      "properties": [
+        {
+          "name": "canPaste",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "clipCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sourceDocumentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "allowForeignResources",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "copyClips",
+          "returns": "bool",
+          "parameters": "QindaTK::TimelineModel *model, const QStringList &clipIds"
+        },
+        {
+          "name": "paste",
+          "returns": "QVariantMap",
+          "parameters": "QindaTK::TimelineModel *model, const QString &trackId, const QString &atTicks"
+        },
+        {
+          "name": "refresh",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TimelineEditPolicy",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the domain decides which edits are legal. TimelineModel's planner resolves an intent (clamping, snapping, ripple) with these explicit capabilities, then calls validate() with the complete proposed change set before any preview is shown as valid and again before commit. A host that needs overwrite edits, crossfades, beat-locked clips or engine vetoes subclasses this in C++ and returns an OperationError; the model never commits a change set this rejects. QML configures the flags only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/timeline_policy.h",
+      "properties": [
+        {
+          "name": "overlapMode",
+          "type": "OverlapMode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rippleScope",
+          "type": "RippleScope",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "minimumClipTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "allowNegativeTime",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "allowBeyondSource",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "requireMatchingTrackKind",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maxChangesPerEdit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "capabilities",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "isAvailable",
+          "returns": "bool",
+          "parameters": "const QString &operation"
+        },
+        {
+          "name": "unavailableReason",
+          "returns": "QString",
+          "parameters": "const QString &operation"
+        },
+        {
+          "name": "setUnavailable",
+          "returns": "bool",
+          "parameters": "const QString &operation, const QString &reason"
+        },
+        {
+          "name": "setAvailable",
+          "returns": "bool",
+          "parameters": "const QString &operation"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TimelineMediaProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/timeline_media_provider.h",
+      "properties": [
+        {
+          "name": "referenceBackend",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backendId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maxInFlight",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "inFlightCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "queuedCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "requestCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "completedCount",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cancelledCount",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "staleDropped",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cacheEntries",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "requestPeaks",
+          "returns": "QString",
+          "parameters": "const QString &ownerKey, const QString &resourceId, const QString &sourceStartTicks, const QString &sourceEndTicks, const QString &ticksPerSecondNumerator, const QString &ticksPerSecondDenominator, int columns"
+        },
+        {
+          "name": "requestFrames",
+          "returns": "QString",
+          "parameters": "const QString &ownerKey, const QString &resourceId, const QString &sourceStartTicks, const QString &sourceEndTicks, const QString &ticksPerSecondNumerator, const QString &ticksPerSecondDenominator, int count"
+        },
+        {
+          "name": "cancel",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "cancelOwner",
+          "returns": "void",
+          "parameters": "const QString &ownerKey"
+        },
+        {
+          "name": "result",
+          "returns": "QVariantMap",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "invalidateResource",
+          "returns": "void",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "clearCache",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TimelineModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: TimelineModel is the reference authority for timeline placement (WP-048). Views, delegates and QML never own clip, marker or track positions: they read committed state plus the one active preview and submit typed, revision-guarded edits (begin -> update -> commit/cancel). One accepted gesture is one change set and one history step; a rejected, stale or cancelled edit leaves every committed record unchanged. A production host either drives this model as its projection or takes the history through externalUndo (see docs/edit-timeline.md, D-044).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/timeline_model.h",
+      "properties": [
+        {
+          "name": "schemaId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resetGeneration",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "timebaseNumerator",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "timebaseDenominator",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "timeMap",
+          "type": "QindaTK::TimeMap *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "policy",
+          "type": "QindaTK::TimelineEditPolicy *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "trackCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "clipCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "markerCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "contentEndTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hasEditRange",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editRangeStart",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editRangeEnd",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editOperationId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editPreview",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "historyCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "historyLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "externalUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "loadContent",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &content"
+        },
+        {
+          "name": "contentMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "QVariantMap",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "setTimebase",
+          "returns": "bool",
+          "parameters": "const QString &numerator, const QString &denominator"
+        },
+        {
+          "name": "trackIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "visibleTrackIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "trackData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "clipData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "effectiveClipData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "markerData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "markerIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "clipIdsInRange",
+          "returns": "QStringList",
+          "parameters": "const QString &trackId, const QString &start, const QString &end, int limit = kMaxQueryIds"
+        },
+        {
+          "name": "clipIdsInRect",
+          "returns": "QStringList",
+          "parameters": "const QString &fromTrackId, const QString &toTrackId, const QString &start, const QString &end, int limit = kMaxQueryIds"
+        },
+        {
+          "name": "clipAt",
+          "returns": "QString",
+          "parameters": "const QString &trackId, const QString &ticks"
+        },
+        {
+          "name": "nearestClip",
+          "returns": "QString",
+          "parameters": "const QString &trackId, const QString &ticks"
+        },
+        {
+          "name": "adjacentClip",
+          "returns": "QString",
+          "parameters": "const QString &clipId, int direction"
+        },
+        {
+          "name": "edgeClip",
+          "returns": "QString",
+          "parameters": "const QString &trackId, bool last"
+        },
+        {
+          "name": "adjacentMarker",
+          "returns": "QString",
+          "parameters": "const QString &ticks, int direction"
+        },
+        {
+          "name": "hasClip",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "allClipIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "addTicks",
+          "returns": "QString",
+          "parameters": "const QString &left, const QString &right"
+        },
+        {
+          "name": "subtractTicks",
+          "returns": "QString",
+          "parameters": "const QString &left, const QString &right"
+        },
+        {
+          "name": "compareTicks",
+          "returns": "int",
+          "parameters": "const QString &left, const QString &right"
+        },
+        {
+          "name": "ticksToSamplesText",
+          "returns": "QString",
+          "parameters": "const QString &ticks, int rounding = TimeMap::NearestAway"
+        },
+        {
+          "name": "samplesToTicksText",
+          "returns": "QString",
+          "parameters": "const QString &samples, int rounding = TimeMap::NearestAway"
+        },
+        {
+          "name": "ticksToFramesText",
+          "returns": "QString",
+          "parameters": "const QString &ticks, int rounding = TimeMap::Floor"
+        },
+        {
+          "name": "frameStartTicksText",
+          "returns": "QString",
+          "parameters": "const QString &frame"
+        },
+        {
+          "name": "ticksToSeconds",
+          "returns": "double",
+          "parameters": "const QString &ticks"
+        },
+        {
+          "name": "secondsToTicks",
+          "returns": "QString",
+          "parameters": "double seconds"
+        },
+        {
+          "name": "formatDuration",
+          "returns": "QString",
+          "parameters": "const QString &ticks, const QString &mode = QStringLiteral(\"timecode\""
+        },
+        {
+          "name": "parseDuration",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text, const QString &mode = QStringLiteral(\"timecode\""
+        },
+        {
+          "name": "stepTicks",
+          "returns": "QString",
+          "parameters": "const QString &fromTicks, const QString &grid, int steps"
+        },
+        {
+          "name": "snapTicks",
+          "returns": "QVariantMap",
+          "parameters": "const QString &ticks, const QVariantMap &options"
+        },
+        {
+          "name": "beginEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &request"
+        },
+        {
+          "name": "updateEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &operationId, const QVariantMap &input"
+        },
+        {
+          "name": "commitEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &operationId"
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "bool",
+          "parameters": "const QString &operationId"
+        },
+        {
+          "name": "applyEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &request, const QVariantMap &input = {}"
+        },
+        {
+          "name": "setEditRange",
+          "returns": "bool",
+          "parameters": "const QString &start, const QString &end"
+        },
+        {
+          "name": "clearEditRange",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clearHistory",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "applyHistoryChanges",
+          "returns": "bool",
+          "parameters": "const QString &transactionId, bool reverse, const QString &expectedRevision"
+        },
+        {
+          "name": "releaseHistoryTransaction",
+          "returns": "bool",
+          "parameters": "const QString &transactionId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TimelineViewport",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: one view of a TimelineModel. It owns only view state: the exact tick at x = 0 (originTicks), a display zoom, vertical scroll and density-driven default track height. It resolves the model's committed state plus the active preview into three bounded delegate lists and maps pixels to exact ticks with explicit rounding. It never edits the model. Canonical positions never pass through pixels: x = (ticks - origin) * zoom is computed from an exact integer difference, and a pixel maps back to a tick once, at the gesture boundary.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/timeline_viewport.h",
+      "properties": [
+        {
+          "name": "model",
+          "type": "QindaTK::TimelineModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "originTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pixelsPerSecond",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "minimumPixelsPerSecond",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumPixelsPerSecond",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "viewportWidth",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "viewportHeight",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "scrollY",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "defaultTrackHeight",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "minimumTrackHeight",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "overscanPixels",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "summaryPixels",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "handlePixels",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumClipRows",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "showGhosts",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "contentHeight",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maximumScrollY",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "visibleStartTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "visibleEndTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "firstVisibleTrack",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastVisibleTrack",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "trackCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "summarizedClips",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "truncated",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "clips",
+          "type": "QindaTK::TimelineVisibleList *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "tracks",
+          "type": "QindaTK::TimelineVisibleList *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "markers",
+          "type": "QindaTK::TimelineVisibleList *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "xForTicks",
+          "returns": "double",
+          "parameters": "const QString &ticks"
+        },
+        {
+          "name": "ticksForX",
+          "returns": "QString",
+          "parameters": "double x, int rounding = TimeMap::NearestAway"
+        },
+        {
+          "name": "ticksForPixels",
+          "returns": "QString",
+          "parameters": "double pixels"
+        },
+        {
+          "name": "pixelsForTicks",
+          "returns": "double",
+          "parameters": "const QString &ticks"
+        },
+        {
+          "name": "trackIndexAtY",
+          "returns": "int",
+          "parameters": "double y"
+        },
+        {
+          "name": "trackIdAtY",
+          "returns": "QString",
+          "parameters": "double y"
+        },
+        {
+          "name": "trackIdAt",
+          "returns": "QString",
+          "parameters": "int visibleIndex"
+        },
+        {
+          "name": "trackIndexOf",
+          "returns": "int",
+          "parameters": "const QString &trackId"
+        },
+        {
+          "name": "trackY",
+          "returns": "double",
+          "parameters": "const QString &trackId"
+        },
+        {
+          "name": "trackHeight",
+          "returns": "double",
+          "parameters": "const QString &trackId"
+        },
+        {
+          "name": "hitTest",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "clipGeometry",
+          "returns": "QVariantMap",
+          "parameters": "const QString &clipId"
+        },
+        {
+          "name": "scrollByPixels",
+          "returns": "void",
+          "parameters": "double dx, double dy"
+        },
+        {
+          "name": "zoomAround",
+          "returns": "void",
+          "parameters": "double x, double factor"
+        },
+        {
+          "name": "ensureTicksVisible",
+          "returns": "bool",
+          "parameters": "const QString &ticks, double margin = 0"
+        },
+        {
+          "name": "ensureClipVisible",
+          "returns": "bool",
+          "parameters": "const QString &clipId, double margin = 0"
+        },
+        {
+          "name": "ensureTrackVisible",
+          "returns": "bool",
+          "parameters": "const QString &trackId"
+        },
+        {
+          "name": "fitToContent",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "refresh",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TimelineVisibleList",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-NOTE: the timeline's delegate source. update() diffs the next visible set against the current rows by `key` (the first role): departed rows are removed, retained rows keep their row and only emit dataChanged for roles whose value changed, and entering rows are appended. A Repeater over this model therefore creates delegates only for clips that scroll into view and never rebuilds the ones that stay; rows never carry document authority.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/timeline_visible_list.h",
+      "properties": [
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "insertedTotal",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "removedTotal",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "indexOf",
+          "returns": "int",
+          "parameters": "const QString &key"
+        },
+        {
+          "name": "keys",
+          "returns": "QStringList",
+          "parameters": ""
         }
       ],
       "enums": {},

@@ -62,7 +62,7 @@ Item {
                                                                                      : Tk.Theme.opacity.ghost)
                                        : clipItem.selected ? Tk.Theme.color.chipHoverBg : Tk.Theme.color.chipBg
     readonly property color edgeColor: clipItem.invalid ? Tk.Theme.color.danger
-                                     : clipItem.selected ? Tk.Theme.color.accent
+                                     : clipItem.selected || clipItem.preview ? Tk.Theme.color.accent
                                      : clipItem.locked ? Tk.Theme.color.border
                                      : Tk.Theme.color.chipBorder
 
@@ -88,7 +88,7 @@ Item {
                     clipItem.ticksPerSecondDenominator, clipItem.columns)
     }
 
-    objectName: "clip_" + clipItem.clipId
+    objectName: (clipItem.ghost ? "clipGhost_" : "clip_") + clipItem.clipId
     implicitWidth: Tk.Theme.size.thumbnail
     implicitHeight: Tk.Theme.size.rowLg + Tk.Theme.size.waveformHeight
     opacity: clipItem.ghost ? Tk.Theme.opacity.ghost : Tk.Theme.opacity.full
@@ -146,7 +146,8 @@ Item {
         anchors.fill: parent
         radius: Tk.Theme.radius.xs
         color: clipItem.fillColor
-        border.width: clipItem.selected || clipItem.invalid ? Tk.Theme.size.focusRing : Tk.Theme.size.border
+        border.width: clipItem.selected || clipItem.preview || clipItem.invalid ? Tk.Theme.size.focusRing
+                                                                                 : Tk.Theme.size.border
         border.color: clipItem.edgeColor
     }
 

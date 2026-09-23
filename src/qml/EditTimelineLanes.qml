@@ -273,7 +273,9 @@ Item {
             required property int stackOrder
             x: clipX
             y: laneY + Tk.Theme.size.border
-            z: stackOrder
+            // Lane stripes are z 0; ghosts (stackOrder -1) sit above them and
+            // below clips, and previewed clips above everything else.
+            z: stackOrder + 2
             width: Math.max(Tk.Theme.size.border, clipWidth)
             height: Math.max(Tk.Theme.size.border, laneHeight - 2 * Tk.Theme.size.border)
             selected: !ghost && !summary && lanes.selectedMap[clipId] === true
