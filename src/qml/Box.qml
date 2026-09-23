@@ -39,11 +39,29 @@ Item {
     property bool clipContent: false
     // Optional hover/pressed tinting, so a Box can be a list row or a card.
     property bool interactive: false
+    property string tooltip: ""
     property bool hovered: hoverHandler.hovered
     readonly property alias pressed: tapHandler.pressed
     signal clicked(var eventPoint)
     signal rightClicked(var eventPoint)
     signal doubleClicked(var eventPoint)
+
+    activeFocusOnTab: interactive && enabled
+    Accessible.role: interactive ? Accessible.Button : Accessible.NoRole
+    Accessible.name: interactive
+        ? (tooltip.length > 0 ? tooltip : qsTr("Interactive box")) : ""
+    Accessible.focusable: interactive && enabled
+    Accessible.focused: interactive && enabled && activeFocus
+    Accessible.ignored: !interactive
+    Accessible.onPressAction: box.activate(null)
+
+    // All activation inputs use this gate so disabled or passive boxes never
+    // emit `clicked`, including when Accessible.press is invoked directly.
+    function activate(eventPoint) {
+        if (!box.interactive || !box.enabled) return false
+        box.clicked(eventPoint === undefined ? null : eventPoint)
+        return true
+    }
 
     readonly property bool perSide: borderLeft >= 0 || borderTop >= 0 || borderRight >= 0 || borderBottom >= 0
     readonly property real edgeLeft: (borderLeft >= 0 ? borderLeft : borderWidth)
@@ -75,6 +93,16 @@ Item {
         anchors { left: parent.left; right: parent.right; top: parent.top } }
     Rectangle { visible: box.perSide && box.edgeBottom > 0; color: box.borderColor; height: box.edgeBottom
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom } }
+
+    Rectangle {
+        objectName: "boxFocusRing"
+        anchors.fill: parent
+        anchors.margins: -Tk.Theme.size.focusRing
+        color: "transparent"
+        border.width: Tk.Theme.size.focusRing
+        border.color: Tk.Theme.color.focus
+        visible: box.interactive && box.enabled && box.activeFocus
+    }
 
     Item {
         id: contentHost
@@ -130,19 +158,37 @@ Item {
 
     HoverHandler {
         id: hoverHandler
-        enabled: box.interactive
+        enabled: box.interactive && box.enabled
     }
+    Keys.onSpacePressed: function(event) {
+        if (box.activate(null)) event.accepted = true
+    }
+    Keys.onReturnPressed: function(event) {
+        if (box.activate(null)) event.accepted = true
+    }
+    Keys.onEnterPressed: function(event) {
+        if (box.activate(null)) event.accepted = true
+    }
+
+    Tk.ToolTip {
+        text: box.tooltip
+        visible: box.interactive && box.tooltip.length > 0 && box.hovered
+    }
+
     TapHandler {
         id: tapHandler
-        enabled: box.interactive
+        enabled: box.interactive && box.enabled
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onTapped: function(eventPoint, button) {
+            if (!box.interactive || !box.enabled) return
             if (button === Qt.RightButton) {
                 box.rightClicked(eventPoint)
             } else {
-                box.clicked(eventPoint)
+                box.activate(eventPoint)
             }
         }
-        onDoubleTapped: function(eventPoint, button) { box.doubleClicked(eventPoint) }
+        onDoubleTapped: function(eventPoint, button) {
+            if (box.interactive && box.enabled) box.doubleClicked(eventPoint)
+        }
     }
 }

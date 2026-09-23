@@ -4,7 +4,8 @@ import QindaTK as Tk
 
 // A raised content card: the panelAlt surface with a 1px border and a 6px
 // radius, md padding. `interactive` adds hover/pressed tinting and the
-// `clicked` signal (from Box); `selected` paints the accent border.
+// `clicked` signal (from Box); `tooltip` names it for users and assistive
+// technology. `selected` paints the accent border.
 Tk.Box {
     id: card
 
@@ -20,5 +21,6 @@ Tk.Box {
     radius: Tk.Theme.radius.md
     padding: Tk.Theme.space.md
 
-    Accessible.role: card.interactive ? Accessible.Button : Accessible.Grouping
+    Accessible.name: card.interactive
+        ? (card.tooltip.length > 0 ? card.tooltip : qsTr("Card")) : ""
 }

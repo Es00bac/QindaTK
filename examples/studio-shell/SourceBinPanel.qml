@@ -64,6 +64,7 @@ Tk.Flex {
                     padding: Tk.Theme.space.xs
                     selected: modelData.selected
                     interactive: true
+                    tooltip: modelData.name
                     Tk.Flex {
                         direction: Tk.Flex.Row
                         align: Tk.Flex.Center

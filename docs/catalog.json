@@ -318,6 +318,14 @@
           "required": false
         },
         {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "hovered",
           "type": "bool",
           "default": "hoverHandler.hovered",
@@ -422,6 +430,10 @@
       ],
       "methods": [
         {
+          "name": "activate",
+          "parameters": "eventPoint"
+        },
+        {
           "name": "maxImplicit",
           "parameters": "items, horizontal"
         },
@@ -438,7 +450,9 @@
       "internal": false,
       "valueType": false,
       "bridge": false,
-      "objectNames": []
+      "objectNames": [
+        "boxFocusRing"
+      ]
     },
     {
       "name": "Button",
@@ -599,7 +613,7 @@
       "name": "Card",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "A raised content card: the panelAlt surface with a 1px border and a 6px radius, md padding. `interactive` adds hover/pressed tinting and the `clicked` signal (from Box); `selected` paints the accent border.",
+      "description": "A raised content card: the panelAlt surface with a 1px border and a 6px radius, md padding. `interactive` adds hover/pressed tinting and the `clicked` signal (from Box); `tooltip` names it for users and assistive technology. `selected` paints the accent border.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Card.qml",

@@ -15,6 +15,11 @@ FND-07 through FND-10.
   and noncollapsible headers do not toggle; programmatic group state remains
   synchronized. Stable `sectionTitle`, `groupHeader` and `groupBody`
   objectNames remain.
+- Interactive `Box` and `Card` now expose a named Button action, a visible
+  theme focus ring, and one guarded activation operation shared by pointer,
+  Space/Return/Enter, and accessible press. Passive boxes expose no role or tab
+  stop, while disabled boxes reject all tested activation paths. See
+  [Box/Card evidence](WP-007-FIX-F04-box-card.md).
 - `TimeRuler` exposes its visible range and value as read-only QML properties,
   an accessible slider role and description, keyboard Left/Right/Home/End,
   and accessible increase/decrease actions. All user scrubs use one bounded

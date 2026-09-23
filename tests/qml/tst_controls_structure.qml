@@ -89,7 +89,7 @@ TestCase {
     }
     Component { id: zoomComponent; Tk.ZoomControl { value: 1.0 } }
     Component { id: emptyComponent; Tk.EmptyState { title: "No markers"; text: "Add one with M."; width: 240 } }
-    Component { id: cardComponent; Tk.Card { interactive: true; width: 240; Tk.Label { text: "Card" } } }
+    Component { id: cardComponent; Tk.Card { interactive: true; tooltip: "Card"; width: 240; Tk.Label { text: "Card" } } }
     Component { id: ordinaryLabelComponent; Tk.Label { text: "Copy this label" } }
     Component { id: selectableLabelComponent; Tk.Label { text: "Copy this label"; selectable: true } }
     Component { id: elidedSelectableLabelComponent; Tk.Label { text: "A much longer label"; width: 48; selectable: true } }

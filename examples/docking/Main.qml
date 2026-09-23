@@ -122,6 +122,7 @@ Rectangle {
                                     radius: Tk.Theme.radius.sm
                                     padding: Tk.Theme.space.xs
                                     interactive: true
+                                    tooltip: modelData
                                     Tk.Flex {
                                         direction: Tk.Flex.Row; align: Tk.Flex.Center; gap: Tk.Theme.space.sm
                                         Tk.Icon { name: modelData.endsWith(".wav") ? "audio-lines" : "film"; size: Tk.Theme.size.iconLg; color: Tk.Theme.color.accent }

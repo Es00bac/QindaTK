@@ -83,7 +83,7 @@ Section {
             }
         }
         Tk.Card {
-            interactive: true; implicitWidth: 200
+            interactive: true; tooltip: "Interactive card"; implicitWidth: 200
             Tk.Flex { direction: Tk.Flex.Column; gap: Tk.Theme.space.xs
                 Tk.Overline { title: "Interactive" }
                 Tk.Label { text: "Hover lifts the border"; muted: true }
