@@ -204,8 +204,9 @@ versioned private headers and `Qt6::QuickPrivate` to every C++ consumer of
 `.cpp`; stylus input is the remaining installed-header leak. A public
 `QQuickItem::event()` override and the standard QML PointHandler did not
 provide raw pressure/tilt in the Qt 6.11.1 platform-event probe recorded by
-D-013. Qt 6.8's public handler documentation describes item-owned handlers
-and grab permissions; exact behavior still needs a real 6.8 build and run.
+D-013. [Qt 6.8's input-handler documentation](https://doc.qt.io/qt-6.8/qtquickhandlers-index.html)
+describes item-owned handlers and grab permissions; exact behavior still
+needs a real 6.8 build and run.
 
 **Decision.** Retain the raw event receiver as an internal
 `QQuickPointerDeviceHandler` subclass. Export a `QObject` and
