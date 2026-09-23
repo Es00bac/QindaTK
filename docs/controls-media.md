@@ -52,6 +52,9 @@ exactly the judgement an editor reads a waveform to make.
 samples to reduce on every repaint is the mistake its contract exists to
 prevent.
 
+A single peak draws a full-width plateau at that magnitude. Empty peaks draw
+only the centre line; multiple peaks retain their per-column mirrored shape.
+
 This draws its own shape rather than wrapping `Graph`: `GraphMesh::baseline()`
 returns the plot edge, so two mirrored series fill to the top and bottom
 instead of meeting at zero. A fill-to-zero mode on `Graph` would be the better

@@ -37,7 +37,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-002"></a>
 ## WP-002 — Resolve the three source behavior findings
 
-**Implementation lead:** Luna. **Status:** active ([F01 evidence](evidence/WP-002-F01.md); F02/F03 pending). **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
+**Implementation lead:** Luna. **Status:** accepted; see [F01–F03 evidence](evidence/WP-002.md). **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
@@ -58,7 +58,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-003"></a>
 ## WP-003 — Repair layout, token and documentation drift
 
-**Implementation lead:** Luna. **Status:** active ([F05 evidence](evidence/WP-003-F05.md); F06/DOC-01 pending). **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
+**Implementation lead:** Luna. **Status:** accepted; see [F05/F06/DOC-01 evidence](evidence/WP-003.md). **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

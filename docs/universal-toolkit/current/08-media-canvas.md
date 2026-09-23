@@ -50,7 +50,7 @@ Canvas-rendered symmetric audio envelope display.
 
 **Source:** [src/qml/Waveform.qml](../../../src/qml/Waveform.qml) · **Base:** `Item` · **Kind:** QML component.
 
-peaks are pre-reduced magnitudes on a fixed 0..1 scale; color/showCentreLine/tooltip configure it and empty reports no data. Natural height 28 px compact. It does not decode, perform peak-preserving reduction, select samples or edit audio. A one-element peaks array needs an edge-case regression for the columns-1 denominator.
+peaks are pre-reduced magnitudes on a fixed 0..1 scale; color/showCentreLine/tooltip configure it and empty reports no data. Natural height 28 px compact. Empty data draws only the centre line; one peak draws a full-width plateau; multiple peaks retain the per-column mirrored shape. It does not decode, perform peak-preserving reduction, select samples or edit audio.
 
 **Declared members:** `peaks: var`, `color: color`, `showCentreLine: bool`, `tooltip: string`, `empty: bool` (ro).
 
@@ -80,7 +80,7 @@ Horizontal/vertical unit ruler for pages and canvases.
 
 **Source:** [src/qml/Ruler.qml](../../../src/qml/Ruler.qml) · **Base:** `Item` · **Kind:** QML component.
 
-origin is pixel position of unit zero; pixelsPerUnit, majorEvery/minorEvery, labels, cursorPosition and unit control ticks. band/activeBand shade page/column ranges; horizontal markers emit markerMoved, tabAdded and tabRemoved in pixels. Marker ownership is external. Pure pixelsPerUnit changes need repaint verification; source currently handles Item.scale changes instead.
+origin is pixel position of unit zero; pixelsPerUnit, majorEvery/minorEvery, labels, cursorPosition and unit control ticks. band/activeBand shade page/column ranges; horizontal markers emit markerMoved, tabAdded and tabRemoved in pixels. Marker ownership is external. Changing pixelsPerUnit now repaints the canvas at fixed geometry; the runtime regression covers it. The default marker size and implicit ruler length follow `Theme.size.rulerMarker`/`rulerLength`.
 
 **Declared members:** `orientation: int`, `origin: real`, `pixelsPerUnit: real`, `unit: string`, `majorEvery: real`, `minorEvery: real`, `labels: bool`, `cursorPosition: real`, `minimumMinorSpacing: real`, `markers: var`, `band: var`, `activeBand: var`, `markerSize: real` (ro), `horizontal: bool` (ro).
 

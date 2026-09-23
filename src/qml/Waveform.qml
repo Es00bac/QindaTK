@@ -106,7 +106,7 @@ Item {
             ctx.fillStyle = root.color
             ctx.globalAlpha = Tk.Theme.opacity.muted
             ctx.fill()
-            ctx.globalAlpha = 1.0
+            ctx.globalAlpha = Tk.Theme.opacity.full
             ctx.strokeStyle = root.color
             ctx.lineWidth = Tk.Theme.size.border
             ctx.stroke()

@@ -4633,7 +4633,7 @@
         {
           "name": "minimumMinorSpacing",
           "type": "real",
-          "default": "4",
+          "default": "Tk.Theme.space.unit",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -4665,7 +4665,7 @@
         {
           "name": "markerSize",
           "type": "real",
-          "default": "9",
+          "default": "Tk.Theme.size.rulerMarker",
           "readonly": true,
           "defaultProperty": false,
           "required": false

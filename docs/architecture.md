@@ -13,6 +13,7 @@ application QML  ── import QindaTK as Tk ──►  QindaTK (QML module)
                                                   ├── Box seating helper: LayoutInfo    (QuickPrivate)
                                                   ├── Theme, Density                    singletons
                                                   ├── Icon, Icons (registry)            Lucide paths, SVG
+                                                  ├── Graph, Meter, StylusHandler       telemetry and input
                                                   └── DockModel                          arrangement authority
 application C++  ── QindaTK::qindatk (CMake target) ──►  <qindatk/theme.h> <qindatk/dock_model.h> ...
 
@@ -27,7 +28,9 @@ QindaTK.QindaQt (QML-only module)  ──►  QindaQtTheme: QindaQt.Tokens (QST-
 | `Theme`, `Density` | Process-wide state with derived values; typed colour properties for tooling; JSON and QST adoption. |
 | `Icon`, `Icons` | Path parsing, `QPainter` rendering, the generated Lucide table. |
 | `DockModel` | Arrangement state with invariants (lane renumbering, group contiguity, zone rules) that must be testable without a scene graph. |
-| `LayoutInfo` | Reads `QQuickItemPrivate` (anchors, explicit size) — the only private-API use in the toolkit. |
+| `LayoutInfo` | Reads `QQuickItemPrivate` for anchors and explicit size. |
+| `Graph`, `Meter` | Bounded numerical histories and rendering; `Graph` has geometry and software-raster paths. |
+| `StylusHandler` | Reads raw tablet pressure/tilt through a Qt Quick private pointer-handler base; its current public header exposes that base. |
 
 Everything else is QML: controls are `QtQuick.Templates` types with theme
 driven visuals; `Box`, `Scroll`, `Panel`, `Island` compose the C++
@@ -157,10 +160,12 @@ directory.
 
 `layout_info.cpp` includes `<QtQuick/private/qquickitem_p.h>` and
 `<QtQuick/private/qquickanchors_p.h>` to answer "does this item anchor
-itself?" and "was its width/height set explicitly?". That is the entire
-private surface; `find_package(Qt6QuickPrivate)` exists for it alone. If a
-Qt release breaks it, only `LayoutInfo` needs attention and `Box`/`Scroll`
-seating is the only behaviour affected.
+itself?" and "was its width/height set explicitly?". The installed
+`stylus_handler.h` currently derives from the private
+`QQuickPointerDeviceHandler`, so `Qt6::QuickPrivate` is a public link
+dependency. A Qt private-API change can affect layout seating or pen event
+delivery and can require C++ consumers to rebuild. WP-005 owns the planned
+boundary mitigation and version qualification.
 
 ## Where things are
 

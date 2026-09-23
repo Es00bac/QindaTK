@@ -30,19 +30,19 @@ Item {
     property real minorEvery: 1
     property bool labels: true
     property real cursorPosition: -1
-    property real minimumMinorSpacing: 4
+    property real minimumMinorSpacing: Tk.Theme.space.unit
     property var markers: []
     property var band: []
     property var activeBand: []
-    readonly property real markerSize: 9
+    readonly property real markerSize: Tk.Theme.size.rulerMarker
     signal markerMoved(string id, real position)
     signal tabAdded(real position)
     signal tabRemoved(string id)
 
     readonly property bool horizontal: ruler.orientation === Qt.Horizontal
 
-    implicitWidth: horizontal ? 200 : Tk.Theme.size.row
-    implicitHeight: horizontal ? Tk.Theme.size.row : 200
+    implicitWidth: horizontal ? Tk.Theme.size.rulerLength : Tk.Theme.size.row
+    implicitHeight: horizontal ? Tk.Theme.size.row : Tk.Theme.size.rulerLength
 
     Accessible.role: Accessible.Graphic
     Accessible.name: qsTr("Ruler")
@@ -85,7 +85,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            height: 1
+            height: Tk.Theme.size.border
             color: Tk.Theme.color.divider
         }
         Rectangle {
@@ -93,7 +93,7 @@ Item {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.right: parent.right
-            width: 1
+            width: Tk.Theme.size.border
             color: Tk.Theme.color.divider
         }
     }
@@ -116,7 +116,7 @@ Item {
             const labelColor = ruler.css(Tk.Theme.color.textMuted)
             ctx.strokeStyle = tickColor
             ctx.fillStyle = labelColor
-            ctx.lineWidth = 1
+            ctx.lineWidth = Tk.Theme.size.border
             ctx.font = Tk.Theme.font.micro + "px \"" + Tk.Theme.font.monoFamily + "\""
             ctx.textBaseline = "top"
             // Thin out minor ticks that would land closer than the minimum.
@@ -146,10 +146,10 @@ Item {
                 }
                 if (isMajor && ruler.labels) {
                     if (ruler.horizontal) {
-                        ctx.fillText(ruler.format(u), p + 2, 1)
+                        ctx.fillText(ruler.format(u), p + Tk.Theme.space.xs, Tk.Theme.size.border)
                     } else {
                         ctx.save()
-                        ctx.translate(2, p - 2)
+                        ctx.translate(Tk.Theme.space.xs, p - Tk.Theme.space.xs)
                         ctx.rotate(-Math.PI / 2)
                         ctx.fillText(ruler.format(u), 0, 0)
                         ctx.restore()
@@ -164,8 +164,8 @@ Item {
         visible: ruler.cursorPosition >= 0
         x: ruler.horizontal ? Math.round(ruler.cursorPosition) : 0
         y: ruler.horizontal ? 0 : Math.round(ruler.cursorPosition)
-        width: ruler.horizontal ? 1 : parent.width
-        height: ruler.horizontal ? parent.height : 1
+        width: ruler.horizontal ? Tk.Theme.size.border : parent.width
+        height: ruler.horizontal ? parent.height : Tk.Theme.size.border
         color: Tk.Theme.color.accent
     }
 
@@ -179,7 +179,7 @@ Item {
             readonly property bool tab: modelData.kind === "tab"
             objectName: "rulerMarker_" + modelData.id
             x: Math.round(modelData.position - ruler.markerSize / 2)
-            y: hanging ? 1 : ruler.height - ruler.markerSize - 1
+            y: hanging ? Tk.Theme.size.border : ruler.height - ruler.markerSize - Tk.Theme.size.border
             width: ruler.markerSize
             height: ruler.markerSize
             onPaint: {
@@ -188,11 +188,12 @@ Item {
                 ctx.clearRect(0, 0, width, height)
                 ctx.fillStyle = ruler.css(Tk.Theme.color.accent)
                 ctx.strokeStyle = ruler.css(Tk.Theme.color.accentText)
-                ctx.lineWidth = 1
+                ctx.lineWidth = Tk.Theme.size.border
                 ctx.beginPath()
                 if (tab) {
-                    ctx.rect(width / 2 - 1, 0, 2, height)
-                    ctx.rect(width / 2 - 1, height - 2, width / 2 + 1, 2)
+                    ctx.rect(width / 2 - Tk.Theme.size.border, 0, Tk.Theme.space.xs, height)
+                    ctx.rect(width / 2 - Tk.Theme.size.border, height - Tk.Theme.space.xs,
+                             width / 2 + Tk.Theme.size.border, Tk.Theme.space.xs)
                 } else if (hanging) {
                     ctx.moveTo(0, 0); ctx.lineTo(width, 0); ctx.lineTo(width / 2, height)
                 } else {
@@ -261,8 +262,10 @@ Item {
     onOriginChanged: canvas.requestPaint()
     onPixelsPerUnitChanged: canvas.requestPaint()
     onScaleChanged: canvas.requestPaint()
+    onOrientationChanged: canvas.requestPaint()
     onMajorEveryChanged: canvas.requestPaint()
     onMinorEveryChanged: canvas.requestPaint()
+    onMinimumMinorSpacingChanged: canvas.requestPaint()
     onLabelsChanged: canvas.requestPaint()
     onUnitChanged: canvas.requestPaint()
     onWidthChanged: canvas.requestPaint()

@@ -65,18 +65,25 @@ TestCase {
     function test_default_data_and_dialog_metrics_follow_density() {
         const column = createTemporaryObject(tableColumnComponent, root)
         const dialog = createTemporaryObject(dialogComponent, root)
-        verify(column && dialog)
+        const ruler = createTemporaryObject(rulerComponent, root)
+        verify(column && dialog && ruler)
         compare(Tk.Density.modeName, "compact")
         compare(column.width, 80)
         compare(column.minWidth, 24)
         compare(dialog.dialogWidth, 420)
         compare(Tk.Theme.size.rulerMarker, 9)
+        compare(ruler.markerSize, 9)
+        compare(ruler.minimumMinorSpacing, 4)
+        compare(ruler.implicitWidth, 200)
         try {
             Tk.Density.modeName = "comfortable"
             compare(column.width, 96)
             compare(column.minWidth, 29)
             compare(dialog.dialogWidth, 504)
             compare(Tk.Theme.size.rulerMarker, 11)
+            compare(ruler.markerSize, 11)
+            compare(ruler.minimumMinorSpacing, 5)
+            compare(ruler.implicitWidth, 240)
         } finally {
             Tk.Density.modeName = "compact"
         }

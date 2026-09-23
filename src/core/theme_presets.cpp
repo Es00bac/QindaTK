@@ -265,7 +265,7 @@ void ThemePresets::installBaseMetrics(Theme &theme)
         {"grip", 10}, {"handle", 14}, {"dropEdge", 28},
         // Intrinsic defaults for data columns and modal dialogs. Callers can
         // still override their widths with document-specific dimensions.
-        {"tableColumn", 80}, {"dialogWidth", 420}, {"rulerMarker", 9},
+        {"tableColumn", 80}, {"dialogWidth", 420}, {"rulerLength", 200}, {"rulerMarker", 9},
         // Telemetry: a sparkline that fits a 22px list row beside its number,
         // a meter the weight of a rule rather than a bar, and the shortest
         // plot in which a 120-sample trace still has a readable shape.

@@ -57,10 +57,12 @@ Components that need a fixed size wrap the container in an `Item`
 itself. QML cannot tell whether an anchor line is set (unset lines are not
 `undefined`), nor whether `width` was set explicitly. **Decision.**
 `LayoutInfo` (C++) reads `QQuickItemPrivate` (`_anchors->usedAnchors()`,
-`widthValid()`, `heightValid()`). It is the only private-API use in the
-toolkit and the only reason for `find_package(Qt6QuickPrivate)`.
-**Consequences.** A Qt release that changes those privates breaks only
-`LayoutInfo`; seating falls back to explicit `fill: false` if needed.
+`widthValid()`, `heightValid()`). At the time of this decision it was the
+only private-API use; D-013 later added `StylusHandler` and made
+`QuickPrivate` a public link dependency. **Consequences.** A Qt release
+that changes these layout privates affects `LayoutInfo`; seating can fall
+back to explicit `fill: false` if needed. Stylus compatibility is a
+separate concern under D-013 and WP-005.
 
 ## D-007 — Metric ladders are `QQmlPropertyMap`s
 

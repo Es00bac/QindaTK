@@ -20,7 +20,9 @@ Build commands are documented in the repository's
 [verification guide](../../verification.md). Follow the user's configured system
 MAKEOPTS unchanged: read `portageq envvar MAKEOPTS` when building; direct builds
 must use equivalent configured job/load limits. Do not reduce them using flags,
-presets, pools or environment variables. This documentation task ran no builds.
+presets, pools or environment variables. The original audit documentation run
+did not build; live integration results are recorded in the
+[execution evidence](../implementation/execution-ledger.md).
 
 ## qtk-preview
 
