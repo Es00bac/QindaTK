@@ -36,6 +36,10 @@ T.Menu {
         clip: true
         currentIndex: menu.currentIndex
         boundsBehavior: Flickable.StopAtBounds
+        onCurrentIndexChanged: {
+            if (currentIndex >= 0)
+                positionViewAtIndex(currentIndex, ListView.Contain)
+        }
 
         T.ScrollBar.vertical: Tk.ScrollBar { }
     }

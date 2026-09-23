@@ -33,8 +33,11 @@ FND-07 through FND-10.
   regressions failed on the old source and passed after repair.
   [Focused evidence](WP-007-FND-09-popover.md).
 - Popup focus entry/return and small-host bounds now have a focused matrix
-  across Menu, Dialog, Popover and CommandPalette. A 2× text palette
-  overflow was reproduced and repaired. [Focused evidence](WP-007-FND-09-focus.md).
+  across Menu, Dialog, Popover and CommandPalette. In a constrained nested
+  Menu, keyboard selection now scrolls the current row into view, Escape
+  returns focus through the parent submenu, and the root menu remains within
+  the host. A 2× text palette overflow was reproduced and repaired.
+  [Focused evidence](WP-007-FND-09-focus.md).
 - `Tk.NumberField` now has reset/default, mixed and invalid-draft semantics
   with user-only change notification and consistent read-only/disabled edit
   gating. [Focused evidence](WP-007-FND-10-numberfield.md).

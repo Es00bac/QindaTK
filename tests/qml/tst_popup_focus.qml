@@ -45,8 +45,20 @@ TestCase {
 
     Tk.Menu {
         id: menu
-        Tk.MenuItem { text: "Parent" }
+        Tk.Menu {
+            id: nestedMenu
+            title: "Parent"
+            Tk.MenuItem { text: "Nested action" }
+            Tk.MenuItem { text: "Another action" }
+        }
         Tk.MenuItem { text: "Other" }
+        Tk.MenuItem { text: "Third" }
+        Tk.MenuItem { text: "Fourth" }
+        Tk.MenuItem { text: "Fifth" }
+        Tk.MenuItem { text: "Sixth" }
+        Tk.MenuItem { text: "Seventh" }
+        Tk.MenuItem { text: "Eighth" }
+        Tk.MenuItem { text: "Ninth" }
     }
 
     function focusOrigin() {
@@ -96,6 +108,54 @@ TestCase {
         keyClick(Qt.Key_Escape)
         tryVerify(function() { return !menu.visible })
         tryVerify(function() { return root.Window.window.activeFocusItem === origin })
+    }
+
+    function test_nested_menu_is_reachable_and_escape_returns_through_parent() {
+        const host = root.Window.window
+        const oldWidth = host.width
+        const oldHeight = host.height
+        try {
+            host.width = 220
+            host.height = 140
+            focusOrigin()
+            menu.popup(160, 88)
+            tryVerify(function() { return menu.opened && menu.width > 0 && menu.height > 0 })
+            verify(menu.x >= 0)
+            verify(menu.y >= 0)
+            verify(menu.x + menu.width <= host.contentItem.width + 0.5)
+            verify(menu.y + menu.height <= host.contentItem.height + 0.5)
+
+            keyClick(Qt.Key_Down)
+            tryVerify(function() { return menu.currentIndex === 0 })
+            keyClick(Qt.Key_Right)
+            tryVerify(function() { return nestedMenu.opened })
+            verify(nestedMenu.width > 0 && nestedMenu.height > 0)
+            const nestedOrigin = nestedMenu.parent.mapToItem(
+                        host.contentItem, nestedMenu.x, nestedMenu.y)
+            verify(nestedOrigin.x >= 0 && nestedOrigin.y >= 0)
+            verify(nestedOrigin.x + nestedMenu.width <= host.contentItem.width + 0.5)
+            verify(nestedOrigin.y + nestedMenu.height <= host.contentItem.height + 0.5)
+            keyClick(Qt.Key_Escape)
+            tryVerify(function() { return !nestedMenu.visible && menu.opened })
+            tryVerify(function() { return menu.currentIndex === 0 })
+            tryVerify(function() {
+                return host.activeFocusItem && host.activeFocusItem.text === "Parent"
+            })
+
+            for (let index = 0; index < menu.count - 1; ++index)
+                keyClick(Qt.Key_Down)
+            tryVerify(function() { return menu.currentIndex === menu.count - 1 })
+            verify(menu.contentItem.contentY > 0)
+
+            keyClick(Qt.Key_Escape)
+            tryVerify(function() { return !menu.visible })
+            tryVerify(function() { return host.activeFocusItem === origin })
+        } finally {
+            nestedMenu.close()
+            menu.close()
+            host.width = oldWidth
+            host.height = oldHeight
+        }
     }
 
     function test_small_host_keeps_modal_popup_reachable() {
