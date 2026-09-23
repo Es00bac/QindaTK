@@ -24,6 +24,17 @@ inspector panel whose body scrolls a section header and a two-column
 - Run: `qtk-preview examples/smoke/Main.qml --dump`
 - Exercises: `Flex`, `Box`, `Panel`, `Scroll`, `Grid`, `Island`,
   `SectionHeader`, `Divider`, `IconButton`, `Caption`, `Mono`, `Label`
+
+## layout-diagnostics
+
+A focused geometry scene for the WP-006 layout and scrolling work. Stable
+object names in its dump cover baseline alignment, intrinsic wrapping, invalid
+Grid syntax, RTL mirroring, per-side Box edges, and nested Scroll viewports.
+The companion [WP-006 diagnostic report](../docs/universal-toolkit/implementation/evidence/WP-006-diagnostics.md)
+records the current observations and unresolved contracts.
+
+- Run: `qtk-preview examples/layout-diagnostics/Main.qml --dump --size 960x760`
+- Screenshot: `qtk-preview examples/layout-diagnostics/Main.qml --grab out.png --size 960x760`
 - Screenshot: [docs/screenshots/smoke.png](../docs/screenshots/smoke.png),
   [smoke-light-comfortable.png](../docs/screenshots/smoke-light-comfortable.png),
   [smoke-qinda-dark.png](../docs/screenshots/smoke-qinda-dark.png) (desktop theme via `--qst`)
@@ -102,4 +113,3 @@ rename). This is the shape the QindaQt office suite's windows take.
 - Exercises: `AppWindow`, `MenuBar`/`Menu`/`MenuItem { radio }`, `ToolBar { wrap }`,
   `ColorButton`, `Viewport`, `ZoomControl`, `Island`, `Stack`, `StatusBar`,
   `MessageDialog`, `PromptDialog`
-
