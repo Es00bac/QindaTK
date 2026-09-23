@@ -369,12 +369,20 @@ TestCase {
 
     function test_slider_keyboard() {
         const item = make(slider)
+        compare(item.Accessible.name, "Value")
         spy.target = item
         spy.signalName = "valueModified"
         spy.clear()
+        item.value = 7
+        compare(spy.count, 0)
+        compare(item.Accessible.description, "7")
         item.forceActiveFocus()
         keyClick(Qt.Key_Right)
-        compare(item.value, 6)
+        compare(item.value, 8)
+        compare(spy.count, 1)
+        item.enabled = false
+        keyClick(Qt.Key_Right)
+        compare(item.value, 8)
         compare(spy.count, 1)
     }
 

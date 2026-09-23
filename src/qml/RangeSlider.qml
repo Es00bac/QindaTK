@@ -23,6 +23,35 @@ T.RangeSlider {
     property string suffix: ""
     property bool small: false
     property string tooltip: ""
+    property bool _keyboardFirstHandle: false
+
+    // The range is one tab stop: arrows adjust its upper end, Shift+arrows
+    // adjust its lower end. This keeps normal Tab traversal intact while both
+    // values remain operable without a pointer.
+    function _adjustKeyboardHandle(delta, lower) {
+        if (!control.enabled) {
+            return
+        }
+        const step = control.stepSize > 0 ? control.stepSize
+                                          : Math.max((control.to - control.from) / 100, 1)
+        if (lower) {
+            const value = Math.max(control.from,
+                                   Math.min(control.second.value,
+                                            control.first.value + delta * step))
+            if (value !== control.first.value) {
+                control.first.value = value
+                control.rangeModified(control.first.value, control.second.value)
+            }
+        } else {
+            const value = Math.max(control.first.value,
+                                   Math.min(control.to,
+                                            control.second.value + delta * step))
+            if (value !== control.second.value) {
+                control.second.value = value
+                control.rangeModified(control.first.value, control.second.value)
+            }
+        }
+    }
 
     signal rangeModified(real first, real second)
 
@@ -43,13 +72,76 @@ T.RangeSlider {
     padding: 0
     rightPadding: showValues ? valueText.implicitWidth + Tk.Theme.space.sm : 0
     hoverEnabled: true
+    focusPolicy: Qt.StrongFocus
     opacity: enabled ? 1.0 : Tk.Theme.opacity.disabled
 
-    first.onMoved: control.rangeModified(control.first.value, control.second.value)
-    second.onMoved: control.rangeModified(control.first.value, control.second.value)
+    first.onMoved: {
+        control._keyboardFirstHandle = true
+        control.rangeModified(control.first.value, control.second.value)
+    }
+    second.onMoved: {
+        control._keyboardFirstHandle = false
+        control.rangeModified(control.first.value, control.second.value)
+    }
 
     Accessible.role: Accessible.Slider
-    Accessible.name: control.tooltip
+    Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Range slider")
+    Accessible.description: qsTr("From %1 to %2. Left and Right change the upper value; Shift+Left and Shift+Right change the lower value.")
+                             .arg(control.first.value).arg(control.second.value)
+    Accessible.focusable: control.enabled
+    Accessible.focused: control.activeFocus
+    Accessible.onIncreaseAction: control._adjustKeyboardHandle(1, false)
+    Accessible.onDecreaseAction: control._adjustKeyboardHandle(-1, false)
+
+    Keys.onPressed: function(event) {
+        if (!control.enabled) {
+            return
+        }
+        switch (event.key) {
+        case Qt.Key_Left:
+            control._keyboardFirstHandle = (event.modifiers & Qt.ShiftModifier) !== 0
+            control._adjustKeyboardHandle(-1, control._keyboardFirstHandle)
+            event.accepted = true
+            break
+        case Qt.Key_Right:
+            control._keyboardFirstHandle = (event.modifiers & Qt.ShiftModifier) !== 0
+            control._adjustKeyboardHandle(1, control._keyboardFirstHandle)
+            event.accepted = true
+            break
+        case Qt.Key_Home:
+            if (event.modifiers & Qt.ShiftModifier) {
+                control._keyboardFirstHandle = true
+                if (control.first.value !== control.from) {
+                    control.first.value = control.from
+                    control.rangeModified(control.first.value, control.second.value)
+                }
+            } else {
+                control._keyboardFirstHandle = false
+                if (control.second.value !== control.first.value) {
+                    control.second.value = control.first.value
+                    control.rangeModified(control.first.value, control.second.value)
+                }
+            }
+            event.accepted = true
+            break
+        case Qt.Key_End:
+            if (event.modifiers & Qt.ShiftModifier) {
+                control._keyboardFirstHandle = true
+                if (control.first.value !== control.second.value) {
+                    control.first.value = control.second.value
+                    control.rangeModified(control.first.value, control.second.value)
+                }
+            } else {
+                control._keyboardFirstHandle = false
+                if (control.second.value !== control.to) {
+                    control.second.value = control.to
+                    control.rangeModified(control.first.value, control.second.value)
+                }
+            }
+            event.accepted = true
+            break
+        }
+    }
 
     Tk.ToolTip {
         text: control.tooltip
@@ -95,6 +187,17 @@ T.RangeSlider {
         border.width: Tk.Theme.size.border
         border.color: control.first.pressed || control.first.hovered
                       ? Tk.Theme.color.accent : Tk.Theme.color.controlBorder
+
+        Rectangle {
+            objectName: "rangeSliderFirstFocus"
+            anchors.fill: parent
+            anchors.margins: -Tk.Theme.size.focusRing
+            radius: width / 2
+            color: "transparent"
+            border.width: Tk.Theme.size.focusRing
+            border.color: Tk.Theme.color.focus
+            visible: control.activeFocus && control._keyboardFirstHandle
+        }
     }
 
     second.handle: Rectangle {
@@ -109,6 +212,17 @@ T.RangeSlider {
         border.width: Tk.Theme.size.border
         border.color: control.second.pressed || control.second.hovered
                       ? Tk.Theme.color.accent : Tk.Theme.color.controlBorder
+
+        Rectangle {
+            objectName: "rangeSliderSecondFocus"
+            anchors.fill: parent
+            anchors.margins: -Tk.Theme.size.focusRing
+            radius: width / 2
+            color: "transparent"
+            border.width: Tk.Theme.size.focusRing
+            border.color: Tk.Theme.color.focus
+            visible: control.activeFocus && !control._keyboardFirstHandle
+        }
     }
 
     Tk.Mono {

@@ -4580,7 +4580,9 @@
       "objectNames": [
         "rangeSlider",
         "rangeSliderBand",
+        "rangeSliderFirstFocus",
         "rangeSliderFirstHandle",
+        "rangeSliderSecondFocus",
         "rangeSliderSecondHandle",
         "rangeSliderTrack",
         "rangeSliderValue"

@@ -209,6 +209,37 @@ TestCase {
         verify(band.x + band.width < track.width)
     }
 
+    function test_rangeSliderHasKeyboardFocusAndAccessibleName() {
+        const range = createTemporaryObject(rangeComponent, root)
+        verify(range)
+        compare(range.Accessible.name, "Range slider")
+        range.first.value = 64
+        range.second.value = 192
+        range.stepSize = 1
+        const spy = signalSpyComponent.createObject(root,
+            { target: range, signalName: "rangeModified" })
+        verify(spy)
+        range.first.value = 80
+        compare(spy.count, 0)
+        range.first.value = 64
+        range.forceActiveFocus()
+        verify(range.activeFocus)
+        verify(findChild(range, "rangeSliderSecondFocus").visible)
+        keyClick(Qt.Key_Right)
+        compare(range.second.value, 193)
+        compare(spy.count, 1)
+        keyClick(Qt.Key_Right, Qt.ShiftModifier)
+        compare(range.first.value, 65)
+        compare(spy.count, 2)
+        verify(findChild(range, "rangeSliderFirstFocus").visible)
+        compare(range.Accessible.description.indexOf("From 65 to 193"), 0)
+        range.enabled = false
+        keyClick(Qt.Key_Right)
+        compare(range.second.value, 193)
+        compare(spy.count, 2)
+        spy.destroy()
+    }
+
     function test_keyCapSplitsASequence() {
         const cap = createTemporaryObject(keyCapComponent, root)
         verify(cap)

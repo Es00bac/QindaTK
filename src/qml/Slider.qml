@@ -36,7 +36,8 @@ T.Slider {
     onMoved: control.valueModified(control.value)
 
     Accessible.role: Accessible.Slider
-    Accessible.name: control.tooltip
+    Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Value")
+    Accessible.description: control.readout
 
     Tk.ToolTip {
         text: control.tooltip
