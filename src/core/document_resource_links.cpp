@@ -25,6 +25,14 @@ bool validHash(const QByteArray &value)
 
 DocumentResourceLinks::DocumentResourceLinks(QObject *parent) : QObject(parent) {}
 
+DocumentResourceLinks::~DocumentResourceLinks()
+{
+    if (m_resolver) {
+        for (const Link &link : m_links)
+            m_resolver->removeResource(link.resourceId);
+    }
+}
+
 QVariantList DocumentResourceLinks::manifest() const
 {
     QVariantList result;
@@ -57,6 +65,10 @@ void DocumentResourceLinks::setDocument(PropertyDocument *document)
                 &DocumentResourceLinks::onPropertyChanged);
         connect(document, &QObject::destroyed, this, [this] {
             m_document = nullptr;
+            if (m_resolver) {
+                for (const Link &link : m_links)
+                    m_resolver->removeResource(link.resourceId);
+            }
             emit changed();
         });
     }
@@ -74,6 +86,10 @@ void DocumentResourceLinks::setUndoService(UndoService *undo)
 void DocumentResourceLinks::setResolver(ResourceResolver *resolver)
 {
     if (m_resolver == resolver) return;
+    if (m_resolver) {
+        for (const Link &link : m_links)
+            m_resolver->removeResource(link.resourceId);
+    }
     m_resolver = resolver;
     synchronizeResolver();
     emit changed();

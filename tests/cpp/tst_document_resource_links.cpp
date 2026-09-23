@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <memory>
 
 using namespace QindaTK;
 
@@ -200,6 +201,31 @@ private slots:
 
         links.setDocument(nullptr);
         QVERIFY(resolver.lookup(resourceId).isEmpty());
+    }
+
+    void destroyedDocumentRetiresRegisteredMapping()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = writeFile(dir.filePath(QStringLiteral("closing.wav")),
+                                       QByteArrayLiteral("media"));
+        QVERIFY(!path.isEmpty());
+        ResourceResolver resolver;
+        DocumentResourceLinks links;
+        links.setResolver(&resolver);
+        const QString resourceId = QStringLiteral("asset:closing");
+        {
+            auto document = std::make_unique<PropertyDocument>();
+            defineSchema(*document);
+            const EntityId entity = EntityId::create();
+            QVERIFY(document->addEntity(entity, {{QStringLiteral("uri"), path}}));
+            links.setDocument(document.get());
+            links.setManifest({QVariantMap{{QStringLiteral("resourceId"), resourceId},
+                                           {QStringLiteral("entityId"), entity.toString()}}});
+            QCOMPARE(resolver.lookup(resourceId).value(QStringLiteral("uri")).toString(), path);
+        }
+        QVERIFY(resolver.lookup(resourceId).isEmpty());
+        QVERIFY(links.document() == nullptr);
     }
 };
 

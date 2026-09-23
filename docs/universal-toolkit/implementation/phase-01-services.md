@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution beginning.** WP-010 through WP-014 are accepted; WP-015 is active. Other
+**Execution beginning.** WP-010 through WP-015 are accepted; WP-016 is active. Other
 packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
@@ -123,7 +123,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-015"></a>
 ## WP-015 — Implement asynchronous jobs and asset services
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-013](phase-01-services.md#wp-013)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-015.md). **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-013](phase-01-services.md#wp-013)
 
 **Proposal scope:** [APP-13 JobModel](../proposed/01-application-services.md#app-13), [APP-14 AssetProvider](../proposed/01-application-services.md#app-14), [APP-19 ResourceResolver](../proposed/01-application-services.md#app-19)
 
@@ -142,7 +142,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-016"></a>
 ## WP-016 — Implement clipboard and drag/drop protocols
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015)
 
 **Proposal scope:** [APP-15 ClipboardService](../proposed/01-application-services.md#app-15), [APP-16 DragDropService](../proposed/01-application-services.md#app-16)
 

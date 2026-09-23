@@ -123,6 +123,34 @@ private slots:
         QCOMPARE(after.value(QStringLiteral("revision")), before.value(QStringLiteral("revision")));
     }
 
+    void committedMappingCanRestoreMissingOriginalWithoutChangingBaseline()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QByteArray payload("shared media");
+        const QString oldPath = writeFile(dir.filePath(QStringLiteral("old.bin")), payload);
+        const QString newPath = writeFile(dir.filePath(QStringLiteral("new.bin")), payload);
+        ResourceResolver resolver;
+        QVERIFY(resolver.registerResource(QStringLiteral("asset:shared"), oldPath,
+                                          hash(payload)));
+        QVERIFY(resolver.relink(QStringLiteral("asset:shared"), newPath));
+        QVERIFY(QFile::remove(oldPath));
+        const QVariantMap before = resolver.lookup(QStringLiteral("asset:shared"));
+        QVERIFY(resolver.restoreMapping(QStringLiteral("asset:shared"), oldPath));
+        const QVariantMap restored = resolver.lookup(QStringLiteral("asset:shared"));
+        QCOMPARE(restored.value(QStringLiteral("uri")).toString(), oldPath);
+        QCOMPARE(restored.value(QStringLiteral("availability")).toString(),
+                 QStringLiteral("missing"));
+        QCOMPARE(restored.value(QStringLiteral("expectedSha256")),
+                 before.value(QStringLiteral("expectedSha256")));
+        QVERIFY(restored.value(QStringLiteral("revision")).toULongLong()
+                > before.value(QStringLiteral("revision")).toULongLong());
+        QVERIFY(!resolver.restoreMapping(QStringLiteral("asset:shared"),
+                                         QStringLiteral("https://example.invalid/media")));
+        QCOMPARE(resolver.lookup(QStringLiteral("asset:shared")).value(
+                     QStringLiteral("uri")).toString(), oldPath);
+    }
+
     void batchSearchOffersExactHashProposalsWithoutMutation()
     {
         QTemporaryDir dir;

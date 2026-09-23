@@ -95,6 +95,429 @@
       ]
     },
     {
+      "name": "AssetFilmstrip",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The outgoing head and incoming tail frame. Frame extraction is supplied by an injected AssetBackend; the default file backend reports Unsupported.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AssetFilmstrip.qml",
+      "properties": [
+        {
+          "name": "provider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headTimeTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tailTimeTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rateNumerator",
+          "type": "string",
+          "default": "\"1\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rateDenominator",
+          "type": "string",
+          "default": "\"1\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "crop",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameSize",
+          "type": "var",
+          "default": "({width: Tk.Theme.size.thumbnail,",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetState",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetError",
+          "type": "string",
+          "default": "head.assetError.length > 0 ? head.assetError : tail.assetError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "assetFilmstrip",
+        "assetFilmstripFrames",
+        "assetFilmstripHead",
+        "assetFilmstripTail"
+      ]
+    },
+    {
+      "name": "AssetThumbnail",
+      "kind": "qml",
+      "base": "Tk.Thumbnail",
+      "description": "A Thumbnail whose image lifetime is owned by AssetProvider. The adapter keeps the base tile's fixed geometry while the request loads or fails.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AssetThumbnail.qml",
+      "properties": [
+        {
+          "name": "provider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestKind",
+          "type": "string",
+          "default": "\"thumbnail\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestOptions",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "default": "_subscriptionId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetState",
+          "type": "string",
+          "default": "_assetSnapshot.state || \"idle\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetData",
+          "type": "var",
+          "default": "_assetSnapshot.data || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetError",
+          "type": "string",
+          "default": "_assetSnapshot.error || \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "releaseCurrent",
+          "parameters": ""
+        },
+        {
+          "name": "readSnapshot",
+          "parameters": ""
+        },
+        {
+          "name": "refresh",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "assetThumbnail"
+      ]
+    },
+    {
+      "name": "AssetWaveform",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Requests width-reduced peaks and forwards only provider data to Waveform.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AssetWaveform.qml",
+      "properties": [
+        {
+          "name": "provider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestOptions",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "default": "Tk.Theme.color.info",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showCentreLine",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "subscriptionId",
+          "type": "string",
+          "default": "_subscriptionId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetState",
+          "type": "string",
+          "default": "_assetSnapshot.state || \"idle\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetData",
+          "type": "var",
+          "default": "_assetSnapshot.data || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetError",
+          "type": "string",
+          "default": "_assetSnapshot.error || \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "peaks",
+          "type": "var",
+          "default": "root.assetState === \"ready\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "releaseCurrent",
+          "parameters": ""
+        },
+        {
+          "name": "readSnapshot",
+          "parameters": ""
+        },
+        {
+          "name": "refresh",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "assetWaveform",
+        "assetWaveformDisplay",
+        "assetWaveformStatus"
+      ]
+    },
+    {
       "name": "Badge",
       "kind": "qml",
       "base": "Rectangle",
@@ -7491,6 +7914,108 @@
       ]
     },
     {
+      "name": "AssetProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/asset_provider.h",
+      "properties": [
+        {
+          "name": "resolver",
+          "type": "QindaTK::ResourceResolver *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "jobs",
+          "type": "QindaTK::JobModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "cacheBudgetBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "cacheBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "inFlightCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "subscriptionCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "requestAsset",
+          "returns": "QString",
+          "parameters": "const QString &resourceId, const QString &kind, const QVariantMap &options = {}, PropertyDocument *document = nullptr, const QString &viewId = {}"
+        },
+        {
+          "name": "release",
+          "returns": "bool",
+          "parameters": "const QString &subscriptionId"
+        },
+        {
+          "name": "asset",
+          "returns": "QVariantMap",
+          "parameters": "const QString &subscriptionId"
+        },
+        {
+          "name": "invalidateView",
+          "returns": "void",
+          "parameters": "const QString &viewId"
+        },
+        {
+          "name": "invalidateResource",
+          "returns": "void",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "clearCache",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CapabilityBinding",
       "kind": "cpp",
       "base": "QObject",
@@ -8269,6 +8794,74 @@
           "name": "requestSaveAll",
           "returns": "bool",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "DocumentResourceLinks",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Joins a document's logical resource manifest to the runtime URI resolver. The document owns URI values and undo history; the manifest owns expected hashes. Consumer entities retain only the shared logical resource ID.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/document_resource_links.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::PropertyDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "resolver",
+          "type": "QindaTK::ResourceResolver *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "manifest",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "relink",
+          "returns": "bool",
+          "parameters": "const QString &resourceId, const QString &newUri, const QString &expectedRevision"
+        },
+        {
+          "name": "resource",
+          "returns": "QVariantMap",
+          "parameters": "const QString &resourceId"
         }
       ],
       "enums": {},
@@ -9425,6 +10018,89 @@
       "bridge": false
     },
     {
+      "name": "JobModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "GUI-thread observable queue. Workers receive only copied JobWork inputs and a cancellation token; no worker callback may touch a live QObject.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/job_model.h",
+      "properties": [
+        {
+          "name": "maxConcurrent",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maxQueued",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "runningCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "queuedCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "cancelJob",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "invalidateView",
+          "returns": "void",
+          "parameters": "const QString &viewId"
+        },
+        {
+          "name": "invalidateDocument",
+          "returns": "void",
+          "parameters": "const QString &documentId"
+        },
+        {
+          "name": "job",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "clearFinished",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "LayoutInfo",
       "kind": "cpp",
       "base": "QObject",
@@ -9866,6 +10542,93 @@
           "name": "discardId",
           "returns": "bool",
           "parameters": "const QString &documentId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ResourceResolver",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Maps stable logical resource identities to external or embedded resources. Document commands own reference edits; this resolver only changes locations.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/resource_resolver.h",
+      "properties": [
+        {
+          "name": "resources",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "registerResource",
+          "returns": "bool",
+          "parameters": "const QString &resourceId, const QString &uri, const QByteArray &expectedSha256 = {}, const QString &origin = QStringLiteral(\"external\""
+        },
+        {
+          "name": "lookup",
+          "returns": "QVariantMap",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "resolve",
+          "returns": "QVariantMap",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "refresh",
+          "returns": "bool",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "refreshAsync",
+          "returns": "QString",
+          "parameters": "JobModel *jobs, const QString &resourceId"
+        },
+        {
+          "name": "relink",
+          "returns": "bool",
+          "parameters": "const QString &resourceId, const QString &newUri"
+        },
+        {
+          "name": "restoreMapping",
+          "returns": "bool",
+          "parameters": "const QString &resourceId, const QString &uri"
+        },
+        {
+          "name": "proposeRelinks",
+          "returns": "QVariantList",
+          "parameters": "const QStringList &resourceIds, const QStringList &candidateUris"
+        },
+        {
+          "name": "proposeRelinksAsync",
+          "returns": "QString",
+          "parameters": "JobModel *jobs, const QStringList &resourceIds, const QStringList &candidateUris"
+        },
+        {
+          "name": "removeResource",
+          "returns": "bool",
+          "parameters": "const QString &resourceId"
         }
       ],
       "enums": {},

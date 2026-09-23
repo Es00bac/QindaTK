@@ -82,7 +82,8 @@ bool ResourceResolver::localPath(const QString &uri, QString *path)
 
 OperationError ResourceResolver::inspectExternal(const QString &uri,
                                                   QByteArray *hash,
-                                                  bool *exists)
+                                                  bool *exists,
+                                                  const CancellationToken *cancel)
 {
     QString path;
     if (!localPath(uri, &path))
@@ -104,6 +105,9 @@ OperationError ResourceResolver::inspectExternal(const QString &uri,
 
     QCryptographicHash digest(QCryptographicHash::Sha256);
     while (!file.atEnd()) {
+        if (cancel && cancel->isCancelled())
+            return {ErrorCode::Cancelled, QStringLiteral("Hashing cancelled"),
+                    QStringLiteral("uri"), {}};
         const QByteArray chunk = file.read(HashChunkBytes);
         if (chunk.isEmpty() && file.error() != QFileDevice::NoError)
             return {ErrorCode::BackendFailure, file.errorString(),
@@ -307,6 +311,43 @@ bool ResourceResolver::relink(const QString &resourceId, const QString &newUri)
     emit changed();
     emit resourceChanged(resourceId);
     emit relinked(resourceId, oldUri, newUri);
+    return true;
+}
+
+bool ResourceResolver::restoreMapping(const QString &resourceId, const QString &uri)
+{
+    clearError();
+    auto it = m_entries.find(resourceId);
+    if (it == m_entries.end())
+        return fail(ErrorCode::Unavailable,
+                    QStringLiteral("The logical resource ID is not registered."),
+                    QStringLiteral("resourceId"));
+    if (it->origin != Origin::External)
+        return fail(ErrorCode::Unsupported,
+                    QStringLiteral("Embedded resources cannot use external mappings."),
+                    QStringLiteral("resourceId"));
+    QString path;
+    if (uri.trimmed().isEmpty() || !localPath(uri, &path))
+        return fail(ErrorCode::InvalidArgument,
+                    QStringLiteral("A local path or file URI is required."),
+                    QStringLiteral("uri"));
+
+    QByteArray observed;
+    bool exists = false;
+    const OperationError error = inspectExternal(uri, &observed, &exists);
+    // A committed document can point at media that has since disappeared or
+    // become inaccessible. Preserve its mapping and expose missing status.
+    const QString oldUri = it->uri;
+    it->uri = uri;
+    it->currentHash = exists && !error ? observed : QByteArray{};
+    it->availability = !exists || error ? Availability::Missing
+        : (it->expectedHash.isEmpty() || it->expectedHash == observed
+            ? Availability::Ready : Availability::Modified);
+    ++it->revision; // Invalidate older async results, including URI ABA cycles.
+    emit changed();
+    emit resourceChanged(resourceId);
+    if (oldUri != uri)
+        emit relinked(resourceId, oldUri, uri);
     return true;
 }
 

@@ -11,6 +11,7 @@
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
+class JobModel;
 
 // Maps stable logical resource identities to external or embedded resources.
 // Document commands own reference edits; this resolver only changes locations.
@@ -40,11 +41,21 @@ public:
     Q_INVOKABLE QVariantMap lookup(const QString &resourceId);
     Q_INVOKABLE QVariantMap resolve(const QString &resourceId);
     Q_INVOKABLE bool refresh(const QString &resourceId);
+    // Hashing runs through a bounded JobModel worker. The returned job ID is
+    // inspectable through JobModel; stale URI/revision results are ignored.
+    Q_INVOKABLE QString refreshAsync(JobModel *jobs, const QString &resourceId);
     // Relinking validates the destination before changing the ID-to-URI map.
     Q_INVOKABLE bool relink(const QString &resourceId, const QString &newUri);
+    // Project a committed document mapping during undo/redo. A missing local
+    // file is valid here: the document URI is authoritative, while availability
+    // remains inspectable. The expected content hash is never rewritten.
+    Q_INVOKABLE bool restoreMapping(const QString &resourceId, const QString &uri);
     // Returns exact content-hash matches only. Results are proposals; no mapping
     // changes until relink() is called explicitly.
     Q_INVOKABLE QVariantList proposeRelinks(const QStringList &resourceIds,
+                                            const QStringList &candidateUris);
+    Q_INVOKABLE QString proposeRelinksAsync(JobModel *jobs,
+                                            const QStringList &resourceIds,
                                             const QStringList &candidateUris);
     Q_INVOKABLE bool removeResource(const QString &resourceId);
 
@@ -70,7 +81,8 @@ private:
     static QString availabilityName(Availability availability);
     static QString originName(Origin origin);
     static OperationError inspectExternal(const QString &uri, QByteArray *hash,
-                                          bool *exists);
+                                          bool *exists,
+                                          const CancellationToken *cancel = nullptr);
     static bool localPath(const QString &uri, QString *path);
     QVariantMap entryMap(const Entry &entry) const;
     bool refreshEntry(Entry *entry, bool *changed);

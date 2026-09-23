@@ -23,6 +23,7 @@ class DocumentResourceLinks : public QObject {
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
 public:
     explicit DocumentResourceLinks(QObject *parent = nullptr);
+    ~DocumentResourceLinks() override;
     PropertyDocument *document() const { return m_document; }
     UndoService *undoService() const { return m_undo; }
     ResourceResolver *resolver() const { return m_resolver; }

@@ -290,11 +290,27 @@ private slots:
 
         QVERIFY(resolver.relink(QStringLiteral("asset:relink"), replacementPath));
         QCOMPARE(provider.cacheBytes(), 0);
+        QCOMPARE(state(provider, first), QStringLiteral("stale"));
+        QVERIFY(provider.asset(first).value(QStringLiteral("data")).toMap().isEmpty());
         const QString second = provider.requestAsset(QStringLiteral("asset:relink"),
                                                      QStringLiteral("thumbnail"));
         QTRY_COMPARE_WITH_TIMEOUT(state(provider, second), QStringLiteral("ready"), 5000);
         QCOMPARE(backend->calls(), 2);
         QCOMPARE(backend->uris(), QStringList({originalPath, replacementPath}));
+    }
+
+    void replacingBackendInvalidatesReadySubscription()
+    {
+        AssetProvider provider;
+        auto oldBackend = std::make_shared<FakeAssetBackend>();
+        provider.setBackend(oldBackend);
+        const AssetRequest request = requestFor(QStringLiteral("asset:backend"),
+                                                QStringLiteral("backend.bin"));
+        const QString oldId = provider.request(request);
+        QTRY_COMPARE_WITH_TIMEOUT(state(provider, oldId), QStringLiteral("ready"), 5000);
+        provider.setBackend(std::make_shared<FakeAssetBackend>());
+        QCOMPARE(state(provider, oldId), QStringLiteral("stale"));
+        QVERIFY(provider.asset(oldId).value(QStringLiteral("data")).toMap().isEmpty());
     }
 
     void backendFailureAndMissingResourceHaveDistinctStates()
