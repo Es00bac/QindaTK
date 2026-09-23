@@ -30,11 +30,13 @@ Item {
 
     implicitWidth: row.implicitWidth
     implicitHeight: Tk.Theme.size.tab
-    activeFocusOnTab: true
+    opacity: enabled ? 1.0 : Tk.Theme.opacity.disabled
 
     Accessible.role: Accessible.PageTabList
+    Accessible.name: qsTr("Tabs")
 
     function entry(index) {
+        if (index < 0 || index >= strip.count) return null
         const raw = strip.model[index]
         if (typeof raw === "string") {
             return { "text": raw, "iconName": "", "closable": strip.closable, "tooltip": "" }
@@ -43,7 +45,8 @@ Item {
             "text": raw.text !== undefined ? raw.text : "",
             "iconName": raw.iconName !== undefined ? raw.iconName : "",
             "closable": raw.closable !== undefined ? raw.closable : strip.closable,
-            "tooltip": raw.tooltip !== undefined ? raw.tooltip : ""
+            "tooltip": raw.tooltip !== undefined ? raw.tooltip : "",
+            "enabled": raw.enabled !== false
         }
     }
 
@@ -53,15 +56,30 @@ Item {
         return tabs.itemAt(index)
     }
     function activate(index) {
-        if (index < 0 || index >= strip.count) {
+        const item = strip.entry(index)
+        if (!strip.enabled || item === null || item.enabled === false) {
             return
         }
         strip.currentIndex = index
         strip.tabActivated(index)
     }
 
-    Keys.onLeftPressed: strip.activate(Math.max(0, strip.currentIndex - 1))
-    Keys.onRightPressed: strip.activate(Math.min(strip.count - 1, strip.currentIndex + 1))
+    function move(from, direction, boundary) {
+        const start = boundary === "first" ? 0
+                    : boundary === "last" ? strip.count - 1 : from + direction
+        const step = boundary === "first" ? 1 : boundary === "last" ? -1 : direction
+        for (let index = start; index >= 0 && index < strip.count; index += step) {
+            const item = strip.entry(index)
+            if (strip.enabled && item !== null && item.enabled !== false) {
+                strip.activate(index)
+                const tab = tabs.itemAt(index)
+                if (tab !== null) tab.forceActiveFocus(Qt.TabFocusReason)
+                return
+            }
+        }
+    }
+
+    Accessible.focusable: false
 
     Rectangle {
         // The baseline under an underline strip; the active underline sits on it.
@@ -99,7 +117,10 @@ Item {
                 checked: current
                 checkable: false
                 hoverEnabled: true
-                focusPolicy: Qt.NoFocus
+                focusPolicy: Qt.TabFocus
+                enabled: strip.enabled && tab.entry !== null && tab.entry.enabled !== false
+                opacity: strip.enabled && tab.entry.enabled === false
+                         ? Tk.Theme.opacity.disabled : 1.0
                 text: tab.entry.text
 
                 Tk.ToolTip {
@@ -107,9 +128,23 @@ Item {
                     visible: tab.entry.tooltip.length > 0 && tab.hovered
                     delay: 600
                 }
+                Accessible.role: Accessible.PageTab
                 Accessible.name: tab.entry.text
+                Accessible.description: tab.entry.tooltip
+                Accessible.selected: current
+                Accessible.focusable: enabled
+                Accessible.focused: activeFocus
+                Accessible.onPressAction: strip.activate(index)
 
                 onClicked: strip.activate(index)
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Left) strip.move(index, -1, "")
+                    else if (event.key === Qt.Key_Right) strip.move(index, 1, "")
+                    else if (event.key === Qt.Key_Home) strip.move(index, 1, "first")
+                    else if (event.key === Qt.Key_End) strip.move(index, -1, "last")
+                    else return
+                    event.accepted = true
+                }
 
                 background: Item {
                     Rectangle {
@@ -127,6 +162,14 @@ Item {
                         anchors.bottom: parent.bottom
                         height: 2
                         color: Tk.Theme.color.accent
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: -Tk.Theme.size.focusRing
+                        color: "transparent"
+                        border.width: Tk.Theme.size.focusRing
+                        border.color: Tk.Theme.color.focus
+                        visible: tab.visualFocus && tab.enabled
                     }
                 }
 

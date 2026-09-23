@@ -4072,8 +4072,16 @@
           "parameters": "index"
         },
         {
+          "name": "isEntryEnabled",
+          "parameters": "index"
+        },
+        {
           "name": "move",
           "parameters": "from, amount"
+        },
+        {
+          "name": "moveToBoundary",
+          "parameters": "direction"
         },
         {
           "name": "itemAt",
@@ -5126,8 +5134,8 @@
         },
         {
           "name": "enabled_",
-          "type": "bool",
-          "default": "true",
+          "type": "alias",
+          "default": "control.enabled",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -5159,6 +5167,18 @@
         {
           "name": "entry",
           "parameters": "index"
+        },
+        {
+          "name": "isEntryEnabled",
+          "parameters": "index"
+        },
+        {
+          "name": "activate",
+          "parameters": "index"
+        },
+        {
+          "name": "move",
+          "parameters": "from, direction"
         }
       ],
       "enums": {},
@@ -5735,6 +5755,10 @@
         {
           "name": "activate",
           "parameters": "index"
+        },
+        {
+          "name": "move",
+          "parameters": "from, direction, boundary"
         }
       ],
       "enums": {},

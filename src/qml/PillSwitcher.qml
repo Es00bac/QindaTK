@@ -37,22 +37,40 @@ Item {
     }
 
     function activate(index) {
-        if (index < 0 || index >= control.count) {
+        if (!control.isEntryEnabled(index) || index === control.currentIndex) {
             return
         }
         control.currentIndex = index
         control.activated(index, control.currentValue)
     }
 
+    function isEntryEnabled(index) {
+        const item = control.entry(index)
+        return control.enabled && item !== null && item.enabled !== false
+    }
+
     function move(from, amount) {
-        if (control.count < 1) {
-            return
+        for (let step = 1; step <= control.count; ++step) {
+            const next = (from + amount * step + control.count * 2) % control.count
+            if (control.isEntryEnabled(next)) {
+                control.activate(next)
+                const item = segments.itemAt(next)
+                if (item !== null) item.forceActiveFocus(Qt.TabFocusReason)
+                return
+            }
         }
-        const next = (from + amount + control.count) % control.count
-        control.activate(next)
-        const item = segments.itemAt(next)
-        if (item !== null) {
-            item.forceActiveFocus(Qt.TabFocusReason)
+    }
+
+    function moveToBoundary(direction) {
+        const start = direction > 0 ? 0 : control.count - 1
+        for (let step = 0; step < control.count; ++step) {
+            const next = start + direction * step
+            if (control.isEntryEnabled(next)) {
+                control.activate(next)
+                const item = segments.itemAt(next)
+                if (item !== null) item.forceActiveFocus(Qt.TabFocusReason)
+                return
+            }
         }
     }
 
@@ -62,9 +80,10 @@ Item {
 
     implicitWidth: row.implicitWidth + Tk.Theme.space.xs * 2
     implicitHeight: control.itemHeight + Tk.Theme.space.xs * 2
+    opacity: enabled ? 1.0 : Tk.Theme.opacity.disabled
 
     Accessible.role: Accessible.PageTabList
-    Accessible.name: control.tooltip
+    Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Selection")
 
     Tk.ToolTip {
         text: control.tooltip
@@ -105,6 +124,9 @@ Item {
                             && entry.objectName.length > 0
                             ? entry.objectName : "pillSwitcherItem_" + index
                 text: entry !== null && entry.text !== undefined ? entry.text : ""
+                enabled: control.isEntryEnabled(index)
+                opacity: control.enabled && entry !== null && entry.enabled === false
+                         ? Tk.Theme.opacity.disabled : 1.0
                 checkable: true
                 checked: selected
                 hoverEnabled: true
@@ -119,7 +141,11 @@ Item {
                 Accessible.role: Accessible.PageTab
                 Accessible.name: entry !== null && entry.tooltip !== undefined
                                  ? entry.tooltip : text
+                Accessible.description: entry !== null && entry.tooltip !== undefined ? entry.tooltip : ""
                 Accessible.selected: selected
+                Accessible.focusable: enabled
+                Accessible.focused: activeFocus
+                Accessible.onPressAction: control.activate(index)
 
                 Tk.ToolTip {
                     text: segment.Accessible.name
@@ -134,9 +160,9 @@ Item {
                     } else if (event.key === Qt.Key_Right) {
                         control.move(index, 1)
                     } else if (event.key === Qt.Key_Home) {
-                        control.activate(0)
+                        control.moveToBoundary(1)
                     } else if (event.key === Qt.Key_End) {
-                        control.activate(control.count - 1)
+                        control.moveToBoundary(-1)
                     } else {
                         return
                     }

@@ -85,7 +85,7 @@ Variants default/accent/ghost/outline/danger; compact heights 24, small 20, larg
 
 **Declared members:** `iconName: string`, `trailingIconName: string`, `variant: string`, `small: bool`, `large: bool`, `busy: bool`, `available: bool`, `tooltip: string`, `controlHeight: real` (ro), `iconSize: real` (ro), `filled: bool` (ro), `fillColor: color` (ro), `outlineColor: color` (ro), `textColor: color` (ro).
 
-**Coverage pointers:** [tst_controls_input.qml](../../../tests/qml/tst_controls_input.qml).
+**Coverage pointers:** [tst_controls_input.qml](../../../tests/qml/tst_controls_input.qml), [tst_selection_composites.qml](../../../tests/qml/tst_selection_composites.qml).
 
 ## IconButton
 
@@ -117,13 +117,13 @@ Joined set of mutually exclusive choices.
 
 **Source:** [src/qml/Segmented.qml](../../../src/qml/Segmented.qml) · **Base:** `Item` · **Kind:** QML component.
 
-model accepts strings or text/iconName/value/tooltip records; currentIndex selects, currentValue reads the value, activated(index) reports user activation. small changes 24 to 20 px; stretch shares assigned width. Page visibility and business state remain external.
+model accepts strings or text/iconName/value/tooltip/enabled records; currentIndex selects, currentValue reads the value, activated(index) reports user activation. small changes 24 to 20 px; stretch shares assigned width. ←/→ moves selection and focus over enabled items. `enabled_` is a compatibility alias for the inherited `enabled` state. Page visibility and business state remain external.
 
 **Declared members:** `model: var`, `currentIndex: int`, `currentValue: var` (ro), `small: bool`, `stretch: bool`, `tooltip: string`, `enabled_: bool`, `controlHeight: real` (ro), `count: int` (ro).
 
 **Declared signals:** `activated(int index)`.
 
-**Source methods:** `entry()`. See source for parameters and helper visibility.
+**Source methods:** `entry()`, `isEntryEnabled()`, `activate()`, `move()`. See source for parameters and helper visibility.
 
 **Object names:** `"segment_" + index`.
 
@@ -135,17 +135,17 @@ Rounded page or workspace selector with optional icons and labels.
 
 **Source:** [src/qml/PillSwitcher.qml](../../../src/qml/PillSwitcher.qml) · **Base:** `Item` · **Kind:** QML component.
 
-model records may include accent and objectName; showLabels/showActiveMarker customize it. currentIndex/currentValue and activated(index,value) support state synchronization; arrow keys wrap. Height is 28 or 24 small. It does not create pages or persist workspaces.
+model records may include accent, objectName, and enabled; showLabels/showActiveMarker customize it. currentIndex/currentValue and activated(index,value) support state synchronization; ←/→ wrap while skipping disabled items, and Home/End select the first/last enabled item. Programmatic currentIndex assignments are silent. Height is 28 or 24 small. It does not create pages or persist workspaces.
 
 **Declared members:** `model: var`, `currentIndex: int`, `small: bool`, `showLabels: bool`, `showActiveMarker: bool`, `tooltip: string`, `count: int` (ro), `currentValue: var` (ro), `itemHeight: real` (ro).
 
 **Declared signals:** `activated(int index, var value)`.
 
-**Source methods:** `entry()`, `activate()`, `move()`, `itemAt()`. See source for parameters and helper visibility.
+**Source methods:** `entry()`, `activate()`, `move()`, `moveToBoundary()`, `itemAt()`. See source for parameters and helper visibility.
 
 **Object names:** `entry !== null && entry.objectName !== undefined && entry.objectName.length > 0 ? entry.objectName : "pillSwitcherItem_" + index`.
 
-**Coverage pointers:** [tst_pill_switcher.qml](../../../tests/qml/tst_pill_switcher.qml).
+**Coverage pointers:** [tst_pill_switcher.qml](../../../tests/qml/tst_pill_switcher.qml), [tst_selection_composites.qml](../../../tests/qml/tst_selection_composites.qml).
 
 ## Badge
 

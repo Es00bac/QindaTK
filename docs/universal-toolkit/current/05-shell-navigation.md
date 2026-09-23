@@ -112,7 +112,7 @@ Dense index-based tab selector with optional close actions.
 
 **Source:** [src/qml/TabStrip.qml](../../../src/qml/TabStrip.qml) · **Base:** `Item` · **Kind:** QML component.
 
-model supports strings or text/iconName/closable/tooltip records; style underline/pill, stretch/small and global closable alter presentation. tabActivated/tabClosed report intentions; tabItem retrieves a delegate. Closing does not manage documents, save prompts or page lifetime.
+model supports strings or text/iconName/closable/tooltip/enabled records; style underline/pill, stretch/small and global closable alter presentation. Tabs are keyboard-focusable with ←/→ and Home/End navigation over enabled entries. Accessible PageTab items report selected state; disabled entries and their close buttons are inert. Direct currentIndex assignments are silent; tabActivated/tabClosed report user actions. tabItem retrieves a delegate. Closing does not manage documents, save prompts or page lifetime.
 
 **Declared members:** `model: var`, `currentIndex: int`, `style: string`, `closable: bool`, `small: bool`, `stretch: bool`, `count: int` (ro).
 
@@ -122,7 +122,7 @@ model supports strings or text/iconName/closable/tooltip records; style underlin
 
 **Object names:** `"tab_" + index`, `"tabClose_" + tab.index`.
 
-**Coverage pointers:** [tst_controls_structure.qml](../../../tests/qml/tst_controls_structure.qml).
+**Coverage pointers:** [tst_selection_composites.qml](../../../tests/qml/tst_selection_composites.qml).
 
 ## StatusBar
 

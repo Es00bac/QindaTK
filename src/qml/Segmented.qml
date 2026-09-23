@@ -23,7 +23,9 @@ Item {
     property bool small: false
     property bool stretch: false
     property string tooltip: ""
-    property bool enabled_: true
+    // Compatibility alias: callers that used the old spelling still disable
+    // the real Item.enabled state inherited by every segment.
+    property alias enabled_: control.enabled
 
     signal activated(int index)
 
@@ -38,12 +40,38 @@ Item {
         return typeof item === "string" ? { "text": item } : item
     }
 
+    function isEntryEnabled(index) {
+        const item = control.entry(index)
+        return control.enabled && item !== null && item.enabled !== false
+    }
+
+    function activate(index) {
+        if (!control.isEntryEnabled(index)) {
+            return
+        }
+        control.currentIndex = index
+        control.activated(index)
+    }
+
+    function move(from, direction) {
+        if (control.count < 1) return
+        for (let step = 1; step <= control.count; ++step) {
+            const next = (from + direction * step + control.count) % control.count
+            if (control.isEntryEnabled(next)) {
+                control.activate(next)
+                const item = segments.itemAt(next)
+                if (item !== null) item.forceActiveFocus(Qt.TabFocusReason)
+                return
+            }
+        }
+    }
+
     implicitWidth: row.implicitWidth + Tk.Theme.size.border * 2
     implicitHeight: control.controlHeight
     opacity: enabled ? 1.0 : Tk.Theme.opacity.disabled
 
     Accessible.role: Accessible.PageTabList
-    Accessible.name: control.tooltip
+    Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Selection")
 
     Tk.ToolTip {
         text: control.tooltip
@@ -70,12 +98,16 @@ Item {
         gap: 0
 
         Repeater {
+            id: segments
             model: control.count
             delegate: T.AbstractButton {
                 id: segment
                 required property int index
                 readonly property var entry: control.entry(index)
                 readonly property bool selected: index === control.currentIndex
+                enabled: control.isEntryEnabled(index)
+                opacity: control.enabled && entry !== null && entry.enabled === false
+                         ? Tk.Theme.opacity.disabled : 1.0
                 objectName: "segment_" + index
                 text: entry !== null && entry.text !== undefined ? entry.text : ""
                 // AGENT-GUARD: never `Tk.Flex.flex: 0` here: the shorthand sets
@@ -93,14 +125,24 @@ Item {
                 focusPolicy: Qt.TabFocus
                 Accessible.role: Accessible.PageTab
                 Accessible.name: text
+                Accessible.description: entry !== null && entry.tooltip !== undefined ? entry.tooltip : ""
+                Accessible.selected: selected
+                Accessible.focusable: enabled
+                Accessible.focused: activeFocus
+                Accessible.onPressAction: control.activate(index)
                 Tk.ToolTip {
                     text: entry !== null && entry.tooltip !== undefined ? entry.tooltip : ""
                     visible: text.length > 0 && hovered
                     delay: 600
                 }
                 onClicked: {
-                    control.currentIndex = index
-                    control.activated(index)
+                    control.activate(index)
+                }
+                Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Left) control.move(index, -1)
+                    else if (event.key === Qt.Key_Right) control.move(index, 1)
+                    else return
+                    event.accepted = true
                 }
 
                 background: Rectangle {
