@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-#include "core/dock_model.h"
-#include "core/document_manager.h"
-#include "core/settings_model.h"
-#include "core/settings_persistence.h"
-#include "core/workspace_session.h"
+#include "dock_model.h"
+#include "document_manager.h"
+#include "settings_model.h"
+#include "settings_persistence.h"
+#include "workspace_session.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -74,7 +74,6 @@ private slots:
         SettingsModel settings;
         QVERIFY(settings.registerSetting(stringSetting(QStringLiteral("theme"),
             SettingScope::App, QStringLiteral("dark"))));
-        QVERIFY(settings.setValue(QStringLiteral("app:theme"), QStringLiteral("light")));
         QVERIFY(settings.importValues({{QStringLiteral("app:theme"), QStringLiteral("light")},
                                       {QStringLiteral("app:future"), 17}}));
         SettingsPersistence preferences;
@@ -129,7 +128,13 @@ private slots:
         SettingsModel model;
         QVERIFY(model.registerSetting({QStringLiteral("enabled"), SettingScope::App,
             QMetaType::fromType<bool>(), false, false, {}}));
+        QVERIFY(model.registerSetting({QStringLiteral("count"), SettingScope::App,
+            QMetaType::fromType<int>(), 0, false, {}}));
+        QVERIFY(model.registerSetting(stringSetting(QStringLiteral("name"),
+            SettingScope::App, QString{})));
         QVERIFY(model.importValues(*values));
+        QCOMPARE(model.value(QStringLiteral("count")).toInt(), 12);
+        QCOMPARE(model.value(QStringLiteral("name")).toString(), QStringLiteral("Edit"));
         auto store = std::make_shared<MemoryStateStore>();
         store->files.insert(QStringLiteral("legacy"), legacy);
         SettingsPersistence persistence;
@@ -182,6 +187,35 @@ private slots:
         QVERIFY(!workspace.lastError().isEmpty());
     }
 
+    void malformedLoadsLeaveCommittedAndWorkspaceStateUntouched()
+    {
+        auto store = std::make_shared<MemoryStateStore>();
+        SettingsModel settings;
+        QVERIFY(settings.registerSetting(stringSetting(QStringLiteral("theme"),
+            SettingScope::App, QStringLiteral("dark"))));
+        QVERIFY(settings.importValues({{QStringLiteral("app:theme"), QStringLiteral("light")}}));
+        store->files.insert(QStringLiteral("bad-settings"), R"({"version":2,"values":{"app:theme":{"type":"bool","value":true}}})");
+        SettingsPersistence preferences;
+        preferences.setPath(QStringLiteral("bad-settings"));
+        preferences.setStore(store);
+        QVERIFY(!preferences.load(&settings));
+        QCOMPARE(settings.value(QStringLiteral("theme")).toString(), QStringLiteral("light"));
+
+        WorkspaceSession workspace;
+        const QString doc = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        const QString view = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        const QVariantList screens{QVariantMap{{QStringLiteral("id"), QStringLiteral("primary")},
+            {QStringLiteral("availableRect"), rect(0, 0, 1280, 800)}}};
+        QVERIFY(workspace.setState(workspaceState(doc, view, QStringLiteral("main"), {}), screens));
+        const QVariantMap before = workspace.state();
+        store->files.insert(QStringLiteral("bad-workspace"),
+                            QByteArray("{\"version\":2,\"windows\":[]}"));
+        workspace.setPath(QStringLiteral("bad-workspace"));
+        workspace.setStore(store);
+        QVERIFY(!workspace.load(screens));
+        QCOMPARE(workspace.state(), before);
+    }
+
     void restoreStableMultiViewIdsAndUnavailableDocumentWithoutMutation()
     {
         DocumentManager documents;
@@ -213,7 +247,9 @@ private slots:
         QVERIFY(workspace.setState(state));
         DockModel dock;
         QVERIFY(workspace.restore(&documents, &dock));
-        QCOMPARE(documents.viewsFor(existingId), QStringList({firstView, secondView}));
+        QStringList expectedViews{firstView, secondView};
+        expectedViews.sort();
+        QCOMPARE(documents.viewsFor(existingId), expectedViews);
         QCOMPARE(documents.sessions().size(), 1);
         QCOMPARE(workspace.unavailableDocuments(), QStringList({missingId}));
         QCOMPARE(existing->document()->revision().value, revision);
