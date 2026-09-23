@@ -14,4 +14,9 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
         endif()
     endforeach()
+    add_test(NAME example_document_lifecycle
+        COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/document-lifecycle.qml"
+                --check --size 1120x720)
+    set_tests_properties(example_document_lifecycle PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
