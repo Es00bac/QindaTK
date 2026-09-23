@@ -201,3 +201,32 @@ invisible surface reaches 48 logical px without widening the dock lane.
 | `modeName(mode)` | `"docked"`, `"floating"`, `"collapsed"`, `"hidden"` for a `Tk.DockModel.Mode` value |
 | `zoneName(zone)` | the zone string for a `Tk.DockModel.Zone` value |
 | `zoneNames()` | all six zone strings in canonical order |
+
+### Small windows: preserve the workspace through scrolling
+
+`DockHost` renders the model's lane extents and shares; it does not invent a
+minimum canvas size or rearrange panels when its window shrinks. If those
+extents exhaust the host, the remaining canvas can reach zero size.
+Applications must choose their presentation policy for that case.
+
+The docking example wraps its complete workspace in `Tk.Scroll` with both
+axes enabled and an `Item` declaring a 1280×800 implicit minimum. The actual
+workspace grows with a larger viewport. At smaller sizes it keeps that
+minimum and scrolls. The minimum is example data, chosen for its registered
+panels and canvas; applications must choose a minimum suited to their own
+content. The wrapper is an Item because Flex owns its implicit size.
+
+`dockingViewport` is the example's stable viewport objectName. Arrow keys
+and Page Up/Down scroll it when focused; Home/End reach vertical ends.
+Focus reveal and `ensureVisible(item)` can bring individual controls or
+panels into view. Dock drag coordinates stay local to the host even when
+its ancestor scrolls. Window resize changes neither DockModel placement nor
+persisted floating rectangles. Content scrolling and tab selection remain
+ordinary user actions.
+
+This recipe covers the example's default arrangement, including its History
+floating panel. It is not automatic recovery of arbitrary floating panels
+placed outside the chosen minimum, nor automatic text reflow within every
+panel. Applications needing an adaptive single-panel presentation must
+specify selection, focus, drop targets and canvas behavior separately rather
+than silently rewriting a saved arrangement on resize.

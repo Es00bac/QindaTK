@@ -127,15 +127,38 @@ and Qt 6.8.3 both pass the complete QML suite and `all_qmllint` (existing
 nonfatal warnings).
 Physical touch hardware and native assistive traversal remain unqualified.
 
-## Open narrow docking workflow
+## Docking example: small-window overflow recipe
 
-A 480×320 Touch, 3× text and high-contrast-dark preview of
-`examples/docking/Main.qml` exposes a separate responsive layout gap. The
-opened `build/wp007-docking-stress.png` shows the timeline but squeezes the
-three side/centre lanes. The dump records `Flex#dockLane_left_0 0,0 230x9`,
-`Flex#dockLane_center_0 0,0 0x220`, `Flex#dockLane_right_0 6,0 280x9`,
-and `Item#dockCanvas 0,229 0x0`. The configured 230px left and 280px right
-extents cannot fit with a useful centre in a 480px host. This workflow needs
-an explicit small-window lane policy and tests before FND-07 can claim broad
-docking usability. The ignored fixture and dump are
-`build/wp007-docking-stress.{qml,dump}` in the integration worktree.
+The opened 480×320 Touch, 3× text, high-contrast-dark baseline
+`build/wp007-docking-stress.png` showed left/right lanes only 9px high,
+`Flex#dockLane_center_0 0,0 0x220`, and `Item#dockCanvas 0,229 0x0`.
+The example now
+uses a two-axis `Tk.Scroll#dockingViewport` around an Item with a 1280×800
+implicit workspace minimum (D-024). This preserves the example's default
+arrangement while exposing it through scrolling; it is not a generic
+DockHost adaptive-layout guarantee.
+
+Opened worker captures `build/narrow.png`, `build/canvas-narrow.png`, and
+`build/normal.png` show the initial narrow viewport, the scrolled canvas,
+and the normal Compact presentation. Narrow dump:
+
+```
+Scroll#dockingViewport  0,0 480x320
+Flex#dockLane_left_0  0,0 230x489
+Flex#dockLane_center_0  0,0 752x220
+Item#dockCanvas  0,229 752x260
+Flex#dockLane_right_0  6,0 280x489
+```
+
+Normal Compact remains `Item#dockCanvas 0,226 758x310` within the
+1280×800 viewport. `tst_dock_overflow.qml` checks useful canvas geometry,
+canvas and floating-panel reachability, keyboard Home/End scrolling, a
+30px dock-seam drag and grouped-tab click after scrolling, then resizes
+back to the normal viewport and verifies exact serialized arrangement
+preservation. Arbitrary floating positions beyond the chosen workspace and
+per-panel content reflow remain separate application responsibilities.
+
+The full focused `tst_qml` target passes on Qt 6.11.1 and Qt 6.8.3 in the
+worker's isolated `build/narrow` and `build/qt68` directories. Both include
+the scrolled seam/tab interaction regression. `gen_catalog.py` was run;
+no toolkit API or catalog entry changed.

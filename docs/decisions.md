@@ -451,3 +451,20 @@ controls document the applicability of default/reset, mixed, invalid draft,
 read-only, disabled, focus and accessible action behavior. Existing controls
 are audited against this contract in WP-007; unsupported capabilities and
 legacy exceptions must be stated per control instead of implied.
+
+## D-024 — Small docking windows scroll an application-sized workspace
+
+**Context.** Dock lanes can consume more than a small host's entire width or
+height, leaving a zero-sized canvas. Automatically changing modes or zones
+would overwrite the user's arrangement and create unstable resize behavior.
+
+**Decision.** Keep DockModel arrangement independent of window size. The
+bundled docking example demonstrates a two-axis Scroll around an Item with
+an explicit useful workspace minimum. This is an application presentation
+recipe, not a new automatic DockHost arrangement policy. Its 1280×800 minimum
+covers its default panels; each application chooses its own requirements.
+
+**Consequences.** Narrow windows can reach the preserved workspace through
+scrolling, including keyboard scrolling and focus reveal. Resize alone does
+not persist new panel positions. A future adaptive panel selector or recovery
+of arbitrary off-workspace floating panels requires a separate design.
