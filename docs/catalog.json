@@ -4257,6 +4257,14 @@
       "file": "src/qml/Popover.qml",
       "properties": [
         {
+          "name": "content",
+          "type": "alias",
+          "default": "body.content",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
           "name": "anchorItem",
           "type": "Item",
           "default": "null",
@@ -4287,6 +4295,22 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "naturalWidth",
+          "type": "real",
+          "default": "Math.max(implicitBackgroundWidth + leftInset + rightInset,",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "naturalHeight",
+          "type": "real",
+          "default": "Math.max(implicitBackgroundHeight + topInset + bottomInset,",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -4308,7 +4332,9 @@
       "internal": false,
       "valueType": false,
       "bridge": false,
-      "objectNames": []
+      "objectNames": [
+        "popoverBody"
+      ]
     },
     {
       "name": "ProgressBar",

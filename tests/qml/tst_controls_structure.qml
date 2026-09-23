@@ -30,6 +30,21 @@ TestCase {
     Component { id: menuBarComponent; Tk.MenuBar { width: 300; Tk.Menu { title: "File"; Tk.MenuItem { text: "New" } } } }
     Component { id: popoverComponent; Tk.Popover { Tk.Label { text: "Snapping" } } }
     Component {
+        id: oversizedPopoverComponent
+        Tk.Popover {
+            Item {
+                implicitWidth: 420
+                implicitHeight: 330
+                Tk.Button {
+                    objectName: "farPopoverAction"
+                    x: 330
+                    y: 280
+                    text: "Apply"
+                }
+            }
+        }
+    }
+    Component {
         id: scrollingAnchorComponent
         Tk.Scroll {
             width: 180
@@ -278,6 +293,48 @@ TestCase {
         } finally {
             root.width = originalWidth
             root.height = originalHeight
+        }
+    }
+
+    function test_oversized_popover_stays_bounded_and_reaches_content() {
+        const oldWidth = root.width
+        const oldHeight = root.height
+        root.width = 220
+        root.height = 160
+        try {
+            const anchor = createTemporaryObject(cardComponent, root, { x: 120, y: 100 })
+            const pop = createTemporaryObject(oversizedPopoverComponent, root, { anchorItem: anchor })
+            pop.open()
+            tryVerify(function() { return pop.opened && pop.width > 0 && pop.height > 0 })
+            verify(pop.x >= Tk.Theme.space.xs - 1)
+            verify(pop.y >= Tk.Theme.space.xs - 1)
+            verify(pop.x + pop.width <= pop.parent.width - Tk.Theme.space.xs + 1)
+            verify(pop.y + pop.height <= pop.parent.height - Tk.Theme.space.xs + 1)
+            const body = findChild(pop.contentItem, "popoverBody") || pop.contentItem
+            verify(body.scrollableX)
+            verify(body.scrollableY)
+            const action = findChild(body, "farPopoverAction")
+            verify(action !== null)
+            body.forceActiveFocus()
+            keyClick(Qt.Key_End)
+            tryVerify(function() { return body.contentY > 0 })
+            keyClick(Qt.Key_Right)
+            tryVerify(function() { return body.contentX > 0 })
+            body.contentX = 0
+            body.contentY = 0
+            body.ensureVisible(action)
+            tryVerify(function() { return body.contentX > 0 && body.contentY > 0 })
+            root.width = 180
+            root.height = 120
+            tryVerify(function() {
+                return pop.x + pop.width <= pop.parent.width - Tk.Theme.space.xs + 1
+                    && pop.y + pop.height <= pop.parent.height - Tk.Theme.space.xs + 1
+            })
+            pop.close()
+            tryVerify(function() { return !pop.visible })
+        } finally {
+            root.width = oldWidth
+            root.height = oldHeight
         }
     }
 

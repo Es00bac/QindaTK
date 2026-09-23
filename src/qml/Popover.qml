@@ -12,6 +12,7 @@ import QindaTK as Tk
 T.Popup {
     id: popover
 
+    default property alias content: body.content
     property Item anchorItem: null
     property string placement: "bottom"
     property bool arrow: false
@@ -24,10 +25,25 @@ T.Popup {
     focus: true
     closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutside
     padding: Tk.Theme.space.sm
-    implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
-                            implicitContentWidth + leftPadding + rightPadding)
-    implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
-                             implicitContentHeight + topPadding + bottomPadding)
+    readonly property real naturalWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
+                                                 implicitContentWidth + leftPadding + rightPadding)
+    readonly property real naturalHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset,
+                                                  implicitContentHeight + topPadding + bottomPadding)
+    // AGENT-GUARD: cap the popup before positioning it; clamping x/y alone
+    // leaves oversized content inaccessible outside a small host window.
+    implicitWidth: parent && parent.width > 0
+        ? Math.min(naturalWidth, Math.max(0, parent.width - Tk.Theme.space.xs * 2))
+        : naturalWidth
+    implicitHeight: parent && parent.height > 0
+        ? Math.min(naturalHeight, Math.max(0, parent.height - Tk.Theme.space.xs * 2))
+        : naturalHeight
+
+    contentItem: Tk.Scroll {
+        id: body
+        objectName: "popoverBody"
+        overflowX: Tk.Scroll.Auto
+        accessibleName: qsTr("Popover content")
+    }
 
     function reposition() {
         if (popover.anchorItem === null || popover.parent === null) {
