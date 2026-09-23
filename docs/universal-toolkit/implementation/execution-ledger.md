@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: WP-001 through WP-007 and WP-010 through WP-015 accepted; WP-016 active.** Sol updates this ledger during
+**Execution state: WP-001 through WP-007, WP-010 through WP-015, and WP-017 accepted; WP-016 and WP-046 active.** Sol updates this ledger during
 execution. Use `planned`, `ready`, `active`, `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
 record. Keep unrelated ready work moving. A row reaches `accepted` only through
@@ -29,7 +29,7 @@ as though a later fix had already passed the earlier run.
 | [WP-014 — Persist settings and workspace state](phase-01-services.md#wp-014) | 01 | Sol | accepted | [Dual-Qt settings/workspace, monitor recovery, dock restore and installed consumer](evidence/WP-014.md) |
 | [WP-015 — Implement asynchronous jobs and asset services](phase-01-services.md#wp-015) | 01 | Sol | accepted | [Dual-Qt jobs/assets, undoable relinks, installed consumer and preview](evidence/WP-015.md) |
 | [WP-016 — Implement clipboard and drag/drop protocols](phase-01-services.md#wp-016) | 01 | Sol | active | — |
-| [WP-017 — Provide accessibility, locale and gesture services](phase-01-services.md#wp-017) | 01 | Sol | planned | — |
+| [WP-017 — Provide accessibility, locale and gesture services](phase-01-services.md#wp-017) | 01 | Sol | accepted | [Qt 6.11/6.8, external AT-SPI action, RTL preview and installed consumer](evidence/WP-017.md) |
 | [WP-018 — Add native window, file and desktop integration](phase-01-services.md#wp-018) | 01 | Sol | planned | — |
 | [WP-019 — Establish format registry and import/export jobs](phase-01-services.md#wp-019) | 01 | Sol | planned | — |
 | [WP-020 — Build command controls and adaptive toolbars](phase-02-controls-data.md#wp-020) | 02 | Luna | planned | — |
@@ -52,7 +52,7 @@ as though a later fix had already passed the earlier run.
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | planned | — |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | planned | — |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | planned | — |
-| [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | planned | — |
+| [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | active | — |
 | [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | planned | — |
 | [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | planned | — |
 | [WP-049 — Implement tempo and automation editing](phase-03-authoring.md#wp-049) | 03 | Sol | planned | — |

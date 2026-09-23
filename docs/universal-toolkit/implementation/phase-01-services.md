@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution beginning.** WP-010 through WP-015 are accepted; WP-016 is active. Other
+**Execution beginning.** WP-010 through WP-015 and WP-017 are accepted; WP-016 is active. Other
 packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
@@ -161,7 +161,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-017"></a>
 ## WP-017 — Provide accessibility, locale and gesture services
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-007](phase-00-baseline.md#wp-007), [WP-011](phase-01-services.md#wp-011), [WP-012](phase-01-services.md#wp-012)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-017.md). **Depends on:** [WP-007](phase-00-baseline.md#wp-007), [WP-011](phase-01-services.md#wp-011), [WP-012](phase-01-services.md#wp-012)
 
 **Proposal scope:** [PLT-06 AccessibilityAdapter](../proposed/08-platform-integrations.md#plt-06), [PLT-07 LocaleService](../proposed/08-platform-integrations.md#plt-07), [PLT-09 GestureRouter](../proposed/08-platform-integrations.md#plt-09)
 

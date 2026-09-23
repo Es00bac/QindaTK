@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 03 — Spatial editing and exact time
 
-**PLANNED — no implementation or execution is claimed by this plan.**
+**Execution beginning.** WP-046 is active; other packages remain planned.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -139,7 +139,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-046"></a>
 ## WP-046 — Implement exact time and tempo conversions
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-012](phase-01-services.md#wp-012)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-012](phase-01-services.md#wp-012)
 
 **Proposal scope:** [AUD-01 TimeMap](../proposed/06-audio-music.md#aud-01)
 

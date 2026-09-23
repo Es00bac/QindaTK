@@ -53,6 +53,14 @@ qt_add_qml_module(qindatk
         core/resource_resolver.cpp core/resource_resolver.h
         core/resource_resolver_async.cpp
         core/document_resource_links.cpp core/document_resource_links.h
+        core/transfer_payload.cpp core/transfer_payload.h
+        core/gesture_router.cpp core/gesture_router.h
+        core/time_map.cpp core/time_map.h
+        core/clipboard_service.cpp core/clipboard_service.h
+        core/drag_drop_service.cpp core/drag_drop_service.h
+        core/property_collection_drop_target.cpp
+        core/locale_service.cpp core/locale_service.h
+        core/accessibility_adapter.cpp core/accessibility_adapter.h
         core/asset_provider.cpp core/asset_provider.h
         core/file_asset_backend.cpp
         core/recovery_manager.cpp core/recovery_manager.h

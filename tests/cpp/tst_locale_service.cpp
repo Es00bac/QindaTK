@@ -2,6 +2,7 @@
 #include "edit_transaction.h"
 #include "locale_service.h"
 #include "property_document.h"
+#include "undo_service.h"
 
 #include <QCalendar>
 #include <QTimeZone>
@@ -20,10 +21,14 @@ private slots:
         QVERIFY(document.defineProperty({QStringLiteral("amount"), QMetaType::fromType<double>(),
                                          12.5, QStringLiteral("unit"), true, false}));
         QVERIFY(document.addEntity(entity, {{QStringLiteral("amount"), 12.5}}));
+        UndoService undo;
+        QVERIFY(undo.addDocument(&document));
         EditTransaction edit;
         edit.setDocument(&document);
+        edit.setUndoService(&undo);
         edit.setTargetIds({entity.toString()});
         edit.setPropertyId(QStringLiteral("amount"));
+        edit.setLabel(QStringLiteral("Edit amount"));
         QVERIFY(edit.begin());
         QVERIFY(edit.update(1234.5));
         QCOMPARE(document.committedValue(entity, QStringLiteral("amount")).toDouble(), 12.5);
@@ -74,6 +79,7 @@ private slots:
     void timezoneDateFormattingAndUnitFormatting()
     {
         LocaleService locale;
+        locale.setLocaleName(QStringLiteral("en_US"));
         if (QTimeZone::availableTimeZoneIds().contains(QByteArrayLiteral("America/Los_Angeles")))
             locale.setTimeZoneId(QStringLiteral("America/Los_Angeles"));
         const QDateTime utc(QDate(2024, 1, 1), QTime(12, 0), QTimeZone::utc());

@@ -7914,6 +7914,65 @@
       ]
     },
     {
+      "name": "AccessibilityAdapter",
+      "kind": "cpp",
+      "base": "QQuickItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/accessibility_adapter.h",
+      "properties": [
+        {
+          "name": "accessibleName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "commands",
+          "type": "QindaTK::CommandRegistry *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selection",
+          "type": "QindaTK::SelectionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setNodes",
+          "returns": "bool",
+          "parameters": "const QVariantList &nodes"
+        },
+        {
+          "name": "invoke",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &action, const QVariant &value = {}"
+        },
+        {
+          "name": "announce",
+          "returns": "void",
+          "parameters": "const QString &message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "AssetProvider",
       "kind": "cpp",
       "base": "QObject",
@@ -8124,6 +8183,84 @@
           "name": "operations",
           "returns": "QStringList",
           "parameters": "const QString &featureId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ClipboardService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/clipboard_service.h",
+      "properties": [
+        {
+          "name": "availableFormats",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canPaste",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cutPending",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lossWarnings",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "copyObjectIds",
+          "returns": "bool",
+          "parameters": "PropertyDocument *document, const QString &collectionId, const QString &propertyId, const QStringList &objectIds"
+        },
+        {
+          "name": "cutObjectIds",
+          "returns": "bool",
+          "parameters": "PropertyDocument *document, const QString &collectionId, const QString &propertyId, const QStringList &objectIds"
+        },
+        {
+          "name": "copyText",
+          "returns": "bool",
+          "parameters": "const QString &text, const QString &documentId, const QString &entityId, const QString &revision"
+        },
+        {
+          "name": "copyImage",
+          "returns": "bool",
+          "parameters": "const QByteArray &png, const QString &documentId, const QString &entityId, const QString &revision"
         }
       ],
       "enums": {},
@@ -9028,6 +9165,127 @@
       "bridge": false
     },
     {
+      "name": "DragDropService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Coordinates a drag session without owning model data or platform events. View adapters provide stable view IDs/generations and autoscroll requests; domain endpoints own validation, transaction creation and undo recording.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/drag_drop_service.h",
+      "properties": [
+        {
+          "name": "phase",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sessionId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sourceDocumentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sourceRevision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sourceViewId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sourceViewGeneration",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "allowedOperations",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "preview",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "beginEncodedDrag",
+          "returns": "QString",
+          "parameters": "const QByteArray &encodedPayload, const QStringList &allowedOperations, const QString &sourceViewId, const QString &sourceViewGeneration, PropertyDocument *sourceDocument = nullptr"
+        },
+        {
+          "name": "previewEncodedDrop",
+          "returns": "QVariantMap",
+          "parameters": "QObject *target, const QString &operation, const QVariantMap &location = {}"
+        },
+        {
+          "name": "commit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "escape",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "invalidateView",
+          "returns": "void",
+          "parameters": "const QString &viewId"
+        },
+        {
+          "name": "requestAutoscroll",
+          "returns": "void",
+          "parameters": "const QString &viewId, const QString &direction, bool active"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "EditTransaction",
       "kind": "cpp",
       "base": "QObject",
@@ -9380,6 +9638,109 @@
           "name": "contains",
           "returns": "bool",
           "parameters": "const QString &token"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GestureRouter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "GUI-thread arbiter for pointer handlers and tool transactions. Qt handlers still own low-level grabs; this service owns one semantic gesture per view.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/gesture_router.h",
+      "properties": [
+        {
+          "name": "toolId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "temporaryNavigation",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "activeCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "activeGestures",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "beginGesture",
+          "returns": "QString",
+          "parameters": "const QString &viewId, const QString &pointerId, const QString &targetId, Device device, Intent intent, QObject *owner, EditTransaction *edit = nullptr, bool synthesizedDuplicate = false, int modifiers = 0, int buttons = 0"
+        },
+        {
+          "name": "updateGesture",
+          "returns": "bool",
+          "parameters": "const QString &token, const QString &pointerId"
+        },
+        {
+          "name": "completeGesture",
+          "returns": "bool",
+          "parameters": "const QString &token, const QString &pointerId"
+        },
+        {
+          "name": "cancelGesture",
+          "returns": "bool",
+          "parameters": "const QString &token, const QString &reason = {}"
+        },
+        {
+          "name": "lostGrab",
+          "returns": "void",
+          "parameters": "const QString &token"
+        },
+        {
+          "name": "invalidateView",
+          "returns": "void",
+          "parameters": "const QString &viewId"
+        },
+        {
+          "name": "invalidateTarget",
+          "returns": "void",
+          "parameters": "const QString &targetId"
+        },
+        {
+          "name": "cancelAll",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "wheelIntent",
+          "returns": "Intent",
+          "parameters": "int modifiers"
         }
       ],
       "enums": {},
@@ -10130,6 +10491,94 @@
           "name": "describe",
           "returns": "QString",
           "parameters": "QQuickItem *item"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "LocaleService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Per-window or per-document presentation policy. Values stored by domain models remain canonical; this service only formats and parses UI strings.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/locale_service.h",
+      "properties": [
+        {
+          "name": "localeName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timeZoneId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "numberingSystem",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "calendarId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "chromeDirection",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "formatNumber",
+          "returns": "QString",
+          "parameters": "double value, int precision = -1"
+        },
+        {
+          "name": "parseNumber",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "formatDateTime",
+          "returns": "QString",
+          "parameters": "const QDateTime &value, const QString &format = QString("
+        },
+        {
+          "name": "parseDateTime",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text, const QString &format"
+        },
+        {
+          "name": "formatUnit",
+          "returns": "QString",
+          "parameters": "double value, const QString &unit, int precision = -1"
+        },
+        {
+          "name": "contentDirection",
+          "returns": "QString",
+          "parameters": "const QString &text"
         }
       ],
       "enums": {},
@@ -12162,6 +12611,128 @@
       "registrationKind": "qml_anonymous",
       "exported": false,
       "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TimeMap",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/time_map.h",
+      "properties": [
+        {
+          "name": "sampleRate",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "frameRateNumerator",
+          "type": "qint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frameRateDenominator",
+          "type": "qint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "ticksPerQuarter",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "originSample",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tempoSegments",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setFrameRate",
+          "returns": "bool",
+          "parameters": "qint64 numerator, qint64 denominator"
+        },
+        {
+          "name": "frameToSample",
+          "returns": "QVariantMap",
+          "parameters": "const QString &frame, Rounding rounding = NearestAway"
+        },
+        {
+          "name": "sampleToFrame",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sample, Rounding rounding = NearestAway"
+        },
+        {
+          "name": "tickToSample",
+          "returns": "QVariantMap",
+          "parameters": "const QString &tick, Rounding rounding = NearestAway"
+        },
+        {
+          "name": "sampleToTick",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sample, Rounding rounding = NearestAway"
+        },
+        {
+          "name": "compareExact",
+          "returns": "QVariantMap",
+          "parameters": "const QString &left, const QString &right"
+        },
+        {
+          "name": "formatTimecode",
+          "returns": "QVariantMap",
+          "parameters": "const QString &frame, bool dropFrame = false"
+        },
+        {
+          "name": "parseTimecode",
+          "returns": "QVariantMap",
+          "parameters": "const QString &label, bool dropFrame = false"
+        },
+        {
+          "name": "sampleToPixel",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sample, const QString &viewportOriginSample, double pixelsPerSample"
+        },
+        {
+          "name": "pixelToSample",
+          "returns": "QVariantMap",
+          "parameters": "double pixel, const QString &viewportOriginSample, double pixelsPerSample, Rounding rounding = NearestAway"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
       "valueType": false,
       "bridge": false
     },

@@ -19,4 +19,9 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
                 --check --size 1120x720)
     set_tests_properties(example_document_lifecycle PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    add_test(NAME example_platform_services
+        COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/platform-services.qml"
+                --check --size 920x620)
+    set_tests_properties(example_platform_services PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()

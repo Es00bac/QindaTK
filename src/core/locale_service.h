@@ -10,7 +10,7 @@ namespace QindaTK {
 
 // Per-window or per-document presentation policy. Values stored by domain
 // models remain canonical; this service only formats and parses UI strings.
-class LocaleService final : public QObject {
+class LocaleService : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString localeName READ localeName WRITE setLocaleName NOTIFY localeChanged)
