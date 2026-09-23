@@ -34,6 +34,7 @@ Item {
     property string sortKey: ""
     property int sortOrder: Qt.AscendingOrder
     property int currentIndex: -1
+    property string tooltip: ""
     property bool showHeader: true
     property bool alternatingRows: false
     property real rowHeight: Tk.Theme.size.row
@@ -69,6 +70,9 @@ Item {
     implicitHeight: Tk.Theme.size.panelMinHeight
     activeFocusOnTab: true
     Accessible.role: Accessible.Table
+    Accessible.name: table.tooltip.length > 0 ? table.tooltip : qsTr("Data table")
+    Accessible.focusable: table.enabled
+    Accessible.focused: table.activeFocus
 
     function widthOf(column) {
         const override = table.columnWidths[column.key]
@@ -104,6 +108,44 @@ Item {
                                                           : Qt.AscendingOrder
         }
         table.sortRequested(column.key, order)
+    }
+
+    function activateRow(index) {
+        if (!table.enabled || index < 0 || index >= table.count) {
+            return
+        }
+        table.currentIndex = index
+        table.activated(index)
+    }
+
+    function activateCurrentRow() {
+        table.activateRow(table.currentIndex)
+    }
+
+    function moveSelection(delta) {
+        if (table.count < 1) {
+            table.currentIndex = -1
+            return
+        }
+        if (table.currentIndex < 0) {
+            table.currentIndex = delta > 0 ? 0 : table.count - 1
+            return
+        }
+        table.currentIndex = Math.max(0, Math.min(table.count - 1,
+                                                  table.currentIndex + delta))
+    }
+
+    function rowAccessibleName(index) {
+        const record = table.recordAt(index)
+        const parts = []
+        for (const column of table.visibleColumns) {
+            const text = column.display(table.cellOf(record, column.key), record)
+            if (text.length > 0) {
+                parts.push(column.title.length > 0
+                           ? column.title + ": " + text : text)
+            }
+        }
+        return parts.join(", ")
     }
 
     function cellOf(row, key) {
@@ -274,6 +316,12 @@ Item {
 
                     readonly property var record: table.recordAt(rowItem.index)
                     readonly property bool selected: table.currentIndex === rowItem.index
+                    Accessible.role: Accessible.Row
+                    Accessible.name: table.rowAccessibleName(rowItem.index)
+                    Accessible.selectable: true
+                    Accessible.selected: rowItem.selected
+                    Accessible.focusable: false
+                    Accessible.onPressAction: table.activateRow(rowItem.index)
 
                     Rectangle {
                         anchors.fill: parent
@@ -285,10 +333,7 @@ Item {
                     HoverHandler { id: rowHover }
                     TapHandler {
                         gesturePolicy: TapHandler.ReleaseWithinBounds
-                        onTapped: {
-                            table.currentIndex = rowItem.index
-                            table.activated(rowItem.index)
-                        }
+                        onTapped: table.activateRow(rowItem.index)
                     }
                     TapHandler {
                         acceptedButtons: Qt.RightButton
@@ -366,7 +411,8 @@ Item {
         title: table.emptyText
     }
 
-    Keys.onUpPressed: table.currentIndex = Math.max(0, table.currentIndex - 1)
-    Keys.onDownPressed: table.currentIndex = Math.min(table.count - 1, table.currentIndex + 1)
-    Keys.onReturnPressed: table.activated(table.currentIndex)
+    Keys.onUpPressed: table.moveSelection(-1)
+    Keys.onDownPressed: table.moveSelection(1)
+    Keys.onReturnPressed: table.activateCurrentRow()
+    Keys.onEnterPressed: table.activateCurrentRow()
 }

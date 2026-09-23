@@ -1340,6 +1340,14 @@
           "required": false
         },
         {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "showHeader",
           "type": "bool",
           "default": "true",
@@ -1426,6 +1434,22 @@
         {
           "name": "toggleSort",
           "parameters": "column"
+        },
+        {
+          "name": "activateRow",
+          "parameters": "index"
+        },
+        {
+          "name": "activateCurrentRow",
+          "parameters": ""
+        },
+        {
+          "name": "moveSelection",
+          "parameters": "delta"
+        },
+        {
+          "name": "rowAccessibleName",
+          "parameters": "index"
         },
         {
           "name": "cellOf",
