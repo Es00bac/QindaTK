@@ -1,11 +1,33 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: WP-001 through WP-007, WP-010 through WP-018, and WP-046 accepted; WP-019 through WP-030 and WP-047 in review or active work, with WP-031 and WP-032 in implementation.** Sol updates this ledger during
+**Execution state: WP-001 through WP-007, WP-010 through WP-018, WP-020, WP-022 and WP-046 accepted; 12 packages in review, WP-031 active, and 52 planned.** Sol updates this ledger during
 execution. Use `planned`, `ready`, `active`, `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
 record. Keep unrelated ready work moving. A row reaches `accepted` only through
 the [completion gate](acceptance.md).
+
+## Review queue triage
+
+The former 14-item queue mixed completed controls awaiting shared gates with
+unfinished behavior. WP-020 and WP-022 have been accepted. The 12 remaining
+review items have these next actions; a passing gate applies to unchanged
+source and is reused rather than rerun for every row.
+
+| Package | Next acceptance action |
+| --- | --- |
+| WP-019 | Consolidated Qt 6.8/repository gate after import dismissal repair |
+| WP-021 | Dual-Qt and installed consumer after key-tip/theme repair |
+| WP-023 | Installed consumer passed; accept after WP-019 dependency gate |
+| WP-024 | Integrated dual-Qt and installed consumer after font follow-up |
+| WP-025 | Dual-Qt, installed consumer and docs/catalog review |
+| WP-026 | Dual-Qt, installed consumer, action announcement/task lifecycle check |
+| WP-027 | 100,000-asset visual/cache fixture and input/accessibility audit |
+| WP-028 | 100,000 × 100 visual fixture, insert/remove and accessible range navigation; Sol lane active |
+| WP-029 | Visual joins/sort/projection, pivot dimensions and host reopen workflow |
+| WP-030 | Linked axes, annotations and histogram domain-range selection |
+| WP-032 | Full Qt 6.8, shared QML lint and documentation/catalog review |
+| WP-047 | Consolidated dual-Qt and installed consumer |
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -32,10 +54,10 @@ as though a later fix had already passed the earlier run.
 | [WP-017 — Provide accessibility, locale and gesture services](phase-01-services.md#wp-017) | 01 | Sol | accepted | [Qt 6.11/6.8, external AT-SPI action, RTL preview and installed consumer](evidence/WP-017.md) |
 | [WP-018 — Add native window, file and desktop integration](phase-01-services.md#wp-018) | 01 | Sol | accepted | [Dual-Qt native-window tests and installed base/optional consumers](evidence/WP-018.md) |
 | [WP-019 — Establish format registry and import/export jobs](phase-01-services.md#wp-019) | 01 | Sol | review | [Implementation and integrated checks](evidence/WP-019.md) |
-| [WP-020 — Build command controls and adaptive toolbars](phase-02-controls-data.md#wp-020) | 02 | Luna | review | [Implementation and integrated checks](evidence/WP-020.md) |
+| [WP-020 — Build command controls and adaptive toolbars](phase-02-controls-data.md#wp-020) | 02 | Luna | accepted | [Dual-Qt command controls and overflow acceptance](evidence/WP-020.md) |
 | [WP-021 — Build document and application navigation](phase-02-controls-data.md#wp-021) | 02 | Luna | review | [Focused navigation checks](evidence/WP-021.md) |
-| [WP-022 — Build reusable typed inspectors](phase-02-controls-data.md#wp-022) | 02 | Luna | review | [Implementation and integrated checks](evidence/WP-022.md) |
-| [WP-023 — Add expression, path and token editors](phase-02-controls-data.md#wp-023) | 02 | Sol | review | [Focused editor and provider checks](evidence/WP-023.md) |
+| [WP-022 — Build reusable typed inspectors](phase-02-controls-data.md#wp-022) | 02 | Luna | accepted | [Dual-Qt inspector transactions and mixed-state acceptance](evidence/WP-022.md) |
+| [WP-023 — Add expression, path and token editors](phase-02-controls-data.md#wp-023) | 02 | Sol | review | [Dual-Qt editor/provider behavior and installed consumers; dependency gate pending](evidence/WP-023.md) |
 | [WP-024 — Add typography and calendar value pickers](phase-02-controls-data.md#wp-024) | 02 | Luna | review | [Provider and editor checks; mixed/reset followup active](evidence/WP-024.md) |
 | [WP-025 — Add preferences, shortcut editing and find/replace](phase-02-controls-data.md#wp-025) | 02 | Luna | review | [Focused persistence, search and undo checks](evidence/WP-025.md) |
 | [WP-026 — Add history, notifications and task feedback](phase-02-controls-data.md#wp-026) | 02 | Luna | review | [Focused feedback checks](evidence/WP-026.md) |
@@ -43,7 +65,7 @@ as though a later fix had already passed the earlier run.
 | [WP-028 — Implement editable two-dimensional grids](phase-02-controls-data.md#wp-028) | 02 | Sol | review | [Sparse core, bounded visual grid and interaction checks](evidence/WP-028.md) |
 | [WP-029 — Implement filters, query building and pivots](phase-02-controls-data.md#wp-029) | 02 | Sol | review | [Typed core](evidence/WP-029.md); [visual editor and pivot evidence](evidence/WP-029-visual.md) |
 | [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | review | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
-| [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | active | [Heatmap, DistributionPlot, Gantt and part-to-whole verified on Qt 6.11; other lanes active](evidence/WP-031.md) |
+| [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | active | [All seven assigned families passed shared focused checks; dependencies and dual-Qt gates pending](evidence/WP-031.md) |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | review | [Event, diff and resource integration status](evidence/WP-032.md) |
 | [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | planned | — |
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | planned | — |

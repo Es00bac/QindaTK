@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 02 — Common controls and scalable data
 
-**Execution underway.** WP-020 and WP-022 are active; other packages remain planned.
+**Execution underway.** WP-020 and WP-022 are accepted, WP-031 is active,
+and other packages are in review or planned as recorded in the ledger.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -15,7 +16,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-020"></a>
 ## WP-020 — Build command controls and adaptive toolbars
 
-**Implementation lead:** Luna. **Status:** active. **Depends on:** [WP-011](phase-01-services.md#wp-011), [WP-017](phase-01-services.md#wp-017)
+**Implementation lead:** Luna. **Status:** accepted. **Depends on:** [WP-011](phase-01-services.md#wp-011), [WP-017](phase-01-services.md#wp-017)
 
 **Proposal scope:** [CTL-01 SplitButton](../proposed/02-controls-navigation.md#ctl-01), [CTL-02 MenuButton](../proposed/02-controls-navigation.md#ctl-02), [CTL-03 ToolShelf](../proposed/02-controls-navigation.md#ctl-03), [CTL-05 CommandBar](../proposed/02-controls-navigation.md#ctl-05), [CTL-06 OverflowToolBar](../proposed/02-controls-navigation.md#ctl-06)
 
@@ -53,7 +54,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-022"></a>
 ## WP-022 — Build reusable typed inspectors
 
-**Implementation lead:** Luna. **Status:** active. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-017](phase-01-services.md#wp-017)
+**Implementation lead:** Luna. **Status:** accepted. **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-017](phase-01-services.md#wp-017)
 
 **Proposal scope:** [CTL-12 Inspector](../proposed/02-controls-navigation.md#ctl-12), [CTL-13 MixedValueField](../proposed/02-controls-navigation.md#ctl-13), [CTL-14 UnitField](../proposed/02-controls-navigation.md#ctl-14), [CTL-16 VectorField](../proposed/02-controls-navigation.md#ctl-16), [CTL-17 TransformEditor](../proposed/02-controls-navigation.md#ctl-17), [CTL-24 FormGroup](../proposed/02-controls-navigation.md#ctl-24)
 
@@ -72,7 +73,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-023"></a>
 ## WP-023 — Add expression, path and token editors
 
-**Implementation lead:** Sol. **Status:** review. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022)
+**Implementation lead:** Sol. **Status:** review (installed consumer passed; WP-019 dependency gate pending). **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022)
 
 **Proposal scope:** [CTL-15 ExpressionField](../proposed/02-controls-navigation.md#ctl-15), [CTL-20 FilePathField](../proposed/02-controls-navigation.md#ctl-20), [CTL-21 TokenField](../proposed/02-controls-navigation.md#ctl-21)
 
@@ -228,7 +229,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-031"></a>
 ## WP-031 — Complete analytical chart and scheduling families
 
-**Implementation lead:** Sol. **Status:** active (Heatmap sublane; remaining families pending). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-028](phase-02-controls-data.md#wp-028), [WP-029](phase-02-controls-data.md#wp-029), [WP-030](phase-02-controls-data.md#wp-030)
+**Implementation lead:** Sol. **Status:** active (all assigned families passed shared focused checks; dependencies and dual-Qt acceptance pending). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-028](phase-02-controls-data.md#wp-028), [WP-029](phase-02-controls-data.md#wp-029), [WP-030](phase-02-controls-data.md#wp-030)
 
 **Proposal scope:** [DAT-14 Heatmap](../proposed/03-data-views.md#dat-14), [DAT-16 DistributionPlot](../proposed/03-data-views.md#dat-16), [DAT-17 GanttView](../proposed/03-data-views.md#dat-17)
 
