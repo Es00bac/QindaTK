@@ -61,6 +61,8 @@ TestCase {
         Tk.MenuItem { text: "Ninth" }
     }
 
+    Component { id: signalSpyComponent; SignalSpy {} }
+
     function focusOrigin() {
         origin.forceActiveFocus(Qt.TabFocusReason)
         tryVerify(function() { return root.Window.window.activeFocusItem === origin })
@@ -227,5 +229,78 @@ TestCase {
             host.width = oldWidth
             host.height = oldHeight
         }
+    }
+
+    function test_palette_accessible_rows_skip_disabled_commands() {
+        const activated = createTemporaryObject(signalSpyComponent, root,
+                                                { target: palette, signalName: "activated" })
+        palette.commands = [
+            { id: "run", label: "Run", section: "Commands" },
+            { id: "blocked", label: "Blocked", section: "Commands", enabled: false },
+            { id: "later", label: "Later", section: "Commands" }
+        ]
+        compare(activated.count, 0) // owner model replacement is silent
+        palette.open()
+        tryVerify(function() { return palette.opened })
+        const list = findChild(palette.contentItem, "paletteList")
+        verify(list !== null)
+        compare(list.Accessible.role, Accessible.List)
+        compare(list.Accessible.name, "Commands")
+        const run = list.itemAtIndex(1)
+        const blocked = list.itemAtIndex(2)
+        const later = list.itemAtIndex(3)
+        verify(blocked !== null && run !== null)
+        verify(later !== null)
+        compare(blocked.Accessible.role, Accessible.ListItem)
+        compare(blocked.Accessible.name, "Blocked")
+        verify(!blocked.Accessible.selectable)
+        blocked.Accessible.pressAction()
+        compare(activated.count, 0)
+        verify(palette.opened)
+
+        keyClick(Qt.Key_Down)
+        compare(palette.currentRow, 3) // the disabled row is skipped
+        keyClick(Qt.Key_Up)
+        compare(palette.currentRow, 1)
+
+        compare(run.Accessible.name, "Run")
+        verify(run.Accessible.selectable)
+        verify(run.Accessible.selected)
+        run.Accessible.pressAction()
+        compare(activated.count, 1)
+        compare(activated.signalArguments[0][0], "run")
+        tryVerify(function() { return !palette.visible })
+
+        palette.commands = [{ id: "only", label: "Only", enabled: false }]
+        palette.open()
+        tryVerify(function() { return palette.opened })
+        compare(palette.currentRow, -1)
+        keyClick(Qt.Key_Return)
+        compare(activated.count, 1)
+        palette.close()
+    }
+
+    function test_dialog_disabled_primary_blocks_keyboard_and_accessible_accept() {
+        dialog.primaryEnabled = false
+        const accepted = createTemporaryObject(signalSpyComponent, root,
+                                                { target: dialog, signalName: "accepted" })
+        dialog.open()
+        tryVerify(function() { return dialog.opened })
+        const primary = findChild(dialog.footer, "dialogPrimary")
+        verify(primary !== null)
+        compare(dialog.contentItem.Accessible.role, Accessible.Dialog)
+        compare(dialog.contentItem.Accessible.name, "Confirm")
+        dialog.title = ""
+        compare(dialog.contentItem.Accessible.name, "Dialog")
+        dialog.title = "Confirm"
+        verify(!primary.enabled)
+        primary.Accessible.pressAction()
+        keyClick(Qt.Key_Return)
+        keyClick(Qt.Key_Enter)
+        compare(accepted.count, 0)
+        verify(dialog.opened)
+        keyClick(Qt.Key_Escape)
+        tryVerify(function() { return !dialog.visible })
+        dialog.primaryEnabled = true
     }
 }

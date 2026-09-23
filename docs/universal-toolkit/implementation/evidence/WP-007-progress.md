@@ -99,6 +99,11 @@ FND-07 through FND-10.
   explicit roles and names. Space, Return and Alt mnemonics emit `triggered`
   on accepted user actions; owner checked-state changes stay silent.
   [Focused evidence](WP-007-FIX-F04-menu-actions.md).
+- `CommandPalette` command rows expose accessible names and selected state;
+  disabled entries are skipped and cannot activate by keyboard, pointer or
+  accessible press. `Dialog` names its dialog body and its disabled primary
+  action rejects keyboard and accessible acceptance.
+  [Focused evidence](WP-007-FIX-F04-dialog-palette.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,

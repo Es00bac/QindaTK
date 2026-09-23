@@ -4,20 +4,21 @@ import QtQuick.Templates as T
 import QindaTK as Tk
 
 // AGENT-CONTRACT: the Ctrl+K palette. `commands` is a list of
-// {id, label, shortcut, section, iconName, keywords}; typing filters by a
-// case-insensitive substring over label and keywords, results are
-// grouped by section (first-appearance order) under overline rows, and
-// ↑/↓ + Enter (or a click) emit `activated(id)` and close. Top-centred
+// {id, label, shortcut, section, iconName, keywords, enabled}; typing
+// filters by a case-insensitive substring over label and keywords, results
+// are grouped by section (first-appearance order) under overline rows, and
+// ↑/↓ + Enter (or a click/accessibility press) emit `activated(id)` and close.
+// `enabled: false` keeps a row visible but skips and guards it. Top-centred
 // at 12% of the window height, width min(560, window - 32).
 T.Popup {
-    id: palette
+    id: commandPalette
 
     property var commands: []
     property string placeholderText: qsTr("Type a command…")
     property int maxVisible: 10
     property alias filterText: input.text
     readonly property alias currentRow: list.currentIndex
-    readonly property int resultCount: palette.rows.filter(function(r) { return !r.header }).length
+    readonly property int resultCount: commandPalette.rows.filter(function(r) { return !r.header }).length
     property var rows: []
 
     signal activated(string id)
@@ -35,12 +36,12 @@ T.Popup {
     // list is taller; the ListView then scrolls within the available height.
     implicitHeight: parent && parent.height > 0
         ? Math.min(contentItem.implicitHeight + topPadding + bottomPadding,
-                   Math.max(0, parent.height - palette.y - Tk.Theme.space.xl))
+                   Math.max(0, parent.height - commandPalette.y - Tk.Theme.space.xl))
         : contentItem.implicitHeight + topPadding + bottomPadding
 
     function rebuild() {
         const needle = input.text.trim().toLowerCase()
-        const source = Array.isArray(palette.commands) ? palette.commands : []
+        const source = Array.isArray(commandPalette.commands) ? commandPalette.commands : []
         const sections = []
         const bySection = {}
         for (let i = 0; i < source.length; ++i) {
@@ -71,39 +72,39 @@ T.Popup {
                     "id": c.id !== undefined ? String(c.id) : "",
                     "label": c.label !== undefined ? String(c.label) : "",
                     "shortcut": c.shortcut !== undefined ? String(c.shortcut) : "",
-                    "iconName": c.iconName !== undefined ? String(c.iconName) : ""
+                    "iconName": c.iconName !== undefined ? String(c.iconName) : "",
+                    "enabled": c.enabled !== false
                 })
             }
         }
-        palette.rows = flat
-        list.currentIndex = palette.firstSelectable(0, 1)
+        commandPalette.rows = flat
+        list.currentIndex = commandPalette.firstSelectable(0, 1)
     }
 
     // Next selectable (non-header) row from `start` walking by `step`.
     function firstSelectable(start, step) {
-        for (let i = start; i >= 0 && i < palette.rows.length; i += step) {
-            if (!palette.rows[i].header) {
+        for (let i = start; i >= 0 && i < commandPalette.rows.length; i += step) {
+            if (!commandPalette.rows[i].header && commandPalette.rows[i].enabled) {
                 return i
             }
         }
         return -1
     }
     function move(step) {
-        const next = palette.firstSelectable(list.currentIndex + step, step)
+        const next = commandPalette.firstSelectable(list.currentIndex + step, step)
         if (next >= 0) {
             list.currentIndex = next
             list.positionViewAtIndex(next, ListView.Contain)
         }
     }
     function activateCurrent() {
-        const row = palette.rows[list.currentIndex]
-        if (row === undefined || row.header) {
+        const row = commandPalette.rows[list.currentIndex]
+        if (!commandPalette.enabled || row === undefined || row.header || !row.enabled) {
             return
         }
-        palette.activated(row.id)
-        palette.close()
+        commandPalette.activated(row.id)
+        commandPalette.close()
     }
-
     onCommandsChanged: rebuild()
     onAboutToShow: {
         input.text = ""
@@ -127,22 +128,24 @@ T.Popup {
                 id: input
                 objectName: "paletteInput"
                 iconName: "search"
-                placeholderText: palette.placeholderText
-                onTextChanged: palette.rebuild()
-                Keys.onUpPressed: palette.move(-1)
-                Keys.onDownPressed: palette.move(1)
-                Keys.onReturnPressed: palette.activateCurrent()
-                Keys.onEnterPressed: palette.activateCurrent()
-                Keys.onEscapePressed: palette.close()
+                placeholderText: commandPalette.placeholderText
+                onTextChanged: commandPalette.rebuild()
+                Keys.onUpPressed: commandPalette.move(-1)
+                Keys.onDownPressed: commandPalette.move(1)
+                Keys.onReturnPressed: commandPalette.activateCurrent()
+                Keys.onEnterPressed: commandPalette.activateCurrent()
+                Keys.onEscapePressed: commandPalette.close()
             }
         }
 
         ListView {
             id: list
             objectName: "paletteList"
-            model: palette.rows
+            Accessible.role: Accessible.List
+            Accessible.name: qsTr("Commands")
+            model: commandPalette.rows
             clip: true
-            implicitHeight: Math.min(contentHeight, palette.maxVisible * Tk.Theme.size.menuItem + Tk.Theme.space.xs * 2)
+            implicitHeight: Math.min(contentHeight, commandPalette.maxVisible * Tk.Theme.size.menuItem + Tk.Theme.space.xs * 2)
             Tk.Flex.shrink: 1
             topMargin: Tk.Theme.space.xs
             bottomMargin: Tk.Theme.space.xs
@@ -156,8 +159,21 @@ T.Popup {
                 required property int index
                 required property var modelData
                 readonly property bool current: list.currentIndex === index
+                readonly property bool command: !row.modelData.header
                 width: ListView.view.width
                 height: Tk.Theme.size.menuItem
+
+                Accessible.role: row.command ? Accessible.ListItem : Accessible.StaticText
+                Accessible.name: row.modelData.label
+                Accessible.selectable: row.command && row.modelData.enabled
+                Accessible.selected: row.command && row.current
+                Accessible.focusable: row.command && row.modelData.enabled
+                Accessible.onPressAction: {
+                    if (!row.modelData.enabled)
+                        return
+                    list.currentIndex = row.index
+                    commandPalette.activateCurrent()
+                }
 
                 Tk.Overline {
                     visible: row.modelData.header
@@ -207,8 +223,10 @@ T.Popup {
                     HoverHandler { id: rowHover }
                     TapHandler {
                         onTapped: {
-                            list.currentIndex = row.index
-                            palette.activateCurrent()
+                            if (row.modelData.enabled) {
+                                list.currentIndex = row.index
+                                commandPalette.activateCurrent()
+                            }
                         }
                     }
                 }
@@ -217,7 +235,7 @@ T.Popup {
             Tk.EmptyState {
                 anchors.centerIn: parent
                 width: parent.width
-                visible: palette.resultCount === 0
+                visible: commandPalette.resultCount === 0
                 text: qsTr("No command matches \"%1\"").arg(input.text)
             }
         }

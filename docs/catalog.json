@@ -1247,7 +1247,7 @@
       "name": "CommandPalette",
       "kind": "qml",
       "base": "T.Popup",
-      "description": "AGENT-CONTRACT: the Ctrl+K palette. `commands` is a list of {id, label, shortcut, section, iconName, keywords}; typing filters by a case-insensitive substring over label and keywords, results are grouped by section (first-appearance order) under overline rows, and ↑/↓ + Enter (or a click) emit `activated(id)` and close. Top-centred at 12% of the window height, width min(560, window - 32).",
+      "description": "AGENT-CONTRACT: the Ctrl+K palette. `commands` is a list of {id, label, shortcut, section, iconName, keywords, enabled}; typing filters by a case-insensitive substring over label and keywords, results are grouped by section (first-appearance order) under overline rows, and ↑/↓ + Enter (or a click/accessibility press) emit `activated(id)` and close. `enabled: false` keeps a row visible but skips and guards it. Top-centred at 12% of the window height, width min(560, window - 32).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/CommandPalette.qml",
@@ -1295,7 +1295,7 @@
         {
           "name": "resultCount",
           "type": "int",
-          "default": "palette.rows.filter(function(r) { return !r.header }).length",
+          "default": "commandPalette.rows.filter(function(r) { return !r.header }).length",
           "readonly": true,
           "defaultProperty": false,
           "required": false
