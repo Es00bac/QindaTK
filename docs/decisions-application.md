@@ -261,3 +261,12 @@ drop-target contracts.
 (overwrite, crossfades, beat-locked clips) are policy subclasses, not view
 code. Snapping is a time-axis provider until WP-041's spatial SnapModel
 exists. See [edit-timeline.md](edit-timeline.md).
+
+**Dependency reconciliation.** WP-041's spatial selection geometry and
+SnapModel are not consumed by this one-dimensional timeline. The exact-tick
+`TimelineSnapper` already fulfills the timeline snap contract, so WP-041 is
+not an implementation prerequisite for WP-048. The `TimelineMediaBackend`
+contract deliberately leaves real audio/video decoding to hosts and the
+later audio/video integration packages; the synthetic backend is identified
+as a fixture. WP-048 acceptance checks request, cancellation, stale-result
+and view behavior at that boundary, not a codec implementation.

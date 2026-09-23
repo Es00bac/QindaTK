@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 03 — Spatial editing and exact time
 
-**Execution underway.** WP-046 and WP-047 are accepted; WP-040 and WP-048 are
-in integrated review. Other packages remain planned or in presentation work.
+**Execution underway.** WP-046 through WP-048 are accepted; WP-040 is in
+integrated review. Other packages remain planned or in presentation work.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -183,7 +183,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-048"></a>
 ## WP-048 — Implement the shared edit timeline
 
-**Implementation lead:** Sol. **Status:** review ([integrated evidence](evidence/WP-048.md); WP-041 and real-media gates open). **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041), [WP-047](phase-03-authoring.md#wp-047)
+**Implementation lead:** Sol. **Status:** accepted ([integrated evidence](evidence/WP-048.md); D-045 reconciles the independent time-axis and host-media seams). **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-047](phase-03-authoring.md#wp-047)
 
 **Proposal scope:** [AUD-04 EditTimeline](../proposed/06-audio-music.md#aud-04), [AUD-05 TrackHeader](../proposed/06-audio-music.md#aud-05), [AUD-06 ClipItem](../proposed/06-audio-music.md#aud-06), [AUD-07 TimeSelection](../proposed/06-audio-music.md#aud-07), [AUD-08 MarkerLane](../proposed/06-audio-music.md#aud-08)
 
