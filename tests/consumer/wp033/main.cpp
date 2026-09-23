@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QMimeData>
+#include <QSemaphore>
 #include <QTemporaryDir>
 #include <QTimer>
 
@@ -10,8 +11,11 @@
 #include <qindatk/command_context.h>
 #include <qindatk/command_registry.h>
 #include <qindatk/document_manager.h>
+#include <qindatk/dock_model.h>
 #include <qindatk/edit_transaction.h>
+#include <qindatk/job_model.h>
 #include <qindatk/property_document.h>
+#include <qindatk/workspace_session.h>
 
 #include <memory>
 
@@ -131,6 +135,81 @@ int main(int argc, char **argv)
     if (!expect(saveAs(a, pathA) && saveAs(b, pathB)
                     && !a->isDirty() && !b->isDirty(),
                 3, "independent Save As baselines")) return 3;
+    if (!expect(manager.activate(a->documentId()), 18,
+                "select document A before capturing workspace")) return 18;
+
+    const QString viewAAtSave = manager.viewsFor(a->documentId()).first();
+    const QString viewBAtSave = manager.viewsFor(b->documentId()).first();
+    const QString workspacePath = temp.filePath(QStringLiteral("workspace.json"));
+    const QVariantMap geometry{{QStringLiteral("x"), 0}, {QStringLiteral("y"), 0},
+                               {QStringLiteral("width"), 960}, {QStringLiteral("height"), 600}};
+    const QVariantList windows{QVariantMap{{QStringLiteral("windowId"), QStringLiteral("main")},
+        {QStringLiteral("geometry"), geometry}, {QStringLiteral("activeViewId"), viewAAtSave}}};
+    DockModel dock;
+    WorkspaceSession workspace;
+    workspace.setPath(workspacePath);
+    if (!expect(workspace.capture(&manager, &dock, windows, {}, QStringLiteral("main"))
+                    && workspace.save(), 18, "capture two-document workspace")) return 18;
+    DocumentManager restoredWorkspaceManager;
+    DockModel restoredDock;
+    WorkspaceSession loadedWorkspace;
+    loadedWorkspace.setPath(workspacePath);
+    if (!expect(loadedWorkspace.load()
+                    && loadedWorkspace.restore(&restoredWorkspaceManager, &restoredDock)
+                    && loadedWorkspace.unavailableDocuments().isEmpty()
+                    && restoredWorkspaceManager.sessions().size() == 2
+                    && restoredWorkspaceManager.viewsFor(a->documentId()) == QStringList{viewAAtSave}
+                    && restoredWorkspaceManager.viewsFor(b->documentId()) == QStringList{viewBAtSave}
+                    && restoredWorkspaceManager.activeSession()
+                    && restoredWorkspaceManager.activeSession()->documentId() == a->documentId()
+                    && restoredWorkspaceManager.findSession(a->documentId())->document()
+                           ->value(entityA, QStringLiteral("note")).toString() == QStringLiteral("A0")
+                    && restoredWorkspaceManager.findSession(b->documentId())->document()
+                           ->value(entityB, QStringLiteral("note")).toString() == QStringLiteral("B0"),
+                19, "reopen content and restore active document and stable view IDs")) return 19;
+
+    JobModel jobs;
+    QSemaphore jobStarted, releaseJob;
+    JobSpec delayed;
+    delayed.label = QStringLiteral("Delayed document B metadata");
+    delayed.document = restoredWorkspaceManager.findSession(b->documentId())->document();
+    delayed.expected = delayed.document->header();
+    delayed.viewId = viewBAtSave;
+    delayed.work = [&jobStarted, &releaseJob](const CancellationToken &, const JobProgress &) {
+        jobStarted.release();
+        releaseJob.acquire();
+        return JobResult{{{QStringLiteral("name"), QStringLiteral("stale result")}}, {}, false};
+    };
+    const QString delayedId = jobs.enqueue(std::move(delayed));
+    const bool startedJob = !delayedId.isEmpty() && jobStarted.tryAcquire(1, 5000);
+    if (!expect(startedJob, 20, "delayed job starts against document B")) {
+        releaseJob.release();
+        return 20;
+    }
+    const bool closedB = restoredWorkspaceManager.closeDocument(
+        b->documentId(), DocumentManager::ClosePolicy::Cancel);
+    bool finishedJob = false;
+    JobModel::JobState finalState = JobModel::Queued;
+    QEventLoop jobLoop;
+    QObject::connect(&jobs, &JobModel::jobFinished, &jobLoop,
+                     [&](const QString &id, JobModel::JobState state,
+                         const QVariantMap &, const QString &) {
+        if (id != delayedId) return;
+        finishedJob = true;
+        finalState = state;
+        jobLoop.quit();
+    });
+    releaseJob.release();
+    QTimer::singleShot(5000, &jobLoop, &QEventLoop::quit);
+    if (!finishedJob) jobLoop.exec();
+    if (!expect(closedB && finishedJob && finalState == JobModel::Stale
+                    && jobs.job(delayedId).value(QStringLiteral("result")).toMap().isEmpty()
+                    && !restoredWorkspaceManager.findSession(b->documentId())
+                    && restoredWorkspaceManager.activeSession()
+                    && restoredWorkspaceManager.activeSession()->documentId() == a->documentId()
+                    && restoredWorkspaceManager.activeSession()->document()
+                           ->value(entityA, QStringLiteral("note")).toString() == QStringLiteral("A0"),
+                21, "closing B retires its delayed result without changing active A")) return 21;
 
     CommandContext context;
     CommandRegistry commands;
@@ -239,6 +318,6 @@ int main(int argc, char **argv)
                     && restoredA && restoredA->recovered() && restoredA->isDirty()
                     && restoredA->document()->value(entityA, QStringLiteral("note")).toString() == QStringLiteral("A2"),
                 17, "B reopens clean; A restores latest edit without replacing external file")) return 17;
-    qInfo("WP-033 installed consumer: two documents, scoped commands, stale guard, clipboard, undo, partial Save All, recovery passed");
+    qInfo("WP-033 installed consumer: two documents, workspace restore, close-during-job, scoped commands, stale guard, clipboard, undo, partial Save All, recovery passed");
     return 0;
 }
