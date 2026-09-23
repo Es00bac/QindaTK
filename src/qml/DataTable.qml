@@ -99,7 +99,7 @@ Item {
     }
 
     function toggleSort(column) {
-        if (!column.sortable) {
+        if (!table.enabled || !column.sortable) {
             return
         }
         let order = column.descendingFirst ? Qt.DescendingOrder : Qt.AscendingOrder
@@ -123,6 +123,9 @@ Item {
     }
 
     function moveSelection(delta) {
+        if (!table.enabled) {
+            return
+        }
         if (table.count < 1) {
             table.currentIndex = -1
             return
@@ -139,7 +142,9 @@ Item {
         const record = table.recordAt(index)
         const parts = []
         for (const column of table.visibleColumns) {
-            const text = column.display(table.cellOf(record, column.key), record)
+            const displayed = column.display(table.cellOf(record, column.key), record)
+            const text = displayed === undefined || displayed === null
+                         ? "" : String(displayed)
             if (text.length > 0) {
                 parts.push(column.title.length > 0
                            ? column.title + ": " + text : text)
@@ -339,6 +344,9 @@ Item {
                         acceptedButtons: Qt.RightButton
                         gesturePolicy: TapHandler.ReleaseWithinBounds
                         onTapped: function(eventPoint) {
+                            if (!table.enabled) {
+                                return
+                            }
                             table.currentIndex = rowItem.index
                             table.rowRightClicked(rowItem.index, eventPoint.position)
                         }

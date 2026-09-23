@@ -35,6 +35,8 @@ TestCase {
         verify(row !== null)
         compare(row.Accessible.role, Accessible.Row)
         compare(row.Accessible.name, "PID: 42, Name: worker")
+        table.columns[0].formatter = function(value) { return value }
+        compare(row.Accessible.name, "PID: 42, Name: worker")
         verify(row.Accessible.selectable)
         compare(row.Accessible.selected, false)
 
@@ -47,6 +49,8 @@ TestCase {
         verify(table !== null)
         const spy = createTemporaryObject(spyComponent, root,
                                           { target: table, signalName: "activated" })
+        const sortSpy = createTemporaryObject(spyComponent, root,
+                                              { target: table, signalName: "sortRequested" })
         table.forceActiveFocus()
         keyClick(Qt.Key_Return)
         compare(spy.count, 0)
@@ -70,5 +74,12 @@ TestCase {
         keyClick(Qt.Key_Return)
         compare(spy.count, 2)
         compare(spy.signalArguments[1][0], 1)
+        table.enabled = false
+        table.moveSelection(-1)
+        row.Accessible.pressAction()
+        table.toggleSort(table.columns[0])
+        compare(table.currentIndex, 1)
+        compare(spy.count, 2)
+        compare(sortSpy.count, 0)
     }
 }

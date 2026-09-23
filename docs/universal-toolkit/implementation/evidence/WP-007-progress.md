@@ -67,6 +67,10 @@ FND-07 through FND-10.
   selected PageTab state and guarded keyboard/assistive selection. TabStrip
   focus follows the selected tab.
   [Focused evidence](WP-007-FIX-F04-selection-composites.md).
+- `DataTable` now names the table and realized rows for accessibility, shows
+  selected row state, and shares a guarded user activation path across tap,
+  Return/Enter and accessible press. Arrow navigation and owner selection
+  remain silent. [Focused evidence](WP-007-FIX-F04-data-table.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,
