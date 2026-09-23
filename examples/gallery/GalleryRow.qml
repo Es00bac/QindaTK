@@ -11,15 +11,20 @@ Tk.Flex {
     id: row
 
     property string label: ""
+    property real labelColumnWidth: 110
     default property alias items: controls.data
 
     direction: Tk.Flex.Row
+    wrap: Tk.Flex.Wrap
     align: Tk.Flex.Start
     gap: Tk.Theme.space.md
 
     Tk.Caption {
+        id: labelCaption
+        objectName: "galleryRowLabel"
         text: row.label
-        Tk.Flex.basis: 110
+        wrapMode: Text.WordWrap
+        Tk.Flex.basis: implicitWidth > row.labelColumnWidth ? row.width : row.labelColumnWidth
         Tk.Flex.shrink: 0
         Tk.Flex.alignSelf: Tk.Flex.Center
         visible: row.label.length > 0

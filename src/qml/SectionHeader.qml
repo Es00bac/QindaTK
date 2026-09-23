@@ -16,9 +16,15 @@ Item {
     property bool collapsed: false
     default property alias trailing: trailingHost.data
     readonly property bool canToggle: collapsible && enabled
+    readonly property bool countNeedsOwnLine: count.length > 0 && width > 0
+        && titleText.implicitWidth + countText.implicitWidth + trailingHost.implicitWidth
+           + Tk.Theme.space.xs * 3
+           + (collapsible ? Tk.Theme.size.iconSm + Tk.Theme.space.xs : 0) > width
 
     implicitWidth: row.implicitWidth
-    implicitHeight: Tk.Theme.size.row
+    implicitHeight: countNeedsOwnLine
+        ? row.height + Tk.Theme.space.xs + wrappedCount.implicitHeight
+        : row.height
     activeFocusOnTab: canToggle
 
     Accessible.role: collapsible ? Accessible.Button : Accessible.StaticText
@@ -63,7 +69,10 @@ Item {
 
     Tk.Flex {
         id: row
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: Math.max(Tk.Theme.size.row, titleText.implicitHeight, countText.implicitHeight)
         direction: Tk.Flex.Row
         align: Tk.Flex.Center
         gap: Tk.Theme.space.xs
@@ -77,12 +86,14 @@ Item {
         }
         Tk.Overline {
             objectName: "sectionTitle"
+            id: titleText
             title: header.title
             Tk.Flex.grow: 1
             Tk.Flex.basis: 0
         }
         Tk.Caption {
-            visible: header.count.length > 0
+            id: countText
+            visible: header.count.length > 0 && !header.countNeedsOwnLine
             text: header.count
             Tk.Flex.shrink: 0
         }
@@ -93,6 +104,17 @@ Item {
             gap: Tk.Theme.space.xs
             Tk.Flex.shrink: 0
         }
+    }
+
+    Tk.Caption {
+        id: wrappedCount
+        objectName: "sectionCount_" + header.title
+        visible: header.countNeedsOwnLine
+        text: header.count
+        wrapMode: Text.WordWrap
+        x: row.x
+        y: row.y + row.height + Tk.Theme.space.xs
+        width: Math.max(0, header.width - x)
     }
 
     Item {

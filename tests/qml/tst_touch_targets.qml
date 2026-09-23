@@ -331,9 +331,23 @@ TestCase {
                 const p = search.mapToItem(headerScroll, 0, 0)
                 return p.y >= 0 && p.y + search.height <= headerScroll.viewportHeight + 0.5
             })
+            search.text = "Selection"
+            const gallerySection = findChild(content, "gallerySection_Selection")
+            verify(gallerySection !== null)
+            const sectionTitle = findChild(gallerySection, "sectionTitle")
+            const sectionCount = findChild(gallerySection, "sectionCount_Selection")
+            const rowLabel = findChild(gallerySection, "galleryRowLabel")
+            verify(sectionTitle && sectionCount && rowLabel)
+            verify(sectionTitle.width > 0)
+            verify(sectionCount.visible)
+            const sectionHeader = sectionCount.parent
+            verify(sectionCount.y + sectionCount.height <= sectionHeader.height + 0.5)
+            compare(rowLabel.text, "CheckBox")
+            verify(rowLabel.width > 110)
         } finally {
             Tk.Density.modeName = formerMode
             Tk.Density.textScale = formerTextScale
         }
     }
+
 }

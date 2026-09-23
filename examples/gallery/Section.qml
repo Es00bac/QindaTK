@@ -7,6 +7,7 @@ import QindaTK as Tk
 // gallery's filter text (an invisible child takes no space in a Flex).
 Tk.Box {
     id: section
+    objectName: "gallerySection_" + title.replace(/\s+/g, "")
 
     property string title: ""
     property string note: ""

@@ -57,6 +57,11 @@ FND-07 through FND-10.
   handle child while native SplitView retains pane sizing and constraints.
   Both axes and all three densities have focused synthetic touch coverage.
   [Focused evidence](WP-007-FND-07-touch.md).
+- The gallery `Inputs`, `Selection`, and `Menus and popups` sections now keep
+  their header title visible at Touch 3× text and wrap the long header note
+  within the section; long gallery row labels move above their controls. The
+  480×320, high-contrast dark/light matrix is recorded in
+  [large-text section evidence](WP-007-FND-07-large-text-sections.md).
 - `Ruler` marker hits use a theme-derived 24px Touch radius while marker
   artwork stays at `size.rulerMarker`; overlapping targets choose the nearest
   marker and exact ties follow model order. Touch edge-drag and insertion tests

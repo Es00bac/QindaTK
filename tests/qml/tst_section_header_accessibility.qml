@@ -102,6 +102,36 @@ TestCase {
         compare(header.collapsed, false)
     }
 
+    function test_largeCountMovesBelowTitleInsideNarrowHeader() {
+        const formerMode = Tk.Density.modeName
+        const formerTextScale = Tk.Density.textScale
+        try {
+            Tk.Density.modeName = "touch"
+            Tk.Density.textScale = 3
+            const header = createTemporaryObject(headerComponent, root, {
+                title: "INPUTS",
+                count: "TextField · SearchField · TextArea · NumberField · Slider · ComboBox · ColorField",
+                width: 220,
+                y: 0
+            })
+            verify(header !== null)
+            waitForRendering(header)
+
+            const title = findChild(header, "sectionTitle")
+            const count = findChild(header, "sectionCount_INPUTS")
+            verify(title !== null && count !== null)
+            verify(title.width > 0)
+            verify(count.visible)
+            compare(count.wrapMode, Text.WordWrap)
+            verify(count.width <= header.width)
+            verify(count.height > Tk.Theme.size.row)
+            verify(header.implicitHeight >= count.y + count.height)
+        } finally {
+            Tk.Density.modeName = formerMode
+            Tk.Density.textScale = formerTextScale
+        }
+    }
+
     function test_propertyGroupSyncsUserAndProgrammaticCollapse() {
         const group = createTemporaryObject(groupComponent, root, { y: 150 })
         verify(group !== null)

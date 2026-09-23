@@ -5271,6 +5271,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "countNeedsOwnLine",
+          "type": "bool",
+          "default": "count.length > 0 && width > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -5289,6 +5297,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "sectionCount_",
         "sectionTitle"
       ]
     },

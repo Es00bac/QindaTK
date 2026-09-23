@@ -118,6 +118,9 @@ full 19-target CTest suite and `all_qmllint`.
 
 ## Divider seams
 
+The narrow, maximum-text gallery-section follow-up is recorded in
+[large-text section evidence](WP-007-FND-07-large-text-sections.md).
+
 `DockDivider` now reads the density-scaled `Theme.size.seamTarget` (16px in
 Compact, 19px in Comfortable, and at least 48px in Touch) and derives the
 `HoverHandler` and `DragHandler` margin from the seam's cross-axis thickness.
