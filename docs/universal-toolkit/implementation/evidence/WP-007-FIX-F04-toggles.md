@@ -15,5 +15,6 @@ keyboard input. CheckBox describes a partially checked state explicitly.
 The focused QML tests cover Space and accessible press, disabled input,
 programmatic state changes and notification provenance. On Qt 6.11.1,
 `clicked` and `toggled` stayed silent after programmatic assignment and
-each fired for the user action. The integrated `tst_qml` target passed.
+each fired for the user action. At integration commit `c8efd7e`, both Qt
+6.11.1 and 6.8.3 passed the complete 19-target CTest suite and `all_qmllint`.
 Native screen-reader announcement remains unverified.

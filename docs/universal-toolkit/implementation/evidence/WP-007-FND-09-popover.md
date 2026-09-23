@@ -32,6 +32,10 @@ Verification for this slice:
 - `python tools/scripts/gen_catalog.py` completed. The source inventory now
   includes the internal `refreshScrollAncestors()` helper on `Popover`.
 
+After integration of the ancestor-scroll repair, Qt 6.11.1 and 6.8.3 each
+passed the complete 19-target CTest suite and `all_qmllint` at commit
+`c8efd7e`.
+
 An open popover was positioned and clamped when opened or resized, but it did
 not follow its anchor when the anchor moved or changed size. The new regression
 test failed at that assertion against the unmodified `Popover.qml`.

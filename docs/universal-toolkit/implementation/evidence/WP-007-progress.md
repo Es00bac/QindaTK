@@ -72,7 +72,7 @@ FND-07 through FND-10.
 
 On both Qt 6.11.1 and isolated Qt 6.8.3, integrated Debug builds, all
 19 current CTest targets and `all_qmllint` exited 0 at integration commit
-`7b3c898`. The new QML tests cover
+`c8efd7e`. The new QML tests cover
 pointer/keyboard/assistive-action signal paths, disabled behavior and group
 state synchronization. These signal tests do not establish native screen-reader
 delivery or a platform value interface.

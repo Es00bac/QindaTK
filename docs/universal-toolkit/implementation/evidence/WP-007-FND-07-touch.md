@@ -42,8 +42,8 @@ and a preset switch/reset. In the integrated Touch 3× preview,
 `Slider#reviewSlider 0,194 520x48` and
 `RangeSlider#reviewRange 0,260 520x48` have tracks centred at y=23 and
 handles at y=17. The ignored `build/wp007-controls-touch-3x.png` was opened
-and inspected. Splitters, small toggle variants, menu geometry, custom
-handlers, narrower windows and physical devices remain to check.
+and inspected. Splitters, menu geometry, custom handlers, narrower windows
+and physical devices remain to check.
 
 Small `CheckBox`, `Switch` and `RadioButton` rows now use the derived
 `Theme.size.toggleTargetSm` role (16px Compact, 19px Comfortable, 48px
@@ -55,3 +55,6 @@ software previews show `CheckBox#reviewSmallCheck 0,27 520x16`,
 the same controls are each 520×48, with 18px indicators centred at y=15.
 `build/wp007-small-toggles-compact.png` and
 `build/wp007-small-toggles-touch-3x.png` were opened and inspected.
+
+At integration commit `c8efd7e`, Qt 6.11.1 and 6.8.3 each passed the full
+19-target CTest suite and `all_qmllint`.
