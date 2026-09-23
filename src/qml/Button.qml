@@ -86,11 +86,15 @@ T.Button {
     Accessible.role: Accessible.Button
     Accessible.name: control.busy ? qsTr("%1, busy").arg(control.text) : control.text
     Accessible.description: control.tooltip
+    Accessible.focusable: control.enabled
+    Accessible.checkable: control.checkable
+    Accessible.checked: control.checked
+    Accessible.onPressAction: if (control.enabled) control.click()
 
     Tk.ToolTip {
         text: control.tooltip
         visible: control.tooltip.length > 0 && control.hovered
-        delay: 600
+        delay: Tk.Theme.motion.tooltipDelay
     }
 
     background: Rectangle {

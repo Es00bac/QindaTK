@@ -58,6 +58,9 @@ a visible `Tk.Theme.color.focus` indication. A composite's delegate, rather
 than just an unrelated root item, reports selection and focus when the user
 operates that delegate. `Accessible.pressAction`, increase/decrease and
 equivalent paths call the same operation as keyboard and pointer input.
+Template-backed Button, IconButton and Chip own that press action; a composite
+that supplies an `onClicked` handler must not add a second accessible handler
+that invokes the same operation.
 Popups keep the current choice visible, remain reachable in the host, and
 return focus to their opener or parent popup on cancellation.
 

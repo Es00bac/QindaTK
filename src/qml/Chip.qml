@@ -69,11 +69,22 @@ T.AbstractButton {
     Accessible.role: control.checkable ? Accessible.CheckBox : Accessible.Button
     Accessible.name: control.text.length > 0 ? control.text : control.tooltip
     Accessible.description: control.tooltip
+    Accessible.focusable: control.enabled
+    Accessible.checkable: control.checkable
+    Accessible.checked: control.checked
+    Accessible.onPressAction: if (control.enabled) control.click()
+
+    Keys.onPressed: function(event) {
+        if (event.key !== Qt.Key_Space && event.key !== Qt.Key_Return && event.key !== Qt.Key_Enter)
+            return
+        event.accepted = true
+        if (control.enabled && !event.isAutoRepeat) control.click()
+    }
 
     Tk.ToolTip {
         text: control.tooltip
         visible: control.tooltip.length > 0 && control.hovered
-        delay: 600
+        delay: Tk.Theme.motion.tooltipDelay
     }
 
     background: Rectangle {

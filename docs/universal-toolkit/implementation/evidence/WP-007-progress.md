@@ -188,6 +188,11 @@ FND-07 through FND-10.
   signal. Touch status fields receive the existing 48px control target with
   their bar's top border accounted for; Compact geometry stays 22px.
   [Focused evidence](WP-007-FIX-F04-status-field.md).
+- `Button`, `IconButton` and `Chip` explicitly expose enabled accessible focus,
+  checked state and press actions through their template click operation.
+  Focused QML tests cover Tab traversal, Space, accessible activation, silent
+  owner assignments and disabled guards.
+  [Focused evidence](WP-007-FIX-F04-basic-actions.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,
