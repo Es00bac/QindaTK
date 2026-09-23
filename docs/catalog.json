@@ -4942,6 +4942,46 @@
           "required": false
         },
         {
+          "name": "lastActiveRowIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastActiveColumnIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionRestoreRowId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionRestoreColumnId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rangePreview",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "scrollX",
           "type": "real",
           "default": "0",
@@ -5040,7 +5080,7 @@
         {
           "name": "activeRow",
           "type": "int",
-          "default": "model ? model.rowIndex(activeRowId) : -1",
+          "default": "model && dataEpoch >= 0 ? model.rowIndex(activeRowId) : -1",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -5048,7 +5088,7 @@
         {
           "name": "activeColumn",
           "type": "int",
-          "default": "model ? model.columnIndex(activeColumnId) : -1",
+          "default": "model && dataEpoch >= 0 ? model.columnIndex(activeColumnId) : -1",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -5074,6 +5114,10 @@
           "parameters": ""
         },
         {
+          "name": "cellSelected",
+          "parameters": "row, column"
+        },
+        {
           "name": "collectVisibleCells",
           "parameters": ""
         },
@@ -5084,6 +5128,10 @@
         {
           "name": "setCurrent",
           "parameters": "row, column, extend"
+        },
+        {
+          "name": "reconcileSelection",
+          "parameters": ""
         },
         {
           "name": "ensureCurrentVisible",
@@ -10862,6 +10910,14 @@
         {
           "name": "headerHeight",
           "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "geometryEpoch",
+          "type": "int",
           "default": "0",
           "readonly": false,
           "defaultProperty": false,
@@ -18382,6 +18438,26 @@
           "name": "setColumnIds",
           "returns": "bool",
           "parameters": "const QStringList &ids"
+        },
+        {
+          "name": "insertRowsAt",
+          "returns": "bool",
+          "parameters": "int index, const QStringList &ids"
+        },
+        {
+          "name": "insertColumnsAt",
+          "returns": "bool",
+          "parameters": "int index, const QStringList &ids"
+        },
+        {
+          "name": "removeRowsAt",
+          "returns": "bool",
+          "parameters": "int index, int count"
+        },
+        {
+          "name": "removeColumnsAt",
+          "returns": "bool",
+          "parameters": "int index, int count"
         },
         {
           "name": "rowIdAt",

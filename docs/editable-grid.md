@@ -21,6 +21,18 @@ visible coordinate, never persistent identity. `data()` exposes `value`,
 fallback label. An application can present a display label from its own ID
 metadata.
 
+`insertRowsAt(index, ids)` and `insertColumnsAt(index, ids)` emit Qt section
+insert notifications and preserve survivor IDs, sparse values, ranges,
+explicit section sizes and local/external history receipts. New IDs must be
+unique and absent. `removeRowsAt(index, count)` and
+`removeColumnsAt(index, count)` emit remove notifications, prune removed
+cells/ranges and retire **all** local and external history receipts, even a
+receipt whose edited cell survived. The host must discard those receipts;
+`releaseHistoryTransaction` and `applyHistoryChanges` reject them after
+removal. All four operations cancel a pending edit before changing structure.
+Invalid requests leave the model unchanged. `setRowIds`/`setColumnIds` remain
+the complete replacement/reorder API and may use model reset notifications.
+
 `GridCellSource` provides lazy baseline `value(rowId, columnId)` and optional
 `validate(rowId, columnId, candidate)`. The grid reads the source only for
 requested cells. Committed edits live in its sparse override map. Replacing
@@ -118,7 +130,14 @@ boundaries so the visible borders follow the four distinct cell regions.
 
 Keyboard navigation keeps focus on the table and exposes its current cell,
 value and dimensions through the accessible name/description path. Visible
-cells also expose row, column and value names. Enter or F2 moves focus to the
+cells expose row, column, value, selected/focused state and an assistive press
+action to select the cell. The table description includes the selected range's
+row/column extent. Shift+arrows, Shift+Page Up/Down and Shift+Home/End extend
+selection; Escape restores the cell selected before extension. Ctrl+Home/End
+jump to the first/last cell and Page Up/Down move by a visible page. After a
+section removal the view retains surviving active IDs; a removed active ID
+falls back to the nearest surviving index and updates its accessible state.
+Enter or F2 moves focus to the
 cell editor; edits remember the cell's row and column IDs until commit even if
 the selection changes. Escape cancels. The view exposes `pasteMatrix` and
 `fillSelection` as host integration points for clipboard and fill-handle

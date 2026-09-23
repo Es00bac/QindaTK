@@ -110,4 +110,71 @@ TestCase {
         compare(view.model.cellValue("r:2", "c:2"), "draft for B2")
         compare(view.model.cellValue("r:2", "c:3"), undefined)
     }
+
+    function test_insert_remove_reconciles_accessible_selection() {
+        const host = createTemporaryObject(gridComponent, root)
+        const view = findChild(host, "editableGrid")
+        view.setCurrent(1, 1, false)
+        view.forceActiveFocus()
+        waitForRendering(view)
+        const epoch = view.dataEpoch
+        verify(view.model.insertRowsAt(0, ["new-row"]))
+        verify(view.model.insertColumnsAt(0, ["new-column"]))
+        verify(view.dataEpoch >= epoch + 2)
+        compare(view.activeRowId, "r:2")
+        compare(view.activeColumnId, "c:2")
+        compare(view.activeRow, 2)
+        compare(view.activeColumn, 2)
+        const survivor = findChild(view, "gridCell_r:2_c:2")
+        verify(survivor !== null)
+        verify(survivor.Accessible.selected)
+        verify(survivor.Accessible.focused)
+        tryVerify(function() {
+            const outline = findChild(view, "gridRangeSelection_0")
+            return outline !== null && Math.abs(outline.x
+                - view.model.cellRect(2, 2, view.scrollX, view.scrollY).x) < 0.1
+        })
+        verify(view.Accessible.description.includes("Row 3, column 3"))
+        verify(view.model.removeRowsAt(2, 1))
+        compare(view.activeRowId, "r:3")
+        compare(view.activeColumnId, "c:2")
+        verify(view.model.removeColumnsAt(2, 1))
+        compare(view.activeColumnId, "c:3")
+        tryVerify(function() {
+            const active = findChild(view, "gridCell_r:3_c:3")
+            return active !== null && active.Accessible.selected
+                   && active.Accessible.focused
+        })
+        verify(view.Accessible.description.includes("Row 3, column 3"))
+        const first = findChild(view, "gridCell_r:1_c:1")
+        verify(first !== null)
+        first.Accessible.pressAction()
+        compare(view.activeRowId, "r:1")
+        compare(view.activeColumnId, "c:1")
+        verify(first.Accessible.selected)
+    }
+
+    function test_keyboard_range_restore_and_accessible_jump() {
+        const host = createTemporaryObject(gridComponent, root)
+        const view = findChild(host, "editableGrid")
+        view.setCurrent(2, 2, false)
+        view.forceActiveFocus()
+        waitForRendering(view)
+        keyClick(Qt.Key_Right, Qt.ShiftModifier)
+        compare(view.model.ranges[0].firstColumn, 2)
+        compare(view.model.ranges[0].lastColumn, 3)
+        verify(view.Accessible.description.includes("Selected range: rows 3–3, columns 3–4"))
+        keyClick(Qt.Key_Escape)
+        compare(view.activeColumn, 2)
+        compare(view.model.ranges[0].lastColumn, 2)
+        keyClick(Qt.Key_End, Qt.ControlModifier)
+        compare(view.activeRow, 99999)
+        compare(view.activeColumn, 99)
+        verify(view.visibleCellRecords.length < 4096)
+        keyClick(Qt.Key_Home, Qt.ControlModifier)
+        compare(view.activeRow, 0)
+        compare(view.activeColumn, 0)
+        keyClick(Qt.Key_PageDown)
+        verify(view.activeRow > 0)
+    }
 }

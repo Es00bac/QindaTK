@@ -23,6 +23,7 @@ private slots:
     void stableIdentityAndGeometry();
     void atomicEditsAndUndo();
     void hostHistoryBridge();
+    void insertionRemovalAndHistoryInvalidation();
 };
 
 void GridTest::lazyScaleAndBoundedWindow()
@@ -148,6 +149,60 @@ void GridTest::hostHistoryBridge()
     QCOMPARE(grid.cellValue("a", "x").toString(), QString("edited"));
     QVERIFY(grid.releaseHistoryTransaction(id));
     QVERIFY(!grid.applyHistoryChanges(id, changes, true, grid.revision()));
+}
+
+void GridTest::insertionRemovalAndHistoryInvalidation()
+{
+    EditableGridModel grid;
+    LazySource source; grid.setSource(&source);
+    QVERIFY(grid.setRowIds({"r1", "r2"}));
+    QVERIFY(grid.setColumnIds({"c1", "c2"}));
+    QVERIFY(grid.requestRowResize("r2", 40));
+    QVERIFY(grid.requestColumnResize("c2", 60));
+    QVERIFY(grid.setRange("r2", "c2", "r2", "c2"));
+    QVERIFY(grid.paste(1, 1, QVariantList{QVariant(QVariantList{"edited"})}));
+    QVERIFY(grid.canUndo());
+    QSignalSpy rowInserted(&grid, &QAbstractItemModel::rowsInserted);
+    QSignalSpy columnInserted(&grid, &QAbstractItemModel::columnsInserted);
+    QSignalSpy rowRemoved(&grid, &QAbstractItemModel::rowsRemoved);
+    QSignalSpy columnRemoved(&grid, &QAbstractItemModel::columnsRemoved);
+    QVERIFY(grid.insertRowsAt(1, {"between"}));
+    QVERIFY(grid.insertColumnsAt(1, {"extra"}));
+    QCOMPARE(rowInserted.size(), 1);
+    QCOMPARE(columnInserted.size(), 1);
+    QCOMPARE(grid.rowIndex("r2"), 2);
+    QCOMPARE(grid.columnIndex("c2"), 2);
+    QCOMPARE(grid.cellRect(2, 2, 0, 0).size(), QSizeF(60, 40));
+    QCOMPARE(grid.cellValue("r2", "c2").toString(), QString("edited"));
+    QCOMPARE(grid.ranges().first().toMap().value("activeRowId").toString(), QString("r2"));
+    QVERIFY(grid.undo());
+    QCOMPARE(grid.cellValue("r2", "c2").toString(), QString("r2/c2"));
+    QVERIFY(grid.redo());
+    QCOMPARE(grid.cellValue("r2", "c2").toString(), QString("edited"));
+    QVERIFY(!grid.insertRowsAt(0, {"r1"}));
+    QCOMPARE(rowInserted.size(), 1);
+    grid.setExternalUndo(true);
+    QSignalSpy committed(&grid, &EditableGridModel::committed);
+    QVERIFY(grid.paste(2, 2, QVariantList{QVariant(QVariantList{"host step"})}));
+    const QString transaction = committed.first().at(0).toString();
+    const QVariantList payload = committed.first().at(2).toList();
+    QVERIFY(grid.insertRowsAt(0, {"head"}));
+    QVERIFY(grid.applyHistoryChanges(transaction, payload, true, grid.revision()));
+    QCOMPARE(grid.cellValue("r2", "c2").toString(), QString("edited"));
+    QVERIFY(grid.applyHistoryChanges(transaction, payload, false, grid.revision()));
+    QCOMPARE(grid.cellValue("r2", "c2").toString(), QString("host step"));
+    QVERIFY(grid.removeRowsAt(grid.rowIndex("between"), 1));
+    QCOMPARE(rowRemoved.size(), 1);
+    QCOMPARE(grid.rowIndex("r2"), 2);
+    QVERIFY(!grid.releaseHistoryTransaction(transaction));
+    QVERIFY(!grid.applyHistoryChanges(transaction, payload, true, grid.revision()));
+    QCOMPARE(grid.cellValue("r2", "c2").toString(), QString("host step"));
+    QVERIFY(grid.removeColumnsAt(grid.columnIndex("c2"), 1));
+    QCOMPARE(columnRemoved.size(), 1);
+    QCOMPARE(grid.sparseCellCount(), 0);
+    QCOMPARE(grid.ranges().size(), 0);
+    QVERIFY(!grid.removeRowsAt(99, 1));
+    QCOMPARE(rowRemoved.size(), 1);
 }
 
 QTEST_MAIN(GridTest)

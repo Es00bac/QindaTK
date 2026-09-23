@@ -20,6 +20,11 @@ T.Control {
     property string activeColumnId: ""
     property string anchorRowId: ""
     property string anchorColumnId: ""
+    property int lastActiveRowIndex: 0
+    property int lastActiveColumnIndex: 0
+    property string selectionRestoreRowId: ""
+    property string selectionRestoreColumnId: ""
+    property bool rangePreview: false
     property real scrollX: 0
     property real scrollY: 0
     property bool showHeaders: true
@@ -32,8 +37,8 @@ T.Control {
     readonly property real bodyWidth: Math.max(0, width - (showHeaders ? rowHeaderWidth : 0))
     readonly property real bodyHeight: Math.max(0, height - (showHeaders ? headerHeight : 0))
     readonly property var visibleCellRecords: collectVisibleCells()
-    readonly property int activeRow: model ? model.rowIndex(activeRowId) : -1
-    readonly property int activeColumn: model ? model.columnIndex(activeColumnId) : -1
+    readonly property int activeRow: model && dataEpoch >= 0 ? model.rowIndex(activeRowId) : -1
+    readonly property int activeColumn: model && dataEpoch >= 0 ? model.columnIndex(activeColumnId) : -1
 
     signal currentCellChanged(string rowId, string columnId)
     signal editCommitted(string rowId, string columnId, var value)
@@ -51,21 +56,38 @@ T.Control {
     Accessible.focused: activeFocus
 
     function accessibleDescription() {
-        const epoch = dataEpoch
+        if (dataEpoch < 0) return ""
         if (!model) return qsTr("No grid model")
         if (activeRow < 0 || activeColumn < 0)
             return qsTr("%1 rows by %2 columns. Use arrow keys to navigate.")
                     .arg(model.rowCount).arg(model.columnCount)
         const value = model.cellValue(activeRowId, activeColumnId)
-        return qsTr("Row %1, column %2. Value: %3. Use arrow keys to move, Enter to edit, Escape to cancel.")
+        const ranges = model.ranges
+        const range = ranges.length ? ranges[ranges.length - 1] : null
+        const selection = range && (range.firstRow !== range.lastRow
+                                    || range.firstColumn !== range.lastColumn)
+            ? qsTr(" Selected range: rows %1–%2, columns %3–%4.")
+                .arg(range.firstRow + 1).arg(range.lastRow + 1)
+                .arg(range.firstColumn + 1).arg(range.lastColumn + 1) : ""
+        return qsTr("Row %1, column %2. Value: %3.%4 Use arrows to move, Shift plus arrows to extend, Control plus Home or End to jump, Enter to edit, Escape to restore selection.")
                 .arg(activeRow + 1).arg(activeColumn + 1)
                 .arg(value === undefined || value === null ? "" : String(value))
+                .arg(selection)
+    }
+
+    function cellSelected(row, column) {
+        if (!model) return false
+        const ranges = model.ranges
+        for (let i = 0; i < ranges.length; ++i)
+            if (row >= ranges[i].firstRow && row <= ranges[i].lastRow
+                    && column >= ranges[i].firstColumn && column <= ranges[i].lastColumn)
+                return true
+        return false
     }
 
     function collectVisibleCells() {
-        const epoch = dataEpoch
         const result = []
-        if (!model || bodyWidth <= 0 || bodyHeight <= 0) return result
+        if (dataEpoch < 0 || !model || bodyWidth <= 0 || bodyHeight <= 0) return result
         const regions = model.visibleRegions(bodyWidth, bodyHeight, scrollX, scrollY)
         for (let i = 0; i < regions.length; ++i) {
             const region = regions[i]
@@ -101,14 +123,49 @@ T.Control {
                 || column >= model.columnCount) return
         const rowId = model.rowIdAt(row)
         const columnId = model.columnIdAt(column)
+        if (extend && !rangePreview && activeRowId && activeColumnId) {
+            selectionRestoreRowId = activeRowId
+            selectionRestoreColumnId = activeColumnId
+            rangePreview = true
+        } else if (!extend) rangePreview = false
         if (!extend || anchorRowId.length === 0 || anchorColumnId.length === 0) {
             anchorRowId = rowId
             anchorColumnId = columnId
         }
         activeRowId = rowId
         activeColumnId = columnId
+        lastActiveRowIndex = row
+        lastActiveColumnIndex = column
         model.setRange(anchorRowId, anchorColumnId, rowId, columnId)
         currentCellChanged(rowId, columnId)
+    }
+
+    function reconcileSelection() {
+        if (!model || model.rowCount === 0 || model.columnCount === 0) {
+            if (cellEditing) cancelCellEdit()
+            activeRowId = ""; activeColumnId = ""
+            anchorRowId = ""; anchorColumnId = ""
+            rangePreview = false
+            if (model) model.clearRanges()
+            return
+        }
+        if (cellEditing && (model.rowIndex(editingRowId) < 0
+                            || model.columnIndex(editingColumnId) < 0)) cancelCellEdit()
+        if (activeRowId && activeColumnId
+                && (model.rowIndex(activeRowId) < 0 || model.columnIndex(activeColumnId) < 0)) {
+            setCurrent(Math.min(lastActiveRowIndex, model.rowCount - 1),
+                       Math.min(lastActiveColumnIndex, model.columnCount - 1), false)
+        } else if (activeRowId && activeColumnId
+                   && (model.rowIndex(anchorRowId) < 0 || model.columnIndex(anchorColumnId) < 0)) {
+            anchorRowId = activeRowId; anchorColumnId = activeColumnId
+            model.setRange(activeRowId, activeColumnId, activeRowId, activeColumnId)
+            rangePreview = false
+        }
+        if (activeRowId && activeColumnId && model.rowIndex(activeRowId) >= 0
+                && model.columnIndex(activeColumnId) >= 0) {
+            lastActiveRowIndex = model.rowIndex(activeRowId)
+            lastActiveColumnIndex = model.columnIndex(activeColumnId)
+        }
     }
 
     function ensureCurrentVisible() {
@@ -204,13 +261,23 @@ T.Control {
         case Qt.Key_Down: moveCurrent(1, 0, extend); break
         case Qt.Key_Left: moveCurrent(0, -1, extend); break
         case Qt.Key_Right: moveCurrent(0, 1, extend); break
-        case Qt.Key_Home: setCurrent(activeRow < 0 ? 0 : activeRow, 0, extend); break
-        case Qt.Key_End: setCurrent(activeRow < 0 ? model.rowCount - 1 : activeRow,
-                                    model.columnCount - 1, extend); break
+        case Qt.Key_Home:
+            setCurrent(event.modifiers & Qt.ControlModifier ? 0 : Math.max(0, activeRow),
+                       0, extend); break
+        case Qt.Key_End:
+            setCurrent(event.modifiers & Qt.ControlModifier ? model.rowCount - 1
+                       : Math.max(0, activeRow), model.columnCount - 1, extend); break
+        case Qt.Key_PageUp: moveCurrent(-Math.max(1, Math.floor(bodyHeight / model.defaultRowSize) - 1), 0, extend); break
+        case Qt.Key_PageDown: moveCurrent(Math.max(1, Math.floor(bodyHeight / model.defaultRowSize) - 1), 0, extend); break
         case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_F2:
             beginCellEdit(); break
         case Qt.Key_Escape:
-            cancelCellEdit(); break
+            if (cellEditing) cancelCellEdit()
+            else if (rangePreview && model.rowIndex(selectionRestoreRowId) >= 0
+                     && model.columnIndex(selectionRestoreColumnId) >= 0)
+                setCurrent(model.rowIndex(selectionRestoreRowId),
+                           model.columnIndex(selectionRestoreColumnId), false)
+            break
         case Qt.Key_Z:
             if (event.modifiers & Qt.ControlModifier) model.undo()
             else return
@@ -221,16 +288,20 @@ T.Control {
             break
         default: return
         }
+        ensureCurrentVisible()
         event.accepted = true
     }
 
     onWidthChanged: clampScroll()
     onHeightChanged: clampScroll()
+    onModelChanged: reconcileSelection()
 
     Connections {
         target: grid.model
         ignoreUnknownSignals: true
-        function onStructureChanged() { grid.clampScroll(); grid.dataEpoch += 1 }
+        function onStructureChanged() {
+            grid.reconcileSelection(); grid.clampScroll(); grid.dataEpoch += 1
+        }
         function onGeometryChanged() { grid.clampScroll(); grid.dataEpoch += 1 }
         function onCellsChanged() { grid.dataEpoch += 1 }
     }
@@ -332,7 +403,15 @@ T.Control {
                                       .arg(cell.modelData.value === undefined
                                            || cell.modelData.value === null
                                            ? "" : String(cell.modelData.value))
-                    Accessible.focusable: false
+                    Accessible.description: qsTr("Select this cell")
+                    Accessible.focusable: true
+                    Accessible.focused: grid.activeFocus && grid.activeRowId === cell.modelData.rowId
+                                        && grid.activeColumnId === cell.modelData.columnId
+                    Accessible.selected: grid.cellSelected(cell.modelData.row, cell.modelData.column)
+                    Accessible.onPressAction: {
+                        grid.setCurrent(cell.modelData.row, cell.modelData.column, false)
+                        grid.forceActiveFocus()
+                    }
 
                     Rectangle {
                         anchors.fill: parent
