@@ -159,8 +159,10 @@ returns to 24px in Compact. The floor covers controls using those roles.
 rows. In Touch each role resolves to at least 48px; the track and handles
 remain centered at their authored density size. `toggleTargetSm` (16px base)
 keeps small toggle rows at their desktop geometry while providing a 48px
-Touch surface. DockDivider uses `seamTarget` (16px base) for its handler
-margin, leaving the seam width unchanged.
+Touch surface. Actionable StatusField uses `size.control` for its Touch target,
+and StatusBar places its top rule outside that content height. DockDivider uses
+`seamTarget` (16px base) for its handler margin, leaving the seam width
+unchanged.
 
 `ColorSwatches` uses `controlSm` as the minimum width and height for each
 square cell. In Touch this provides a 48×48px input area while the swatch

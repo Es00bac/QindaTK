@@ -5675,7 +5675,7 @@
       "name": "StatusBar",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "The 22px strip along the bottom of a window: caption-sized fields in a row on the surface colour under a 1px top rule. Put a Tk.Spacer between the left group and the right group.",
+      "description": "The compact 22px strip along the bottom of a window: caption-sized fields in a row on the surface colour under a 1px top rule. Touch keeps the same content rule and reserves its themed control target below it.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/StatusBar.qml",
@@ -5713,7 +5713,7 @@
       "name": "StatusField",
       "kind": "qml",
       "base": "Item",
-      "description": "One entry of a StatusBar: optional icon and caption text. Clickable (hover tint, `clicked`) so a field can open what it reports on.",
+      "description": "One entry of a StatusBar: optional icon and caption text. Actionable fields use a real template button; readouts can opt out and remain static text.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/StatusField.qml",
@@ -5751,6 +5751,14 @@
           "required": false
         },
         {
+          "name": "actionable",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "hovered",
           "type": "bool",
           "default": "hover.hovered",
@@ -5774,7 +5782,10 @@
       "internal": false,
       "valueType": false,
       "bridge": false,
-      "objectNames": []
+      "objectNames": [
+        "statusAction",
+        "statusFocusRing"
+      ]
     },
     {
       "name": "Switch",

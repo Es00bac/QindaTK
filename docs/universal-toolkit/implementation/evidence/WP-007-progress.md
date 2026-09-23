@@ -129,6 +129,12 @@ FND-07 through FND-10.
   `DockZone` callbacks into `DockModel`; disabled host ancestry blocks them.
   The themed focus ring leaves seam geometry unchanged.
   [Focused evidence](WP-007-FIX-F04-dock-dividers.md).
+- `StatusField` now has an explicit static mode and an actionable template
+  Button mode. Actionable fields expose a text/tooltip name, keyboard and
+  accessible activation, a visible themed focus ring and one guarded click
+  signal. Touch status fields receive the existing 48px control target with
+  their bar's top border accounted for; Compact geometry stays 22px.
+  [Focused evidence](WP-007-FIX-F04-status-field.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,

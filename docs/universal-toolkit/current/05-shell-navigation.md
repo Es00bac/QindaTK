@@ -130,7 +130,7 @@ Bottom band containing horizontally arranged fields.
 
 **Source:** [src/qml/StatusBar.qml](../../../src/qml/StatusBar.qml) · **Base:** `Tk.Box` · **Kind:** QML component.
 
-Default fields, gap and Spacer support left/right groups; compact height 22 px. Use StatusField for clickable text. Status calculation, background jobs and notification history remain external.
+Default fields, gap and Spacer support left/right groups; the bar is 22 px in Compact and reserves the 48 px control target plus its top rule in Touch. Its Flex stretches fields through the content box. Use StatusField for clickable text. Status calculation, background jobs and notification history remain external.
 
 **Declared members:** `fields: alias`, `gap: real`.
 
@@ -138,13 +138,13 @@ Default fields, gap and Spacer support left/right groups; compact height 22 px. 
 
 ## StatusField
 
-Clickable status entry with optional icon and tooltip.
+Status entry with optional icon and tooltip; actionable by default, with an explicit static-readout mode.
 
 **Source:** [src/qml/StatusField.qml](../../../src/qml/StatusField.qml) · **Base:** `Item` · **Kind:** QML component.
 
-text, iconName, muted and hovered control display; clicked lets the host reveal details. A single status field does not provide progress task ownership or a notification center.
+`text`, `iconName`, `muted` and `hovered` control display. `actionable` uses a template Button with text (or tooltip for icon-only fields) as its accessible name, a themed focus ring, and one guarded `clicked` signal from pointer, keyboard or accessible press. Set `actionable: false` to remove the Button and Tab stop and expose static text. A single status field does not provide progress task ownership or a notification center.
 
-**Declared members:** `text: string`, `iconName: string`, `muted: bool`, `tooltip: string`, `hovered: bool` (ro).
+**Declared members:** `text: string`, `iconName: string`, `muted: bool`, `tooltip: string`, `actionable: bool` (default true), `hovered: bool` (ro). Internal objectNames: `statusAction`, `statusFocusRing`.
 
 **Declared signals:** `clicked()`.
 
