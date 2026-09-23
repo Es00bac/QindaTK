@@ -344,8 +344,8 @@ padding, and a padding box (`contentItem`) that holds the children.
 | --- | --- | --- |
 | `color` | transparent | background |
 | `borderColor`, `borderWidth` | `Theme.color.border`, 0 | uniform border, honours `radius` |
-| `borderLeft/Top/Right/Bottom` | -1 | any side ≥ 0 switches to per-side edge rectangles (no radius on them); -1 inherits `borderWidth` |
-| `radius` | 0 | |
+| `borderLeft/Top/Right/Bottom` | -1 | any side ≥ 0 switches to square per-side edge rectangles; -1 inherits `borderWidth` |
+| `radius` | 0 | rounds the background and uniform border; it does not round per-side edges |
 | `padding`, `padding{Left,Top,Right,Bottom}` | 0, -1 | inside the border |
 | `fill` | true | stretch a single unanchored child to the padding box |
 | `clipContent` | false | clip to the padding box |
@@ -355,6 +355,22 @@ padding, and a padding box (`contentItem`) that holds the children.
 Implicit size = content implicit size + padding + border. With one child,
 the content size is that child's implicit size; with several it is their
 `childrenRect`.
+
+### Border and clipping limits
+
+Per-side borders are four rectangular overlays. When any side is set to a
+non-negative width, `radius` still rounds the background, but the overlay
+edges stay square and can cover the rounded background corners. `clipContent`
+clips to the rectangular padding box; it does not make child content follow a
+rounded corner. Use `borderWidth` for a rounded uniform border. For a frame
+with per-side rules, use `radius: 0` until rounded per-side geometry and
+rounded content clipping are implemented.
+
+This is verified with `qtk-preview` at compact and comfortable density: a
+180×80 Box with a 3px left edge, 1px top edge, and nonzero radius has a square
+cyan top-left corner in both software-rendered captures. The item dump reports
+the edge overlays as `3x80` and `180x1`; neither rectangle is clipped to the
+rounded background.
 
 **Seating** (the single-child rule): after creation, and again whenever the
 children change (deferred with `Qt.callLater` so a new child's own

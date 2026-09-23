@@ -7,8 +7,10 @@ import QindaTK as Tk
 // child fills automatically (`fill: true`, the default) or several children
 // anchor inside. Implicit size is the content's implicit size plus padding
 // and border, so a Box in a Flex or Grid asks for exactly what it holds.
-// Per-side borders (borderLeft/Top/Right/Bottom >= 0) are drawn as edge
-// rectangles and ignore `radius`; a uniform border honours it.
+// Per-side borders (borderLeft/Top/Right/Bottom >= 0) are drawn as square
+// edge rectangles. `radius` rounds the background only in that mode; it
+// does not clip the edges, so their corners remain square. A uniform border
+// honours `radius`.
 Item {
     id: box
 
@@ -23,6 +25,8 @@ Item {
     property real borderTop: -1
     property real borderRight: -1
     property real borderBottom: -1
+    // Rounds the background and uniform border. Per-side edge rectangles
+    // remain square; see docs/layout.md before combining these properties.
     property real radius: 0
     property real padding: 0
     property real paddingLeft: -1
