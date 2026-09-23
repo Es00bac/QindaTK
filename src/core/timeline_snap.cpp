@@ -74,6 +74,7 @@ TimelineSnapResult TimelineSnapper::snap(const TimelineModel &model,
     qint64 gridOrigin = 0;
     const bool hasGrid = model.gridStep(context.grid, gridNumerator, gridDenominator, gridOrigin);
     std::optional<Candidate> best;
+    std::optional<Candidate> bestGrid;
     const quint64 tolerance = quint64(context.tolerance);
     for (int i = 0; i < candidates.size(); ++i) {
         const qint64 edge = candidates.at(i);
@@ -98,11 +99,13 @@ TimelineSnapResult TimelineSnapper::snap(const TimelineModel &model,
             const auto bracket = TimelineTime::gridBracket(edge, gridOrigin, gridNumerator,
                                                            gridDenominator);
             if (bracket) {
-                consider(best, edge, bracket->first, tolerance, 5, i, QStringLiteral("grid"));
-                consider(best, edge, bracket->second, tolerance, 5, i, QStringLiteral("grid"));
+                consider(bestGrid, edge, bracket->first, tolerance, 5, i, QStringLiteral("grid"));
+                consider(bestGrid, edge, bracket->second, tolerance, 5, i, QStringLiteral("grid"));
             }
         }
     }
+    // Dense grid lines would otherwise win against a nearby clip edge.
+    if (!best) best = bestGrid;
     if (!best) return result;
     const auto adjustment = TimelineTime::subtract(best->target, candidates.at(best->candidateIndex));
     if (!adjustment) return result;

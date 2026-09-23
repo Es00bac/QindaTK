@@ -330,13 +330,14 @@ void TimelinePlanner::planTrack(Context &context)
         return;
     }
     case TimelineEditKind::ReorderTrack: {
-        if (request.beforeTrackId == request.trackId) return;
-        if (!request.beforeTrackId.isNull() && !model.trackRecord(request.beforeTrackId))
+        const QUuid before = context.input.beforeTrackId.isNull() ? request.beforeTrackId
+                                                                  : context.input.beforeTrackId;
+        if (before == request.trackId) return;
+        if (!before.isNull() && !model.trackRecord(before))
             return setError(context, error(ErrorCode::InvalidArgument, tr("Unknown destination track")));
         QVector<QUuid> order = model.trackOrder();
         order.removeAll(request.trackId);
-        const qsizetype at = request.beforeTrackId.isNull() ? order.size()
-                                                            : order.indexOf(request.beforeTrackId);
+        const qsizetype at = before.isNull() ? order.size() : order.indexOf(before);
         order.insert(at, request.trackId);
         pushOrderChange(context, order);
         return;

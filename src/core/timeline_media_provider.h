@@ -115,6 +115,7 @@ private:
     struct Delivery;
     QString keyFor(const TimelineMediaRequest &request) const;
     void pump();
+    void schedulePump();
     void finish(quint64 serial, TimelineMediaResult result);
     void drop(const QString &requestId, bool countCancel);
     void remember(const QString &key, const TimelineMediaResult &result);
@@ -123,6 +124,7 @@ private:
     bool m_reference = false;
     int m_maxInFlight = 4;
     int m_inFlight = 0;
+    bool m_pumpScheduled = false;
     quint64 m_serial = 0;
     quint64 m_completed = 0;
     quint64 m_cancelled = 0;

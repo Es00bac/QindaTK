@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "timeline_codec.h"
 #include "timeline_model.h"
+#include "timeline_snap.h"
 
-#include <QRegularExpression>
 #include <algorithm>
 #include <cmath>
 
@@ -298,6 +298,43 @@ QVariantMap TimelineModel::parseTicks(const QString &input, const QString &mode,
     return {{QStringLiteral("ok"), true}, {QStringLiteral("value"), QString::number(*result)}};
 }
 
+QString TimelineModel::formatDuration(const QString &ticks, const QString &mode) const
+{
+    const auto value = decimal(ticks);
+    if (!value) return {};
+    if (mode != QLatin1String("timecode") && mode != QLatin1String("frames"))
+        return formatTicks(ticks, mode, false);
+    const TimelineRate rate{timeMap()->frameRateNumerator(), timeMap()->frameRateDenominator()};
+    const auto frames = TimelineTime::rescale(*value, m_timebase, rate, TimeMap::NearestAway);
+    if (!frames) return {};
+    if (mode == QLatin1String("frames")) return QString::number(*frames);
+    const QVariantMap label = timeMap()->formatTimecode(QString::number(*frames), false);
+    return label.value(QStringLiteral("ok")).toBool() ? label.value(QStringLiteral("value")).toString()
+                                                       : QString();
+}
+
+QVariantMap TimelineModel::parseDuration(const QString &input, const QString &mode) const
+{
+    const QString trimmed = input.trimmed();
+    std::optional<qint64> frames;
+    if (mode == QLatin1String("timecode")) {
+        const QVariantMap parsed = timeMap()->parseTimecode(trimmed, false);
+        if (parsed.value(QStringLiteral("ok")).toBool())
+            frames = decimal(parsed.value(QStringLiteral("value")).toString());
+    } else if (mode == QLatin1String("frames")) {
+        frames = decimal(trimmed);
+    } else {
+        return parseTicks(input, mode, false);
+    }
+    const TimelineRate rate{timeMap()->frameRateNumerator(), timeMap()->frameRateDenominator()};
+    const auto result = frames ? TimelineTime::rescale(*frames, rate, m_timebase, TimeMap::NearestAway)
+                               : std::nullopt;
+    if (!result)
+        return {{QStringLiteral("ok"), false},
+                {QStringLiteral("error"), tr("“%1” is not a valid %2 length").arg(input, mode)}};
+    return {{QStringLiteral("ok"), true}, {QStringLiteral("value"), QString::number(*result)}};
+}
+
 QString TimelineModel::stepTicks(const QString &fromTicks, const QString &grid, int steps) const
 {
     const auto from = decimal(fromTicks);
@@ -320,6 +357,30 @@ QString TimelineModel::stepTicks(const QString &fromTicks, const QString &grid, 
     const auto offset = target ? TimelineTime::mulDiv(*target, numerator, denominator, TimeMap::Ceil)
                                : std::nullopt;
     return offset ? number(TimelineTime::add(origin, *offset)) : QString();
+}
+
+QVariantMap TimelineModel::snapTicks(const QString &ticks, const QVariantMap &options) const
+{
+    const auto value = decimal(ticks);
+    if (!value) return {{QStringLiteral("ticks"), QString()}, {QStringLiteral("snapped"), false}};
+    QVariantMap result{{QStringLiteral("ticks"), ticks}, {QStringLiteral("snapped"), false},
+                       {QStringLiteral("kind"), QString()}, {QStringLiteral("targetId"), QString()}};
+    TimelineSnapContext context;
+    context.tolerance = std::max<qint64>(0, TimelineCodec::ticks(options.value(QStringLiteral("toleranceTicks"))).value_or(0));
+    context.playhead = TimelineCodec::ticks(options.value(QStringLiteral("playheadTicks")));
+    context.editRange = options.value(QStringLiteral("editRange"), true).toBool();
+    context.excludedMarker = TimelineCodec::uuid(options.value(QStringLiteral("excludeMarkerId")));
+    const QString grid = options.value(QStringLiteral("grid")).toString();
+    if (grid == QLatin1String("frames")) context.grid = TimelineSnapGrid::Frames;
+    else if (grid == QLatin1String("seconds")) context.grid = TimelineSnapGrid::Seconds;
+    else if (grid == QLatin1String("samples")) context.grid = TimelineSnapGrid::Samples;
+    const auto snap = TimelineSnapper::snap(*this, {*value}, context);
+    if (!snap.snapped) return result;
+    result.insert(QStringLiteral("ticks"), QString::number(snap.target));
+    result.insert(QStringLiteral("snapped"), true);
+    result.insert(QStringLiteral("kind"), snap.kind);
+    result.insert(QStringLiteral("targetId"), snap.targetId.isNull() ? QString() : text(snap.targetId));
+    return result;
 }
 
 bool TimelineModel::setEditRangeTicks(qint64 start, qint64 end)

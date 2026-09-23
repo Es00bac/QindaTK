@@ -187,9 +187,21 @@ QString TimelineMediaProvider::request(TimelineMediaRequest request)
             else emit failed(id, owner, it->result.error.message);
         }, Qt::QueuedConnection);
     }
-    pump();
+    schedulePump();
     emit statisticsChanged();
     return id;
+}
+
+// Backend work starts on the next event-loop turn, so a request superseded in
+// the same turn (a delegate initializing or scrolling) is dropped unstarted.
+void TimelineMediaProvider::schedulePump()
+{
+    if (m_pumpScheduled) return;
+    m_pumpScheduled = true;
+    QMetaObject::invokeMethod(this, [this] {
+        m_pumpScheduled = false;
+        pump();
+    }, Qt::QueuedConnection);
 }
 
 QString TimelineMediaProvider::requestPeaks(const QString &ownerKey, const QString &resourceId,

@@ -114,6 +114,7 @@ struct TimelineEditInput {
     qint64 pointerTicks = 0;     // delta = pointerTicks - request.grabTicks
     int trackDelta = 0;          // visible-track offset for Move
     int trackHeight = 0;         // ResizeTrack preview height
+    QUuid beforeTrackId;         // ReorderTrack destination while dragging (overrides the request)
     bool snap = true;
     qint64 snapToleranceTicks = 0;
     TimelineSnapGrid grid = TimelineSnapGrid::None;

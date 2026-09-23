@@ -313,6 +313,7 @@ QVariantMap TimelineModel::updateEdit(const QString &operationId, const QVariant
     input.trackDelta = map.value(QStringLiteral("trackDelta")).toInt();
     input.trackHeight = map.value(QStringLiteral("trackHeight")).toInt();
     input.snap = map.value(QStringLiteral("snap"), true).toBool();
+    input.beforeTrackId = TimelineCodec::uuid(map.value(QStringLiteral("beforeTrackId")));
     const TimelinePlan plan = update(operationId, input);
     if (plan.error.code == ErrorCode::StaleRevision || plan.error.code == ErrorCode::InvalidArgument) {
         if (!m_session || m_session->operationId != operationId || m_session->stale)

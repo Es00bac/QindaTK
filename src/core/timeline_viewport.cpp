@@ -10,24 +10,27 @@ constexpr double kMaxTickMagnitude = 9.0e18;
 
 QList<QByteArray> clipRoles()
 {
-    return {"key", "clipId", "trackId", "trackIndex", "x", "y", "width", "height", "label",
-            "color", "kind", "resourceId", "locked", "startTicks", "durationTicks", "endTicks",
-            "sourceOffsetTicks", "sourceDurationTicks", "visibleSourceStartTicks",
+    // Role names avoid Item properties (x, width, layer, index...) so a
+    // delegate can declare each one as a required property.
+    return {"key", "clipId", "trackId", "trackIndex", "clipX", "laneY", "clipWidth", "laneHeight",
+            "label", "clipColor", "kind", "resourceId", "locked", "startTicks", "durationTicks",
+            "endTicks", "sourceOffsetTicks", "sourceDurationTicks", "visibleSourceStartTicks",
             "visibleSourceEndTicks", "clippedStart", "clippedEnd", "preview", "ghost", "invalid",
-            "summary", "summaryCount", "layer"};
+            "summary", "summaryCount", "stackOrder"};
 }
 
 QList<QByteArray> trackRoles()
 {
-    return {"key", "trackId", "index", "orderIndex", "y", "height", "name", "kind", "muted",
-            "solo", "armed", "locked", "hidden", "routing", "color", "clipCount", "preview"};
+    return {"key", "trackId", "trackIndex", "orderIndex", "trackY", "trackHeight", "name", "kind",
+            "muted", "solo", "armed", "locked", "hidden", "routing", "trackColor", "clipCount",
+            "preview"};
 }
 
 QList<QByteArray> markerRoles()
 {
-    return {"key", "markerId", "x", "width", "positionTicks", "durationTicks", "endTicks",
-            "label", "color", "kind", "locked", "anchor", "preview", "ghost", "clippedStart",
-            "clippedEnd"};
+    return {"key", "markerId", "markerX", "markerWidth", "positionTicks", "durationTicks",
+            "endTicks", "label", "markerColor", "kind", "locked", "anchorMode", "preview", "ghost",
+            "clippedStart", "clippedEnd"};
 }
 
 std::optional<qint64> roundTicks(double value, TimeMap::Rounding rounding)
@@ -397,16 +400,23 @@ bool TimelineViewport::ensureTrackVisible(const QString &trackId)
 
 bool TimelineViewport::ensureClipVisible(const QString &clipId, double margin)
 {
-    if (!m_model) return false;
+    if (!m_model || m_width <= 0) return false;
     const auto clip = m_model->effectiveClip(QUuid(clipId));
     if (!clip) return false;
     bool moved = ensureTrackVisible(clip->trackId.toString(QUuid::WithoutBraces));
+    margin = std::clamp(margin, 0.0, m_width / 4);
     const double left = xFor(clip->start), right = xFor(clip->end());
-    if (left < margin || left > m_width - margin)
-        moved = ensureTicksVisible(QString::number(clip->start), margin) || moved;
-    else if (right > m_width - margin && right - left < m_width - 2 * margin)
-        moved = ensureTicksVisible(QString::number(clip->end()), margin) || moved;
-    return moved;
+    if (left >= margin && right <= m_width - margin) return moved;
+    // A clip that fits ends at the right margin when it lies to the right;
+    // otherwise its start is placed at the left margin.
+    const bool fits = right - left <= m_width - 2 * margin;
+    const qint64 anchor = fits && left > margin ? clip->end() : clip->start;
+    const double target = fits && left > margin ? m_width - margin : margin;
+    const auto offset = roundTicks(target / pixelsPerTick(), TimeMap::NearestAway);
+    const auto origin = offset ? TimelineTime::subtract(anchor, *offset) : std::nullopt;
+    if (!origin || *origin == m_origin) return moved;
+    setOrigin(*origin);
+    return true;
 }
 
 void TimelineViewport::fitToContent()

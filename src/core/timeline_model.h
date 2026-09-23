@@ -187,7 +187,13 @@ public:
                                     bool dropFrame = false) const;
     Q_INVOKABLE QVariantMap parseTicks(const QString &text, const QString &mode = QStringLiteral("timecode"),
                                        bool dropFrame = false) const;
+    // Lengths ignore the TimeMap origin; timecode lengths are non-drop frame counts.
+    Q_INVOKABLE QString formatDuration(const QString &ticks, const QString &mode = QStringLiteral("timecode")) const;
+    Q_INVOKABLE QVariantMap parseDuration(const QString &text, const QString &mode = QStringLiteral("timecode")) const;
     Q_INVOKABLE QString stepTicks(const QString &fromTicks, const QString &grid, int steps) const;
+    // Snaps one exact position. options: toleranceTicks, grid, playheadTicks,
+    // editRange (bool), excludeMarkerId. Returns {ticks, snapped, kind, targetId}.
+    Q_INVOKABLE QVariantMap snapTicks(const QString &ticks, const QVariantMap &options) const;
 
     // ---- QML: transactions ----
     Q_INVOKABLE QVariantMap beginEdit(const QVariantMap &request);

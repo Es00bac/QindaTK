@@ -26,9 +26,11 @@ struct TimelineSnapContext {
 // lands, keep this as the time-axis provider behind it rather than routing
 // exact ticks through floating document coordinates.
 // Targets: committed clip starts/ends (moving clips excluded), marker
-// positions and region ends, the playhead, the edit range, time zero and grid
-// lines. Nearest distance wins; ties prefer clip edges, then markers,
-// playhead, range, origin, grid, then the earlier tick and earlier candidate.
+// positions and region ends, the playhead, the edit range and time zero; grid
+// lines only when none of those is within tolerance (a 29.97 fps grid is
+// denser than any useful pixel tolerance). Nearest distance wins; ties prefer
+// clip edges, then markers, playhead, range, origin, then the earlier tick and
+// earlier candidate.
 class TimelineSnapper {
 public:
     static TimelineSnapResult snap(const TimelineModel &model, const QVector<qint64> &candidates,
