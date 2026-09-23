@@ -16418,7 +16418,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "semanticsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "commandsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "actionRejected",
+          "parameters": "const QString &id, const QString &reason"
+        },
+        {
+          "name": "announcementDelivered",
+          "parameters": "const QString &message"
+        }
+      ],
       "methods": [
         {
           "name": "setNodes",
@@ -16505,7 +16526,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "resolverChanged",
+          "parameters": ""
+        },
+        {
+          "name": "cacheChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "assetChanged",
+          "parameters": "const QString &subscriptionId"
+        },
+        {
+          "name": "assetReady",
+          "parameters": "const QString &subscriptionId"
+        }
+      ],
       "methods": [
         {
           "name": "requestAsset",
@@ -16649,7 +16691,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "addLayerNamed",
@@ -16751,7 +16798,20 @@
       "attached": null,
       "file": "src/core/canvas_document.h",
       "properties": [],
-      "signals": [],
+      "signals": [
+        {
+          "name": "damaged",
+          "parameters": "const QVector<QRectF> &regions, quint64 revision"
+        },
+        {
+          "name": "reset",
+          "parameters": "quint64 revision"
+        },
+        {
+          "name": "edited",
+          "parameters": "quint64 revision"
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -16822,7 +16882,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "surfaceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -17005,7 +17074,36 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "toolControllerChanged",
+          "parameters": ""
+        },
+        {
+          "name": "viewStateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "viewChanged",
+          "parameters": ""
+        },
+        {
+          "name": "hoverChanged",
+          "parameters": ""
+        },
+        {
+          "name": "frameRendered",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "mapToDocument",
@@ -17152,7 +17250,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -17223,7 +17326,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "registryChanged",
+          "parameters": ""
+        },
+        {
+          "name": "featureIdChanged",
+          "parameters": ""
+        },
+        {
+          "name": "operationIdChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -17252,7 +17372,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "capabilityChanged",
+          "parameters": "const QString &featureId, const QString &operationId"
+        },
+        {
+          "name": "generationChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "query",
@@ -17309,7 +17438,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "annotationsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "replaceAnnotations",
@@ -17433,7 +17571,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "viewportChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "setViewport",
@@ -17581,7 +17728,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "rowsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "capacityChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tableMetadataChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "appendPoint",
@@ -17694,7 +17862,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -17870,7 +18043,60 @@
           "constant": true
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "axesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "datasetsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "paintPointLimitChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pointSelected",
+          "parameters": "const QString &seriesId, const QString &pointId"
+        },
+        {
+          "name": "viewportChanged",
+          "parameters": ""
+        },
+        {
+          "name": "exportImageReady",
+          "parameters": "const QImage &image"
+        },
+        {
+          "name": "histogramChanged",
+          "parameters": ""
+        },
+        {
+          "name": "annotationsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "annotationSelectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "annotationSelected",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "histogramRangeSelected",
+          "parameters": "ChartHistogramSelection *range"
+        }
+      ],
       "methods": [
         {
           "name": "setViewport",
@@ -18040,7 +18266,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "pointsChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "clear",
@@ -18103,7 +18338,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &message, int code"
+        }
+      ],
       "methods": [
         {
           "name": "copyObjectIds",
@@ -18216,7 +18460,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "registryChanged",
+          "parameters": ""
+        },
+        {
+          "name": "shortcutMapChanged",
+          "parameters": ""
+        },
+        {
+          "name": "commandIdChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "trigger",
@@ -18265,7 +18526,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "scopeRemoved",
+          "parameters": "const QString &token"
+        }
+      ],
       "methods": [
         {
           "name": "pushScope",
@@ -18327,7 +18597,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "contextChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "invoked",
+          "parameters": "const QString &commandId, const QString &scopeToken"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &commandId, const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "query",
@@ -18400,7 +18687,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "px",
@@ -18447,7 +18739,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "openDocumentRequested",
+          "parameters": "const QUrl &url"
+        }
+      ],
       "methods": [
         {
           "name": "registerRecent",
@@ -18549,7 +18850,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "decisionRequested",
+          "parameters": "const QString &requestId, const QString &hunkId, const QString &action"
+        }
+      ],
       "methods": [
         {
           "name": "setDocuments",
@@ -18705,7 +19015,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "replaceGroups",
@@ -18795,7 +19110,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "workspaceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "layoutChanged",
+          "parameters": ""
+        },
+        {
+          "name": "savedLayoutsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "storageKeyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "panelShown",
+          "parameters": "const QString &panelId"
+        }
+      ],
       "methods": [
         {
           "name": "modeName",
@@ -19075,7 +19411,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "closeBlocked",
+          "parameters": "const QString &documentId, const QString &reason"
+        },
+        {
+          "name": "saveAllFinished",
+          "parameters": "const QVariantList &results"
+        }
+      ],
       "methods": [
         {
           "name": "createReferenceDocument",
@@ -19188,7 +19537,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "relinked",
+          "parameters": "const QString &resourceId, const QString &uri"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &message, int code"
+        }
+      ],
       "methods": [
         {
           "name": "relink",
@@ -19326,7 +19688,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "saveFinished",
+          "parameters": "bool success, const QString &message, const QString &savedRevision"
+        }
+      ],
       "methods": [
         {
           "name": "requestSave",
@@ -19437,7 +19808,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &sessionId"
+        },
+        {
+          "name": "cancelled",
+          "parameters": "const QString &sessionId"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &sessionId, const QString &message, int code"
+        },
+        {
+          "name": "autoscrollRequested",
+          "parameters": "const QString &viewId, const QString &direction, bool active"
+        }
+      ],
       "methods": [
         {
           "name": "beginEncodedDrag",
@@ -19565,7 +19957,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &transactionId"
+        },
+        {
+          "name": "canceled",
+          "parameters": "const QString &transactionId"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &message, int code"
+        }
+      ],
       "methods": [
         {
           "name": "begin",
@@ -19706,7 +20119,60 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "structureChanged",
+          "parameters": ""
+        },
+        {
+          "name": "geometryChanged",
+          "parameters": ""
+        },
+        {
+          "name": "cellsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "editingChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "readOnlyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "rowResized",
+          "parameters": "const QString &id, qreal size"
+        },
+        {
+          "name": "columnResized",
+          "parameters": "const QString &id, qreal size"
+        },
+        {
+          "name": "rowMoved",
+          "parameters": "const QString &id, int newIndex"
+        },
+        {
+          "name": "columnMoved",
+          "parameters": "const QString &id, int newIndex"
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &transactionId, const QString &label, const QVariantList &changes"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "setDimensions",
@@ -19959,7 +20425,36 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "filtersChanged",
+          "parameters": ""
+        },
+        {
+          "name": "limitsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "eventsAboutToAppend",
+          "parameters": ""
+        },
+        {
+          "name": "eventsAppended",
+          "parameters": "int count"
+        },
+        {
+          "name": "eventsRejected",
+          "parameters": "int count"
+        }
+      ],
       "methods": [
         {
           "name": "appendEvent",
@@ -20048,7 +20543,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "evaluate",
@@ -20104,7 +20604,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "finished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
       "methods": [
         {
           "name": "request",
@@ -20205,7 +20714,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "resultsReady",
+          "parameters": "const QString &requestId, int revision, const QVariantList &results, int currentMatch, const QString &error"
+        },
+        {
+          "name": "operationFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
       "methods": [
         {
           "name": "search",
@@ -20372,7 +20894,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "layoutPropertyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentSizeChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "relayout",
@@ -20457,7 +20988,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "surfaceClosed",
+          "parameters": "const QString &token"
+        }
+      ],
       "methods": [
         {
           "name": "enterSurface",
@@ -20519,7 +21059,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "resolveFamily",
@@ -20583,7 +21128,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "formatsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "formatsForOperation",
@@ -20693,7 +21247,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "workingMinutesBetween",
@@ -20797,7 +21360,32 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "rowsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewChanged",
+          "parameters": ""
+        },
+        {
+          "name": "calendarChanged",
+          "parameters": ""
+        },
+        {
+          "name": "transactionAdapterChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "replaceTasks",
@@ -20916,7 +21504,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "gestureStarted",
+          "parameters": "const QString &token, GestureRouter::Intent intent"
+        },
+        {
+          "name": "gestureEnded",
+          "parameters": "const QString &token"
+        },
+        {
+          "name": "gestureCanceled",
+          "parameters": "const QString &token, const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "beginGesture",
@@ -21075,7 +21680,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "seriesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "capacityChanged",
+          "parameters": ""
+        },
+        {
+          "name": "scaleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "seriesAt",
@@ -21212,7 +21834,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "samplesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "capacityChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "append",
@@ -21404,7 +22039,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "layoutPropertyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentSizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "relayout",
@@ -21622,7 +22270,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "tileReady",
+          "parameters": "quint64 requestId, quint64 revision, const QVariantList &bins"
+        }
+      ],
       "methods": [
         {
           "name": "setDimensions",
@@ -21773,7 +22430,32 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "modelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "viewportChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "cellSelected",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "regionSelected",
+          "parameters": "const QVariantMap &region"
+        }
+      ],
       "methods": [
         {
           "name": "setViewport",
@@ -21855,7 +22537,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "regionIds",
@@ -21932,7 +22619,36 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "nameChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "colorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "strokeWidthChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tintChanged",
+          "parameters": ""
+        },
+        {
+          "name": "availableChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -21953,7 +22669,12 @@
       "attached": null,
       "file": "src/core/icon.h",
       "properties": [],
-      "signals": [],
+      "signals": [
+        {
+          "name": "registryChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "has",
@@ -22031,7 +22752,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "limitsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "jobFinished",
+          "parameters": "const QString &id, JobState state, const QVariantMap &result, const QString &error"
+        }
+      ],
       "methods": [
         {
           "name": "cancelJob",
@@ -22156,7 +22890,36 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "localeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "timeZoneChanged",
+          "parameters": ""
+        },
+        {
+          "name": "numberingSystemChanged",
+          "parameters": ""
+        },
+        {
+          "name": "calendarChanged",
+          "parameters": ""
+        },
+        {
+          "name": "chromeDirectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &setting, const QString &value"
+        }
+      ],
       "methods": [
         {
           "name": "formatNumber",
@@ -22349,7 +23112,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "valueChanged",
+          "parameters": ""
+        },
+        {
+          "name": "rangeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tooltipChanged",
+          "parameters": ""
+        },
+        {
+          "name": "hoveredChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -22399,7 +23183,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "posted",
+          "parameters": "const QString &notificationId"
+        },
+        {
+          "name": "toastQueueChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "markRead",
@@ -22517,7 +23314,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "replaceCandles",
@@ -22614,7 +23416,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "replaceNodes",
@@ -22727,7 +23538,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "modelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "modeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "itemSelected",
+          "parameters": "const QString &id"
+        }
+      ],
       "methods": [
         {
           "name": "selectId",
@@ -22799,7 +23631,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "rowsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "replacePoints",
@@ -22977,7 +23818,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pointSelected",
+          "parameters": "const QString &seriesId, const QString &pointId"
+        },
+        {
+          "name": "exportImageReady",
+          "parameters": "const QImage &image"
+        }
+      ],
       "methods": [
         {
           "name": "project",
@@ -23167,7 +24029,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "userEditAccepted",
+          "parameters": "const QString &propertyId, const QStringList &targetIds, const QVariant &value"
+        },
+        {
+          "name": "userEditRejected",
+          "parameters": "const QString &message, int code"
+        }
+      ],
       "methods": [
         {
           "name": "refresh",
@@ -23251,7 +24130,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "propertyChanged",
+          "parameters": "const QString &entityId, const QString &propertyId"
+        },
+        {
+          "name": "entityRemoved",
+          "parameters": "const QString &entityId"
+        },
+        {
+          "name": "historyInvalidated",
+          "parameters": ""
+        },
+        {
+          "name": "reset",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "valueFor",
@@ -23375,7 +24275,48 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "sourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "joinSourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "schemaChanged",
+          "parameters": ""
+        },
+        {
+          "name": "joinSchemaChanged",
+          "parameters": ""
+        },
+        {
+          "name": "queryChanged",
+          "parameters": ""
+        },
+        {
+          "name": "resultChanged",
+          "parameters": ""
+        },
+        {
+          "name": "statusChanged",
+          "parameters": ""
+        },
+        {
+          "name": "maxSnapshotValuesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "completed",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &requestId, const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "refresh",
@@ -23461,7 +24402,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "inspectId",
@@ -23564,7 +24510,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "backendChanged",
+          "parameters": ""
+        },
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "statsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "updateRequested",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "simulateContextLoss",
@@ -23646,7 +24609,32 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "structureChanged",
+          "parameters": ""
+        },
+        {
+          "name": "planChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "readOnlyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "allocationCommitted",
+          "parameters": "const QString &transactionId, const QString &resourceId, const QString &bucketId, qreal before, qreal after"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "resourceIdAt",
@@ -23778,7 +24766,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "resourceChanged",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "relinked",
+          "parameters": "const QString &resourceId, const QString &oldUri, const QString &newUri"
+        }
+      ],
       "methods": [
         {
           "name": "registerResource",
@@ -23879,7 +24880,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "anchorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "anchorPointChanged",
+          "parameters": ""
+        },
+        {
+          "name": "trackTransformsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "availableGeometryChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "refresh",
@@ -23935,7 +24953,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "currentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "anchorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "generationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionModified",
+          "parameters": "const QStringList &selectedIds, const QString &currentId, const QString &anchorId"
+        }
+      ],
       "methods": [
         {
           "name": "select",
@@ -24042,7 +25081,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "valuesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "applied",
+          "parameters": ""
+        },
+        {
+          "name": "validationFailed",
+          "parameters": "const QString &key, const QString &message"
+        },
+        {
+          "name": "unsupportedKeysImported",
+          "parameters": "const QStringList &keys"
+        }
+      ],
       "methods": [
         {
           "name": "beginStage",
@@ -24109,7 +25169,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "pathChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "load",
@@ -24177,7 +25246,36 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "registryChanged",
+          "parameters": ""
+        },
+        {
+          "name": "windowChanged",
+          "parameters": ""
+        },
+        {
+          "name": "chordTimeoutMsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pendingChordChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "conflict",
+          "parameters": "const QString &portableSequence, const QStringList &commandIds"
+        },
+        {
+          "name": "triggered",
+          "parameters": "const QString &commandId"
+        }
+      ],
       "methods": [
         {
           "name": "bind",
@@ -24312,7 +25410,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "layoutPropertyChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "relayout",
@@ -24544,7 +25647,76 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "began",
+          "parameters": "const QindaTK::StylusSample &sample"
+        },
+        {
+          "name": "moved",
+          "parameters": "const QindaTK::StylusSample &sample"
+        },
+        {
+          "name": "ended",
+          "parameters": "const QindaTK::StylusSample &sample"
+        },
+        {
+          "name": "canceled",
+          "parameters": "const QEventPoint &point"
+        },
+        {
+          "name": "sampleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "mousePressureChanged",
+          "parameters": ""
+        },
+        {
+          "name": "parentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "targetChanged",
+          "parameters": ""
+        },
+        {
+          "name": "enabledChanged",
+          "parameters": ""
+        },
+        {
+          "name": "activeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "acceptedDevicesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "acceptedPointerTypesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "acceptedButtonsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "acceptedModifiersChanged",
+          "parameters": ""
+        },
+        {
+          "name": "marginChanged",
+          "parameters": ""
+        },
+        {
+          "name": "grabPermissionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "grabChanged",
+          "parameters": "QPointingDevice::GrabTransition transition, const QEventPoint &point"
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -24587,7 +25759,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "replaceTargets",
@@ -24726,7 +25903,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "presets",
@@ -25200,7 +26382,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -25306,7 +26493,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -25370,7 +26562,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "at",
@@ -25522,7 +26719,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "setFrameRate",
@@ -25730,7 +26936,40 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "toolChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "gestureCommitted",
+          "parameters": "const QString &toolId, qulonglong revision"
+        },
+        {
+          "name": "gestureCanceled",
+          "parameters": "const QString &toolId, const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "begin",
@@ -25973,7 +27212,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "commandFinished",
+          "parameters": "const QString &requestId, bool accepted, const QString &error"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "requestPlay",
@@ -26094,7 +27346,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "meaningLabel",
@@ -26266,7 +27527,36 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "modelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "axesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "modeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "intervalSelected",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "viewportChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "setViewport",
@@ -26433,7 +27723,16 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &message"
+        }
+      ],
       "methods": [
         {
           "name": "navigateToHistoryIndex",
@@ -26500,7 +27799,12 @@
       "attached": null,
       "file": "src/core/uri_validator.h",
       "properties": [],
-      "signals": [],
+      "signals": [
+        {
+          "name": "finished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
       "methods": [
         {
           "name": "request",
@@ -26608,7 +27912,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "issuesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "runCompleted",
+          "parameters": "const QString &runId, bool accepted"
+        }
+      ],
       "methods": [
         {
           "name": "setSnapshot",
@@ -26714,7 +28031,36 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "modelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "identityModelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionModelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "idRoleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "identityRemoved",
+          "parameters": "const QStringList &ids"
+        },
+        {
+          "name": "invalidModel",
+          "parameters": "const QString &reason"
+        }
+      ],
       "methods": [
         {
           "name": "idAt",
@@ -26840,7 +28186,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "closeBlocked",
+          "parameters": "const QString &id, const QString &reason"
+        },
+        {
+          "name": "windowClosed",
+          "parameters": "const QString &id"
+        }
+      ],
       "methods": [
         {
           "name": "registerWindow",
@@ -26954,7 +28313,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "setState",
