@@ -9,7 +9,8 @@ import QindaTK as Tk
 // it by `contentPadding`, scrolls both axes, and paints the canvas role
 // behind it. Ctrl+wheel zooms about the cursor, Shift+wheel scrolls
 // horizontally, a middle-button drag pans. `fitMode` "width" / "page"
-// re-fits on every resize until the user zooms by hand.
+// re-fits on every resize until the user zooms by hand. At a pan edge,
+// ordinary wheel input reaches an ancestor Scroll (D-021).
 //
 // AGENT-GUARD: zoom is a view transform only. The child keeps its own
 // coordinate space; map pointer positions with `toContent(point)`.
@@ -195,6 +196,7 @@ Item {
     WheelHandler {
         objectName: "viewportWheel"
         enabled: viewport.interactive
+        blocking: false
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         onWheel: function(event) {
             const steps = event.angleDelta.y / 120
@@ -206,6 +208,8 @@ Item {
                 event.accepted = true
                 return
             }
+            const beforeX = scroll.contentX
+            const beforeY = scroll.contentY
             const lineStep = Tk.Theme.size.row * 3
             if (event.modifiers & Qt.ShiftModifier) {
                 scroll.contentX = Math.max(0, Math.min(scroll.contentWidth - scroll.viewportWidth,
@@ -219,7 +223,11 @@ Item {
                                                            scroll.contentX - hSteps * lineStep))
                 }
             }
-            event.accepted = true
+            // AGENT-GUARD: at a document edge, let a wheel event reach an
+            // ancestor Scroll. Consuming it unconditionally traps nested
+            // canvas views and breaks D-021's hard-bound handoff.
+            event.accepted = Math.abs(scroll.contentX - beforeX) > 0.5
+                          || Math.abs(scroll.contentY - beforeY) > 0.5
         }
     }
 

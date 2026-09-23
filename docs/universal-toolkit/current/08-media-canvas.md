@@ -98,7 +98,7 @@ Scrollable document surface with zoom and coordinate conversion.
 
 **Source:** [src/qml/Viewport.qml](../../../src/qml/Viewport.qml) · **Base:** `Item` · **Kind:** QML component.
 
-zoom/minZoom/maxZoom/fitMode/contentPadding control a single naturally sized child; setZoom/zoomAbout, fitWidth/fitPage, toContent/fromContent and ensureVisible coordinate interaction. Ctrl+wheel zooms, middle drag pans. It does not tile huge documents, rotate the view, render document content or provide selection tools.
+zoom/minZoom/maxZoom/fitMode/contentPadding control a single naturally sized child; setZoom/zoomAbout, fitWidth/fitPage, toContent/fromContent and ensureVisible coordinate interaction. Ctrl+wheel zooms, middle drag pans, and ordinary wheel events reach an ancestor Scroll at a pan edge. It does not tile huge documents, rotate the view, render document content or provide selection tools.
 
 **Declared members:** `content: alias`, `contentItem: Item` (ro), `scrollItem: Item` (ro), `zoom: real`, `minZoom: real`, `maxZoom: real`, `fitMode: string`, `contentPadding: real`, `wheelZoomStep: real`, `interactive: bool`, `contentWidth: real` (ro), `contentHeight: real` (ro), `viewportWidth: real` (ro), `viewportHeight: real` (ro).
 

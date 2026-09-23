@@ -7,7 +7,8 @@ import QindaTK as Tk
 // to its implicit size on a scrolling axis and to the viewport on a hidden
 // axis, so `overflowX: Scroll.Hidden` (the default) makes a Column wrap to
 // the width and scroll vertically. Scrollbars are overlays and take no
-// layout space. Wheel, drag-flick and keyboard (when focused) all scroll.
+// layout space. D-021 defines nested wheel/key handoff, hard bounds and
+// focus reveal through inner and outer viewports.
 Item {
     id: scroll
 
@@ -28,6 +29,66 @@ Item {
     readonly property bool scrollableX: flick.contentWidth > flick.width + 0.5
     readonly property bool scrollableY: flick.contentHeight > flick.height + 0.5
     property bool interactive: true
+    property string accessibleName: ""
+    // AGENT-NOTE: ancestor Scrolls reveal this viewport, while this Scroll
+    // reveals the focused descendant inside it. The marker prevents an outer
+    // viewport from scrolling to a deep item before inner scrolling settles.
+    readonly property bool _qindaScrollViewport: true
+
+    activeFocusOnTab: interactive && (scrollableX || scrollableY)
+    Accessible.role: Accessible.Pane
+    Accessible.name: accessibleName
+    Accessible.focusable: activeFocusOnTab
+
+    function _revealFocusedItem() {
+        const window = scroll.Window.window
+        if (!window || !window.activeFocusItem) return
+        let ancestor = window.activeFocusItem
+        let target = ancestor
+        while (ancestor && ancestor !== contentHost) {
+            if (ancestor !== scroll && ancestor._qindaScrollViewport === true)
+                target = ancestor
+            ancestor = ancestor.parent
+        }
+        if (ancestor === contentHost) scroll.ensureVisible(target)
+    }
+    Connections {
+        target: scroll.Window.window
+        function onActiveFocusItemChanged() { Qt.callLater(scroll._revealFocusedItem) }
+    }
+
+    function _moveBy(dx, dy) {
+        const maxX = Math.max(0, flick.contentWidth - flick.width)
+        const maxY = Math.max(0, flick.contentHeight - flick.height)
+        const nextX = Math.max(0, Math.min(maxX, flick.contentX + dx))
+        const nextY = Math.max(0, Math.min(maxY, flick.contentY + dy))
+        const moved = Math.abs(nextX - flick.contentX) > 0.5
+                   || Math.abs(nextY - flick.contentY) > 0.5
+        if (moved) {
+            flick.contentX = nextX
+            flick.contentY = nextY
+        }
+        return moved
+    }
+    Keys.onPressed: function(event) {
+        if (!scroll.interactive || event.modifiers !== Qt.NoModifier) return
+        const step = Tk.Theme.size.row
+        const page = Math.max(step, flick.height - step)
+        let dx = 0
+        let dy = 0
+        switch (event.key) {
+        case Qt.Key_Up: dy = -step; break
+        case Qt.Key_Down: dy = step; break
+        case Qt.Key_Left: dx = -step; break
+        case Qt.Key_Right: dx = step; break
+        case Qt.Key_PageUp: dy = -page; break
+        case Qt.Key_PageDown: dy = page; break
+        case Qt.Key_Home: dy = -flick.contentY; break
+        case Qt.Key_End: dy = flick.contentHeight - flick.height - flick.contentY; break
+        default: return
+        }
+        event.accepted = scroll._moveBy(dx, dy)
+    }
 
     implicitWidth: contentHost.implicitWidth + padding * 2
     implicitHeight: contentHost.implicitHeight + padding * 2
@@ -71,8 +132,8 @@ Item {
             implicitWidth: single ? single.implicitWidth : scroll.maxImplicit(children, true)
             implicitHeight: single ? single.implicitHeight : scroll.maxImplicit(children, false)
             // AGENT-GUARD: deferred so a freshly created child has its own
-        // anchors and size assigned before seat() inspects them.
-        onChildrenChanged: Qt.callLater(scroll.seat)
+            // anchors and size assigned before seat() inspects them.
+            onChildrenChanged: Qt.callLater(scroll.seat)
         }
 
         T.ScrollBar.vertical: Tk.ScrollBar {

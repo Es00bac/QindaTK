@@ -116,9 +116,9 @@ Clipped scrolling wrapper with independent overflow policies.
 
 **Source:** [src/qml/Scroll.qml](../../../src/qml/Scroll.qml) · **Base:** `Item` · **Kind:** QML component.
 
-overflowX defaults Hidden and overflowY Auto; Always forces the corresponding overlay scrollbar. contentX/Y and the exposed flickable provide scroll control. ensureVisible, scrollToTop and scrollToBottom are helpers. It does not virtualize arbitrary children; choose a model view for large collections.
+overflowX defaults Hidden and overflowY Auto; Always forces the corresponding overlay scrollbar. contentX/Y and the exposed flickable provide scroll control. Nested wheels and keys hand off at hard bounds; focus reveal seats nested viewports and their focused descendants. `accessibleName` labels the focusable Pane. ensureVisible, scrollToTop and scrollToBottom are helpers. It does not virtualize arbitrary children; choose a model view for large collections.
 
-**Declared members:** `content: alias`, `contentItem: Item` (ro), `flickable: alias` (ro), `overflowX: int`, `overflowY: int`, `padding: real`, `contentX: alias`, `contentY: alias`, `contentWidth: alias` (ro), `contentHeight: alias` (ro), `viewportWidth: real` (ro), `viewportHeight: real` (ro), `scrollableX: bool` (ro), `scrollableY: bool` (ro), `interactive: bool`.
+**Declared members:** `content: alias`, `contentItem: Item` (ro), `flickable: alias` (ro), `overflowX: int`, `overflowY: int`, `padding: real`, `contentX: alias`, `contentY: alias`, `contentWidth: alias` (ro), `contentHeight: alias` (ro), `viewportWidth: real` (ro), `viewportHeight: real` (ro), `scrollableX: bool` (ro), `scrollableY: bool` (ro), `interactive: bool`, `accessibleName: string`. `_qindaScrollViewport` is an internal nested-reveal marker.
 
 **Source methods:** `ensureVisible()`, `scrollToTop()`, `scrollToBottom()`, `maxImplicit()`, `seat()`. See source for parameters and helper visibility.
 

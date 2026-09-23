@@ -368,3 +368,35 @@ compatibility. This grammar does not provide named lines, subgrid or fit-content
 slots without imperative breakpoint logic. Existing plain tracks and `fr`
 behavior remain covered by regression tests. A future true intrinsic sizing
 API must define child measurement contracts before expanding the grammar.
+
+## D-021 — Hard bounds and event handoff for nested Scroll viewports
+
+**Context.** The original Scroll used `Flickable.StopAtBounds`, but its
+keyboard promise had no key handler and focusing an offscreen child did not
+reveal it. A nested wheel fixture already moved the inner viewport and then
+the outer one at the inner edge on Qt 6.11. The equivalent keyboard and
+focus fixtures failed.
+
+**Decision.** Preserve the default hidden horizontal overflow and hard
+Flickable bounds. Let Qt's nested Flickables route wheel events; a focused
+Scroll root handles arrow, Page Up/Down and Home/End keys with themed row
+steps and clamps to content bounds. Accept a key only when it moves the
+current viewport, allowing the event to reach an ancestor at an edge.
+`interactive: false` suppresses keyboard movement in that viewport.
+When focus changes, the inner Scroll reveals the actual item while each
+ancestor Scroll reveals the immediately nested viewport instead of the
+deep item. The exposed `ensureVisible(item)` remains for explicit use.
+
+**Consequences.** A deeply focused control becomes visible through nested
+viewports without overscrolling its ancestors. Wheel and keyboard routing
+have event-level QtQuickTest coverage. `Tk.Scroll` gains a focusable Pane
+and an `accessibleName` path. Touch drag at an edge remains bounded rather
+than transferring an in-progress gesture to the ancestor; that policy
+avoids a disruptive mid-gesture ownership change.
+
+`Tk.Viewport` owns Ctrl+wheel zoom and ordinary wheel panning while it can
+move. Its WheelHandler sets
+[`blocking: false`](https://doc.qt.io/qt-6/qml-qtquick-wheelhandler.html#blocking-prop)
+and accepts an ordinary wheel event only when content moved. This lets an
+ancestor Scroll take the wheel at the document edge. The nested canvas test
+checks both edge handoff and exclusive Ctrl+wheel zoom ownership.

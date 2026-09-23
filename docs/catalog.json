@@ -4722,7 +4722,7 @@
       "name": "Scroll",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT: CSS `overflow: auto`. The single content child is sized to its implicit size on a scrolling axis and to the viewport on a hidden axis, so `overflowX: Scroll.Hidden` (the default) makes a Column wrap to the width and scroll vertically. Scrollbars are overlays and take no layout space. Wheel, drag-flick and keyboard (when focused) all scroll.",
+      "description": "AGENT-CONTRACT: CSS `overflow: auto`. The single content child is sized to its implicit size on a scrolling axis and to the viewport on a hidden axis, so `overflowX: Scroll.Hidden` (the default) makes a Column wrap to the width and scroll vertically. Scrollbars are overlays and take no layout space. D-021 defines nested wheel/key handoff, hard bounds and focus reveal through inner and outer viewports.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Scroll.qml",
@@ -4843,6 +4843,14 @@
           "name": "interactive",
           "type": "bool",
           "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "accessibleName",
+          "type": "string",
+          "default": "\"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -6486,7 +6494,7 @@
       "name": "Viewport",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (docs/controls.md): a zoomable, scrollable document viewport. The single child is the document surface (a page, a slide, an artboard) sized by ITS implicit size in document units; the viewport scales it by `zoom`, centres it when it is narrower than the view, pads it by `contentPadding`, scrolls both axes, and paints the canvas role behind it. Ctrl+wheel zooms about the cursor, Shift+wheel scrolls horizontally, a middle-button drag pans. `fitMode` \"width\" / \"page\" re-fits on every resize until the user zooms by hand.  AGENT-GUARD: zoom is a view transform only. The child keeps its own coordinate space; map pointer positions with `toContent(point)`.",
+      "description": "AGENT-CONTRACT (docs/controls.md): a zoomable, scrollable document viewport. The single child is the document surface (a page, a slide, an artboard) sized by ITS implicit size in document units; the viewport scales it by `zoom`, centres it when it is narrower than the view, pads it by `contentPadding`, scrolls both axes, and paints the canvas role behind it. Ctrl+wheel zooms about the cursor, Shift+wheel scrolls horizontally, a middle-button drag pans. `fitMode` \"width\" / \"page\" re-fits on every resize until the user zooms by hand. At a pan edge, ordinary wheel input reaches an ancestor Scroll (D-021).  AGENT-GUARD: zoom is a view transform only. The child keeps its own coordinate space; map pointer positions with `toContent(point)`.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Viewport.qml",

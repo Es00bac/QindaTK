@@ -144,3 +144,8 @@ physical right. Ignored captures are
 combined integration tree passes 17/17 CTest cases on Qt 6.8.3 and
 6.11.1, including the focused Grid RTL test and responsive Grid tests.
 `all_qmllint` passes on the system Qt build.
+
+Nested wheel, keyboard, focus and canvas routing were subsequently
+verified under D-021 in [WP-006-scroll.md](WP-006-scroll.md), with passing
+QtQuickTests on both supported Qt versions and inspected diagnostic
+captures. The earlier geometry-only row remains the pre-change baseline.

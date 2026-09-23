@@ -440,7 +440,8 @@ size on a scrolling axis and to the viewport on a hidden axis.
 | `overflowX` | `Tk.Scroll.Hidden` | `Auto`, `Hidden`, `Always` |
 | `overflowY` | `Tk.Scroll.Auto` | |
 | `padding` | 0 | around the viewport |
-| `interactive` | true | drag/flick |
+| `interactive` | true | drag/flick and keyboard movement |
+| `accessibleName` | `""` | name for a focusable scroll viewport |
 | `contentX`, `contentY` | | scroll position |
 | `contentWidth`, `contentHeight`, `viewportWidth`, `viewportHeight`, `scrollableX`, `scrollableY` | read-only | |
 | `contentItem`, `flickable` | read-only | the content host and the Flickable |
@@ -452,6 +453,22 @@ to the width and scrolls vertically. A timeline or table sets `overflowX:
 Tk.Scroll.Auto`. Scrollbars are overlays (`Tk.ScrollBar`) and take no
 layout space. The single child is seated like in `Box` unless it has
 anchors.
+
+Nested Scroll viewports use hard bounds (`Flickable.StopAtBounds`). Wheel
+events move the innermost viewport under the pointer, then reach an ancestor
+when that viewport is at its edge. A focused viewport handles arrow keys by
+one themed row step, Page Up/Down by a viewport page less one row, and
+Home/End at the vertical bounds. A key that cannot move the focused viewport
+passes to its ancestor; `interactive: false` suppresses its keyboard movement.
+Horizontal overflow stays hidden by default. `accessibleName` names the
+focusable Pane for assistive technology.
+
+When a descendant gains focus, each Scroll reveals it. An outer Scroll
+reveals an inner Scroll viewport as a unit; the inner one reveals the actual
+focus target. This avoids moving the outer viewport to the target's old
+offscreen content position before the inner viewport scrolls. `ensureVisible`
+remains available for explicit reveal. See D-021 and the nested wheel,
+keyboard and focus tests in `tests/qml/tst_scroll_nested.qml`.
 
 ```qml
 Tk.Scroll {
