@@ -93,6 +93,18 @@ dumped and opened. It reports `Box#galleryHeader 0,0 480x160`,
 This checks reachability of the combined example state, not every control's
 contrast or native accessibility behavior.
 
+The integration gallery was also captured at 480×320 in Touch density under
+both high-contrast presets at 1× and 3× text. All four PNGs were opened.
+At 3×, both preset captures show the header and gallery as separate visible
+regions; the dump reports `Box#galleryHeader 0,0 480x160`,
+`Scroll#galleryHeaderScroll 0,0 480x159`, `Scroll#presetScroll 12,83
+456x63`, and `Scroll#galleryScroll 0,160 480x160`. The filter field lies at
+y=255 inside the header's scrollable content and remains reachable by the
+existing focused QML test. Section title/count text elides at this width;
+this is an example workflow check rather than contrast certification for
+every control. Ignored captures are `/tmp/qindatk-gallery-hc-{dark,light}-touch.png`
+and `/tmp/qindatk-gallery-touch3-hc-{dark,light}.png`.
+
 At integration source commit `1f30b69`, Qt 6.11.1 and 6.8.3 each passed the
 full 19-target CTest suite and `all_qmllint`.
 
