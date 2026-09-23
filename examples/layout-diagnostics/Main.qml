@@ -36,9 +36,10 @@ Item {
         LayoutMirroring.enabled: true
         LayoutMirroring.childrenInherit: true
         direction: Tk.Flex.Row
+        layoutDirection: Qt.RightToLeft
         justify: Tk.Flex.Start
-        Item { objectName: "rtlStartA"; implicitWidth: 48; implicitHeight: 24 }
-        Item { objectName: "rtlStartB"; implicitWidth: 48; implicitHeight: 24 }
+        Rectangle { objectName: "rtlStartA"; implicitWidth: 48; implicitHeight: 24; color: Tk.Theme.color.accent }
+        Rectangle { objectName: "rtlStartB"; implicitWidth: 48; implicitHeight: 24; color: Tk.Theme.color.accentSubtle }
     }
     Tk.Box {
         objectName: "roundedSideBorder"

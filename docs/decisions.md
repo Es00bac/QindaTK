@@ -307,3 +307,26 @@ Baseline; rows using other alignment modes keep their geometry. The mixed
 font/Item test passes on Qt 6.8.3 and 6.11.1, and compact/comfortable
 preview dumps and captures show the corrected placement. WP-006 still owns
 intrinsic tracks, RTL, borders and nested scroll behavior.
+
+## D-019 — Explicit logical direction for custom layout engines
+
+**Context.** The WP-006 RTL diagnostic enabled Qt Quick
+`LayoutMirroring.enabled`, but Flex children remained left-to-right because
+Flex writes their x coordinates itself. [Qt documents that custom x
+positioning is not affected by LayoutMirroring](https://doc.qt.io/qt-6/qml-qtquick-layoutmirroring.html).
+Apps need predictable logical Start and End for both row and column layouts.
+
+**Decision.** Custom layout engines expose a `layoutDirection` property
+with `Qt.LeftToRight` as the compatibility default. `Qt.RightToLeft`
+mirrors final horizontal child positions within the padded content box.
+RowReverse still reverses the logical main axis, so RowReverse and RTL
+together place Start on the physical left. Column cross-axis Start moves to
+the right. Left and right padding remain physical; applications may bind
+`layoutDirection: Qt.application.layoutDirection` on each custom container.
+An ancestor `LayoutMirroring.enabled` is not an implicit input to these
+engines.
+
+**Consequences.** Existing LTR geometry is preserved. RTL behavior is
+explicit and can change at runtime. Each layout engine needs its own
+tests and documentation; Flex is the first implementation, with Grid and
+Stack tracked under WP-006.

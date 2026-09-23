@@ -439,10 +439,14 @@ void Flex::doLayout()
                 const qreal span = definiteMain ? mainAvail : used;
                 mainPos = span - cursor - e->target;
             }
-            const qreal x = padL + (horizontal ? mainPos : crossCursor + crossPos);
+            const qreal logicalX = padL + (horizontal ? mainPos : crossCursor + crossPos);
             const qreal y = padT + (horizontal ? crossCursor + crossPos : mainPos);
             const qreal w = horizontal ? e->target : crossSize;
             const qreal h = horizontal ? crossSize : e->target;
+            // Row/Column start and RowReverse all use logical coordinates;
+            // mirror only the final physical x within the padded content box.
+            const qreal x = m_layoutDirection == Qt::RightToLeft
+                ? width() - padR - (logicalX - padL) - w : logicalX;
             e->item->setPosition(QPointF(x, y));
             e->item->setSize(QSizeF(w, h));
             extentMain = std::max(extentMain, mainPos + e->target);

@@ -7206,6 +7206,13 @@
           "constant": false
         },
         {
+          "name": "layoutDirection",
+          "type": "Qt::LayoutDirection",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "wrap",
           "type": "WrapMode",
           "default": "",

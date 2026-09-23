@@ -81,3 +81,25 @@ baselines visibly align. Column baseline still follows Start, and the
 other WP-006 gaps in this record remain open. Ignored captures are
 `build/layout-diagnostics-baseline-{compact,comfortable}.png` in the
 integration worktree.
+
+## Subsequent integrated Flex direction repair
+
+The pre-change `rtlRow` observation above remains the diagnostic baseline.
+`Tk.Flex.layoutDirection: Qt.RightToLeft` now mirrors each final child x
+position within the physical left/right padded content box. RowReverse
+still reverses the logical main axis; column cross-axis Start also follows
+the logical direction. Qt's `LayoutMirroring.enabled` does not affect
+custom coordinates on its own (D-019).
+
+The asymmetric-padding QtTest asserts a 400px RTL row's first 50px item
+at x=335 and its second 70px item at x=255, then exercises RowReverse,
+runtime LTR switching, and RTL column Start. `tst_layout` and the full
+16/16 CTest suite pass on Qt 6.8.3 and 6.11.1. The updated diagnostic
+`qtk-preview --dump` reports `Flex#rtlRow 492,82 220x44`,
+`Rectangle#rtlStartA 172,0 48x44` and
+`Rectangle#rtlStartB 124,0 48x44`. Compact and comfortable software
+captures were opened; the cyan first item is visibly at the right edge
+of the row. Ignored captures are
+`build/layout-diagnostics-rtl-{compact,comfortable}.png` in the
+integration worktree. RTL Grid and Stack support remain separate WP-006
+work, so this is a Flex repair rather than a package acceptance.

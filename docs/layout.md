@@ -44,6 +44,7 @@ The attached constraints exist on every container under its own name
 | Property | Values | Default | CSS |
 | --- | --- | --- | --- |
 | `direction` | `Tk.Flex.Row`, `RowReverse`, `Column`, `ColumnReverse` | `Row` | `flex-direction` |
+| `layoutDirection` | `Qt.LeftToRight`, `Qt.RightToLeft` | `Qt.LeftToRight` | logical inline direction |
 | `wrap` | `Tk.Flex.NoWrap`, `Wrap`, `WrapReverse` | `NoWrap` | `flex-wrap` |
 | `justify` | `Start`, `End`, `Center`, `SpaceBetween`, `SpaceAround`, `SpaceEvenly` | `Start` | `justify-content` |
 | `align` | `Stretch`, `Start`, `End`, `Center`, `Baseline` for rows (column fallback: `Start`) | `Stretch` | `align-items` |
@@ -97,7 +98,11 @@ Attached on children (`Tk.Flex.*`):
    row. In a column, `Baseline` currently places at cross-axis `Start`.
 7. **Justify** applies to leftover main space; negative leftover is treated
    as zero (items never move left of the padding to centre an overflow).
-8. **Reverse directions** mirror every main position.
+8. **Reverse directions** mirror every main position. `layoutDirection:
+   Qt.RightToLeft` then mirrors every child's horizontal position within
+   the padded content box. Row Start is on the right; RowReverse Start is
+   on the left; a column's cross-axis Start is on the right. Left and right
+   padding remain physical sides.
 9. **Implicit size**: main = longest line's hypothetical content (Σ
    hypothetical + gaps) + padding; cross = Σ natural line heights + row
    gaps + padding. This is the max-content size; a wrapped container's
@@ -114,6 +119,11 @@ Because the default `minWidth` is 0, a row can shrink a child below its
 text. Set `Tk.Flex.shrink: 0` on a child that must keep its size, or give
 it a `minWidth`. Text children elide because `Tk.Label` sets
 `elide: Text.ElideRight` and the container sets their width.
+
+Set `layoutDirection: Qt.application.layoutDirection` to follow the app's
+language direction. Qt's `LayoutMirroring.enabled` alone does not mirror
+custom C++ item positioning, so bind this property explicitly for logical
+start and end. See D-019 in `docs/decisions.md`.
 
 ```qml
 import QtQuick

@@ -147,6 +147,42 @@ private slots:
         QTRY_VERIFY(qAbs(plain->y() + plain->baselineOffset()
                           - large->y() - large->baselineOffset()) < 0.5);
     }
+    void flexLogicalDirectionMirrorsRowsAndColumns()
+    {
+        Scene row(QStringLiteral(R"qml(
+            Tk.Flex { direction: Tk.Flex.Row; layoutDirection: Qt.RightToLeft
+                justify: Tk.Flex.Start; align: Tk.Flex.Start
+                gap: 10; paddingLeft: 5; paddingRight: 15
+                Item { objectName: "a"; implicitWidth: 50; implicitHeight: 20 }
+                Item { objectName: "b"; implicitWidth: 70; implicitHeight: 20 }
+            })qml"));
+        QVERIFY(row.exposed());
+        QQuickItem *a = row.item("a");
+        QQuickItem *b = row.item("b");
+        QVERIFY(a && b);
+        QTRY_COMPARE(a->x(), 335.0);
+        QCOMPARE(b->x(), 255.0);
+        auto *flex = qobject_cast<Flex *>(row.root());
+        QVERIFY(flex);
+        flex->setDirection(Flex::RowReverse);
+        QTRY_COMPARE(a->x(), 5.0);
+        QCOMPARE(b->x(), 65.0);
+        flex->setLayoutDirection(Qt::LeftToRight);
+        QTRY_COMPARE(a->x(), 335.0);
+        QCOMPARE(b->x(), 255.0);
+
+        Scene column(QStringLiteral(R"qml(
+            Tk.Flex { direction: Tk.Flex.Column; layoutDirection: Qt.RightToLeft
+                align: Tk.Flex.Start; gap: 10; paddingLeft: 5; paddingRight: 15
+                Item { objectName: "first"; implicitWidth: 50; implicitHeight: 20 }
+                Item { objectName: "second"; implicitWidth: 70; implicitHeight: 20 }
+            })qml"));
+        QVERIFY(column.exposed());
+        QTRY_COMPARE(column.item("first")->x(), 335.0);
+        QCOMPARE(column.item("second")->x(), 315.0);
+        QCOMPARE(column.item("first")->y(), 0.0);
+        QCOMPARE(column.item("second")->y(), 30.0);
+    }
     void gridTracksAndPlacement()
     {
         Scene scene(QStringLiteral(R"qml(

@@ -48,6 +48,9 @@ class Flex : public QQuickItem, public LayoutContainer {
     QML_ELEMENT
     QML_ATTACHED(FlexAttached)
     Q_PROPERTY(Direction direction READ direction WRITE setDirection NOTIFY layoutPropertyChanged)
+    // Logical inline direction; custom C++ x placement does not inherit
+    // QtQuick's LayoutMirroring attached property automatically (D-019).
+    Q_PROPERTY(Qt::LayoutDirection layoutDirection READ layoutDirection WRITE setLayoutDirection NOTIFY layoutPropertyChanged)
     Q_PROPERTY(WrapMode wrap READ wrap WRITE setWrap NOTIFY layoutPropertyChanged)
     Q_PROPERTY(Alignment justify READ justify WRITE setJustify NOTIFY layoutPropertyChanged)
     Q_PROPERTY(Alignment align READ align WRITE setAlign NOTIFY layoutPropertyChanged)
@@ -81,6 +84,8 @@ public:
 
     [[nodiscard]] Direction direction() const { return m_direction; }
     void setDirection(Direction value) { assign(m_direction, value); }
+    [[nodiscard]] Qt::LayoutDirection layoutDirection() const { return m_layoutDirection; }
+    void setLayoutDirection(Qt::LayoutDirection value) { assign(m_layoutDirection, value); }
     [[nodiscard]] WrapMode wrap() const { return m_wrap; }
     void setWrap(WrapMode value) { assign(m_wrap, value); }
     [[nodiscard]] Alignment justify() const { return m_justify; }
@@ -141,6 +146,7 @@ private:
     [[nodiscard]] qreal resolvedPadding(qreal side) const { return side >= 0 ? side : m_padding; }
 
     Direction m_direction = Row;
+    Qt::LayoutDirection m_layoutDirection = Qt::LeftToRight;
     WrapMode m_wrap = NoWrap;
     Alignment m_justify = Start;
     Alignment m_align = Stretch;
