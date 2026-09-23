@@ -46,7 +46,7 @@ The attached constraints exist on every container under its own name
 | `direction` | `Tk.Flex.Row`, `RowReverse`, `Column`, `ColumnReverse` | `Row` | `flex-direction` |
 | `wrap` | `Tk.Flex.NoWrap`, `Wrap`, `WrapReverse` | `NoWrap` | `flex-wrap` |
 | `justify` | `Start`, `End`, `Center`, `SpaceBetween`, `SpaceAround`, `SpaceEvenly` | `Start` | `justify-content` |
-| `align` | `Stretch`, `Start`, `End`, `Center` (`Baseline` acts as `Start`) | `Stretch` | `align-items` |
+| `align` | `Stretch`, `Start`, `End`, `Center`, `Baseline` for rows (column fallback: `Start`) | `Stretch` | `align-items` |
 | `alignContent` | `Stretch`, `Start`, `End`, `Center`, `SpaceBetween`, `SpaceAround`, `SpaceEvenly` | `Stretch` | `align-content` (wrapped lines only) |
 | `gap`, `rowGap`, `columnGap` | px | 0, -1, -1 | `gap`, `row-gap`, `column-gap` |
 | `padding`, `padding{Left,Top,Right,Bottom}` | px | 0, -1… | `padding` |
@@ -84,12 +84,17 @@ Attached on children (`Tk.Flex.*`):
    every child gets its hypothetical size and `justify` is not applied.
 5. **Cross size.** A single line fills the container's inner cross size
    when that is definite; otherwise (and for every wrapped line) the line
-   is as tall as its tallest child. With several lines and a definite cross
+   is as tall as its tallest child or its baseline group's combined ascent
+   and descent, whichever is larger. With several lines and a definite cross
    size, `alignContent: Stretch` gives each line an equal share of the
    leftover; the other modes place the lines like `justify` places items.
 6. **Per child**: `alignSelf` (or `align`) `Stretch` sets the cross size to
    the line's cross size clamped by the child's `min`/`max`; `Start`,
-   `Center`, `End` keep the implicit cross size and position it.
+   `Center`, `End` keep the implicit cross size and position it. In a row,
+   `Baseline` aligns each participating child's `baselineOffset` to the
+   line's largest ascent. Plain Items whose Qt baseline offset is zero use
+   their bottom edge as a fallback. A changed baseline offset relayouts the
+   row. In a column, `Baseline` currently places at cross-axis `Start`.
 7. **Justify** applies to leftover main space; negative leftover is treated
    as zero (items never move left of the padding to centre an overflow).
 8. **Reverse directions** mirror every main position.

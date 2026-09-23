@@ -286,3 +286,24 @@ dump. Control heights can grow even when density mode stays compact. Fixed
 application widths can still crowd at large text, so this is a necessary
 foundation, not WP-007's complete large-text acceptance. The source of
 truth is `Theme::finishUpdate()` and the WP-007 visual evidence.
+
+## D-018 — Use Qt item baselines for horizontal Flex lines
+
+**Context.** `Tk.Flex.Baseline` previously behaved as `Start`. The WP-006
+diagnostic mixed 12px and 26px labels and placed both at y=0, leaving their
+text baselines visibly apart. [Qt 6.8's public `QQuickItem::baselineOffset`](https://doc.qt.io/qt-6.8/qquickitem.html#baselineOffset-prop)
+reports a local baseline for text and controls; plain Items default to zero.
+
+**Decision.** For row and row-reverse Flex lines, align participating items
+by that public offset. A plain Item with no declared baseline uses its
+bottom edge. Compute each line's natural cross extent from the largest
+ascent plus largest descent, as well as the tallest child. Watch baseline
+offset changes for relayout. `alignSelf: Baseline` uses the same rule.
+Columns retain Start behavior for Baseline until a writing-mode and logical
+direction contract is defined.
+
+**Consequences.** This intentionally changes positions in rows requesting
+Baseline; rows using other alignment modes keep their geometry. The mixed
+font/Item test passes on Qt 6.8.3 and 6.11.1, and compact/comfortable
+preview dumps and captures show the corrected placement. WP-006 still owns
+intrinsic tracks, RTL, borders and nested scroll behavior.

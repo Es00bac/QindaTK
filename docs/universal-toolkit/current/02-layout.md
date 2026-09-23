@@ -22,7 +22,7 @@ C++ flexbox layout for dense rows, columns and wrapping tool strips.
 
 **Source:** [src/core/flex.h](../../../src/core/flex.h) · **Base:** `QQuickItem` · **Kind:** C++ type.
 
-direction, wrap, justify, align, alignContent, gaps and padding control layout; contentWidth/Height and lineCount report results. Children use Tk.Flex attached sizing. Flex owns its implicit size. Baseline is currently treated as Start, so true text baseline alignment is missing.
+direction, wrap, justify, align, alignContent, gaps and padding control layout; contentWidth/Height and lineCount report results. Children use Tk.Flex attached sizing. Flex owns its implicit size. Baseline aligns mixed text/control items in horizontal rows using Qt item baselines, with a bottom-edge fallback for plain Items; columns currently treat Baseline as Start.
 
 **Declared members:** `direction: Direction`, `wrap: WrapMode`, `justify: Alignment`, `align: Alignment`, `alignContent: Alignment`, `gap: qreal`, `rowGap: qreal`, `columnGap: qreal`, `padding: qreal`, `paddingLeft: qreal`, `paddingTop: qreal`, `paddingRight: qreal`, `paddingBottom: qreal`, `contentWidth: qreal` (ro), `contentHeight: qreal` (ro), `lineCount: int` (ro).
 

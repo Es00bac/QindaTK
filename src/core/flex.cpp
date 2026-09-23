@@ -34,6 +34,14 @@ qreal clampTo(qreal value, qreal lo, qreal hi)
     return std::max(lo, std::min(value, hi));
 }
 
+qreal baselineOf(const FlexEntry &entry)
+{
+    const qreal declared = entry.item->baselineOffset();
+    // Qt gives non-text Items a baseline offset of zero. Seat those at
+    // their bottom edge, as a CSS flex item with no text baseline does.
+    return declared > 0 ? clampTo(declared, 0, entry.crossHypo) : entry.crossHypo;
+}
+
 bool takesSlot(const QQuickItem *child, const FlexAttached *attached)
 {
     if (!child->isVisible()) {
@@ -245,6 +253,8 @@ void Flex::watch(QQuickItem *child)
             Qt::UniqueConnection);
     connect(child, &QQuickItem::implicitHeightChanged, this, &Flex::invalidateLayout,
             Qt::UniqueConnection);
+    connect(child, &QQuickItem::baselineOffsetChanged, this, &Flex::invalidateLayout,
+            Qt::UniqueConnection);
     connect(child, &QQuickItem::visibleChanged, this, &Flex::invalidateLayout,
             Qt::UniqueConnection);
 }
@@ -338,14 +348,23 @@ void Flex::doLayout()
 
     // Main sizes per line, natural cross size per line.
     std::vector<qreal> lineCross(lines.size(), 0);
+    std::vector<qreal> lineBaseline(lines.size(), 0);
     qreal maxContentMain = 0;
     for (size_t i = 0; i < lines.size(); ++i) {
         resolveLine(lines[i], definiteMain ? mainAvail : 0, mainGap);
         qreal lineMain = 0;
+        qreal baselineDescent = 0;
         for (FlexEntry *e : lines[i]) {
             lineMain += e->hypo;
             lineCross[i] = std::max(lineCross[i], e->crossHypo);
+            const Alignment self = e->alignSelf == Auto ? m_align : static_cast<Alignment>(e->alignSelf);
+            if (horizontal && self == Baseline) {
+                const qreal baseline = baselineOf(*e);
+                lineBaseline[i] = std::max(lineBaseline[i], baseline);
+                baselineDescent = std::max(baselineDescent, e->crossHypo - baseline);
+            }
         }
+        lineCross[i] = std::max(lineCross[i], lineBaseline[i] + baselineDescent);
         lineMain += mainGap * static_cast<qreal>(std::max<size_t>(lines[i].size(), 1) - 1);
         maxContentMain = std::max(maxContentMain, lineMain);
     }
@@ -406,6 +425,11 @@ void Flex::doLayout()
                 break;
             case End:
                 crossPos = thisCross - crossSize;
+                break;
+            case Baseline:
+                if (horizontal) {
+                    crossPos = lineBaseline[index] - baselineOf(*e);
+                }
                 break;
             default:
                 break;

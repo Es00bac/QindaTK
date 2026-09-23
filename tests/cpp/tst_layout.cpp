@@ -122,6 +122,31 @@ private slots:
         QCOMPARE(scene.item("b")->width(), 400.0);
         QCOMPARE(scene.item("c")->height(), 300 - 8 - 40.0);
     }
+    void flexRowAlignsMixedFontAndPlainItemBaselines()
+    {
+        Scene scene(QStringLiteral(R"qml(
+            Tk.Flex { direction: Tk.Flex.Row; align: Tk.Flex.Baseline; gap: 8
+                Text { objectName: "small"; text: "small"; font.pixelSize: 12 }
+                Text { objectName: "large"; text: "large"; font.pixelSize: 26 }
+                Item { objectName: "plain"; implicitWidth: 20; implicitHeight: 20 }
+            })qml"));
+        QVERIFY(scene.exposed());
+        QQuickItem *small = scene.item("small");
+        QQuickItem *large = scene.item("large");
+        QQuickItem *plain = scene.item("plain");
+        QVERIFY(small && large && plain);
+        QTRY_VERIFY(qAbs(small->y() + small->baselineOffset()
+                          - large->y() - large->baselineOffset()) < 0.5);
+        QVERIFY(small->y() > large->y());
+        QTRY_VERIFY(qAbs(plain->y() + plain->height()
+                          - large->y() - large->baselineOffset()) < 0.5);
+        QVERIFY(scene.root()->implicitHeight() >= large->implicitHeight());
+
+        // Changing a declared baseline must invalidate the row layout.
+        plain->setBaselineOffset(10);
+        QTRY_VERIFY(qAbs(plain->y() + plain->baselineOffset()
+                          - large->y() - large->baselineOffset()) < 0.5);
+    }
     void gridTracksAndPlacement()
     {
         Scene scene(QStringLiteral(R"qml(

@@ -65,3 +65,19 @@ does not prove event behavior by geometry alone.
    default unless a separately reviewed compatibility decision changes it.
 
 No layout algorithm or public behavior was changed by this diagnostic work.
+
+## Subsequent integrated baseline repair
+
+The observations above remain the pre-change record. Sol later implemented
+row baseline alignment in `Flex`: it uses each text/control item's Qt
+`baselineOffset`, seats a plain Item's zero-baseline fallback at its bottom
+edge, and gives each wrapped line enough combined ascent/descent. A focused
+QtTest with 12px and 26px text plus a plain Item passes on Qt 6.8.3 and
+6.11.1, including a runtime baseline-offset change. The diagnostic preview
+now dumps `Label#baselineSmall 0,14 41x15` and
+`Label#baselineLarge 49,0 91x32` under `Flex#baselineRow 12,12 420x54`.
+Compact and comfortable 960×760 software grabs were opened; the text
+baselines visibly align. Column baseline still follows Start, and the
+other WP-006 gaps in this record remain open. Ignored captures are
+`build/layout-diagnostics-baseline-{compact,comfortable}.png` in the
+integration worktree.
