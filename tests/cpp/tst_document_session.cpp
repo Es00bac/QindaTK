@@ -3,6 +3,8 @@
 #include "edit_transaction.h"
 #include "reference_document_codec.h"
 #include <QFile>
+#include <QFileInfo>
+#include <QDir>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QTemporaryDir>
@@ -300,6 +302,120 @@ private slots:
         QCOMPARE(recovered->revision(), document.revisionString());
         QCOMPARE(recovered->document()->value(target, QStringLiteral("gain")).toDouble(), 7.0);
         QVERIFY(recovery.inspect(document.documentId())->truncatedTail);
+    }
+
+    void atomicDiskSaveCancellationConflictAndReopen()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        const QString path = temp.filePath(QStringLiteral("atomic.qtk"));
+        AtomicDocumentStore store;
+        PropertyDocument document;
+        const auto target = addGain(&document, 1.0);
+        QVERIFY(target.isValid());
+        OperationError error;
+        const auto initial = ReferenceDocumentCodec::capture(document, {}, &error);
+        QVERIFY2(initial, qPrintable(error.message));
+        const auto seeded = store.save({initial, path, FileExpectation::Missing, {}, {}});
+        QVERIFY2(seeded, qPrintable(seeded.error.message));
+        QFile oldFile(path);
+        QVERIFY(oldFile.open(QIODevice::ReadOnly));
+        const QByteArray oldBytes = oldFile.readAll();
+        oldFile.close();
+        QVERIFY(!oldBytes.isEmpty());
+
+        UndoService undo;
+        QVERIFY(undo.addDocument(&document));
+        EditTransaction edit;
+        edit.setDocument(&document);
+        edit.setUndoService(&undo);
+        QVERIFY(edit.begin({target}, QStringLiteral("gain"), QStringLiteral("Change gain")));
+        QVERIFY(edit.update(8.0));
+        QVERIFY(edit.commit());
+        const auto updated = ReferenceDocumentCodec::capture(document, {}, &error);
+        QVERIFY2(updated, qPrintable(error.message));
+
+        CancellationSource cancellation;
+        cancellation.cancel();
+        const auto cancelled = store.save({updated, path, FileExpectation::MatchingHash,
+                                           seeded.sha256, cancellation.token()});
+        QCOMPARE(cancelled.error.code, ErrorCode::Cancelled);
+        QFile afterCancel(path);
+        QVERIFY(afterCancel.open(QIODevice::ReadOnly));
+        QCOMPARE(afterCancel.readAll(), oldBytes);
+        afterCancel.close();
+
+        const auto saved = store.save({updated, path, FileExpectation::MatchingHash,
+                                       seeded.sha256, {}});
+        QVERIFY2(saved, qPrintable(saved.error.message));
+        QCOMPARE(saved.saved.revision, updated->header.revision);
+        const auto loaded = store.load(path);
+        QVERIFY2(loaded, qPrintable(loaded.error.message));
+        QCOMPARE(loaded.sha256, saved.sha256);
+        const auto reopened = ReferenceDocumentCodec::decode(loaded.bytes, &error);
+        QVERIFY2(reopened, qPrintable(error.message));
+        QCOMPARE(reopened->document->revision(), updated->header.revision);
+        QCOMPARE(reopened->document->value(target, QStringLiteral("gain")).toDouble(), 8.0);
+
+        const QByteArray externalBytes("external writer revision", 24);
+        QFile external(path);
+        QVERIFY(external.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(external.write(externalBytes), qint64(externalBytes.size()));
+        external.close();
+        const auto conflicted = store.save({initial, path, FileExpectation::MatchingHash,
+                                            saved.sha256, {}});
+        QCOMPARE(conflicted.error.code, ErrorCode::Conflict);
+        QFile afterConflict(path);
+        QVERIFY(afterConflict.open(QIODevice::ReadOnly));
+        QCOMPARE(afterConflict.readAll(), externalBytes);
+    }
+
+    void recoveryCheckpointSurvivesInterruptedJournalTail()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        RecoveryManager recovery;
+        recovery.setDirectory(temp.path());
+        recovery.setMaxJournalEntries(2);
+        PropertyDocument document;
+        const auto target = addGain(&document, 1.0);
+        QVERIFY(target.isValid());
+        OperationError error;
+        const auto first = ReferenceDocumentCodec::capture(document, {}, &error);
+        QVERIFY2(first, qPrintable(error.message));
+        QVERIFY(!recovery.record(first));
+
+        UndoService undo;
+        QVERIFY(undo.addDocument(&document));
+        EditTransaction edit;
+        edit.setDocument(&document);
+        edit.setUndoService(&undo);
+        QVERIFY(edit.begin({target}, QStringLiteral("gain"), QStringLiteral("Change gain")));
+        QVERIFY(edit.update(6.0));
+        QVERIFY(edit.commit());
+        const auto second = ReferenceDocumentCodec::capture(document, {}, &error);
+        QVERIFY2(second, qPrintable(error.message));
+        QVERIFY(!recovery.record(second)); // second frame compacts to atomic checkpoint
+
+        const QString stem = document.documentIdString();
+        const QString checkpoint = QDir(temp.path()).filePath(stem + QStringLiteral(".checkpoint"));
+        const QString journal = QDir(temp.path()).filePath(stem + QStringLiteral(".journal"));
+        QVERIFY(QFileInfo(checkpoint).isFile());
+        QFile checkpointFile(checkpoint);
+        QVERIFY(checkpointFile.open(QIODevice::ReadOnly));
+        QVERIFY(!checkpointFile.readAll().isEmpty());
+        QFile partialJournal(journal);
+        QVERIFY(partialJournal.open(QIODevice::WriteOnly | QIODevice::Append));
+        QCOMPARE(partialJournal.write(QByteArray("partial-frame", 13)), qint64(13));
+        partialJournal.close();
+
+        const auto inspected = recovery.inspect(document.documentId());
+        QVERIFY(inspected.has_value());
+        QVERIFY(inspected->truncatedTail);
+        QCOMPARE(inspected->snapshot->header.revision, second->header.revision);
+        const auto restored = recovery.restore(document.documentId(), &error);
+        QVERIFY2(restored.has_value(), qPrintable(error.message));
+        QCOMPARE(restored->document->value(target, QStringLiteral("gain")).toDouble(), 6.0);
     }
 };
 
