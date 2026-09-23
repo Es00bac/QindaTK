@@ -1,0 +1,175 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+import QtQuick
+import QtCore
+import QindaTK as Tk
+
+// WP-055 spreadsheet slice: a two-sheet budget. Switch sheets with the tabs,
+// select a cell and edit it in the formula bar (Enter commits, Escape
+// restores) or in the cell (Enter/F2). Select F2:F5 and press "Fill down"
+// (Ctrl+D) to copy the total formula with relative references moved; undo,
+// save, change something, then "Reopen saved" restores the file.
+//   qtk-preview examples/workbook/Main.qml
+//   qtk-preview examples/workbook/Main.qml --dump --size 1180x720
+Item {
+    id: root
+    objectName: "workbookExample"
+    width: 1180
+    height: 720
+
+    readonly property url fileUrl: StandardPaths.writableLocation(StandardPaths.TempLocation)
+                                   + "/qindatk-workbook-example.qtkwb"
+    property string status: qsTr("Select F2:F5 and fill down to complete the totals")
+
+    function seed() {
+        const budget = book.sheetIdAt(0)
+        book.renameSheet(budget, "Budget")
+        const summary = book.addSheet("Summary", -1, 200, 12)
+        book.pasteInputs(budget, 0, 0, [
+            ["Item", "Q1", "Q2", "Q3", "Q4", "Total"],
+            ["Rent", "1200", "1200", "1250", "1250", "=SUM(B2:E2)"],
+            ["Payroll", "5400", "5600", "5600", "5800", ""],
+            ["Software", "310.5", "290", "305", "320", ""],
+            ["Travel", "800", "0", "1150", "400", ""],
+            ["Total", "=SUM(B2:B5)", "", "", "", ""],
+            ["", "", "", "", "", ""],
+            ["Tax rate", "0.08", "", "", "", ""],
+            ["Tax", "=ROUND(B6*$B$8,2)", "", "", "", ""]])
+        book.pasteInputs(summary, 0, 0, [
+            ["Metric", "Value"],
+            ["Annual spend", "=SUM(Budget!B2:E5)"],
+            ["Largest quarter", "=MAX(Budget!B6:E6)"],
+            ["Average item", "=AVERAGE(Budget!F2:F5)"],
+            ["Status", "=IF(B2>40000,\"Over plan\",\"Within plan\")"],
+            ["Q1 tax", "=Budget!B9"]])
+        // Present the seeded document as a freshly opened one: same content,
+        // no seed history, nothing modified.
+        book.restoreText(book.serializedText())
+        sheet.sheetId = book.sheetIdAt(0)
+        sheet.selectRange(4, 5, 1, 5) // F5 up to F2: F2 is the active cell
+        sheet.focusGrid()
+    }
+
+    Tk.Workbook {
+        id: book
+        Component.onCompleted: root.seed()
+    }
+    Tk.MessageDialog {
+        id: removal
+        objectName: "removeSheetDialog"
+        property string sheetId: ""
+        title: "Remove sheet"
+        variant: "warning"
+        primaryText: "Remove"
+        secondaryText: "Cancel"
+        destructive: true
+        onAccepted: root.status = book.removeSheet(sheetId) ? "Removed the sheet (Undo restores it)" : book.lastError
+    }
+
+    Tk.Box {
+        anchors.fill: parent
+        padding: Tk.Theme.space.lg
+        color: Tk.Theme.color.canvas
+        Tk.Flex {
+            anchors.fill: parent
+            direction: Tk.Flex.Column
+            gap: Tk.Theme.space.sm
+            Tk.Flex {
+                objectName: "workbookToolbar"
+                direction: Tk.Flex.Row
+                align: Tk.Flex.Center
+                gap: Tk.Theme.space.xs
+                Tk.Button {
+                    objectName: "fillDownButton"
+                    text: "Fill down"
+                    iconName: "arrow-down-to-line"
+                    tooltip: "Copy the top row of the selection down, moving relative references (Ctrl+D)"
+                    enabled: !formula.editing
+                    onClicked: root.status = sheet.fillDown() ? "Filled " + sheet.selectionAddress : sheet.errorText
+                }
+                Tk.Button {
+                    objectName: "fillRightButton"
+                    text: "Fill right"
+                    iconName: "arrow-right"
+                    tooltip: "Copy the left column of the selection right (Ctrl+R)"
+                    enabled: !formula.editing
+                    onClicked: root.status = sheet.fillRight() ? "Filled " + sheet.selectionAddress : sheet.errorText
+                }
+                Tk.IconButton {
+                    objectName: "undoButton"
+                    iconName: "undo-2"
+                    tooltip: book.canUndo ? "Undo " + book.undoText : "Nothing to undo"
+                    enabled: book.canUndo && !formula.editing
+                    onClicked: book.undo()
+                }
+                Tk.IconButton {
+                    objectName: "redoButton"
+                    iconName: "redo-2"
+                    tooltip: book.canRedo ? "Redo " + book.redoText : "Nothing to redo"
+                    enabled: book.canRedo && !formula.editing
+                    onClicked: book.redo()
+                }
+                Tk.Button {
+                    objectName: "saveButton"
+                    text: "Save"
+                    iconName: "save"
+                    tooltip: "Save the workbook to " + root.fileUrl
+                    enabled: !formula.editing
+                    onClicked: root.status = book.save(root.fileUrl, true) ? "Saved revision " + book.revision
+                                                                           : book.lastError
+                }
+                Tk.Button {
+                    objectName: "reopenButton"
+                    text: "Reopen saved"
+                    iconName: "folder-open"
+                    tooltip: "Discard changes and reopen the saved workbook file"
+                    enabled: !formula.editing && book.fileUrl.toString().length > 0
+                    onClicked: root.status = book.open(root.fileUrl) ? "Reopened the saved workbook" : book.lastError
+                }
+                Tk.Caption {
+                    objectName: "workbookMessage"
+                    Tk.Flex.grow: 1
+                    horizontalAlignment: Text.AlignRight
+                    elide: Text.ElideLeft
+                    text: root.status
+                }
+            }
+            Tk.WorkbookTabs {
+                id: tabs
+                objectName: "workbookTabs"
+                workbook: book
+                currentSheetId: sheet.currentSheetId
+                onSheetActivated: function(sheetId) { sheet.sheetId = sheetId }
+                onRemoveRequested: function(sheetId, name) {
+                    removal.sheetId = sheetId
+                    removal.text = "Remove “" + name + "”? Formulas on other sheets that refer to it show #REF!; Undo restores the sheet and those formulas."
+                    removal.open()
+                }
+            }
+            Tk.FormulaBar {
+                id: formula
+                objectName: "formulaBar"
+                sheetView: sheet
+                onCommitted: function(address, input) { root.status = "Set " + address + " to " + input }
+            }
+            Tk.SheetView {
+                id: sheet
+                objectName: "sheetView"
+                Tk.Flex.grow: 1
+                workbook: book
+                tooltip: "Budget workbook"
+                onInputRejected: function(message) { root.status = message }
+            }
+            Tk.Caption {
+                objectName: "workbookStatus"
+                text: {
+                    const stats = book.statistics
+                    return "Revision " + book.revision + (book.modified ? " · modified" : " · saved")
+                        + " · " + stats.formulas + " formulas · last recalculation evaluated "
+                        + stats.lastEvaluated + " of " + stats.lastDirty + " dirty cells in "
+                        + stats.lastRecalcMicroseconds + " µs"
+                        + " · " + sheet.grid.visibleCellRecords.length + " visible cell delegates"
+                }
+            }
+        }
+    }
+}

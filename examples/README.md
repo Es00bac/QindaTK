@@ -128,3 +128,24 @@ rename). This is the shape the QindaQt office suite's windows take.
 - Exercises: `AppWindow`, `MenuBar`/`Menu`/`MenuItem { radio }`, `ToolBar { wrap }`,
   `ColorButton`, `Viewport`, `ZoomControl`, `Island`, `Stack`, `StatusBar`,
   `MessageDialog`, `PromptDialog`
+
+## workbook
+
+The WP-055 spreadsheet slice over a two-sheet budget. `WorkbookTabs` switch
+between the Budget and Summary sheets (whose formulas refer to Budget by
+sheet ID, so renames and reordering keep them). The `FormulaBar` edits the
+active cell's source input and shows its computed value; Enter commits,
+Escape restores, and clicking cells while editing a formula inserts their
+references. Select F2:F5 and press Fill down (Ctrl+D) to complete the totals
+with relative references moved. Undo/Redo use the Workbook's history. Save
+writes a `.qtkwb` file to the temporary directory, and Reopen saved restores
+it, discarding later changes. The status line reports the revision and the
+last recalculation's evaluated cells.
+
+- Run: `qtk-preview examples/workbook/Main.qml`
+- Dump: `qtk-preview examples/workbook/Main.qml --dump --size 1180x720`
+- Exercises: `Workbook`, `SheetView` (over `EditableGrid`), `FormulaBar`,
+  `WorkbookTabs`, `MessageDialog` (sheet removal prompt), `Button`, `IconButton`
+- Captures: [compact](../docs/universal-toolkit/implementation/evidence/WP-055-compact.png),
+  [comfortable](../docs/universal-toolkit/implementation/evidence/WP-055-comfortable.png),
+  [rejected formula](../docs/universal-toolkit/implementation/evidence/WP-055-formula-error.png)

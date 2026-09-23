@@ -7042,6 +7042,263 @@
       ]
     },
     {
+      "name": "FormulaBar",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md, docs/workbook.md): edits the active cell of a Tk.SheetView. The name box shows (and jumps to) an address; the editor shows the cell's source input, never its computed value, which appears in `formulaResult`. An edit remembers its target cell until Enter commits it through the Workbook or Escape restores the prior input. While a formula is edited, selecting cells in the sheet inserts their reference at the caret (point mode); a rejected commit selects the offending source span.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FormulaBar.qml",
+      "properties": [
+        {
+          "name": "sheetView",
+          "type": "Tk.SheetView",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Formula bar\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "originalText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetRow",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetColumn",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceStart",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceEnd",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorStart",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorEnd",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pointing",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "workbook",
+          "type": "Tk.Workbook",
+          "default": "sheetView ? sheetView.workbook : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "alias",
+          "default": "editor.text",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetAddress",
+          "type": "string",
+          "default": "workbook && targetRow >= 0 ? workbook.address(targetRow, targetColumn) : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "default": "editing ? targetAddress : (sheetView ? sheetView.activeAddress : \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "result",
+          "type": "string",
+          "default": "sheetView ? sheetView.activeDisplay : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pointMode",
+          "type": "bool",
+          "default": "editing && editor.text.startsWith(\"=\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputCheck",
+          "type": "var",
+          "default": "editing && sheetView ? sheetView.adapter.checkInput(editor.text) : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceSpans",
+          "type": "var",
+          "default": "inputCheck && inputCheck.ok && inputCheck.references",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "functionHint",
+          "type": "string",
+          "default": "pointMode && workbook",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "committed",
+          "parameters": "string address, string input"
+        },
+        {
+          "name": "cancelled",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "beginEdit",
+          "parameters": ""
+        },
+        {
+          "name": "finishEditing",
+          "parameters": "restoreSelection"
+        },
+        {
+          "name": "commit",
+          "parameters": "restoreSelection"
+        },
+        {
+          "name": "cancel",
+          "parameters": ""
+        },
+        {
+          "name": "clearError",
+          "parameters": ""
+        },
+        {
+          "name": "showError",
+          "parameters": "message, detail"
+        },
+        {
+          "name": "insertReference",
+          "parameters": "reference"
+        },
+        {
+          "name": "pointAt",
+          "parameters": "range"
+        },
+        {
+          "name": "currentFunction",
+          "parameters": "input, caret"
+        },
+        {
+          "name": "jumpTo",
+          "parameters": "text"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "formulaCancel",
+        "formulaCommit",
+        "formulaEditor",
+        "formulaError",
+        "formulaFunctionLabel",
+        "formulaHint",
+        "formulaNameBox",
+        "formulaResult"
+      ]
+    },
+    {
       "name": "GanttView",
       "kind": "qml",
       "base": "T.Control",
@@ -12602,6 +12859,292 @@
       ]
     },
     {
+      "name": "SheetView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md, docs/workbook.md): one sheet of a Tk.Workbook shown through Tk.EditableGrid via Tk.WorkbookSheetAdapter. The Workbook owns inputs, formulas, values and history; the grid owns only geometry and stable-ID selection; this view keeps the active cell. Cell editing shows the formula source, never the computed display value.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SheetView.qml",
+      "properties": [
+        {
+          "name": "workbook",
+          "type": "Tk.Workbook",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Spreadsheet\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "epoch",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "adapter",
+          "type": "alias",
+          "default": "sheetAdapter",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "grid",
+          "type": "alias",
+          "default": "sheetGrid",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentSheetId",
+          "type": "string",
+          "default": "sheetAdapter.sheetId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheetName",
+          "type": "string",
+          "default": "sheetAdapter.sheetName",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeRow",
+          "type": "int",
+          "default": "control.epoch >= 0 && sheetGrid.model",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeColumn",
+          "type": "int",
+          "default": "control.epoch >= 0 && sheetGrid.model",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasActiveCell",
+          "type": "bool",
+          "default": "activeRow >= 0 && activeColumn >= 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeAddress",
+          "type": "string",
+          "default": "hasActiveCell ? sheetAdapter.address(activeRow, activeColumn) : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeInput",
+          "type": "string",
+          "default": "control.epoch >= 0 && hasActiveCell",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeDisplay",
+          "type": "string",
+          "default": "control.epoch >= 0 && hasActiveCell",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selection",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionAddress",
+          "type": "string",
+          "default": "selection && workbook",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "sheetAdapter.lastError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorDetail",
+          "type": "var",
+          "default": "sheetAdapter.lastErrorDetail",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rememberedCells",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shownSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "apiSelection",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tableFocused",
+          "type": "bool",
+          "default": "sheetGrid.activeFocus && !sheetGrid.cellEditing",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "currentCellChanged",
+          "parameters": "int row, int column, string address"
+        },
+        {
+          "name": "selectionEdited",
+          "parameters": ""
+        },
+        {
+          "name": "sheetShown",
+          "parameters": "string sheetId"
+        },
+        {
+          "name": "inputCommitted",
+          "parameters": "int row, int column, string input"
+        },
+        {
+          "name": "inputRejected",
+          "parameters": "string message, var detail"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setCurrent",
+          "parameters": "row, column, extend"
+        },
+        {
+          "name": "selectRange",
+          "parameters": "firstRow, firstColumn, lastRow, lastColumn"
+        },
+        {
+          "name": "focusGrid",
+          "parameters": ""
+        },
+        {
+          "name": "beginEdit",
+          "parameters": ""
+        },
+        {
+          "name": "commitInputAt",
+          "parameters": "row, column, text"
+        },
+        {
+          "name": "commitInput",
+          "parameters": "text"
+        },
+        {
+          "name": "selectionOrActive",
+          "parameters": ""
+        },
+        {
+          "name": "fillDown",
+          "parameters": ""
+        },
+        {
+          "name": "fillRight",
+          "parameters": ""
+        },
+        {
+          "name": "copySelection",
+          "parameters": ""
+        },
+        {
+          "name": "pasteCopied",
+          "parameters": ""
+        },
+        {
+          "name": "pasteText",
+          "parameters": "text"
+        },
+        {
+          "name": "clearSelection",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "parameters": ""
+        },
+        {
+          "name": "restoreCell",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "sheetGrid"
+      ]
+    },
+    {
       "name": "ShortcutEditor",
       "kind": "qml",
       "base": "Tk.Box",
@@ -16289,6 +16832,124 @@
         "waveform",
         "waveformCentreLine",
         "waveformShape"
+      ]
+    },
+    {
+      "name": "WorkbookTabs",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md, docs/workbook.md): sheet tabs projected from Tk.Workbook.sheets by stable sheet ID. Add, rename and move call the Workbook (each one undoable step; formulas follow IDs, so references keep their targets). Removal is only requested: the host confirms, then calls Workbook.removeSheet. The current sheet is owned by the host.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/WorkbookTabs.qml",
+      "properties": [
+        {
+          "name": "workbook",
+          "type": "Tk.Workbook",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Sheets\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "renamingSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheets",
+          "type": "var",
+          "default": "workbook ? workbook.sheets : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sheetActivated",
+          "parameters": "string sheetId"
+        },
+        {
+          "name": "removeRequested",
+          "parameters": "string sheetId, string name"
+        }
+      ],
+      "methods": [
+        {
+          "name": "indexOfSheet",
+          "parameters": "sheetId"
+        },
+        {
+          "name": "activate",
+          "parameters": "sheetId"
+        },
+        {
+          "name": "addSheet",
+          "parameters": ""
+        },
+        {
+          "name": "beginRename",
+          "parameters": "sheetId"
+        },
+        {
+          "name": "commitRename",
+          "parameters": "name"
+        },
+        {
+          "name": "cancelRename",
+          "parameters": ""
+        },
+        {
+          "name": "moveBy",
+          "parameters": "sheetId, delta"
+        },
+        {
+          "name": "requestRemove",
+          "parameters": "sheetId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "workbookTabAdd",
+        "workbookTabEditor",
+        "workbookTabError",
+        "workbookTabSlot_",
+        "workbookTab_"
       ]
     },
     {
@@ -26875,6 +27536,534 @@
         {
           "name": "capabilities",
           "returns": "QVariantMap",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "Workbook",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: Workbook is the single authoritative spreadsheet model and the only revision/history owner for its cells, sheets and formulas. Views (WorkbookSheetAdapter/SheetView, FormulaBar, WorkbookTabs) read it and route every change through these operations; none keeps cell state. docs/workbook.md defines the grammar, functions, reference rules, transactions and the native file format.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/workbook.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resetGeneration",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheets",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheetCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "modified",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "transactionActive",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastErrorDetail",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "statistics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "functionNames",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "fileUrl",
+          "type": "QUrl",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "addSheet",
+          "returns": "QString",
+          "parameters": "const QString &name = {}, int index = -1, int rows = DefaultRows, int columns = DefaultColumns"
+        },
+        {
+          "name": "removeSheet",
+          "returns": "bool",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "renameSheet",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, const QString &name"
+        },
+        {
+          "name": "moveSheet",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int index"
+        },
+        {
+          "name": "sheetIdAt",
+          "returns": "QString",
+          "parameters": "int index"
+        },
+        {
+          "name": "sheetIndex",
+          "returns": "int",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "sheetName",
+          "returns": "QString",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "sheetIdForName",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "rowCount",
+          "returns": "int",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "columnCount",
+          "returns": "int",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "setCellInput",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int column, const QString &input"
+        },
+        {
+          "name": "cellInput",
+          "returns": "QString",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellDisplay",
+          "returns": "QString",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellValue",
+          "returns": "QVariant",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellType",
+          "returns": "QString",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellInfo",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "visibleCells",
+          "returns": "QVariantList",
+          "parameters": "const QString &sheetId, int firstRow, int rowCount, int firstColumn, int columnCount"
+        },
+        {
+          "name": "checkInput",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, const QString &input"
+        },
+        {
+          "name": "pasteInputs",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int column, const QVariantList &rows"
+        },
+        {
+          "name": "copyCells",
+          "returns": "bool",
+          "parameters": "const QString &sourceSheetId, int firstRow, int firstColumn, int rowCount, int columnCount, const QString &targetSheetId, int targetRow, int targetColumn"
+        },
+        {
+          "name": "fill",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int rowCount, int columnCount, int targetRow, int targetColumn, int targetRowCount, int targetColumnCount"
+        },
+        {
+          "name": "clearCells",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int rowCount, int columnCount"
+        },
+        {
+          "name": "insertRows",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int count = 1"
+        },
+        {
+          "name": "removeRows",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int count = 1"
+        },
+        {
+          "name": "insertColumns",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int column, int count = 1"
+        },
+        {
+          "name": "removeColumns",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int column, int count = 1"
+        },
+        {
+          "name": "beginTransaction",
+          "returns": "bool",
+          "parameters": "const QString &label"
+        },
+        {
+          "name": "commitTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "markSaved",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "serializedText",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "restoreText",
+          "returns": "bool",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "save",
+          "returns": "bool",
+          "parameters": "const QUrl &url, bool replaceExisting = false"
+        },
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": "const QUrl &url"
+        },
+        {
+          "name": "reset",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "registerFormat",
+          "returns": "bool",
+          "parameters": "QObject *formatRegistry"
+        },
+        {
+          "name": "columnName",
+          "returns": "QString",
+          "parameters": "int column"
+        },
+        {
+          "name": "functionSignature",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "address",
+          "returns": "QString",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "rangeAddress",
+          "returns": "QString",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "parseAddress",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "referenceText",
+          "returns": "QString",
+          "parameters": "const QString &fromSheetId, const QString &toSheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "WorkbookSheetAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: presents one sheet of a Workbook through the existing EditableGridModel contract (docs/editable-grid.md) without a second store. The grid's GridCellSource returns display text for requested cells only; its validator parses candidate inputs; externalUndo transfers history to the Workbook. A committed grid edit or paste is applied to the Workbook as one transaction, then the grid's override layer is reverted through its applyHistoryChanges bridge, so the grid never holds cell values. Structural workbook changes move the grid's stable row/column IDs.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/workbook_sheet_adapter.h",
+      "properties": [
+        {
+          "name": "workbook",
+          "type": "QindaTK::Workbook *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sheetId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sheetName",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "gridModel",
+          "type": "QindaTK::EditableGridModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "rowCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "columnCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hasCopiedRange",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "copiedRange",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastErrorDetail",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "columnLabel",
+          "returns": "QString",
+          "parameters": "int column"
+        },
+        {
+          "name": "address",
+          "returns": "QString",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "inputAt",
+          "returns": "QString",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "displayAt",
+          "returns": "QString",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "cellInfo",
+          "returns": "QVariantMap",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "checkInput",
+          "returns": "QVariantMap",
+          "parameters": "const QString &input"
+        },
+        {
+          "name": "commitInput",
+          "returns": "bool",
+          "parameters": "int row, int column, const QString &input"
+        },
+        {
+          "name": "fillDown",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "fillRight",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "fillRange",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int rowCount, int columnCount, int targetRow, int targetColumn, int targetRowCount, int targetColumnCount"
+        },
+        {
+          "name": "copyRange",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "pasteCopied",
+          "returns": "bool",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "clearRange",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "parseTabularText",
+          "returns": "QVariantList",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "sourceReadCount",
+          "returns": "qint64",
+          "parameters": ""
+        },
+        {
+          "name": "resetSourceReads",
+          "returns": "void",
           "parameters": ""
         }
       ],

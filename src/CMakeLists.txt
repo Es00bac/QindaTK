@@ -92,6 +92,13 @@ qt_add_qml_module(qindatk
         core/editable_grid_structure.cpp
         core/resource_plan_model.cpp core/resource_plan_model.h
         core/editable_grid_mode.cpp
+        core/workbook_value.cpp core/workbook_value.h core/workbook_formula.h
+        core/workbook_parser.cpp core/workbook_refs.cpp core/workbook_eval.cpp
+        core/workbook.cpp core/workbook.h core/workbook_p.h
+        core/workbook_recalc.cpp core/workbook_mutations.cpp core/workbook_ops.cpp
+        core/workbook_codec.cpp core/workbook_codec_p.h
+        core/workbook_persistence.cpp core/workbook_format.h
+        core/workbook_sheet_adapter.cpp core/workbook_sheet_adapter.h
         core/query_spec.cpp core/query_eval.cpp core/query_pivot.cpp core/query_core.h
         core/query_detail.cpp core/query_join.cpp core/query_persistence.cpp
         core/query_grid_adapter.cpp core/query_grid_adapter.h

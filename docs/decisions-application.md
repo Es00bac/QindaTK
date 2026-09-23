@@ -230,3 +230,37 @@ kept but neither drawn nor picked. Until WP-033 proves a shared session for
 spatial documents, `CanvasDocument` keeps its own bounded history behind the
 adapter. Snapping, selection handles and guides (WP-041) and colour transforms
 (WP-043) plug into the published contracts. See [canvas.md](canvas.md).
+
+## D-055 — Keep workbook formulas positional and the Workbook the only history owner
+
+**Context.** WP-055 needs spreadsheet references with relative and absolute
+anchors, structural row/column edits that keep formula targets, sheet renames
+and reorders that keep reference identity, and sparse sheets up to the
+1,048,576 × 16,384 grid. `EditableGridModel` already provides stable view
+IDs, bounded windows and an external-history bridge; `UndoService` records
+only `PropertyDocument` changes. (The number is provisional; the parallel
+lanes may renumber at integration.)
+
+**Decision.** Cells are stored by position in ordered per-sheet sparse maps.
+A reference stores its absolute target, per-axis anchor flags and, when
+explicit, the target sheet's stable ID; copy/fill moves only relative parts,
+and row/column insertion or removal rewrites references by a documented rule
+instead of giving every row and column an identity. Every change is a
+primitive mutation whose exact inverse is computed when it is applied; one
+operation or explicit transaction is one history step, and undo/redo
+recompute inverses. Values are never stored in history or files: commit,
+undo, redo, cancel and open recalculate the dirty closure found through a
+cell/range dependency index, ordered with Kahn's algorithm, with Tarjan SCCs
+evaluating to `#CYCLE!`. The Workbook is the single revision and history
+owner; `WorkbookSheetAdapter` runs the grid in `externalUndo` mode, applies
+each committed grid change set as one Workbook transaction and reverts the
+grid's override layer, so the grid never stores values.
+
+**Consequences.** Memory follows content, not declared dimensions, and
+insertion is value-neutral (no recalculation). A structural edit costs a
+rewrite of the formulas that refer to the sheet and a dependency-index
+rebuild (about 150 ms for 25,000 formulas in a Debug build). Typed formula
+whitespace and case are not preserved; the canonical rendering is. Grid row
+and column IDs are view-local. Gaps found in the consumed grid and format
+contracts are listed in [workbook.md](workbook.md#gaps-in-consumed-contracts)
+for their owners.
