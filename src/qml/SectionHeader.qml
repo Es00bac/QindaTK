@@ -15,9 +15,51 @@ Item {
     property bool collapsible: false
     property bool collapsed: false
     default property alias trailing: trailingHost.data
+    readonly property bool canToggle: collapsible && enabled
 
     implicitWidth: row.implicitWidth
     implicitHeight: Tk.Theme.size.row
+    activeFocusOnTab: canToggle
+
+    Accessible.role: collapsible ? Accessible.Button : Accessible.StaticText
+    Accessible.name: header.title.length > 0 ? header.title : qsTr("Section")
+    Accessible.description: collapsible
+                              ? enabled
+                                  ? collapsed
+                                      ? qsTr("Collapsed. Activate to expand.")
+                                      : qsTr("Expanded. Activate to collapse.")
+                                  : collapsed ? qsTr("Disabled. Collapsed")
+                                              : qsTr("Disabled. Expanded")
+                              : ""
+    Accessible.focusable: canToggle
+    Accessible.focused: activeFocus
+
+    function toggle() {
+        if (canToggle) {
+            collapsed = !collapsed
+        }
+    }
+
+    Keys.onSpacePressed: function(event) {
+        if (canToggle) {
+            toggle()
+            event.accepted = true
+        }
+    }
+    Keys.onReturnPressed: function(event) {
+        if (canToggle) {
+            toggle()
+            event.accepted = true
+        }
+    }
+    Keys.onEnterPressed: function(event) {
+        if (canToggle) {
+            toggle()
+            event.accepted = true
+        }
+    }
+
+    Accessible.onPressAction: header.toggle()
 
     Tk.Flex {
         id: row
@@ -53,8 +95,38 @@ Item {
         }
     }
 
+    Item {
+        anchors.fill: parent
+        visible: header.activeFocus && header.canToggle
+
+        Rectangle {
+            anchors.top: parent.top
+            width: parent.width
+            height: Tk.Theme.size.focusRing
+            color: Tk.Theme.color.focus
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom
+            width: parent.width
+            height: Tk.Theme.size.focusRing
+            color: Tk.Theme.color.focus
+        }
+        Rectangle {
+            anchors.left: parent.left
+            width: Tk.Theme.size.focusRing
+            height: parent.height
+            color: Tk.Theme.color.focus
+        }
+        Rectangle {
+            anchors.right: parent.right
+            width: Tk.Theme.size.focusRing
+            height: parent.height
+            color: Tk.Theme.color.focus
+        }
+    }
+
     TapHandler {
-        enabled: header.collapsible
-        onTapped: header.collapsed = !header.collapsed
+        enabled: header.canToggle
+        onTapped: header.toggle()
     }
 }

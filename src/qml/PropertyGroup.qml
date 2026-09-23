@@ -21,6 +21,11 @@ Item {
 
     Accessible.role: Accessible.Grouping
     Accessible.name: group.title
+    Accessible.description: group.collapsible
+                              ? group.collapsed
+                                  ? qsTr("Collapsed")
+                                  : qsTr("Expanded")
+                              : ""
 
     Tk.Flex {
         id: column
@@ -34,6 +39,7 @@ Item {
             title: group.title
             count: group.count
             collapsible: group.collapsible
+            enabled: group.enabled
             // AGENT-NOTE: the header toggles its own `collapsed` by
             // assignment (which would break an inline binding), so the
             // two states are kept in step both ways explicitly.
