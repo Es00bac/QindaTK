@@ -170,6 +170,27 @@ private slots:
             QVERIFY(scroll->property("contentHeight").toReal() > scroll->height());
     }
 
+    void galleryHeaderAtLargeText()
+    {
+        Density::instance()->setTextScale(2.0);
+        Scene scene(QUrl::fromLocalFile(QStringLiteral(QINDATK_GALLERY_FIXTURE)), QSize(1280, 800));
+        QVERIFY(scene.root());
+        QVERIFY(scene.exposed());
+        QQuickItem *header = scene.item("galleryHeader");
+        QQuickItem *search = scene.item("sectionFilter");
+        QQuickItem *scroll = scene.item("galleryScroll");
+        QVERIFY(header && search && scroll);
+        QTRY_VERIFY(header->height() > 60);
+        QTRY_VERIFY(search->width() >= 200);
+        const QPointF searchPosition = search->mapToItem(header, 0, 0);
+        QVERIFY(searchPosition.x() >= 0);
+        QVERIFY(searchPosition.x() + search->width() <= header->width());
+        QVERIFY(searchPosition.y() >= 0);
+        QVERIFY(searchPosition.y() + search->height() <= header->height());
+        QCOMPARE(scroll->y(), header->height());
+        QTest::qWait(50); // let deferred gallery delegates finish before engine teardown
+    }
+
     void responsiveGridResizeAndFit()
     {
         Scene scene(R"QML(

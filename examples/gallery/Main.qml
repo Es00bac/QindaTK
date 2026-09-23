@@ -38,19 +38,27 @@ Rectangle {
 
         // ---- header ----
         Tk.Box {
+            id: headerBox
             objectName: "galleryHeader"
             color: Tk.Theme.color.surface
             borderBottom: 1
             borderColor: Tk.Theme.color.divider
-            implicitHeight: Tk.Theme.size.toolbar + Tk.Theme.space.sm
+            implicitHeight: Math.max(Tk.Theme.size.toolbar + Tk.Theme.space.sm,
+                                     headerRow.implicitHeight + Tk.Theme.size.border)
             Tk.Flex.shrink: 0
 
             Tk.Flex {
+                id: headerRow
                 direction: Tk.Flex.Row
+                wrap: Tk.Flex.Wrap
                 align: Tk.Flex.Center
+                alignContent: Tk.Flex.Center
                 gap: Tk.Theme.space.md
+                rowGap: Tk.Theme.space.xs
                 paddingLeft: Tk.Theme.space.md
                 paddingRight: Tk.Theme.space.md
+                paddingTop: Tk.Theme.space.xs
+                paddingBottom: Tk.Theme.space.xs
 
                 Tk.Overline { title: "QindaTK gallery"; wide: true; color: Tk.Theme.color.text }
                 Tk.Divider { vertical: true; inset: 6 }
@@ -68,7 +76,7 @@ Rectangle {
                     currentIndex: root.indexOfValue(root.densities, Tk.Density.modeName)
                     onActivated: function(index) { Tk.Density.modeName = root.densities[index].value }
                 }
-                Tk.Spacer {}
+                Tk.Spacer { visible: Tk.Density.textScale < 1.5 }
                 Tk.SearchField {
                     id: search
                     objectName: "sectionFilter"

@@ -22,7 +22,8 @@ qindatk_add_test(tst_theme)
 qindatk_add_test(tst_dock_model)
 qindatk_add_test(tst_layout)
 target_compile_definitions(tst_layout PRIVATE
-    QINDATK_ADAPTIVE_FIXTURE="${PROJECT_SOURCE_DIR}/examples/adaptive-layout/Main.qml")
+    QINDATK_ADAPTIVE_FIXTURE="${PROJECT_SOURCE_DIR}/examples/adaptive-layout/Main.qml"
+    QINDATK_GALLERY_FIXTURE="${PROJECT_SOURCE_DIR}/examples/gallery/Main.qml")
 qindatk_add_test(tst_icon)
 qindatk_add_test(tst_stylus_handler)
 qindatk_add_test(tst_app_window)

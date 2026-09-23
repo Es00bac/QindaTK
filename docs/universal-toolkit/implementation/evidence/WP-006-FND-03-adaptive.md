@@ -76,6 +76,17 @@ the isolated Qt 6.8.3 SDK. System `all_qmllint` exits successfully with its
 existing unqualified-access warnings. The focused eight-row layout check
 finishes without Grid polish-loop warnings on both Qt versions.
 
+The same four 2× cases were captured and opened using `qtk-preview --gpu`
+with `QSG_RHI_BACKEND=opengl` on Qt 6.11.1. `QSG_INFO=1` identified Qt's
+OpenGL RHI and the AMD Radeon RX 5700 XT renderer, so this exercised the
+hardware scene graph rather than the software adaptation. Compact and
+comfortable `layout-diagnostics` GPU captures were also opened; baseline
+placement, mirrored Flex/Grid/Stack items, square Box edges and clipped
+nested Scroll content match the expected geometry. A compact LTR 2× capture
+was also opened from Qt 6.8.3 on the same OpenGL renderer. Vulkan via the
+headless offscreen platform could not create a platform Vulkan instance,
+so these GPU claims are limited to OpenGL RHI on this machine.
+
 This package adds no layout algorithms. The existing narrow Flex/Grid/Stack
 semantics are exercised as currently implemented; wider stress widths,
 monitor-scale changes, and platform-native font variations remain outside

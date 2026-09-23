@@ -69,6 +69,17 @@ chrome still crowds or elides at this scale, so FND-07 and WP-007 remain
 open. Ignored captures are `build/gallery-text-scale-2.png` and
 `build/gallery-text-scale-2-rows.png`.
 
+The same 2× gallery then exposed a horizontal header defect: `SearchField#sectionFilter`
+was `1285,8 0x36` inside a 1280px window. The gallery header now wraps its
+controls and grows with its rows. The repaired dump shows
+`Box#galleryHeader 0,0 1280x79`, `SearchField#sectionFilter 383,40 220x36`,
+and `Scroll#galleryScroll 0,79 1280x721`; a focused QtTest checks that the
+search field remains inside the header. At 3× text the header grows to 142px,
+the search field remains `220x48`, and the content Scroll starts at y=142.
+Both 2× and 3× software captures were opened. This repairs the gallery
+workflow example, while broader control and hit-target qualification remains
+open.
+
 The integrated moving-anchor popover preview was dumped and grabbed after
 the popup opened and the anchor moved in a 320×200 window. The dump showed
 `Rectangle#movingAnchor 275,170 40x24` and, under `overlay:`,
