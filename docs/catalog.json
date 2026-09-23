@@ -1855,7 +1855,8 @@
         "dockContent_",
         "dockFloatingResizeDrag_",
         "dockFloatingResize_",
-        "dockFloating_"
+        "dockFloating_",
+        "dockPlacement_"
       ]
     },
     {
@@ -1985,6 +1986,10 @@
         {
           "name": "detach",
           "parameters": ""
+        },
+        {
+          "name": "focusPlacement",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -1998,6 +2003,7 @@
       "objectNames": [
         "dockContent_",
         "dockFrame_",
+        "dockPlacement_",
         "dockTabStrip_"
       ]
     },
@@ -2231,9 +2237,21 @@
         {
           "name": "panelDropped",
           "parameters": "string panelId"
+        },
+        {
+          "name": "panelPlacementAccepted",
+          "parameters": "string panelId"
         }
       ],
       "methods": [
+        {
+          "name": "openPlacement",
+          "parameters": "panelId"
+        },
+        {
+          "name": "focusPanelPlacement",
+          "parameters": "panelId"
+        },
         {
           "name": "declarationOf",
           "parameters": "panelId"
@@ -2583,6 +2601,100 @@
       "bridge": false,
       "objectNames": [
         "dockPanelContent_"
+      ]
+    },
+    {
+      "name": "DockPlacementDialog",
+      "kind": "qml",
+      "base": "Tk.Dialog",
+      "description": "AGENT-CONTRACT: drafts describe intent only; DockModel owns arrangement. Host ownership keeps this dialog alive when applying rebuilds panel frames.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DockPlacementDialog.qml",
+      "properties": [
+        {
+          "name": "host",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "panelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "choices",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "openingModel",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "openingWorkspace",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "var",
+          "default": "choices[destination.currentIndex] || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validPanel",
+          "type": "bool",
+          "default": "host.enabled && host.model !== null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "begin",
+          "parameters": "id"
+        },
+        {
+          "name": "applyPlacement",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "dialogPrimary",
+        "dialogSecondary",
+        "dockPlacementDestination",
+        "dockPlacementDialog",
+        "dockPlacementX",
+        "dockPlacementY"
       ]
     },
     {

@@ -72,8 +72,25 @@ Item {
 
         Keys.onEscapePressed: frame.host.model.hide(panelId)
 
+        function focusPlacement() { placementButton.forceActiveFocus(Qt.TabFocusReason) }
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier) && frame.enabled) {
+                frame.host.openPlacement(frame.panelId)
+                event.accepted = true
+            }
+        }
+
         Tk.Panel {
             id: panel
+            actions: Tk.IconButton {
+                id: placementButton
+                objectName: "dockPlacement_" + frame.panelId
+                small: true
+                iconName: "move"
+                tooltip: qsTr("Place %1").arg(frame.host.panelTitle(frame.panelId))
+                onClicked: frame.host.openPlacement(frame.panelId)
+                Accessible.onPressAction: if (placementButton.enabled) frame.host.openPlacement(frame.panelId)
+            }
             anchors.fill: parent
             title: frame.host.panelTitle(frame.panelId)
             iconName: frame.declaration !== null ? frame.declaration.iconName : ""

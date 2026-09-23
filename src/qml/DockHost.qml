@@ -65,6 +65,16 @@ Item {
     property bool ready: false
 
     signal panelDropped(string panelId)
+    signal panelPlacementAccepted(string panelId)
+    function openPlacement(panelId) { placement.begin(panelId) }
+    function focusPanelPlacement(panelId) {
+        // Frame replacement is deferred; resolve the successor after closing.
+        Qt.callLater(function() {
+            const frame = host.floatingFrames[panelId] || host.frames[panelId]
+            if (host.enabled && frame) frame.focusPlacement()
+        })
+    }
+    Tk.DockPlacementDialog { id: placement; host: host }
 
     Tk.DockModel { id: ownModel }
     Item { id: registry; visible: false; width: 0; height: 0 }

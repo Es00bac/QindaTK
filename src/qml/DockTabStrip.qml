@@ -132,7 +132,9 @@ Item {
                 HoverHandler { id: tabHover }
                 onClicked: strip.activate(panelId)
                 Keys.onPressed: function(event) {
-                    if (event.key === Qt.Key_Left) {
+                    if (event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier)) {
+                        strip.host.openPlacement(panelId)
+                    } else if (event.key === Qt.Key_Left) {
                         strip.moveFocus(index, -1)
                     } else if (event.key === Qt.Key_Right) {
                         strip.moveFocus(index, 1)
@@ -230,6 +232,10 @@ Item {
     Tk.Menu {
         id: groupMenu
         property string panelId: ""
+        Tk.MenuItem {
+            text: qsTr("Place panel…")
+            onTriggered: strip.host.openPlacement(groupMenu.panelId)
+        }
         Tk.MenuItem {
             text: qsTr("Take out of group")
             iconName: "ungroup"

@@ -6,7 +6,8 @@ import QindaTK as Tk
 // Layers/Channels/Paths tab group right, a program monitor in the centre
 // zone above the canvas, a timeline at the bottom and a floating History
 // panel. Drag headers to tear off and re-dock, drag seams, right-click
-// tabs. Run:
+// tabs. Header Place buttons / Shift+F10 offer keyboard destination, tab order
+// and floating-position commands. Run:
 //   qtk-preview examples/docking/Main.qml
 //   qtk-preview examples/docking/Main.qml --dump | grep dockZone
 Rectangle {

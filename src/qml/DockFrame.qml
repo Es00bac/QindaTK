@@ -78,8 +78,25 @@ FocusScope {
         host.unregisterFrame(frame)
     }
 
+    function focusPlacement() { placementButton.forceActiveFocus(Qt.TabFocusReason) }
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier) && frame.enabled) {
+            frame.host.openPlacement(frame.activeId)
+            event.accepted = true
+        }
+    }
+
     Tk.Panel {
         id: panel
+        actions: Tk.IconButton {
+            id: placementButton
+            objectName: "dockPlacement_" + frame.activeId
+            small: true
+            iconName: "move"
+            tooltip: qsTr("Place %1").arg(frame.host.panelTitle(frame.activeId))
+            onClicked: frame.host.openPlacement(frame.activeId)
+            Accessible.onPressAction: if (placementButton.enabled) frame.host.openPlacement(frame.activeId)
+        }
         anchors.fill: parent
         title: host.panelTitle(frame.activeId)
         iconName: frame.declaration !== null ? frame.declaration.iconName : ""

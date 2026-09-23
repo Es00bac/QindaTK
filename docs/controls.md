@@ -145,7 +145,7 @@ Readings over time and against a limit. `Tk.Graph` draws on the scene graph;
 ## Docking — see docking.md
 
 `DockHost`, `DockPanel`, `DockFrame`, `DockTabStrip`, `DockDivider`,
-`DockFloating`, `DockDropOverlay`. The model is `Tk.DockModel` (C++).
+`DockFloating`, `DockDropOverlay`, `DockPlacementDialog`. The model is `Tk.DockModel` (C++).
 `DockTabStrip` is a named PageTabList; its panel entries are PageTabs with
 accessible titles and selected state. Tab focuses an entry, Left/Right moves
 and activates across the group, and Home/End selects the first/last panel.
@@ -170,6 +170,17 @@ applicable axes; accessible increase/decrease and pointer drag share
 a themed ring. `Theme.size.seamTarget` supplies expanded edge and corner
 targets without changing frame geometry; very small panels shrink corner
 targets and disable edge targets that cannot fit without overlap.
+
+Dock headers expose a keyboard-focusable, named Place button
+(`dockPlacement_<panelId>`); Shift+F10 on a focused panel/tab opens the same
+host-owned `DockPlacementDialog`. Its destination picker supports legal zones,
+relative panel placement, tab grouping and explicit tab order. Floating move
+uses bounded horizontal/vertical NumberFields; Apply commits through DockModel,
+Cancel discards the proposal. `panelPlacementAccepted(panelId)` reports accepted
+user requests only. Dialog objectNames: `dockPlacementDialog`,
+`dockPlacementDestination`, `dockPlacementX`, `dockPlacementY`, `dialogPrimary`,
+`dialogSecondary`. See [docking](docking.md#keyboard-and-accessible-panel-placement)
+for bounds, stale-state guards and focus restoration.
 
 ## Size table (compact density)
 

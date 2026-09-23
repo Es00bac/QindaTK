@@ -250,3 +250,38 @@ placed outside the chosen minimum, nor automatic text reflow within every
 panel. Applications needing an adaptive single-panel presentation must
 specify selection, focus, drop targets and canvas behavior separately rather
 than silently rewriting a saved arrangement on resize.
+
+## Keyboard and accessible panel placement
+
+Each docked or floating header includes a named **Place <panel title>** button
+(`dockPlacement_<panelId>`). Its keyboard activation and accessible press open
+one host-owned `DockPlacementDialog`. Shift+F10 from a panel or focused tab
+opens the same dialog; a tab's context menu also offers **Place panel…**.
+The dialog uses a named destination ComboBox with ordinary keyboard selection:
+
+- Dock at the end of any permitted zone.
+- Dock before/after another visible docked panel, in an adjacent lane, or as
+  its tab. Destinations are filtered through `DockModel.acceptsZone`.
+- Choose an explicit tab position for a grouped panel. Reordering preserves
+  the active panel, matching pointer reorder.
+- Move a floating panel using named horizontal/vertical NumberFields. Arrow
+  keys and their accessible increase/decrease actions change a proposed
+  position by `Theme.space.lg`. Bounds keep the whole frame within the host
+  when it fits; an oversized frame is anchored at zero on that axis.
+
+**Apply** makes one model placement call and emits
+`DockHost.panelPlacementAccepted(panelId)` once. **Cancel** leaves arrangement
+unchanged. Escape closes the dialog when focus is outside an editing field;
+an editing NumberField first consumes Escape to abandon its text draft.
+The fields hold proposed coordinates only; `DockModel` continues to own live
+placement. Owner model updates never emit the user acceptance signal. Applying
+rechecks panel visibility, model/workspace identity and destination legality;
+a disappeared target or disabled host cannot perform a stale operation.
+Focus returns to the successor frame's Place button after a structural move.
+Bare-chrome panels retain Shift+F10 from their focusable content; apps can also
+call `DockHost.openPlacement(panelId)` from an existing menu.
+
+Stable dialog parts are `dockPlacementDialog`, `dockPlacementDestination`,
+`dockPlacementX`, `dockPlacementY`, `dialogPrimary`, and `dialogSecondary`.
+Native assistive-technology delivery remains a WP-092 qualification; QML action
+contract tests do not claim that qualification.
