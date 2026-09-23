@@ -28,12 +28,68 @@ Item {
     property real contentPadding: Tk.Theme.space.xl
     property real wheelZoomStep: 1.25
     property bool interactive: true
+    property string accessibleName: qsTr("Document viewport")
     readonly property real contentWidth: contentHost.implicitWidth
     readonly property real contentHeight: contentHost.implicitHeight
     readonly property real viewportWidth: scroll.viewportWidth
     readonly property real viewportHeight: scroll.viewportHeight
 
-    // User-driven changes only (wheel, pan, fit); programmatic setZoom too.
+    // Retain the tab stop until focus leaves if interaction is disabled
+    // while focused; clearing it immediately is rejected by Qt.
+    activeFocusOnTab: activeFocus || (enabled && interactive)
+    Accessible.role: Accessible.Pane
+    Accessible.name: accessibleName
+    Accessible.description: qsTr("%1 percent zoom").arg(Math.round(zoom * 100))
+    Accessible.focusable: enabled && interactive
+    Accessible.focused: activeFocus
+    Accessible.onIncreaseAction: if (enabled && interactive) viewport.zoomIn()
+    Accessible.onDecreaseAction: if (enabled && interactive) viewport.zoomOut()
+
+    // AGENT-CONTRACT (docs/control-interaction.md): the viewport takes a
+    // keyboard turn only while it itself owns focus. Document children keep
+    // their own shortcuts; an unconsumed pan key can reach an ancestor Scroll.
+    Keys.onPressed: function(event) {
+        if (!viewport.activeFocus || !viewport.enabled || !viewport.interactive) return
+        if (event.key === Qt.Key_Plus || event.key === Qt.Key_Equal) {
+            viewport.zoomIn()
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_Minus) {
+            viewport.zoomOut()
+            event.accepted = true
+            return
+        }
+        if (event.modifiers !== Qt.NoModifier) return
+        const step = Tk.Theme.size.row
+        const page = Math.max(step, scroll.viewportHeight - step)
+        let dx = 0
+        let dy = 0
+        switch (event.key) {
+        case Qt.Key_Left: dx = -step; break
+        case Qt.Key_Right: dx = step; break
+        case Qt.Key_Up: dy = -step; break
+        case Qt.Key_Down: dy = step; break
+        case Qt.Key_PageUp: dy = -page; break
+        case Qt.Key_PageDown: dy = page; break
+        case Qt.Key_Home: dy = -scroll.contentY; break
+        case Qt.Key_End: dy = scroll.contentHeight - scroll.viewportHeight - scroll.contentY; break
+        default: return
+        }
+        const maxX = Math.max(0, scroll.contentWidth - scroll.viewportWidth)
+        const maxY = Math.max(0, scroll.contentHeight - scroll.viewportHeight)
+        const nextX = Math.max(0, Math.min(maxX, scroll.contentX + dx))
+        const nextY = Math.max(0, Math.min(maxY, scroll.contentY + dy))
+        event.accepted = Math.abs(nextX - scroll.contentX) > 0.5
+                      || Math.abs(nextY - scroll.contentY) > 0.5
+        if (event.accepted) {
+            scroll.contentX = nextX
+            scroll.contentY = nextY
+        }
+    }
+
+    // Accepted wheel, key and assistive zoom, plus explicit setZoom/fit
+    // operations, emit this; owner assignment to `zoom` is silent.
     signal zoomModified(real zoom)
 
     implicitWidth: contentHost.implicitWidth * zoom + contentPadding * 2
@@ -141,6 +197,16 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Tk.Theme.color.canvas
+    }
+
+    Rectangle {
+        objectName: "viewportFocusRing"
+        anchors.fill: parent
+        color: "transparent"
+        border.width: Tk.Theme.size.focusRing
+        border.color: Tk.Theme.color.focus
+        visible: viewport.activeFocus && viewport.enabled && viewport.interactive
+        z: 1
     }
 
     Tk.Scroll {

@@ -134,6 +134,11 @@ FND-07 through FND-10.
   `DockZone` callbacks into `DockModel`; disabled host ancestry blocks them.
   The themed focus ring leaves seam geometry unchanged.
   [Focused evidence](WP-007-FIX-F04-dock-dividers.md).
+- `Viewport` now has a named Pane focus stop and focus ring. Pan keys observe
+  hard bounds and may pass an edge key to an ancestor Scroll; zoom keys and
+  accessible increase/decrease use the same guarded operation while owner
+  `zoom` assignment stays silent. Document children keep their keyboard input.
+  [Focused evidence](WP-007-FIX-F04-viewport.md).
 - `StatusField` now has an explicit static mode and an actionable template
   Button mode. Actionable fields expose a text/tooltip name, keyboard and
   accessible activation, a visible themed focus ring and one guarded click

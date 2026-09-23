@@ -6839,6 +6839,14 @@
           "required": false
         },
         {
+          "name": "accessibleName",
+          "type": "string",
+          "default": "qsTr(\"Document viewport\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "contentWidth",
           "type": "real",
           "default": "contentHost.implicitWidth",
@@ -6945,6 +6953,7 @@
       "bridge": false,
       "objectNames": [
         "viewportContent",
+        "viewportFocusRing",
         "viewportPan",
         "viewportScroll",
         "viewportSurface",
