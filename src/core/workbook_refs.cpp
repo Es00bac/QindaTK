@@ -30,6 +30,15 @@ const char *opText(Op op)
     return "";
 }
 
+QString wholeText(const Node &n)
+{
+    if (n.whole == Node::Whole::Columns)
+        return (n.first.columnAbsolute ? QStringLiteral("$") : QString()) + columnName(n.first.column) + QLatin1Char(':')
+            + (n.last.columnAbsolute ? QStringLiteral("$") : QString()) + columnName(n.last.column);
+    return (n.first.rowAbsolute ? QStringLiteral("$") : QString()) + QString::number(n.first.row + 1) + QLatin1Char(':')
+        + (n.last.rowAbsolute ? QStringLiteral("$") : QString()) + QString::number(n.last.row + 1);
+}
+
 void render(const Formula &f, qint32 index, const SheetNameLookup &names, QString &out)
 {
     const Node &n = f.nodes[size_t(index)];
@@ -55,9 +64,11 @@ void render(const Formula &f, qint32 index, const SheetNameLookup &names, QStrin
         else out += errorText(ErrorKind::Ref);
         break;
     case Node::Kind::Range:
-        if (sheetPrefix()) out += refPointText(n.first) + QLatin1Char(':') + refPointText(n.last);
-        else out += errorText(ErrorKind::Ref);
+        if (!sheetPrefix()) out += errorText(ErrorKind::Ref);
+        else if (n.whole != Node::Whole::None) out += wholeText(n);
+        else out += refPointText(n.first) + QLatin1Char(':') + refPointText(n.last);
         break;
+    case Node::Kind::Name: out += f.strings.at(n.text); break;
     case Node::Kind::Unary:
         if (n.op == Op::Percent) { render(f, n.a, names, out); out += QLatin1Char('%'); }
         else { out += QLatin1StringView(opText(n.op)); render(f, n.a, names, out); }
@@ -128,7 +139,8 @@ bool offsetPoint(RefPoint &p, int rowOffset, int columnOffset)
     return true;
 }
 
-// Returns false when the coordinate interval must be invalidated.
+} // namespace
+
 bool shiftInterval(qint32 &lo, qint32 &hi, const StructuralEdit &edit, bool *affected)
 {
     const qint64 limit = edit.rows ? MaxRows : MaxColumns;
@@ -148,7 +160,6 @@ bool shiftInterval(qint32 &lo, qint32 &hi, const StructuralEdit &edit, bool *aff
     lo = qint32(newLo); hi = qint32(newHi);
     return true;
 }
-} // namespace
 
 bool Formula::sameAs(const Formula &other) const
 {
@@ -158,6 +169,7 @@ bool Formula::sameAs(const Formula &other) const
         const Node &x = nodes[i], &y = other.nodes[i];
         if (x.kind != y.kind || x.op != y.op || x.function != y.function || x.boolean != y.boolean
             || x.error != y.error || x.sheet != y.sheet || x.a != y.a || x.b != y.b || x.text != y.text
+            || x.whole != y.whole
             || x.number != y.number || !(x.first == y.first) || !(x.last == y.last)) return false;
     }
     return true;
@@ -248,9 +260,15 @@ QString sheetNameProblem(const QString &name)
 }
 
 void collectPrecedents(const Formula &formula, const QString &hostSheetId,
-                       std::vector<Precedent> *out)
+                       std::vector<Precedent> *out, const NameResolver &names)
 {
     for (const Node &n : formula.nodes) {
+        if (n.kind == Node::Kind::Name) {
+            Precedent target;
+            if (names && names(formula.strings.at(n.text), &target) && !target.sheetId.isEmpty())
+                out->push_back(target);
+            continue;
+        }
         if (!isReference(n)) continue;
         Precedent p;
         p.sheetId = n.sheet >= 0 ? formula.sheets.at(n.sheet) : hostSheetId;
@@ -271,9 +289,12 @@ FormulaPtr offsetFormula(const FormulaPtr &formula, int rowOffset, int columnOff
     for (Node &n : copy->nodes) {
         if (!isReference(n)) continue;
         const RefPoint first = n.first, last = n.last;
-        bool ok = offsetPoint(n.first, rowOffset, columnOffset);
+        // A whole-column range never moves along rows (and whole rows along columns).
+        const int rows = n.whole == Node::Whole::Columns ? 0 : rowOffset;
+        const int columns = n.whole == Node::Whole::Rows ? 0 : columnOffset;
+        bool ok = offsetPoint(n.first, rows, columns);
         if (n.kind == Node::Kind::Range) {
-            ok = offsetPoint(n.last, rowOffset, columnOffset) && ok;
+            ok = offsetPoint(n.last, rows, columns) && ok;
             normalizeAxis(n.first, n.last, true);
             normalizeAxis(n.first, n.last, false);
         }
@@ -296,6 +317,8 @@ Rewrite rewriteForStructure(const FormulaPtr &formula, const QString &hostSheetI
         if (!isReference(source)) continue;
         const QString &target = source.sheet >= 0 ? formula->sheets.at(source.sheet) : hostSheetId;
         if (target != edit.sheetId) continue;
+        if ((source.whole == Node::Whole::Columns && edit.rows) || (source.whole == Node::Whole::Rows && !edit.rows))
+            continue;
         Node n = source;
         const bool range = n.kind == Node::Kind::Range;
         qint32 &lo = edit.rows ? n.first.row : n.first.column;
@@ -334,6 +357,50 @@ Rewrite invalidateSheet(const FormulaPtr &formula, const QString &removedSheetId
     compactSheets(*copy);
     result.formula = copy;
     result.changed = result.valueAffected = true;
+    return result;
+}
+
+bool looksLikeCellAddress(QStringView text)
+{
+    qsizetype i = text.startsWith(u'$') ? 1 : 0;
+    const qsizetype lettersStart = i;
+    while (i < text.size() && isAsciiLetter(text[i])) ++i;
+    if (i == lettersStart || i - lettersStart > 3) return false;
+    if (i < text.size() && text[i] == u'$') ++i;
+    const qsizetype digitsStart = i;
+    while (i < text.size() && isAsciiDigit(text[i])) ++i;
+    return i == text.size() && i > digitsStart;
+}
+
+QString nameProblem(const QString &name)
+{
+    if (name.isEmpty() || name.size() > 255) return QStringLiteral("A name has 1 to 255 characters");
+    if (!(isAsciiLetter(name.front()) || name.front() == u'_'))
+        return QStringLiteral("A name starts with a letter or '_'");
+    for (QChar c : name)
+        if (!(isAsciiLetter(c) || isAsciiDigit(c) || c == u'_' || c == u'.'))
+            return QStringLiteral("A name contains only letters, digits, '_' and '.'");
+    const bool rc = name.size() == 1 && QStringLiteral("rRcC").contains(name.front());
+    bool r1c1 = name.size() > 1 && (name.front() == u'R' || name.front() == u'r');
+    if (r1c1) {
+        const qsizetype c = name.indexOf(QLatin1Char('C'), 1, Qt::CaseInsensitive);
+        r1c1 = c > 0 && std::all_of(name.begin() + 1, name.begin() + c, isAsciiDigit)
+            && std::all_of(name.begin() + c + 1, name.end(), isAsciiDigit);
+    }
+    if (rc || r1c1 || looksLikeCellAddress(name))
+        return QStringLiteral("A name cannot look like a cell reference");
+    if (name.compare(QLatin1StringView("TRUE"), Qt::CaseInsensitive) == 0
+        || name.compare(QLatin1StringView("FALSE"), Qt::CaseInsensitive) == 0 || functionByName(name))
+        return QStringLiteral("'%1' is reserved").arg(name);
+    return {};
+}
+
+QStringList formulaNames(const Formula &formula)
+{
+    QStringList result;
+    for (const Node &n : formula.nodes)
+        if (n.kind == Node::Kind::Name && !result.contains(formula.strings.at(n.text), Qt::CaseInsensitive))
+            result.append(formula.strings.at(n.text));
     return result;
 }
 

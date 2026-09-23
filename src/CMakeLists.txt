@@ -90,10 +90,19 @@ qt_add_qml_module(qindatk
         core/selection_model.cpp core/selection_model.h
         core/editable_grid_model.cpp core/editable_grid_model.h
         core/editable_grid_structure.cpp
+        core/editable_grid_source.cpp
+        core/grid_axis_ids.cpp core/grid_axis_ids.h
         core/resource_plan_model.cpp core/resource_plan_model.h
         core/editable_grid_mode.cpp
         core/workbook_value.cpp core/workbook_value.h core/workbook_formula.h
         core/workbook_parser.cpp core/workbook_refs.cpp core/workbook_eval.cpp
+        core/workbook_lexer.cpp core/workbook_lexer_p.h core/workbook_functions.cpp
+        core/workbook_numfmt.cpp core/workbook_numfmt.h
+        core/workbook_features.cpp core/workbook_features_p.h
+        core/workbook_rules.cpp core/workbook_rules_p.h
+        core/workbook_styles.cpp core/workbook_validation.cpp
+        core/workbook_sheetops.cpp core/workbook_ruleops.cpp
+        core/workbook_codec_features.cpp
         core/workbook.cpp core/workbook.h core/workbook_p.h
         core/workbook_recalc.cpp core/workbook_mutations.cpp core/workbook_ops.cpp
         core/workbook_codec.cpp core/workbook_codec_p.h

@@ -4,6 +4,8 @@
 // Private workbook engine state shared by workbook*.cpp. Not installed.
 
 #include "workbook.h"
+#include "workbook_features_p.h"
+#include "workbook_rules_p.h"
 #include <QHash>
 #include <QSet>
 #include <map>
@@ -42,6 +44,7 @@ struct Sheet {
     int columns = 0;
     std::map<quint64, Cell> cells; // ordered row-major for deterministic ranges
     int formulaCount = 0;
+    FeaturesPtr features = emptyFeatures();
 };
 
 struct CellEntry {
@@ -56,13 +59,14 @@ struct SheetState {
     qint32 rows = 0;
     qint32 columns = 0;
     std::vector<CellEntry> cells;
+    FeaturesPtr features;
 };
 
 // A primitive, exactly invertible change. apply() returns its inverse.
 struct Mutation {
     enum class Kind : quint8 {
         SetCells, InsertRows, RemoveRows, InsertColumns, RemoveColumns,
-        AddSheet, RemoveSheet, RenameSheet, MoveSheet
+        AddSheet, RemoveSheet, RenameSheet, MoveSheet, SetFeatures, SetNames
     };
     Kind kind = Kind::SetCells;
     QString sheetId;
@@ -71,6 +75,8 @@ struct Mutation {
     QString name;     // RenameSheet
     std::vector<CellEntry> cells;             // SetCells
     std::shared_ptr<const SheetState> state;  // AddSheet
+    FeaturesPtr features;                     // SetFeatures
+    NamesPtr names;                           // SetNames
 };
 using MutationList = std::vector<Mutation>;
 
@@ -111,7 +117,9 @@ struct WorkbookPrivate final : Calc::EvalContext {
         QSet<quint64> seeds;                // global keys needing recalculation
         QHash<quint32, Calc::Bounds> touched;
         std::vector<Calc::StructuralNotice> structural;
+        QSet<QString> propertySheets;       // sheet properties changed
         bool sheetsChanged = false;
+        bool namesChanged = false;
     };
     struct Step {
         QString id;
@@ -130,6 +138,10 @@ struct WorkbookPrivate final : Calc::EvalContext {
     Calc::Value cell(const QString &sheetId, int row, int column) const override;
     void visitRange(const QString &sheetId, int firstRow, int firstColumn, int lastRow,
                     int lastColumn, const std::function<bool(const Calc::Value &)> &visitor) const override;
+    bool resolveName(const QString &name, Calc::Precedent *target) const override;
+    // Stored cells of a rectangle in row-major order with their position keys.
+    void visitCells(const Sheet &s, int firstRow, int firstColumn, int lastRow, int lastColumn,
+                    const std::function<bool(quint64, const Calc::Value &)> &visitor) const;
 
     Sheet *sheet(const QString &id) const { return byId.value(id, nullptr); }
     int indexOf(const Sheet *s) const;
@@ -156,7 +168,36 @@ struct WorkbookPrivate final : Calc::EvalContext {
     bool apply(const Mutation &m, MutationList *inverse, QString *error);
     bool applyStructural(const Mutation &m, MutationList *inverse, QString *error);
     bool applySheetChange(const Mutation &m, MutationList *inverse, QString *error);
+    bool applyFeatures(const Mutation &m, MutationList *inverse, QString *error);
     void seedFormulas(const Sheet &s);
+    void seedNameUsers();
+    // Features of every sheet and the name table through a structural edit
+    // or a sheet removal; appends the exact restoring mutations to `inverse`.
+    void transformSheetFeatures(const Calc::StructuralEdit *edit, const QString &removedSheetId,
+                                MutationList *inverse);
+    // Feature edits (workbook_sheetops.cpp): records one SetFeatures step.
+    bool recordFeatures(Sheet &s, Calc::FeaturesPtr features, QString *error);
+    bool sheetEditable(const Sheet &s, QString *error) const;
+    bool copyFormats(const Sheet &source, const Calc::Area &block, Sheet &target, const Calc::Area &to,
+                     int originRow, int originColumn, bool withMerges, QString *error);
+    Calc::RuleLookups lookups(const Sheet &s) const;
+
+    // Presentation (workbook_styles.cpp)
+    Calc::CellStyle explicitStyle(const Sheet &s, int row, int column) const;
+    QString displayAt(const Sheet &s, int row, int column, const Calc::Value &value) const;
+    // `features` overrides the sheet's own (previews); caches only for the sheet's own.
+    QVariantMap presentation(const Sheet &s, int row, int column, const Calc::SheetFeatures *features = nullptr) const;
+    Calc::Value operandValue(const Sheet &s, const Calc::RuleOperand &operand, const Calc::Area &anchor,
+                             int row, int column, const Calc::EvalContext *context = nullptr) const;
+
+    // Validation and input lists (workbook_validation.cpp)
+    struct InputEntry { int row = 0; int column = 0; QVariant input; };
+    const Calc::ValidationRule *validationRuleAt(const Sheet &s, int row, int column) const;
+    // "" when `candidate` satisfies the cell's rule (or it has none).
+    QString validationProblem(const Sheet &s, int row, int column, const CellContent &candidate,
+                              const Calc::ValidationRule **rule) const;
+    bool applyInputs(const QString &label, const QString &sheetId, const std::vector<InputEntry> &entries,
+                     const QString &policy);
 
     // Transactions (workbook.cpp)
     bool fail(const QString &message, const QVariantMap &detail = {});
@@ -178,6 +219,7 @@ struct WorkbookPrivate final : Calc::EvalContext {
     std::vector<std::unique_ptr<Sheet>> sheets;
     QHash<QString, Sheet *> byId;
     QHash<quint32, Sheet *> byUid;
+    Calc::NamesPtr names = std::make_shared<const Calc::NameTable>();
     quint32 nextUid = 1;
     quint64 nextSheetNumber = 1;
     quint64 revision = 0;
@@ -197,6 +239,9 @@ struct WorkbookPrivate final : Calc::EvalContext {
     QByteArray fileSha256;
     QString lastError;
     QVariantMap lastErrorDetail;
+    QVariantMap pasteReport;
+    struct ScaleStats { quint64 revision = 0; bool any = false; double minimum = 0, maximum = 0; };
+    mutable QHash<QString, ScaleStats> scaleCache; // sheetId U+001F ruleId
 };
 
 template <typename Body>

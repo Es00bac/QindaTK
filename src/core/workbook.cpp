@@ -32,9 +32,11 @@ QVariantList Workbook::sheets() const
     QVariantList result;
     for (size_t i = 0; i < d->sheets.size(); ++i) {
         const Sheet &s = *d->sheets[i];
+        const SheetProperties &p = s.features->properties;
         result.append(QVariantMap{{"id", s.id}, {"name", s.name}, {"index", int(i)},
                                   {"rows", s.rows}, {"columns", s.columns},
-                                  {"cells", qint64(s.cells.size())}, {"formulas", s.formulaCount}});
+                                  {"cells", qint64(s.cells.size())}, {"formulas", s.formulaCount},
+                                  {"tabColor", p.tabColor}, {"hidden", p.hidden}, {"protected", p.protectedSheet}});
     }
     return result;
 }
@@ -132,7 +134,11 @@ bool WorkbookPrivate::parseInput(const QString &hostSheetId, const QVariant &inp
     const QString text = input.toString();
     if (text.isEmpty()) return true;
     if (text.startsWith(QLatin1Char('='))) {
-        const ParseResult parsed = parseFormula(text, [this](const QString &name) { return idForName(name); });
+        const ParseResult parsed = parseFormula(text, [this](const QString &name) { return idForName(name); },
+                                                MaxFormulaLength, [this](const QString &name) {
+                                                    const NamedRange *entry = findName(*names, name);
+                                                    return entry ? entry->name : QString();
+                                                });
         if (!parsed.ok()) { *error = parsed.error; return false; }
         Q_UNUSED(hostSheetId);
         content->kind = CellContent::Kind::Formula;
@@ -316,7 +322,9 @@ void WorkbookPrivate::finish(const QString &label, bool emitChanges, QHash<quint
             if (n.rows) emit n.insert ? q->rowsInserted(n.sheetId, n.at, n.count) : q->rowsRemoved(n.sheetId, n.at, n.count);
             else emit n.insert ? q->columnsInserted(n.sheetId, n.at, n.count) : q->columnsRemoved(n.sheetId, n.at, n.count);
         }
-        if (t.sheetsChanged) emit q->sheetsChanged();
+        if (t.sheetsChanged || !t.propertySheets.isEmpty()) emit q->sheetsChanged();
+        for (const QString &id : t.propertySheets) if (byId.contains(id)) emit q->sheetPropertiesChanged(id);
+        if (t.namesChanged) emit q->namesChanged();
         for (const auto &s : sheets) {
             const auto it = changed.constFind(s->uid);
             if (it == changed.cend() || it->lastRow < 0) continue;
@@ -376,6 +384,13 @@ bool Workbook::removeSheet(const QString &sheetId)
 {
     const QString label = QStringLiteral("Remove sheet %1").arg(d->nameForId(sheetId));
     return d->mutate(label, [&](QString *error, QVariantMap *) {
+        const bool otherVisible = std::any_of(d->sheets.begin(), d->sheets.end(), [&](const auto &s) {
+            return s->id != sheetId && !s->features->properties.hidden;
+        });
+        if (d->sheet(sheetId) && !otherVisible) {
+            *error = QStringLiteral("A workbook keeps at least one visible sheet");
+            return false;
+        }
         Mutation m;
         m.kind = Mutation::Kind::RemoveSheet;
         m.sheetId = sheetId;
@@ -419,6 +434,7 @@ bool Workbook::setCellInput(const QString &sheetId, int row, int column, const Q
                      [&](QString *error, QVariantMap *detail) {
         Sheet *s = d->sheet(sheetId);
         if (!s) { *error = QStringLiteral("Unknown sheet"); return false; }
+        if (!d->sheetEditable(*s, error)) return false;
         if (row < 0 || row >= s->rows || column < 0 || column >= s->columns) {
             *error = QStringLiteral("Cell is outside the sheet");
             return false;
@@ -429,6 +445,14 @@ bool Workbook::setCellInput(const QString &sheetId, int row, int column, const Q
             *error = parse.message;
             *detail = {{"sheetId", sheetId}, {"row", row}, {"column", column},
                        {"address", cellAddress(row, column)}, {"start", parse.start}, {"end", parse.end}};
+            return false;
+        }
+        const ValidationRule *rule = nullptr;
+        if (const QString problem = d->validationProblem(*s, row, column, content, &rule);
+            !problem.isEmpty() && rule->errorStyle == ValidationRule::ErrorStyle::Stop) {
+            *error = problem;
+            *detail = {{"sheetId", sheetId}, {"row", row}, {"column", column}, {"address", cellAddress(row, column)},
+                       {"validation", true}, {"ruleId", rule->id}, {"title", rule->errorTitle}};
             return false;
         }
         Mutation m;
@@ -446,7 +470,7 @@ QString Workbook::cellDisplay(const QString &sheetId, int row, int column) const
 {
     const Sheet *s = d->sheet(sheetId);
     const Cell *c = s ? d->findCell(*s, row, column) : nullptr;
-    return c ? displayText(c->value) : QString();
+    return c ? d->displayAt(*s, row, column, c->value) : QString();
 }
 QVariant Workbook::cellValue(const QString &sheetId, int row, int column) const
 {
@@ -467,7 +491,7 @@ QVariantMap Workbook::cellInfo(const QString &sheetId, int row, int column) cons
     const Cell *c = d->findCell(*s, row, column);
     const Value value = c ? c->value : Value::blank();
     return {{"sheetId", sheetId}, {"row", row}, {"column", column}, {"address", cellAddress(row, column)},
-            {"input", c ? d->inputText(*s, c->content) : QString()}, {"display", displayText(value)},
+            {"input", c ? d->inputText(*s, c->content) : QString()}, {"display", d->displayAt(*s, row, column, value)},
             {"type", typeName(value.type)}, {"value", toVariant(value)},
             {"formula", c && c->content.kind == CellContent::Kind::Formula},
             {"error", value.isError() ? errorText(value.error) : QString()}};

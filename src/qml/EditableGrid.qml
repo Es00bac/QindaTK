@@ -6,7 +6,8 @@ import QindaTK as Tk
 
 // AGENT-CONTRACT: EditableGridModel owns cell data, transactions, section
 // geometry/order, frozen counts and range identity. This view owns only the
-// active cell/editor and the two viewport offsets.
+// active cell/editor, the fill-handle preview and the two viewport offsets.
+// Merged areas come from the model's source (docs/editable-grid.md).
 T.Control {
     id: grid
 
@@ -34,11 +35,14 @@ T.Control {
     property string editText: ""
     property string editingRowId: ""
     property string editingColumnId: ""
+    // Shows the fill handle (Tk.GridFillHandle) on the selection's corner.
+    property bool fillHandleEnabled: true
     readonly property real bodyWidth: Math.max(0, width - (showHeaders ? rowHeaderWidth : 0))
     readonly property real bodyHeight: Math.max(0, height - (showHeaders ? headerHeight : 0))
     readonly property var visibleCellRecords: collectVisibleCells()
     readonly property int activeRow: model && dataEpoch >= 0 ? model.rowIndex(activeRowId) : -1
     readonly property int activeColumn: model && dataEpoch >= 0 ? model.columnIndex(activeColumnId) : -1
+    readonly property rect editorRect: areaRect(editingRowId, editingColumnId)
 
     signal currentCellChanged(string rowId, string columnId)
     signal editCommitted(string rowId, string columnId, var value)
@@ -85,33 +89,33 @@ T.Control {
         return false
     }
 
+    // Positioned records for the visible cells, merged areas as one record.
     function collectVisibleCells() {
-        const result = []
-        if (dataEpoch < 0 || !model || bodyWidth <= 0 || bodyHeight <= 0) return result
-        const regions = model.visibleRegions(bodyWidth, bodyHeight, scrollX, scrollY)
-        for (let i = 0; i < regions.length; ++i) {
-            const region = regions[i]
-            const cells = model.visibleCells(region.firstRow, region.rowCount,
-                                             region.firstColumn, region.columnCount)
-            for (let c = 0; c < cells.length; ++c) {
-                if (result.length >= 4096) return result
-                const cell = cells[c]
-                const rect = model.cellRect(cell.row, cell.column, scrollX, scrollY)
-                cell.x = rect.x
-                cell.y = rect.y
-                cell.width = rect.width
-                cell.height = rect.height
-                cell.frozen = region.frozenRow || region.frozenColumn
-                result.push(cell)
-            }
-        }
-        return result
+        if (dataEpoch < 0 || !model || bodyWidth <= 0 || bodyHeight <= 0) return []
+        return model.layoutCells(bodyWidth, bodyHeight, scrollX, scrollY)
+    }
+
+    // Viewport rectangle of a cell, spanning its merged area.
+    function areaRect(rowId, columnId) {
+        const row = model && dataEpoch >= 0 ? model.rowIndex(rowId) : -1
+        const column = model ? model.columnIndex(columnId) : -1
+        if (row < 0 || column < 0) return Qt.rect(0, 0, 0, 0)
+        const box = model.mergeBounds(row, column, row, column)
+        const first = model.cellRect(box.firstRow, box.firstColumn, scrollX, scrollY)
+        const last = model.cellRect(box.lastRow, box.lastColumn, scrollX, scrollY)
+        return Qt.rect(first.x, first.y, last.x + last.width - first.x, last.y + last.height - first.y)
     }
 
     function moveCurrent(rowDelta, columnDelta, extend) {
         if (!model || model.rowCount < 1 || model.columnCount < 1) return
         let row = activeRow < 0 ? 0 : activeRow
         let column = activeColumn < 0 ? 0 : activeColumn
+        // Leave a merged area from its far edge.
+        const merge = model.mergeAt(row, column)
+        if (merge.firstRow !== undefined) {
+            if (rowDelta > 0) row = merge.lastRow
+            if (columnDelta > 0) column = merge.lastColumn
+        }
         row = Math.max(0, Math.min(model.rowCount - 1, row + rowDelta))
         column = Math.max(0, Math.min(model.columnCount - 1, column + columnDelta))
         setCurrent(row, column, extend)
@@ -121,6 +125,12 @@ T.Control {
     function setCurrent(row, column, extend) {
         if (!model || row < 0 || column < 0 || row >= model.rowCount
                 || column >= model.columnCount) return
+        // A merged area is one cell: its anchor is current (G-4).
+        const merge = extend ? ({}) : model.mergeAt(row, column)
+        if (merge.firstRow !== undefined) {
+            row = merge.firstRow
+            column = merge.firstColumn
+        }
         const rowId = model.rowIdAt(row)
         const columnId = model.columnIdAt(column)
         if (extend && !rangePreview && activeRowId && activeColumnId) {
@@ -136,8 +146,19 @@ T.Control {
         activeColumnId = columnId
         lastActiveRowIndex = row
         lastActiveColumnIndex = column
-        model.setRange(anchorRowId, anchorColumnId, rowId, columnId)
+        selectBounds(model.rowIndex(anchorRowId), model.columnIndex(anchorColumnId), row, column)
         currentCellChanged(rowId, columnId)
+    }
+
+    // Selects anchor..active grown to whole merged areas, keeping direction.
+    function selectBounds(anchorRow, anchorColumn, row, column) {
+        const box = model.mergeBounds(anchorRow, anchorColumn, row, column)
+        if (box.firstRow === undefined) return
+        const down = row >= anchorRow, right = column >= anchorColumn
+        model.setRange(model.rowIdAt(down ? box.firstRow : box.lastRow),
+                       model.columnIdAt(right ? box.firstColumn : box.lastColumn),
+                       model.rowIdAt(down ? box.lastRow : box.firstRow),
+                       model.columnIdAt(right ? box.lastColumn : box.firstColumn))
     }
 
     function reconcileSelection() {
@@ -201,8 +222,9 @@ T.Control {
     }
 
     function beginCellEdit() {
-        if (!model || activeRow < 0 || activeColumn < 0 || !enabled) return false
-        editText = String(model.cellValue(activeRowId, activeColumnId) ?? "")
+        if (!model || activeRow < 0 || activeColumn < 0 || !enabled || model.readOnly) return false
+        // The source's edit text (a formula), not its computed display (G-1).
+        editText = String(model.editValue(activeRowId, activeColumnId) ?? "")
         editingRowId = activeRowId
         editingColumnId = activeColumnId
         cellEditing = true
@@ -218,7 +240,11 @@ T.Control {
             model.cancelEdit()
             return false
         }
-        if (!model.commitEdit()) return false
+        // A rejected commit keeps the editor and its typed text open.
+        if (!model.commitEdit()) {
+            if (model.editing) model.cancelEdit()
+            return false
+        }
         cellEditing = false
         editCommitted(editingRowId, editingColumnId, value)
         editingRowId = ""
@@ -286,7 +312,16 @@ T.Control {
             if (event.modifiers & Qt.ControlModifier) model.redo()
             else return
             break
-        default: return
+        default:
+            // Type-to-edit: printable text replaces the cell's content.
+            if (event.text.length === 0 || event.text.charCodeAt(0) < 32 || event.text.charCodeAt(0) === 127
+                    || (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+                    || !beginCellEdit()) return
+            editText = event.text
+            editor.text = event.text
+            editor.cursorPosition = editor.text.length
+            event.accepted = true
+            return
         }
         ensureCurrentVisible()
         event.accepted = true
@@ -386,64 +421,12 @@ T.Control {
 
             Repeater {
                 model: grid.visibleCellRecords
-                delegate: Item {
-                    id: cell
-                    required property var modelData
-                    required property int index
-                    objectName: "gridCell_" + cell.modelData.rowId + "_" + cell.modelData.columnId
-                    x: cell.modelData.x
-                    y: cell.modelData.y
-                    width: cell.modelData.width
-                    height: cell.modelData.height
-                    z: cell.modelData.frozen ? 2 : 1
-                    Accessible.role: Accessible.Cell
-                    Accessible.name: qsTr("Row %1, column %2: %3")
-                                      .arg(cell.modelData.row + 1)
-                                      .arg(cell.modelData.column + 1)
-                                      .arg(cell.modelData.value === undefined
-                                           || cell.modelData.value === null
-                                           ? "" : String(cell.modelData.value))
-                    Accessible.description: qsTr("Select this cell")
-                    Accessible.focusable: true
-                    Accessible.focused: grid.activeFocus && grid.activeRowId === cell.modelData.rowId
-                                        && grid.activeColumnId === cell.modelData.columnId
-                    Accessible.selected: grid.cellSelected(cell.modelData.row, cell.modelData.column)
-                    Accessible.onPressAction: {
-                        grid.setCurrent(cell.modelData.row, cell.modelData.column, false)
-                        grid.forceActiveFocus()
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: cell.modelData.row % 2 === 1 && grid.alternatingRows
-                               ? Tk.Theme.color.panelAlt : Tk.Theme.color.panel
-                        border.width: Tk.Theme.size.border
-                        border.color: Tk.Theme.color.divider
-                    }
-                    Tk.Label {
-                        anchors.fill: parent
-                        anchors.leftMargin: Tk.Theme.space.xs
-                        anchors.rightMargin: Tk.Theme.space.xs
-                        verticalAlignment: Text.AlignVCenter
-                        text: cell.modelData.value === undefined || cell.modelData.value === null
-                              ? "" : String(cell.modelData.value)
-                        color: Tk.Theme.color.text
-                        font.pixelSize: Tk.Theme.font.body
-                        elide: Text.ElideRight
-                        visible: !(grid.activeRowId === cell.modelData.rowId
-                                   && grid.activeColumnId === cell.modelData.columnId
-                                   && editor.activeFocus)
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton
-                        onPressed: function(mouse) {
-                            grid.setCurrent(cell.modelData.row, cell.modelData.column,
-                                            (mouse.modifiers & Qt.ShiftModifier) !== 0)
-                            grid.forceActiveFocus()
-                        }
-                        onDoubleClicked: grid.beginCellEdit()
-                    }
+                delegate: Tk.GridCellDelegate {
+                    id: cellDelegate
+                    grid: grid
+                    editorActive: grid.activeRowId === cellDelegate.modelData.rowId
+                                  && grid.activeColumnId === cellDelegate.modelData.columnId
+                                  && editor.activeFocus
                 }
             }
             Tk.RangeSelectionOverlay {
@@ -457,26 +440,10 @@ T.Control {
                 id: editor
                 objectName: "gridCellEditor"
                 visible: grid.cellEditing
-                x: grid.model && grid.model.rowIndex(grid.editingRowId) >= 0
-                   && grid.model.columnIndex(grid.editingColumnId) >= 0
-                   ? grid.model.cellRect(grid.model.rowIndex(grid.editingRowId),
-                                         grid.model.columnIndex(grid.editingColumnId),
-                                         grid.scrollX, grid.scrollY).x : 0
-                y: grid.model && grid.model.rowIndex(grid.editingRowId) >= 0
-                   && grid.model.columnIndex(grid.editingColumnId) >= 0
-                   ? grid.model.cellRect(grid.model.rowIndex(grid.editingRowId),
-                                         grid.model.columnIndex(grid.editingColumnId),
-                                         grid.scrollX, grid.scrollY).y : 0
-                width: grid.model && grid.model.rowIndex(grid.editingRowId) >= 0
-                       && grid.model.columnIndex(grid.editingColumnId) >= 0
-                       ? grid.model.cellRect(grid.model.rowIndex(grid.editingRowId),
-                                             grid.model.columnIndex(grid.editingColumnId),
-                                             grid.scrollX, grid.scrollY).width : 0
-                height: grid.model && grid.model.rowIndex(grid.editingRowId) >= 0
-                        && grid.model.columnIndex(grid.editingColumnId) >= 0
-                        ? grid.model.cellRect(grid.model.rowIndex(grid.editingRowId),
-                                              grid.model.columnIndex(grid.editingColumnId),
-                                              grid.scrollX, grid.scrollY).height : 0
+                x: grid.editorRect.x
+                y: grid.editorRect.y
+                width: grid.editorRect.width
+                height: grid.editorRect.height
                 text: grid.editText
                 tooltip: qsTr("Edit grid cell")
                 onAccepted: grid.commitCellEdit(text)
@@ -486,6 +453,10 @@ T.Control {
                 }
                 onActiveFocusChanged: if (!activeFocus && visible && grid.model
                                           && grid.model.editing) grid.commitCellEdit(text)
+            }
+            Tk.GridFillHandle {
+                grid: grid
+                active: grid.fillHandleEnabled && grid.enabled && !grid.cellEditing
             }
         }
     }

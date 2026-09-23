@@ -27,8 +27,11 @@ QVariantMap preview(const DecodedWorkbook &data)
 {
     QStringList names;
     for (const DecodedSheet &sheet : data.sheets) names.append(sheet.name);
+    int formatted = 0;
+    for (const DecodedSheet &sheet : data.sheets) formatted += sheet.features->isEmpty() ? 0 : 1;
     return {{"documentId", data.documentId}, {"sheetCount", int(data.sheets.size())},
-            {"sheetNames", names}, {"cellCount", data.cellCount}, {"formulaCount", data.formulaCount}};
+            {"sheetNames", names}, {"cellCount", data.cellCount}, {"formulaCount", data.formulaCount},
+            {"nameCount", int(data.names->size())}, {"sheetsWithFeatures", formatted}};
 }
 FormatPlan planFor(const QByteArray &bytes, const QVariantMap &options)
 {
@@ -65,7 +68,10 @@ QVariantMap WorkbookFormat::metadata() const
             {"operations", QStringList{QStringLiteral("import"), QStringLiteral("export"), QStringLiteral("roundtrip")}},
             {"editableImport", true}, {"renderOnly", false}, {"roundtrip", true},
             {"maximumBytes", Workbook::MaxFileBytes},
-            {"features", QStringList{QStringLiteral("sheets"), QStringLiteral("cells"), QStringLiteral("formulas")}},
+            {"features", QStringList{QStringLiteral("sheets"), QStringLiteral("cells"), QStringLiteral("formulas"),
+                                     QStringLiteral("names"), QStringLiteral("formats"), QStringLiteral("merges"),
+                                     QStringLiteral("conditionalFormats"), QStringLiteral("validations"),
+                                     QStringLiteral("sheetProperties")}},
             {"optionKeys", QStringList{QStringLiteral("conflictPolicy"), QStringLiteral("expectedSha256"),
                                         QStringLiteral("expectedSourceSha256"),
                                         QStringLiteral("expectedSourceRevision"),
@@ -116,9 +122,12 @@ void WorkbookPrivate::adopt(DecodedWorkbook &&data)
     cleanCursor = 0;
     documentId = data.documentId;
     nextSheetNumber = data.nextSheetNumber;
+    names = data.names;
+    scaleCache.clear();
     QSet<quint64> seeds;
     for (DecodedSheet &decoded : data.sheets) {
         Sheet *s = createSheet(decoded.id, decoded.name, -1, decoded.rows, decoded.columns);
+        s->features = decoded.features;
         for (CellEntry &entry : decoded.cells) {
             const quint64 position = positionKey(entry.row, entry.column);
             Cell cell;
@@ -139,6 +148,7 @@ void WorkbookPrivate::adopt(DecodedWorkbook &&data)
     lastErrorDetail.clear();
     emit q->resetOccurred();
     emit q->sheetsChanged();
+    emit q->namesChanged();
     emit q->revisionChanged();
     emit q->historyChanged();
     emit q->errorChanged();
@@ -152,8 +162,9 @@ QByteArray Workbook::serialize() const
     DecodedWorkbook data;
     data.documentId = d->documentId;
     data.nextSheetNumber = d->nextSheetNumber;
+    data.names = d->names;
     for (const auto &s : d->sheets) {
-        DecodedSheet sheet{s->id, s->name, s->rows, s->columns, {}};
+        DecodedSheet sheet{s->id, s->name, s->rows, s->columns, {}, s->features};
         sheet.cells.reserve(s->cells.size());
         for (const auto &[position, c] : s->cells)
             sheet.cells.push_back({keyRow(position), keyColumn(position), c.content});

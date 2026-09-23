@@ -41,19 +41,25 @@ void WorkbookPrivate::visitRange(const QString &sheetId, int firstRow, int first
 {
     const Sheet *s = sheet(sheetId);
     if (!s) { visitor(Value::fromError(ErrorKind::Ref)); return; }
+    visitCells(*s, firstRow, firstColumn, lastRow, lastColumn, [&](quint64, const Value &v) { return visitor(v); });
+}
+
+void WorkbookPrivate::visitCells(const Sheet &s, int firstRow, int firstColumn, int lastRow, int lastColumn,
+                                 const std::function<bool(quint64, const Value &)> &visitor) const
+{
     const qint64 area = qint64(lastRow - firstRow + 1) * (lastColumn - firstColumn + 1);
     if (area <= ProbeArea) {
         for (int r = firstRow; r <= lastRow; ++r)
             for (int c = firstColumn; c <= lastColumn; ++c)
-                if (const Cell *found = findCell(*s, r, c); found && !visitor(found->value)) return;
+                if (const Cell *found = findCell(s, r, c); found && !visitor(positionKey(r, c), found->value)) return;
         return;
     }
-    auto it = s->cells.lower_bound(positionKey(firstRow, firstColumn));
-    const auto end = s->cells.upper_bound(positionKey(lastRow, lastColumn));
+    auto it = s.cells.lower_bound(positionKey(firstRow, firstColumn));
+    const auto end = s.cells.upper_bound(positionKey(lastRow, lastColumn));
     for (; it != end; ++it) {
         const int c = keyColumn(it->first);
         if (c < firstColumn || c > lastColumn) continue;
-        if (!visitor(it->second.value)) return;
+        if (!visitor(it->first, it->second.value)) return;
     }
 }
 
@@ -63,10 +69,27 @@ const Cell *WorkbookPrivate::findCell(const Sheet &s, int row, int column) const
     return it == s.cells.end() ? nullptr : &it->second;
 }
 
+bool WorkbookPrivate::resolveName(const QString &name, Precedent *target) const
+{
+    const NamedRange *entry = findName(*names, name);
+    if (!entry) return false;
+    target->sheetId = entry->sheetId;
+    target->firstRow = entry->area.firstRow;
+    target->firstColumn = entry->area.firstColumn;
+    target->lastRow = entry->area.lastRow;
+    target->lastColumn = entry->area.lastColumn;
+    target->range = entry->area.cellCount() > 1;
+    return true;
+}
+
 void WorkbookPrivate::registerFormula(quint64 key, const QString &hostId, const Formula &formula, bool add)
 {
+    // AGENT-GUARD: names resolve against the current table, so every name
+    // table change must rebuild the index (applyFeatures, structural edits,
+    // sheet removal) or removals would miss what an older table registered.
     std::vector<Precedent> precedents;
-    collectPrecedents(formula, hostId, &precedents);
+    collectPrecedents(formula, hostId, &precedents,
+                      [this](const QString &name, Precedent *target) { return resolveName(name, target); });
     for (const Precedent &p : precedents) {
         const Sheet *target = sheet(p.sheetId);
         if (!target) continue;

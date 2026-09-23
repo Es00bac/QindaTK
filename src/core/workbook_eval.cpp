@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "workbook_formula.h"
+#include "workbook_numfmt.h"
 
 #include <cmath>
+#include <deque>
 
 namespace QindaTK::Calc {
 namespace {
@@ -22,14 +24,7 @@ double roundHalfAwayFromZero(double number, double digitsValue)
     const double digits = std::trunc(digitsValue);
     if (digits > 15) return number;
     if (digits < -308) return 0.0;
-    const double scale = std::pow(10.0, std::fabs(digits));
-    double scaled = digits >= 0 ? number * scale : number / scale;
-    // AGENT-NOTE: rounding the scaled value to 15 significant digits first
-    // removes binary representation error (2.675 * 100 = 267.49999999999997)
-    // so ROUND(2.675, 2) is 2.68, matching decimal half-away-from-zero.
-    if (std::isfinite(scaled)) scaled = QString::number(scaled, 'g', 15).toDouble();
-    const double rounded = std::round(scaled);
-    return digits >= 0 ? rounded / scale : rounded * scale;
+    return roundDecimal(number, int(digits));
 }
 
 class Evaluator {
@@ -62,6 +57,7 @@ private:
     const Formula &m_f;
     const QString &m_host;
     const EvalContext &m_context;
+    std::deque<QString> m_nameSheets; // stable storage for resolved name targets
 };
 
 Operand Evaluator::eval(qint32 index)
@@ -80,6 +76,19 @@ Operand Evaluator::eval(qint32 index)
         o.firstColumn = n.first.column;
         o.lastRow = n.kind == Node::Kind::Range ? n.last.row : n.first.row;
         o.lastColumn = n.kind == Node::Kind::Range ? n.last.column : n.first.column;
+        return o;
+    }
+    case Node::Kind::Name: {
+        Precedent target;
+        if (!m_context.resolveName(m_f.strings.at(n.text), &target)) return errorOperand(ErrorKind::Name);
+        if (target.sheetId.isEmpty()) return errorOperand(ErrorKind::Ref);
+        m_nameSheets.push_back(target.sheetId);
+        Operand o;
+        o.sheet = &m_nameSheets.back();
+        o.firstRow = target.firstRow;
+        o.firstColumn = target.firstColumn;
+        o.lastRow = target.lastRow;
+        o.lastColumn = target.lastColumn;
         return o;
     }
     case Node::Kind::Group: return eval(n.a);

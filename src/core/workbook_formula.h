@@ -44,8 +44,12 @@ struct RefPoint {
 };
 
 struct Node {
-    enum class Kind : quint8 { Number, Text, Boolean, Error, Cell, Range, Unary, Binary, Call, Group };
+    enum class Kind : quint8 { Number, Text, Boolean, Error, Cell, Range, Unary, Binary, Call, Group, Name };
+    // A Range spanning whole columns (A:C, rows 0..MaxRows-1) or whole rows
+    // (2:5, columns 0..MaxColumns-1); edits along the spanned axis never move it.
+    enum class Whole : quint8 { None, Columns, Rows };
     Kind kind = Kind::Number;
+    Whole whole = Whole::None;
     Op op = Op::Add;
     Function function = Function::Sum;
     bool boolean = false;
@@ -53,7 +57,7 @@ struct Node {
     qint32 sheet = -1;   // index in Formula::sheets; -1 = the formula's own sheet
     qint32 a = -1;       // Unary/Group child, Binary left, Call first index in Formula::args
     qint32 b = -1;       // Binary right, Call argument count
-    qint32 text = -1;    // index in Formula::strings
+    qint32 text = -1;    // index in Formula::strings (Text body, Name spelling)
     double number = 0.0;
     RefPoint first;      // Cell target or Range top-left (normalized per axis)
     RefPoint last;       // Range bottom-right
@@ -86,12 +90,16 @@ struct ParseResult {
 // Resolves a user-facing sheet name to its stable ID ("" when unknown).
 using SheetIdLookup = std::function<QString(const QString &name)>;
 using SheetNameLookup = std::function<QString(const QString &sheetId)>;
+// Defined spelling of a workbook name, or "" when it is not defined.
+using NameLookup = std::function<QString(const QString &name)>;
 
 // `text` must begin with '='. Errors carry a UTF-16 span into `text`.
 // Stored formulas may render longer than typed ones after reference
-// rewrites, so the native codec passes a larger `maximumLength`.
+// rewrites, so the native codec passes a larger `maximumLength`. A valid
+// name that is not defined parses (it evaluates to #NAME?); `names` only
+// normalizes the spelling of defined ones.
 ParseResult parseFormula(const QString &text, const SheetIdLookup &sheetIdForName,
-                         int maximumLength = MaxFormulaLength);
+                         int maximumLength = MaxFormulaLength, const NameLookup &names = {});
 // Canonical text: upper-case names/references, no whitespace, explicit
 // parentheses preserved, shortest round-trip numbers, quoted sheet names.
 QString renderFormula(const Formula &formula, const SheetNameLookup &sheetNameForId);
@@ -105,6 +113,13 @@ bool parseCellAddress(QStringView text, RefPoint *point);
 QString quoteSheetName(const QString &name);
 // Sheet names: 1-31 code units, none of []:*?/\ and no leading/trailing '.
 QString sheetNameProblem(const QString &name);
+// Workbook names: a letter or '_' then letters, digits, '_' or '.', at most
+// 255; never TRUE/FALSE, a function name, A1-shaped text or R1C1-shaped text.
+QString nameProblem(const QString &name);
+// Text shaped like an A1 cell address ($ optional), within bounds or not.
+bool looksLikeCellAddress(QStringView text);
+// Names a formula uses (case as stored).
+QStringList formulaNames(const Formula &formula);
 
 // Referenced area of one AST reference, already resolved to a sheet ID.
 struct Precedent {
@@ -112,8 +127,11 @@ struct Precedent {
     qint32 firstRow = 0, firstColumn = 0, lastRow = 0, lastColumn = 0;
     bool range = false;
 };
+// Resolves a workbook name to its area; false when it is not defined. A
+// defined name whose sheet was removed reports an empty sheetId.
+using NameResolver = std::function<bool(const QString &name, Precedent *target)>;
 void collectPrecedents(const Formula &formula, const QString &hostSheetId,
-                       std::vector<Precedent> *out);
+                       std::vector<Precedent> *out, const NameResolver &names = {});
 
 // Copy/fill: relative parts move by the offset; absolute parts stay.
 // A reference moved outside the engine grid becomes #REF!.
@@ -138,6 +156,9 @@ Rewrite rewriteForStructure(const FormulaPtr &formula, const QString &hostSheetI
                             const StructuralEdit &edit);
 // Every reference to a removed sheet becomes #REF!.
 Rewrite invalidateSheet(const FormulaPtr &formula, const QString &removedSheetId);
+// Moves a coordinate interval through a structural edit (rewriteForStructure
+// rules); false when the whole interval was deleted or pushed off the grid.
+bool shiftInterval(qint32 &lo, qint32 &hi, const StructuralEdit &edit, bool *affected);
 
 // Read access for evaluation. visitRange reports the non-blank cells of the
 // rectangle in row-major order and stops when the visitor returns false.
@@ -148,6 +169,8 @@ public:
     virtual void visitRange(const QString &sheetId, int firstRow, int firstColumn,
                             int lastRow, int lastColumn,
                             const std::function<bool(const Value &)> &visitor) const = 0;
+    virtual bool resolveName(const QString &name, Precedent *target) const
+    { Q_UNUSED(name); Q_UNUSED(target); return false; }
 };
 // Deterministic evaluation. A blank result is returned as the number 0.
 Value evaluateFormula(const Formula &formula, const QString &hostSheetId,

@@ -58,13 +58,6 @@ bool EditableGridModel::fail(const QString &reason)
 { m_lastError = reason; emit rejected(reason); return false; }
 QString EditableGridModel::key(const QString &row, const QString &column) const
 { return row + separator + column; }
-void EditableGridModel::rebuildIndexes(bool rowAxis)
-{
-    const auto &ids = rowAxis ? m_rows : m_columns;
-    auto &indexes = rowAxis ? m_rowIndexes : m_columnIndexes;
-    indexes.clear(); indexes.reserve(ids.size());
-    for (int i = 0; i < ids.size(); ++i) indexes.insert(ids.at(i), i);
-}
 void EditableGridModel::rebuildPositions(bool rowAxis)
 {
     const auto &sizes = rowAxis ? m_rowSizes : m_columnSizes;
@@ -76,15 +69,15 @@ void EditableGridModel::reconcile(bool invalidateHistory)
 {
     for (auto it = m_overrides.begin(); it != m_overrides.end();) {
         const qsizetype split = it.key().indexOf(separator);
-        if (split < 0 || !m_rowIndexes.contains(it.key().left(split))
-            || !m_columnIndexes.contains(it.key().mid(split + 1))) it = m_overrides.erase(it);
+        if (split < 0 || !m_rows.contains(it.key().left(split))
+            || !m_columns.contains(it.key().mid(split + 1))) it = m_overrides.erase(it);
         else ++it;
     }
     m_sparseCount = m_overrides.size();
     auto old = m_ranges;
     m_ranges.erase(std::remove_if(m_ranges.begin(), m_ranges.end(), [this](const Range &r) {
-        return !m_rowIndexes.contains(r.ar) || !m_rowIndexes.contains(r.br)
-            || !m_columnIndexes.contains(r.ac) || !m_columnIndexes.contains(r.bc);
+        return !m_rows.contains(r.ar) || !m_rows.contains(r.br)
+            || !m_columns.contains(r.ac) || !m_columns.contains(r.bc);
     }), m_ranges.end());
     if (old.size() != m_ranges.size()) emit selectionChanged();
     if (invalidateHistory) {
@@ -101,7 +94,8 @@ bool EditableGridModel::setIds(QStringList ids, bool rowAxis)
             return fail(QStringLiteral("Grid section IDs must be unique, nonempty and cannot contain U+001F"));
         seen.insert(id);
     }
-    auto &oldIds = rowAxis ? m_rows : m_columns;
+    auto &axis = rowAxis ? m_rows : m_columns;
+    const QStringList oldIds = axis.toList();
     if (oldIds == ids) return true;
     cancelEdit();
     bool removedIdentity = false;
@@ -112,17 +106,17 @@ bool EditableGridModel::setIds(QStringList ids, bool rowAxis)
     sizeById.reserve(oldIds.size());
     for (int i = 0; i < oldIds.size(); ++i) sizeById.insert(oldIds[i], oldSizes[i]);
     beginResetModel();
-    oldIds = std::move(ids);
+    axis.assign(ids);
     auto &sizes = rowAxis ? m_rowSizes : m_columnSizes;
     auto &explicitSizes = rowAxis ? m_explicitRowSizes : m_explicitColumnSizes;
     for (auto it = explicitSizes.begin(); it != explicitSizes.end();) {
         if (!seen.contains(*it)) it = explicitSizes.erase(it);
         else ++it;
     }
-    sizes.resize(oldIds.size());
-    for (int i = 0; i < oldIds.size(); ++i)
-        sizes[i] = sizeById.value(oldIds[i], rowAxis ? m_defaultRowSize : m_defaultColumnSize);
-    rebuildIndexes(rowAxis); rebuildPositions(rowAxis);
+    sizes.resize(ids.size());
+    for (int i = 0; i < ids.size(); ++i)
+        sizes[i] = sizeById.value(ids[i], rowAxis ? m_defaultRowSize : m_defaultColumnSize);
+    rebuildPositions(rowAxis);
     m_frozenRows = std::min(m_frozenRows, rows());
     m_frozenColumns = std::min(m_frozenColumns, columns());
     reconcile(removedIdentity);
@@ -138,30 +132,15 @@ bool EditableGridModel::setDimensions(int rowCount, int columnCount)
 {
     if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
     if (rowCount < 0 || columnCount < 0) return fail(QStringLiteral("Negative grid dimensions"));
-    QStringList rowIds = m_rows, columnIds = m_columns;
-    QSet<QString> usedRows, usedColumns;
-    for (const auto &id : rowIds) usedRows.insert(id);
-    for (const auto &id : columnIds) usedColumns.insert(id);
-    while (rowIds.size() < rowCount) {
-        const QString id = QStringLiteral("r:%1").arg(m_nextRow++);
-        if (!usedRows.contains(id)) rowIds.append(id);
-    }
-    while (columnIds.size() < columnCount) {
-        const QString id = QStringLiteral("c:%1").arg(m_nextColumn++);
-        if (!usedColumns.contains(id)) columnIds.append(id);
-    }
-    rowIds = rowIds.mid(0, rowCount); columnIds = columnIds.mid(0, columnCount);
-    return setRowIds(rowIds) && setColumnIds(columnIds);
+    return resizeAxis(rowCount, true) && resizeAxis(columnCount, false);
 }
-QString EditableGridModel::rowIdAt(int i) const
-{ return i >= 0 && i < rows() ? m_rows.at(i) : QString{}; }
-QString EditableGridModel::columnIdAt(int i) const
-{ return i >= 0 && i < columns() ? m_columns.at(i) : QString{}; }
-int EditableGridModel::rowIndex(const QString &id) const { return m_rowIndexes.value(id, -1); }
-int EditableGridModel::columnIndex(const QString &id) const { return m_columnIndexes.value(id, -1); }
+QString EditableGridModel::rowIdAt(int i) const { return m_rows.at(i); }
+QString EditableGridModel::columnIdAt(int i) const { return m_columns.at(i); }
+int EditableGridModel::rowIndex(const QString &id) const { return m_rows.indexOf(id); }
+int EditableGridModel::columnIndex(const QString &id) const { return m_columns.indexOf(id); }
 QVariant EditableGridModel::cellValue(const QString &row, const QString &column) const
 {
-    if (!m_rowIndexes.contains(row) || !m_columnIndexes.contains(column)) return {};
+    if (!m_rows.contains(row) || !m_columns.contains(column)) return {};
     auto it = m_overrides.constFind(key(row, column));
     return it != m_overrides.cend() ? it.value() : m_source ? m_source->value(row, column) : QVariant{};
 }
@@ -173,11 +152,9 @@ QVariantList EditableGridModel::visibleCells(int firstRow, int rowSpan, int firs
         || qint64(rowSpan)*columnSpan > MaxVisibleCells) return {};
     QVariantList result;
     result.reserve(rowSpan * columnSpan);
+    const GridCellSourceExtension *hooks = extension();
     for (int r = firstRow; r < firstRow + rowSpan; ++r)
-        for (int c = firstColumn; c < firstColumn + columnSpan; ++c)
-            result.append(QVariantMap{{"row", r}, {"column", c}, {"rowId", m_rows[r]},
-                                      {"columnId", m_columns[c]},
-                                      {"value", cellValue(m_rows[r], m_columns[c])}});
+        for (int c = firstColumn; c < firstColumn + columnSpan; ++c) result.append(cellRecord(r, c, hooks));
     return result;
 }
 
@@ -216,7 +193,7 @@ bool EditableGridModel::moveId(const QString &id, const QString &beforeId, bool 
     cancelEdit();
     beginResetModel();
     ids.move(from, to); sizes.move(from, to);
-    rebuildIndexes(rowAxis); rebuildPositions(rowAxis);
+    rebuildPositions(rowAxis);
     ++m_revision;
     endResetModel();
     emit structureChanged(); emit geometryChanged(); emit cellsChanged();
@@ -242,8 +219,13 @@ bool EditableGridModel::setDefaultSize(qreal size, bool rowAxis)
     const auto &ids = rowAxis ? m_rows : m_columns;
     const auto &explicitSizes = rowAxis ? m_explicitRowSizes : m_explicitColumnSizes;
     auto &sizes = rowAxis ? m_rowSizes : m_columnSizes;
-    for (int i = 0; i < ids.size(); ++i)
-        if (!explicitSizes.contains(ids[i])) sizes[i] = size;
+    // O(sections + explicit sizes): generated IDs are never materialized.
+    QVector<std::pair<int, qreal>> kept;
+    kept.reserve(explicitSizes.size());
+    for (const QString &id : explicitSizes)
+        if (const int i = ids.indexOf(id); i >= 0) kept.append({i, sizes[i]});
+    std::fill(sizes.begin(), sizes.end(), size);
+    for (const auto &[i, explicitSize] : kept) sizes[i] = explicitSize;
     rebuildPositions(rowAxis); emit geometryChanged(); return true;
 }
 void EditableGridModel::setDefaultRowSize(qreal size) { setDefaultSize(size, true); }
@@ -270,7 +252,7 @@ QVariantMap EditableGridModel::hitTest(qreal x, qreal y, qreal scrollX, qreal sc
     const int r = indexAt(m_rowPositions, y + (y < frozenHeight ? 0 : scrollY));
     if (r < 0 || c < 0 || (x >= frozenWidth && c < m_frozenColumns)
         || (y >= frozenHeight && r < m_frozenRows)) return {};
-    return {{"row", r}, {"column", c}, {"rowId", m_rows[r]}, {"columnId", m_columns[c]}};
+    return {{"row", r}, {"column", c}, {"rowId", m_rows.at(r)}, {"columnId", m_columns.at(c)}};
 }
 QVariantMap EditableGridModel::region(int firstRow, int lastRow, int firstColumn, int lastColumn,
                                       bool frozenRow, bool frozenColumn) const
@@ -358,7 +340,10 @@ bool EditableGridModel::stageCell(const QString &row, const QString &column, con
     if (it != m_pending.end()) { it->after = candidate; return true; }
     if (m_pending.size() >= MaxTransactionCells) return fail(QStringLiteral("Grid edit exceeds 65536 cells"));
     const auto existing = m_overrides.constFind(key(row,column));
-    m_pending.append({row, column, cellValue(row,column), candidate, existing != m_overrides.cend()});
+    // Source-owned cells compare against what an editor shows, so replacing a
+    // computed display value with an equal literal is still a change (G-1).
+    m_pending.append({row, column, m_sourceCommits ? editValue(row, column) : cellValue(row, column),
+                      candidate, existing != m_overrides.cend()});
     return true;
 }
 bool EditableGridModel::paste(int firstRow, int firstColumn, const QVariantList &rowsData)
@@ -382,7 +367,7 @@ bool EditableGridModel::paste(int firstRow, int firstColumn, const QVariantList 
         }
         width = values.size();
         for (int c = 0; c < values.size(); ++c)
-            if (!stageCell(m_rows[firstRow+r], m_columns[firstColumn+c], values[c])) {
+            if (!stageCell(m_rows.at(firstRow+r), m_columns.at(firstColumn+c), values[c])) {
                 m_pending = saved; if (started) cancelEdit(); return false;
             }
     }
@@ -392,6 +377,8 @@ bool EditableGridModel::fill(int firstRow, int firstColumn, int rowSpan, int col
                              int targetRow, int targetColumn)
 {
     if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
+    if (m_sourceCommits)
+        return fillRange(firstRow, firstColumn, rowSpan, columnSpan, targetRow, targetColumn, rowSpan, columnSpan);
     if (firstRow < 0 || firstColumn < 0 || targetRow < 0 || targetColumn < 0
         || rowSpan <= 0 || columnSpan <= 0 || targetRow + rowSpan > rows()
         || targetColumn + columnSpan > columns() || firstRow + rowSpan > rows()
@@ -401,7 +388,7 @@ bool EditableGridModel::fill(int firstRow, int firstColumn, int rowSpan, int col
     for (int r = 0; r < rowSpan; ++r) {
         QVariantList line;
         for (int c = 0; c < columnSpan; ++c)
-            line.append(cellValue(m_rows[firstRow+r], m_columns[firstColumn+c]));
+            line.append(editValue(m_rows.at(firstRow+r), m_columns.at(firstColumn+c)));
         snapshot.append(QVariant(line));
     }
     return paste(targetRow, targetColumn, snapshot);
@@ -446,6 +433,7 @@ bool EditableGridModel::commitEdit()
     if (!m_editing) return fail(QStringLiteral("No active grid edit"));
     QVector<Change> changes;
     for (const auto &v : m_pending) if (v.before != v.after) changes.append(v);
+    if (m_sourceCommits) return commitToSource(changes, m_label);
     if (!applyChanges(changes, false)) return false;
     const QString label = m_label;
     cancelEdit();
@@ -462,7 +450,7 @@ bool EditableGridModel::commitEdit()
 bool EditableGridModel::undo()
 {
     if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
-    if (m_externalUndo) return fail(QStringLiteral("Host owns grid undo"));
+    if (m_externalUndo || m_sourceCommits) return fail(QStringLiteral("Host owns grid undo"));
     if (m_editing || !canUndo()) return fail(QStringLiteral("Grid undo unavailable"));
     if (!applyChanges(m_history[m_historyCursor-1].changes, true)) return false;
     --m_historyCursor; emit historyChanged(); return true;
@@ -470,7 +458,7 @@ bool EditableGridModel::undo()
 bool EditableGridModel::redo()
 {
     if (m_readOnly) return fail(QStringLiteral("Grid is read-only"));
-    if (m_externalUndo) return fail(QStringLiteral("Host owns grid redo"));
+    if (m_externalUndo || m_sourceCommits) return fail(QStringLiteral("Host owns grid redo"));
     if (m_editing || !canRedo()) return fail(QStringLiteral("Grid redo unavailable"));
     if (!applyChanges(m_history[m_historyCursor].changes, false)) return false;
     ++m_historyCursor; emit historyChanged(); return true;

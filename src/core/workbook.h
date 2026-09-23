@@ -38,6 +38,8 @@ class Workbook : public QObject {
     Q_PROPERTY(QVariantMap statistics READ statistics NOTIFY revisionChanged)
     Q_PROPERTY(QStringList functionNames READ functionNames CONSTANT)
     Q_PROPERTY(QUrl fileUrl READ fileUrl NOTIFY fileChanged)
+    Q_PROPERTY(QVariantList names READ names NOTIFY namesChanged)
+    Q_PROPERTY(QVariantMap lastPasteReport READ lastPasteReport NOTIFY pasteReported)
 public:
     static constexpr int DefaultRows = 1000;
     static constexpr int DefaultColumns = 26;
@@ -67,6 +69,8 @@ public:
     QVariantMap statistics() const;
     QStringList functionNames() const { return Calc::functionNames(); }
     QUrl fileUrl() const;
+    QVariantList names() const;
+    QVariantMap lastPasteReport() const;
 
     // Sheets: IDs are stable, never reused within a document and persisted.
     Q_INVOKABLE QString addSheet(const QString &name = {}, int index = -1,
@@ -97,7 +101,15 @@ public:
     Q_INVOKABLE QVariantMap checkInput(const QString &sheetId, const QString &input) const;
 
     // Range operations; each is one atomic, reversible transaction step.
-    Q_INVOKABLE bool pasteInputs(const QString &sheetId, int row, int column, const QVariantList &rows);
+    // Pastes validate each cell: policy "allOrNothing" applies nothing when a
+    // stop-style validation fails, "skipInvalid" applies the valid cells;
+    // lastPasteReport lists every invalid cell either way.
+    Q_INVOKABLE bool pasteInputs(const QString &sheetId, int row, int column, const QVariantList &rows,
+                                 const QString &policy = QStringLiteral("allOrNothing"));
+    // Inputs [{row, column, input}] as one transaction under a paste policy.
+    Q_INVOKABLE bool setCellInputs(const QString &sheetId, const QVariantList &cells,
+                                   const QString &policy = QStringLiteral("allOrNothing"),
+                                   const QString &label = {});
     Q_INVOKABLE bool copyCells(const QString &sourceSheetId, int firstRow, int firstColumn,
                                int rowCount, int columnCount, const QString &targetSheetId,
                                int targetRow, int targetColumn);
@@ -110,6 +122,70 @@ public:
     Q_INVOKABLE bool removeRows(const QString &sheetId, int row, int count = 1);
     Q_INVOKABLE bool insertColumns(const QString &sheetId, int column, int count = 1);
     Q_INVOKABLE bool removeColumns(const QString &sheetId, int column, int count = 1);
+
+    // Presentation (docs/workbook.md#formats-rules-and-names). Style keys:
+    // numberFormat, horizontalAlignment (general|left|center|right), bold,
+    // italic, underline, strikeout, textColor and fillColor ("#rrggbb"; ""
+    // restores the theme default). A patch changes only the keys it names.
+    Q_INVOKABLE bool applyStyle(const QString &sheetId, int firstRow, int firstColumn, int lastRow,
+                                int lastColumn, const QVariantMap &patch);
+    Q_INVOKABLE bool clearFormats(const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn);
+    // Explicit formatting of one cell, without conditional formats.
+    Q_INVOKABLE QVariantMap cellFormat(const QString &sheetId, int row, int column) const;
+    // What a view draws: formats, then conditional formats (which win), the
+    // general alignment of the value's type, dataBar/icon and error flags.
+    Q_INVOKABLE QVariantMap cellPresentation(const QString &sheetId, int row, int column) const;
+    Q_INVOKABLE QString numberFormatProblem(const QString &format) const;
+
+    // Merged areas: disjoint rectangles of two or more cells; merging keeps
+    // the top-left input and clears the others (one undo step).
+    Q_INVOKABLE bool mergeCells(const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn);
+    Q_INVOKABLE bool unmergeCells(const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn);
+    Q_INVOKABLE QVariantList mergedAreas(const QString &sheetId, int firstRow, int firstColumn, int lastRow,
+                                         int lastColumn) const;
+    Q_INVOKABLE QVariantMap mergeAt(const QString &sheetId, int row, int column) const;
+
+    // Sheet properties: tabColor, hidden, protected, frozenRows, frozenColumns.
+    // A protected sheet refuses cell, structure and format edits.
+    Q_INVOKABLE QVariantMap sheetProperties(const QString &sheetId) const;
+    Q_INVOKABLE bool setSheetProperties(const QString &sheetId, const QVariantMap &changes);
+    // Sizes in device-independent pixels; a size <= 0 restores the default.
+    Q_INVOKABLE bool setColumnWidth(const QString &sheetId, int column, double width);
+    Q_INVOKABLE bool setRowHeight(const QString &sheetId, int row, double height);
+    Q_INVOKABLE QVariantMap columnWidths(const QString &sheetId) const; // {"<index>": size}
+    Q_INVOKABLE QVariantMap rowHeights(const QString &sheetId) const;
+
+    // Workbook names: formulas use them like ranges (=SUM(Sales)).
+    Q_INVOKABLE bool defineName(const QString &name, const QString &sheetId, int firstRow, int firstColumn,
+                                int lastRow, int lastColumn);
+    Q_INVOKABLE bool removeName(const QString &name);
+    Q_INVOKABLE QString nameProblem(const QString &name) const;
+
+    // Conditional formats in priority order (index 0 applies first). A rule
+    // map: id, ranges ["A1:B5"], type, operator, value1, value2, text, style,
+    // minColor/midColor/maxColor and stopIfTrue (docs/workbook.md).
+    Q_INVOKABLE QVariantList conditionalFormats(const QString &sheetId) const;
+    Q_INVOKABLE QVariantMap checkConditionalFormat(const QString &sheetId, const QVariantMap &rule) const;
+    // Adds (unknown or empty id) or replaces a rule; returns its id or "".
+    // priority -1 keeps a replaced rule's place and puts a new one first.
+    Q_INVOKABLE QString setConditionalFormat(const QString &sheetId, const QVariantMap &rule, int priority = -1);
+    Q_INVOKABLE bool removeConditionalFormat(const QString &sheetId, const QString &ruleId);
+    Q_INVOKABLE bool moveConditionalFormat(const QString &sheetId, const QString &ruleId, int priority);
+    // cellPresentation of a window as if `rule` were set (the editor preview).
+    Q_INVOKABLE QVariantList previewConditionalFormat(const QString &sheetId, const QVariantMap &rule, int firstRow,
+                                                      int firstColumn, int rowCount, int columnCount) const;
+
+    // Data validation; each cell has at most one rule (a new rule takes its
+    // cells from older ones). Rule map: id, ranges, type, operator, value1,
+    // value2, items, allowBlank, inputTitle, inputMessage, errorStyle,
+    // errorTitle, errorMessage.
+    Q_INVOKABLE QVariantList validations(const QString &sheetId) const;
+    Q_INVOKABLE QVariantMap checkValidation(const QString &sheetId, const QVariantMap &rule) const;
+    Q_INVOKABLE QString setValidation(const QString &sheetId, const QVariantMap &rule);
+    Q_INVOKABLE bool removeValidation(const QString &sheetId, const QString &ruleId);
+    Q_INVOKABLE QVariantMap validationAt(const QString &sheetId, int row, int column) const;
+    // {ok, style, title, message, ruleId}; setCellInput refuses only "stop".
+    Q_INVOKABLE QVariantMap validateInput(const QString &sheetId, int row, int column, const QString &input) const;
 
     // Explicit transactions group operations into one history step. Values
     // are recalculated at commit; cancel restores the exact prior state.
@@ -162,6 +238,9 @@ signals:
     void rowsRemoved(const QString &sheetId, int row, int count);
     void columnsInserted(const QString &sheetId, int column, int count);
     void columnsRemoved(const QString &sheetId, int column, int count);
+    void sheetPropertiesChanged(const QString &sheetId);
+    void namesChanged();
+    void pasteReported();
 
 private:
     friend struct WorkbookPrivate;

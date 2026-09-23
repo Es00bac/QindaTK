@@ -112,7 +112,7 @@ void WorkbookFormulaTest::parseErrorsCarrySpans_data()
     QTest::newRow("dangling operator") << "=1+" << "ends where a value" << 3 << 4;
     QTest::newRow("unclosed call") << "=SUM(1,2" << "Expected ',' or ')' in SUM" << 8 << 9;
     QTest::newRow("unknown function") << "=FOO(1)" << "Unknown function 'FOO'" << 1 << 4;
-    QTest::newRow("unknown name") << "=A1+abc" << "Unknown name 'abc'" << 4 << 7;
+    QTest::newRow("invalid name") << "=A1+ab$c" << "'ab$c' is not a valid name or reference" << 4 << 8;
     QTest::newRow("unknown sheet") << "=Nope!A1" << "Unknown sheet 'Nope'" << 1 << 5;
     QTest::newRow("open text") << "=\"abc" << "closing quote" << 1 << 5;
     QTest::newRow("open group") << "=(1+2" << "Missing closing parenthesis" << 1 << 5;
@@ -121,8 +121,10 @@ void WorkbookFormulaTest::parseErrorsCarrySpans_data()
     QTest::newRow("empty argument") << "=SUM(A1,,2)" << "Expected a value before ','" << 8 << 9;
     QTest::newRow("range end") << "=A1:" << "after ':'" << 4 << 5;
     QTest::newRow("bad character") << "=1@2" << "Unexpected character '@'" << 2 << 3;
-    QTest::newRow("column bound") << "=XFE1" << "Unknown name 'XFE1'" << 1 << 5;
-    QTest::newRow("row bound") << "=A1048577" << "Unknown name 'A1048577'" << 1 << 9;
+    QTest::newRow("column bound") << "=XFE1" << "'XFE1' is outside the sheet grid" << 1 << 5;
+    QTest::newRow("row bound") << "=A1048577" << "'A1048577' is outside the sheet grid" << 1 << 9;
+    QTest::newRow("whole column end") << "=SUM(A:1)" << "Expected a column such as B" << 7 << 8;
+    QTest::newRow("whole row end") << "=SUM(2:B)" << "Expected a row number" << 7 << 8;
     QTest::newRow("exponent") << "=1e+" << "exponent needs digits" << 1 << 4;
     QTest::newRow("error literal") << "=#FOO" << "Unknown error value" << 1 << 2;
     QTest::newRow("no equals") << "SUM(1)" << "starts with '='" << 0 << 1;

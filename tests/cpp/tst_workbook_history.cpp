@@ -240,7 +240,9 @@ void WorkbookHistoryTest::fileSaveConflictsAndFailedRestore()
     const QByteArray good = wb.serialize();
     QVERIFY(!opened.restore("{"));
     QVERIFY(opened.lastError().contains(QStringLiteral("Invalid workbook JSON")));
-    QVERIFY(!opened.restore(QByteArray(good).replace("\"version\":1", "\"version\":2")));
+    QVERIFY(!opened.restore(QByteArray(good).replace("\"version\":1", "\"version\":3")));
+    // Version 1 files cannot carry version 2 fields.
+    QVERIFY(!opened.restore(QByteArray(good).replace("\"cells\"", "\"hidden\":true,\"cells\"")));
     QVERIFY(!opened.restore(QByteArray(good).replace("\"name\":\"Summary\"", "\"name\":\"budget 2026\"")));
     QVERIFY(!opened.restore(QByteArray(good).replace("=SUM(B2:B3)", "=SUM(B2:B3")));
     QVERIFY(opened.lastError().contains(QStringLiteral("cell B5")));

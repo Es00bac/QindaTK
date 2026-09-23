@@ -29,7 +29,7 @@ QVariantList Workbook::visibleCells(const QString &sheetId, int firstRow, int ro
         for (int c = firstColumn; c < firstColumn + columnCount; ++c) {
             const Cell *cell = d->findCell(*s, r, c);
             if (!cell) continue;
-            result.append(QVariantMap{{"row", r}, {"column", c}, {"display", displayText(cell->value)},
+            result.append(QVariantMap{{"row", r}, {"column", c}, {"display", d->displayAt(*s, r, c, cell->value)},
                                       {"type", typeName(cell->value.type)},
                                       {"formula", cell->content.kind == CellContent::Kind::Formula}});
         }
@@ -72,58 +72,14 @@ QVariantMap Workbook::checkInput(const QString &sheetId, const QString &input) c
     return result;
 }
 
-bool Workbook::pasteInputs(const QString &sheetId, int row, int column, const QVariantList &rows)
-{
-    return d->mutate(QStringLiteral("Paste cells"), [&](QString *error, QVariantMap *detail) {
-        const Sheet *s = d->sheet(sheetId);
-        if (!s) { *error = QStringLiteral("Unknown sheet"); return false; }
-        Mutation m;
-        m.sheetId = sheetId;
-        qsizetype width = -1;
-        for (qsizetype r = 0; r < rows.size(); ++r) {
-            if (rows[r].metaType().id() != QMetaType::QVariantList) {
-                *error = QStringLiteral("Paste rows must be value lists");
-                return false;
-            }
-            const QVariantList values = rows[r].toList();
-            if (width >= 0 && values.size() != width) {
-                *error = QStringLiteral("Paste must be rectangular");
-                return false;
-            }
-            width = values.size();
-            if (!rectangleInside(*s, row, column, int(rows.size()), int(std::max<qsizetype>(width, 1)))) {
-                *error = QStringLiteral("Paste extends outside the sheet");
-                return false;
-            }
-            if (qint64(rows.size()) * width > MaxTransactionCells) {
-                *error = QStringLiteral("Paste exceeds %1 cells").arg(MaxTransactionCells);
-                return false;
-            }
-            for (qsizetype c = 0; c < values.size(); ++c) {
-                CellContent content;
-                ParseError parse;
-                const int targetRow = row + int(r), targetColumn = column + int(c);
-                if (!d->parseInput(sheetId, values[c], &content, &parse)) {
-                    const QString address = cellAddress(targetRow, targetColumn);
-                    *error = QStringLiteral("%1: %2").arg(address, parse.message);
-                    *detail = {{"sheetId", sheetId}, {"row", targetRow}, {"column", targetColumn},
-                               {"address", address}, {"start", parse.start}, {"end", parse.end}};
-                    return false;
-                }
-                m.cells.push_back({targetRow, targetColumn, std::move(content)});
-            }
-        }
-        return d->record(std::move(m), error);
-    });
-}
-
 bool Workbook::copyCells(const QString &sourceSheetId, int firstRow, int firstColumn, int rowCount,
                          int columnCount, const QString &targetSheetId, int targetRow, int targetColumn)
 {
     return d->mutate(QStringLiteral("Copy cells"), [&](QString *error, QVariantMap *) {
         const Sheet *source = d->sheet(sourceSheetId);
-        const Sheet *target = d->sheet(targetSheetId);
+        Sheet *target = d->sheet(targetSheetId);
         if (!source || !target) { *error = QStringLiteral("Unknown sheet"); return false; }
+        if (!d->sheetEditable(*target, error)) return false;
         if (!rectangleInside(*source, firstRow, firstColumn, rowCount, columnCount)
             || !rectangleInside(*target, targetRow, targetColumn, rowCount, columnCount)) {
             *error = QStringLiteral("Copy range is outside the sheet");
@@ -143,7 +99,10 @@ bool Workbook::copyCells(const QString &sourceSheetId, int firstRow, int firstCo
                                                     targetColumn - firstColumn);
                 m.cells.push_back({targetRow + r, targetColumn + c, std::move(content)});
             }
-        return d->record(std::move(m), error);
+        if (!d->record(std::move(m), error)) return false;
+        const Area block{firstRow, firstColumn, firstRow + rowCount - 1, firstColumn + columnCount - 1};
+        const Area to{targetRow, targetColumn, targetRow + rowCount - 1, targetColumn + columnCount - 1};
+        return d->copyFormats(*source, block, *target, to, targetRow, targetColumn, true, error);
     });
 }
 
@@ -155,8 +114,9 @@ bool Workbook::fill(const QString &sheetId, int firstRow, int firstColumn, int r
                     int targetRow, int targetColumn, int targetRowCount, int targetColumnCount)
 {
     return d->mutate(QStringLiteral("Fill cells"), [&](QString *error, QVariantMap *) {
-        const Sheet *s = d->sheet(sheetId);
+        Sheet *s = d->sheet(sheetId);
         if (!s) { *error = QStringLiteral("Unknown sheet"); return false; }
+        if (!d->sheetEditable(*s, error)) return false;
         if (!rectangleInside(*s, firstRow, firstColumn, rowCount, columnCount)
             || !rectangleInside(*s, targetRow, targetColumn, targetRowCount, targetColumnCount)) {
             *error = QStringLiteral("Fill range is outside the sheet");
@@ -182,7 +142,10 @@ bool Workbook::fill(const QString &sheetId, int firstRow, int firstColumn, int r
                     content.formula = offsetFormula(content.formula, r - (firstRow + sr), c - (firstColumn + sc));
                 m.cells.push_back({r, c, std::move(content)});
             }
-        return d->record(std::move(m), error);
+        if (!d->record(std::move(m), error)) return false;
+        const Area block{firstRow, firstColumn, firstRow + rowCount - 1, firstColumn + columnCount - 1};
+        const Area to{targetRow, targetColumn, targetRow + targetRowCount - 1, targetColumn + targetColumnCount - 1};
+        return d->copyFormats(*s, block, *s, to, firstRow, firstColumn, false, error);
     });
 }
 
@@ -191,6 +154,7 @@ bool Workbook::clearCells(const QString &sheetId, int firstRow, int firstColumn,
     return d->mutate(QStringLiteral("Clear cells"), [&](QString *error, QVariantMap *) {
         const Sheet *s = d->sheet(sheetId);
         if (!s) { *error = QStringLiteral("Unknown sheet"); return false; }
+        if (!d->sheetEditable(*s, error)) return false;
         if (!rectangleInside(*s, firstRow, firstColumn, rowCount, columnCount)) {
             *error = QStringLiteral("Clear range is outside the sheet");
             return false;
@@ -218,6 +182,8 @@ bool structural(WorkbookPrivate *d, const QString &label, Mutation::Kind kind, c
                 int at, int count)
 {
     return d->mutate(label, [&](QString *error, QVariantMap *) {
+        const Sheet *s = d->sheet(sheetId);
+        if (s && !d->sheetEditable(*s, error)) return false;
         Mutation m;
         m.kind = kind;
         m.sheetId = sheetId;

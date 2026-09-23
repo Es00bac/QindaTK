@@ -29,11 +29,13 @@ bool integerValue(const QJsonValue &value, qint64 minimum, qint64 maximum, qint6
     *out = qint64(number);
     return true;
 }
-bool onlyKeys(const QJsonObject &object, std::initializer_list<const char *> keys, QString *unknown)
+bool onlyKeys(const QJsonObject &object, std::initializer_list<const char *> keys, QString *unknown,
+              bool withFeatures = false)
 {
     for (auto it = object.begin(); it != object.end(); ++it) {
-        const bool known = std::any_of(keys.begin(), keys.end(),
-                                       [&](const char *key) { return it.key() == QLatin1StringView(key); });
+        const auto matches = [&](const char *key) { return it.key() == QLatin1StringView(key); };
+        const bool known = std::any_of(keys.begin(), keys.end(), matches)
+            || (withFeatures && std::any_of(std::begin(SheetFeatureKeys), std::end(SheetFeatureKeys), matches));
         if (!known) { *unknown = it.key(); return false; }
     }
     return true;
@@ -73,18 +75,20 @@ std::optional<DecodedWorkbook> decodeWorkbook(const QByteArray &bytes, QString *
     }
     const QJsonObject root = document.object();
     QString unknown;
-    if (!onlyKeys(root, {"format", "version", "documentId", "nextSheetNumber", "sheets"}, &unknown)) {
-        fail(error, QStringLiteral("Unsupported workbook field '%1'").arg(unknown));
-        return std::nullopt;
-    }
     qint64 version = 0, next = 0;
     if (root.value(QStringLiteral("format")).toString() != QLatin1StringView(WorkbookFormatName)) {
         fail(error, QStringLiteral("Not a QindaTK workbook"));
         return std::nullopt;
     }
     if (!integerValue(root.value(QStringLiteral("version")), 0, 1 << 30, &version)
-        || version != WorkbookFormatVersion) {
+        || version < 1 || version > WorkbookFormatVersion) {
         fail(error, QStringLiteral("Unsupported workbook version"));
+        return std::nullopt;
+    }
+    const bool v2 = version >= 2;
+    if (!(v2 ? onlyKeys(root, {"format", "version", "documentId", "nextSheetNumber", "sheets", "names"}, &unknown)
+             : onlyKeys(root, {"format", "version", "documentId", "nextSheetNumber", "sheets"}, &unknown))) {
+        fail(error, QStringLiteral("Unsupported workbook field '%1'").arg(unknown));
         return std::nullopt;
     }
     DecodedWorkbook result;
@@ -107,9 +111,10 @@ std::optional<DecodedWorkbook> decodeWorkbook(const QByteArray &bytes, QString *
     QHash<QString, QString> idsByFoldedName;
     QSet<QString> ids;
     std::vector<QJsonArray> cellArrays;
+    std::vector<QJsonObject> sheetObjects;
     for (const QJsonValue &value : sheets) {
         const QJsonObject object = value.toObject();
-        if (!value.isObject() || !onlyKeys(object, {"id", "name", "rows", "columns", "cells"}, &unknown)) {
+        if (!value.isObject() || !onlyKeys(object, {"id", "name", "rows", "columns", "cells"}, &unknown, v2)) {
             fail(error, QStringLiteral("Invalid sheet entry %1").arg(unknown));
             return std::nullopt;
         }
@@ -142,9 +147,35 @@ std::optional<DecodedWorkbook> decodeWorkbook(const QByteArray &bytes, QString *
         ids.insert(sheet.id);
         idsByFoldedName.insert(sheet.name.toCaseFolded(), sheet.id);
         cellArrays.push_back(object.value(QStringLiteral("cells")).toArray());
+        sheetObjects.push_back(object);
         result.sheets.push_back(std::move(sheet));
     }
     const SheetIdLookup lookup = [&](const QString &name) { return idsByFoldedName.value(name.toCaseFolded()); };
+    if (v2) {
+        QHash<QString, QPoint> bounds;
+        for (const DecodedSheet &sheet : result.sheets) bounds.insert(sheet.id, QPoint(sheet.columns, sheet.rows));
+        QString problem;
+        if (!decodeNames(root.value(QStringLiteral("names")), lookup,
+                         [&](const QString &id) { return bounds.value(id); }, &result.names, &problem)) {
+            fail(error, problem);
+            return std::nullopt;
+        }
+        for (size_t i = 0; i < result.sheets.size(); ++i) {
+            DecodedSheet &sheet = result.sheets[i];
+            RuleLookups rules;
+            rules.sheetIdForName = lookup;
+            rules.names = [&](const QString &name) {
+                const NamedRange *entry = findName(*result.names, name);
+                return entry ? entry->name : QString();
+            };
+            rules.rows = sheet.rows;
+            rules.columns = sheet.columns;
+            if (!decodeSheetFeatures(sheetObjects[i], rules, &sheet.features, &problem)) {
+                fail(error, QStringLiteral("Sheet '%1': %2").arg(sheet.name, problem));
+                return std::nullopt;
+            }
+        }
+    }
     for (size_t i = 0; i < result.sheets.size(); ++i) {
         DecodedSheet &sheet = result.sheets[i];
         QSet<quint64> seen;
@@ -213,18 +244,27 @@ QByteArray encodeWorkbook(const DecodedWorkbook &workbook)
     for (const DecodedSheet &sheet : workbook.sheets) names.insert(sheet.id, sheet.name);
     const SheetNameLookup lookup = [&](const QString &id) { return names.value(id); };
     QJsonArray sheets;
+    bool v2 = !workbook.names->empty();
     for (const DecodedSheet &sheet : workbook.sheets) {
         QJsonArray cells;
         for (const CellEntry &entry : sheet.cells) cells.append(encodeCell(entry, lookup));
-        sheets.append(QJsonObject{{QStringLiteral("id"), sheet.id}, {QStringLiteral("name"), sheet.name},
-                                  {QStringLiteral("rows"), sheet.rows}, {QStringLiteral("columns"), sheet.columns},
-                                  {QStringLiteral("cells"), cells}});
+        QJsonObject object = encodeSheetFeatures(*sheet.features, lookup);
+        v2 = v2 || !object.isEmpty();
+        object.insert(QStringLiteral("id"), sheet.id);
+        object.insert(QStringLiteral("name"), sheet.name);
+        object.insert(QStringLiteral("rows"), sheet.rows);
+        object.insert(QStringLiteral("columns"), sheet.columns);
+        object.insert(QStringLiteral("cells"), cells);
+        sheets.append(object);
     }
-    const QJsonObject root{{QStringLiteral("format"), QLatin1StringView(WorkbookFormatName)},
-                           {QStringLiteral("version"), WorkbookFormatVersion},
-                           {QStringLiteral("documentId"), workbook.documentId},
-                           {QStringLiteral("nextSheetNumber"), qint64(workbook.nextSheetNumber)},
-                           {QStringLiteral("sheets"), sheets}};
+    // AGENT-NOTE: a workbook without names or sheet features is written as
+    // version 1, so files from before version 2 re-save byte-identically.
+    QJsonObject root{{QStringLiteral("format"), QLatin1StringView(WorkbookFormatName)},
+                     {QStringLiteral("version"), v2 ? WorkbookFormatVersion : 1},
+                     {QStringLiteral("documentId"), workbook.documentId},
+                     {QStringLiteral("nextSheetNumber"), qint64(workbook.nextSheetNumber)},
+                     {QStringLiteral("sheets"), sheets}};
+    if (!workbook.names->empty()) root.insert(QStringLiteral("names"), encodeNames(*workbook.names, lookup));
     return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }
 

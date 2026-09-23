@@ -1,43 +1,41 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-#include "workbook_formula.h"
+#include "workbook_lexer_p.h"
 
 #include <algorithm>
 
 namespace QindaTK::Calc {
 namespace {
-constexpr FunctionSpec functionTable[] = {
-    {Function::Sum, "SUM", 1, MaxFunctionArguments, "SUM(value1, [value2], ...)"},
-    {Function::Average, "AVERAGE", 1, MaxFunctionArguments, "AVERAGE(value1, [value2], ...)"},
-    {Function::Min, "MIN", 1, MaxFunctionArguments, "MIN(value1, [value2], ...)"},
-    {Function::Max, "MAX", 1, MaxFunctionArguments, "MAX(value1, [value2], ...)"},
-    {Function::Count, "COUNT", 1, MaxFunctionArguments, "COUNT(value1, [value2], ...)"},
-    {Function::CountA, "COUNTA", 1, MaxFunctionArguments, "COUNTA(value1, [value2], ...)"},
-    {Function::If, "IF", 2, 3, "IF(condition, value_if_true, [value_if_false])"},
-    {Function::IfError, "IFERROR", 2, 2, "IFERROR(value, value_if_error)"},
-    {Function::And, "AND", 1, MaxFunctionArguments, "AND(logical1, [logical2], ...)"},
-    {Function::Or, "OR", 1, MaxFunctionArguments, "OR(logical1, [logical2], ...)"},
-    {Function::Not, "NOT", 1, 1, "NOT(logical)"},
-    {Function::Abs, "ABS", 1, 1, "ABS(number)"},
-    {Function::Round, "ROUND", 2, 2, "ROUND(number, digits)"},
-};
 
-struct Token {
-    enum class Kind { End, Number, String, Error, Word, Quoted, Operator, LParen, RParen, Comma, Colon, Bang, Percent };
-    Kind kind = Kind::End;
-    qint32 start = 0, end = 0;
-    double number = 0.0;
-    ErrorKind error = ErrorKind::None;
-    QString text;  // word, string body, quoted sheet name or operator spelling
-};
+bool isLetter(QChar c) { return isFormulaLetter(c); }
+bool isDigitChar(QChar c) { return isFormulaDigit(c); }
 
-bool isLetter(QChar c) { return (c >= u'A' && c <= u'Z') || (c >= u'a' && c <= u'z'); }
-bool isDigitChar(QChar c) { return c >= u'0' && c <= u'9'; }
-bool isWordChar(QChar c) { return isLetter(c) || isDigitChar(c) || c == u'_' || c == u'.' || c == u'$'; }
+// "$C" / "AB" — one axis of a whole-column range.
+bool parseColumnWord(QStringView text, qint32 *column, bool *absolute)
+{
+    *absolute = text.startsWith(u'$');
+    const QStringView letters = *absolute ? text.mid(1) : text;
+    if (letters.isEmpty() || letters.size() > 3 || !std::all_of(letters.begin(), letters.end(), isLetter))
+        return false;
+    *column = columnFromName(letters);
+    return *column >= 0;
+}
+// "$12" / "12" — one axis of a whole-row range.
+bool parseRowWord(QStringView text, qint32 *row, bool *absolute)
+{
+    *absolute = text.startsWith(u'$');
+    const QStringView digits = *absolute ? text.mid(1) : text;
+    if (digits.isEmpty() || digits.size() > 7 || !std::all_of(digits.begin(), digits.end(), isDigitChar)
+        || digits.front() == u'0') return false;
+    const qint64 value = digits.toLongLong();
+    if (value < 1 || value > MaxRows) return false;
+    *row = qint32(value - 1);
+    return true;
+}
 
 class Parser {
 public:
-    Parser(const QString &text, const SheetIdLookup &lookup, int maximumLength)
-        : m_text(text), m_lookup(lookup), m_maximumLength(maximumLength) {}
+    Parser(const QString &text, const SheetIdLookup &lookup, int maximumLength, const NameLookup &names)
+        : m_text(text), m_lookup(lookup), m_names(names), m_maximumLength(maximumLength) {}
     ParseResult run();
 private:
     bool fail(const QString &message, qint32 start, qint32 end);
@@ -56,10 +54,15 @@ private:
     qint32 primary();
     qint32 call(const Token &name);
     qint32 reference(qint32 sheet, qint32 start);
+    qint32 wholeReference(qint32 sheet, qint32 start, const Token &first, bool columns);
+    qint32 name(const Token &token);
     qint32 sheetIndex(const QString &id);
+    QString source(const Token &token) const
+    { return token.kind == Token::Kind::Word ? token.text : m_text.mid(token.start, token.end - token.start); }
 
     const QString &m_text;
     const SheetIdLookup &m_lookup;
+    const NameLookup &m_names;
     const int m_maximumLength;
     std::vector<Token> m_tokens;
     std::vector<qint32> m_heights;
@@ -81,90 +84,9 @@ bool Parser::fail(const QString &message, qint32 start, qint32 end)
 
 bool Parser::lex()
 {
-    const qint32 n = qint32(m_text.size());
-    qint32 i = 1; // skip '='
-    while (i < n) {
-        const QChar c = m_text[i];
-        if (c.isSpace()) { ++i; continue; }
-        Token token;
-        token.start = i;
-        if (isDigitChar(c) || (c == u'.' && i + 1 < n && isDigitChar(m_text[i + 1]))) {
-            qint32 j = i;
-            while (j < n && isDigitChar(m_text[j])) ++j;
-            if (j < n && m_text[j] == u'.') { ++j; while (j < n && isDigitChar(m_text[j])) ++j; }
-            if (j < n && (m_text[j] == u'e' || m_text[j] == u'E')) {
-                qint32 k = j + 1;
-                if (k < n && (m_text[k] == u'+' || m_text[k] == u'-')) ++k;
-                if (k >= n || !isDigitChar(m_text[k]))
-                    return fail(QStringLiteral("Number exponent needs digits"), i, k);
-                while (k < n && isDigitChar(m_text[k])) ++k;
-                j = k;
-            }
-            if (!parseNumber(QStringView(m_text).mid(i, j - i), &token.number))
-                return fail(QStringLiteral("Number is out of range"), i, j);
-            token.kind = Token::Kind::Number;
-            i = j;
-        } else if (c == u'"' || c == u'\'') {
-            QString body;
-            qint32 j = i + 1;
-            bool closed = false;
-            while (j < n) {
-                if (m_text[j] == c) {
-                    if (j + 1 < n && m_text[j + 1] == c) { body += c; j += 2; continue; }
-                    closed = true; ++j; break;
-                }
-                body += m_text[j++];
-            }
-            if (!closed)
-                return fail(c == u'"' ? QStringLiteral("Text is missing its closing quote")
-                                      : QStringLiteral("Sheet name is missing its closing quote"), i, n);
-            token.kind = c == u'"' ? Token::Kind::String : Token::Kind::Quoted;
-            token.text = body;
-            i = j;
-        } else if (c == u'#') {
-            ErrorKind found = ErrorKind::None;
-            qint32 length = 0;
-            for (qint32 len = std::min<qint32>(8, n - i); len >= 4 && found == ErrorKind::None; --len) {
-                found = errorFromText(QStringView(m_text).mid(i, len));
-                length = len;
-            }
-            if (found == ErrorKind::None)
-                return fail(QStringLiteral("Unknown error value"), i, i + 1);
-            token.kind = Token::Kind::Error;
-            token.error = found;
-            i += length;
-        } else if (isLetter(c) || c == u'_' || c == u'$') {
-            qint32 j = i;
-            while (j < n && isWordChar(m_text[j])) ++j;
-            token.kind = Token::Kind::Word;
-            token.text = m_text.mid(i, j - i);
-            i = j;
-        } else {
-            static const char *twoChar[] = {"<>", "<=", ">="};
-            QString spelling(c);
-            for (const char *op : twoChar)
-                if (i + 1 < n && m_text[i] == QLatin1Char(op[0]) && m_text[i + 1] == QLatin1Char(op[1]))
-                    spelling = QString::fromLatin1(op, 2);
-            if (spelling == u"(") token.kind = Token::Kind::LParen;
-            else if (spelling == u")") token.kind = Token::Kind::RParen;
-            else if (spelling == u",") token.kind = Token::Kind::Comma;
-            else if (spelling == u":") token.kind = Token::Kind::Colon;
-            else if (spelling == u"!") token.kind = Token::Kind::Bang;
-            else if (spelling == u"%") token.kind = Token::Kind::Percent;
-            else if (QStringLiteral("+-*/^&=<>").contains(spelling) || spelling.size() == 2)
-                token.kind = Token::Kind::Operator;
-            else
-                return fail(QStringLiteral("Unexpected character '%1'").arg(spelling), i, i + 1);
-            token.text = spelling;
-            i += qint32(spelling.size());
-        }
-        token.end = i;
-        m_tokens.push_back(std::move(token));
-    }
-    Token end;
-    end.start = end.end = n;
-    m_tokens.push_back(end);
-    return true;
+    ParseError error;
+    if (lexFormula(m_text, &m_tokens, &error)) return true;
+    return fail(error.message, error.start, error.end);
 }
 
 qint32 Parser::addWith(Node node, const qint32 *children, size_t count)
@@ -272,6 +194,10 @@ qint32 Parser::primary()
     node.end = token.end;
     switch (token.kind) {
     case Token::Kind::Number:
+        if (peek().kind == Token::Kind::Colon) { // 2:5
+            --m_pos;
+            return reference(-1, token.start);
+        }
         node.kind = Node::Kind::Number;
         node.number = token.number;
         return add(node, {});
@@ -331,8 +257,15 @@ qint32 Parser::primary()
             node.boolean = token.text.size() == 4;
             return add(node, {});
         }
-        --m_pos; // re-read the word as a reference
-        return reference(-1, token.start);
+        qint32 axis = 0;
+        bool absolute = false;
+        if (looksLikeCellAddress(token.text)
+            || (peek().kind == Token::Kind::Colon && (parseColumnWord(token.text, &axis, &absolute)
+                                                      || parseRowWord(token.text, &axis, &absolute)))) {
+            --m_pos; // re-read the word as a reference
+            return reference(-1, token.start);
+        }
+        return name(token);
     }
     case Token::Kind::End:
         fail(QStringLiteral("Formula ends where a value is expected"), token.start, token.end);
@@ -346,11 +279,17 @@ qint32 Parser::primary()
 qint32 Parser::reference(qint32 sheet, qint32 start)
 {
     const Token first = take();
+    const bool word = first.kind == Token::Kind::Word, number = first.kind == Token::Kind::Number;
+    qint32 axis = 0;
+    bool absolute = false;
+    if ((word || number) && peek().kind == Token::Kind::Colon) {
+        if (word && parseColumnWord(first.text, &axis, &absolute)) return wholeReference(sheet, start, first, true);
+        if (parseRowWord(source(first), &axis, &absolute)) return wholeReference(sheet, start, first, false);
+    }
     RefPoint a;
-    if (first.kind != Token::Kind::Word || !parseCellAddress(first.text, &a)) {
-        if (first.kind == Token::Kind::Word && sheet < 0)
-            fail(QStringLiteral("Unknown name '%1' (names are not supported)").arg(first.text),
-                 first.start, first.end);
+    if (!word || !parseCellAddress(first.text, &a)) {
+        if (word && looksLikeCellAddress(first.text))
+            fail(QStringLiteral("'%1' is outside the sheet grid A1:XFD1048576").arg(first.text), first.start, first.end);
         else
             fail(QStringLiteral("Expected a cell reference such as A1"), first.start, first.end);
         return -1;
@@ -377,6 +316,57 @@ qint32 Parser::reference(qint32 sheet, qint32 start)
         node.last.column = right.column; node.last.columnAbsolute = right.columnAbsolute;
         node.end = second.end;
     }
+    return add(node, {});
+}
+
+// A:C or 2:5 — `first` was taken and a ':' follows.
+qint32 Parser::wholeReference(qint32 sheet, qint32 start, const Token &first, bool columns)
+{
+    take(); // ':'
+    const Token second = take();
+    qint32 a = 0, b = 0;
+    bool absoluteA = false, absoluteB = false;
+    if (columns) parseColumnWord(first.text, &a, &absoluteA);
+    else parseRowWord(source(first), &a, &absoluteA);
+    const bool secondOk = columns
+        ? second.kind == Token::Kind::Word && parseColumnWord(second.text, &b, &absoluteB)
+        : (second.kind == Token::Kind::Word || second.kind == Token::Kind::Number)
+              && parseRowWord(source(second), &b, &absoluteB);
+    if (!secondOk) {
+        fail(columns ? QStringLiteral("Expected a column such as B after ':'")
+                     : QStringLiteral("Expected a row number after ':'"), second.start, second.end);
+        return -1;
+    }
+    Node node;
+    node.kind = Node::Kind::Range;
+    node.whole = columns ? Node::Whole::Columns : Node::Whole::Rows;
+    node.sheet = sheet;
+    node.start = start;
+    node.end = second.end;
+    if (b < a) { std::swap(a, b); std::swap(absoluteA, absoluteB); }
+    if (columns) {
+        node.first = {0, a, false, absoluteA};
+        node.last = {MaxRows - 1, b, false, absoluteB};
+    } else {
+        node.first = {a, 0, absoluteA, false};
+        node.last = {b, MaxColumns - 1, absoluteB, false};
+    }
+    return add(node, {});
+}
+
+qint32 Parser::name(const Token &token)
+{
+    if (!nameProblem(token.text).isEmpty()) {
+        fail(QStringLiteral("'%1' is not a valid name or reference").arg(token.text), token.start, token.end);
+        return -1;
+    }
+    const QString defined = m_names ? m_names(token.text) : QString();
+    Node node;
+    node.kind = Node::Kind::Name;
+    node.start = token.start;
+    node.end = token.end;
+    node.text = qint32(m_formula.strings.size());
+    m_formula.strings.append(defined.isEmpty() ? token.text : defined);
     return add(node, {});
 }
 
@@ -447,28 +437,10 @@ ParseResult Parser::run()
 }
 } // namespace
 
-const FunctionSpec *functionByName(QStringView name)
+ParseResult parseFormula(const QString &text, const SheetIdLookup &sheetIdForName, int maximumLength,
+                         const NameLookup &names)
 {
-    for (const auto &spec : functionTable)
-        if (name.compare(QLatin1StringView(spec.name), Qt::CaseInsensitive) == 0) return &spec;
-    return nullptr;
-}
-const FunctionSpec &functionSpec(Function id)
-{
-    for (const auto &spec : functionTable)
-        if (spec.id == id) return spec;
-    return functionTable[0];
-}
-QStringList functionNames()
-{
-    QStringList names;
-    for (const auto &spec : functionTable) names.append(QString::fromLatin1(spec.name));
-    return names;
-}
-
-ParseResult parseFormula(const QString &text, const SheetIdLookup &sheetIdForName, int maximumLength)
-{
-    return Parser(text, sheetIdForName, maximumLength).run();
+    return Parser(text, sheetIdForName, maximumLength, names).run();
 }
 
 } // namespace QindaTK::Calc

@@ -18,7 +18,88 @@ bool formulaSheetsExist(const WorkbookPrivate &d, const CellContent &content)
         if (!d.byId.contains(id)) return false;
     return true;
 }
+bool usesNames(const Formula &formula)
+{
+    return std::any_of(formula.nodes.begin(), formula.nodes.end(),
+                       [](const Node &n) { return n.kind == Node::Kind::Name; });
+}
+void includeFeatureAreas(Bounds &bounds, const SheetFeatures &features)
+{
+    const auto add = [&](const Area &a) { bounds.include(a.firstRow, a.firstColumn); bounds.include(a.lastRow, a.lastColumn); };
+    for (const FormatLayer &layer : features.formats) add(layer.area);
+    for (const Area &area : features.merges) add(area);
+    for (const ConditionalRule &rule : features.conditional) for (const Area &a : rule.areas) add(a);
+    for (const ValidationRule &rule : features.validations) for (const Area &a : rule.areas) add(a);
+}
 } // namespace
+
+void WorkbookPrivate::seedNameUsers()
+{
+    if (!txn) return;
+    for (const auto &s : sheets)
+        for (const auto &[position, c] : s->cells)
+            if (c.content.kind == CellContent::Kind::Formula && usesNames(*c.content.formula))
+                txn->seeds.insert(globalKey(s->uid, position));
+}
+
+bool WorkbookPrivate::applyFeatures(const Mutation &m, MutationList *inverse, QString *error)
+{
+    if (m.kind == Mutation::Kind::SetNames) {
+        if (!m.names) return setError(error, QStringLiteral("Missing name table"));
+        Mutation undo;
+        undo.kind = Mutation::Kind::SetNames;
+        undo.names = names;
+        names = m.names;
+        rebuildDependencies();
+        seedNameUsers();
+        if (txn) txn->namesChanged = true;
+        inverse->push_back(std::move(undo));
+        return true;
+    }
+    Sheet *s = sheet(m.sheetId);
+    if (!s) return setError(error, QStringLiteral("Unknown sheet"));
+    if (!m.features) return setError(error, QStringLiteral("Missing sheet features"));
+    if (txn) {
+        includeFeatureAreas(txn->touched[s->uid], *s->features);
+        includeFeatureAreas(txn->touched[s->uid], *m.features);
+        if (!(s->features->properties == m.features->properties)) txn->propertySheets.insert(s->id);
+    }
+    Mutation undo;
+    undo.kind = Mutation::Kind::SetFeatures;
+    undo.sheetId = s->id;
+    undo.features = s->features;
+    s->features = m.features;
+    inverse->push_back(std::move(undo));
+    return true;
+}
+
+void WorkbookPrivate::transformSheetFeatures(const StructuralEdit *edit, const QString &removedSheetId,
+                                             MutationList *inverse)
+{
+    for (const auto &s : sheets) {
+        bool changed = false;
+        const FeaturesPtr next = edit ? transformFeatures(s->features, s->id, *edit, &changed)
+                                      : invalidateFeatureSheet(s->features, removedSheetId, &changed);
+        if (!changed) continue;
+        Mutation restore;
+        restore.kind = Mutation::Kind::SetFeatures;
+        restore.sheetId = s->id;
+        restore.features = s->features;
+        if (txn && !(s->features->properties == next->properties)) txn->propertySheets.insert(s->id);
+        s->features = next;
+        inverse->push_back(std::move(restore));
+    }
+    bool changed = false;
+    const NamesPtr next = edit ? transformNames(names, *edit, &changed)
+                               : invalidateNameSheet(names, removedSheetId, &changed);
+    if (!changed) return;
+    Mutation restore;
+    restore.kind = Mutation::Kind::SetNames;
+    restore.names = names;
+    names = next;
+    if (txn) txn->namesChanged = true;
+    inverse->push_back(std::move(restore));
+}
 
 CellContent WorkbookPrivate::contentAt(const Sheet &s, int row, int column) const
 {
@@ -65,6 +146,9 @@ bool WorkbookPrivate::apply(const Mutation &m, MutationList *inverse, QString *e
     case Mutation::Kind::InsertColumns:
     case Mutation::Kind::RemoveColumns:
         return applyStructural(m, inverse, error);
+    case Mutation::Kind::SetFeatures:
+    case Mutation::Kind::SetNames:
+        return applyFeatures(m, inverse, error);
     default:
         return applySheetChange(m, inverse, error);
     }
@@ -142,6 +226,8 @@ bool WorkbookPrivate::applyStructural(const Mutation &m, MutationList *inverse, 
     for (const auto &[position, c] : s->cells)
         if (c.content.kind == CellContent::Kind::Formula) ++s->formulaCount;
     (rows ? s->rows : s->columns) += insert ? m.count : -m.count;
+    MutationList restoreFeatures;
+    transformSheetFeatures(&edit, {}, &restoreFeatures);
     rebuildDependencies();
 
     if (txn) {
@@ -154,6 +240,7 @@ bool WorkbookPrivate::applyStructural(const Mutation &m, MutationList *inverse, 
         for (quint64 key : std::as_const(txn->seeds)) keep(key);
         for (quint64 key : std::as_const(affected)) keep(key);
         txn->seeds = std::move(seeds);
+        if (!restoreFeatures.empty()) seedNameUsers(); // a name may have moved
         Bounds all;
         all.include(0, 0);
         all.include(s->rows - 1, s->columns - 1);
@@ -170,6 +257,7 @@ bool WorkbookPrivate::applyStructural(const Mutation &m, MutationList *inverse, 
     inverse->push_back(std::move(opposite));
     if (!restoreHere.cells.empty()) inverse->push_back(std::move(restoreHere));
     for (Mutation &restore : restoreOthers) inverse->push_back(std::move(restore));
+    for (Mutation &restore : restoreFeatures) inverse->push_back(std::move(restore));
     return true;
 }
 
@@ -200,6 +288,7 @@ bool WorkbookPrivate::applySheetChange(const Mutation &m, MutationList *inverse,
             }
             setContent(*s, e.row, e.column, e.content);
         }
+        s->features = state.features ? state.features : emptyFeatures();
         seedFormulas(*s);
         if (txn) txn->sheetsChanged = true;
         Mutation undo;
@@ -248,6 +337,7 @@ bool WorkbookPrivate::applySheetChange(const Mutation &m, MutationList *inverse,
     state->index = from;
     state->rows = s->rows;
     state->columns = s->columns;
+    state->features = s->features;
     state->cells.reserve(s->cells.size());
     for (const auto &[position, c] : s->cells)
         state->cells.push_back({keyRow(position), keyColumn(position), c.content});
@@ -271,9 +361,12 @@ bool WorkbookPrivate::applySheetChange(const Mutation &m, MutationList *inverse,
         if (!pre.cells.empty()) restores.push_back(std::move(pre));
     }
     const quint32 uid = s->uid;
+    const QString removedId = s->id;
     byId.remove(s->id);
     byUid.remove(uid);
     sheets.erase(sheets.begin() + from);
+    MutationList restoreFeatures;
+    transformSheetFeatures(nullptr, removedId, &restoreFeatures);
     rebuildDependencies();
     if (txn) {
         QSet<quint64> seeds;
@@ -281,12 +374,15 @@ bool WorkbookPrivate::applySheetChange(const Mutation &m, MutationList *inverse,
         txn->seeds = std::move(seeds);
         txn->touched.remove(uid);
         txn->sheetsChanged = true;
+        txn->propertySheets.remove(removedId);
+        if (!restoreFeatures.empty()) seedNameUsers();
     }
     Mutation add;
     add.kind = Mutation::Kind::AddSheet;
     add.state = state;
     inverse->push_back(std::move(add));
     for (Mutation &restore : restores) inverse->push_back(std::move(restore));
+    for (Mutation &restore : restoreFeatures) inverse->push_back(std::move(restore));
     return true;
 }
 
