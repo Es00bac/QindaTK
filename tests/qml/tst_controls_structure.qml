@@ -375,16 +375,53 @@ TestCase {
     function test_zoom_control_steps() {
         const zoom = createTemporaryObject(zoomComponent, root)
         compare(zoom.implicitHeight, Tk.Theme.size.control)
-        const spy = createTemporaryObject(signalSpyComponent, root, { target: zoom, signalName: "valueModified" })
+        const modified = createTemporaryObject(signalSpyComponent, root, { target: zoom, signalName: "valueModified" })
+        const reset = createTemporaryObject(signalSpyComponent, root, { target: zoom, signalName: "resetRequested" })
         waitForRendering(zoom)
         mouseClick(findChild(zoom, "zoomIn"))
-        compare(spy.count, 1)
+        compare(modified.count, 1)
         compare(zoom.value, 1.5)
         mouseClick(findChild(zoom, "zoomOut"))
+        compare(modified.count, 2)
         compare(zoom.value, 1.0)
+        const readout = findChild(zoom, "zoomReadout")
+        verify(readout !== null)
+        compare(readout.Accessible.role, Accessible.Button)
+        compare(readout.Accessible.name, "Reset zoom")
+        compare(readout.Accessible.description, "Current zoom 100%")
+        readout.forceActiveFocus(Qt.TabFocusReason)
+        verify(readout.activeFocus)
+        verify(readout.visualFocus)
+        keyClick(Qt.Key_Return)
+        compare(reset.count, 1)
+        compare(modified.count, 2) // reset at 100% is unchanged
+        zoom.value = 3 // owner synchronization is silent
+        compare(modified.count, 2)
+        compare(reset.count, 1)
+        keyClick(Qt.Key_Space)
+        compare(zoom.value, 1.0)
+        compare(reset.count, 2)
+        compare(modified.count, 3)
         zoom.value = 3
-        zoom.reset()
+        keyClick(Qt.Key_Enter)
         compare(zoom.value, 1.0)
+        compare(reset.count, 3)
+        compare(modified.count, 4)
+        zoom.value = 2
+        readout.Accessible.pressAction()
+        compare(zoom.value, 1.0)
+        compare(reset.count, 4)
+        compare(modified.count, 5)
+
+        zoom.enabled = false
+        zoom.value = 2
+        zoom.zoomIn()
+        zoom.zoomOut()
+        zoom.reset()
+        readout.Accessible.pressAction()
+        compare(zoom.value, 2) // owner can still synchronize disabled state
+        compare(reset.count, 4)
+        compare(modified.count, 5)
     }
 
     Component { id: signalSpyComponent; SignalSpy { } }

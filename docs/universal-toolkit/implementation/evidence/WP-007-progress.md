@@ -83,6 +83,10 @@ FND-07 through FND-10.
   list above or below a control in a small host. Keyboard and pointer choice
   emit `activated`, while owner index assignments remain silent.
   [Focused evidence](WP-007-FND-09-combo-box.md).
+- `ZoomControl`'s percentage readout is now keyboard focusable and exposes a
+  guarded accessible reset action. Owner zoom synchronization stays silent;
+  disabled user operations are ignored.
+  [Focused evidence](WP-007-FIX-F04-zoom-control.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,
