@@ -2,6 +2,8 @@
 #include "property_binding.h"
 
 #include <QtTest>
+#include <QVector3D>
+#include <limits>
 
 using namespace QindaTK;
 
@@ -111,6 +113,88 @@ private slots:
         QVERIFY(!fixture.binding.begin());
         QCOMPARE(fixture.document.committedValue(fixture.first, QStringLiteral("gain")), QVariant(4));
         QVERIFY(!fixture.undo.canUndo());
+    }
+
+    void mixedVectorsPatchEachTargetAndUndoTogether()
+    {
+        const QVector3D first(1.0f, 2.0f, 3.0f);
+        const QVector3D second(4.0f, 5.0f, 6.0f);
+        Fixture fixture(QMetaType::fromType<QVector3D>(), QVariant::fromValue(first),
+                        QVariant::fromValue(second));
+        QVERIFY(fixture.binding.mixed());
+        QSignalSpy accepted(&fixture.binding, &PropertyBinding::userEditAccepted);
+        QVERIFY(fixture.binding.begin());
+        QVERIFY(fixture.binding.updateComponent(0, 9.0));
+        QCOMPARE(fixture.document.value(fixture.first, QStringLiteral("gain")).value<QVector3D>(),
+                 QVector3D(9.0f, 2.0f, 3.0f));
+        QCOMPARE(fixture.document.value(fixture.second, QStringLiteral("gain")).value<QVector3D>(),
+                 QVector3D(9.0f, 5.0f, 6.0f));
+        QVERIFY(fixture.binding.updateComponent(2, 8.0));
+        QCOMPARE(fixture.document.value(fixture.first, QStringLiteral("gain")).value<QVector3D>(),
+                 QVector3D(9.0f, 2.0f, 8.0f));
+        QCOMPARE(fixture.document.value(fixture.second, QStringLiteral("gain")).value<QVector3D>(),
+                 QVector3D(9.0f, 5.0f, 8.0f));
+        QCOMPARE(fixture.document.committedValue(fixture.first, QStringLiteral("gain")).value<QVector3D>(), first);
+        QVERIFY(fixture.binding.commit());
+        QCOMPARE(accepted.size(), 1);
+        QCOMPARE(accepted.first().at(2).toMap().value(QStringLiteral("componentIndex")).toInt(), 2);
+        QCOMPARE(fixture.document.committedValue(fixture.first, QStringLiteral("gain")).value<QVector3D>(),
+                 QVector3D(9.0f, 2.0f, 8.0f));
+        QVERIFY(fixture.undo.undo());
+        QCOMPARE(fixture.document.value(fixture.first, QStringLiteral("gain")).value<QVector3D>(), first);
+        QCOMPARE(fixture.document.value(fixture.second, QStringLiteral("gain")).value<QVector3D>(), second);
+        QVERIFY(!fixture.undo.canUndo());
+    }
+
+    void canceledComponentPreviewRestoresAllTargets()
+    {
+        const QVector3D first(1.0f, 2.0f, 3.0f);
+        const QVector3D second(4.0f, 5.0f, 6.0f);
+        Fixture fixture(QMetaType::fromType<QVector3D>(), QVariant::fromValue(first),
+                        QVariant::fromValue(second));
+        QVERIFY(fixture.binding.begin());
+        QVERIFY(fixture.binding.updateComponent(1, 10.0));
+        fixture.binding.cancel();
+        QCOMPARE(fixture.document.value(fixture.first, QStringLiteral("gain")).value<QVector3D>(), first);
+        QCOMPARE(fixture.document.value(fixture.second, QStringLiteral("gain")).value<QVector3D>(), second);
+        QVERIFY(!fixture.undo.canUndo());
+    }
+
+    void componentPatchRejectsWrongTypeBadIndexAndStaleRevision()
+    {
+        Fixture scalar;
+        QVERIFY(!scalar.binding.updateComponent(0, 5.0));
+        QVERIFY(!scalar.binding.editing());
+        QVERIFY(!scalar.undo.canUndo());
+        Fixture vector(QMetaType::fromType<QVector3D>(),
+                       QVariant::fromValue(QVector3D(1, 2, 3)),
+                       QVariant::fromValue(QVector3D(4, 5, 6)));
+        QVERIFY(!vector.binding.updateComponent(3, 5.0));
+        QVERIFY(!vector.binding.editing());
+        QVERIFY(!vector.binding.updateComponent(0, std::numeric_limits<double>::quiet_NaN()));
+        QVERIFY(!vector.binding.editing());
+        QVERIFY(vector.binding.begin());
+        QVERIFY(vector.binding.updateComponent(0, 7.0));
+        const EntityId extra = EntityId::create();
+        QVERIFY(vector.document.addEntity(extra));
+        QVERIFY(!vector.binding.updateComponent(1, 8.0));
+        QVERIFY(!vector.binding.editing());
+        QCOMPARE(vector.document.committedValue(vector.first, QStringLiteral("gain")).value<QVector3D>(),
+                 QVector3D(1, 2, 3));
+        QVERIFY(!vector.undo.canUndo());
+    }
+
+    void doubleVectorListPreservesOtherAxes()
+    {
+        const QVariantList first{1.0, 2.0};
+        const QVariantList second{3.0, 4.0};
+        Fixture fixture(QMetaType::fromType<QVariantList>(), first, second);
+        QVERIFY(fixture.binding.updateComponent(1, 9.0));
+        QVERIFY(fixture.binding.commit());
+        QCOMPARE(fixture.document.value(fixture.first, QStringLiteral("gain")).toList(),
+                 QVariantList({1.0, 9.0}));
+        QCOMPARE(fixture.document.value(fixture.second, QStringLiteral("gain")).toList(),
+                 QVariantList({3.0, 9.0}));
     }
 
     void exactIntegerUsesDecimalStringAcrossQmlBoundary()

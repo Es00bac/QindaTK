@@ -61,6 +61,7 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE bool begin();
     Q_INVOKABLE bool update(const QVariant &candidate);
+    Q_INVOKABLE bool updateComponent(int componentIndex, const QVariant &candidateComponent);
     Q_INVOKABLE bool updateExactInteger(const QString &decimal);
     Q_INVOKABLE bool commit();
     Q_INVOKABLE void cancel();

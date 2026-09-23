@@ -49,6 +49,8 @@ public:
     bool begin(const QVector<EntityId> &targets, const QString &propertyId,
                const QString &label, const QString &mergeKey = {});
     OperationError updateValue(const QVariant &candidate);
+    OperationError updateComponent(int componentIndex, const QVariant &candidateComponent);
+    bool hasEffectiveChanges() const;
     OperationError commitEdit();
     Q_INVOKABLE bool begin();
     Q_INVOKABLE bool update(const QVariant &candidate) { return !updateValue(candidate); }

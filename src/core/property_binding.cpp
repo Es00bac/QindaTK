@@ -285,6 +285,24 @@ bool PropertyBinding::update(const QVariant &candidate)
     return true;
 }
 
+bool PropertyBinding::updateComponent(int componentIndex, const QVariant &candidateComponent)
+{
+    if (!editing() && !begin()) return false;
+    const OperationError failure = m_transaction->updateComponent(componentIndex, candidateComponent);
+    if (failure) {
+        setFailure(failure.message);
+        cancel();
+        setFailure(failure.message);
+        return false;
+    }
+    m_pendingValue = QVariantMap{{QStringLiteral("componentIndex"), componentIndex},
+                                 {QStringLiteral("value"), candidateComponent}};
+    m_hasPendingValue = true;
+    m_validationError.clear();
+    emit changed();
+    return true;
+}
+
 bool PropertyBinding::updateExactInteger(const QString &decimal)
 {
     if (!m_document) return false;
@@ -302,6 +320,7 @@ bool PropertyBinding::updateExactInteger(const QString &decimal)
 bool PropertyBinding::commit()
 {
     if (!editing()) return false;
+    if (!m_transaction->hasEffectiveChanges()) m_hasPendingValue = false;
     const OperationError failure = m_transaction->commitEdit();
     if (failure) {
         setFailure(failure.message);

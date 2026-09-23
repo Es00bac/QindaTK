@@ -3,12 +3,59 @@
 #include <QSet>
 #include <QSignalBlocker>
 #include <QThread>
+#include <QVector2D>
+#include <QVector3D>
+#include <QVector4D>
+#include <cmath>
+#include <limits>
 
 namespace QindaTK {
 namespace {
 OperationError failure(ErrorCode code, const QString &message, const QString &field = {})
 {
     return {code, message, field, {}};
+}
+OperationError patchComponent(const QVariant &current, int index, double candidate,
+                              QVariant *patched)
+{
+    if (index < 0) return failure(ErrorCode::InvalidArgument, QStringLiteral("Invalid component index"));
+    if (current.metaType() == QMetaType::fromType<QVector2D>()) {
+        if (index >= 2 || std::abs(candidate) > std::numeric_limits<float>::max())
+            return failure(ErrorCode::Validation, QStringLiteral("Vector component is out of range"));
+        auto value = current.value<QVector2D>();
+        if (index == 0) value.setX(float(candidate)); else value.setY(float(candidate));
+        *patched = QVariant::fromValue(value);
+    } else if (current.metaType() == QMetaType::fromType<QVector3D>()) {
+        if (index >= 3 || std::abs(candidate) > std::numeric_limits<float>::max())
+            return failure(ErrorCode::Validation, QStringLiteral("Vector component is out of range"));
+        auto value = current.value<QVector3D>();
+        if (index == 0) value.setX(float(candidate));
+        else if (index == 1) value.setY(float(candidate));
+        else value.setZ(float(candidate));
+        *patched = QVariant::fromValue(value);
+    } else if (current.metaType() == QMetaType::fromType<QVector4D>()) {
+        if (index >= 4 || std::abs(candidate) > std::numeric_limits<float>::max())
+            return failure(ErrorCode::Validation, QStringLiteral("Vector component is out of range"));
+        auto value = current.value<QVector4D>();
+        if (index == 0) value.setX(float(candidate));
+        else if (index == 1) value.setY(float(candidate));
+        else if (index == 2) value.setZ(float(candidate));
+        else value.setW(float(candidate));
+        *patched = QVariant::fromValue(value);
+    } else if (current.metaType() == QMetaType::fromType<QVariantList>()) {
+        auto values = current.toList();
+        if (values.size() < 2 || values.size() > 4 || index >= values.size())
+            return failure(ErrorCode::Validation, QStringLiteral("Vector component is out of range"));
+        for (const auto &element : values)
+            if (element.metaType() != QMetaType::fromType<double>()
+                || !std::isfinite(element.toDouble()))
+                return failure(ErrorCode::Validation, QStringLiteral("Vector list requires finite double components"));
+        values[index] = candidate;
+        *patched = values;
+    } else {
+        return failure(ErrorCode::Validation, QStringLiteral("Property type does not support component edits"));
+    }
+    return {};
 }
 }
 
@@ -150,6 +197,48 @@ OperationError EditTransaction::updateValue(const QVariant &candidate)
         return reject(failure(ErrorCode::StaleRevision, QStringLiteral("Document changed during edit")), true);
     auto proposed = m_changes;
     for (auto &change : proposed) change.after = candidate;
+    if (auto error = m_document->showPreview(m_id, proposed)) return reject(error, false);
+    m_changes = proposed;
+    m_error = {};
+    emit stateChanged();
+    return {};
+}
+
+bool EditTransaction::hasEffectiveChanges() const
+{
+    if (!m_active || !m_document) return false;
+    for (const auto &change : m_changes)
+        if (!m_document->equalValue(change.before, change.after)) return true;
+    return false;
+}
+
+OperationError EditTransaction::updateComponent(int componentIndex, const QVariant &candidateComponent)
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    if (!m_active || !m_document)
+        return reject(failure(ErrorCode::Unavailable, QStringLiteral("No active edit")), true);
+    const SnapshotHeader current = m_document->header();
+    if (current.resetGeneration != m_base.resetGeneration)
+        return reject(failure(ErrorCode::StaleGeneration, QStringLiteral("Document model was reset")), true);
+    if (current.revision != m_base.revision)
+        return reject(failure(ErrorCode::StaleRevision, QStringLiteral("Document changed during edit")), true);
+    const QMetaType type = candidateComponent.metaType();
+    const int id = type.id();
+    if (id != QMetaType::Int && id != QMetaType::UInt
+        && id != QMetaType::LongLong && id != QMetaType::ULongLong
+        && id != QMetaType::Double && id != QMetaType::Float)
+        return reject(failure(ErrorCode::Validation, QStringLiteral("Component must be numeric")), false);
+    bool converted = false;
+    const double number = candidateComponent.toDouble(&converted);
+    if (!converted || !std::isfinite(number))
+        return reject(failure(ErrorCode::Validation, QStringLiteral("Component must be finite")), false);
+    auto proposed = m_changes;
+    for (auto &change : proposed) {
+        QVariant patched;
+        if (auto error = patchComponent(change.after, componentIndex, number, &patched))
+            return reject(error, false);
+        change.after = patched;
+    }
     if (auto error = m_document->showPreview(m_id, proposed)) return reject(error, false);
     m_changes = proposed;
     m_error = {};
