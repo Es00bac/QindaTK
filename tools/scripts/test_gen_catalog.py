@@ -25,6 +25,7 @@ class FixtureValue {
     Q_GADGET
     QML_VALUE_TYPE(fixtureValue)
     Q_PROPERTY(QindaTK::ThemeRamp *ramp READ ramp)
+    Q_PROPERTY(qreal pressure MEMBER pressure)
     Q_INVOKABLE QVariantMap registerPanel(
         const QString &workspace,
         const QString &panelId);
@@ -44,6 +45,9 @@ class FixturePrivate {
         prop = by_name["fixtureValue"]["properties"][0]
         require(prop["name"] == "ramp" and prop["type"] == "QindaTK::ThemeRamp *",
                 "pointer property spacing was not retained")
+        member_prop = by_name["fixtureValue"]["properties"][1]
+        require(member_prop["name"] == "pressure" and not member_prop["readonly"],
+                "MEMBER property was not parsed as writable")
         method = by_name["fixtureValue"]["methods"][0]
         require(method["name"] == "registerPanel" and "panelId" in method["parameters"],
                 "multiline invokable was not parsed")
@@ -68,7 +72,7 @@ def repository_checks():
     before_names = {item["name"] for item in before["types"]}
     after_names = {item["name"] for item in after["types"]}
     require(before_names <= after_names, "one or more existing catalog entries disappeared")
-    require(len(before_names) == 99, "fixture expected the audited 99-entry prior catalog")
+    require(len(after_names) == 101, "catalog should contain the expected 101 source entries")
     require({"stylusSample", "QindaQtTheme"} <= after_names,
             "value type or QindaQt bridge is missing")
     entries = {item["name"]: item for item in after["types"]}
@@ -78,6 +82,18 @@ def repository_checks():
     require("definition" in dock["parameters"], "DockModel.registerPanel declaration was missed")
     series_at = next(m for m in entries["Graph"]["methods"] if m["name"] == "seriesAt")
     require(series_at["returns"] == "QindaTK::GraphSeries *", "Graph.seriesAt pointer return was missed")
+    stylus = entries["stylusSample"]
+    expected_stylus = {"position", "scenePosition", "pressure", "tiltX", "tiltY", "rotation",
+                       "pointerType", "buttons", "modifiers", "synthesizedFromMouse", "timestamp"}
+    actual_stylus = {prop["name"] for prop in stylus["properties"]}
+    require(actual_stylus == expected_stylus,
+            "StylusSample property set differs from its Q_PROPERTY declarations")
+    require(stylus["registrationKind"] == "qml_value_type" and stylus["exported"]
+            and stylus["valueType"], "StylusSample registration provenance is incorrect")
+    require(all(not prop["readonly"] for prop in stylus["properties"] if prop["name"] != "pointerType"),
+            "StylusSample MEMBER property writability is incorrect")
+    pointer_type = next(prop for prop in stylus["properties"] if prop["name"] == "pointerType")
+    require(pointer_type["readonly"], "StylusSample READ property should be readonly")
     bridge = entries["QindaQtTheme"]
     require(bridge["module"] == "QindaTK.QindaQt" and bridge["bridge"],
             "bridge module metadata is incorrect")

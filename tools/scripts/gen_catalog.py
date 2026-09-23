@@ -28,7 +28,8 @@ QML_ROOT = re.compile(r"^(?P<type>[A-Z][\w.]*)\s*\{\s*$")
 QML_OBJECTNAME = re.compile(r'objectName:\s*"(?P<name>[^"]+)"')
 CPP_CLASS = re.compile(r"^(?:class|struct)\s+(?P<name>\w+)(?:\s+final)?(?:\s*:\s*public\s+(?P<base>[\w:]+))?")
 CPP_PROPERTY = re.compile(
-    r"Q_PROPERTY\(\s*(?P<type>[\w:<>]+\s*\*?)\s*(?P<name>\w+)\s+READ\s+\w+"
+    r"Q_PROPERTY\(\s*(?P<type>[\w:<>]+\s*\*?)\s*(?P<name>\w+)\s+"
+    r"(?P<accessor>READ\s+\w+|MEMBER\s+\w+)"
     r"(?P<tail>[^)]*)\)")
 CPP_INVOKABLE = re.compile(
     r"Q_INVOKABLE\s+(?:(?:\[\[nodiscard\]\]|static)\s+)*"
@@ -104,19 +105,6 @@ def parse_qml(path, module="QindaTK", registration="qml_module"):
     return entry
 
 
-def _statements(lines):
-    """Yield logical C++ declarations across line breaks through their semicolon."""
-    pending = ""
-    for line in lines:
-        stripped = line.strip()
-        if not pending and (not stripped or stripped.startswith(("//", "#"))):
-            continue
-        pending = (pending + " " + stripped).strip()
-        if ";" in pending:
-            yield pending[:pending.index(";") + 1]
-            pending = ""
-
-
 def parse_header(path):
     text = path.read_text()
     types, current, in_signals = [], None, False
@@ -174,10 +162,12 @@ def parse_header(path):
             prop = CPP_PROPERTY.search(statement)
             if prop:
                 tail = prop.group("tail")
+                member = prop.group("accessor").startswith("MEMBER")
+                constant = re.search(r"\bCONSTANT\b", tail) is not None
                 current["properties"].append({"name": prop.group("name"),
                     "type": " ".join(prop.group("type").split()), "default": "",
-                    "readonly": re.search(r"\bWRITE\b", tail) is None,
-                    "constant": re.search(r"\bCONSTANT\b", tail) is not None})
+                    "readonly": constant if member else re.search(r"\bWRITE\b", tail) is None,
+                    "constant": constant})
                 continue
             inv = CPP_INVOKABLE.search(statement)
             if inv:
