@@ -58,6 +58,7 @@ TestCase {
     Component { id: cardComponent; Tk.Card { interactive: true; width: 240; Tk.Label { text: "Card" } } }
     Component { id: ordinaryLabelComponent; Tk.Label { text: "Copy this label" } }
     Component { id: selectableLabelComponent; Tk.Label { text: "Copy this label"; selectable: true } }
+    Component { id: elidedSelectableLabelComponent; Tk.Label { text: "A much longer label"; width: 48; selectable: true } }
     Component { id: labelPasteTargetComponent; Tk.TextField { width: 180 } }
 
     function test_label_selection_and_copy() {
@@ -70,6 +71,7 @@ TestCase {
 
         const editor = findChild(selectable, "selectableText")
         verify(editor !== null)
+        compare(editor.activeFocus, false)
         editor.forceActiveFocus()
         verify(editor.activeFocus)
         keyClick(Qt.Key_A, Qt.ControlModifier)
@@ -83,6 +85,11 @@ TestCase {
 
         mouseDrag(editor, 2, editor.height / 2, editor.width - 2, editor.height / 2, 6)
         verify(editor.selectedText.length > 0)
+
+        const elided = createTemporaryObject(elidedSelectableLabelComponent, root, { y: 120 })
+        const elidedEditor = findChild(elided, "selectableText")
+        verify(elidedEditor.text.length < elided.text.length)
+        verify(elidedEditor.text.endsWith("…"))
     }
 
     function test_tab_strip() {

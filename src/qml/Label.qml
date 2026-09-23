@@ -13,11 +13,16 @@ Text {
     property bool accent: false
     property bool mono: false
     property bool selectable: false
+    readonly property color _resolvedTextColor: disabled ? Tk.Theme.color.textDisabled
+        : accent ? Tk.Theme.color.accentText
+        : muted ? Tk.Theme.color.textMuted
+        : Tk.Theme.color.text
 
-    color: disabled ? Tk.Theme.color.textDisabled
-         : accent ? Tk.Theme.color.accentText
-         : muted ? Tk.Theme.color.textMuted
-         : Tk.Theme.color.text
+    // The TextEdit paints the glyphs in selectable mode. Keep Text's own
+    // color role and all Text geometry, but suppress its duplicate glyphs.
+    color: selectable
+        ? Qt.rgba(_resolvedTextColor.r, _resolvedTextColor.g, _resolvedTextColor.b, 0)
+        : _resolvedTextColor
     font.family: mono ? Tk.Theme.font.monoFamily : Tk.Theme.font.family
     font.pixelSize: Tk.Theme.font.body
     elide: Text.ElideRight
@@ -36,8 +41,8 @@ Text {
         objectName: "selectableText"
         anchors.fill: parent
         visible: label.selectable
-        text: label.text
-        color: label.color
+        text: label.wrapMode === Text.NoWrap ? metrics.elidedText : label.text
+        color: label._resolvedTextColor
         font: label.font
         horizontalAlignment: label.horizontalAlignment
         verticalAlignment: label.verticalAlignment
@@ -45,11 +50,10 @@ Text {
         textFormat: label.textFormat
         renderType: label.renderType
         selectionColor: Tk.Theme.color.selection
-        selectedTextColor: label.color
+        selectedTextColor: label._resolvedTextColor
         readOnly: true
         selectByMouse: true
         persistentSelection: true
-        focus: label.selectable
         activeFocusOnTab: label.selectable
 
         Accessible.role: Accessible.StaticText
@@ -64,5 +68,15 @@ Text {
                 event.accepted = true
             }
         }
+    }
+
+    // Match Text's right-elision at constrained widths; selection and copy
+    // then operate on the displayed string, including its ellipsis.
+    TextMetrics {
+        id: metrics
+        font: label.font
+        text: label.text
+        elide: label.elide
+        elideWidth: label.width
     }
 }
