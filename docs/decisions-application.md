@@ -148,7 +148,9 @@ bounded local engine uses three-valued filter logic, hashes typed dimension
 values for stable row/column IDs, and stores contributing source row IDs per
 aggregate cell. Refresh rejection is atomic on error, cancellation, revision
 change or limit breach. A completed pivot is a read-only presentation snapshot
-when adapted to `EditableGridModel`.
+when adapted to `EditableGridModel`. The QML controller gathers a bounded
+snapshot in GUI-thread chunks, executes against that immutable copy on a
+worker, and publishes only if source revision and request generation match.
 
 **Consequences.** Hosts own source snapshots and remote execution, must
 increment schema revisions on metadata changes, and must check query request

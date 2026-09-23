@@ -90,6 +90,7 @@ qt_add_qml_module(qindatk
         core/editable_grid_mode.cpp
         core/query_spec.cpp core/query_eval.cpp core/query_pivot.cpp core/query_core.h
         core/query_grid_adapter.cpp core/query_grid_adapter.h
+        core/query_controller.cpp core/query_controller.h
         core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h
         core/density.cpp core/density.h
         core/focus_manager.cpp core/focus_manager.h

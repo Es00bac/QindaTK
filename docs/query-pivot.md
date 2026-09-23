@@ -51,6 +51,33 @@ rejects data edits, range paste/fill and history replay, and advertises
 non-editable item flags. Pivot edits should go through an explicit domain
 drill-through operation against source IDs.
 
+## QML controller
+
+`Tk.QueryController` connects a `Tk.EditableGridModel` source to this core.
+Set `source`, `schema` and `query`, then call `refresh()`. The schema map is
+`{id, revision, fields: [{id, type, nullable}]}` where `type` is `boolean`,
+`integer`, `number` or `text`. `query` is the version-1 JSON shape from
+`QueryEngine::toJson`; include a unique `id` and the grid's current
+`revision` as `sourceRevision`. `refresh()` returns false for an immediately
+invalid request and otherwise schedules work. `status` is `idle`, `running`,
+`complete`, `rejected` or `cancelled`; `diagnostic` explains rejection.
+`completed(requestId)` and `rejected(requestId, reason)` identify results.
+
+On completion, `resultModel` is a read-only `EditableGridModel`. Use
+`rowIdAt`/`columnIdAt` on it, then `rowLabels[id]`, `columnLabels[id]`,
+`cellValue(rowId, columnId)` and `sourceRows(rowId, columnId)` on the
+controller. `resultChanged` fires after the complete snapshot and labels are
+ready. A new query, source or schema invalidates the previous result.
+`cancel()` discards the pending refresh and prevents late publication.
+
+The controller reads at most 128 source rows per event-loop turn on the
+source's GUI thread, then evaluates an immutable snapshot on a worker. The
+default `maxSnapshotValues` is 500,000 projected field values (configurable
+from 1 to 1,000,000); `QueryLimits` also caps rows, groups, output cells and
+provenance. It checks revision and request generation at collection and
+publication. This path is for bounded local data; hosts with larger datasets
+should provide a remote `QuerySource` and publish through their own adapter.
+
 ## Bounds, refresh and providers
 
 The default local scan cap is 100,000 source rows, 10,000 row/column groups,

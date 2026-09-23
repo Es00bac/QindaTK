@@ -17449,6 +17449,119 @@
       "bridge": false
     },
     {
+      "name": "QueryController",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "QML-facing, bounded refresh adapter. Grid snapshots are gathered in event loop chunks on the GUI thread; QueryEngine runs against the immutable copy on a worker. Only a still-current request may publish its complete result.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/query_controller.h",
+      "properties": [
+        {
+          "name": "source",
+          "type": "QindaTK::EditableGridModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "schema",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "query",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "resultModel",
+          "type": "QindaTK::EditableGridModel *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rowLabels",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "columnLabels",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "status",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "diagnostic",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "requestId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maxSnapshotValues",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "refresh",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "cellValue",
+          "returns": "QVariant",
+          "parameters": "const QString &rowId, const QString &columnId"
+        },
+        {
+          "name": "sourceRows",
+          "returns": "QStringList",
+          "parameters": "const QString &rowId, const QString &columnId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "RecoveryManager",
       "kind": "cpp",
       "base": "QObject",
