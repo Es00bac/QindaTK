@@ -37,7 +37,7 @@ public:
 // a gesture runs, in DOCUMENT coordinates. It is never document state; WP-041
 // overlays read the same structure.
 struct CanvasToolPreview {
-    enum Kind : quint8 { None, Marquee, Rect, Ellipse, Polyline, Move };
+    enum Kind : quint8 { None, Marquee, Rect, Ellipse, Polyline, Move, Lasso };
     Kind kind = None;
     QRectF rect;
     QPolygonF points;

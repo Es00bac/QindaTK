@@ -308,7 +308,7 @@ CanvasToolPreview ToolController::preview() const
 QVariantMap ToolController::previewMap() const
 {
     const CanvasToolPreview p = preview();
-    static const char *const kinds[] = {"none", "marquee", "rect", "ellipse", "polyline", "move"};
+    static const char *const kinds[] = {"none", "marquee", "rect", "ellipse", "polyline", "move", "lasso"};
     QVariantList points;
     for (const QPointF &pt : p.points) {
         points << pt;

@@ -119,6 +119,15 @@ void CanvasOverlay::paint(QPainter *painter)
         painter->drawPolygon(toView.map(QPolygonF(preview.rect)));
         break;
     }
+    case CanvasToolPreview::Lasso: {
+        previewPen.setStyle(Qt::DashLine);
+        painter->setPen(previewPen);
+        painter->setBrush(preview.points.size() >= 3 ? m_previewFill : QColor(Qt::transparent));
+        const QPolygonF path = toView.map(preview.points);
+        if (path.size() >= 3) painter->drawPolygon(path);
+        else painter->drawPolyline(path);
+        break;
+    }
     case CanvasToolPreview::Rect:
     case CanvasToolPreview::Ellipse: {
         CanvasObject shape;

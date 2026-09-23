@@ -47,6 +47,7 @@ private slots:
     void toolSwitchAndTemporaryTools();
     void secondViewIsRejected();
     void selectMoveMarquee();
+    void lassoSelectsAndCancelsWithoutDocumentEdit();
     void lockedObjectsAreNotMoved();
     void penStrokeAndEraser();
     void lockedLayerDeclines();
@@ -213,7 +214,7 @@ void TstCanvasTools::toolSwitchAndTemporaryTools()
     QCOMPARE(tools.lastOutcome(), QStringLiteral("canceled:tool-switch"));
     QCOMPARE(doc.objectCount(), 0);
     const QVariantList list = tools.tools();
-    QCOMPARE(list.size(), 5);
+    QCOMPARE(list.size(), 6);
     QCOMPARE(list.first().toMap().value("iconName").toString(), QStringLiteral("mouse-pointer-2"));
 }
 
@@ -269,6 +270,45 @@ void TstCanvasTools::selectMoveMarquee()
     QCOMPARE(tools.selection(), QVector<CanvasObjectId>{a});
     tools.escape();
     QCOMPARE(tools.selection(), QVector<CanvasObjectId>{b});
+}
+
+void TstCanvasTools::lassoSelectsAndCancelsWithoutDocumentEdit()
+{
+    CanvasDocument doc;
+    ToolController tools;
+    tools.setDocument(&doc);
+    const CanvasObjectId a = square(doc, QRectF(0, 0, 10, 10));
+    const CanvasObjectId b = square(doc, QRectF(100, 0, 10, 10));
+    const quint64 revision = doc.revision();
+    tools.setActiveTool(QStringLiteral("lasso"));
+    QVERIFY(tools.begin(QStringLiteral("v"), -10, -10));
+    QVERIFY(tools.update(QStringLiteral("v"), 20, -10));
+    QVERIFY(tools.update(QStringLiteral("v"), 20, 20));
+    QCOMPARE(tools.previewMap().value("kind").toString(), QStringLiteral("lasso"));
+    QVERIFY(tools.end(QStringLiteral("v"), -10, 20));
+    QCOMPARE(tools.selection(), QVector<CanvasObjectId>{a});
+    QCOMPARE(doc.revision(), revision);
+    QVERIFY(!doc.canUndo());
+
+    // Shift adds a second polygon's hits; Escape restores the prior IDs.
+    QVERIFY(tools.begin(QStringLiteral("v"), 90, -10, ToolController::Mouse, Qt::ShiftModifier));
+    QVERIFY(tools.update(QStringLiteral("v"), 120, -10));
+    QVERIFY(tools.update(QStringLiteral("v"), 120, 20));
+    QVERIFY(tools.end(QStringLiteral("v"), 90, 20));
+    QCOMPARE(tools.selection(), (QVector<CanvasObjectId>{a, b}));
+    QVERIFY(tools.begin(QStringLiteral("v"), -20, -20));
+    QCOMPARE(tools.selection().size(), 0);
+    tools.escape();
+    QCOMPARE(tools.selection(), (QVector<CanvasObjectId>{a, b}));
+    QVERIFY(!tools.end(QStringLiteral("v"), 30, 30));
+
+    // Alt changes the region rule from intersection to full containment.
+    QVERIFY(tools.begin(QStringLiteral("v"), 105, -10, ToolController::Mouse, Qt::AltModifier));
+    QVERIFY(tools.update(QStringLiteral("v"), 120, -10));
+    QVERIFY(tools.update(QStringLiteral("v"), 120, 20));
+    QVERIFY(tools.end(QStringLiteral("v"), 105, 20));
+    QVERIFY(tools.selection().isEmpty()); // half of b lies outside the loop
+    QCOMPARE(doc.revision(), revision);
 }
 
 void TstCanvasTools::lockedObjectsAreNotMoved()

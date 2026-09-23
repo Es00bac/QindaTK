@@ -170,17 +170,21 @@ idle --begin(view)--> active --update*--> active --end--> idle   (commit ONE edi
 - Temporary tools (`pushTemporaryTool`/`popTemporaryTool`; CanvasView maps a
   held Space to `pan`) cancel a running gesture before switching.
 
-Built-in tools: `select` (click, shift-add, drag-move, marquee), `pan`,
+Built-in tools: `select` (click, shift-add, drag-move, marquee), `lasso`, `pan`,
 `rectangle`, `ellipse` and `pen`. The pen keeps at most 4096 samples, and
 pressure scales stroke width. With an eraser device the pen removes what it
 crosses in one edit. `ToolController.tools` uses the `Tk.ToolShelf` model
 keys (`id`, `label`, `iconName`, `tooltip`). It is a C++ list, so pass
 `Array.from(controller.tools)`, because ToolShelf checks `Array.isArray`.
+The lasso keeps at most 4096 document-space points. Shift adds to selection;
+Alt requires full containment instead of intersection. Escape restores the
+selection from before the gesture. Lasso selection changes do not create a
+document edit or undo step.
 
 <a id="transient-preview"></a>
 ### Transient preview
 
-`CanvasToolPreview {kind: none|marquee|rect|ellipse|polyline|move, rect,
+`CanvasToolPreview {kind: none|marquee|rect|ellipse|polyline|move|lasso, rect,
 points, offset, ids}` is published as `ToolController.preview`. The overlay
 draws it. WP-041 overlays read the same structure.
 
