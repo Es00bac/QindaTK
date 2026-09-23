@@ -137,6 +137,60 @@ TestCase {
         verify(isInside(contentC, findItem(host, "dockFrame_c")))
     }
 
+    function test_group_tabs_keyboard_and_accessibility() {
+        const host = createTemporaryObject(hostComponent, root)
+        host.model.groupWith("c", "b")
+        tryVerify(function() { return findItem(host, "dockTabStrip_c") !== null })
+        const strip = findItem(host, "dockTabStrip_c")
+        const tabB = findItem(host, "dockTab_b")
+        const tabC = findItem(host, "dockTab_c")
+        const activated = createTemporaryObject(spyComponent, root,
+                                                { target: strip, signalName: "tabActivated" })
+
+        compare(strip.Accessible.role, Accessible.PageTabList)
+        compare(strip.Accessible.name, "Dock panels")
+        compare(tabB.Accessible.role, Accessible.PageTab)
+        compare(tabB.Accessible.name, "Beta")
+        compare(tabC.Accessible.name, "Gamma")
+        compare(tabC.Accessible.selected, true)
+
+        // DockModel owner updates drive selected state without a user-action signal.
+        host.model.activateInGroup("b")
+        tryCompare(tabB.Accessible, "selected", true)
+        compare(activated.count, 0)
+
+        tabC.Accessible.pressAction()
+        compare(activated.count, 1)
+        compare(activated.signalArguments[0][0], "c")
+        tryCompare(tabC.Accessible, "selected", true)
+
+        tabC.forceActiveFocus(Qt.TabFocusReason)
+        tryVerify(function() { return tabC.activeFocus })
+        verify(findItem(tabC, "dockTabFocus_c").visible)
+        keyClick(Qt.Key_Left)
+        tryVerify(function() { return tabB.activeFocus })
+        tryCompare(tabB.Accessible, "selected", true)
+        compare(activated.count, 2)
+
+        host.model.activateInGroup("c")
+        tabB.forceActiveFocus(Qt.TabFocusReason)
+        keyClick(Qt.Key_Space)
+        tryCompare(tabB.Accessible, "selected", true)
+        compare(activated.count, 3)
+
+        host.model.activateInGroup("c")
+        mouseClick(tabB)
+        tryCompare(tabB.Accessible, "selected", true)
+        compare(activated.count, 4)
+
+        strip.enabled = false
+        compare(tabB.enabled, false)
+        compare(tabB.Accessible.focusable, false)
+        tabC.Accessible.pressAction()
+        compare(activated.count, 4)
+        compare(tabB.Accessible.selected, true)
+    }
+
     function test_lane_extent_follows_model() {
         const host = createTemporaryObject(hostComponent, root)
         tryVerify(function() { return findItem(host, "dockLane_right_0") !== null })
@@ -193,4 +247,6 @@ TestCase {
         verify(!host.dragging)
         tryVerify(function() { return findItem(host, "dockTab_a") !== null })
     }
+
+    Component { id: spyComponent; SignalSpy {} }
 }

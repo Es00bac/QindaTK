@@ -129,7 +129,7 @@ size itself fills the frame body; several children anchor themselves.
 | share seam | `dockShareSeam_<zone>_<lane>_<index>` | between slot `index` and `index + 1` |
 | frame | `dockFrame_<activeId>` | one slot; named after its active panel |
 | content container | `dockContent_<panelId>` | one per member; inactive tabs are invisible, never destroyed |
-| tab strip / tab | `dockTabStrip_<activeId>` / `dockTab_<panelId>` | only for groups |
+| tab strip / tab / focus ring | `dockTabStrip_<activeId>` / `dockTab_<panelId>` / `dockTabFocus_<panelId>` | only for groups; PageTabList/PageTab semantics, active selection, visible focused ring |
 | canvas host | `dockCanvas` | `canvas` is reparented here; the overlay zone (`dockZone_overlay`) sits at its top-right |
 | floating frame | `dockFloating_<panelId>` | above the zones, `z` = model zOrder |
 
@@ -151,6 +151,8 @@ invisible surface reaches 48 logical px without widening the dock lane.
 | drag a lane seam | `setLaneExtent` (floored at the panels' minimum) |
 | drag the seam between two stacked slots | `setShare` on both, keeping their total |
 | click a tab | `activateInGroup` |
+| focus a tab, then Left/Right or Home/End | move focus and activate through `activateInGroup`; the model remains the selection authority |
+| Space/Return/Enter or accessible press on a tab | `activateInGroup`; emits `DockTabStrip.tabActivated(panelId)` only when a different tab is accepted |
 | drag a tab sideways, release | `moveInGroup` (index from the release position) |
 | drag a tab or a header more than 8px | tear-off: ghost + drop targets |
 | drop on a host edge strip (28px) | `dock(id, zone)` |

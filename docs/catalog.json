@@ -2590,8 +2590,29 @@
           "required": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "tabActivated",
+          "parameters": "string panelId"
+        }
+      ],
       "methods": [
+        {
+          "name": "activate",
+          "parameters": "panelId"
+        },
+        {
+          "name": "moveFocus",
+          "parameters": "fromIndex, direction"
+        },
+        {
+          "name": "focusIndex",
+          "parameters": "index"
+        },
+        {
+          "name": "tabItem",
+          "parameters": "index"
+        },
         {
           "name": "indexForX",
           "parameters": "x, excludedId"
@@ -2606,6 +2627,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "dockTabFocus_",
         "dockTab_"
       ]
     },

@@ -146,6 +146,14 @@ Readings over time and against a limit. `Tk.Graph` draws on the scene graph;
 
 `DockHost`, `DockPanel`, `DockFrame`, `DockTabStrip`, `DockDivider`,
 `DockFloating`, `DockDropOverlay`. The model is `Tk.DockModel` (C++).
+`DockTabStrip` is a named PageTabList; its panel entries are PageTabs with
+accessible titles and selected state. Tab focuses an entry, Left/Right moves
+and activates across the group, and Home/End selects the first/last panel.
+Space/Return/Enter and the accessible press action activate through
+`DockModel.activateInGroup`; owner model updates only update selection.
+`tabActivated(panelId)` reports accepted user selection. The visible focus
+ring is `dockTabFocus_<panelId>`; `tabItem(index)` exposes a current delegate
+for focus management by host code.
 
 ## Size table (compact density)
 

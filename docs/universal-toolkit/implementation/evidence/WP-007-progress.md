@@ -107,6 +107,11 @@ FND-07 through FND-10.
   accessible press. `Dialog` names its dialog body and its disabled primary
   action rejects keyboard and accessible acceptance.
   [Focused evidence](WP-007-FIX-F04-dialog-palette.md).
+- `DockTabStrip` now exposes PageTabList/PageTab semantics, title names,
+  selected/focused state and a visible focus ring. Left/Right plus Home/End
+  navigate and activate through `DockModel`; Space/Return/Enter, pointer and
+  accessible press use the same guarded activation signal. Owner model updates
+  remain silent. [Focused evidence](WP-007-FIX-F04-dock-tabs.md).
 - [D-023](../../../decisions.md#d-023--separate-owner-state-from-user-intent-notifications)
   and the [control interaction baseline](../../../control-interaction.md)
   now define owner assignment, accepted user signals, draft commit/cancel,
