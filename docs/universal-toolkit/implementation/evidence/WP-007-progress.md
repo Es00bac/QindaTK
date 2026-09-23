@@ -195,6 +195,8 @@ text-scale and hit-target workflow coverage;
 [D-016](../../../decisions.md#d-016--keep-toolkit-theme-ownership-process-wide)
 records the conditional FND-08 decision to retain process-wide theming;
 FND-09 requires monitor/work-area and dynamic ComboBox popup qualification;
+[the monitor gap audit](WP-007-FND-09-monitor.md) identifies the per-screen
+geometry bridge and native two-screen check still needed;
 FND-10 requires uniform
 editing state and notification contracts across remaining controls. No
 WP-007 acceptance is claimed.
