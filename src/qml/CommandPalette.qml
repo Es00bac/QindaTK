@@ -35,7 +35,7 @@ T.Popup {
     // list is taller; the ListView then scrolls within the available height.
     implicitHeight: parent && parent.height > 0
         ? Math.min(contentItem.implicitHeight + topPadding + bottomPadding,
-                   Math.max(0, parent.height - Tk.Theme.space.xl * 2))
+                   Math.max(0, parent.height - palette.y - Tk.Theme.space.xl))
         : contentItem.implicitHeight + topPadding + bottomPadding
 
     function rebuild() {

@@ -31,6 +31,12 @@ FND-07 through FND-10.
 - An open `Tk.Popover` now follows direct anchor x/y/size, host size and
   placement changes; a 320×200 regression first failed on the old source
   and passed after the fix. [Focused evidence](WP-007-FND-09-popover.md).
+- Popup focus entry/return and small-host bounds now have a focused matrix
+  across Menu, Dialog, Popover and CommandPalette. A 2× text palette
+  overflow was reproduced and repaired. [Focused evidence](WP-007-FND-09-focus.md).
+- `Tk.NumberField` now has reset/default, mixed and invalid-draft semantics
+  with user-only change notification and consistent read-only/disabled edit
+  gating. [Focused evidence](WP-007-FND-10-numberfield.md).
 
 ## Verification
 

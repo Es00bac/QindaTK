@@ -34,14 +34,14 @@ immediate container):
 
 | Region | Compact LTR | Compact RTL | Comfortable LTR | Comfortable RTL |
 | --- | --- | --- | --- | --- |
-| Flex action A/B | `0,0 157x15`; `159,0 136x15` | `179,0 157x15`; `41,0 136x15` | same | same |
-| Flex third action | `0,17 151x15` | `185,17 151x15` | same | same |
-| Grid card A/B | `0,0 167x84`; `169,0 167x84` | `169,0 167x84`; `0,0 167x84` | same | same |
-| Stack message | `4,4 282x76` | `50,4 282x76` | `5,5 278x74` | `53,5 278x74` |
-| Stack badge | `288,4 44x16` | `4,4 44x16` | `285,5 46x19` | `5,5 46x19` |
+| Flex action A/B | `0,0 157x15`; `159,0 136x15` | `195,0 157x15`; `57,0 136x15` | `0,0 157x15`; `159,0 136x15` | `193,0 157x15`; `55,0 136x15` |
+| Flex third action | `0,17 151x15` | `201,17 151x15` | `0,17 151x15` | `199,17 151x15` |
+| Grid card A/B | `0,0 175x30`; `177,0 175x30` | `177,0 175x30`; `0,0 175x30` | `0,0 174x30`; `176,0 174x30` | `176,0 174x30`; `0,0 174x30` |
+| Stack message | `4,4 298x30` | `50,4 298x30` | `5,5 292x30` | `53,5 292x30` |
+| Stack badge | `304,4 44x16` | `4,4 44x16` | `299,5 46x19` | `5,5 46x19` |
 
-The action row forms two lines. Grid auto-fill chooses two columns at 336px
-of available width. Grid column 0 and the Stack badge move to the opposite
+The action row forms two lines. Grid auto-fill chooses two columns at 352px
+compact or 350px comfortable available width. Grid column 0 and the Stack badge move to the opposite
 physical side in RTL. Stack reserves the badge's implicit width plus a
 theme-scaled gap from the message region, so the long message no longer
 paints underneath the badge. The four PNGs were opened: all show the expected
@@ -71,7 +71,7 @@ is reached by scrolling. These are software-rendered geometry and pixel
 checks, not a claim about platform-specific font metrics or physical input
 target accessibility.
 
-With the revised fixture, full CTest passes 18/18 on system Qt 6.11.1 and
+With the revised fixture, full CTest passes 19/19 on system Qt 6.11.1 and
 the isolated Qt 6.8.3 SDK. System `all_qmllint` exits successfully with its
 existing unqualified-access warnings. The focused eight-row layout check
 finishes without Grid polish-loop warnings on both Qt versions.

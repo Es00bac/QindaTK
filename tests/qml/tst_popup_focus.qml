@@ -141,4 +141,31 @@ TestCase {
             host.height = oldHeight
         }
     }
+
+    function test_palette_fits_below_its_offset_at_large_text() {
+        const host = root.Window.window
+        const oldWidth = host.width
+        const oldHeight = host.height
+        const oldTextScale = Tk.Density.textScale
+        try {
+            host.width = 220
+            host.height = 300
+            Tk.Density.textScale = 2
+            const manyCommands = []
+            for (let i = 0; i < 18; ++i)
+                manyCommands.push({ id: "cmd" + i, label: "Command " + i })
+            palette.commands = manyCommands
+            palette.open()
+            tryVerify(function() { return palette.opened && palette.height > 0 })
+            verify(palette.y + palette.height <= host.contentItem.height + 0.5)
+            const list = findChild(palette.contentItem, "paletteList")
+            verify(list !== null)
+            tryVerify(function() { return list.contentHeight > list.height && list.height > 0 })
+        } finally {
+            palette.close()
+            Tk.Density.textScale = oldTextScale
+            host.width = oldWidth
+            host.height = oldHeight
+        }
+    }
 }
