@@ -27,6 +27,11 @@ Qt 6.11.1. The worker read `portageq envvar MAKEOPTS` as `-j24 -l24` and
 ran `ninja -C build/consumer-stylus -j24 -l24`; configure, build and
 `QT_QPA_PLATFORM=offscreen build/consumer-stylus/qindatk_stylus_consumer`
 all exited 0. CMake emitted a Qt private-module compatibility warning.
+Sol independently configured the same fixture in `build/consumer-pre`,
+read the live `MAKEOPTS` as `-j24 -l24`, built with
+`ninja -C build/consumer-pre -j24 -l24`, and ran the offscreen executable;
+all three steps exited 0. The configure warning identified the imported
+`Qt6QuickPrivate` dependency through the installed QindaTK config.
 
 The installed Qt package inventory and searches under `/usr`, `/opt` and
 `/usr/local` found only Qt 6.11.1. The declared minimum Qt 6.8 has not been

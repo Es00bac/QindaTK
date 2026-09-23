@@ -21,6 +21,19 @@ selects an internal-handler/public-facade boundary. Its effect on the
 installed package must be rechecked after implementation; this matrix does
 not report that pending change as verified.
 
+## Candidate Qt 6.8 test environment
+
+The [official Qt 6.8.3 Linux GCC 64 repository](https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_683/qt6_683/)
+publishes an isolated desktop SDK component. The
+[Qt installer CLI](https://doc.qt.io/qt-6.8/get-and-install-qt-cli.html)
+supports a user-selected root but may require Qt account login; no install
+has been performed. The Desktop payload metadata lists about 193 MiB
+compressed, before installer, tool, documentation or example dependencies.
+The [Qt 6.8 Linux configuration list](https://doc.qt.io/qt-6.8/linux.html)
+does not include this Gentoo host, so a prebuilt SDK must be tried rather
+than assumed compatible. No Docker/Podman runtime is installed locally;
+an isolated user SDK is the first route under investigation.
+
 ## Qt upgrade and qualification procedure
 
 1. Install a matching Qt runtime and private development package in an
