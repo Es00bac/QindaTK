@@ -2,7 +2,8 @@
 # Phase 03 — Spatial editing and exact time
 
 **Execution underway.** WP-046 through WP-048 are accepted; WP-040 is in
-integrated review. Other packages remain planned or in presentation work.
+integrated review. WP-041 through WP-043 have active slices. Other packages
+remain planned.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -80,7 +81,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-043"></a>
 ## WP-043 — Implement document color and curve editing
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** active presentation slice ([evidence](evidence/WP-043.md); WP-040 dependency in review). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [CAN-11 ColorContext](../proposed/04-canvas-color.md#can-11), [CAN-12 ColorPicker](../proposed/04-canvas-color.md#can-12), [CAN-13 GradientEditor](../proposed/04-canvas-color.md#can-13), [CAN-14 CurveEditor](../proposed/04-canvas-color.md#can-14)
 

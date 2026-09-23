@@ -6,6 +6,7 @@
 
 #include <QElapsedTimer>
 #include <QQuickWindow>
+#include <QQuickItemGrabResult>
 #include <QSignalSpy>
 #include <QTest>
 #include <memory>
@@ -45,6 +46,20 @@ int settle(RenderSurfaceAdapter &adapter, const CanvasRenderRequest &request, in
 QColor pixelAt(QQuickWindow *window, QPointF p)
 {
     const QImage image = window->grabWindow();
+    const qreal dpr = image.devicePixelRatio();
+    return image.pixelColor(int(p.x() * dpr), int(p.y() * dpr));
+}
+
+QColor itemPixelAt(QQuickItem *item, QPointF p)
+{
+    // Offscreen Qt 6.8 OpenGL can read a stale 100x100 GLX dummy drawable
+    // through QQuickWindow::grabWindow(). An item grab renders to a texture,
+    // so this samples the scene graph rather than the platform backbuffer.
+    const auto grab = item->grabToImage();
+    if (!grab) return {};
+    QSignalSpy ready(grab.data(), &QQuickItemGrabResult::ready);
+    if (grab->image().isNull() && !ready.wait(5000)) return {};
+    const QImage image = grab->image();
     const qreal dpr = image.devicePixelRatio();
     return image.pixelColor(int(p.x() * dpr), int(p.y() * dpr));
 }
@@ -502,16 +517,16 @@ void TstCanvasRender::sceneGraphBackend()
     QTRY_COMPARE(view.renderSurface()->effectiveBackend(), QStringLiteral("scenegraph"));
     // A fit can finish after window exposure; sample the current pose while
     // waiting for the first rendered frame instead of retaining a stale pixel.
-    QTRY_VERIFY(close(pixelAt(&window, view.mapFromDocument(documentProbe)), Qt::red));
+    QTRY_VERIFY(close(itemPixelAt(&view, view.mapFromDocument(documentProbe)), Qt::red));
     const QPointF probe = view.mapFromDocument(documentProbe);
-    const QColor gpu = pixelAt(&window, probe);
+    const QColor gpu = itemPixelAt(&view, probe);
     const quint64 generation = view.renderSurface()->resourceGeneration();
     view.setBackend(QStringLiteral("software"));
     QCOMPARE(view.renderSurface()->resourceGeneration(), generation + 1);
-    QTRY_VERIFY(close(pixelAt(&window, probe), gpu, 2)); // both providers agree
+    QTRY_VERIFY(close(itemPixelAt(&view, probe), gpu, 2)); // both providers agree
     view.setBackend(QStringLiteral("auto"));
     view.simulateContextLoss(true);
-    QTRY_VERIFY(close(pixelAt(&window, probe), gpu, 2));
+    QTRY_VERIFY(close(itemPixelAt(&view, probe), gpu, 2));
     QCOMPARE(CanvasSceneGraph::liveRootNodes(), 1);
     qInfo("scene-graph provider verified on %d", int(window.rendererInterface()->graphicsApi()));
 }

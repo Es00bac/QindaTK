@@ -326,8 +326,10 @@ snap to themselves. Set `guides` to records with stable string `id`,
 `orientation` (`vertical` or `horizontal`), numeric `position` and optional
 `visible`. The host stores and edits guide records; the snap model does not.
 
-Visible guides have priority 300, visible object outline vertices/edge
-midpoints/centers 200, and grid lines 100. Within one priority, the closest
+Visible guides have priority 300, visible object outline vertices,
+continuous nearest-edge projections and centers 200, and grid lines 100.
+Projected edge axes with effectively zero movement are ignored so a
+perpendicular edge cannot suppress a useful snap. Within one priority, the closest
 candidate wins; source, target ID and feature break equal-distance ties. A
 candidate must be within `tolerancePixels` after scaling by the current view
 zoom. The model queries only indexed objects near the point and skips hidden,
@@ -350,6 +352,21 @@ operations (`align.left`, `align.horizontalCenter`, `align.right`, `align.top`,
 host computes canonical bounds and lock policy, then commits one scene edit.
 The [panel fixture](../examples/spatial-canvas/AlignPanelScene.qml) is only a
 visual proof of the reusable controls.
+
+<a id="curve-presentation"></a>
+## Curve presentation
+
+`Tk.CurveEditor` presents host-owned knots with stable string IDs and
+normalized x/y values in 0–1, plus a sampled polyline evaluated by the host.
+It maps between normalized and view coordinates and reports selection,
+move-preview, finish and cancel requests. The pointer gesture belongs to the
+root item, so refreshing host knots during a drag does not destroy the drag
+owner. A click selects a knot without an edit. Keyboard and accessible
+increments send one preview followed by finish.
+
+This is a WP-043 presentation slice. A domain curve evaluator must supply
+interpolation, tangents, constraints, typed units, transaction history and
+persisted samples. The editor does not infer those from the displayed line.
 
 <a id="viewport"></a>
 ## Relationship to Viewport

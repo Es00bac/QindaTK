@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_snap_model.h"
 #include <QTest>
+#include <cmath>
 
 using namespace QindaTK;
 
@@ -63,6 +64,62 @@ private slots:
         QVERIFY(!snap.snapPoint(QPointF(102.1, 102.1)).value("snapped").toBool());
         QVERIFY(document.setObjectVisible(id, false));
         QVERIFY(!snap.snapPoint(QPointF(101.9, 101.9)).value("snapped").toBool());
+    }
+
+    void projectsContinuouslyOntoLongOutlineEdge()
+    {
+        CanvasDocument document;
+        CanvasObject object;
+        object.shape = CanvasShape::Rect;
+        object.rect = QRectF(0, 0, 1000, 20);
+        object.transform = QTransform::fromTranslate(100, 100);
+        object.fill = QColor(Qt::red);
+        const CanvasObjectId id = document.insert(object, false);
+        QVERIFY(document.candidates(QRectF(670, 99, 6, 6)).contains(id));
+
+        CanvasViewState view;
+        CanvasSnapModel snap;
+        snap.setDocument(&document);
+        snap.setViewState(&view);
+        snap.setTolerancePixels(3);
+
+        // This point is far from both endpoints and the edge midpoint.
+        const QVariantMap result = snap.snapPoint(QPointF(673, 102));
+        QCOMPARE(result.value("point").toPointF(), QPointF(673, 100));
+        QCOMPARE(axis(result, "y").value("source").toString(), QStringLiteral("object"));
+        QCOMPARE(axis(result, "y").value("targetId").toString(), QString::number(id));
+        QCOMPARE(axis(result, "y").value("feature").toString(), QStringLiteral("edge:0"));
+    }
+
+    void projectsOntoRotatedOutlineEdge()
+    {
+        CanvasDocument document;
+        CanvasObject object;
+        object.shape = CanvasShape::Rect;
+        object.rect = QRectF(0, 0, 300, 10);
+        object.transform.rotate(37);
+        object.transform.translate(500, 300);
+        object.fill = QColor(Qt::red);
+        const CanvasObjectId id = document.insert(object, false);
+        const QPointF start = object.transform.map(object.rect.topLeft());
+        const QPointF end = object.transform.map(object.rect.topRight());
+        const QPointF edge = end - start;
+        const QPointF midpoint = (start + end) / 2;
+        const QPointF offset(-edge.y() / std::hypot(edge.x(), edge.y()) * 2,
+                             edge.x() / std::hypot(edge.x(), edge.y()) * 2);
+
+        CanvasViewState view;
+        CanvasSnapModel snap;
+        snap.setDocument(&document);
+        snap.setViewState(&view);
+        snap.setTolerancePixels(3);
+        const QVariantMap result = snap.snapPoint(midpoint + offset);
+        const QPointF snapped = result.value("point").toPointF();
+        QVERIFY(std::abs(snapped.x() - midpoint.x()) < 1e-8);
+        QVERIFY(std::abs(snapped.y() - midpoint.y()) < 1e-8);
+        QCOMPARE(axis(result, "x").value("targetId").toString(), QString::number(id));
+        QCOMPARE(axis(result, "x").value("feature").toString(), QStringLiteral("edge:0"));
+        QCOMPARE(axis(result, "y").value("feature").toString(), QStringLiteral("edge:0"));
     }
 
     void equalDistanceUsesStableGuideIdentity()

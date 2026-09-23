@@ -3404,6 +3404,138 @@
       ]
     },
     {
+      "name": "CurveEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT: CurveEditor presents host-owned stable-ID knots and sampled normalized points. It emits selection and edit lifecycle requests; the host owns canonical coordinates, interpolation, constraints, transactions, and undo. A host may replace `knots` during a preview; the editor keeps pointer ownership at the root so delegate replacement cannot lose an active drag.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CurveEditor.qml",
+      "properties": [
+        {
+          "name": "knots",
+          "type": "var",
+          "default": "[]       // [{id, x, y, label?}], normalized x/y in 0..1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "samples",
+          "type": "var",
+          "default": "[]     // [{x, y}], already evaluated by the host",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Curve editor\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "accessibleName",
+          "type": "string",
+          "default": "qsTr(\"Curve editor\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedKnotId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "plotPadding",
+          "type": "real",
+          "default": "Tk.Theme.size.controlSm / 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "plotRect",
+          "type": "rect",
+          "default": "Qt.rect(plotPadding, plotPadding,",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "knotSelected",
+          "parameters": "string id"
+        },
+        {
+          "name": "movePreview",
+          "parameters": "string id, real x, real y"
+        },
+        {
+          "name": "moveFinished",
+          "parameters": "string id"
+        },
+        {
+          "name": "moveCancelled",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "normalizedAt",
+          "parameters": "px, py"
+        },
+        {
+          "name": "pixelAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "selectKnot",
+          "parameters": "id"
+        },
+        {
+          "name": "requestMove",
+          "parameters": "id, x, y"
+        },
+        {
+          "name": "finishMove",
+          "parameters": "id"
+        },
+        {
+          "name": "nudge",
+          "parameters": "id, x, y"
+        },
+        {
+          "name": "cancelMove",
+          "parameters": "id"
+        },
+        {
+          "name": "hitKnot",
+          "parameters": "px, py"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "curveEditor",
+        "curveKnot_",
+        "curvePlot"
+      ]
+    },
+    {
       "name": "DataTable",
       "kind": "qml",
       "base": "Item",

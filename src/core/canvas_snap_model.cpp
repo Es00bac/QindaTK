@@ -22,6 +22,16 @@ struct AxisCandidate {
 
 bool finite(qreal value) { return std::isfinite(value); }
 
+QPointF nearestPointOnSegment(QPointF point, QPointF start, QPointF end)
+{
+    const QPointF edge = end - start;
+    const qreal lengthSquared = QPointF::dotProduct(edge, edge);
+    if (!finite(lengthSquared) || lengthSquared <= 0) return start;
+    const qreal t = std::clamp(QPointF::dotProduct(point - start, edge) / lengthSquared,
+                               qreal(0), qreal(1));
+    return start + edge * t;
+}
+
 void offer(AxisCandidate &best, qreal input, qreal position, qreal zoom,
            qreal tolerancePixels, int priority, const QString &source,
            const QString &targetId, const QString &feature)
@@ -57,6 +67,20 @@ void offerPoint(AxisCandidate &x, AxisCandidate &y, QPointF input,
           QStringLiteral("object"), id, feature);
     offer(y, input.y(), target.y(), zoom, tolerance, 200,
           QStringLiteral("object"), id, feature);
+}
+
+void offerEdgeProjection(AxisCandidate &x, AxisCandidate &y, QPointF input,
+                         QPointF target, qreal zoom, qreal tolerance,
+                         const QString &id, const QString &feature)
+{
+    // A projection onto a perpendicular edge can leave one coordinate
+    // unchanged. Such a no-op must not beat a useful snap from another edge.
+    if (std::abs(target.x() - input.x()) * zoom > 1e-9)
+        offer(x, input.x(), target.x(), zoom, tolerance, 200,
+              QStringLiteral("object"), id, feature);
+    if (std::abs(target.y() - input.y()) * zoom > 1e-9)
+        offer(y, input.y(), target.y(), zoom, tolerance, 200,
+              QStringLiteral("object"), id, feature);
 }
 
 } // namespace
@@ -170,13 +194,17 @@ QVariantMap CanvasSnapModel::snapPoint(QPointF point,
                     offerPoint(x, y, point, outline.at(i), zoom, tolerance,
                                targetId, QStringLiteral("vertex:%1").arg(i));
                     if (i > 0)
-                        offerPoint(x, y, point, (outline.at(i-1) + outline.at(i)) / 2,
-                                   zoom, tolerance, targetId,
-                                   QStringLiteral("edge:%1").arg(i-1));
+                        offerEdgeProjection(
+                            x, y, point,
+                            nearestPointOnSegment(point, outline.at(i - 1), outline.at(i)),
+                            zoom, tolerance, targetId,
+                            QStringLiteral("edge:%1").arg(i-1));
                 }
                 if (CanvasGeometry::isClosed(*object) && outline.size() > 1)
-                    offerPoint(x, y, point, (outline.last() + outline.first()) / 2,
-                               zoom, tolerance, targetId, QStringLiteral("edge:closing"));
+                    offerEdgeProjection(
+                        x, y, point,
+                        nearestPointOnSegment(point, outline.last(), outline.first()),
+                        zoom, tolerance, targetId, QStringLiteral("edge:closing"));
                 offerPoint(x, y, point, CanvasGeometry::documentBounds(*object).center(),
                            zoom, tolerance, targetId, QStringLiteral("center"));
             }

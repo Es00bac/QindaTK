@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, six active, and 45 planned.**
+**Execution state: 33 packages accepted, six active, one in review, and 44 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -14,8 +14,8 @@ WP-020 and WP-022 were accepted earlier. The remaining 12 review packages
 passed the consolidated Qt 6.11/6.8 repository, QML lint, staged-consumer and
 visual gates recorded in the [2026-09-23 acceptance record](evidence/review-acceptance-2026-09-23.md).
 WP-031 subsequently passed its own installed-consumer gate and is accepted.
-WP-040 is active again: its WP-033 dependency is open and the latest Qt 6.8
-offscreen RHI pixel gate is intermittently failing. WP-048 is accepted
+WP-040 is in review: its WP-033 dependency remains open. The Qt 6.8
+offscreen RHI readback repair passed the full integrated suite. WP-048 is accepted
 after its time-axis and host-media boundaries were reconciled with D-045;
 both full integrated suites and its installed consumers pass. WP-050 and WP-055
 remain active in separate Opus worktrees; their draft code is not integrated
@@ -24,6 +24,8 @@ workbench plus installed lifecycle consumers; its remaining end-to-end gates
 are recorded in its evidence. WP-041 now has a document-space snap query and
 guide layer, while WP-042 has layer, navigator and alignment presentation.
 Both spatial packages still have model, command and acceptance gates open.
+WP-043 has a bounded CurveEditor presentation slice ahead of its open color
+and curve backend gates.
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -64,10 +66,10 @@ as though a later fix had already passed the earlier run.
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | accepted | [Seven families, dual-Qt suite and installed consumer](evidence/WP-031.md) |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | accepted | [Event, diff and resource integration status](evidence/WP-032.md) |
 | [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | active | [Editable sort/filter workbench and dual-Qt consumers; lifecycle gaps open](evidence/WP-033.md) |
-| [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | active | [Integrated renderer and installed consumer; WP-033 and Qt 6.8 RHI gate open](evidence/WP-040.md) |
+| [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | review | [Integrated renderer and installed consumer; dual-Qt 102/102; WP-033 dependency open](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Selection overlay, guide layer and snap query; transform integration open](evidence/WP-041.md) |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator and alignment presentation; model integration open](evidence/WP-042.md) |
-| [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | planned | — |
+| [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [CurveEditor presentation and dual-Qt focused proof; backend gates open](evidence/WP-043.md) |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | planned | — |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | planned | — |
 | [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
