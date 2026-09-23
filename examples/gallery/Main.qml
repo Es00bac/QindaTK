@@ -43,67 +43,100 @@ Rectangle {
             color: Tk.Theme.color.surface
             borderBottom: 1
             borderColor: Tk.Theme.color.divider
-            implicitHeight: Math.max(Tk.Theme.size.toolbar + Tk.Theme.space.sm,
-                                     headerRow.implicitHeight + Tk.Theme.size.border)
+            // AGENT-GUARD: at Touch 3x on a short window, all header rows
+            // can exceed the viewport. Keep half the window for the gallery
+            // and scroll the header rather than clipping its controls.
+            implicitHeight: Math.min(
+                Math.max(Tk.Theme.size.toolbar + Tk.Theme.space.sm,
+                         headerRow.implicitHeight + Tk.Theme.size.border),
+                Math.max(Tk.Theme.size.toolbar + Tk.Theme.space.sm, root.height / 2))
             Tk.Flex.shrink: 0
 
-            Tk.Flex {
-                id: headerRow
-                direction: Tk.Flex.Row
-                wrap: Tk.Flex.Wrap
-                align: Tk.Flex.Center
-                alignContent: Tk.Flex.Center
-                gap: Tk.Theme.space.md
-                rowGap: Tk.Theme.space.xs
-                paddingLeft: Tk.Theme.space.md
-                paddingRight: Tk.Theme.space.md
-                paddingTop: Tk.Theme.space.xs
-                paddingBottom: Tk.Theme.space.xs
+            Tk.Scroll {
+                objectName: "galleryHeaderScroll"
+                anchors.fill: parent
+                overflowX: Tk.Scroll.Hidden
+                overflowY: Tk.Scroll.Auto
+                accessibleName: "Gallery controls"
 
-                Tk.Overline { title: "QindaTK gallery"; wide: true; color: Tk.Theme.color.text }
-                Tk.Divider { vertical: true; inset: 6 }
-                Tk.Caption { text: "Preset" }
-                Tk.Scroll {
-                    id: presetScroll
-                    objectName: "presetScroll"
-                    implicitWidth: Math.min(presetSwitch.implicitWidth,
-                                            Math.max(0, root.width - Tk.Theme.space.md * 2))
-                    implicitHeight: presetSwitch.implicitHeight
-                                    + (scrollableX ? Tk.Theme.size.scrollbar + Tk.Theme.space.xs : 0)
-                    overflowX: Tk.Scroll.Auto
-                    overflowY: Tk.Scroll.Hidden
-                    accessibleName: "Theme presets"
-                    Item {
-                        implicitWidth: presetSwitch.implicitWidth
-                        implicitHeight: presetScroll.implicitHeight
-                        Tk.Segmented {
-                            id: presetSwitch
-                            objectName: "presetSwitch"
-                            anchors.left: parent.left
-                            anchors.top: parent.top
-                            width: implicitWidth
-                            height: implicitHeight
-                            model: root.presets
-                            currentIndex: root.indexOfValue(root.presets, Tk.Theme.preset)
-                            onActivated: function(index) { Tk.Theme.applyPreset(root.presets[index].value) }
+                Tk.Flex {
+                    id: headerRow
+                    direction: Tk.Flex.Row
+                    wrap: Tk.Flex.Wrap
+                    align: Tk.Flex.Center
+                    alignContent: Tk.Flex.Center
+                    gap: Tk.Theme.space.md
+                    rowGap: Tk.Theme.space.xs
+                    paddingLeft: Tk.Theme.space.md
+                    paddingRight: Tk.Theme.space.md
+                    paddingTop: Tk.Theme.space.xs
+                    paddingBottom: Tk.Theme.space.xs
+
+                    Tk.Overline { title: "QindaTK gallery"; wide: true; color: Tk.Theme.color.text }
+                    Tk.Divider { vertical: true; inset: 6 }
+                    Tk.Caption { text: "Preset" }
+                    Tk.Scroll {
+                        id: presetScroll
+                        objectName: "presetScroll"
+                        implicitWidth: Math.min(presetSwitch.implicitWidth,
+                                                Math.max(0, root.width - Tk.Theme.space.md * 2))
+                        implicitHeight: presetSwitch.implicitHeight
+                                        + (scrollableX ? Tk.Theme.size.scrollbar + Tk.Theme.space.xs : 0)
+                        overflowX: Tk.Scroll.Auto
+                        overflowY: Tk.Scroll.Hidden
+                        accessibleName: "Theme presets"
+                        Item {
+                            implicitWidth: presetSwitch.implicitWidth
+                            implicitHeight: presetScroll.implicitHeight
+                            Tk.Segmented {
+                                id: presetSwitch
+                                objectName: "presetSwitch"
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                width: implicitWidth
+                                height: implicitHeight
+                                model: root.presets
+                                currentIndex: root.indexOfValue(root.presets, Tk.Theme.preset)
+                                onActivated: function(index) { Tk.Theme.applyPreset(root.presets[index].value) }
+                            }
                         }
                     }
+                    Tk.Caption { text: "Density" }
+                    Tk.Scroll {
+                        id: densityScroll
+                        objectName: "densityScroll"
+                        implicitWidth: Math.min(densitySwitch.implicitWidth,
+                                                Math.max(0, root.width - Tk.Theme.space.md * 2))
+                        implicitHeight: densitySwitch.implicitHeight
+                                        + (scrollableX ? Tk.Theme.size.scrollbar + Tk.Theme.space.xs : 0)
+                        overflowX: Tk.Scroll.Auto
+                        overflowY: Tk.Scroll.Hidden
+                        accessibleName: "Density modes"
+                        Item {
+                            implicitWidth: densitySwitch.implicitWidth
+                            implicitHeight: densityScroll.implicitHeight
+                            Tk.Segmented {
+                                id: densitySwitch
+                                objectName: "densitySwitch"
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                width: implicitWidth
+                                height: implicitHeight
+                                model: root.densities
+                                currentIndex: root.indexOfValue(root.densities, Tk.Density.modeName)
+                                onActivated: function(index) { Tk.Density.modeName = root.densities[index].value }
+                            }
+                        }
+                    }
+                    Tk.Spacer { visible: Tk.Density.textScale < 1.5 }
+                    Tk.SearchField {
+                        id: search
+                        objectName: "sectionFilter"
+                        placeholderText: "Filter sections"
+                        implicitWidth: 220
+                    }
+                    Tk.Caption { text: Tk.Theme.name + " · " + Tk.Density.modeName }
                 }
-                Tk.Caption { text: "Density" }
-                Tk.Segmented {
-                    objectName: "densitySwitch"
-                    model: root.densities
-                    currentIndex: root.indexOfValue(root.densities, Tk.Density.modeName)
-                    onActivated: function(index) { Tk.Density.modeName = root.densities[index].value }
-                }
-                Tk.Spacer { visible: Tk.Density.textScale < 1.5 }
-                Tk.SearchField {
-                    id: search
-                    objectName: "sectionFilter"
-                    placeholderText: "Filter sections"
-                    implicitWidth: 220
-                }
-                Tk.Caption { text: Tk.Theme.name + " · " + Tk.Density.modeName }
             }
         }
 

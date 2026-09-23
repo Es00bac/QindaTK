@@ -43,7 +43,9 @@ FND-07 through FND-10.
   gating. [Focused evidence](WP-007-FND-10-numberfield.md).
 - Touch density now has a 48px interactive row floor and short Segmented
   choices retain a 48×44 target. The gallery's preset switch scrolls at
-  maximum text zoom, with the scrollbar below the labels.
+  maximum text zoom, with the scrollbar below the labels. At 480×320, the
+  header itself scrolls to keep the gallery content visible, and density
+  choices scroll horizontally.
   [Focused evidence](WP-007-FND-07-touch.md).
 - `TextField` blocks its custom clear paths when read-only or disabled;
   `SearchField` now debounces user edits while programmatic synchronization

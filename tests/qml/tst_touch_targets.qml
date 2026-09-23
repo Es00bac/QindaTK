@@ -164,4 +164,42 @@ TestCase {
             Tk.Density.textScale = formerTextScale
         }
     }
+
+    function test_narrow_large_text_gallery_keeps_header_and_content_reachable() {
+        const formerMode = Tk.Density.modeName
+        const formerTextScale = Tk.Density.textScale
+        try {
+            Tk.Density.modeName = "touch"
+            Tk.Density.textScale = 3
+            const loader = createTemporaryObject(gallery, root, { width: 480, height: 320 })
+            verify(loader !== null)
+            tryCompare(loader, "status", Loader.Ready)
+            const header = findChild(loader.item, "galleryHeader")
+            const headerScroll = findChild(loader.item, "galleryHeaderScroll")
+            const content = findChild(loader.item, "galleryScroll")
+            const densityScroll = findChild(loader.item, "densityScroll")
+            const densitySwitch = findChild(loader.item, "densitySwitch")
+            const search = findChild(loader.item, "sectionFilter")
+            verify(header && headerScroll && content && densityScroll
+                   && densitySwitch && search)
+            tryVerify(function() { return headerScroll.scrollableY && densityScroll.scrollableX })
+            verify(header.height <= loader.item.height / 2 + 0.5)
+            verify(content.height >= loader.item.height / 2 - 0.5)
+            densityScroll.contentX = densityScroll.contentWidth - densityScroll.viewportWidth
+            const last = findChild(densitySwitch, "segment_2")
+            verify(last !== null)
+            tryVerify(function() {
+                const p = last.mapToItem(densityScroll, 0, 0)
+                return p.x >= 0 && p.x + last.width <= densityScroll.viewportWidth + 0.5
+            })
+            headerScroll.contentY = headerScroll.contentHeight - headerScroll.viewportHeight
+            tryVerify(function() {
+                const p = search.mapToItem(headerScroll, 0, 0)
+                return p.y >= 0 && p.y + search.height <= headerScroll.viewportHeight + 0.5
+            })
+        } finally {
+            Tk.Density.modeName = formerMode
+            Tk.Density.textScale = formerTextScale
+        }
+    }
 }

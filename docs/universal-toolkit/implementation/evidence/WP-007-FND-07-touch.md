@@ -56,5 +56,18 @@ the same controls are each 520×48, with 18px indicators centred at y=15.
 `build/wp007-small-toggles-compact.png` and
 `build/wp007-small-toggles-touch-3x.png` were opened and inspected.
 
+At 480×320, Touch density and 3× text, the gallery header previously grew
+to 333px, leaving `Scroll#galleryScroll 0,333 480x0`; its 549px density
+switch also extended beyond the right edge. The header now scrolls once its
+height reaches half the window, and the density choices have their own
+horizontal Scroll. The repaired dump reports `Box#galleryHeader 0,0 480x160`,
+`Scroll#galleryHeaderScroll 0,0 480x159` with 346px content,
+`Scroll#densityScroll 12,189 456x63` inside that content, and
+`Scroll#galleryScroll 0,160 480x160`. The Touch/high-contrast-dark PNG was
+opened: the header's vertical scrollbar and the gallery content are both
+visible. A focused QML test scrolls to the final density choice and the
+filter field, verifying both remain reachable. Ignored preview artifacts are
+`build/wp007-gallery-narrow-review.{qml,png}`.
+
 At integration source commit `1f30b69`, Qt 6.11.1 and 6.8.3 each passed the
 full 19-target CTest suite and `all_qmllint`.
