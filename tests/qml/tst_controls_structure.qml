@@ -29,6 +29,24 @@ TestCase {
     Component { id: menuComponent; Tk.Menu { Tk.MenuItem { text: "Undo"; shortcut: "Ctrl+Z" } Tk.MenuSeparator {} Tk.MenuItem { text: "Redo" } } }
     Component { id: menuBarComponent; Tk.MenuBar { width: 300; Tk.Menu { title: "File"; Tk.MenuItem { text: "New" } } } }
     Component { id: popoverComponent; Tk.Popover { Tk.Label { text: "Snapping" } } }
+    Component {
+        id: scrollingAnchorComponent
+        Tk.Scroll {
+            width: 180
+            height: 100
+            overflowY: Tk.Scroll.Auto
+            Item {
+                implicitHeight: 360
+                Tk.Button {
+                    objectName: "scrollingPopoverAnchor"
+                    x: Tk.Theme.space.md
+                    y: 140
+                    width: Tk.Theme.size.fieldWidth
+                    text: "Anchor"
+                }
+            }
+        }
+    }
     Component { id: dialogComponent; Tk.Dialog { title: "Discard?"; Tk.Label { text: "Body" } } }
     Component { id: tableColumnComponent; Tk.TableColumn { key: "name"; title: "Name" } }
     Component {
@@ -261,6 +279,26 @@ TestCase {
             root.width = originalWidth
             root.height = originalHeight
         }
+    }
+
+    function test_popover_tracks_anchor_while_ancestor_scrolls() {
+        const scroll = createTemporaryObject(scrollingAnchorComponent, root, { x: 20, y: 20 })
+        verify(scroll !== null)
+        tryVerify(function() { return scroll.scrollableY })
+        const anchor = findChild(scroll, "scrollingPopoverAnchor")
+        verify(anchor !== null)
+        const pop = createTemporaryObject(popoverComponent, root, { anchorItem: anchor })
+        pop.open()
+        tryVerify(function() { return pop.opened && pop.width > 0 && pop.height > 0 })
+
+        scroll.contentY = Tk.Theme.size.row * 2
+        const mapped = anchor.mapToItem(pop.parent, 0, 0)
+        tryVerify(function() {
+            const expectedY = mapped.y + anchor.height + pop.gap
+            return Math.abs(pop.y - expectedY) < 1
+        })
+        pop.close()
+        tryVerify(function() { return !pop.visible })
     }
 
     function test_dialog_accepts() {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import QtQuick
+import QtQml
 import QtQuick.Templates as T
 import QindaTK as Tk
 
@@ -15,6 +16,7 @@ T.Popup {
     property string placement: "bottom"
     property bool arrow: false
     property real gap: Tk.Theme.space.xs
+    property var _scrollAncestors: []
 
     parent: T.Overlay.overlay
     modal: false
@@ -52,10 +54,24 @@ T.Popup {
         popover.y = Math.max(margin, Math.min(py, host.height - popover.height - margin))
     }
 
+    function refreshScrollAncestors() {
+        const ancestors = []
+        let item = popover.anchorItem
+        while (item !== null) {
+            if (item.contentX !== undefined && item.contentY !== undefined)
+                ancestors.push(item)
+            item = item.parent
+        }
+        popover._scrollAncestors = ancestors
+    }
+
     onAboutToShow: reposition()
     onWidthChanged: if (visible) reposition()
     onHeightChanged: if (visible) reposition()
-    onAnchorItemChanged: if (visible) reposition()
+    onAnchorItemChanged: {
+        refreshScrollAncestors()
+        if (visible) reposition()
+    }
     onPlacementChanged: if (visible) reposition()
     onGapChanged: if (visible) reposition()
     onArrowChanged: if (visible) reposition()
@@ -65,10 +81,23 @@ T.Popup {
     // partly off-screen until the caller explicitly invokes reposition().
     Connections {
         target: popover.anchorItem
+        function onParentChanged() { popover.refreshScrollAncestors() }
         function onXChanged() { if (popover.visible) popover.reposition() }
         function onYChanged() { if (popover.visible) popover.reposition() }
         function onWidthChanged() { if (popover.visible) popover.reposition() }
         function onHeightChanged() { if (popover.visible) popover.reposition() }
+    }
+    // AGENT-GUARD: an anchor can move in scene coordinates when any ancestor
+    // scrolls even though the anchor's own x/y stay fixed. Observe every
+    // scrolling ancestor so nested viewports keep the popup attached.
+    Instantiator {
+        model: popover._scrollAncestors
+        delegate: Connections {
+            required property var modelData
+            target: modelData
+            function onContentXChanged() { if (popover.visible) popover.reposition() }
+            function onContentYChanged() { if (popover.visible) popover.reposition() }
+        }
     }
     Connections {
         target: popover.parent
@@ -110,4 +139,6 @@ T.Popup {
     exit: Transition {
         NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: Tk.Theme.motion.fast }
     }
+
+    Component.onCompleted: refreshScrollAncestors()
 }

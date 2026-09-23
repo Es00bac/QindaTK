@@ -28,9 +28,10 @@ FND-07 through FND-10.
 - `Tk.Density.textScale` now independently scales the font ramp from 0.5 to
   3.0, composing with density font scaling when enabled. Tests cover default,
   reset, clamping, non-finite inputs and JSON/QST font-base preservation.
-- An open `Tk.Popover` now follows direct anchor x/y/size, host size and
-  placement changes; a 320×200 regression first failed on the old source
-  and passed after the fix. [Focused evidence](WP-007-FND-09-popover.md).
+- An open `Tk.Popover` now follows direct anchor x/y/size, scrolling on its
+  ancestors, host size and placement changes; direct-movement and scrolling
+  regressions failed on the old source and passed after repair.
+  [Focused evidence](WP-007-FND-09-popover.md).
 - Popup focus entry/return and small-host bounds now have a focused matrix
   across Menu, Dialog, Popover and CommandPalette. A 2× text palette
   overflow was reproduced and repaired. [Focused evidence](WP-007-FND-09-focus.md).

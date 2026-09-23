@@ -6,6 +6,32 @@ does not claim that the full FND-09 popup policy is complete.
 
 ## Finding and change
 
+### Ancestor scrolling
+
+The direct-movement fix above still left a popup behind when an ancestor
+viewport scrolled: the anchor's own x/y did not change, so the direct anchor
+watchers did not run even though its mapped scene position changed. The new
+`ControlsStructure::test_popover_tracks_anchor_while_ancestor_scrolls`
+regression failed against the integration source at the expected popup-y
+assertion. `Popover.qml` now observes contentX/contentY changes on every
+scrolling ancestor and repositions while open. This covers nested viewports
+without requiring callers to invoke `reposition()` themselves.
+
+`docs/controls.md` now states that open popovers follow scrolling ancestors.
+This remains a focused FND-09 repair and does not claim overall WP-007
+acceptance.
+
+Verification for this slice:
+
+- A clean local Debug configure and full `cmake --build build/wp007-popup-audit`
+  completed using the configured default Ninja parallelism.
+- Before the source repair, `ctest --test-dir build/wp007-popup-audit -R
+  '^tst_qml$' --output-on-failure` failed specifically in
+  `ControlsStructure::test_popover_tracks_anchor_while_ancestor_scrolls`.
+- After the repair, the same focused QtQuick suite passed.
+- `python tools/scripts/gen_catalog.py` completed. The source inventory now
+  includes the internal `refreshScrollAncestors()` helper on `Popover`.
+
 An open popover was positioned and clamped when opened or resized, but it did
 not follow its anchor when the anchor moved or changed size. The new regression
 test failed at that assertion against the unmodified `Popover.qml`.
