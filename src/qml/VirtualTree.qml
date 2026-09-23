@@ -56,7 +56,7 @@ T.Control {
         model: root.flatProjection ? root.model : adapter
         reuseItems: true
         boundsBehavior: Flickable.StopAtBounds
-        keyNavigationEnabled: true
+        keyNavigationEnabled: false
         keyNavigationWraps: false
         spacing: 0
         Accessible.role: Accessible.Tree
@@ -123,6 +123,7 @@ T.Control {
                     onClicked: {
                         rows.currentIndex = node.index
                         root.selectNode(node.stableId)
+                        root.forceActiveFocus()
                     }
                     onDoubleClicked: root.activated(node.stableId)
                 }
@@ -131,25 +132,38 @@ T.Control {
             Accessible.name: node.labelText
             Accessible.description: node.hasChildren ? node.expanded ? qsTr("Expanded") : qsTr("Collapsed") : ""
             Accessible.selected: root.selectionModel && root.selectionModel.selectedIds.indexOf(node.stableId) >= 0
-        }
-        Keys.onPressed: function(event) {
-            if (event.key === Qt.Key_F2) root.requestRename(rows.currentIndex)
-            else if ((event.modifiers & Qt.ControlModifier)
-                     && (event.key === Qt.Key_Up || event.key === Qt.Key_Down))
-                root.requestMove(rows.currentIndex, event.key === Qt.Key_Up ? -1 : 1)
-            else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
-                const nextRow = rows.currentIndex + (event.key === Qt.Key_Up ? -1 : 1)
-                if (nextRow >= 0 && nextRow < rows.count) {
-                    rows.currentIndex = nextRow
-                    root.syncCurrent(nextRow)
-                }
+            Accessible.focusable: root.enabled
+            Accessible.focused: root.activeFocus && rows.currentIndex === node.index
+            Accessible.onPressAction: {
+                rows.currentIndex = node.index
+                root.selectNode(node.stableId)
+                root.forceActiveFocus()
+                root.activated(node.stableId)
             }
-            else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right)
-                root.requestExpansionForCurrent(rows.currentIndex, event.key === Qt.Key_Right)
-            else return
-            event.accepted = true
         }
     }
+    Keys.onPressed: function(event) {
+        if (!root.enabled || rows.count === 0) return
+        if (event.key === Qt.Key_F2) root.requestRename(rows.currentIndex)
+        else if ((event.modifiers & Qt.ControlModifier)
+                 && (event.key === Qt.Key_Up || event.key === Qt.Key_Down))
+            root.requestMove(rows.currentIndex, event.key === Qt.Key_Up ? -1 : 1)
+        else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+            const nextRow = Math.max(0, Math.min(rows.count - 1,
+                rows.currentIndex + (event.key === Qt.Key_Up ? -1 : 1)))
+            rows.currentIndex = nextRow
+            root.syncCurrent(nextRow)
+            rows.positionViewAtIndex(nextRow, ListView.Contain)
+        } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right)
+            root.requestExpansionForCurrent(rows.currentIndex, event.key === Qt.Key_Right)
+        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            const id = root.flatProjection ? adapter.idAt(rows.currentIndex)
+                                           : adapter.treeIdAt(rows.currentIndex)
+            if (id.length > 0) root.activated(id)
+        } else return
+        event.accepted = true
+    }
+    onActiveFocusChanged: if (activeFocus && rows.currentIndex < 0 && rows.count > 0) rows.currentIndex = 0
     Connections {
         target: root.selectionModel
         function onCurrentChanged() { root.restoreCurrent() }
@@ -175,8 +189,9 @@ T.Control {
         if (id.length > 0 && selectionModel.currentId !== id) selectionModel.select(id)
     }
     function restoreCurrent() {
-        if (!selectionModel || flatProjection) return
-        const row = adapter.treeIndexOfId(selectionModel.currentId)
+        if (!selectionModel) return
+        const row = flatProjection ? adapter.indexOfId(selectionModel.currentId)
+                                   : adapter.treeIndexOfId(selectionModel.currentId)
         if (row >= 0 && rows.currentIndex !== row) rows.currentIndex = row
     }
     function requestExpansionForCurrent(row, expanded) {

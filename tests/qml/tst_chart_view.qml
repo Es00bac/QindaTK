@@ -61,6 +61,35 @@ TestCase {
         }
     }
     Component { id: exportSpyComponent; SignalSpy { signalName: "exportRequested" } }
+    Component {
+        id: linkedChartComponent
+        Item {
+            width: 640; height: 220
+            property alias leftChart: left
+            property alias rightChart: right
+            Tk.ChartAxis { id: sharedX; minimum: 0; maximum: 4; unit: "s" }
+            Tk.ChartAnnotationModel {
+                id: notes
+                Component.onCompleted: replaceAnnotations([
+                    { id: "threshold", label: "Threshold", kind: Tk.ChartAnnotationModel.Point,
+                      x: 2, y: 5, xUnit: "s", yUnit: "count" }
+                ])
+            }
+            Tk.ChartView {
+                id: left
+                width: 300; height: 200
+                xAxis: sharedX
+                yAxis.minimum: 0; yAxis.maximum: 10; yAxis.unit: "count"
+                annotationModel: notes
+            }
+            Tk.ChartView {
+                id: right
+                x: 320; width: 300; height: 200
+                xAxis: sharedX
+                yAxis.minimum: 0; yAxis.maximum: 20
+            }
+        }
+    }
 
     function test_exact_time_table_csv_and_zoom() {
         const chart = createTemporaryObject(timeChartComponent, this)
@@ -93,5 +122,45 @@ TestCase {
         chart.showDataTable = true
         verify(chart.showDataTable)
         verify(!chart.setHistogram([0, 1, 1], [2, 5], 0, "bad", "luma"))
+    }
+
+    function test_linked_axes_annotation_and_bin_range() {
+        const pair = createTemporaryObject(linkedChartComponent, this)
+        verify(pair !== null)
+        const left = pair.leftChart
+        const right = pair.rightChart
+        compare(left.annotationModel.count, 1)
+        const plot = findChild(left, "chartPlot")
+        const m = plot.metrics
+        const px = m.leftMargin + (plot.width - m.leftMargin - m.rightMargin) / 2
+        const py = m.topMargin + (plot.height - m.topMargin - m.bottomMargin) / 2
+        compare(left.annotationAt(px, py).id, "threshold")
+        verify(left.selectAnnotationAt(px, py))
+        compare(left.selectedAnnotationId, "threshold")
+        left.showAnnotationTable = true
+        compare(findChild(left, "chartAnnotationTable").count, 1)
+        verify(left.annotationCsvData().includes("\"threshold\""))
+        left.showAnnotationTable = false
+        verify(left.setHistogram([0, 1, 3, 4], [2, 5, 3], 0, "signal", "s"))
+        const rightPlot = findChild(right, "chartPlot")
+        verify(right.setHistogram([0, 1, 3, 4], [2, 5, 3], 0, "signal", "s"))
+        const rm = rightPlot.metrics
+        const rw = rightPlot.width - rm.leftMargin - rm.rightMargin
+        const rh = rightPlot.height - rm.topMargin - rm.bottomMargin
+        mouseClick(rightPlot, rm.leftMargin + rw * 0.5,
+                   rm.topMargin + rh * 0.75, Qt.LeftButton)
+        verify(right.histogramSelection.valid)
+        compare(right.histogramSelection.firstBin, 1)
+        compare(right.histogramSelection.upper, 3)
+        verify(!right.histogramSelection.upperInclusive)
+        verify(left.selectHistogramBins(1, 2))
+        compare(left.histogramSelection.lower, 1)
+        compare(left.histogramSelection.upper, 4)
+        verify(left.histogramSelection.upperInclusive)
+        left.setViewport(0.2, 0.8, 0, 1)
+        compare(right.horizontalViewFraction, left.horizontalViewFraction)
+        compare(right.verticalViewFraction, 1)
+        right.zoom(2)
+        compare(left.horizontalViewFraction, right.horizontalViewFraction)
     }
 }

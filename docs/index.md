@@ -31,7 +31,7 @@ pages below are the reference.
 | [time-map.md](time-map.md) | Exact sample/frame/tick conversions, tempo segments, timecode and precision-safe QML values |
 | [native-integration.md](native-integration.md) | Native window/view lifecycle, file dialogs and desktop capability boundaries |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
-| [chart-data.md](chart-data.md) | Typed axes/series, projection, hit identity, decimation, tabular export and histogram bin semantics |
+| [chart-data.md](chart-data.md) | Typed axes/series, linked viewports, annotations, projection, hit identity, decimation, tabular export and histogram bin ranges |
 | [distribution-plot.md](distribution-plot.md) | Source-backed quantiles and density, declared intervals, selection and accessible tables |
 | [financial-displays.md](financial-displays.md) | Source-backed OHLC sessions, candlesticks, bullet and gauge targets, missing values and export seam |
 | [polar.md](polar.md) | Numeric polar, categorical radar and radial-bar coordinates, validation, selection and export |

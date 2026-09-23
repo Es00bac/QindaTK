@@ -526,3 +526,21 @@ remain available for table and export.
 outside the radial domain surfaces as an error rather than plausible but
 false geometry. Cartesian chart APIs remain unchanged. CSV records the
 coordinate convention so the display can be interpreted outside the view.
+
+## D-045 — Chart axes own linked viewports; selections keep source domains
+
+**Context.** Sharing a chart scale while each renderer stores independent
+pan/zoom fractions produces mismatched ticks and hit coordinates. Histogram
+bin selection also loses its meaning if it reports only painted pixels.
+
+**Decision.** `ChartAxis` owns a normalized viewport with a separate change
+signal from domain changes. A `ChartView` may use an external axis instance;
+sharing that instance links its domain and viewport across views. Chart
+annotations keep stable IDs and original coordinates in an atomic model.
+Histogram selection is a renderer-owned typed object with source bin indices,
+exact domain edges, units and final-edge inclusivity.
+
+**Consequences.** A domain edit resets the shared viewport for every linked
+view. Hosts that need only X synchronization share only X. The annotation
+model and histogram selection do not infer analysis or color context; the
+host supplies those source semantics.

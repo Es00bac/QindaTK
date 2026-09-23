@@ -19,6 +19,13 @@ flips normalized coordinates. Numeric/log ticks use a 1/2/5 ladder and log
 ticks use powers of ten. Category ticks show every label. Time labels use the
 declared IANA `timeZoneId`; an invalid zone invalidates the axis.
 
+The axis owns a validated normalized `viewportStart`/`viewportEnd` pair,
+initially `[0,1]`. Assign one `Tk.ChartAxis` instance to the same orientation
+on multiple `ChartView`s to link it. Zoom, pan and `setViewport` update that
+axis; every connected renderer uses its fractions for ticks, marks and hit
+testing. The other orientation can remain independent. Changing an axis
+domain resets its viewport to `[0,1]`.
+
 DateTime coordinates are signed 64 bit **UTC milliseconds**. C++ callers set
 `setUtcDomain()` and use `mapUtc()` / `unmapUtc()`. QML domain properties are
 decimal strings (`minimumUtc` and `maximumUtc`), preserving values beyond
@@ -79,6 +86,29 @@ probability divides by in-range count, and density additionally divides by
 each bin width. Empty data displays zero in every mode. Channel and unit
 labels come from the caller; image analysis must provide color-context meaning
 for channels. This core does not infer bins or image color spaces.
+
+`ChartRenderer.histogramSelection` is a typed, read-only domain range.
+`selectHistogramBins(first,last)` accepts contiguous source-bin indices,
+normalizes their order and exposes exact `lower`, `upper`, `unit`, `channel`,
+`normalization` and inclusivity. The lower edge is included; the upper edge
+is included only when the selection reaches the final source bin. Clicking
+or dragging over painted bars emits `histogramRangeSelected`. Replacing the
+histogram clears the previous selection, including on failure.
+
+## Chart annotations
+
+`ChartAnnotationModel` atomically replaces at most 1024 source-coordinate
+records with unique stable `id`s. `Point` has one X coordinate and Y;
+`VerticalLine` has X; `HorizontalLine` has Y. X is exactly one numeric `x`,
+ordered `category`, or exact decimal-string `utcMs`, matching the axis kind.
+Each applicable coordinate declares `xUnit` or `yUnit` matching its axis.
+Values must be finite and bounded, category names must exist on the axis,
+and incompatible annotations report `annotationError` instead of painting
+misplaced marks. The same axis transform and viewport draw labels/lines,
+resolve `annotationAt` and `selectAnnotationAt`, and export PNG/SVG.
+`annotationCsvData()` preserves full source coordinates, IDs and units;
+`showAnnotationTable` exposes the complete model in an accessible table.
+See [the focused example](../examples/chart-review/Main.qml).
 
 ## QML visual adapter
 

@@ -30,6 +30,8 @@ class ChartAxis : public QObject {
     Q_PROPERTY(QString minimumUtc READ minimumUtc WRITE setMinimumUtc NOTIFY changed)
     Q_PROPERTY(QString maximumUtc READ maximumUtc WRITE setMaximumUtc NOTIFY changed)
     Q_PROPERTY(bool reversed READ reversed WRITE setReversed NOTIFY changed)
+    Q_PROPERTY(double viewportStart READ viewportStart NOTIFY viewportChanged)
+    Q_PROPERTY(double viewportEnd READ viewportEnd NOTIFY viewportChanged)
     Q_PROPERTY(bool valid READ isValid NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
@@ -55,6 +57,9 @@ public:
     void setUtcDomain(qint64 minimum, qint64 maximum);
     bool reversed() const { return m_reversed; }
     void setReversed(bool value);
+    double viewportStart() const { return m_viewportStart; }
+    double viewportEnd() const { return m_viewportEnd; }
+    Q_INVOKABLE bool setViewport(double start, double end);
     bool isValid() const;
     QString error() const;
     // Invalid input/domain yields NaN; callers must test isfinite().
@@ -66,6 +71,7 @@ public:
     QVector<ChartTick> ticks(int approximateCount = 5) const;
 signals:
     void changed();
+    void viewportChanged();
 private:
     Kind m_kind = Numeric;
     double m_minimum = 0;
@@ -77,6 +83,8 @@ private:
     qint64 m_maximumUtc = 1000;
     bool m_utcDomainValid = true;
     bool m_reversed = false;
+    double m_viewportStart = 0;
+    double m_viewportEnd = 1;
 };
 
 } // namespace QindaTK

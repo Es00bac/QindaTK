@@ -6,6 +6,8 @@
 #include "chart_data.h"
 #include "chart_dataset.h"
 #include "chart_table_model.h"
+#include "chart_annotation_model.h"
+#include "chart_histogram_selection.h"
 
 #include <QColor>
 #include <QImage>
@@ -39,6 +41,10 @@ class ChartRenderer : public QQuickPaintedItem {
     Q_PROPERTY(QString histogramError READ histogramError NOTIFY histogramChanged)
     Q_PROPERTY(QString histogramChannel READ histogramChannel NOTIFY histogramChanged)
     Q_PROPERTY(QString histogramUnit READ histogramUnit NOTIFY histogramChanged)
+    Q_PROPERTY(ChartAnnotationModel *annotationModel READ annotationModel WRITE setAnnotationModel NOTIFY annotationsChanged)
+    Q_PROPERTY(QString annotationError READ annotationError NOTIFY annotationsChanged)
+    Q_PROPERTY(QString selectedAnnotationId READ selectedAnnotationId NOTIFY annotationSelectionChanged)
+    Q_PROPERTY(ChartHistogramSelection *histogramSelection READ histogramSelection CONSTANT)
 public:
     explicit ChartRenderer(QQuickItem *parent = nullptr);
     ChartAxis *xAxis() const { return m_xAxis; }
@@ -77,6 +83,15 @@ public:
     QString histogramError() const { return m_histogram.error; }
     QString histogramChannel() const { return m_histogram.channel; }
     QString histogramUnit() const { return m_histogram.unit; }
+    ChartAnnotationModel *annotationModel() const { return m_annotationModel; }
+    void setAnnotationModel(ChartAnnotationModel *model);
+    QString annotationError() const;
+    QString selectedAnnotationId() const { return m_selectedAnnotationId; }
+    ChartHistogramSelection *histogramSelection() { return &m_histogramSelection; }
+    Q_INVOKABLE QVariantMap annotationAt(double x, double y) const;
+    Q_INVOKABLE bool selectAnnotationAt(double x, double y);
+    Q_INVOKABLE QString annotationsCsv() const;
+    Q_INVOKABLE bool selectHistogramBins(int first, int last);
     Q_INVOKABLE bool setHistogram(const QVariantList &edges, const QVariantList &counts,
                                   int normalization = ChartHistogram::Count,
                                   const QString &channel = {}, const QString &unit = {});
@@ -91,10 +106,15 @@ signals:
     void viewportChanged();
     void exportImageReady(const QImage &image);
     void histogramChanged();
+    void annotationsChanged();
+    void annotationSelectionChanged();
+    void annotationSelected(const QString &id);
+    void histogramRangeSelected(ChartHistogramSelection *range);
 protected:
     void keyPressEvent(QKeyEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
 private:
     static void appendDataset(QQmlListProperty<ChartDataset> *, ChartDataset *);
@@ -102,6 +122,11 @@ private:
     static ChartDataset *datasetAt(QQmlListProperty<ChartDataset> *, qsizetype);
     static void clearDatasets(QQmlListProperty<ChartDataset> *);
     void connectDataset(ChartDataset *dataset);
+    void syncViewportFromAxes();
+    double annotationX(const ChartAnnotation &annotation) const;
+    double annotationY(const ChartAnnotation &annotation) const;
+    int histogramBinAt(const QPointF &position) const;
+    void drawAnnotations(QPainter *painter, const QRectF &rect) const;
     ChartPlot plot() const;
     QRectF plotRect() const;
     void draw(QPainter *painter, const QSizeF &size) const;
@@ -116,11 +141,15 @@ private:
     mutable ChartHitIndex m_hitIndex;
     ChartTableModel m_tableModel;
     ChartHistogramResult m_histogram;
+    QPointer<ChartAnnotationModel> m_annotationModel;
+    ChartHistogramSelection m_histogramSelection;
+    QString m_selectedAnnotationId;
     mutable bool m_hitDirty = true;
     QString m_selectedSeriesId, m_selectedPointId;
     double m_xStart = 0, m_xEnd = 1, m_yStart = 0, m_yEnd = 1;
     QPointF m_dragStart;
     bool m_dragging = false;
+    int m_histogramDragStart = -1;
     int m_paintPointLimit = 2000;
 };
 

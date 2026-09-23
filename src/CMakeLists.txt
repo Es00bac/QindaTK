@@ -108,6 +108,10 @@ qt_add_qml_module(qindatk
         core/chart_data.cpp core/chart_data.h
         core/chart_dataset.cpp core/chart_dataset.h
         core/chart_renderer.cpp core/chart_renderer.h
+        core/chart_renderer_annotations.cpp
+        core/chart_renderer_data.cpp
+        core/chart_annotation_model.cpp core/chart_annotation_model.h
+        core/chart_histogram_selection.cpp core/chart_histogram_selection.h
         core/chart_table_model.cpp core/chart_table_model.h
         core/chart_histogram.cpp core/chart_histogram.h
         core/distribution_model.cpp core/distribution_model.h

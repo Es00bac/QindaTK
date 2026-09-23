@@ -93,6 +93,14 @@ T.Control {
                 Accessible.role: Accessible.ListItem
                 Accessible.name: rowHost.labelText
                 Accessible.selected: root.selectionModel && root.selectionModel.selectedIds.indexOf(rowHost.stableId) >= 0
+                Accessible.focusable: root.enabled
+                Accessible.focused: root.activeFocus && root.selectionModel
+                                    && root.selectionModel.currentId === rowHost.stableId
+                Accessible.onPressAction: {
+                    root.selectRow(rowHost.index, Qt.NoModifier)
+                    root.forceActiveFocus()
+                    root.activated(rowHost.stableId)
+                }
             }
         }
         Tk.EmptyState {

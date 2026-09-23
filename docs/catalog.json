@@ -383,6 +383,10 @@
       ],
       "methods": [
         {
+          "name": "restoreCurrent",
+          "parameters": ""
+        },
+        {
           "name": "selectTile",
           "parameters": "index, modifiers"
         }
@@ -1715,7 +1719,7 @@
         },
         {
           "name": "xAxis",
-          "type": "alias",
+          "type": "Tk.ChartAxis",
           "default": "horizontalAxis",
           "readonly": false,
           "defaultProperty": false,
@@ -1723,7 +1727,7 @@
         },
         {
           "name": "yAxis",
-          "type": "alias",
+          "type": "Tk.ChartAxis",
           "default": "verticalAxis",
           "readonly": false,
           "defaultProperty": false,
@@ -1741,6 +1745,22 @@
           "name": "showDataTable",
           "type": "bool",
           "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showAnnotationTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "annotationModel",
+          "type": "Tk.ChartAnnotationModel",
+          "default": "null",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -1792,12 +1812,44 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "annotationError",
+          "type": "string",
+          "default": "renderer.annotationError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedAnnotationId",
+          "type": "string",
+          "default": "renderer.selectedAnnotationId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "histogramSelection",
+          "type": "Tk.ChartHistogramSelection",
+          "default": "renderer.histogramSelection",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
         {
           "name": "pointSelected",
           "parameters": "string seriesId, string pointId"
+        },
+        {
+          "name": "annotationSelected",
+          "parameters": "string id"
+        },
+        {
+          "name": "histogramRangeSelected",
+          "parameters": "var range"
         },
         {
           "name": "exportRequested",
@@ -1808,6 +1860,22 @@
         {
           "name": "csvData",
           "parameters": ""
+        },
+        {
+          "name": "annotationCsvData",
+          "parameters": ""
+        },
+        {
+          "name": "annotationAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "selectAnnotationAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "selectHistogramBins",
+          "parameters": "first, last"
         },
         {
           "name": "renderImage",
@@ -1855,6 +1923,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "chartAnnotationTable",
         "chartDataTable",
         "chartFocusRing",
         "chartPlot",
@@ -16208,6 +16277,53 @@
       "bridge": false
     },
     {
+      "name": "ChartAnnotationModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-GUARD: records retain their stable IDs and exact UTC decimal strings. Replacement rejects the whole batch before changing the accessible model.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/chart_annotation_model.h",
+      "properties": [
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "replaceAnnotations",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ChartAxis",
       "kind": "cpp",
       "base": "QObject",
@@ -16280,6 +16396,20 @@
           "constant": false
         },
         {
+          "name": "viewportStart",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "viewportEnd",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "valid",
           "type": "bool",
           "default": "",
@@ -16296,6 +16426,11 @@
       ],
       "signals": [],
       "methods": [
+        {
+          "name": "setViewport",
+          "returns": "bool",
+          "parameters": "double start, double end"
+        },
         {
           "name": "map",
           "returns": "double",
@@ -16471,6 +16606,98 @@
       "bridge": false
     },
     {
+      "name": "ChartHistogramSelection",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A selected contiguous set of source bins expressed in its declared domain. The last source bin alone includes the final upper edge.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/chart_histogram_selection.h",
+      "properties": [
+        {
+          "name": "valid",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "firstBin",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastBin",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lower",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "upper",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lowerInclusive",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "upperInclusive",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "unit",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "channel",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "normalization",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ChartRenderer",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
@@ -16604,6 +16831,34 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "annotationModel",
+          "type": "ChartAnnotationModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "annotationError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedAnnotationId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "histogramSelection",
+          "type": "ChartHistogramSelection *",
+          "default": "",
+          "readonly": true,
+          "constant": true
         }
       ],
       "signals": [],
@@ -16652,6 +16907,26 @@
           "name": "exportSvg",
           "returns": "bool",
           "parameters": "const QString &path, const QSize &size"
+        },
+        {
+          "name": "annotationAt",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "selectAnnotationAt",
+          "returns": "bool",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "annotationsCsv",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "selectHistogramBins",
+          "returns": "bool",
+          "parameters": "int first, int last"
         },
         {
           "name": "setHistogram",
