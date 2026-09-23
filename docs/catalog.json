@@ -8158,6 +8158,119 @@
       "bridge": false
     },
     {
+      "name": "EditTransaction",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "One semantic user gesture, regardless of how many preview updates arrive. The document keeps previews transient; only commit enters authoritative storage and the undo history. A controller calls cancel on Escape/grab loss.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/edit_transaction.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::PropertyDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "targetIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "propertyId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "label",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "mergeKey",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "transactionId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorMessage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorCode",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "begin",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "update",
+          "returns": "bool",
+          "parameters": "const QVariant &candidate"
+        },
+        {
+          "name": "commit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "Flex",
       "kind": "cpp",
       "base": "QQuickItem",
@@ -9204,6 +9317,230 @@
       "bridge": false
     },
     {
+      "name": "PropertyBinding",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "QML-facing projection for one property over a stable set of entity IDs. Owner refreshes only publish state; interaction is explicitly routed through an EditTransaction and reported separately by userEditAccepted.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/property_binding.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::PropertyDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "propertyId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "targetIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "descriptor",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "value",
+          "type": "QVariant",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "defaultValue",
+          "type": "QVariant",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "mixed",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "writable",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "animated",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "validationError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "availabilityError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "requiresExactString",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "exactIntegerValue",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "exactIntegerDefault",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "refresh",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "begin",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "update",
+          "returns": "bool",
+          "parameters": "const QVariant &candidate"
+        },
+        {
+          "name": "updateExactInteger",
+          "returns": "bool",
+          "parameters": "const QString &decimal"
+        },
+        {
+          "name": "commit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "reset",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PropertyDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Small authoritative model and adapter reference for application domains. Other domains can implement the same transaction boundary around their own storage; no control owns this state. All methods run on the GUI thread.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/property_document.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resetGeneration",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "valueFor",
+          "returns": "QVariant",
+          "parameters": "const QString &id, const QString &propertyId"
+        },
+        {
+          "name": "containsId",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ScreenWorkArea",
       "kind": "cpp",
       "base": "QObject",
@@ -9247,6 +9584,87 @@
           "name": "refresh",
           "returns": "void",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SelectionModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Selection is stored as stable entity identity. Visible-order range semantics are supplied by the view on each extendTo call; indices are never retained.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/selection_model.h",
+      "properties": [
+        {
+          "name": "selectedIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "currentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "anchorId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "select",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "toggle",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "extendTo",
+          "returns": "bool",
+          "parameters": "const QString &id, const QStringList &orderedVisibleIds"
+        },
+        {
+          "name": "clear",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "reconcileLiveIds",
+          "returns": "bool",
+          "parameters": "const QStringList &allModelIds"
+        },
+        {
+          "name": "resetModel",
+          "returns": "bool",
+          "parameters": "const QStringList &allModelIds, const QString &resetGeneration"
         }
       ],
       "enums": {},
@@ -10501,6 +10919,240 @@
       "registrationKind": "qml_anonymous",
       "exported": false,
       "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "UndoService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Per-document histories share one active-document facade. A structural removal/reset invalidates the affected history, so inverse data never resolves to a replacement row or recycled delegate.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/undo_service.h",
+      "properties": [
+        {
+          "name": "activeDocument",
+          "type": "QindaTK::PropertyDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "clean",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cleanRevision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "memoryLimit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "markClean",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "beginMacro",
+          "returns": "bool",
+          "parameters": "const QString &label"
+        },
+        {
+          "name": "endMacro",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelMacro",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "addDocumentObject",
+          "returns": "bool",
+          "parameters": "PropertyDocument *document"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ValidationModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: validators return immutable, snapshot-tagged results to ValidationModel; the model accepts them only while both the run and the document snapshot are current. Worker code carries IDs and values only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/validation_model.h",
+      "properties": [
+        {
+          "name": "issues",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pending",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "invalid",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "runId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resetGeneration",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "firstIssue",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "firstIssueTargetId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "firstIssuePath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "setSnapshot",
+          "returns": "bool",
+          "parameters": "const QString &documentId, const QString &revision, const QString &resetGeneration"
+        },
+        {
+          "name": "beginRun",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "completeRun",
+          "returns": "bool",
+          "parameters": "const QString &runId, const QString &documentId, const QString &revision, const QString &resetGeneration, const QVariantList &entries"
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
       "valueType": false,
       "bridge": false
     },

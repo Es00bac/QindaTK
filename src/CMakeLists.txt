@@ -41,6 +41,12 @@ qt_add_qml_module(qindatk
         core/capability_registry.cpp core/capability_registry.h
         core/command_context.cpp core/command_context.h
         core/command_registry.cpp core/command_registry.h
+        core/edit_transaction.cpp core/edit_transaction.h
+        core/property_document.cpp core/property_document.h
+        core/property_binding.cpp core/property_binding.h
+        core/undo_service.cpp core/undo_service.h
+        core/validation_model.cpp core/validation_model.h
+        core/selection_model.cpp core/selection_model.h
         core/shortcut_map.cpp core/shortcut_map.h
         core/density.cpp core/density.h
         core/focus_manager.cpp core/focus_manager.h

@@ -38,6 +38,11 @@ qindatk_add_test(tst_focus_manager)
 qindatk_add_test(tst_command_registry)
 qindatk_add_test(tst_command_workflow)
 qindatk_add_test(tst_shortcut_map)
+qindatk_add_test(tst_validation_model)
+qindatk_add_test(tst_edit_transaction)
+qindatk_add_test(tst_property_binding)
+qindatk_add_test(tst_edit_workflow)
+qindatk_add_test(tst_selection_model)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)

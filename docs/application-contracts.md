@@ -38,8 +38,12 @@ publishes a new snapshot for an edit, rather than mutating a published payload.
 
 `CommandInvocationContext` snapshots the request, focused view, selection,
 focus scope and tool as IDs/values when a command is dispatched. The live
-context stack and precedence belong to WP-011. `EditRequestContext` adds a
-transaction UUID and merge key; preview/commit/rollback belong to WP-012.
+context stack and precedence belong to [commands](commands.md).
+`EditRequestContext` adds a transaction UUID and merge key;
+[editing](editing.md) defines preview/commit/rollback, undo, property state,
+stable selection and tagged validation. The reference `EditTransaction` uses
+the same identity/revision rules even when a caller does not construct an
+`EditRequestContext` explicitly.
 Neither record carries a `QObject` pointer into a worker.
 
 `RequestContext::accepts()` requires the same document, schema, revision and reset

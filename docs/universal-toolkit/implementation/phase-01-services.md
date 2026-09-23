@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 01 — Application contracts and services
 
-**Execution beginning.** WP-010 and WP-011 are accepted; WP-012 is ready. Other
+**Execution beginning.** WP-010 through WP-012 are accepted; WP-013 is ready. Other
 packages remain planned until their dependencies and acceptance gates are met.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
@@ -58,7 +58,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-012"></a>
 ## WP-012 — Implement reversible editing, stable selection and properties
 
-**Implementation lead:** Sol. **Status:** ready. **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-011](phase-01-services.md#wp-011)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-012.md). **Depends on:** [WP-010](phase-01-services.md#wp-010), [WP-011](phase-01-services.md#wp-011)
 
 **Proposal scope:** [APP-04 UndoService](../proposed/01-application-services.md#app-04), [APP-05 EditTransaction](../proposed/01-application-services.md#app-05), [APP-06 SelectionModel](../proposed/01-application-services.md#app-06), [APP-10 PropertyBinding](../proposed/01-application-services.md#app-10), [APP-11 ValidationModel](../proposed/01-application-services.md#app-11)
 
@@ -79,7 +79,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-013"></a>
 ## WP-013 — Implement document sessions, persistence and crash recovery
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-012](phase-01-services.md#wp-012)
+**Implementation lead:** Sol. **Status:** ready. **Depends on:** [WP-012](phase-01-services.md#wp-012)
 
 **Proposal scope:** [APP-07 DocumentSession](../proposed/01-application-services.md#app-07), [APP-08 DocumentManager](../proposed/01-application-services.md#app-08), [APP-18 RecoveryManager](../proposed/01-application-services.md#app-18)
 

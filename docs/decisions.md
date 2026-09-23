@@ -552,3 +552,31 @@ store a stable logical focus identifier or automatically choose a document
 editor target. Text input that opts into a shortcut can intentionally consume
 typing keys, and system/third-party shortcut conflicts are outside the map.
 See [commands.md](commands.md) for APIs and remaining integration limits.
+
+## D-028 — Keep edit previews transient and history keyed by document identity
+
+**Context.** Numeric fields, drag handles and commands can all change the same
+model property. Per-widget history would make a drag produce many undo steps,
+could commit a partly updated multi-selection and might replay inverse data
+against a recycled delegate after sorting or model reset.
+
+**Decision.** `PropertyDocument` is a small authoritative reference model with
+typed descriptors, stable entity IDs, revision and reset generation.
+`EditTransaction` captures original values, previews without advancing the
+revision, validates every target and commits an atomic multi-target change.
+Cancel or rejection removes the preview. `UndoService` keeps separate histories
+per document, records one step per committed transaction, merges only across
+matching keys without crossing a saved clean cursor, and applies a bounded
+inverse-data budget. Structural or metadata mutations outside this value-edit
+history invalidate that document's history rather than risk stale replay.
+`SelectionModel` stores IDs rather than row positions and resolves survivors
+after reset. `PropertyBinding` separates owner synchronization from accepted
+user edits; `ValidationModel` accepts only results tagged with the current
+run and snapshot.
+
+**Consequences.** A controller must keep one transaction alive for an entire
+gesture and explicitly cancel it on Escape or lost grab. A domain wanting
+undoable structure changes or concurrent overlapping previews must implement
+the corresponding model adapter; the reference model conservatively clears
+history on such changes. QML exact 64-bit values use decimal strings. See
+[editing.md](editing.md) for APIs and behavior.
