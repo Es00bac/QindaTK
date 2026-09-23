@@ -16,8 +16,8 @@ QtObject {
     property string key: ""
     property string title: ""
     // Fixed track width, in pixels, when flex is 0.
-    property real width: 80
-    property real minWidth: 24
+    property real width: Tk.Theme.size.tableColumn
+    property real minWidth: Tk.Theme.size.control
     // Share of the leftover width; 0 keeps the column at `width`.
     property real flex: 0
     property int align: Qt.AlignLeft

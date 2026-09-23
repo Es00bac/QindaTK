@@ -263,6 +263,9 @@ void ThemePresets::installBaseMetrics(Theme &theme)
         {"iconXl", 20}, {"seam", 4}, {"scrollbar", 8}, {"labelWidth", 96}, {"fieldWidth", 120},
         {"panelMinWidth", 200}, {"panelMinHeight", 120}, {"border", 1}, {"focusRing", 2},
         {"grip", 10}, {"handle", 14}, {"dropEdge", 28},
+        // Intrinsic defaults for data columns and modal dialogs. Callers can
+        // still override their widths with document-specific dimensions.
+        {"tableColumn", 80}, {"dialogWidth", 420}, {"rulerMarker", 9},
         // Telemetry: a sparkline that fits a 22px list row beside its number,
         // a meter the weight of a rule rather than a bar, and the shortest
         // plot in which a 120-sample trace still has a readable shape.
@@ -272,8 +275,9 @@ void ThemePresets::installBaseMetrics(Theme &theme)
         // time ruler above a track area.
         {"thumbnail", 72}, {"thumbnailHeight", 40}, {"waveformHeight", 28},
         {"timeRuler", 22}};
-    static const Entry motion[] = {{"instant", 0}, {"fast", 80}, {"base", 140}, {"slow", 220}};
-    static const Entry opacity[] = {{"hidden", 0.0}, {"disabled", 0.45}, {"muted", 0.7}, {"island", 0.72},
+    static const Entry motion[] = {{"instant", 0}, {"fast", 80}, {"base", 140}, {"slow", 220},
+                                   {"tooltipDelay", 600}, {"tooltipTimeout", 6000}};
+    static const Entry opacity[] = {{"hidden", 0.0}, {"full", 1.0}, {"disabled", 0.45}, {"muted", 0.7}, {"island", 0.72},
                                     {"ghost", 0.55}, {"scrim", 0.65}};
     for (const Entry &e : space) theme.space()->setBase(QString::fromLatin1(e.name), e.value);
     for (const Entry &e : radius) theme.radius()->setBase(QString::fromLatin1(e.name), e.value);
@@ -462,12 +466,15 @@ void ThemePresets::setFamilies(Theme &theme, const QString &family, const QStrin
 void ThemePresets::applyMotion(Theme &theme, bool reduced)
 {
     ThemeMetrics *motion = theme.motion();
+    motion->rescale(1.0);
     if (reduced) {
         for (const QString &name : motion->names()) {
-            motion->insert(name, 0.0);
+            // Timeout is dwell time, not animation. Keeping it lets a user
+            // read the tooltip even when motion is reduced.
+            if (name != QStringLiteral("tooltipTimeout")) {
+                motion->insert(name, 0.0);
+            }
         }
-    } else {
-        motion->rescale(1.0);
     }
 }
 

@@ -3,9 +3,9 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// Dense tooltip: caption text on the popover surface, 600ms delay. Use the
-// attached form on any control: `Tk.ToolTip.text: qsTr("Undo")`,
-// `Tk.ToolTip.visible: hovered`.
+// Dense tooltip: caption text on the popover surface, 600ms delay. Declare
+// a child `Tk.ToolTip { text: qsTr("Undo"); visible: hovered }` on its owner;
+// the attached form creates the QtQuick.Controls style tooltip instead.
 T.ToolTip {
     id: control
 
@@ -17,10 +17,10 @@ T.ToolTip {
                              implicitContentHeight + topPadding + bottomPadding)
     margins: Tk.Theme.space.xs
     padding: Tk.Theme.space.xs
-    leftPadding: Tk.Theme.space.sm + 1
-    rightPadding: Tk.Theme.space.sm + 1
-    delay: 600
-    timeout: 6000
+    leftPadding: Tk.Theme.space.sm + Tk.Theme.size.border
+    rightPadding: Tk.Theme.space.sm + Tk.Theme.size.border
+    delay: Tk.Theme.motion.tooltipDelay
+    timeout: Tk.Theme.motion.tooltipTimeout
     closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutsideParent | T.Popup.CloseOnReleaseOutsideParent
 
     contentItem: Text {
@@ -34,11 +34,11 @@ T.ToolTip {
 
     background: Rectangle {
         color: Tk.Theme.color.tooltipBg
-        border.width: 1
+        border.width: Tk.Theme.size.border
         border.color: Tk.Theme.color.popoverBorder
         radius: Tk.Theme.radius.sm
     }
 
-    enter: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Tk.Theme.motion.fast } }
-    exit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Tk.Theme.motion.fast } }
+    enter: Transition { NumberAnimation { property: "opacity"; from: Tk.Theme.opacity.hidden; to: Tk.Theme.opacity.full; duration: Tk.Theme.motion.fast } }
+    exit: Transition { NumberAnimation { property: "opacity"; from: Tk.Theme.opacity.full; to: Tk.Theme.opacity.hidden; duration: Tk.Theme.motion.fast } }
 }

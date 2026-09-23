@@ -6,9 +6,8 @@ toolkit does not have: a picture that may not have arrived, an audio envelope,
 the frames of a clip, a time scale, a band of values, and a keyboard shortcut
 drawn as keys.
 
-> These entries live here rather than in `controls.md` because that file was
-> being edited concurrently when they landed. Fold them in when convenient;
-> nothing depends on the split.
+This page is the media-control companion to [controls.md](controls.md), which
+covers the general controls and their shared conventions.
 
 ## Thumbnail
 

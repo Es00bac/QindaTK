@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-22",
+  "generated": "2026-09-23",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -1499,7 +1499,7 @@
         {
           "name": "dialogWidth",
           "type": "real",
-          "default": "420",
+          "default": "Tk.Theme.size.dialogWidth",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -5718,7 +5718,7 @@
         {
           "name": "width",
           "type": "real",
-          "default": "80",
+          "default": "Tk.Theme.size.tableColumn",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -5726,7 +5726,7 @@
         {
           "name": "minWidth",
           "type": "real",
-          "default": "24",
+          "default": "Tk.Theme.size.control",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -6328,7 +6328,7 @@
       "name": "ToolTip",
       "kind": "qml",
       "base": "T.ToolTip",
-      "description": "Dense tooltip: caption text on the popover surface, 600ms delay. Use the attached form on any control: `Tk.ToolTip.text: qsTr(\"Undo\")`, `Tk.ToolTip.visible: hovered`.",
+      "description": "Dense tooltip: caption text on the popover surface, 600ms delay. Declare a child `Tk.ToolTip { text: qsTr(\"Undo\"); visible: hovered }` on its owner; the attached form creates the QtQuick.Controls style tooltip instead.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ToolTip.qml",
@@ -7326,7 +7326,7 @@
       "name": "Graph",
       "kind": "cpp",
       "base": "QQuickItem",
-      "description": "AGENT-CONTRACT: a time-series plot drawn on the scene graph (no raster repaint, no QPainter), so many instances stay cheap. Samples enter at the right and scroll left. Series are the default property:  Tk.Graph { capacity: 120; maxValue: 100 Tk.GraphSeries { color: Tk.Theme.color.accent } }  AGENT-NOTE: a series' fill is drawn with per-vertex colour taken from its `ramp` at that sample's own magnitude, which is why a busy column reads hot and a quiet one does not -- the same trick btop plays with character colour, done with vertices instead.",
+      "description": "AGENT-CONTRACT: a time-series plot drawn on the scene graph; the software renderer uses a raster-image node while accelerated backends use geometry nodes. Samples enter at the right and scroll left. Series are the default property:  Tk.Graph { capacity: 120; maxValue: 100 Tk.GraphSeries { color: Tk.Theme.color.accent } }  AGENT-NOTE: a series' fill is drawn with per-vertex colour taken from its `ramp` at that sample's own magnitude, which is why a busy column reads hot and a quiet one does not -- the same trick btop plays with character colour, done with vertices instead.",
       "singleton": false,
       "attached": null,
       "file": "src/core/graph.h",

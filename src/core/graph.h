@@ -98,9 +98,10 @@ private:
     bool m_visible = true;
 };
 
-// AGENT-CONTRACT: a time-series plot drawn on the scene graph (no raster
-// repaint, no QPainter), so many instances stay cheap. Samples enter at the
-// right and scroll left. Series are the default property:
+// AGENT-CONTRACT: a time-series plot drawn on the scene graph; the software
+// renderer uses a raster-image node while accelerated backends use geometry
+// nodes. Samples enter at the right and scroll left. Series are the default
+// property:
 //
 //     Tk.Graph { capacity: 120; maxValue: 100
 //         Tk.GraphSeries { color: Tk.Theme.color.accent } }

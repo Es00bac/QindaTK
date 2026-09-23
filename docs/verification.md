@@ -5,7 +5,7 @@
 
 | Gate | Command | Must |
 | --- | --- | --- |
-| Configure + build | `cmake --preset dev && cmake --build --preset dev` | no warnings from `-Wall -Wextra -Wpedantic` in toolkit code |
+| Configure + build | `cmake --preset dev`, then build with the actual configured direct-build job/load limits | no warnings from `-Wall -Wextra -Wpedantic` in toolkit code |
 | Unit + scene tests | `ctest --preset dev` | 100% pass |
 | Examples instantiate | part of `ctest` (`example_<name>` tests run `qtk-preview --check`) | pass |
 | Screenshots | `tools/scripts/screenshots.sh` | exit 0; PNGs reviewed by a person or an agent with the Read tool |
@@ -13,7 +13,10 @@
 
 The `dev` preset builds `build/dev` (Debug, Ninja) with tests, tools and
 examples on; `release` builds `build/release` without tests/examples.
-Never pass `-j`/`--parallel` limits (see AGENTS.md, build policy).
+Read `portageq envvar MAKEOPTS` before direct builds and use the equivalent
+configured job **and** load limits. Portage inherits the system setting
+unchanged. Do not lower the limits with flags, environment variables, presets
+or job pools; only an explicit user instruction permits an exception.
 
 ## Headless environment
 
@@ -40,6 +43,9 @@ option (`--check`, `--dump`, `--dump-json`, `--grab`, `--dump-theme`,
 | `tst_dock_model` | `tests/cpp/tst_dock_model.cpp` | registration and queries (`lanes`, `zoneExtent`, `acceptsZone`), modes (float/hide/show/collapse/toggle/dock with zone rules), groups (join/activate/reorder/ungroup), `dockBeside` (before/after/lane-after/tab, zone rules), geometry (lane extents with minimums, shares, floating clamp, z-order), presets and saved layouts, serialize/deserialize incl. pending arrangements restored before registration |
 | `tst_layout` | `tests/cpp/tst_layout.cpp` | rendered `QQuickView` scenes: Flex grow/gaps/padding/stretch/implicit size, shrink with `minWidth`, wrap + `SpaceBetween` + `lineCount`, column align/order/`flex`, Grid tracks/spans/`rowCount`, areas + alignment, dense auto-flow, Stack insets/centre/fill, nested Box→Flex implicit sizes |
 | `tst_icon` | `tests/cpp/tst_icon.cpp` | every generated Lucide path parses into a non-empty path inside the 24×24 box (>250 icons), every alias resolves to an existing icon, `layers` has three paths, runtime `registerIcon` works and signals |
+| `tst_stylus_handler` | `tests/cpp/tst_stylus_handler.cpp` | synthetic pen/eraser/mouse delivery, pressure/tilt, duplicate suppression, touch exclusion and gesture signals |
+| `tst_app_window` | `tests/cpp/tst_app_window.cpp` | application-window bands, sizing and content behavior |
+| `tst_telemetry` | `tests/cpp/tst_telemetry.cpp` | graph ring histories, ramps and meter normalization |
 | `tst_qml` (`tests/qml/tst_*.qml`) | `tests/cpp/tst_qml.cpp` runner | `tst_smoke.qml`: Label font, Overline uppercase, Box padding+border implicit size, Panel header height, Icon availability and alias resolution, theme presets and ladder values; further `tst_*.qml` files (e.g. `tst_controls_structure.qml`) cover the controls they name |
 | `example_<name>` (one per `examples/*/Main.qml`) | `examples/CMakeLists.txt` | each example instantiates headlessly at 1280×800 |
 

@@ -20,7 +20,7 @@ T.Dialog {
     property string primaryText: qsTr("OK")
     property string secondaryText: qsTr("Cancel")
     property bool destructive: false
-    property real dialogWidth: 420
+    property real dialogWidth: Tk.Theme.size.dialogWidth
     // A third, left-aligned button ("Discard", "Don't save"): emits tertiary().
     property string tertiaryText: ""
     // Gate for the primary action (a prompt that must not accept "").
@@ -59,7 +59,7 @@ T.Dialog {
         visible: dialog.title.length > 0 || dialog.subtitle.length > 0
         padding: Tk.Theme.space.md
         paddingBottom: Tk.Theme.space.sm
-        borderBottom: 1
+        borderBottom: Tk.Theme.size.border
         borderColor: Tk.Theme.color.divider
 
         Tk.Flex {
@@ -108,7 +108,7 @@ T.Dialog {
         objectName: "dialogFooter"
         padding: Tk.Theme.space.md
         paddingTop: Tk.Theme.space.sm
-        borderTop: 1
+        borderTop: Tk.Theme.size.border
         borderColor: Tk.Theme.color.divider
 
         Tk.Flex {
@@ -146,7 +146,7 @@ T.Dialog {
 
     background: Rectangle {
         color: Tk.Theme.color.popoverBg
-        border.width: 1
+        border.width: Tk.Theme.size.border
         border.color: Tk.Theme.color.popoverBorder
         radius: Tk.Theme.radius.lg
     }

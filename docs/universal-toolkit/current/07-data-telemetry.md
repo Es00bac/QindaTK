@@ -40,7 +40,7 @@ Declarative column specification consumed by DataTable.
 
 **Source:** [src/qml/TableColumn.qml](../../../src/qml/TableColumn.qml) · **Base:** `QtObject` · **Kind:** QML component.
 
-key/title/width/minWidth/flex, align/mono/muted, visible/sortable/resizable/descendingFirst, formatter/delegate and ramp range describe cells. display(value,row) formats text. Loaded delegates read parent.value/row/column. It is not a spreadsheet column model with formulas or transactions.
+key/title/width/minWidth/flex, align/mono/muted, visible/sortable/resizable/descendingFirst, formatter/delegate and ramp range describe cells. The default width follows `Theme.size.tableColumn` (80 compact), and `minWidth` follows `Theme.size.control` (24 compact); callers can override them for document data. display(value,row) formats text. Loaded delegates read parent.value/row/column. It is not a spreadsheet column model with formulas or transactions.
 
 **Declared members:** `key: string`, `title: string`, `width: real`, `minWidth: real`, `flex: real`, `align: int`, `mono: bool`, `muted: bool`, `visible: bool`, `sortable: bool`, `resizable: bool`, `descendingFirst: bool`, `tooltip: string`, `formatter: var`, `delegate: Component`, `ramp: var`, `rampFrom: real`, `rampTo: real`.
 

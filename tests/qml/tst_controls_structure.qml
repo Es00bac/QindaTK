@@ -30,6 +30,7 @@ TestCase {
     Component { id: menuBarComponent; Tk.MenuBar { width: 300; Tk.Menu { title: "File"; Tk.MenuItem { text: "New" } } } }
     Component { id: popoverComponent; Tk.Popover { Tk.Label { text: "Snapping" } } }
     Component { id: dialogComponent; Tk.Dialog { title: "Discard?"; Tk.Label { text: "Body" } } }
+    Component { id: tableColumnComponent; Tk.TableColumn { key: "name"; title: "Name" } }
     Component {
         id: paletteComponent
         Tk.CommandPalette {
@@ -60,6 +61,26 @@ TestCase {
     Component { id: selectableLabelComponent; Tk.Label { text: "Copy this label"; selectable: true } }
     Component { id: elidedSelectableLabelComponent; Tk.Label { text: "A much longer label"; width: 48; selectable: true } }
     Component { id: labelPasteTargetComponent; Tk.TextField { width: 180 } }
+
+    function test_default_data_and_dialog_metrics_follow_density() {
+        const column = createTemporaryObject(tableColumnComponent, root)
+        const dialog = createTemporaryObject(dialogComponent, root)
+        verify(column && dialog)
+        compare(Tk.Density.modeName, "compact")
+        compare(column.width, 80)
+        compare(column.minWidth, 24)
+        compare(dialog.dialogWidth, 420)
+        compare(Tk.Theme.size.rulerMarker, 9)
+        try {
+            Tk.Density.modeName = "comfortable"
+            compare(column.width, 96)
+            compare(column.minWidth, 29)
+            compare(dialog.dialogWidth, 504)
+            compare(Tk.Theme.size.rulerMarker, 11)
+        } finally {
+            Tk.Density.modeName = "compact"
+        }
+    }
 
     function test_label_selection_and_copy() {
         const ordinary = createTemporaryObject(ordinaryLabelComponent, root)

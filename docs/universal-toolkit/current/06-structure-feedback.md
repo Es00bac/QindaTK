@@ -192,7 +192,7 @@ Modal dialog with bounded scrolling body and explicit action footer.
 
 **Source:** [src/qml/Dialog.qml](../../../src/qml/Dialog.qml) · **Base:** `T.Dialog` · **Kind:** QML component.
 
-title/subtitle, dialogWidth, primaryText/secondaryText/tertiaryText, primaryEnabled and destructive configure it. accepted/rejected/tertiary route decisions; header/footer can be replaced. standardButtons is intentionally unsupported by the custom footer.
+title/subtitle, dialogWidth, primaryText/secondaryText/tertiaryText, primaryEnabled and destructive configure it. `dialogWidth` defaults to `Theme.size.dialogWidth` (420 compact) and clamps to the host. accepted/rejected/tertiary route decisions; header/footer can be replaced. standardButtons is intentionally unsupported by the custom footer.
 
 **Declared members:** `content: alias`, `subtitle: string`, `primaryText: string`, `secondaryText: string`, `destructive: bool`, `dialogWidth: real`, `tertiaryText: string`, `primaryEnabled: bool`, `naturalHeight: real` (ro).
 
@@ -236,6 +236,8 @@ Themed tooltip popup using caption text.
 
 **Source:** [src/qml/ToolTip.qml](../../../src/qml/ToolTip.qml) · **Base:** `T.ToolTip` · **Kind:** QML component.
 
-Instantiate Tk.ToolTip as a child with text/visible bound to the owner. The inherited delay defaults to the implementation's 600 ms. Do not use the attached form: it can instantiate a Qt Controls style tooltip. The leading source comment recommending attached use is stale.
+Instantiate Tk.ToolTip as a child with text/visible bound to the owner. The
+delay defaults to `Theme.motion.tooltipDelay` (600 ms compact). Do not use the
+attached form: it can instantiate a Qt Controls style tooltip.
 
 **Declared members:** No additional local properties; use the inherited API.
