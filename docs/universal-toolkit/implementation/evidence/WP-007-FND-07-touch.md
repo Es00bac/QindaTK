@@ -240,3 +240,33 @@ contains a standard floating frame whose handles fit their targets; this does
 not claim all configured minimum panel sizes can provide 48px targets at all
 eight sides. Physical touch and native screen-reader behavior still require
 platform testing.
+
+### Layout, telemetry and docking gallery sections at 3× Touch
+
+`LayoutSection`, `TelemetrySection`, and `DockingSection` were rendered at
+480×320 with Touch density, 3× text, and both high-contrast presets. Each
+section was hosted in a vertical `Tk.Scroll`; the opened Layout and Telemetry
+captures show the large section notes and rows remain reachable in that scroll.
+The telemetry `DataTable` dump assigns it the available 430px gallery column,
+so its authored 520px implicit width does not clip the viewport.
+
+The Docking dump exposed the narrow-host case: its 428px host placed the right
+zone at `172,0 286x199`, extending 30px past the host, while the 160px Tools
+frame clipped its 48px placement and panel action targets. The gallery now
+places a 600px dock workspace in `Scroll#galleryDockScroll` and gives its left
+and right panels enough room for their Touch chrome. After the fix the dump
+reports `Scroll#galleryDockScroll 0,0 428x298`,
+`DockHost#galleryDock 0,0 600x298`,
+`DockZone#dockZone_left 0,0 286x199`, and
+`DockZone#dockZone_right 314,0 286x199`; the dock placement target is 48×48
+inside its 280px frame. Horizontal scrolling exposes both zones at the narrow
+viewport.
+
+The focused `GallerySectionMatrix` QML tests check the dock zone bounds,
+horizontal reachability, placement target containment and size, and the
+telemetry table's width. `ctest --test-dir build/gallery-layout-matrix -R
+'^tst_qml$' --output-on-failure` passed on Qt 6.11.1. Software captures for
+both high-contrast presets are in the worker worktree's ignored
+`build/gallery-layout-matrix/{Layout,Docking,Telemetry}-high-contrast-{dark,light}.png`.
+These checks cover gallery geometry and target bounds, not hardware touch or
+native assistive technology behavior.

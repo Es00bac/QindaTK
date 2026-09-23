@@ -89,6 +89,7 @@ Section {
         label: "DataTable"
         Tk.DataTable {
             id: table
+            objectName: "galleryTelemetryDataTable"
             implicitWidth: 520
             implicitHeight: 130
             alternatingRows: true
