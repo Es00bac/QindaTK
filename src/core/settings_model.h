@@ -60,6 +60,9 @@ public:
     bool resetKey(const QString &key, SettingScope scope = SettingScope::App,
                   const QString &instanceId = {});
     bool resetScope(SettingScope scope, const QString &instanceId = {});
+    // Called after persisted settings are loaded and applied at startup. Later
+    // committed differences from this baseline require an application restart.
+    void markRestartBaseline();
 
     // The map format is an exact stable boundary: app:<key>,
     // document:<instance>:<key>, workspace:<instance>:<key>.
@@ -99,6 +102,7 @@ private:
 
     QHash<QString, Entry> m_entries;
     QHash<QString, QVariant> m_staged;
+    QHash<QString, QVariant> m_restartBaseline;
     QVariantMap m_orphaned;
     OperationError m_error;
     bool m_staging = false;

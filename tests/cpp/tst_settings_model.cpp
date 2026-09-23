@@ -117,13 +117,22 @@ private slots:
         QVERIFY(model.registerSetting(intSetting(QStringLiteral("engine.threads"), 8,
                                                  SettingScope::App, true)));
         QVERIFY(!model.needsRestart());
+        QVERIFY(model.importValues({{QStringLiteral("app:engine.threads"), 10}}));
+        QVERIFY(model.needsRestart());
+        model.markRestartBaseline();
+        QVERIFY(!model.needsRestart());
+
         QVERIFY(model.beginStage());
         QVERIFY(model.setStagedValue(QStringLiteral("engine.threads"), 12));
         QVERIFY(!model.needsRestart());
         QVERIFY(model.apply());
         QVERIFY(model.needsRestart());
-        QVERIFY(model.resetKey(QStringLiteral("engine.threads")));
+        model.markRestartBaseline();
         QVERIFY(!model.needsRestart());
+        QVERIFY(model.beginStage());
+        QVERIFY(model.setStagedValue(QStringLiteral("engine.threads"), 16));
+        QVERIFY(model.apply());
+        QVERIFY(model.needsRestart());
     }
 
     void unknownKeysAreReportedAndRoundTripAsOrphans()

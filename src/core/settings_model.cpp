@@ -86,6 +86,8 @@ bool SettingsModel::registerSetting(const SettingDescriptor &descriptor,
         return false;
     }
     m_entries.insert(key, std::move(entry));
+    if (descriptor.restartRequired)
+        m_restartBaseline.insert(key, descriptor.defaultValue);
     if (m_staging)
         m_staged.insert(key, descriptor.defaultValue);
     m_error = {};
@@ -231,6 +233,17 @@ bool SettingsModel::resetScope(SettingScope scope, const QString &instanceId)
     return true;
 }
 
+void SettingsModel::markRestartBaseline()
+{
+    if (!onOwnerThread())
+        return;
+    for (auto it = m_entries.cbegin(); it != m_entries.cend(); ++it) {
+        if (it->descriptor.restartRequired)
+            m_restartBaseline.insert(it.key(), it->committed);
+    }
+    emit stateChanged();
+}
+
 QVariant SettingsModel::value(const QString &key, SettingScope scope,
                               const QString &instanceId) const
 {
@@ -251,7 +264,8 @@ QVariant SettingsModel::stagedValue(const QString &key, SettingScope scope,
 bool SettingsModel::needsRestart() const
 {
     for (auto it = m_entries.cbegin(); it != m_entries.cend(); ++it) {
-        if (it->descriptor.restartRequired && it->committed != it->descriptor.defaultValue)
+        if (it->descriptor.restartRequired &&
+            it->committed != m_restartBaseline.value(it.key(), it->descriptor.defaultValue))
             return true;
     }
     return false;
