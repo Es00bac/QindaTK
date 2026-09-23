@@ -25,10 +25,10 @@ T.TextField {
     readonly property real controlHeight: small ? Tk.Theme.size.controlSm : Tk.Theme.size.control
     readonly property real iconSize: small ? Tk.Theme.size.iconSm : Tk.Theme.size.icon
     readonly property real edgePadding: Tk.Theme.space.sm + 2
-    readonly property bool showClear: clearable && control.length > 0 && control.enabled
+    readonly property bool showClear: clearable && control.length > 0 && control.enabled && !control.readOnly
 
     function clearText() {
-        if (control.length === 0) {
+        if (control.length === 0 || !control.enabled || control.readOnly) {
             return
         }
         control.clear()
@@ -58,7 +58,10 @@ T.TextField {
 
     Accessible.role: Accessible.EditableText
     Accessible.name: control.tooltip.length > 0 ? control.tooltip : control.placeholderText
-    Accessible.description: control.error ? qsTr("Error") : ""
+    Accessible.description: control.error && control.readOnly
+                            ? qsTr("Error. Read only")
+                            : control.error ? qsTr("Error")
+                            : control.readOnly ? qsTr("Read only") : ""
 
     Tk.ToolTip {
         text: control.tooltip
@@ -67,7 +70,7 @@ T.TextField {
     }
 
     Keys.onEscapePressed: function(event) {
-        if (control.clearable && control.length > 0) {
+        if (control.clearable && control.length > 0 && control.enabled && !control.readOnly) {
             control.clearText()
             event.accepted = true
         } else {

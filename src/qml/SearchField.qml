@@ -4,7 +4,8 @@ import QindaTK as Tk
 
 // AGENT-CONTRACT (docs/controls.md): a TextField with a search glyph, a
 // clear button, Escape-to-clear, and `searched(text)` emitted `debounce`
-// milliseconds after the last keystroke (and immediately on Enter).
+// milliseconds after the last user edit (and immediately on Enter). Host-side
+// text synchronization does not start a search.
 Tk.TextField {
     id: field
 
@@ -16,7 +17,7 @@ Tk.TextField {
     clearable: true
     placeholderText: qsTr("Search")
 
-    onTextChanged: debounceTimer.restart()
+    onTextEdited: debounceTimer.restart()
     onAccepted: {
         debounceTimer.stop()
         field.searched(field.text)

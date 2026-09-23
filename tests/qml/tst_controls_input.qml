@@ -177,6 +177,43 @@ TestCase {
         verify(!clearButton.visible)
     }
 
+    function test_textfield_readonly_blocks_clear_edits() {
+        const item = make(textField)
+        item.readOnly = true
+        spy.target = item
+        spy.signalName = "cleared"
+        spy.clear()
+        const clearButton = findChild(item, "fieldClear")
+        verify(clearButton !== null)
+        verify(!clearButton.visible)
+        compare(item.Accessible.description, "Read only")
+
+        item.forceActiveFocus()
+        keyClick(Qt.Key_Escape)
+        item.clearText()
+        compare(item.text, "abc")
+        compare(spy.count, 0)
+
+        item.readOnly = false
+        verify(clearButton.visible)
+        item.clearText()
+        compare(item.text, "")
+        compare(spy.count, 1)
+    }
+
+    function test_searchfield_readonly_blocks_escape_clear() {
+        const item = make(search)
+        item.text = "query"
+        item.readOnly = true
+        spy.target = item
+        spy.signalName = "searched"
+        spy.clear()
+        item.forceActiveFocus()
+        keyClick(Qt.Key_Escape)
+        compare(item.text, "query")
+        compare(spy.count, 0)
+    }
+
     function test_search_emits_on_enter() {
         const item = make(search)
         spy.target = item

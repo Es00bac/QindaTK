@@ -37,7 +37,10 @@ T.TextArea {
 
     Accessible.role: Accessible.EditableText
     Accessible.name: control.tooltip.length > 0 ? control.tooltip : control.placeholderText
-    Accessible.description: control.error ? qsTr("Error") : ""
+    Accessible.description: control.error && control.readOnly
+                            ? qsTr("Error. Read only")
+                            : control.error ? qsTr("Error")
+                            : control.readOnly ? qsTr("Read only") : ""
 
     Tk.ToolTip {
         text: control.tooltip

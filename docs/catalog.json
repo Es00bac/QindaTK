@@ -4949,7 +4949,7 @@
       "name": "SearchField",
       "kind": "qml",
       "base": "Tk.TextField",
-      "description": "AGENT-CONTRACT (docs/controls.md): a TextField with a search glyph, a clear button, Escape-to-clear, and `searched(text)` emitted `debounce` milliseconds after the last keystroke (and immediately on Enter).",
+      "description": "AGENT-CONTRACT (docs/controls.md): a TextField with a search glyph, a clear button, Escape-to-clear, and `searched(text)` emitted `debounce` milliseconds after the last user edit (and immediately on Enter). Host-side text synchronization does not start a search.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/SearchField.qml",
@@ -6065,7 +6065,7 @@
         {
           "name": "showClear",
           "type": "bool",
-          "default": "clearable && control.length > 0 && control.enabled",
+          "default": "clearable && control.length > 0 && control.enabled && !control.readOnly",
           "readonly": true,
           "defaultProperty": false,
           "required": false
