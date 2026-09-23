@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <cmath>
 
 namespace QindaTK {
 
@@ -29,27 +30,27 @@ bool parseLength(QStringView token, GridLength *out)
     bool ok = false;
     if (t.endsWith(u"fr")) {
         const qreal v = t.chopped(2).toDouble(&ok);
-        if (ok && v >= 0) {
+        if (ok && std::isfinite(v) && v >= 0) {
             *out = {GridLength::Fr, v};
         }
-        return ok;
+        return ok && std::isfinite(v) && v >= 0;
     }
     if (t.endsWith(u'%')) {
         const qreal v = t.chopped(1).toDouble(&ok);
-        if (ok) {
+        if (ok && std::isfinite(v) && v >= 0) {
             *out = {GridLength::Percent, v};
         }
-        return ok;
+        return ok && std::isfinite(v) && v >= 0;
     }
     QStringView number = t;
     if (number.endsWith(u"px")) {
         number = number.chopped(2);
     }
     const qreal v = number.toDouble(&ok);
-    if (ok && v >= 0) {
+    if (ok && std::isfinite(v) && v >= 0) {
         *out = {GridLength::Fixed, v};
     }
-    return ok;
+    return ok && std::isfinite(v) && v >= 0;
 }
 
 // Index of the ')' matching the '(' at `open`, or -1.
@@ -86,8 +87,12 @@ bool splitTopLevel(QStringView s, QStringView *head, QStringView *tail)
     return false;
 }
 
-bool parseList(QStringView spec, QVector<GridTrack> *out, QString *error)
+bool parseList(QStringView spec, QVector<GridTrack> *out, QString *error, int depth = 0)
 {
+    if (depth > 16) {
+        if (error) *error = QStringLiteral("repeat() nesting exceeds 16");
+        return false;
+    }
     qsizetype i = 0;
     while (i < spec.size()) {
         while (i < spec.size() && spec[i].isSpace()) {
@@ -114,12 +119,36 @@ bool parseList(QStringView spec, QVector<GridTrack> *out, QString *error)
             if (rest.startsWith(u"repeat(")) {
                 bool ok = false;
                 const int count = head.trimmed().toInt(&ok);
-                if (!ok || count < 0) {
+                const bool automatic = head.trimmed() == u"auto-fill" || head.trimmed() == u"auto-fit";
+                if ((!ok || count < 0 || count > 4096) && !automatic) {
                     if (error) *error = QStringLiteral("repeat() count must be an integer");
                     return false;
                 }
                 QVector<GridTrack> inner_tracks;
-                if (!parseList(tail, &inner_tracks, error)) {
+                if (!parseList(tail, &inner_tracks, error, depth + 1)) {
+                    return false;
+                }
+                if (automatic) {
+                    // AGENT-CONTRACT: D-020 bounds responsive repeats to a sole
+                    // minmax track with a definite positive minimum.
+                    if (depth != 0 || !out->isEmpty() || !rest.mid(close + 1).trimmed().isEmpty()
+                        || inner_tracks.size() != 1 || !tail.trimmed().startsWith(u"minmax(")) {
+                        if (error) *error = QStringLiteral("auto-repeat must be the sole track and contain one minmax()");
+                        return false;
+                    }
+                    GridTrack track = inner_tracks.front();
+                    if ((track.min.kind != GridLength::Fixed && track.min.kind != GridLength::Percent)
+                        || track.min.value <= 0 || (track.max.kind != GridLength::Fr
+                        && track.max.kind != GridLength::Fixed && track.max.kind != GridLength::Percent)) {
+                        if (error) *error = QStringLiteral("auto-repeat needs a positive definite minimum and definite or fr maximum");
+                        return false;
+                    }
+                    track.repeat = head.trimmed() == u"auto-fit" ? GridTrack::AutoFit : GridTrack::AutoFill;
+                    out->append(track);
+                    return true;
+                }
+                if (out->size() + qint64(count) * inner_tracks.size() > 4096) {
+                    if (error) *error = QStringLiteral("track list exceeds 4096 tracks");
                     return false;
                 }
                 for (int n = 0; n < count; ++n) {
@@ -175,14 +204,63 @@ QVector<GridTrack> parseGridTracks(const QString &spec, QString *error)
     return tracks;
 }
 
+QVector<GridTrack> expandGridTracks(const QVector<GridTrack> &tracks, qreal available, qreal gap)
+{
+    if (tracks.size() != 1 || tracks.front().repeat == GridTrack::None)
+        return tracks;
+    const auto &track = tracks.front();
+    const auto resolve = [available](GridLength length) {
+        return length.kind == GridLength::Percent ? available * length.value / 100 : length.value;
+    };
+    const qreal minimum = resolve(track.min);
+    const qreal breadth = track.flexible() ? minimum : std::max(minimum, resolve(track.max));
+    const qreal stride = std::max<qreal>(1, breadth) + std::max<qreal>(0, gap);
+    const int count = available > 0 ? int(std::clamp(std::floor((available + std::max<qreal>(0, gap)) / stride), 1.0, 4096.0)) : 1;
+    return QVector<GridTrack>(count, track);
+}
+
 GridTrackSizes sizeGridTracks(const QVector<GridTrack> &tracks,
                               const QVector<GridContribution> &items, qreal available, qreal gap)
 {
     const int n = tracks.size();
     GridTrackSizes result;
+    result.gaps = QVector<qreal>(n, gap);
+    if (n > 0) result.gaps[n - 1] = 0;
     result.sizes = QVector<qreal>(n, 0);
     result.natural = QVector<qreal>(n, 0);
     if (n == 0) {
+        return result;
+    }
+    QVector<bool> occupied(n, false);
+    for (const auto &item : items)
+        for (int t = std::max(0, item.start); t < std::min(n, item.start + item.span); ++t)
+            occupied[t] = true;
+    QVector<GridTrack> active;
+    QVector<int> mapping(n, -1);
+    for (int t = 0; t < n; ++t) {
+        if (tracks[t].repeat == GridTrack::AutoFit && !occupied[t]) continue;
+        mapping[t] = active.size();
+        auto track = tracks[t];
+        track.repeat = GridTrack::None;
+        active.append(track);
+    }
+    if (active.size() != n) {
+        QVector<GridContribution> remapped;
+        for (const auto &item : items) {
+            if (item.start < 0 || item.start >= n || mapping[item.start] < 0) continue;
+            int span = 0;
+            for (int t = item.start; t < std::min(n, item.start + item.span); ++t)
+                if (mapping[t] >= 0) ++span;
+            remapped.append({mapping[item.start], span, item.size});
+        }
+        const auto compact = sizeGridTracks(active, remapped, available, gap);
+        result.gaps.fill(0);
+        for (int t = 0; t < n; ++t) {
+            if (mapping[t] < 0) continue;
+            result.sizes[t] = compact.sizes[mapping[t]];
+            result.natural[t] = compact.natural[mapping[t]];
+            result.gaps[t] = compact.gaps[mapping[t]];
+        }
         return result;
     }
     const bool definite = available > 0;
@@ -265,7 +343,30 @@ GridTrackSizes sizeGridTracks(const QVector<GridTrack> &tracks,
             continue;
         }
         for (int t : targets) {
-            base[t] += extra / targets.size();
+            base[t] = std::min(limit[t], base[t] + extra / targets.size());
+        }
+    }
+
+    // Grow finite minmax ranges before handing remaining space to fr/auto.
+    // A fixed upper bound never becomes an unbounded stretch target.
+    if (definite) {
+        qreal remaining = available - gap * (n - 1);
+        for (qreal value : base) remaining -= value;
+        while (remaining > 0) {
+            QVector<int> growable;
+            for (int t = 0; t < n; ++t)
+                if (!tracks[t].flexible() && std::isfinite(limit[t]) && base[t] < limit[t])
+                    growable.append(t);
+            if (growable.isEmpty()) break;
+            const qreal share = remaining / growable.size();
+            qreal grown = 0;
+            for (int t : growable) {
+                const qreal delta = std::min(share, limit[t] - base[t]);
+                base[t] += delta;
+                grown += delta;
+            }
+            if (grown <= 0) break;
+            remaining -= grown;
         }
     }
 

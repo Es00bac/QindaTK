@@ -157,6 +157,10 @@ void Grid::setAutoColumns(const QString &value)
     m_autoColumns = value;
     QString error;
     m_autoColumnTracks = parseGridTracks(value, &error);
+    if (!m_autoColumnTracks.isEmpty() && m_autoColumnTracks.front().repeat != GridTrack::None) {
+        m_autoColumnTracks.clear();
+        error = QStringLiteral("auto-repeat is only supported in columns/rows");
+    }
     reportError(error);
     emit layoutPropertyChanged();
     invalidateLayout();
@@ -170,6 +174,10 @@ void Grid::setAutoRows(const QString &value)
     m_autoRows = value;
     QString error;
     m_autoRowTracks = parseGridTracks(value, &error);
+    if (!m_autoRowTracks.isEmpty() && m_autoRowTracks.front().repeat != GridTrack::None) {
+        m_autoRowTracks.clear();
+        error = QStringLiteral("auto-repeat is only supported in columns/rows");
+    }
     reportError(error);
     emit layoutPropertyChanged();
     invalidateLayout();
@@ -269,6 +277,8 @@ void Grid::doLayout()
     const qreal innerW = width() > 0 ? width() - padL - padR : 0;
     const qreal innerH = height() > 0 ? height() - padT - padB : 0;
 
+    const auto explicitColumns = expandGridTracks(m_columnTracks, innerW, colGap);
+    const auto explicitRows = expandGridTracks(m_rowTracks, innerH, rowGap);
     int areaWidth = 0;
     const QHash<QString, AreaRect> areas = parseAreas(m_areas, &areaWidth);
 
@@ -309,8 +319,8 @@ void Grid::doLayout()
     // ---- placement (CSS Grid §8.5) ----
     const bool rowFlow = m_autoFlow == Row || m_autoFlow == RowDense;
     const bool dense = m_autoFlow == RowDense || m_autoFlow == ColumnDense;
-    int columns = std::max({static_cast<int>(m_columnTracks.size()), areaWidth, 1});
-    int rows = std::max({static_cast<int>(m_rowTracks.size()), static_cast<int>(m_areas.size()), 1});
+    int columns = std::max({static_cast<int>(explicitColumns.size()), areaWidth, 1});
+    int rows = std::max({static_cast<int>(explicitRows.size()), static_cast<int>(m_areas.size()), 1});
     Occupancy occupied;
     for (GridEntry &e : entries) {
         if (rowFlow) {
@@ -409,10 +419,10 @@ void Grid::doLayout()
     QVector<GridTrack> colTracks;
     QVector<GridTrack> rowTracks;
     for (int c = 0; c < columns; ++c) {
-        colTracks.append(trackAt(m_columnTracks, m_autoColumnTracks, c));
+        colTracks.append(trackAt(explicitColumns, m_autoColumnTracks, c));
     }
     for (int r = 0; r < rows; ++r) {
-        rowTracks.append(trackAt(m_rowTracks, m_autoRowTracks, r));
+        rowTracks.append(trackAt(explicitRows, m_autoRowTracks, r));
     }
 
     // ---- columns from implicit widths ----
@@ -423,10 +433,10 @@ void Grid::doLayout()
     const GridTrackSizes cols = sizeGridTracks(colTracks, colItems, innerW, colGap);
     QVector<qreal> colStart(columns + 1, 0);
     for (int c = 0; c < columns; ++c) {
-        colStart[c + 1] = colStart[c] + cols.sizes[c] + colGap;
+        colStart[c + 1] = colStart[c] + cols.sizes[c] + cols.gaps[c];
     }
     for (GridEntry &e : entries) {
-        const qreal cellW = colStart[e.column + e.columnSpan] - colStart[e.column] - colGap;
+        const qreal cellW = colStart[e.column + e.columnSpan] - colStart[e.column] - cols.gaps[e.column + e.columnSpan - 1];
         const Alignment justify = e.justifySelf == Auto ? m_justifyItems : static_cast<Alignment>(e.justifySelf);
         const qreal w = justify == Stretch ? clampTo(cellW, e.minW, e.maxW)
                                            : clampTo(e.item->implicitWidth(), e.minW, e.maxW);
@@ -441,15 +451,15 @@ void Grid::doLayout()
     const GridTrackSizes rws = sizeGridTracks(rowTracks, rowItems, innerH, rowGap);
     QVector<qreal> rowStart(rows + 1, 0);
     for (int r = 0; r < rows; ++r) {
-        rowStart[r + 1] = rowStart[r] + rws.sizes[r] + rowGap;
+        rowStart[r + 1] = rowStart[r] + rws.sizes[r] + rws.gaps[r];
     }
 
     // ---- position ----
     for (GridEntry &e : entries) {
         const qreal cellX = colStart[e.column];
         const qreal cellY = rowStart[e.row];
-        const qreal cellW = colStart[e.column + e.columnSpan] - cellX - colGap;
-        const qreal cellH = rowStart[e.row + e.rowSpan] - cellY - rowGap;
+        const qreal cellW = colStart[e.column + e.columnSpan] - cellX - cols.gaps[e.column + e.columnSpan - 1];
+        const qreal cellH = rowStart[e.row + e.rowSpan] - cellY - rws.gaps[e.row + e.rowSpan - 1];
         const Alignment justify = e.justifySelf == Auto ? m_justifyItems : static_cast<Alignment>(e.justifySelf);
         const Alignment align = e.alignSelf == Auto ? m_alignItems : static_cast<Alignment>(e.alignSelf);
         const qreal w = e.item->width();
@@ -465,13 +475,15 @@ void Grid::doLayout()
         e.item->setSize(QSizeF(w, h));
     }
 
-    qreal naturalW = colGap * std::max(columns - 1, 0);
+    qreal naturalW = 0;
+    for (qreal v : cols.gaps) naturalW += v;
     for (qreal v : cols.natural) naturalW += v;
-    qreal naturalH = rowGap * std::max(rows - 1, 0);
+    qreal naturalH = 0;
+    for (qreal v : rws.gaps) naturalH += v;
     for (qreal v : rws.natural) naturalH += v;
     setImplicitSize(naturalW + padL + padR, naturalH + padT + padB);
-    const qreal contentW = std::max(naturalW, colStart[columns] - colGap) + padL + padR;
-    const qreal contentH = std::max(naturalH, rowStart[rows] - rowGap) + padT + padB;
+    const qreal contentW = std::max(naturalW, colStart[columns]) + padL + padR;
+    const qreal contentH = std::max(naturalH, rowStart[rows]) + padT + padB;
     if (contentW != m_contentWidth || contentH != m_contentHeight || columns != m_columnCount || rows != m_rowCount) {
         m_contentWidth = contentW;
         m_contentHeight = contentH;

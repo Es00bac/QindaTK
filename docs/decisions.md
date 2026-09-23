@@ -330,3 +330,41 @@ engines.
 explicit and can change at runtime. Each layout engine needs its own
 tests and documentation; Flex is the first implementation, with Grid and
 Stack tracked under WP-006.
+
+## D-020 — Bound responsive Grid repeats and preserve intrinsic approximations
+
+**Context.** Integer repeats cannot adapt an asset grid to a changing width.
+QQuickItem exposes one implicit size per axis, so distinct CSS min-content and
+max-content measurement cannot be inferred reliably for arbitrary child items.
+
+**Decision.** Accept a sole `repeat(auto-fill|auto-fit, minmax(min, max))` in
+`columns` or `rows`. The minimum must be a positive finite pixel or percentage
+length; the maximum must be a nonnegative finite pixel, percentage, or `fr`
+length. Expand against the current inner axis before placement. Use the larger
+of definite minimum/maximum as the fitting breadth, or the minimum for an `fr`
+maximum. Include gaps; use at least one repetition, cap at 4096, and use one
+repetition on an indefinite axis. The fitting breadth is floored at one pixel
+for numerical stability. This is deliberately a bounded responsive grammar:
+multiple pattern tracks, surrounding tracks and nested automatic repeats are
+rejected, as are automatic repeats in implicit-track properties.
+
+After placement, `auto-fill` retains unused tracks; `auto-fit` collapses every
+unoccupied repeated track and its gaps. A span occupies all tracks it crosses,
+even when the child's implicit size is zero. Explicit track indices and counts
+remain stable after collapse; placement beyond the repeated region creates
+ordinary implicit tracks. Visibility, ignore flags, resize and gap changes
+trigger the usual relayout path.
+
+Keep `Nfr = minmax(0, Nfr)`, the existing content floor of `minmax(auto, Nfr)`,
+and the existing min/max-content aliases to implicit content. Do not advertise
+distinct intrinsic text measurement. Finite `minmax` maxima bound growth;
+maxima below minima resolve to the minimum. Invalid syntax preserves the parsed
+prefix and error reporting. Negative/non-finite lengths, excessive integer
+repeat expansion and nesting are errors rather than accidental zero tracks or
+unbounded allocation. Integer `repeat(0, ...)` remains an empty repetition for
+compatibility. This grammar does not provide named lines, subgrid or fit-content.
+
+**Consequences.** Asset grids can choose retained slots or stretched occupied
+slots without imperative breakpoint logic. Existing plain tracks and `fr`
+behavior remain covered by regression tests. A future true intrinsic sizing
+API must define child measurement contracts before expanding the grammar.

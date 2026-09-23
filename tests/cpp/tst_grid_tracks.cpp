@@ -8,6 +8,57 @@ using namespace QindaTK;
 class TstGridTracks final : public QObject {
     Q_OBJECT
 private slots:
+    void responsiveRepeat()
+    {
+        QString error;
+        auto tracks = parseGridTracks(QStringLiteral("repeat(auto-fill, minmax(100, 1fr))"), &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(expandGridTracks(tracks, 320, 10).size(), 3);
+        QCOMPARE(expandGridTracks(tracks, 319, 10).size(), 2);
+        QCOMPARE(expandGridTracks(tracks, 0, 10).size(), 1);
+        tracks = expandGridTracks(tracks, 320, 10);
+        QCOMPARE(sizeGridTracks(tracks, {{0, 1, 80}}, 320, 10).sizes, (QVector<qreal>{100, 100, 100}));
+        for (auto &track : tracks) track.repeat = GridTrack::AutoFit;
+        auto fit = sizeGridTracks(tracks, {{0, 1, 80}, {2, 1, 0}}, 320, 10);
+        QCOMPARE(fit.sizes, (QVector<qreal>{155, 0, 155}));
+        QCOMPARE(fit.gaps, (QVector<qreal>{10, 0, 0}));
+        fit = sizeGridTracks(tracks, {{0, 3, 80}}, 320, 10);
+        QCOMPARE(fit.sizes, (QVector<qreal>{100, 100, 100}));
+        QCOMPARE(sizeGridTracks(tracks, {}, 320, 10).sizes, (QVector<qreal>{0, 0, 0}));
+    }
+    void responsivePercentAndFixedMaximum()
+    {
+        auto tracks = parseGridTracks(QStringLiteral("repeat(auto-fill, minmax(20%, 1fr))"));
+        QCOMPARE(expandGridTracks(tracks, 400, 0).size(), 5);
+        tracks = parseGridTracks(QStringLiteral("repeat(auto-fill, minmax(50, 100))"));
+        QCOMPARE(expandGridTracks(tracks, 320, 10).size(), 3);
+        QCOMPARE(sizeGridTracks(expandGridTracks(tracks, 320, 10), {}, 320, 10).sizes,
+            (QVector<qreal>{100, 100, 100}));
+        QCOMPARE(sizeGridTracks(parseGridTracks("minmax(80, 40) 1fr"), {}, 100, 0).sizes,
+            (QVector<qreal>{80, 20}));
+    }
+    void invalidResponsiveFallback()
+    {
+        const QStringList invalid = {"repeat(auto-fit, 100)", "repeat(auto-fit, minmax(auto, 1fr))",
+            "repeat(auto-fit, minmax(0, 1fr))", "repeat(auto-fit, minmax(100, 1fr)) 20",
+            "repeat(2, repeat(auto-fit, minmax(100, 1fr)))", "repeat(999999, 1fr)",
+            "-2fr", "-20px", "-1%", "nan", "inf"};
+        for (const auto &spec : invalid) {
+            QString error;
+            QVERIFY2(parseGridTracks(spec, &error).isEmpty(), qPrintable(spec));
+            QVERIFY2(!error.isEmpty(), qPrintable(spec));
+        }
+        QString error;
+        QCOMPARE(parseGridTracks(QStringLiteral("20 bad"), &error).size(), 1);
+        QVERIFY(!error.isEmpty());
+    }
+    void intrinsicFloorAndAliases()
+    {
+        QCOMPARE(sizeGridTracks(parseGridTracks("minmax(auto, 1fr) 1fr"),
+            {{0, 1, 160}}, 200, 0).sizes, (QVector<qreal>{160, 40}));
+        QCOMPARE(sizeGridTracks(parseGridTracks("min-content max-content"),
+            {{0, 1, 20}, {1, 1, 40}}, 0, 0).sizes, (QVector<qreal>{20, 40}));
+    }
     void parsesPlainList()
     {
         const auto tracks = parseGridTracks(QStringLiteral("200 1fr auto 25% 40px"));

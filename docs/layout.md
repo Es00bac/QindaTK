@@ -188,7 +188,8 @@ container's), plus `minWidth`…, `order`, `ignore`.
 ### Track grammar
 
 ```
-tracks   := track+                      separated by whitespace
+tracks   := track+ | repeat(auto-fill|auto-fit, minmax(definite, maximum))
+                                        separated by whitespace
 track    := length | minmax(length, length) | repeat(count, tracks)
 length   := <number> | <number>px | <number>% | <number>fr | auto
           | min-content | max-content     (both treated as auto)
@@ -200,9 +201,22 @@ length   := <number> | <number>px | <number>% | <number>fr | auto
 | `25%` | 25% of the container's inner size; behaves as `auto` while the container size is indefinite |
 | `auto` | content-sized: as wide as the widest single-span item; stretches to fill leftover when the list has no `fr` track |
 | `1fr` | **`minmax(0, 1fr)`**: a share of the leftover, may be narrower than its content |
+| `minmax(40, 120)` | starts at 40px and grows toward 120px before flexible sharing |
 | `minmax(120, 1fr)` | a share of the leftover, never below 120 |
 | `minmax(auto, 1fr)` | a share of the leftover, never below content (CSS's own `1fr`) |
 | `repeat(3, minmax(80, 1fr))` | three such tracks |
+| `repeat(auto-fill, minmax(96, 1fr))` | as many ≥96px tracks as fit; keeps empty slots |
+| `repeat(auto-fit, minmax(96, 1fr))` | same placement; collapses unoccupied tracks and adjacent gaps |
+
+Automatic repeat must be the sole expression in `columns` or `rows`, containing
+one `minmax`. Its minimum is positive pixels or percent; its maximum is pixels,
+percent or `fr`. It is unavailable in `autoColumns`/`autoRows`. Track fitting uses
+the definite maximum (floored by the minimum), or the minimum for an `fr`
+maximum, including gaps. An indefinite axis uses one repetition; the maximum
+is 4096 repetitions. `auto-fit` keeps explicit indices/counts but sizes unused
+tracks to zero. Spanning items occupy every crossed track. See decision D-020.
+All numeric lengths must be finite and nonnegative. Integer repeat expansion
+is limited to 4096 tracks and nesting to 16 levels.
 
 A parse error keeps the tracks parsed so far, sets `error`, and logs
 `QindaTK.Grid: …`.
@@ -247,6 +261,8 @@ sum of these natural sizes plus gaps and padding.
 
 - `Nfr` means `minmax(0, Nfr)` (decision D-004). Use `minmax(auto, 1fr)` for
   the CSS default.
+- `min-content` and `max-content` both use the child's implicit size; distinct
+  intrinsic measurement, `fit-content`, named lines and subgrid are unsupported.
 - Items spanning an `fr` track do not enlarge it.
 - Percent tracks resolve against the container's inner size only when it
   is definite.
@@ -283,7 +299,7 @@ Tk.Grid {
 // Thumbnails: as many 96px columns as fit, packed densely.
 Tk.Grid {
     width: 400
-    columns: "repeat(4, minmax(0, 1fr))"
+    columns: "repeat(auto-fill, minmax(96, 1fr))"
     autoRows: "72"
     autoFlow: Tk.Grid.RowDense
     gap: Tk.Theme.space.xs

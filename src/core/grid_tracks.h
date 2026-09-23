@@ -19,8 +19,10 @@ struct GridLength final {
 // A track as `minmax(min, max)`. Plain `auto` is minmax(auto, auto);
 // `200` is minmax(200, 200); `1fr` is minmax(0, 1fr).
 struct GridTrack final {
+    enum Repeat { None, AutoFill, AutoFit };
     GridLength min;
     GridLength max;
+    Repeat repeat = None;
     [[nodiscard]] bool flexible() const { return max.kind == GridLength::Fr; }
     [[nodiscard]] bool operator==(const GridTrack &) const = default;
 };
@@ -28,9 +30,14 @@ struct GridTrack final {
 // AGENT-CONTRACT: the track-list grammar accepted by Grid.columns/rows:
 //   <track>+ where <track> = <length> | minmax(<length>, <length>)
 //                          | repeat(<count>, <track>+)
+// Or a sole responsive repeat(auto-fill|auto-fit, minmax(...)); D-020
+// documents bounds. expandGridTracks resolves this marker before placement.
 // `error` receives a message for an unparsable spec; the tracks parsed so
 // far are returned. tests/cpp/tst_grid_tracks.cpp is the reference.
 [[nodiscard]] QVector<GridTrack> parseGridTracks(const QString &spec, QString *error = nullptr);
+
+[[nodiscard]] QVector<GridTrack> expandGridTracks(const QVector<GridTrack> &tracks,
+                                                 qreal available, qreal gap);
 
 // An item's size demand on one axis: the tracks it spans and the size its
 // content asks for (implicit size clamped by its min/max).
@@ -42,9 +49,11 @@ struct GridContribution final {
 
 struct GridTrackSizes final {
     QVector<qreal> sizes;     // final track sizes for the given available size
+    QVector<qreal> gaps;      // gap following each track; collapsed auto-fit gaps are zero
     QVector<qreal> natural;   // content-driven sizes, for the container's implicit size
 };
 
+// Resolve responsive markers with expandGridTracks before sizing.
 // Sizes tracks for `available` pixels (<= 0 means indefinite: no free
 // space, fr tracks collapse to their content). Follows CSS Grid Layout
 // Level 1 §11 with these deliberate simplifications: spanning items do not

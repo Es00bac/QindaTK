@@ -63,6 +63,61 @@ private:
 class TstLayout final : public QObject {
     Q_OBJECT
 private slots:
+    void responsiveGridResizeAndFit()
+    {
+        Scene scene(R"QML(
+            Tk.Grid {
+                objectName: "responsiveGrid"
+                columns: "repeat(auto-fill, minmax(100, 1fr))"
+                autoRows: "40"; gap: 10
+                Rectangle { objectName: "first"; implicitWidth: 10 }
+                Rectangle { objectName: "second"; implicitWidth: 10 }
+            })QML", QSize(320, 120));
+        QVERIFY(scene.root());
+        QVERIFY(scene.exposed());
+        auto *grid = qobject_cast<Grid *>(scene.root());
+        QVERIFY(grid);
+        auto *first = scene.item("first");
+        auto *second = scene.item("second");
+        QTRY_COMPARE(grid->columnCount(), 3);
+        QTRY_COMPARE(first->width(), 100.0);
+        QTRY_COMPARE(second->x(), 110.0);
+        grid->setColumns("repeat(auto-fit, minmax(100, 1fr))");
+        QTRY_COMPARE(first->width(), 155.0);
+        QTRY_COMPARE(second->x(), 165.0);
+        QCOMPARE(grid->columnCount(), 3); // explicit indices survive collapse
+        grid->setWidth(210);
+        QTRY_COMPARE(grid->columnCount(), 2);
+        QTRY_COMPARE(first->width(), 100.0);
+        second->setVisible(false);
+        QTRY_COMPARE(first->width(), 210.0);
+        QCOMPARE(grid->contentWidth(), 210.0);
+        grid->setWidth(99);
+        QTRY_COMPARE(grid->columnCount(), 1);
+        QTRY_COMPARE(first->width(), 100.0); // minimum intentionally overflows
+    }
+    void responsiveRowsAndInvalidFallback()
+    {
+        Scene scene(R"QML(
+            Tk.Grid {
+                autoFlow: Tk.Grid.Column
+                rows: "repeat(auto-fit, minmax(40, 1fr))"
+                columns: "100"; gap: 10
+                Item { objectName: "first" }
+                Item { objectName: "second" }
+            })QML", QSize(100, 140));
+        QVERIFY(scene.root());
+        QVERIFY(scene.exposed());
+        auto *grid = qobject_cast<Grid *>(scene.root());
+        QTRY_COMPARE(grid->rowCount(), 3);
+        QTRY_COMPARE(scene.item("first")->height(), 65.0);
+        QTRY_COMPARE(scene.item("second")->y(), 75.0);
+        QTest::ignoreMessage(QtWarningMsg, "QindaTK.Grid: bad track \"broken\"");
+        grid->setRows("30 broken");
+        QVERIFY(!grid->error().isEmpty());
+        QTRY_COMPARE(scene.item("first")->height(), 30.0);
+    }
+
     void flexRowGrow()
     {
         Scene scene(QStringLiteral(R"qml(
