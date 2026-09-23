@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-#include "core/dock_model.h"
+#include "dock_model.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
