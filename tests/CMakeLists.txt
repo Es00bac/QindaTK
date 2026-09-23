@@ -42,6 +42,7 @@ qindatk_add_test(tst_validation_model)
 qindatk_add_test(tst_edit_transaction)
 qindatk_add_test(tst_property_binding)
 qindatk_add_test(tst_edit_workflow)
+qindatk_add_test(tst_document_session)
 qindatk_add_test(tst_selection_model)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
