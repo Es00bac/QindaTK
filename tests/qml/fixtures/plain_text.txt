@@ -1,0 +1,2 @@
+QindaTK format dialog import test.
+UTF-8: café — 音楽.
