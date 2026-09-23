@@ -74,20 +74,33 @@ Item {
             const step = Math.max(1, Math.ceil(columns / Math.max(1, width)))
 
             ctx.beginPath()
-            ctx.moveTo(0, mid)
-            // Out along the top of the envelope...
-            for (let index = 0; index < columns; index += step) {
-                const x = (index / (columns - 1)) * width
-                const peak = Math.min(1, Math.abs(Number(source[index]) || 0))
-                ctx.lineTo(x, mid - peak * mid)
-            }
-            // ...and back along the bottom, so the shape closes on itself and
-            // is symmetric because it is one path, not two drawings that have
-            // to agree.
-            for (let index = columns - 1; index >= 0; index -= step) {
-                const x = (index / (columns - 1)) * width
-                const peak = Math.min(1, Math.abs(Number(source[index]) || 0))
-                ctx.lineTo(x, mid + peak * mid)
+            // AGENT-GUARD: keep the single-column case outside the indexed
+            // traces below; their (columns - 1) divisor is zero here.
+            if (columns === 1) {
+                // One reduced peak represents the whole drawn interval. A
+                // full-width plateau gives it finite geometry and keeps the
+                // same amplitude scale as the multi-column envelope.
+                const peak = Math.min(1, Math.abs(Number(source[0]) || 0))
+                ctx.moveTo(0, mid - peak * mid)
+                ctx.lineTo(width, mid - peak * mid)
+                ctx.lineTo(width, mid + peak * mid)
+                ctx.lineTo(0, mid + peak * mid)
+            } else {
+                ctx.moveTo(0, mid)
+                // Out along the top of the envelope...
+                for (let index = 0; index < columns; index += step) {
+                    const x = (index / (columns - 1)) * width
+                    const peak = Math.min(1, Math.abs(Number(source[index]) || 0))
+                    ctx.lineTo(x, mid - peak * mid)
+                }
+                // ...and back along the bottom, so the shape closes on itself
+                // and is symmetric because it is one path, not two drawings
+                // that have to agree.
+                for (let index = columns - 1; index >= 0; index -= step) {
+                    const x = (index / (columns - 1)) * width
+                    const peak = Math.min(1, Math.abs(Number(source[index]) || 0))
+                    ctx.lineTo(x, mid + peak * mid)
+                }
             }
             ctx.closePath()
             ctx.fillStyle = root.color
