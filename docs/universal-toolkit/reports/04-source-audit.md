@@ -28,7 +28,7 @@ contract. An unverified risk needs a focused reproduction before a code change.
 
 | ID | Priority/status | Evidence | Effect and next check |
 | --- | --- | --- | --- |
-| F01 | P0, confirmed no-op property | [Label.qml](../../../src/qml/Label.qml) declares `selectable` but never uses it | A caller cannot enable selection through that property. Implement a real selectable text path or deprecate/document the property; test selection/copy |
+| F01 | P0, resolved in [WP-002 F01](../implementation/evidence/WP-002-F01.md) | The original [Label.qml](../../../src/qml/Label.qml) declared `selectable` without using it | The integrated read-only selection overlay enables mouse/keyboard selection and copy; WP-002 still has F02/F03 pending |
 | F02 | P0, source risk | [Ruler.qml](../../../src/qml/Ruler.qml) paints using `pixelsPerUnit` but listens to `onScaleChanged`, not `onPixelsPerUnitChanged` | Verify a zoom change with constant size/origin; if ticks remain stale, add correct invalidation and a rendered regression |
 | F03 | P0, source risk | [Waveform.qml](../../../src/qml/Waveform.qml) divides by `columns - 1` in both trace loops | A one-peak array produces undefined coordinates mathematically. Verify one/zero/many peaks and add a defined one-column path |
 | F04 | P1, confirmed implementation gap | [SectionHeader](../../../src/qml/SectionHeader.qml) uses TapHandler for collapse; [TimeRuler](../../../src/qml/TimeRuler.qml) has pointer scrubbing and a role but no explicit keyboard/value action contract | Add keyboard and assistive actions to custom composites, then verify real screen-reader interaction; templates cover only some controls |

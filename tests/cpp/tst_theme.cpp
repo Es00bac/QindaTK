@@ -39,6 +39,7 @@ private slots:
         QVERIFY(theme->color()->chipBg() != theme->color()->panel());
         QCOMPARE(theme->space()->metric(QStringLiteral("md")), 8.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("control")), 24.0);
+        QCOMPARE(theme->opacity()->metric(QStringLiteral("hidden")), 0.0);
         QCOMPARE(theme->font()->caption(), 10.0);
         QCOMPARE(theme->font()->body(), 12.0);
     }

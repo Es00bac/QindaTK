@@ -67,7 +67,7 @@ TestCase {
         compare(ordinary.selectable, false)
         compare(selectable.implicitWidth, ordinary.implicitWidth)
         compare(selectable.implicitHeight, ordinary.implicitHeight)
-        compare(findChild(ordinary, "selectableText").visible, false)
+        compare(findChild(ordinary, "selectableText"), null)
 
         const editor = findChild(selectable, "selectableText")
         verify(editor !== null)

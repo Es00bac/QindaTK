@@ -273,7 +273,7 @@ void ThemePresets::installBaseMetrics(Theme &theme)
         {"thumbnail", 72}, {"thumbnailHeight", 40}, {"waveformHeight", 28},
         {"timeRuler", 22}};
     static const Entry motion[] = {{"instant", 0}, {"fast", 80}, {"base", 140}, {"slow", 220}};
-    static const Entry opacity[] = {{"disabled", 0.45}, {"muted", 0.7}, {"island", 0.72},
+    static const Entry opacity[] = {{"hidden", 0.0}, {"disabled", 0.45}, {"muted", 0.7}, {"island", 0.72},
                                     {"ghost", 0.55}, {"scrim", 0.65}};
     for (const Entry &e : space) theme.space()->setBase(QString::fromLatin1(e.name), e.value);
     for (const Entry &e : radius) theme.radius()->setBase(QString::fromLatin1(e.name), e.value);

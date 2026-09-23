@@ -37,7 +37,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-002"></a>
 ## WP-002 — Resolve the three source behavior findings
 
-**Implementation lead:** Luna. **Status:** active (F01 under integration review; F02/F03 pending). **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
+**Implementation lead:** Luna. **Status:** active ([F01 evidence](evidence/WP-002-F01.md); F02/F03 pending). **Depends on:** [WP-001](phase-00-baseline.md#wp-001)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

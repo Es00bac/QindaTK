@@ -22,6 +22,10 @@ Section {
         Tk.Mono { text: "00:00:12:04" }
     }
     GalleryRow {
+        label: "Selectable"
+        Tk.Label { text: "Select and copy this label"; selectable: true }
+    }
+    GalleryRow {
         label: "Heading"
         Tk.Heading { text: "Display heading"; level: 1 }
         Tk.Heading { text: "Title heading"; level: 2 }

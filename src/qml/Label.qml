@@ -21,7 +21,7 @@ Text {
     // The TextEdit paints the glyphs in selectable mode. Keep Text's own
     // color role and all Text geometry, but suppress its duplicate glyphs.
     color: selectable
-        ? Qt.rgba(_resolvedTextColor.r, _resolvedTextColor.g, _resolvedTextColor.b, 0)
+        ? Tk.Theme.alpha(_resolvedTextColor, Tk.Theme.opacity.hidden)
         : _resolvedTextColor
     font.family: mono ? Tk.Theme.font.monoFamily : Tk.Theme.font.family
     font.pixelSize: Tk.Theme.font.body
@@ -35,48 +35,51 @@ Text {
     Accessible.ignored: selectable
 
     // Keep Text as the public base so its implicit size, wrapping and elision
-    // remain the default layout contract. This read-only editor overlays the
-    // same text only when the opt-in selection path is enabled.
-    TextEdit {
-        objectName: "selectableText"
+    // remain the default layout contract. Instantiate the editor and metrics
+    // only for an opted-in label; ordinary dense rows do not carry editors.
+    Loader {
         anchors.fill: parent
-        visible: label.selectable
-        text: label.wrapMode === Text.NoWrap ? metrics.elidedText : label.text
-        color: label._resolvedTextColor
-        font: label.font
-        horizontalAlignment: label.horizontalAlignment
-        verticalAlignment: label.verticalAlignment
-        wrapMode: label.wrapMode
-        textFormat: label.textFormat
-        renderType: label.renderType
-        selectionColor: Tk.Theme.color.selection
-        selectedTextColor: label._resolvedTextColor
-        readOnly: true
-        selectByMouse: true
-        persistentSelection: true
-        activeFocusOnTab: label.selectable
+        active: label.selectable
+        sourceComponent: Component {
+            TextEdit {
+                objectName: "selectableText"
+                text: label.wrapMode === Text.NoWrap ? metrics.elidedText : label.text
+                color: label._resolvedTextColor
+                font: label.font
+                horizontalAlignment: label.horizontalAlignment
+                verticalAlignment: label.verticalAlignment
+                wrapMode: label.wrapMode
+                textFormat: label.textFormat
+                renderType: label.renderType
+                selectionColor: Tk.Theme.color.selection
+                selectedTextColor: label._resolvedTextColor
+                readOnly: true
+                selectByMouse: true
+                persistentSelection: true
+                activeFocusOnTab: true
 
-        Accessible.role: Accessible.StaticText
-        Accessible.name: label.text
+                Accessible.role: Accessible.StaticText
+                Accessible.name: label.text
 
-        Keys.onPressed: function(event) {
-            if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_A) {
-                selectAll()
-                event.accepted = true
-            } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_C) {
-                copy()
-                event.accepted = true
+                Keys.onPressed: function(event) {
+                    if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_A) {
+                        selectAll()
+                        event.accepted = true
+                    } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_C) {
+                        copy()
+                        event.accepted = true
+                    }
+                }
+
+                // Select/copy the displayed string when no-wrap text elides.
+                TextMetrics {
+                    id: metrics
+                    font: label.font
+                    text: label.text
+                    elide: label.elide
+                    elideWidth: label.width
+                }
             }
         }
-    }
-
-    // Match Text's right-elision at constrained widths; selection and copy
-    // then operate on the displayed string, including its ellipsis.
-    TextMetrics {
-        id: metrics
-        font: label.font
-        text: label.text
-        elide: label.elide
-        elideWidth: label.width
     }
 }

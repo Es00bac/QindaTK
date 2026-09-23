@@ -3075,7 +3075,9 @@
       "internal": false,
       "valueType": false,
       "bridge": false,
-      "objectNames": []
+      "objectNames": [
+        "selectableText"
+      ]
     },
     {
       "name": "ListRow",

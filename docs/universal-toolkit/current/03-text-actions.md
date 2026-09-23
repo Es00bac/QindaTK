@@ -22,7 +22,12 @@ Plain interface text with themed body typography and elision.
 
 **Source:** [src/qml/Label.qml](../../../src/qml/Label.qml) · **Base:** `Text` · **Kind:** QML component.
 
-muted, disabled, accent and mono select semantic presentation; inherited text/wrapMode control content. Compact body is 12 px. selectable is declared but unused in the implementation, so it does not currently enable text selection.
+muted, disabled, accent and mono select semantic presentation; inherited
+text/wrapMode control content. Compact body is 12 px. `selectable: true`
+shows a read-only `TextEdit` overlay (`selectableText`) with mouse/keyboard
+selection, Ctrl+A and Ctrl+C. It does not claim initial focus. Ordinary Text
+implicit sizing and the unselected appearance are preserved. Constrained
+no-wrap labels select/copy the displayed elided string.
 
 **Declared members:** `muted: bool`, `disabled: bool`, `accent: bool`, `mono: bool`, `selectable: bool`.
 

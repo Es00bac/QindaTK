@@ -16,7 +16,7 @@ as though a later fix had already passed the earlier run.
 | Package | Phase | Lead | State | Accepted commit / evidence |
 | --- | --- | --- | --- | --- |
 | [WP-001 — Capture the execution baseline and prepare isolated work](phase-00-baseline.md#wp-001) | 00 | Sol | accepted | [Checkpoint `924750b4`; build 0; ctest 15/15; visual baseline](evidence/WP-001.md) |
-| [WP-002 — Resolve the three source behavior findings](phase-00-baseline.md#wp-002) | 00 | Luna | active | F01 worker change under review; F02/F03 pending |
+| [WP-002 — Resolve the three source behavior findings](phase-00-baseline.md#wp-002) | 00 | Luna | active | [F01 integrated; F02/F03 pending](evidence/WP-002-F01.md) |
 | [WP-003 — Repair layout, token and documentation drift](phase-00-baseline.md#wp-003) | 00 | Luna | active | [F05 integrated; F06/DOC-01 pending](evidence/WP-003-F05.md) |
 | [WP-004 — Make the catalog a reliable API inventory](phase-00-baseline.md#wp-004) | 00 | Luna | accepted | [101-entry catalog and generator evidence](evidence/WP-004.md) |
 | [WP-005 — Isolate private Qt dependencies and establish support targets](phase-00-baseline.md#wp-005) | 00 | Sol | planned | — |

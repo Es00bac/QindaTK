@@ -120,7 +120,7 @@ QML properties, so `Tk.Theme.space.md` binds and updates. `space` and
 | `radius` | `none` 0, `xs` 2, `sm` 4, `md` 6, `lg` 10, `xl` 14, `full` 999 |
 | `size` | `controlSm` 20, `control` 24, `controlLg` 28, `chip` 32, `action` 36, `row` 22, `rowLg` 28, `header` 24, `tab` 22, `toolbar` 36, `statusBar` 22, `menuItem` 22, `icon` 14, `iconSm` 12, `iconLg` 16, `iconXl` 20, `seam` 4, `scrollbar` 8, `labelWidth` 96, `fieldWidth` 120, `panelMinWidth` 200, `panelMinHeight` 120, `border` 1, `focusRing` 2, `grip` 10, `handle` 14, `dropEdge` 28, `sparkline` 56, `sparklineHeight` 14, `meter` 6, `graphMinHeight` 40 |
 | `motion` | `instant` 0, `fast` 80, `base` 140, `slow` 220 (ms) |
-| `opacity` | `disabled` 0.45, `muted` 0.7, `island` 0.72, `ghost` 0.55, `scrim` 0.65 |
+| `opacity` | `hidden` 0, `disabled` 0.45, `muted` 0.7, `island` 0.72, `ghost` 0.55, `scrim` 0.65 |
 
 The `size` values are measurements of Sloom Studio at 100% (see
 `installBaseMetrics` in `theme_presets.cpp`). `Tk.Theme.size.get("row")`

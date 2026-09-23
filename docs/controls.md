@@ -31,7 +31,7 @@ in [layout.md](layout.md); theming in [theming.md](theming.md); docking in
 
 | Type | Base | Properties | Notes |
 | --- | --- | --- | --- |
-| `Label` | Text | `muted`, `disabled`, `accent`, `mono`, `selectable` | body 12px, `elide: ElideRight`, `NativeRendering`. |
+| `Label` | Text | `muted`, `disabled`, `accent`, `mono`, `selectable` | body 12px, `elide: ElideRight`, `NativeRendering`. `selectable: true` enables mouse/keyboard text selection and copy with Ctrl+C; Ctrl+A selects all. Default false; ordinary text sizing and rendering are unchanged. Its internal selectable overlay is `selectableText`. Constrained no-wrap labels copy the displayed elided string. |
 | `Caption` | Label | — | 10px, muted. |
 | `Overline` | Label | `title`, `wide` | uppercase 10px semibold tracked; the section-header signature. |
 | `Mono` | Label | — | mono family, 11px. |
