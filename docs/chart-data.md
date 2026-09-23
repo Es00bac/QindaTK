@@ -143,3 +143,31 @@ are limited to 1–8192 pixels per side. `Tk.Heatmap` exposes cell navigation an
 announces the selected ID, value or missing state, coordinates and units as an
 accessible cell alternative. Pointer drag and Shift+arrow select a rectangular
 region; `selectedRegion` reports half-open row and column bounds.
+
+## Part-to-whole and hierarchy displays (WP-031)
+
+`Tk.PartWholeModel` accepts an ordered forest of `{id, parentId, label, value}`
+records. IDs are unique and stable; replacing the set is atomic. Values must be
+finite and nonnegative. A numeric zero is a known zero share. An absent or null
+leaf value is **missing** and has unknown magnitude. Negative or nonfinite
+values are rejected with `lastError`; the model never takes an absolute value
+or silently treats missing as zero.
+
+An internal node may omit `value`, in which case its known total is derived
+from children. A declared parent value must equal the complete sum of its
+children within a relative tolerance of 1e-9. A parent with missing descendants
+cannot declare a total; its derived `knownTotal` is the sum of known children
+and `complete` is false. A view therefore labels the denominator as *known*
+and reports `missingCount` and `zeroCount`. Sibling order is input order. The adapter rejects
+cycles, absent parents, depth beyond 8 and more than 4096 nodes.
+
+`Tk.PartWholeView` selects the children of a sole root as the top-level
+comparison; otherwise it compares the forest roots. Pie and donut angles use
+`360 × part / known total`; donut has a half-radius hole. Treemap uses
+alternating horizontal/vertical partitions whose areas are proportional to
+known totals. Sunburst uses proportional nested arcs and one radial band per
+visible depth. Missing and zero nodes have no area/angle, but retain stable
+identity and appear in the accessible `Tk.DataTable`, with a distinct status.
+`geometryFor(id)` exposes the normalized area or angle for numerical checking.
+Selection/hit testing preserve stable IDs. Screen, PNG and SVG all use one
+painter and the same geometry. The view caps output to 8192 pixels per side.

@@ -161,10 +161,12 @@ Rectangle {
                 PopupsSection { filter: search.text }
                 OfficeSection { filter: search.text }
                 TelemetrySection { filter: search.text }
+                PlanningSection { filter: search.text }
                 QuerySection { filter: search.text }
                 DiffSection { filter: search.text }
                 HeatmapSection { filter: search.text }
                 DistributionSection { filter: search.text }
+                PartWholeSection { filter: search.text }
                 DockingSection { filter: search.text }
                 ThemeSection { filter: search.text }
             }

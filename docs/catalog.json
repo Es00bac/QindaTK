@@ -6651,6 +6651,170 @@
       ]
     },
     {
+      "name": "GanttView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: one recycled row carries the task label and interval, so timeline and grid identity both come from GanttTaskModel.taskId. The owner shares a SelectionModel with its DataTable and applies any grid sort to a source/proxy model before handing it to both views.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GanttView.qml",
+      "properties": [
+        {
+          "name": "taskModel",
+          "type": "Tk.GanttTaskModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "calendar",
+          "type": "Tk.GanttCalendar",
+          "default": "taskModel ? taskModel.calendar : null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionModel",
+          "type": "Tk.SelectionModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "allocationProvider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleStartUtc",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pixelsPerWorkingMinute",
+          "type": "real",
+          "default": "Tk.Theme.size.row / 60",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "labelWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.labelWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tickStepMinutes",
+          "type": "real",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "taskModel ? taskModel.count : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewActive",
+          "type": "bool",
+          "default": "taskModel && taskModel.previewActive",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "taskActivated",
+          "parameters": "string taskId"
+        },
+        {
+          "name": "previewRequested",
+          "parameters": "string taskId, string startUtc"
+        }
+      ],
+      "methods": [
+        {
+          "name": "xFor",
+          "parameters": "utc"
+        },
+        {
+          "name": "endFor",
+          "parameters": "record"
+        },
+        {
+          "name": "allocationFor",
+          "parameters": "taskId"
+        },
+        {
+          "name": "selectId",
+          "parameters": "taskId"
+        },
+        {
+          "name": "previewMove",
+          "parameters": "taskId, startUtc"
+        },
+        {
+          "name": "commitPreview",
+          "parameters": ""
+        },
+        {
+          "name": "cancelPreview",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ganttAllocation",
+        "ganttBaseline",
+        "ganttDependencies",
+        "ganttHeader",
+        "ganttProgress",
+        "ganttRow",
+        "ganttRows",
+        "ganttTaskBar",
+        "ganttTaskLabel",
+        "ganttTrack",
+        "ganttView"
+      ]
+    },
+    {
       "name": "HeaderView",
       "kind": "qml",
       "base": "T.Control",
@@ -9047,6 +9211,115 @@
         "panelFloat",
         "panelHeader",
         "panelTitle"
+      ]
+    },
+    {
+      "name": "PartWholeView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PartWholeView.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.PartWholeModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "int",
+          "default": "Tk.PartWholeRenderer.Pie",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Part-to-whole chart\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedId",
+          "type": "string",
+          "default": "renderer.selectedId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedNode",
+          "type": "var",
+          "default": "renderer.selectedNode",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "itemSelected",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "selectId",
+          "parameters": "id"
+        },
+        {
+          "name": "navigateSelection",
+          "parameters": "key"
+        },
+        {
+          "name": "hitAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "geometryFor",
+          "parameters": "id"
+        },
+        {
+          "name": "renderImage",
+          "parameters": "size"
+        },
+        {
+          "name": "exportPng",
+          "parameters": "path, size"
+        },
+        {
+          "name": "exportSvg",
+          "parameters": "path, size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "partWholeDataTable",
+        "partWholeFocusRing",
+        "partWholePlot",
+        "partWholeView"
       ]
     },
     {
@@ -18350,6 +18623,236 @@
       "bridge": false
     },
     {
+      "name": "GanttCalendar",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: Gantt dates cross QML as exact decimal UTC millisecond strings. A working minute is an elapsed UTC minute inside a local calendar window; this preserves the true duration through DST transitions.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/gantt_calendar.h",
+      "properties": [
+        {
+          "name": "timeZoneId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "workingDays",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "workStart",
+          "type": "QTime",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "workEnd",
+          "type": "QTime",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "holidays",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "workingMinutesBetween",
+          "returns": "double",
+          "parameters": "const QString &fromUtc, const QString &toUtc"
+        },
+        {
+          "name": "addWorkingMinutes",
+          "returns": "QString",
+          "parameters": "const QString &fromUtc, qint64 minutes"
+        },
+        {
+          "name": "snapForward",
+          "returns": "QString",
+          "parameters": "const QString &utc"
+        },
+        {
+          "name": "formatLocal",
+          "returns": "QString",
+          "parameters": "const QString &utc"
+        },
+        {
+          "name": "isWorkingDay",
+          "returns": "bool",
+          "parameters": "const QDate &date"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GanttSimpleScheduleAdapter",
+      "kind": "cpp",
+      "base": "GanttTransactionAdapter",
+      "description": "Reference finish-to-start scheduler. A production host can subclass the adapter and supply richer constraints while retaining the view contract.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/gantt_task_model.h",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GanttTaskModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-GUARD: source and preview rows retain identical stable task IDs and order. A DataTable can consume get(index), and a shared SelectionModel can select by taskId while view delegates are recycled.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/gantt_task_model.h",
+      "properties": [
+        {
+          "name": "calendar",
+          "type": "GanttCalendar *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "transactionAdapter",
+          "type": "GanttTransactionAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewActive",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "replaceTasks",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "displayGet",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "indexOfId",
+          "returns": "int",
+          "parameters": "const QString &taskId"
+        },
+        {
+          "name": "previewMove",
+          "returns": "bool",
+          "parameters": "const QString &taskId, const QString &startUtc"
+        },
+        {
+          "name": "commitPreview",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelPreview",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GanttTransactionAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Hosts may replace this with a scheduling engine that validates resources, constraints and project-specific links. The model owns no document undo.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/gantt_task_model.h",
+      "properties": [],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "GestureRouter",
       "kind": "cpp",
       "base": "QObject",
@@ -19861,6 +20364,226 @@
           "name": "clear",
           "returns": "void",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PartWholeModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-CONTRACT: values are nonnegative finite parts. A parent with a declared total must equal the complete sum of its children. Missing values have unknown magnitude and are excluded only from explicitly named known totals; they never silently become zero.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/part_whole_model.h",
+      "properties": [
+        {
+          "name": "unit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "knownTotal",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "missingCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "zeroCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "complete",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "replaceNodes",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int row"
+        },
+        {
+          "name": "node",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "visibleRootIds",
+          "returns": "QStringList",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PartWholeRenderer",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/part_whole_renderer.h",
+      "properties": [
+        {
+          "name": "model",
+          "type": "QindaTK::PartWholeModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "mode",
+          "type": "Mode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sliceColors",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "borderColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "textColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "metrics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedNode",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "selectId",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "navigateSelection",
+          "returns": "bool",
+          "parameters": "int key"
+        },
+        {
+          "name": "hitAt",
+          "returns": "QString",
+          "parameters": "double x,double y"
+        },
+        {
+          "name": "geometryFor",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "renderImage",
+          "returns": "QImage",
+          "parameters": "const QSize &size"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path,const QSize &size"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path,const QSize &size"
         }
       ],
       "enums": {},

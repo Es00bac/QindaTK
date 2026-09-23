@@ -11,6 +11,7 @@ pages below are the reference.
 | [layout.md](layout.md) | Flex, Grid, Stack, Box, Scroll: the CSS-equivalent layout model, with the exact algorithm rules |
 | [theming.md](theming.md) | Theme roles, ladders, density, presets, JSON themes, the QindaQt QST-1 bridge |
 | [controls.md](controls.md) | Every control: properties, signals, sizes, objectNames (the API contract) |
+| [gantt.md](gantt.md) | Task schema, working-calendar projection, schedule transactions, dependency and grid seams |
 | [control-interaction.md](control-interaction.md) | Owner state, user signals, editing states, focus and assistive action baseline |
 | [application-contracts.md](application-contracts.md) | Strong IDs, revisions, exact QML values, snapshots, cancellation and capability discovery |
 | [commands.md](commands.md) | Scoped command contexts, registry and bindings, shortcut routing, focus restoration, and menu/toolbar/palette adapters |

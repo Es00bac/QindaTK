@@ -491,3 +491,20 @@ refreshes the geometry synchronously before display.
 work-area limitations (especially multi-monitor X11) remain visible and are
 not replaced with guessed geometry. Native mixed-monitor placement and scale
 changes require the physical platform qualification in WP-092.
+
+## D-026 — Gantt dates project through a working calendar
+
+**Context.** A schedule edit over a weekend or DST boundary cannot be
+represented faithfully by adding a fixed count of wall-clock pixels or local
+hours. A view also cannot own document-level dependency and undo policy.
+
+**Decision.** Task instants cross QML as exact UTC millisecond strings.
+`GanttCalendar` maps them through local working intervals, counting actual
+elapsed minutes and compressing nonworking time. `GanttTaskModel` keeps stable
+UUID row identity and a separate validated preview. A host transaction
+adapter accepts or rejects the entire schedule change and supplies undo.
+
+**Consequences.** Timeline/grid selection can share `SelectionModel`, and
+previews never mutate committed data. Hosts own resource constraints,
+persisted undo and calendar boundary-time policy. The bundled adapter is a
+reference finish-to-start planner only.
