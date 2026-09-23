@@ -306,11 +306,12 @@ T.Control {
             Keys.onEscapePressed: function(event) { draftEdited = false; control._invalidDraft = false; control.syncText(); selectAll(); event.accepted = true }
         }
         Text {
+            objectName: "numberMixedPlaceholder"
             x: input.x
             y: input.y
             width: input.width
             height: input.height
-            visible: control.mixed
+            visible: control.mixed && input.text.length === 0
             text: qsTr("Mixed")
             color: Tk.Theme.color.textMuted
             font.family: Tk.Theme.font.monoFamily

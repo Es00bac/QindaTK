@@ -257,12 +257,15 @@ TestCase {
     function test_numberfield_mixed_and_invalid_drafts() {
         const item = make(numberMixed)
         const input = findChild(item, "numberInput")
+        const placeholder = findChild(item, "numberMixedPlaceholder")
         verify(input !== null)
+        verify(placeholder !== null)
         spy.target = item
         spy.signalName = "valueModified"
         spy.clear()
         verify(item.mixed)
         compare(input.text, "")
+        verify(placeholder.visible)
         input.forceActiveFocus()
         input.focus = false
         compare(item.value, 40)
@@ -270,6 +273,7 @@ TestCase {
 
         input.forceActiveFocus()
         keyClick(Qt.Key_7)
+        verify(!placeholder.visible)
         keyClick(Qt.Key_Return)
         compare(item.value, 7)
         verify(!item.mixed)

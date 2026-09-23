@@ -3758,7 +3758,8 @@
       "bridge": false,
       "objectNames": [
         "numberInput",
-        "numberLabel"
+        "numberLabel",
+        "numberMixedPlaceholder"
       ]
     },
     {
