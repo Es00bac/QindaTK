@@ -55,7 +55,7 @@ public:
     void setMaxChangesPerEdit(int count);
 
     // Operations: move, moveAcrossTracks, trim, split, delete, ripple,
-    // markers, tracks, range. An unavailable operation carries its reason.
+    // markers, tracks, range, insert. An unavailable operation carries its reason.
     static QStringList operations();
     Q_INVOKABLE bool isAvailable(const QString &operation) const;
     Q_INVOKABLE QString unavailableReason(const QString &operation) const;

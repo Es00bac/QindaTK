@@ -69,7 +69,7 @@ QStringList TimelineEditPolicy::operations()
     return {QStringLiteral("move"), QStringLiteral("moveAcrossTracks"),
             QStringLiteral("trim"), QStringLiteral("split"), QStringLiteral("delete"),
             QStringLiteral("ripple"), QStringLiteral("markers"), QStringLiteral("tracks"),
-            QStringLiteral("range")};
+            QStringLiteral("range"), QStringLiteral("insert")};
 }
 
 bool TimelineEditPolicy::isAvailable(const QString &operation) const

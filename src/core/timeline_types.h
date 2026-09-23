@@ -82,7 +82,14 @@ struct TimelineChangeSet {
 enum class TimelineEditKind {
     Move, TrimStart, TrimEnd, Split, Delete, SetClipTiming,
     AddMarker, MoveMarker, EditMarker, RemoveMarker,
-    TrackProperty, ReorderTrack, ResizeTrack, AddTrack, RemoveTrack
+    TrackProperty, ReorderTrack, ResizeTrack, AddTrack, RemoveTrack, InsertClips
+};
+
+// A clip to insert: clip.start is relative to the insertion point and
+// trackOffset counts visible tracks below the destination track.
+struct TimelineClipTemplate {
+    TimelineClip clip;
+    int trackOffset = 0;
 };
 
 enum class TimelineSnapGrid { None, Frames, Seconds, Samples };
@@ -108,6 +115,8 @@ struct TimelineEditRequest {
     QString property;
     QVariant value;
     std::optional<TimelineTrack> track;
+    // InsertClips: new clips placed at input.pointerTicks on trackId and below
+    QVector<TimelineClipTemplate> templates;
 };
 
 struct TimelineEditInput {

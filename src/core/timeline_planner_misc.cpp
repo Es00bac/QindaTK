@@ -38,6 +38,7 @@ QString operationFor(TimelineEditKind kind)
     case TimelineEditKind::ResizeTrack:
     case TimelineEditKind::AddTrack:
     case TimelineEditKind::RemoveTrack: return QStringLiteral("tracks");
+    case TimelineEditKind::InsertClips: return QStringLiteral("insert");
     }
     return {};
 }
@@ -133,6 +134,7 @@ QString TimelinePlanner::defaultLabel(TimelineEditKind kind, bool ripple)
     case TimelineEditKind::ResizeTrack: return tr("Resize track");
     case TimelineEditKind::AddTrack: return tr("Add track");
     case TimelineEditKind::RemoveTrack: return tr("Remove track");
+    case TimelineEditKind::InsertClips: return tr("Insert clips");
     }
     return tr("Edit timeline");
 }
@@ -185,6 +187,12 @@ OperationError TimelinePlanner::validateRequest(const TimelineModel &model,
     case TimelineEditKind::AddTrack:
         if (!request.track) return error(ErrorCode::InvalidArgument, tr("A new track needs a template"));
         break;
+    case TimelineEditKind::InsertClips:
+        if (request.templates.isEmpty()) return error(ErrorCode::InvalidArgument, tr("There are no clips to insert"));
+        if (!model.trackRecord(request.trackId)) return error(ErrorCode::InvalidArgument, tr("Unknown track"));
+        if (model.clipCount() + request.templates.size() > TimelineModel::kMaxClips)
+            return error(ErrorCode::Validation, tr("The timeline has too many clips"));
+        break;
     default:
         break;
     }
@@ -213,6 +221,7 @@ TimelinePlan TimelinePlanner::plan(const TimelineModel &model, const TimelineEdi
     case TimelineEditKind::MoveMarker:
     case TimelineEditKind::EditMarker:
     case TimelineEditKind::RemoveMarker: planMarker(context); break;
+    case TimelineEditKind::InsertClips: planInsert(context); break;
     default: planTrack(context); break;
     }
     if (!context.plan.error) finish(context);
@@ -381,6 +390,57 @@ void TimelinePlanner::planTrack(Context &context)
     default:
         return;
     }
+}
+
+void TimelinePlanner::planInsert(Context &context)
+{
+    const auto &model = context.model;
+    const QVector<QUuid> order = model.visibleTrackOrder();
+    const qsizetype base = order.indexOf(context.request.trackId);
+    if (base < 0)
+        return setError(context, error(ErrorCode::Validation, tr("The destination track is hidden")));
+    qint64 at = context.input.pointerTicks;
+    if (context.input.snap && context.input.snapToleranceTicks > 0) {
+        TimelineSnapContext snap;
+        snap.tolerance = context.input.snapToleranceTicks;
+        snap.playhead = context.input.playheadTicks;
+        snap.grid = context.input.grid;
+        const auto result = TimelineSnapper::snap(model, {at}, snap);
+        if (result.snapped) {
+            at = result.target;
+            context.plan.snap = result;
+        }
+    }
+    const QUuid ns(context.operationId);
+    for (const auto &item : context.request.templates) {
+        const qsizetype index = base + item.trackOffset;
+        if (item.trackOffset < 0 || index >= order.size())
+            return setError(context, error(ErrorCode::Validation,
+                                           tr("There are not enough tracks below the destination")));
+        const auto *track = model.trackRecord(order.at(index));
+        if (track->locked)
+            return setError(context, error(ErrorCode::Validation, tr("Track “%1” is locked").arg(track->name)));
+        TimelineClip clip = item.clip;
+        if (context.policy.requireMatchingTrackKind() && !clip.kind.isEmpty() && !track->kind.isEmpty()
+            && clip.kind != track->kind)
+            return setError(context, error(ErrorCode::Validation,
+                tr("A %1 clip cannot be placed on the %2 track “%3”").arg(clip.kind, track->kind, track->name)));
+        clip.id = QUuid::createUuidV5(ns, item.clip.id.toRfc4122());
+        clip.trackId = track->id;
+        clip.locked = false;
+        const auto start = TimelineTime::add(at, item.clip.start);
+        if (!start || clip.duration < 1 || !TimelineTime::add(*start, clip.duration))
+            return setError(context, error(ErrorCode::InvalidArgument, tr("An inserted clip is out of range")));
+        clip.start = *start;
+        if (model.clipRecord(clip.id) || model.trackRecord(clip.id) || model.markerRecord(clip.id))
+            return setError(context, error(ErrorCode::Conflict, tr("An inserted clip would reuse an ID")));
+        TimelineChange change;
+        change.kind = TimelineChange::Kind::Clip;
+        change.id = clip.id;
+        change.clipAfter = clip;
+        context.plan.changes.changes.push_back(change);
+    }
+    context.plan.appliedDelta = at;
 }
 
 void TimelinePlanner::finish(Context &context)

@@ -21,6 +21,7 @@ T.Control {
     property Tk.TimelineMediaProvider mediaProvider: null
     property Tk.SelectionModel selectionModel: fallbackSelection
     property Tk.TransportModel transportModel: null
+    property Tk.TimelineClipboard clipboard: fallbackClipboard
     property string playheadTicks: "0"
     property bool snapEnabled: true
     property string snapGrid: "frames"
@@ -111,6 +112,24 @@ T.Control {
     function splitAtPlayhead() { return Commands.splitAtPlayhead(timeline) }
     function deleteSelection(ripple) { return Commands.deleteSelection(timeline, ripple) }
     function reorderCurrentTrack(delta) { return Commands.reorderCurrentTrack(timeline, delta) }
+    // Copy/cut go through the WP-016 transfer codec; cut is copy plus one delete.
+    function copySelection(cut) {
+        const ids = Commands.selectionOrCurrent(timeline)
+        if (!timeline.model || !timeline.clipboard || ids.length === 0) return false
+        if (!timeline.clipboard.copyClips(timeline.model, ids))
+            return timeline.report({ ok: false, error: timeline.clipboard.lastError })
+        return cut ? timeline.deleteSelection(timeline.rippleMode) : true
+    }
+    function pasteAtPlayhead() {
+        if (!timeline.model || !timeline.clipboard) return false
+        const track = timeline.currentTrackId.length > 0 ? timeline.currentTrackId : timeline.model.visibleTrackIds()[0]
+        const result = timeline.clipboard.paste(timeline.model, track || "", timeline.effectivePlayheadTicks)
+        if (!timeline.report(result)) return false
+        timeline.selectionModel.select(result.clipIds[0])
+        for (let i = 1; i < result.clipIds.length; ++i) timeline.selectionModel.toggle(result.clipIds[i])
+        timeline.setCurrentClip(result.clipIds[0], true)
+        return true
+    }
     function openTimingEditor(id) {
         if (!timeline.model || id.length === 0) return false
         timeline.setCurrentClip(id, true)
@@ -198,6 +217,9 @@ T.Control {
             if (shift) timeline.model.redo(); else timeline.model.undo()
             break
         case Qt.Key_Y: if (!ctrl || timeline.model.externalUndo) return; timeline.model.redo(); break
+        case Qt.Key_C: if (!ctrl) return; timeline.copySelection(false); break
+        case Qt.Key_X: if (!ctrl) return; timeline.copySelection(true); break
+        case Qt.Key_V: if (!ctrl) return; timeline.pasteAtPlayhead(); break
         case Qt.Key_Plus: case Qt.Key_Equal: if (!ctrl) return; timeline.zoomBy(2); break
         case Qt.Key_Minus: if (!ctrl) return; timeline.zoomBy(0.5); break
         case Qt.Key_0: if (!ctrl) return; view.fitToContent(); break
@@ -207,6 +229,7 @@ T.Control {
     }
 
     Tk.SelectionModel { id: fallbackSelection }
+    Tk.TimelineClipboard { id: fallbackClipboard }
 
     Tk.TimelineViewport {
         id: view

@@ -74,6 +74,7 @@ qt_add_qml_module(qindatk
         core/timeline_visible_list.cpp core/timeline_visible_list.h
         core/timeline_viewport.cpp core/timeline_viewport_rows.cpp core/timeline_viewport.h
         core/timeline_media_provider.cpp core/timeline_media_provider.h
+        core/timeline_transfer.cpp core/timeline_transfer.h
         core/clipboard_service.cpp core/clipboard_service.h
         core/drag_drop_service.cpp core/drag_drop_service.h
         core/property_collection_drop_target.cpp

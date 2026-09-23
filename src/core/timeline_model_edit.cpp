@@ -33,7 +33,8 @@ std::optional<TimelineEditKind> kindFromText(const QString &text)
         {QStringLiteral("reorderTrack"), TimelineEditKind::ReorderTrack},
         {QStringLiteral("resizeTrack"), TimelineEditKind::ResizeTrack},
         {QStringLiteral("addTrack"), TimelineEditKind::AddTrack},
-        {QStringLiteral("removeTrack"), TimelineEditKind::RemoveTrack}};
+        {QStringLiteral("removeTrack"), TimelineEditKind::RemoveTrack},
+        {QStringLiteral("insertClips"), TimelineEditKind::InsertClips}};
     const auto it = kinds.constFind(text);
     return it == kinds.cend() ? std::nullopt : std::optional<TimelineEditKind>(*it);
 }
@@ -285,6 +286,17 @@ QVariantMap TimelineModel::beginEdit(const QVariantMap &map)
         const auto track = TimelineCodec::trackFromMap(trackMap, &error);
         if (!track) return failure(error);
         request.track = track;
+    }
+    // insertClips: clip maps whose start is relative to the insertion point.
+    for (const auto &value : map.value(QStringLiteral("clips")).toList()) {
+        QVariantMap clipMap = value.toMap();
+        if (!clipMap.contains(QStringLiteral("id")))
+            clipMap.insert(QStringLiteral("id"), QUuid::createUuid().toString(QUuid::WithoutBraces));
+        if (!clipMap.contains(QStringLiteral("trackId")))
+            clipMap.insert(QStringLiteral("trackId"), request.trackId.toString(QUuid::WithoutBraces));
+        const auto clip = TimelineCodec::clipFromMap(clipMap, &error);
+        if (!clip) return failure(error);
+        request.templates.push_back({*clip, clipMap.value(QStringLiteral("trackOffset")).toInt()});
     }
     request.property = map.value(QStringLiteral("property")).toString();
     request.value = map.value(QStringLiteral("value"));

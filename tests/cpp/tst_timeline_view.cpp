@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "timeline_fixture.h"
 #include "timeline_media_provider.h"
+#include "timeline_transfer.h"
 #include "timeline_viewport.h"
 
 #include <QElapsedTimer>
+#include <QMimeData>
 #include <QPointer>
 #include <QSignalSpy>
 #include <QtTest>
@@ -35,6 +37,18 @@ public:
     QVector<Pending> pending;
 };
 
+class MemoryClipboard final : public ClipboardAdapter {
+public:
+    const QMimeData *mimeData() const override { return data.get(); }
+    bool setMimeData(QMimeData *next) override
+    {
+        data.reset(next);
+        emit changed();
+        return true;
+    }
+    std::unique_ptr<QMimeData> data;
+};
+
 void configure(TimelineViewport &view, TimelineModel &model)
 {
     view.setModel(&model);
@@ -59,6 +73,7 @@ private slots:
     void mediaRequestsSupersedeAndRejectStaleResults();
     void mediaRequestsAreBoundedAndCached();
     void syntheticBackendIsDeterministicAndHonest();
+    void clipsTransferThroughTheWp016Codec();
 };
 
 void TimelineViewTest::largeSessionCreatesViewportRowsOnly()
@@ -318,6 +333,71 @@ void TimelineViewTest::syntheticBackendIsDeterministicAndHonest()
                            QString::number(S), QString::number(S), QStringLiteral("1"), 2);
     QTRY_COMPARE(failed.count(), 1);
     QVERIFY(failed.first().at(2).toString().contains(QStringLiteral("no video frames")));
+}
+
+void TimelineViewTest::clipsTransferThroughTheWp016Codec()
+{
+    TimelineModel model;
+    QVERIFY(model.setContent({S, 1}, {track(1), track(2), track(3, QStringLiteral("video"))},
+                             {clip(11, 1, S, S), clip(12, 2, 2 * S, S)}, {}));
+    MemoryClipboard memory;
+    TimelineClipboard clipboard;
+    clipboard.setAdapter(&memory);
+    QVERIFY(!clipboard.canPaste());
+    QVERIFY(clipboard.copyClips(&model, {uid(11).toString(QUuid::WithoutBraces),
+                                         uid(12).toString(QUuid::WithoutBraces)}));
+    QCOMPARE(clipboard.clipCount(), 2);
+    QVERIFY(memory.data->hasFormat(QString::fromLatin1(TransferPayloadCodec::InternalMime)));
+    const QVariantMap pasted = clipboard.paste(&model, uid(1).toString(QUuid::WithoutBraces),
+                                               QString::number(10 * S));
+    QVERIFY2(pasted.value(QStringLiteral("ok")).toBool(), qPrintable(pasted.value(QStringLiteral("error")).toString()));
+    const QStringList ids = pasted.value(QStringLiteral("clipIds")).toStringList();
+    QCOMPARE(ids.size(), 2);
+    QCOMPARE(model.clipCount(), 4);
+    const TimelineClip first = *model.clipRecord(QUuid(ids.at(0)));
+    const TimelineClip second = *model.clipRecord(QUuid(ids.at(1)));
+    QCOMPARE(first.start, 10 * S);          // offsets are kept exactly
+    QCOMPARE(first.trackId, uid(1));
+    QCOMPARE(second.start, 11 * S);
+    QCOMPARE(second.trackId, uid(2));       // one track lower, as copied
+    QCOMPARE(first.resourceId, QStringLiteral("resource:11"));
+    QCOMPARE(model.historyCount(), 1);      // one paste, one undo step
+    QVERIFY(model.undo());
+    QCOMPARE(model.clipCount(), 2);
+    // Pasting onto the last track would need a track below it: nothing changes.
+    const QVariantMap refused = clipboard.paste(&model, uid(2).toString(QUuid::WithoutBraces), QStringLiteral("0"));
+    QVERIFY(!refused.value(QStringLiteral("ok")).toBool());
+    QCOMPARE(model.clipCount(), 2);
+    // Another document with the same timebase needs its host to vouch for media.
+    TimelineModel other;
+    QVERIFY(other.setContent({S, 1}, {track(1), track(2)}, {}, {}));
+    QVERIFY(!clipboard.paste(&other, uid(1).toString(QUuid::WithoutBraces), QStringLiteral("0"))
+                 .value(QStringLiteral("ok")).toBool());
+    clipboard.setAllowForeignResources(true);
+    QVERIFY(clipboard.paste(&other, uid(1).toString(QUuid::WithoutBraces), QStringLiteral("0"))
+                .value(QStringLiteral("ok")).toBool());
+    QCOMPARE(other.clipCount(), 2);
+    TimelineModel otherRate;
+    QVERIFY(otherRate.setContent({48000, 1}, {track(1), track(2)}, {}, {}));
+    QVERIFY(!clipboard.paste(&otherRate, uid(1).toString(QUuid::WithoutBraces), QStringLiteral("0"))
+                 .value(QStringLiteral("ok")).toBool()); // never rounded into another timebase
+    // The same payload drops through the WP-016 DropTarget with a guarded preview.
+    OperationError error;
+    const TransferPayload payload = TimelineTransfer::payloadFor(model, {uid(11)}, &error);
+    QVERIFY(!error);
+    TimelineDropTarget target(&model, QStringLiteral("timeline"), QStringLiteral("view-1"));
+    const QVariantMap location{{QStringLiteral("trackId"), uid(2).toString(QUuid::WithoutBraces)},
+                               {QStringLiteral("ticks"), QString::number(5 * S)}};
+    DropPreview preview = target.previewDrop(QStringLiteral("s1"), payload, TransferOperation::Copy, location);
+    QVERIFY2(preview.accepted, qPrintable(preview.error));
+    QCOMPARE(model.clipCount(), 2);          // previews never edit
+    QVERIFY(!target.commitDrop(QStringLiteral("s1"), preview.token));
+    QCOMPARE(model.clipCount(), 3);
+    preview = target.previewDrop(QStringLiteral("s2"), payload, TransferOperation::Copy, location);
+    QVERIFY(model.undo());                   // the document moves on after the preview
+    QCOMPARE(target.commitDrop(QStringLiteral("s2"), preview.token).code, ErrorCode::StaleRevision);
+    QCOMPARE(model.clipCount(), 2);
+    QVERIFY(!target.previewDrop(QStringLiteral("s3"), payload, TransferOperation::Move, location).accepted);
 }
 
 QTEST_MAIN(TimelineViewTest)

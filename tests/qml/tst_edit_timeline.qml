@@ -322,4 +322,24 @@ TestCase {
         verify(session.compareTicks(session.markerData(cue).position, ticks(5.96)) > 0)
         compare(session.historyCount, 1)
     }
+
+    function test_copyPasteThroughTheClipboard() {
+        timeline.forceActiveFocus()
+        timeline.selectClip(clipA, Qt.NoModifier)
+        keyClick(Qt.Key_C, Qt.ControlModifier)
+        tryCompare(timeline.clipboard, "clipCount", 1)
+        timeline.currentTrackId = trackB
+        timeline.playheadTicks = ticks(4)
+        keyClick(Qt.Key_V, Qt.ControlModifier)
+        compare(session.clipCount, 4)
+        const pasted = timeline.currentClipId
+        verify(pasted !== clipA)
+        compare(session.clipData(pasted).start, ticks(4))
+        compare(session.clipData(pasted).trackId, trackB)
+        compare(timeline.selectedClipIds, [pasted])
+        keyClick(Qt.Key_X, Qt.ControlModifier) // cut = copy + one delete
+        compare(session.clipCount, 3)
+        keyClick(Qt.Key_Z, Qt.ControlModifier)
+        compare(session.clipCount, 4)
+    }
 }

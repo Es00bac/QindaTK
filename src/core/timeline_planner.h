@@ -36,6 +36,7 @@ public:
     static void planClipTiming(Context &context);
     static void planMarker(Context &context);
     static void planTrack(Context &context);
+    static void planInsert(Context &context);
     static void finish(Context &context);
     static OperationError error(ErrorCode code, const QString &message,
                                 const QString &field = {});
