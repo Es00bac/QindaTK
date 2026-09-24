@@ -120,7 +120,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-065"></a>
 ## WP-065 — Implement take comping
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-048](phase-03-authoring.md#wp-048), [WP-060](phase-05-audio.md#wp-060), [WP-063](phase-05-audio.md#wp-063)
+**Implementation lead:** Sol. **Status:** active (TakeCompView integrated; media interval and render backend pending). **Depends on:** [WP-048](phase-03-authoring.md#wp-048), [WP-060](phase-05-audio.md#wp-060), [WP-063](phase-05-audio.md#wp-063)
 
 **Proposal scope:** [AUD-26 TakeCompView](../proposed/06-audio-music.md#aud-26)
 
