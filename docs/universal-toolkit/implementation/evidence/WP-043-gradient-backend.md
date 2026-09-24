@@ -30,6 +30,11 @@ sRGB `.735357`; unequal-alpha red/blue gives straight linear RGB `(.25,0,.75)`
 at alpha `.5`. Canonical positive zero and nonzero subnormal alpha both passed.
 Catalog regeneration remained **265 types**, with no generated diff.
 
+After integration at `341a762`, the focused CTest target passed **1/1** on
+both supported Qt versions, and the shared `qindatk` library built with the
+new source on both. The rest of the repository suites were not rerun for this
+isolated numerical addition.
+
 Reproduction after configuring for each Qt version:
 
 ```sh
