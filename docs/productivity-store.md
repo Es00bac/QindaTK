@@ -52,3 +52,24 @@ recurrence exceptions remain host responsibilities.
 `examples/local-productivity/Main.qml` shows message actions, draft autosave,
 calendar proposal rejection without a calendar provider, task move/undo and
 reload against the local store. The fixture never sends to a real recipient.
+
+## Attachment payloads
+
+`Tk.LocalAttachmentStore` stores bytes separately from the attachment metadata
+kept in a draft record. `importFile(id, path)` and `importBytes(id, name,
+mimeType, bytes)` return an explicit `{ok, error, id, name, mimeType, size}`
+result. `read(id)` verifies the metadata schema, stable ID and recorded size
+before returning the original `QByteArray` as `bytes` and base64 text. `remove`
+requires the payload to validate before deleting it. Empty or over-8-MiB
+payloads are rejected.
+
+IDs map to a SHA-256 directory name beneath `rootPath` (defaulting to
+`AppLocalDataLocation/attachments`), so ID text cannot escape the storage root.
+Each payload and metadata pair is written into a staging directory, then
+published together; replacement temporarily renames the old directory and
+restores it if publishing the new version fails. The store does not rewrite a
+draft record: the host persists its returned stable ID and metadata using
+`LocalProductivityStore`. It does not upload, scan, or encrypt files.
+
+`examples/local-attachment-store` imports a small sample file, attaches the
+returned metadata to a local draft snapshot, and rereads the payload by ID.

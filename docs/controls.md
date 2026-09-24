@@ -231,12 +231,16 @@ to cached data so stale snapshots remain usable.
 | `RecurrenceService` | `error`; `expand(eventId, startLocal, durationSeconds, zoneId, rule, rangeStartUtc, rangeEndUtc, limit)` | Returns bounded occurrence snapshots; `errorChanged` | Local wall-time recurrence with daily/weekly/monthly/yearly rules, exclusions and an explicit DST policy. It does not store or synchronize events. See [productivity.md](productivity.md). |
 | `TaskBoard` | `columns` (`status`, `label`, `tasks`: `taskId`, `title`, `assignee`, `dueDate`, `priority`), `offline`, `errorText`, `filterText` | `moveRequested(requestId, taskId, fromStatus, toStatus)`, `editRequested(requestId, taskId)`; `acknowledge(requestId, state, message)` | Host owns ordering and commits. Each card offers keyboard-accessible edit and labeled move actions to other status columns. `filterText` filters title/assignee. Offline proposals are rejected locally. objectNames `taskFilter`, `taskColumn_<status>`, `taskCard_<id>`. |
 | `LocalProductivityStore` | `filePath`, read-only `messages`, `drafts`, `events`, `tasks`, `revision`, `lastError`, `status`, `recoveryAvailable`, `canUndoTaskMove`, `canUndoEventChange` | `upsert(collection, record)`, `remove(collection, id)`, `moveTask(taskId, toStatus, targetOrder)`, `undoTaskMove()`, `shiftEventLocal(eventId, minutes)`, `undoEventChange()`, `load()`/`save()` or `loadFrom(path)`/`saveTo(path)` | Offline-first JSON snapshot with stable IDs, attachment metadata, recurrence rules retained verbatim, atomic replacement and previous-snapshot recovery. Task moves and local calendar shifts have bounded undo; shifts reject DST gaps and folds. Delivery, sync and recurrence evaluation require host providers. See `docs/productivity-store.md`. |
+| `LocalAttachmentStore` | `rootPath`, `defaultPath`, `status`, `lastError`, `maximumBytes` (8 MiB) | `importFile(id, sourcePath)`, `importBytes(id, name, mimeType, bytes)`, `read(id)`, `remove(id)` | Stores attachment payload bytes separately from `LocalProductivityStore` draft metadata. IDs map to SHA-256 directory names; staged directory replacement keeps payload and metadata together. Results include `ok` and `error`; `read` returns bytes and base64. Local only; no upload. |
 
 The `examples/local-productivity` fixture saves and reloads local messages,
 drafts/attachment metadata, events and task ordering; it connects the existing
 mail, composer, calendar and task request signals to the store/host seam. Draft
 sends and remote refresh remain explicitly unavailable. `examples/productivity-suite`
 continues to show provider-independent request snapshots.
+
+`examples/local-attachment-store` demonstrates a stable draft attachment ID
+whose payload bytes are stored and read back by `LocalAttachmentStore`.
 
 ## Local database, forms and reports
 

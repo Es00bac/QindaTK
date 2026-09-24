@@ -1,0 +1,4 @@
+Local attachment fixture
+
+These bytes are imported into LocalAttachmentStore under a stable attachment ID.
+The draft snapshot points to the ID and metadata; the store owns the payload.

@@ -39384,6 +39384,93 @@
       "bridge": false
     },
     {
+      "name": "LocalAttachmentStore",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Local byte storage for attachment metadata owned by LocalProductivityStore.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_attachment_store.h",
+      "properties": [
+        {
+          "name": "rootPath",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "defaultPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "status",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maximumBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [
+        {
+          "name": "rootPathChanged",
+          "parameters": ""
+        },
+        {
+          "name": "statusChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "importFile",
+          "returns": "QVariantMap",
+          "parameters": "const QString &attachmentId, const QString &sourcePath"
+        },
+        {
+          "name": "importBytes",
+          "returns": "QVariantMap",
+          "parameters": "const QString &attachmentId, const QString &fileName, const QString &mimeType, const QByteArray &bytes"
+        },
+        {
+          "name": "read",
+          "returns": "QVariantMap",
+          "parameters": "const QString &attachmentId"
+        },
+        {
+          "name": "remove",
+          "returns": "QVariantMap",
+          "parameters": "const QString &attachmentId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "LocalDataDesignStore",
       "kind": "cpp",
       "base": "QObject",
