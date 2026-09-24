@@ -15087,6 +15087,144 @@
       ]
     },
     {
+      "name": "MapView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Local WGS84 GeoJSON vector map. No tile provider is installed in this slice.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MapView.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "alias",
+          "default": "canvas.model",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "centerLongitude",
+          "type": "alias",
+          "default": "canvas.centerLongitude",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "centerLatitude",
+          "type": "alias",
+          "default": "canvas.centerLatitude",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoomLevel",
+          "type": "alias",
+          "default": "canvas.zoomLevel",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedFeatureId",
+          "type": "string",
+          "default": "canvas.selectedFeatureId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedFeature",
+          "type": "var",
+          "default": "model ? model.featureById(selectedFeatureId) : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tileStatus",
+          "type": "string",
+          "default": "canvas.tileStatus",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Geographic map\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "featureSelected",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "attributesText",
+          "parameters": ""
+        },
+        {
+          "name": "loadGeoJson",
+          "parameters": "path"
+        },
+        {
+          "name": "saveGeoJson",
+          "parameters": "path"
+        },
+        {
+          "name": "coordinateAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "screenPosition",
+          "parameters": "longitude, latitude"
+        },
+        {
+          "name": "featureIdAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "selectAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "selectFeature",
+          "parameters": "id"
+        },
+        {
+          "name": "panPixels",
+          "parameters": "dx, dy"
+        },
+        {
+          "name": "zoomAt",
+          "parameters": "factor, x, y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "mapAttribution",
+        "mapCanvas",
+        "mapInspector",
+        "mapTileStatus",
+        "mapView"
+      ]
+    },
+    {
       "name": "MarkerLane",
       "kind": "qml",
       "base": "Item",
@@ -41175,6 +41313,294 @@
       "properties": [],
       "signals": [],
       "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GeographicFeatureModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-CONTRACT: coordinates are GeoJSON WGS84 [longitude, latitude] degrees; projection results are normalized EPSG:3857 world coordinates (x east, y south).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/geographic_feature_model.h",
+      "properties": [
+        {
+          "name": "attribution",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sourcePath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "crs",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "loadGeoJson",
+          "returns": "bool",
+          "parameters": "const QString &localPath"
+        },
+        {
+          "name": "saveGeoJson",
+          "returns": "bool",
+          "parameters": "const QString &localPath"
+        },
+        {
+          "name": "featureById",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "featureAt",
+          "returns": "QVariantMap",
+          "parameters": "int index"
+        },
+        {
+          "name": "project",
+          "returns": "QVariantMap",
+          "parameters": "double longitude, double latitude"
+        },
+        {
+          "name": "unproject",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GeographicMapCanvas",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/geographic_map_canvas.h",
+      "properties": [
+        {
+          "name": "model",
+          "type": "GeographicFeatureModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "centerLongitude",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "centerLatitude",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zoomLevel",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedFeatureId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "featureColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pointRadius",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lineWidth",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridWidth",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hitRadius",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fillOpacity",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedFillOpacity",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tileStatus",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [
+        {
+          "name": "modelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "viewportChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "featureSelected",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "coordinateAt",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "screenPosition",
+          "returns": "QVariantMap",
+          "parameters": "double longitude, double latitude"
+        },
+        {
+          "name": "featureIdAt",
+          "returns": "QString",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "selectAt",
+          "returns": "bool",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "selectFeature",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "panPixels",
+          "returns": "void",
+          "parameters": "double dx, double dy"
+        },
+        {
+          "name": "zoomAt",
+          "returns": "void",
+          "parameters": "double factor, double x, double y"
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,

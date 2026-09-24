@@ -57,6 +57,7 @@ pages below are the reference.
 | [financial-displays.md](financial-displays.md) | Source-backed OHLC sessions, candlesticks, bullet and gauge targets, missing values and export seam |
 | [polar.md](polar.md) | Numeric polar, categorical radar and radial-bar coordinates, validation, selection and export |
 | [uncertainty.md](uncertainty.md) | Declared interval meanings, error bars, continuous bands, provenance and metadata-preserving export |
+| [geographic-map.md](geographic-map.md) | Local GeoJSON vectors, WGS84/Web Mercator semantics, antimeridian wrap, selection, attribution and unsupported tile state |
 | [scientific-plot.md](scientific-plot.md) | Float64 scientific samples, units, missing values, host-supplied uncertainty, calibrated 2D cursor and reproducible figure export |
 | [event-log.md](event-log.md) | Bounded event ingestion, UTC identity, filtering, pause/follow, selection and CSV data seam |
 | [docking.md](docking.md) | DockModel operations, zones/lanes/groups, the JSON schema, DockHost gestures |

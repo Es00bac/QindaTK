@@ -597,3 +597,13 @@ zero channels while stored colors and ColorEngine hidden RGB remain intact.
 and explicitly integrate renderer previews. Initial policies are relative
 colorimetric/BPC off with padded edges; proofing and alternative interpolation
 spaces remain unsupported. See [gradient.md](gradient.md).
+
+## D-082 — Local WGS84 vectors precede remote geographic providers
+
+**Context.** WP-084 requires geographic coordinates, source identity and an
+offline story before tile/network integration. **Decision.** The first MapView
+slice consumes local GeoJSON only, declares WGS84 longitude/latitude at the
+provider boundary, and paints normalized Web Mercator coordinates. Tile state
+is explicitly unsupported. **Consequences.** Local features can be picked and
+round-tripped without external services. Provider caching, raster tiles,
+projection switching and edits remain separate work.

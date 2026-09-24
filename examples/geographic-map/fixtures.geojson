@@ -1,0 +1,11 @@
+{
+  "type": "FeatureCollection",
+  "attribution": "QindaTK local demonstration coordinates",
+  "features": [
+    {"type":"Feature","id":"route","properties":{"name":"Front Range route","kind":"line"},"geometry":{"type":"LineString","coordinates":[[-105.2,39.4],[-104.99,39.74],[-104.82,40.02]]}},
+    {"type":"Feature","id":"district","properties":{"name":"Denver study area","kind":"polygon"},"geometry":{"type":"Polygon","coordinates":[[[-105.1,39.63],[-104.85,39.63],[-104.85,39.87],[-105.1,39.87],[-105.1,39.63]]]}},
+    {"type":"Feature","id":"denver","properties":{"name":"Denver","population":"sample landmark"},"geometry":{"type":"Point","coordinates":[-104.9903,39.7392]}},
+    {"type":"Feature","id":"boulder","properties":{"name":"Boulder","population":"sample landmark"},"geometry":{"type":"Point","coordinates":[-105.2705,40.015]}},
+    {"type":"Feature","id":"dateline","properties":{"name":"Antimeridian crossing"},"geometry":{"type":"LineString","coordinates":[[179.4,12],[-179.4,13]]}}
+  ]
+}
