@@ -271,7 +271,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-033"></a>
 ## WP-033 — Prove the shared application framework
 
-**Implementation lead:** Sol. **Status:** active; [integration evidence](evidence/WP-033.md). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-014](phase-01-services.md#wp-014), [WP-019](phase-01-services.md#wp-019), [WP-020](phase-02-controls-data.md#wp-020), [WP-022](phase-02-controls-data.md#wp-022), [WP-026](phase-02-controls-data.md#wp-026), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Sol. **Status:** active; workbench lifecycle flows are integrated, while the general object collection adapter and native accessibility-client qualification remain open ([integration evidence](evidence/WP-033.md)). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-014](phase-01-services.md#wp-014), [WP-019](phase-01-services.md#wp-019), [WP-020](phase-02-controls-data.md#wp-020), [WP-022](phase-02-controls-data.md#wp-022), [WP-026](phase-02-controls-data.md#wp-026), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

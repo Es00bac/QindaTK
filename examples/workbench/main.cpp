@@ -8,9 +8,24 @@
 #include <QQmlEngine>
 #include <QTextStream>
 #include <QTimer>
+#include <QEventLoop>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QTemporaryDir>
+#include <qindatk/edit_transaction.h>
+#include <qindatk/shortcut_map.h>
 #include <qindatk/density.h>
+#include <qindatk/job_model.h>
 
 namespace {
+struct TestRecord { const char *id; };
+const TestRecord boardRows[]{{"00000000-0000-0000-0000-000000000101"},
+    {"00000000-0000-0000-0000-000000000102"}, {"00000000-0000-0000-0000-000000000103"},
+    {"00000000-0000-0000-0000-000000000104"}};
+const TestRecord sheetRows[]{{"00000000-0000-0000-0000-000000000201"},
+    {"00000000-0000-0000-0000-000000000202"}, {"00000000-0000-0000-0000-000000000203"},
+    {"00000000-0000-0000-0000-000000000204"}};
 void dumpItems(QTextStream &out, QQuickItem *item)
 {
     if (!item) return;
@@ -18,6 +33,45 @@ void dumpItems(QTextStream &out, QQuickItem *item)
         out << item->objectName() << ' ' << item->x() << ',' << item->y() << ' '
             << item->width() << 'x' << item->height() << '\n';
     for (QQuickItem *child : item->childItems()) dumpItems(out, child);
+}
+
+bool saveAs(DocumentSession *session, const QString &path)
+{
+    if (!session) return false;
+    QEventLoop loop;
+    bool completed = false, success = false;
+    const auto connection = QObject::connect(session, &DocumentSession::saveFinished, &loop,
+        [&](bool ok, const QString &, const QString &) { completed = true; success = ok; loop.quit(); });
+    if (!session->requestSaveAs(path, false)) { QObject::disconnect(connection); return false; }
+    QTimer::singleShot(10000, &loop, &QEventLoop::quit);
+    if (!completed) loop.exec();
+    QObject::disconnect(connection);
+    return completed && success;
+}
+
+bool saveCurrent(DocumentSession *session)
+{
+    if (!session) return false;
+    QEventLoop loop;
+    bool completed = false, success = false;
+    const auto connection = QObject::connect(session, &DocumentSession::saveFinished, &loop,
+        [&](bool ok, const QString &, const QString &) { completed = true; success = ok; loop.quit(); });
+    if (!session->requestSave()) { QObject::disconnect(connection); return false; }
+    QTimer::singleShot(10000, &loop, &QEventLoop::quit);
+    if (!completed) loop.exec();
+    QObject::disconnect(connection);
+    return completed && success;
+}
+
+bool editName(DocumentSession *session, const QString &id, const QString &value)
+{
+    if (!session || !session->document()) return false;
+    EditTransaction edit;
+    edit.setDocument(session->document());
+    edit.setUndoService(session->undoService());
+    const EntityId target = EntityId::parse(id);
+    return edit.begin({target}, QStringLiteral("name"), QStringLiteral("Edit workbench name"))
+        && !edit.updateValue(value) && !edit.commitEdit();
 }
 } // namespace
 
@@ -30,6 +84,7 @@ int main(int argc, char **argv)
         Density::instance()->setModeName(arguments.at(densityOption + 1));
     WorkbenchHost host;
     QQuickView window;
+    host.setWindow(&window);
     window.engine()->addImportPath(QStringLiteral(QINDATK_QML_IMPORT_ROOT));
     window.rootContext()->setContextProperty(QStringLiteral("host"), &host);
     window.setResizeMode(QQuickView::SizeRootObjectToView);
@@ -229,7 +284,81 @@ int main(int argc, char **argv)
                                             QStringLiteral("name")) != QStringLiteral("Dialogue"))
             return 12;
         host.manager()->activate(board->documentId());
-        qInfo("WP-033 workbench: grid sort/filter selection retention, edit/undo, command routing and inactive-document isolation passed");
+        const QString sheetArchiveId = QStringLiteral("00000000-0000-0000-0000-000000000304");
+        if (!host.copyAsset(QString::fromLatin1(boardRows[0].id))
+            || !host.pasteAssetToOtherDocument()) return 26;
+        const auto pastedArray = QJsonDocument::fromJson(sheet->document()->valueFor(
+            sheetArchiveId, QStringLiteral("transfers")).toString().toUtf8()).array();
+        if (pastedArray.size() != 1
+            || pastedArray.last().toObject().value(QStringLiteral("name")).toString() != QStringLiteral("Opening shot")
+            || pastedArray.last().toObject().value(QStringLiteral("id")).toString() == QString::fromLatin1(boardRows[0].id)
+            || !host.manager()->undoService()->undo()
+            || !sheet->document()->valueFor(sheetArchiveId, QStringLiteral("transfers")).toString().isEmpty())
+            return 27;
+
+        QTemporaryDir lifecycle;
+        if (!lifecycle.isValid()) return 28;
+        host.manager()->recoveryManager()->setDirectory(lifecycle.filePath(QStringLiteral("recovery")));
+        auto *scratch = host.manager()->createReferenceDocument();
+        const EntityId scratchEntity = EntityId::create();
+        if (!scratch || !scratch->document()->defineProperty({QStringLiteral("note"), QMetaType::fromType<QString>(),
+                QString{}, QString{}, true, false})
+            || !scratch->document()->addEntity(scratchEntity, {{QStringLiteral("note"), QStringLiteral("Saved payload")}}))
+            return 29;
+        const QString scratchId = scratch->documentId();
+        const QString scratchPath = lifecycle.filePath(QStringLiteral("reopen.qtk"));
+        if (!saveAs(scratch, scratchPath)
+            || !host.manager()->closeDocument(scratchId, DocumentManager::ClosePolicy::Discard)
+            || !host.openReferencePath(scratchPath)) return 30;
+        auto *reopened = host.manager()->findSession(scratchId);
+        if (!reopened || reopened->document()->value(scratchEntity, QStringLiteral("note")).toString()
+                != QStringLiteral("Saved payload")) return 31;
+        const bool boardSaved = saveAs(board, lifecycle.filePath(QStringLiteral("board.qtk")));
+        const bool sheetSaved = saveAs(sheet, lifecycle.filePath(QStringLiteral("sheet.qtk")));
+        if (!boardSaved || !sheetSaved) {
+            qWarning() << "WP-033 lifecycle Save As failed" << boardSaved << sheetSaved
+                       << (board ? board->lastError() : QString{})
+                       << (sheet ? sheet->lastError() : QString{});
+            return 32;
+        }
+        host.manager()->activate(board->documentId());
+        const QString workspacePath = lifecycle.filePath(QStringLiteral("workspace.json"));
+        if (!host.saveWorkspace(workspacePath)
+            || !host.manager()->closeDocument(scratchId, DocumentManager::ClosePolicy::Discard)
+            || !host.restoreWorkspace(workspacePath)
+            || !host.manager()->findSession(scratchId)
+            || !host.manager()->activeSession()
+            || host.manager()->activeSession()->documentId() != board->documentId()) return 33;
+
+        const QString boardPath = lifecycle.filePath(QStringLiteral("board.qtk"));
+        const QString boardDocumentId = board->documentId();
+        if (!editName(board, QString::fromLatin1(boardRows[0].id), QStringLiteral("Recovery latest"))) return 34;
+        QFile foreign(boardPath);
+        if (!foreign.open(QIODevice::WriteOnly | QIODevice::Truncate)
+            || foreign.write("external replacement") < 0) return 35;
+        foreign.close();
+        if (!board->checkExternalChange() || saveCurrent(board)) return 36;
+        const QVariantMap recovery = host.manager()->recoveryManager()->inspectId(boardDocumentId);
+        if (recovery.value(QStringLiteral("revision")).toString() != board->revision()
+            || !host.restoreRecovery(boardDocumentId, boardPath)) return 37;
+        auto *recovered = host.manager()->findSession(boardDocumentId);
+        if (!recovered || !recovered->recovered() || !recovered->isDirty()
+            || recovered->document()->valueFor(QString::fromLatin1(boardRows[0].id), QStringLiteral("name"))
+                != QStringLiteral("Recovery latest")) return 38;
+
+        bool jobFinished = false;
+        JobModel::JobState jobState = JobModel::Queued;
+        QEventLoop jobLoop;
+        QObject::connect(host.jobs(), &JobModel::jobFinished, &jobLoop,
+            [&](const QString &, JobModel::JobState state, const QVariantMap &, const QString &) {
+                jobFinished = true; jobState = state; jobLoop.quit();
+            });
+        if (!host.startCloseDuringJob()) return 39;
+        QTimer::singleShot(5000, &jobLoop, &QEventLoop::quit);
+        if (!jobFinished) jobLoop.exec();
+        if (!jobFinished || jobState != JobModel::Stale
+            || !host.lastJobMessage().startsWith(QStringLiteral("Ignored stale analysis result"))) return 40;
+        qInfo("WP-033 workbench: grid, clipboard ID remapping, Save As/reopen, workspace restore, failed-save recovery and close-during-job guard passed");
     }
     const int grabOption = arguments.indexOf(QStringLiteral("--grab"));
     const bool dump = arguments.contains(QStringLiteral("--dump"));

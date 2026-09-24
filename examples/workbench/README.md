@@ -1,23 +1,31 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Reference workbench UI lane
 
-This local host seeds two actual `DocumentManager` reference sessions with
-typed `PropertyDocument` descriptors and stable entity IDs. `AssetGrid` and
-`EditableGrid` are projections of each session's document. A committed grid
-cell is validated against its stable entity/property IDs and applied with one
-`EditTransaction`; the grid relinquishes its sparse projection so document
-changes remain authoritative. Multi-cell commits use one `UndoService` macro;
-rejecting a cell cancels the macro and restores the grid projection. The
-inspector's Name field uses
-`PropertyBinding` to commit one document edit.
-Apply Name is one scoped `CommandRegistry` action presented by the toolbar,
-keyboard shortcut, and inspector context menu. Its accessible toolbar action
-uses the same `CommandButton` activation path. Each invocation commits through
-the active inspector binding as one document transaction; switching sessions
-retargets the active command scope and undo history. The Save action writes
-the active native reference document to a user-provided absolute path.
+This local host seeds two `DocumentManager` reference sessions with typed
+`PropertyDocument` descriptors and stable row IDs. `AssetGrid` and
+`EditableGrid` are projections of each session. Grid edits use one
+`EditTransaction`; multi-cell paste uses one `UndoService` macro. The inspector
+Name field uses `PropertyBinding`, and the same scoped rename command is
+available from the toolbar, context menu, Ctrl+Shift+R and the accessible
+toolbar button.
 
-Configure against a staged QindaTK package, then build with configured
+The inspector lifecycle panel provides:
+
+- Native Save As, open by path, save-failure recovery, and workspace capture,
+  save and restore. Save the documents before capturing a workspace. Restore
+  reopens any saved document that is not already in the manager.
+- Copy selected asset to the other document. `TransferPayloadCodec` validates
+  and encodes the stable-ID object payload; this example adapter creates a new
+  destination ID and commits the remapped JSON record to a serializable
+  reference-document string property in one undo step. The reference codec
+  currently serializes primitive property types, so the adapter keeps the
+  record in that string property instead of a `QVariantList` collection.
+- Close during task demo. A delayed snapshot-bound analysis is invalidated when
+  its document closes. The host publishes a completion only while the source
+  document remains open and active; otherwise it reports that the stale result
+  was ignored.
+
+Configure against a staged QindaTK package and build with configured
 `MAKEOPTS` unchanged:
 
 ```sh
@@ -25,27 +33,27 @@ cmake -S examples/workbench -B build/workbench -G Ninja \
   -DCMAKE_PREFIX_PATH=/path/to/qindatk-stage -DCMAKE_BUILD_TYPE=Debug
 cmake --build build/workbench
 QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
-  build/workbench/qindatk_workbench --dump --grab /tmp/workbench.png
+  build/workbench/qindatk_workbench --check
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+  build/workbench/qindatk_workbench --density compact --grab /tmp/workbench.png
 ```
 
-The executable accepts `--density compact|comfortable`, `--check`, `--dump` and
-`--grab path`; without these flags it opens an interactive window. The QML
+The executable accepts `--density compact|comfortable`, `--check`, `--dump`
+and `--grab path`; without these flags it opens an interactive window. The QML
 file relies on its local C++ host context, so launch through this executable.
 
-`--check` exercises a grid Name edit and a two-cell Name paste. It verifies one
-undo entry for the paste, no lingering sparse overrides, document/grid/
-inspector/asset updates, exact undo of both cells, and that the inactive
-document stays unchanged. It checks sorting, filtering, selection restoration,
-per-document row selection, and re-sorting after an edit and undo. It also
-exercises toolbar, context-menu and shortcut command edits after a document
-switch. It does not automate an operating-system accessibility client.
-Clipboard transfer, async close, failed-save recovery,
-workspace restore, and saved-content reopen remain outside this example's
-current coverage.
-`CommandRegistry` handler registration remains C++ only. Native persistence
-and history include the seeded document entities. The grid keeps section
-structure local to the workbench while values remain backed by the active
-document.
-The document grid sorts by Name and filters across visible columns. Selection is
-remembered by stable row ID per document, including while filtering temporarily
-hides the selected row.
+`--check` exercises grid editing and paste, selection retention, command
+routing, clipboard payload ID remapping and undo, native Save As and reopen,
+workspace save and restore with a closed document reopened, failed-save
+recovery, and close-during-job stale-result suppression. The host API is
+declared in `workbench_host.h`, with implementation split between
+`workbench_host.cpp` and `workbench_lifecycle.cpp`; the lifecycle controls are
+in `WorkbenchLifecyclePanel.qml` to keep the main scene within the file-size
+limit.
+
+The cross-document adapter stores a remapped object record in a JSON string
+property because the built-in reference codec supports primitive property
+types only. It does not claim nested reference resolution or embedded resource
+transfer. Native operating-system accessibility-client activation also remains
+outside this local `--check`; the semantic command is exercised through its
+QML toolbar/context-menu/shortcut and accessible activation paths.

@@ -80,7 +80,7 @@ Rectangle {
     }
     function saveActive() {
         if (!activeSession) return
-        const path = pathField.text.trim()
+        const path = lifecyclePanel.documentPath.trim()
         const started = activeSession.uri.length
             ? activeSession.requestSave() : activeSession.requestSaveAs(path, false)
         statusText = started ? qsTr("Saving native reference document")
@@ -186,6 +186,13 @@ Rectangle {
         function onPropertyChanged() {
             if (root.gridSortByName || root.gridFilterText)
                 Qt.callLater(root.applyGridView)
+        }
+    }
+    Connections {
+        target: root.activeSession
+        function onSaveFinished(success, message, savedRevision) {
+            root.statusText = success ? qsTr("Saved revision %1").arg(savedRevision)
+                                      : qsTr("Save failed; recovery is available: %1").arg(message)
         }
     }
     onActiveDocumentIdChanged: {
@@ -470,23 +477,14 @@ Rectangle {
                             }
                         }
                     }
-                    Tk.Divider {}
-                    Tk.Caption {
-                        text: qsTr("Grid and Inspector edits commit to the active native document. Undo uses its shared transaction history.")
-                        wrapMode: Text.Wrap
-                    }
-                    Tk.Spacer {}
-                    Tk.TextField {
-                        id: pathField
-                        objectName: "workbenchPathField"
-                        placeholderText: qsTr("Absolute .qtk path for Save As")
-                        tooltip: qsTr("Native reference document destination")
-                    }
-                    Tk.Button {
-                        text: qsTr("Close · cancel")
-                        tooltip: qsTr("Keep a dirty reference document open")
-                        enabled: !!root.activeSession
-                        onClicked: manager.closeDocument(root.activeDocumentId, Tk.DocumentManager.Cancel)
+                    WorkbenchLifecyclePanel {
+                        id: lifecyclePanel
+                        width: parent.width
+                        host: root.host
+                        activeSession: root.activeSession
+                        activeDocumentId: root.activeDocumentId
+                        inspectedRowId: root.inspectedRowId
+                        onStatusRequested: function(message) { root.statusText = message }
                     }
                 }
             }
@@ -496,7 +494,7 @@ Rectangle {
             objectName: "workbenchStatusBar"
             width: parent.width
             edge: "top"
-            Tk.Caption { text: root.statusText; elide: Text.ElideRight; Tk.Flex.grow: 1 }
+            Tk.Caption { text: root.statusText + (host.lastJobMessage ? qsTr(" · ") + host.lastJobMessage : ""); elide: Text.ElideRight; Tk.Flex.grow: 1 }
             Tk.Caption { text: qsTr("%1 documents").arg(root.documentCount) }
         }
     }
