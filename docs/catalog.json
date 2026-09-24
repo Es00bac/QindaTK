@@ -2464,6 +2464,254 @@
       ]
     },
     {
+      "name": "BrushDynamicsEditor",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BrushDynamicsEditor.qml",
+      "properties": [
+        {
+          "name": "brushId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "parameters",
+          "type": "var",
+          "default": "[] // [{id,label,value,minimum,maximum,step,unit}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "workingParameters",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validationError",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Brush dynamics parameters\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumParameters",
+          "type": "int",
+          "default": "16",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "dynamicsEditRequested",
+          "parameters": "string brushId, string requestId, string phase, var parameters"
+        }
+      ],
+      "methods": [
+        {
+          "name": "normalise",
+          "parameters": "source"
+        },
+        {
+          "name": "setParameterValue",
+          "parameters": "parameterId, value"
+        },
+        {
+          "name": "request",
+          "parameters": "phase"
+        },
+        {
+          "name": "beginEdit",
+          "parameters": ""
+        },
+        {
+          "name": "previewEdit",
+          "parameters": ""
+        },
+        {
+          "name": "commitEdit",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "requestId, state, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "brushDynamicsEditor",
+        "brushDynamicsParameters",
+        "brushDynamicsSlider_",
+        "brushDynamicsStatus"
+      ]
+    },
+    {
+      "name": "BrushPresetView",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BrushPresetView.qml",
+      "properties": [
+        {
+          "name": "presets",
+          "type": "var",
+          "default": "[] // [{id,name,tags,previewColor,shape,available}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedPresetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Brush presets\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "presetRequested",
+          "parameters": "string requestId, string presetId, string action"
+        }
+      ],
+      "methods": [
+        {
+          "name": "visiblePresets",
+          "parameters": ""
+        },
+        {
+          "name": "requestPreset",
+          "parameters": "presetId, action"
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "requestId, state, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "brushPresetList",
+        "brushPresetPreview_",
+        "brushPresetSearch",
+        "brushPresetSelect_",
+        "brushPresetStatus",
+        "brushPresetView"
+      ]
+    },
+    {
       "name": "Button",
       "kind": "qml",
       "base": "T.Button",
@@ -14793,6 +15041,122 @@
         "markerLanePointer",
         "markerRegion_",
         "markerRenameEditor"
+      ]
+    },
+    {
+      "name": "MaskChannelPanel",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MaskChannelPanel.qml",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channels",
+          "type": "var",
+          "default": "[] // up to 200 {id,name,kind,enabled,visible,linkedTo}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeTargetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Mask and channel targets\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "targetRequested",
+          "parameters": "string requestId, string documentId, string targetId"
+        },
+        {
+          "name": "channelStateRequested",
+          "parameters": "string requestId, string documentId, string channelId, string propertyName, bool value"
+        },
+        {
+          "name": "relationshipChangeRequested",
+          "parameters": "string requestId, string documentId, string channelId, string relationship, string targetId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "requestTarget",
+          "parameters": "targetId"
+        },
+        {
+          "name": "requestChannelState",
+          "parameters": "channelId, propertyName"
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "requestId, state, message"
+        },
+        {
+          "name": "requestRelationship",
+          "parameters": "channelId, relationship, targetId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "maskChannelList",
+        "maskChannelPanel",
+        "maskChannelStatus",
+        "maskEnabled_",
+        "maskRelationship_",
+        "maskTarget_",
+        "maskVisible_"
       ]
     },
     {
