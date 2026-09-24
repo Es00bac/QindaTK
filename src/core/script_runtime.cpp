@@ -125,10 +125,15 @@ ScriptRuntime::Evaluation ScriptRuntime::evaluate(
     const QString prefix = QStringLiteral(R"JS((function() {
         "use strict";
         const actions = [], lines = [];
+        // Freeze fresh copies: dense arrays and plain objects. Qt 6.8's
+        // Object.freeze crashes on the sparse arrays that converted host
+        // values can use (QV4::SparseArrayData).
         function freezeDeep(value) {
+            if (Array.isArray(value)) return Object.freeze(Array.from(value, freezeDeep));
             if (value && typeof value === 'object') {
-                Object.keys(value).forEach(key => freezeDeep(value[key]));
-                Object.freeze(value);
+                const copy = {};
+                Object.keys(value).forEach(key => { copy[key] = freezeDeep(value[key]); });
+                return Object.freeze(copy);
             }
             return value;
         }
