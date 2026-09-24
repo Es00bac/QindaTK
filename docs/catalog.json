@@ -3771,6 +3771,127 @@
       ]
     },
     {
+      "name": "ClipLauncher",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: scenes, slots, and playing state are host snapshots. Launch buttons report requests; only matching host acknowledgments update request status, and only a later host snapshot can change which slot is active.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ClipLauncher.qml",
+      "properties": [
+        {
+          "name": "slots",
+          "type": "var",
+          "default": "[] // {id, sceneId, label, state: empty|ready|queued|playing|recording, available, reason}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "quantization",
+          "type": "string",
+          "default": "\"bar\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "4",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeSlotId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestDescription",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "launchRequested",
+          "parameters": "string requestId, string slotId, string quantization"
+        },
+        {
+          "name": "stopRequested",
+          "parameters": "string requestId, string slotId"
+        },
+        {
+          "name": "slotSelected",
+          "parameters": "string slotId"
+        },
+        {
+          "name": "launchAcknowledged",
+          "parameters": "string requestId, string state, string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "requestLaunch",
+          "parameters": "slotId"
+        },
+        {
+          "name": "requestStop",
+          "parameters": "slotId"
+        },
+        {
+          "name": "acknowledgeLaunch",
+          "parameters": "requestId, state, message"
+        },
+        {
+          "name": "clearAcknowledgment",
+          "parameters": ""
+        },
+        {
+          "name": "slotStatus",
+          "parameters": "slot"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "clipLauncher",
+        "clipLauncherSlot_",
+        "clipLauncherStatus",
+        "clipLauncherStopActive"
+      ]
+    },
+    {
       "name": "ColorButton",
       "kind": "qml",
       "base": "T.AbstractButton",
@@ -13089,6 +13210,201 @@
       ]
     },
     {
+      "name": "MidiControllerLane",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: events and exact tick boundaries are host snapshots. This lane sends stable event/controller IDs and requested values; encoding, quantization, per-note association, acceptance, and history belong to the MIDI host.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MidiControllerLane.qml",
+      "properties": [
+        {
+          "name": "patternId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controllerId",
+          "type": "string",
+          "default": "\"velocity\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "controllerLabel",
+          "type": "string",
+          "default": "qsTr(\"Velocity\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumValue",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumValue",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "defaultValue",
+          "type": "real",
+          "default": "0.8",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resolutionBits",
+          "type": "int",
+          "default": "7",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "events",
+          "type": "var",
+          "default": "[] // {id, ticks, value, x, noteId}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tickBoundaries",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEventId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "eventSelected",
+          "parameters": "string eventId"
+        },
+        {
+          "name": "valuePreviewRequested",
+          "parameters": "string requestId, string patternId, string controllerId, string eventId, string ticks, real value"
+        },
+        {
+          "name": "editFinished",
+          "parameters": "string requestId"
+        },
+        {
+          "name": "editCanceled",
+          "parameters": "string requestId"
+        },
+        {
+          "name": "eventValueRequested",
+          "parameters": "string patternId, string controllerId, string eventId, string ticks, real value"
+        },
+        {
+          "name": "eventDeleteRequested",
+          "parameters": "string patternId, string controllerId, string eventId"
+        },
+        {
+          "name": "zoomRequested",
+          "parameters": "string anchorTicks, real factor"
+        },
+        {
+          "name": "scrollRequested",
+          "parameters": "real fractionDelta"
+        }
+      ],
+      "methods": [
+        {
+          "name": "css",
+          "parameters": "c"
+        },
+        {
+          "name": "tickAt",
+          "parameters": "x"
+        },
+        {
+          "name": "eventAt",
+          "parameters": "x"
+        },
+        {
+          "name": "valueAt",
+          "parameters": "y"
+        },
+        {
+          "name": "beginEditAt",
+          "parameters": "x"
+        },
+        {
+          "name": "updateEditAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "finishEdit",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "parameters": ""
+        },
+        {
+          "name": "requestSetValue",
+          "parameters": "eventId, ticks, value"
+        },
+        {
+          "name": "requestDelete",
+          "parameters": "eventId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "midiControllerCanvas",
+        "midiControllerLane"
+      ]
+    },
+    {
       "name": "MixedValueField",
       "kind": "qml",
       "base": "T.Control",
@@ -15236,6 +15552,181 @@
         "pdfZoomIn",
         "pdfZoomOut",
         "pdfZoomValue"
+      ]
+    },
+    {
+      "name": "PianoRoll",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: note records and tick boundaries are immutable host snapshots. Every edit request names a stable note ID and carries exact decimal tick strings; the MIDI model owns duration math, validation, preview state, commit, and undo.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PianoRoll.qml",
+      "properties": [
+        {
+          "name": "patternId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "notes",
+          "type": "var",
+          "default": "[] // {id, pitch, velocity, x0, x1, startTicks, endTicks}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tickBoundaries",
+          "type": "var",
+          "default": "[] // exact decimal strings for snapped grid positions",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lowestPitch",
+          "type": "int",
+          "default": "48",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pitchRows",
+          "type": "int",
+          "default": "24",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedNoteId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "noteSelected",
+          "parameters": "string noteId"
+        },
+        {
+          "name": "notePreviewRequested",
+          "parameters": "string requestId, string patternId, string noteId, string operation, string targetTicks, int targetPitch"
+        },
+        {
+          "name": "noteEditFinished",
+          "parameters": "string requestId"
+        },
+        {
+          "name": "noteEditCanceled",
+          "parameters": "string requestId"
+        },
+        {
+          "name": "noteInsertRequested",
+          "parameters": "string requestId, string patternId, string startTicks, string endTicks, int pitch, real velocity"
+        },
+        {
+          "name": "noteDeleteRequested",
+          "parameters": "string patternId, string noteId"
+        },
+        {
+          "name": "zoomRequested",
+          "parameters": "string anchorTicks, real factor"
+        },
+        {
+          "name": "scrollRequested",
+          "parameters": "real tickFraction, int pitchRows"
+        }
+      ],
+      "methods": [
+        {
+          "name": "toCss",
+          "parameters": "color"
+        },
+        {
+          "name": "pitchAt",
+          "parameters": "y"
+        },
+        {
+          "name": "tickAt",
+          "parameters": "x"
+        },
+        {
+          "name": "noteAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "beginEditAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "updateEditAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "finishEdit",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "parameters": ""
+        },
+        {
+          "name": "requestInsertAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "requestDelete",
+          "parameters": "noteId"
+        },
+        {
+          "name": "cancelActiveEdit",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "pianoRoll",
+        "pianoRollCanvas"
       ]
     },
     {
@@ -20594,6 +21085,137 @@
       "objectNames": [
         "statusAction",
         "statusFocusRing"
+      ]
+    },
+    {
+      "name": "StepSequencer",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: rows and per-step snapshots belong to the pattern model. Taps send semantic requests by stable pattern/row/step IDs; playback, probability seed policy, and accepted changes stay in the sequencer host.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/StepSequencer.qml",
+      "properties": [
+        {
+          "name": "patternId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "patternName",
+          "type": "string",
+          "default": "qsTr(\"Pattern\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "var",
+          "default": "[] // {id, name, steps:[{id, enabled, velocity, probability, gate}]}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stepCount",
+          "type": "int",
+          "default": "16",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedStepId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "probabilityStep",
+          "type": "real",
+          "default": "0.05",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "stepEditRequested",
+          "parameters": "string requestId, string patternId, string rowId, string stepId, string field, var value"
+        },
+        {
+          "name": "stepSelected",
+          "parameters": "string rowId, string stepId"
+        },
+        {
+          "name": "probabilityEditRequested",
+          "parameters": "string requestId, string patternId, string rowId, string stepId, real probability"
+        },
+        {
+          "name": "zoomRequested",
+          "parameters": "real factor"
+        },
+        {
+          "name": "scrollRequested",
+          "parameters": "int rowDelta, int stepDelta"
+        }
+      ],
+      "methods": [
+        {
+          "name": "css",
+          "parameters": "c"
+        },
+        {
+          "name": "cellAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "toggleAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "setStepValue",
+          "parameters": "rowId, stepId, field, value"
+        },
+        {
+          "name": "requestProbability",
+          "parameters": "rowId, stepId, value"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "stepSequencer",
+        "stepSequencerCanvas"
       ]
     },
     {
