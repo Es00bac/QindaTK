@@ -17,6 +17,8 @@ transform and compares before/after pixels and scopes. The host still supplies
 decoded frames and owns grade history.
 The [caption model fixture](caption-model/Main.qml) connects `CaptionEditor`
 to exact-millisecond cue edits, undo, local JSON and WebVTT/SRT sidecars.
+The [caption render fixture](caption-render/Main.qml) burns active cues into
+actual frame pixels at exact millisecond positions.
 
 The [publishing workbench](document-publishing/Main.qml) exercises
 `StyleManager`, `PageSetupDialog`, `TextFrameEditor`, and `TableEditor` with
@@ -47,12 +49,16 @@ calendar, recurrence and task controls. Its recurrence preview uses
 The [local productivity fixture](local-productivity/Main.qml) connects the
 same kinds of controls to `LocalProductivityStore` for persisted mail, drafts,
 events and task moves with local recovery and undo.
+The [attachment fixture](local-attachment-store/Main.qml) imports and rereads
+actual local payload bytes alongside a draft's stable attachment metadata.
 The [form/schema/report fixture](forms-schema-report/Main.qml) uses a local
 SQLite provider, parameter-bound fields, saved design bindings and paginated
 document/PDF report output. The [motion fixture](motion-authoring/Main.qml)
 evaluates exact-tick keyframes, composites local SVG artwork into source
 pixels and shows effect compatibility. These are
 toolkit examples rather than complete productivity or motion applications.
+The [motion overlay fixture](motion-overlays/Main.qml) draws sampled transform
+paths and neighboring composited frames for onion-skin inspection.
 
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real
