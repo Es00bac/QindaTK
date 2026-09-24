@@ -16,12 +16,15 @@ QString SceneModel3D::toJson() const {
     for (const auto &e : state) {
         records.append(QJsonObject{{"id", e.id}, {"parent", e.parent}, {"name", e.name},
             {"primitive", e.primitive}, {"color", e.color.name(QColor::HexArgb)}, {"visible", e.visible},
+            {"material", QJsonObject{{"baseColor", e.color.name(QColor::HexArgb)},
+                                      {"roughness", e.roughness}, {"metalness", e.metalness},
+                                      {"emissiveColor", e.emissiveColor.name(QColor::HexArgb)}}},
             {"position", QJsonArray{e.position.x(), e.position.y(), e.position.z()}},
             {"rotation", QJsonArray{e.rotation.scalar(), e.rotation.x(), e.rotation.y(), e.rotation.z()}},
             {"scale", e.scale}});
     }
     return QString::fromUtf8(QJsonDocument(QJsonObject{{"format", "QindaTK.Scene3D"},
-        {"version", 1}, {"units", "world"}, {"entities", records}}).toJson(QJsonDocument::Compact));
+        {"version", 2}, {"units", "world"}, {"entities", records}}).toJson(QJsonDocument::Compact));
 }
 bool SceneModel3D::fromJson(const QString &json) {
     if (editing() || json.size() > 4 * 1024 * 1024) return fail("Active transform or scene file too large");
@@ -29,7 +32,8 @@ bool SceneModel3D::fromJson(const QString &json) {
     const auto doc = QJsonDocument::fromJson(json.toUtf8(), &error);
     auto obj = doc.object();
     if (error.error != QJsonParseError::NoError || obj["format"] != "QindaTK.Scene3D"
-        || obj["version"].toInt() != 1 || obj["units"] != "world" || !obj["entities"].isArray())
+        || (obj["version"].toInt() != 1 && obj["version"].toInt() != 2)
+        || obj["units"] != "world" || !obj["entities"].isArray())
         return fail("Unsupported scene document");
     auto array = obj["entities"].toArray();
     if (array.size() > 512) return fail("Scene entity limit exceeded");
@@ -40,6 +44,19 @@ bool SceneModel3D::fromJson(const QString &json) {
         e.id = o["id"].toString(); e.parent = o["parent"].toString();
         e.name = o["name"].toString(); e.primitive = o["primitive"].toString();
         e.color = QColor(o["color"].toString()); e.visible = o["visible"].toBool(true);
+        if (obj["version"].toInt() == 2) {
+            if (!o["material"].isObject()) return fail("Missing scene material");
+            const auto material = o["material"].toObject();
+            e.color = QColor(material["baseColor"].toString());
+            e.emissiveColor = QColor(material["emissiveColor"].toString());
+            if (!material["roughness"].isDouble() || !material["metalness"].isDouble())
+                return fail("Invalid scene material");
+            e.roughness = material["roughness"].toDouble();
+            e.metalness = material["metalness"].toDouble();
+            if (!e.emissiveColor.isValid() || !std::isfinite(e.roughness)
+                || !std::isfinite(e.metalness) || e.roughness < 0 || e.roughness > 1
+                || e.metalness < 0 || e.metalness > 1) return fail("Invalid scene material");
+        }
         auto p = o["position"].toArray(), r = o["rotation"].toArray();
         if (e.id.isEmpty() || ids.contains(e.id) || !e.color.isValid() || p.size() != 3 || r.size() != 4
             || (e.primitive != "cube" && e.primitive != "sphere" && e.primitive != "cylinder"))

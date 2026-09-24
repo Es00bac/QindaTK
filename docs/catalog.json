@@ -17228,6 +17228,133 @@
       ]
     },
     {
+      "name": "MaterialPreview",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (WP-076): SceneModel3D owns material values, undo and save. This inspector invokes one scene command per committed user edit.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MaterialPreview.qml",
+      "properties": [
+        {
+          "name": "scene",
+          "type": "Tk.SceneModel3D",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entityId",
+          "type": "string",
+          "default": "scene ? scene.selectedId : \"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"3D material preview and editor\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sceneRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "materialData",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rendererAvailable",
+          "type": "bool",
+          "default": "GraphicsInfo.api !== GraphicsInfo.Software",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "syncFields",
+          "parameters": ""
+        },
+        {
+          "name": "edit",
+          "parameters": "baseColor, roughness, metalness, emissiveColor"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "materialBaseColor",
+        "materialEmissiveColor",
+        "materialMetalness",
+        "materialPreview",
+        "materialPreviewSurface",
+        "materialRoughness"
+      ]
+    },
+    {
+      "name": "MaterialPreviewRenderer",
+      "kind": "qml",
+      "base": "Q3D.View3D",
+      "description": "AGENT-CONTRACT (WP-076): this is the optional GPU projection of the SceneModel3D material snapshot; the model owns editing and persistence.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MaterialPreviewRenderer.qml",
+      "properties": [
+        {
+          "name": "control",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "materialData",
+          "type": "var",
+          "default": "control ? control.materialData : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "materialPreviewRenderer",
+        "materialPreviewSphere"
+      ]
+    },
+    {
       "name": "MediaBin",
       "kind": "qml",
       "base": "T.Control",
@@ -52512,6 +52639,16 @@
           "name": "setAppearance",
           "returns": "bool",
           "parameters": "const QString &id, const QColor &color, bool visible"
+        },
+        {
+          "name": "setMaterial",
+          "returns": "bool",
+          "parameters": "const QString &id, const QColor &baseColor, float roughness, float metalness, const QColor &emissiveColor"
+        },
+        {
+          "name": "material",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
         },
         {
           "name": "reparent",

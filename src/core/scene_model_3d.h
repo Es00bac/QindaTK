@@ -5,6 +5,7 @@
 #include <QQuaternion>
 #include <QVector3D>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
@@ -34,6 +35,9 @@ public:
     Q_INVOKABLE bool setTransform(const QString &id, const QVector3D &position,
                                   const QVector3D &eulerDegrees, float scale);
     Q_INVOKABLE bool setAppearance(const QString &id, const QColor &color, bool visible);
+    Q_INVOKABLE bool setMaterial(const QString &id, const QColor &baseColor,
+                                float roughness, float metalness, const QColor &emissiveColor);
+    Q_INVOKABLE QVariantMap material(const QString &id) const;
     Q_INVOKABLE bool reparent(const QString &id, const QString &parentId, bool keepWorld);
     Q_INVOKABLE QVariantMap worldTransform(const QString &id) const;
     Q_INVOKABLE bool beginTransform(const QString &id);
@@ -67,6 +71,9 @@ private:
         QQuaternion rotation;
         float scale = 1;
         QColor color;
+        float roughness = 0.6f;
+        float metalness = 0;
+        QColor emissiveColor = QColor(Qt::black);
         bool visible = true;
         bool operator==(const Entity &) const = default;
     };

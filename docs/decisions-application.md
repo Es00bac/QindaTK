@@ -512,8 +512,12 @@ world deltas from the initial position and become one history step on release.
 
 **Consequences.** Uniform scales allow exact keep-world reparenting without shear
 or fragile matrix decomposition. Qt owns mesh picking and graphics resources.
-The software adaptation reports unavailable. Mesh providers, nonuniform scale,
-materials, shared document history and full gizmos remain separate WP-076 scope.
+The software adaptation reports unavailable. A later slice added per-entity
+base color, roughness, metalness and emission to scene history and version 2
+native persistence, with a GPU material preview. One material belongs to one
+entity in this bounded model; shared material assets and textures remain future
+work. Mesh providers, nonuniform scale, shared document history and full gizmos
+remain separate WP-076 scope.
 See [scene-3d.md](scene-3d.md).
 
 ## D-081 — Script capabilities are copied values and semantic commands

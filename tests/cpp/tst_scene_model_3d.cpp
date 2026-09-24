@@ -1,11 +1,44 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "scene_model_3d.h"
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QtTest>
 #include <QTemporaryDir>
 using namespace QindaTK;
 class SceneModel3DTest : public QObject {
     Q_OBJECT
 private slots:
+    void materialEditsShadeSnapshotUndoAndRoundTrip() {
+        SceneModel3D scene;
+        const auto id = scene.addEntity("Sample", "sphere", {0, 0, 0}, QColor("#6699cc"));
+        QVERIFY(!id.isEmpty());
+        const QString baseline = scene.toJson();
+        QVERIFY(scene.setMaterial(id, QColor("#d76a42"), 0.2f, 0.85f, QColor("#102030")));
+        const auto material = scene.material(id);
+        QCOMPARE(material.value("baseColor").value<QColor>(), QColor("#d76a42"));
+        QCOMPARE(material.value("roughness").toFloat(), 0.2f);
+        QCOMPARE(material.value("metalness").toFloat(), 0.85f);
+        QCOMPARE(scene.entities().first().toMap().value("emissiveColor").value<QColor>(), QColor("#102030"));
+        const QString saved = scene.toJson();
+        QVERIFY(scene.undo()); QCOMPARE(scene.toJson(), baseline);
+        QVERIFY(scene.redo()); QCOMPARE(scene.toJson(), saved);
+        SceneModel3D reopened;
+        QVERIFY(reopened.fromJson(saved));
+        QCOMPARE(reopened.material(id), material);
+        QVERIFY(!reopened.setMaterial(id, QColor("#ffffff"), 1.1f, 0, QColor("#000000")));
+        QCOMPARE(reopened.toJson(), saved);
+
+        auto legacy = QJsonDocument::fromJson(saved.toUtf8()).object();
+        legacy["version"] = 1;
+        auto entities = legacy["entities"].toArray();
+        auto entity = entities.first().toObject();
+        entity.remove("material"); entities[0] = entity; legacy["entities"] = entities;
+        SceneModel3D oldFile;
+        QVERIFY(oldFile.fromJson(QString::fromUtf8(QJsonDocument(legacy).toJson())));
+        QCOMPARE(oldFile.material(id).value("roughness").toFloat(), 0.6f);
+        QCOMPARE(oldFile.material(id).value("metalness").toFloat(), 0.f);
+    }
     void hierarchyManipulationAndPersistence() {
         SceneModel3D scene;
         const auto parent = scene.addEntity("Parent", "cube", {100, 0, 0}, QColor("#00aabb"));

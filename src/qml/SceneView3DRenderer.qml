@@ -33,10 +33,15 @@ Q3D.View3D {
             pickable: true
             materials: Q3D.PrincipledMaterial {
                 baseColor: sceneEntity.modelData.color
-                roughness: 0.6
+                roughness: sceneEntity.modelData.roughness
+                metalness: sceneEntity.modelData.metalness
                 emissiveFactor: viewport.control && viewport.control.scene && viewport.control.scene.selectedId === sceneEntity.entityId
-                    ? Qt.vector3d(Tk.Theme.color.accentSubtle.r, Tk.Theme.color.accentSubtle.g, Tk.Theme.color.accentSubtle.b)
-                    : Qt.vector3d(0, 0, 0)
+                    ? Qt.vector3d(Math.min(1, sceneEntity.modelData.emissiveColor.r + Tk.Theme.color.accentSubtle.r),
+                                  Math.min(1, sceneEntity.modelData.emissiveColor.g + Tk.Theme.color.accentSubtle.g),
+                                  Math.min(1, sceneEntity.modelData.emissiveColor.b + Tk.Theme.color.accentSubtle.b))
+                    : Qt.vector3d(sceneEntity.modelData.emissiveColor.r,
+                                  sceneEntity.modelData.emissiveColor.g,
+                                  sceneEntity.modelData.emissiveColor.b)
             }
         }
     }

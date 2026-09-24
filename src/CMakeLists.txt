@@ -14,7 +14,7 @@ file(GLOB qindatk_qml_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEP
 find_package(Qt6Quick3D 6.8 QUIET)
 set(qindatk_quick3d_sources)
 if(NOT TARGET Qt6::Quick3D)
-    list(FILTER qindatk_qml_files EXCLUDE REGEX "SceneView3DRenderer\\.qml$")
+    list(FILTER qindatk_qml_files EXCLUDE REGEX "(SceneView3DRenderer|MaterialPreviewRenderer)\\.qml$")
     message(STATUS "QindaTK: optional SceneView3D renderer unavailable (Qt Quick 3D not installed)")
 else()
     list(APPEND qindatk_quick3d_sources

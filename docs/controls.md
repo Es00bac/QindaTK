@@ -913,6 +913,15 @@ multi-monitor X11; see the [monitor qualification note](universal-toolkit/implem
 
 `Tk.SceneView3D` renders a `Tk.SceneModel3D` through optional Qt Quick 3D. It supports primitive picking, a toolbar for constrained translation, world/local axis rotation and uniform scale, snapping, Escape cancellation and arrow-key movement. `transformMode`, `transformConstraint`, `transformSpace`, `rotationSnap` and `scaleSnap` configure the gesture; `translationSnap` retains its original world-grid behavior in free mode. Right drag orbits around `cameraTarget`, middle drag pans, and the wheel zooms; hosts can call `orbitCamera(dx,dy)`, `panCamera(dx,dy)` and `zoomCamera(steps)`. `meshDocument` optionally uploads a `Tk.MeshRigDocument` as posed, UV-textured triangles; `meshRay(x,y)` and `meshPicked(worldPosition)` support a host paint gesture. `scene`, `cameraPosition`, `cameraEulerDegrees`, `rendererAvailable`, `tooltip` and `entityPicked(id, worldPosition)` remain the primitive surface. Internal objectNames: `sceneView3D`, `sceneRenderer3D`, `sceneTransformBar3D`, `sceneMode3D_<mode>`, `sceneAxis3D_<constraint>`, `sceneSpace3D`, `sceneEntity3D_<UUID>`, `sceneMeshRig3D`. See [3D scene model and viewport](scene-3d.md) for hierarchy, persistence and renderer limits.
 
+`Tk.MaterialPreview` is a `T.Control` bound through its `scene` property to a `SceneModel3D` and an
+`entityId` (defaulting to the scene selection). Its optional Quick3D renderer
+shows a shaded sphere from the entity material; the inspector commits base
+color, roughness, metalness and emission through `SceneModel3D.setMaterial`.
+Properties: `scene`, `entityId`, `materialData`, `rendererAvailable`, `tooltip`.
+ObjectNames: `materialPreview`, `materialPreviewSurface`,
+`materialPreviewRenderer`, `materialPreviewSphere`, `materialBaseColor`,
+`materialRoughness`, `materialMetalness`, `materialEmissiveColor`.
+
 ## Rig, UV and texture authoring
 
 `MeshRigDocument` is the host-owned source of mesh and rig snapshots. These

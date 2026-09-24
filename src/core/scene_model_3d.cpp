@@ -58,7 +58,9 @@ QVariantList SceneModel3D::entities() const {
             {"eulerDegrees", QVariant::fromValue(e.rotation.toEulerAngles())}, {"scale", e.scale},
             {"worldPosition", QVariant::fromValue(t.position)},
             {"worldRotation", QVariant::fromValue(t.rotation)}, {"worldScale", t.scale},
-            {"color", e.color}, {"visible", effectivelyVisible(i)}, {"localVisible", e.visible}});
+            {"color", e.color}, {"roughness", e.roughness}, {"metalness", e.metalness},
+            {"emissiveColor", e.emissiveColor},
+            {"visible", effectivelyVisible(i)}, {"localVisible", e.visible}});
     }
     return out;
 }
@@ -116,6 +118,29 @@ bool SceneModel3D::setAppearance(const QString &id, const QColor &color, bool vi
     int i = index(id);
     if (i < 0 || editing() || !color.isValid()) return fail("Invalid appearance or active transform");
     remember(); m_entities[i].color = color; m_entities[i].visible = visible;
+    notify(); return true;
+}
+QVariantMap SceneModel3D::material(const QString &id) const {
+    const int i = index(id);
+    if (i < 0) return {};
+    const auto &e = m_entities[i];
+    return {{"entityId", e.id}, {"baseColor", e.color}, {"roughness", e.roughness},
+            {"metalness", e.metalness}, {"emissiveColor", e.emissiveColor}};
+}
+bool SceneModel3D::setMaterial(const QString &id, const QColor &baseColor,
+                               float roughness, float metalness, const QColor &emissiveColor) {
+    const int i = index(id);
+    if (i < 0 || editing() || !baseColor.isValid() || !emissiveColor.isValid()
+        || !std::isfinite(roughness) || !std::isfinite(metalness)
+        || roughness < 0 || roughness > 1 || metalness < 0 || metalness > 1)
+        return fail("Invalid material or active transform");
+    const auto &e = m_entities[i];
+    if (e.color == baseColor && e.roughness == roughness
+        && e.metalness == metalness && e.emissiveColor == emissiveColor) return true;
+    remember();
+    auto &edited = m_entities[i];
+    edited.color = baseColor; edited.roughness = roughness;
+    edited.metalness = metalness; edited.emissiveColor = emissiveColor;
     notify(); return true;
 }
 bool SceneModel3D::reparent(const QString &id, const QString &parentId, bool keepWorld) {

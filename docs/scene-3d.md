@@ -32,6 +32,18 @@ parent hides descendants. `removeEntity(id)` requires children to be reparented
 first. `select(id)` changes selection; the empty ID clears it. Selection is view
 state and does not add an undo record.
 
+Each primitive has one editable material: `setMaterial(id, baseColor,
+roughness, metalness, emissiveColor)` updates its Qt Quick 3D shaded output.
+Roughness and metalness must be finite values in `[0,1]`; colors must be valid.
+`material(id)` returns the committed properties. Material edits use the scene's
+64-step undo history, and `entities` projects their values so all open views
+refresh. `Tk.MaterialPreview { scene: sceneModel }` follows the selected entity,
+shows an actual shaded sphere on a GPU backend, and exposes base color,
+roughness, metalness and emission fields. `entityId` can select an entity
+independently. The preview displays an unavailable message on software Qt.
+This slice uses one material per entity; shared material assets, maps and
+procedural nodes are still outside the model.
+
 ## Manipulation and history
 
 `beginTransform(id)` starts one transaction. Each
@@ -110,8 +122,9 @@ keyboard traversal of entities.
 
 ## Persistence and verification
 
-`toJson()`/`fromJson()` use version 1 `QindaTK.Scene3D`, retaining IDs, hierarchy,
-primitives, quaternion transforms and appearance. Camera/selection stay per-view.
+`toJson()`/`fromJson()` use version 2 `QindaTK.Scene3D`, retaining IDs, hierarchy,
+primitives, quaternion transforms and material values. Version 1 scenes still
+load with default roughness 0.6, metalness 0 and black emission. Camera/selection stay per-view.
 Saving during a preview writes the committed state. `saveToFile(path)` uses
 atomic replacement; `loadFromFile(path)` rejects files larger than 4 MiB.
 Failed parsing leaves the current scene/history intact. Successful loading is
@@ -131,8 +144,8 @@ outliner does not rename entities because the scene model has no rename command.
 ## Remaining WP-076 scope
 
 On-object 3D gizmo handles, constrained scale and per-axis scale;
-instance and imported mesh/resource providers; material property editing and
-asynchronous material preview; application document
+instance and imported mesh/resource providers; shared material assets,
+texture maps and procedural shaders; application document
 session/shared undo integration; device loss and multiple-view qualification;
 Qt 6.8 validation and accessibility traversal. This slice does not claim WP-076
 acceptance, renderer-independent materials, nonuniform transforms or CAD accuracy.

@@ -9,6 +9,7 @@ Item {
         id: sceneModel
         Component.onCompleted: {
             const cube = addEntity("Parent cube", "cube", Qt.vector3d(-100, 0, 0), "#35bbc4")
+            setMaterial(cube, "#35bbc4", 0.22, 0.75, "#080d10")
             setTransform(cube, Qt.vector3d(-100, 0, 0), Qt.vector3d(0, 25, 0), 1.2)
             const sphere = addEntity("Orbiting sphere", "sphere", Qt.vector3d(80, 30, 0), "#ed9d49")
             reparent(sphere, cube, true)
@@ -51,9 +52,16 @@ Item {
             Tk.SceneView3D {
                 id: viewport
                 Tk.Flex.grow: 1
+                Tk.Flex.basis: 0
                 scene: sceneModel
                 translationSnap: 10
                 rotationSnap: 15
+            }
+            Tk.MaterialPreview {
+                objectName: "sceneMaterialInspector"
+                Tk.Flex.basis: Tk.Theme.size.panelMinWidth * 1.4
+                Tk.Flex.shrink: 0
+                scene: sceneModel
             }
         }
         Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Left drag transforms · Right drag orbits · Middle drag pans · Wheel zooms · Escape cancels") }
