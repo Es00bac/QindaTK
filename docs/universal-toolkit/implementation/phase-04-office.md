@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 04 — Documents and Office workflows
 
-**Execution underway in isolated lanes.** WP-050 and WP-055 have unintegrated
-Opus worktrees; their dependencies and acceptance gates remain open. Other
-packages are planned.
+**Execution underway.** WP-050 is integrated and in review; WP-051 has
+publishing controls in the integration branch, and WP-055 remains active in
+an isolated Opus worktree. Backend and acceptance gates remain open.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -40,7 +40,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-051"></a>
 ## WP-051 — Add publishing structure, styles and tables
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-042](phase-03-authoring.md#wp-042), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-042](phase-03-authoring.md#wp-042), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-04 StyleManager](../proposed/05-documents-office.md#off-04), [OFF-06 PageSetupDialog](../proposed/05-documents-office.md#off-06), [OFF-07 TextFrameEditor](../proposed/05-documents-office.md#off-07), [OFF-08 TableEditor](../proposed/05-documents-office.md#off-08)
 

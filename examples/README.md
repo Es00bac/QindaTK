@@ -12,6 +12,11 @@ fixture for `SourceProgramMonitor` and `MediaBin`. Run it with
 `qtk-preview examples/media-source-browser.qml`; frame and thumbnail
 placeholders remain visible until an application provides real media data.
 
+The [publishing workbench](document-publishing/Main.qml) exercises
+`StyleManager`, `PageSetupDialog`, `TextFrameEditor`, and `TableEditor` with
+host-owned sample records; it is also an `example_document-publishing` smoke
+test. Production document transactions belong to the host backend.
+
 ```
 P=build/dev/tools/preview/qtk-preview
 $P examples/gallery/Main.qml                       # on screen

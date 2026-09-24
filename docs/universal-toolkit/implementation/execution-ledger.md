@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, nine active, three in review, and 39 planned.**
+**Execution state: 33 packages accepted, ten active, three in review, and 38 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -86,7 +86,7 @@ as though a later fix had already passed the earlier run.
 | [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | accepted | [Exact edits, dual-Qt 101/101 suites, visuals and installed consumer](evidence/WP-048.md) |
 | [WP-049 — Implement tempo and automation editing](phase-03-authoring.md#wp-049) | 03 | Sol | review | [Tempo/automation models, clip anchoring, schedule snapshots, lanes and examples integrated; focused gates pending](evidence/WP-049.md) |
 | [WP-050 — Implement rich text and paginated document editing](phase-04-office.md#wp-050) | 04 | Sol | review | [Rich-text model, layout, controls and codec integrated; focused dual-Qt checks passed](evidence/WP-050.md) |
-| [WP-051 — Add publishing structure, styles and tables](phase-04-office.md#wp-051) | 04 | Sol | planned | — |
+| [WP-051 — Add publishing structure, styles and tables](phase-04-office.md#wp-051) | 04 | Sol | active | [Four authoring controls integrated; production document operations pending](evidence/WP-051.md) |
 | [WP-052 — Add equations, references and document review](phase-04-office.md#wp-052) | 04 | Sol | planned | — |
 | [WP-053 — Implement printing and publishing preflight](phase-04-office.md#wp-053) | 04 | Sol | planned | — |
 | [WP-054 — Implement PDF viewing and annotation](phase-04-office.md#wp-054) | 04 | Sol | planned | — |
