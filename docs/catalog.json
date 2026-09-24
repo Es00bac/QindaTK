@@ -22239,6 +22239,103 @@
       ]
     },
     {
+      "name": "RenderQueueView",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Host-owned immutable render snapshots. Requests carry stable job identity; this view never changes job state or claims output exists before the host says so.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RenderQueueView.qml",
+      "properties": [
+        {
+          "name": "jobs",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.fieldWidth * 4",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "validateRequested",
+          "parameters": "string jobId"
+        },
+        {
+          "name": "submitRequested",
+          "parameters": "string jobId"
+        },
+        {
+          "name": "cancelRequested",
+          "parameters": "string jobId"
+        },
+        {
+          "name": "retryRequested",
+          "parameters": "string jobId"
+        },
+        {
+          "name": "openOutputRequested",
+          "parameters": "string jobId, var outputManifest"
+        }
+      ],
+      "methods": [
+        {
+          "name": "validateJob",
+          "parameters": "jobId"
+        },
+        {
+          "name": "submitJob",
+          "parameters": "jobId"
+        },
+        {
+          "name": "cancelJob",
+          "parameters": "jobId"
+        },
+        {
+          "name": "retryJob",
+          "parameters": "jobId"
+        },
+        {
+          "name": "openOutput",
+          "parameters": "jobId, manifest"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "renderCancel_",
+        "renderJobDiagnostic_",
+        "renderJobManifest_",
+        "renderJobOutput_",
+        "renderJobSource_",
+        "renderJobState_",
+        "renderJobTitle_",
+        "renderJob_",
+        "renderOpenOutput_",
+        "renderProgress_",
+        "renderQueueEmpty",
+        "renderQueueList",
+        "renderQueueView",
+        "renderRetry_",
+        "renderSubmit_",
+        "renderValidate_"
+      ]
+    },
+    {
       "name": "ReportDesigner",
       "kind": "qml",
       "base": "Tk.Box",

@@ -298,3 +298,16 @@ rename). This is the shape the QindaQt office suite's windows take.
 - Exercises: `AppWindow`, `MenuBar`/`Menu`/`MenuItem { radio }`, `ToolBar { wrap }`,
   `ColorButton`, `Viewport`, `ZoomControl`, `Island`, `Stack`, `StatusBar`,
   `MessageDialog`, `PromptDialog`
+
+## render-queue
+
+The render queue fixture shows queued, running, failed, succeeded, cancelled
+and stale host-owned job snapshots. Buttons report validation, submission,
+cancellation, retry and output-open requests; they do not execute rendering.
+The output-open action appears only when a succeeded snapshot has a validated
+output manifest.
+
+- Run: `qtk-preview examples/render-queue/Main.qml --grab render-queue.png --size 1020x700`
+- Exercises: `RenderQueueView`, immutable source/version and output snapshots,
+  explicit host requests, diagnostics and manifest-gated output access
+- Screenshot: [render-queue.png](../docs/screenshots/render-queue.png)
