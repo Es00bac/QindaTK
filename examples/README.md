@@ -63,6 +63,9 @@ pixels and shows effect compatibility. These are
 toolkit examples rather than complete productivity or motion applications.
 The [motion overlay fixture](motion-overlays/Main.qml) draws sampled transform
 paths and neighboring composited frames for onion-skin inspection.
+The [motion persistence fixture](motion-persistence/Main.qml) saves and
+reopens a versioned composition with exact animation ticks and stable layer
+IDs; artwork remains an external asset.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
 
