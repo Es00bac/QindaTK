@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QImage>
 #include <QObject>
+#include <QPointF>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -12,10 +13,12 @@
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
+class CanvasDocument;
 
 class TiledRasterDocument : public QObject {
     Q_OBJECT
     QML_ELEMENT
+    Q_MOC_INCLUDE("canvas_document.h")
     Q_PROPERTY(int width READ width NOTIFY changed)
     Q_PROPERTY(int height READ height NOTIFY changed)
     Q_PROPERTY(QStringList layerIds READ layerIds NOTIFY changed)
@@ -56,6 +59,17 @@ public:
     Q_INVOKABLE bool loadFromFile(const QString &path);
     Q_INVOKABLE bool updateBrushPreset(const QVariantMap &preset);
     Q_INVOKABLE QVariantMap layerInfo(const QString &layerId) const;
+    // Deterministic pressure-ramp sample of a preset (docs/raster-document.md#brush-previews).
+    Q_INVOKABLE QString brushPreviewDataUrl(const QVariantMap &preset, const QColor &color,
+                                            int width, int height) const;
+    QImage brushPreview(const QVariantMap &preset, const QColor &color, int width, int height) const;
+    // AGENT-CONTRACT (docs/raster-document.md#canvas-placement, D-085): the
+    // flattened sRGB composite becomes a CanvasDocument image object; each
+    // call is one canvas edit and undo step, and unchanged tiles stay shared.
+    Q_INVOKABLE qulonglong placeOnCanvas(QindaTK::CanvasDocument *canvas, qreal x, qreal y);
+    Q_INVOKABLE bool publishToCanvas(QindaTK::CanvasDocument *canvas, qulonglong objectId);
+    Q_INVOKABLE QPointF canvasToRaster(QindaTK::CanvasDocument *canvas, qulonglong objectId,
+                                       qreal documentX, qreal documentY) const;
 
 signals:
     void changed();
@@ -69,6 +83,7 @@ private:
         qreal opacity = 1.0;
         qreal pressureSize = 0.5;
         qreal pressureOpacity = 0.35;
+        friend bool operator==(const Brush &, const Brush &) = default;
     };
     struct Layer {
         QString id;
@@ -80,7 +95,19 @@ private:
         bool visible = true;
     };
     struct TileChange { int index = -1; QImage before; QImage after; };
-    struct StrokeEdit { QString layerId; bool mask = false; QVector<TileChange> tiles; qsizetype byteCost = 0; };
+    // AGENT-NOTE: one undo entry per reversible change: a stroke's tiles, a
+    // mask enable toggle (CAN-10) or the saved brush preset (CAN-16).
+    struct StrokeEdit {
+        enum Kind : quint8 { Tiles, MaskEnabled, Preset };
+        Kind kind = Tiles;
+        QString layerId;
+        bool mask = false;
+        QVector<TileChange> tiles;
+        qsizetype byteCost = 0;
+        bool enabled = false; // MaskEnabled: the state after the edit
+        Brush presetBefore;
+        Brush presetAfter;
+    };
     int columns() const;
     QRect tileRect(int index) const;
     int layerIndex(const QString &id) const;
@@ -90,6 +117,8 @@ private:
     void paintTile(QImage &tile, int tileIndex, const Sample &sample,
                    qreal diameter, qreal opacity, qreal flatten, qreal angle);
     void applyEdit(const StrokeEdit &edit, bool forward);
+    void pushHistory(StrokeEdit edit);
+    static QVariantMap brushMap(const Brush &brush);
     void updatePreview();
     void setError(const QString &error);
     static QString pngDataUrl(const QImage &image);
@@ -109,7 +138,9 @@ private:
     bool m_hasPrevious = false;
     int m_strokeLayer = -1;
     QColor m_strokeColor;
-    Brush m_brush;
+    Brush m_brush;       // the saved active preset
+    Brush m_strokeBrush; // captured by beginStroke; preset switches never alter it
+    bool m_livePreview = true;
     Sample m_previous;
     QHash<int, QImage> m_strokeBefore;
     QString m_strokeError;

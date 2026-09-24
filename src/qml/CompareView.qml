@@ -4,8 +4,10 @@ import QtQuick.Templates as T
 import QindaTK as Tk
 
 // AGENT-CONTRACT: both sources use one image transform. The host supplies
-// local images or bounded PNG data URLs; encoded-sRGB difference is visual
-// inspection, not proofing.
+// local images or bounded PNG data URLs of the same region (resolutions may
+// differ); encoded-sRGB difference is visual inspection, not proofing. Hosts
+// that track revisions set revisionKey and deliver pairs through
+// setSourcePair, which refuses stale keys (docs/compare.md).
 T.Control {
     id: control
     objectName: "compareView"
@@ -18,6 +20,9 @@ T.Control {
     property alias panX: image.panX
     property alias panY: image.panY
     readonly property string lastError: image.lastError
+    property alias revisionKey: image.revisionKey
+    readonly property string displayedRevisionKey: image.displayedRevisionKey
+    readonly property bool stale: image.stale
     property string tooltip: qsTr("Compare aligned before and after images")
     implicitWidth: Tk.Theme.size.fieldWidth * 6
     implicitHeight: Tk.Theme.size.waveformHeight * 6
@@ -25,7 +30,9 @@ T.Control {
     focusPolicy: Qt.StrongFocus
     Accessible.role: Accessible.Grouping
     Accessible.name: tooltip
-    Accessible.description: lastError || mode
+    Accessible.description: lastError || (stale ? compareStatus.text : mode)
+
+    function setSourcePair(before, after, key) { return image.setSourcePair(before, after, key) }
     HoverHandler { id: hover }
     Tk.ToolTip { visible: hover.hovered; text: control.tooltip }
 
@@ -105,7 +112,14 @@ T.Control {
                 Tk.Slider { objectName: "compareZoom"; from: 0.25; to: 4; value: control.zoom; tooltip: qsTr("Zoom both comparison images together"); Tk.Flex.grow: 1; onValueModified: control.zoom = value }
                 Tk.Mono { text: Number(control.zoom).toFixed(2) + "×" }
             }
-            Tk.Caption { objectName: "compareStatus"; text: control.lastError || qsTr("Aligned %1 comparison · encoded sRGB").arg(control.mode); color: control.lastError ? Tk.Theme.color.warning : Tk.Theme.color.textMuted }
+            Tk.Caption {
+                id: compareStatus
+                objectName: "compareStatus"
+                text: control.lastError
+                      || (control.stale ? qsTr("Showing %1 · waiting for %2").arg(control.displayedRevisionKey || qsTr("no pair")).arg(control.revisionKey)
+                                        : qsTr("Aligned %1 comparison · encoded sRGB").arg(control.mode))
+                color: control.lastError || control.stale ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
+            }
         }
     }
 }

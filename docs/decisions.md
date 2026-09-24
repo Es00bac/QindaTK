@@ -675,3 +675,20 @@ when the style can be exported.
 path geometry, editable parametric primitives and supported stroke appearance.
 Arbitrary boolean geometry, pattern fills and effect stacks need separate
 contracts.
+
+## D-085 — Place raster composites on the canvas as shared image assets
+
+**Context.** WP-045's tiled raster document (layers, masks, stroke undo) and
+the WP-040 canvas image assets were separate contracts, so raster content
+could not be transformed, composed with vectors, saved in a canvas or output
+through the WP-043 ICC path. **Decision.** `TiledRasterDocument` stays the
+editing owner of layered pixels and masks; `placeOnCanvas` and
+`publishToCanvas` hand its flattened, untagged sRGB composite to a
+`CanvasDocument` as a 256 px tiled image object, each in one recorded
+`CanvasEdit`. A publish reuses every unchanged tile's `QImage`, and a
+`canvasToRaster` mapping lets pen input paint through the object's
+transform. **Consequences.** Transforms, paint order, undo, canvas files,
+sessions and output conversion apply to raster content without a second
+image model. The histories stay separate, the canvas shows a stroke when it
+is published, and layered raster state is saved in the raster file, not in
+the canvas document.

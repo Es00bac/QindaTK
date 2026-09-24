@@ -84,10 +84,11 @@ parameter and handle edits are reversible `CanvasEdit` changes; see
 immutable 256² `QImage` tiles. Renderers and GPU uploads share those tiles
 without copying.
 
-Raster painting also has a focused reference backend in
+Raster painting has a focused reference backend in
 [raster-document.md](raster-document.md). It owns editable premultiplied pixel
-tiles and optional grayscale masks independently from CanvasObject's immutable
-image assets; the two document contracts are not yet unified.
+tiles and optional grayscale masks; `placeOnCanvas` and `publishToCanvas` put
+its flattened composite into these immutable image assets as ordinary
+recorded canvas edits ([canvas placement](raster-document.md#canvas-placement)).
 
 Subobject parts on a hit are `Vertex` (index = corner, polyline point or path anchor),
 `Segment` (index = edge), `Stroke` (ellipse outline), `Fill`, and

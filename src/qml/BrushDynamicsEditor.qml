@@ -8,6 +8,9 @@ Tk.Box {
     property string brushId: ""
     property var parameters: [] // [{id,label,value,minimum,maximum,step,unit}]
     property var workingParameters: []
+    // Host-rendered sample stroke for the working values (CAN-16), e.g.
+    // TiledRasterDocument.brushPreviewDataUrl(preset, color, width, height).
+    property url previewSource: ""
     property bool editing: false
     property string requestState: "idle"
     property string requestMessage: ""
@@ -125,6 +128,26 @@ Tk.Box {
                         if (control.setParameterValue(String(modelData.id), nextValue)) control.previewEdit()
                     }
                 }
+            }
+        }
+        Rectangle {
+            objectName: "brushDynamicsPreviewFrame"
+            visible: String(control.previewSource).length > 0
+            width: parent.width
+            height: Tk.Theme.size.control * 2
+            color: Tk.Theme.color.canvas
+            radius: Tk.Theme.radius.sm
+            border.width: Tk.Theme.size.border
+            border.color: Tk.Theme.color.controlBorder
+            Image {
+                objectName: "brushDynamicsPreview"
+                anchors.fill: parent
+                anchors.margins: Tk.Theme.size.border
+                source: control.previewSource
+                fillMode: Image.PreserveAspectFit
+                cache: false
+                Accessible.role: Accessible.Graphic
+                Accessible.name: qsTr("Sample stroke preview for %1").arg(control.brushId)
             }
         }
         Tk.Caption { visible: control.validationError.length > 0; text: control.validationError; color: Tk.Theme.color.danger }

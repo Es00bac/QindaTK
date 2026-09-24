@@ -83,6 +83,49 @@ private slots:
         QCOMPARE(document->composite().pixelColor(320, 230).alpha(), 0);
         delete root;
     }
+
+    void pointMapperAndPresetSwitchKeepTheStroke()
+    {
+        QQuickView view;
+        view.engine()->addImportPath(QStringLiteral(QINDATK_BUILD_QML_DIR));
+        view.resize(400, 300);
+        QQmlComponent component(view.engine());
+        const QByteArray qml =
+            "import QtQuick\nimport QindaTK as Tk\n"
+            "Item { width: 400; height: 300\n"
+            "  Tk.TiledRasterDocument { id: document; objectName: 'rasterDocument';"
+            " Component.onCompleted: { resizeCanvas(200, 150); createLayer('ink', 'Ink') } }\n"
+            "  Tk.RasterStrokeInput { objectName: 'inputSurface'; anchors.fill: parent;"
+            " document: document; layerId: 'ink'; color: '#ff0000';"
+            " pointMapper: function(p) { return Qt.point(p.x / 2 + 10, p.y / 2) };"
+            " brushPreset: ({diameter: 8, hardness: 1, spacing: 0.2, opacity: 1,"
+            " pressureSize: 0, pressureOpacity: 0}) }\n} ";
+        component.setData(qml, QUrl(QStringLiteral("inline:raster-mapper-test.qml")));
+        if (component.isLoading()) QTRY_VERIFY(component.isReady() || component.isError());
+        QQuickItem *root = qobject_cast<QQuickItem *>(component.create());
+        QVERIFY2(root, qPrintable(component.errorString()));
+        root->setParentItem(view.contentItem());
+        auto *document = root->findChild<TiledRasterDocument *>(QStringLiteral("rasterDocument"));
+        auto *input = root->findChild<QQuickItem *>(QStringLiteral("inputSurface"));
+        QVERIFY(document && input);
+        const qulonglong startingRevision = document->revision();
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+
+        QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, QPoint(100, 100));
+        QTest::mouseMove(&view, QPoint(140, 100));
+        // A preset switch mid-gesture neither cancels nor alters the stroke.
+        QVERIFY(input->setProperty("brushPreset", QVariantMap{{QStringLiteral("diameter"), 30.0}}));
+        QVERIFY(input->property("strokeActive").toBool());
+        QTest::mouseMove(&view, QPoint(180, 100));
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, QPoint(180, 100));
+        QCOMPARE(document->revision(), startingRevision + 1);
+        const QImage image = document->composite();
+        QCOMPARE(image.pixelColor(60, 50), QColor(Qt::red));  // view (100, 100) mapped
+        QCOMPARE(image.pixelColor(100, 50), QColor(Qt::red)); // view (180, 100) mapped
+        QCOMPARE(image.pixelColor(100, 58).alpha(), 0);       // still 8 px wide, not 30
+        delete root;
+    }
 };
 
 QTEST_MAIN(TstRasterStrokeInput)

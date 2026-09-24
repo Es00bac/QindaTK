@@ -179,6 +179,9 @@ qindatk_add_test(tst_canvas_display)
 target_compile_definitions(tst_canvas_display PRIVATE
     QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
 qindatk_add_test(tst_tiled_raster_document)
+qindatk_add_test(tst_raster_canvas)
+target_compile_definitions(tst_raster_canvas PRIVATE
+    QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
 add_test(NAME tst_canvas_display_rhi COMMAND tst_canvas_display managedDisplaySceneGraph)
 set_tests_properties(tst_canvas_display_rhi PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")

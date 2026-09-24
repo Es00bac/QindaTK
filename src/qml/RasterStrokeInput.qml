@@ -11,6 +11,9 @@ Item {
     property color color: Tk.Theme.color.accent
     property var brushPreset: ({})
     property Item canvasTarget: root
+    // Optional function(localPoint) -> raster pixel point, e.g. through
+    // CanvasView.mapToDocument and TiledRasterDocument.canvasToRaster.
+    property var pointMapper: null
     property real mousePressure: 0.6
     property bool inputEnabled: true
     property bool strokeActive: false
@@ -27,6 +30,7 @@ Item {
     activeFocusOnTab: true
 
     function mappedPosition(sample) {
+        if (typeof root.pointMapper === "function") return root.pointMapper(sample.position)
         const target = root.canvasTarget
         if (!target || target.width <= 0 || target.height <= 0) return Qt.point(0, 0)
         return Qt.point(sample.position.x * root.document.width / target.width,
@@ -106,8 +110,10 @@ Item {
     onLayerIdChanged: cancelStroke()
     onPaintMaskChanged: cancelStroke()
     onColorChanged: cancelStroke()
-    onBrushPresetChanged: cancelStroke()
+    // AGENT-GUARD (CAN-15): no brushPreset handler. The document captured the
+    // preset at beginStroke, so a preset switch applies to the next stroke.
     onCanvasTargetChanged: cancelStroke()
+    onPointMapperChanged: cancelStroke()
     onInputEnabledChanged: if (!inputEnabled) cancelStroke()
     onEnabledChanged: if (!enabled) cancelStroke()
 

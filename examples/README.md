@@ -150,6 +150,11 @@ accepts tablet pressure/tilt and mouse strokes on the rendered canvas.
 The [raster workbench fixture](raster-workbench/Main.qml) connects those
 controls to the tiled document, paints with mouse gestures and compares live
 before/after PNG pixels without writing temporary source images.
+The [raster canvas fixture](raster-canvas/Main.qml) places a masked tiled
+raster on a `CanvasDocument` beside a vector star, rotates it as a canvas
+object, paints through the canvas view and publishes each stroke as one canvas
+undo step. A revision-keyed comparison shows the raster at placement time
+against the current one.
 The [rig and UV fixture](rig-uv/Main.qml) presents stable-ID bone and triangle
 UV snapshots with host edit requests; its skeleton is a 2D projection, and
 texture painting stays in preview mode until a host supplies camera rays.

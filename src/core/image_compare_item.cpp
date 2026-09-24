@@ -19,6 +19,23 @@ QImage normalized(QImage image)
     else image.setColorSpace(srgb);
     return image.convertToFormat(QImage::Format_RGBA8888);
 }
+
+// Both images show the same region when the smaller one is the larger one
+// scaled by a common factor with each side rounded to the nearest pixel:
+// |w·H − h·W| ≤ (W + H) / 2 for the larger W×H.
+bool sameRegion(const QSize &a, const QSize &b)
+{
+    const QSize &large = a.width() >= b.width() ? a : b;
+    return 2 * std::abs(qint64(a.width()) * b.height() - qint64(b.width()) * a.height())
+        <= qint64(large.width()) + large.height();
+}
+
+QImage resampled(const QImage &image, const QSize &size)
+{
+    if (image.size() == size) return image;
+    return image.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+        .convertToFormat(QImage::Format_RGBA8888);
+}
 }
 
 ImageCompareItem::ImageCompareItem(QQuickItem *parent) : QQuickPaintedItem(parent)
@@ -51,7 +68,7 @@ QImage ImageCompareItem::read(const QUrl &url)
 void ImageCompareItem::reload()
 {
     if (m_beforeSource.isEmpty() || m_afterSource.isEmpty()) {
-        m_before = {}; m_after = {}; m_difference = {}; m_error.clear();
+        m_before = {}; m_after = {}; m_difference = {}; m_error.clear(); m_displayedKey.clear();
         emit sourcesChanged(); update(); return;
     }
     setImages(read(m_beforeSource), read(m_afterSource));
@@ -59,12 +76,18 @@ void ImageCompareItem::reload()
 
 bool ImageCompareItem::setImages(const QImage &before, const QImage &after)
 {
+    return assign(before, after, {});
+}
+
+bool ImageCompareItem::assign(const QImage &before, const QImage &after, const QString &displayedKey)
+{
     m_before = {}; m_after = {}; m_difference = {};
     if (before.isNull() || after.isNull())
         m_error = QStringLiteral("Both comparison images must load");
-    else if (before.size() != after.size())
-        m_error = QStringLiteral("Comparison images must have the same dimensions");
-    else if (qint64(before.width()) * before.height() > kMaximumPixels)
+    else if (!sameRegion(before.size(), after.size()))
+        m_error = QStringLiteral("Comparison images must show the same region (equal aspect ratio)");
+    else if (qint64(before.width()) * before.height() > kMaximumPixels
+             || qint64(after.width()) * after.height() > kMaximumPixels)
         m_error = QStringLiteral("Comparison images exceed the 16-megapixel bound");
     else {
         m_before = normalized(before);
@@ -72,18 +95,43 @@ bool ImageCompareItem::setImages(const QImage &before, const QImage &after)
         m_difference = difference();
         m_error.clear();
     }
+    m_displayedKey = m_error.isEmpty() ? displayedKey : QString();
     emit sourcesChanged();
     update();
     return m_error.isEmpty();
 }
 
+void ImageCompareItem::setRevisionKey(const QString &key)
+{
+    if (m_revisionKey == key) return;
+    m_revisionKey = key; // the displayed pair stays, reported as stale
+    emit sourcesChanged();
+}
+
+bool ImageCompareItem::setImagePair(const QImage &before, const QImage &after, const QString &revisionKey)
+{
+    if (revisionKey != m_revisionKey) return false; // a stale delivery changes nothing
+    return assign(before, after, revisionKey);
+}
+
+bool ImageCompareItem::setSourcePair(const QUrl &before, const QUrl &after, const QString &revisionKey)
+{
+    if (revisionKey != m_revisionKey) return false;
+    m_beforeSource = before;
+    m_afterSource = after;
+    return assign(read(before), read(after), revisionKey);
+}
+
 QImage ImageCompareItem::difference() const
 {
-    QImage delta(m_before.size(), QImage::Format_RGBA8888);
+    // Evaluated at the finer source resolution; the other one is resampled.
+    const QSize size = m_before.width() >= m_after.width() ? m_before.size() : m_after.size();
+    const QImage before = resampled(m_before, size), after = resampled(m_after, size);
+    QImage delta(size, QImage::Format_RGBA8888);
     delta.setColorSpace(QColorSpace(QColorSpace::SRgb));
     for (int y = 0; y < delta.height(); ++y) {
-        const auto *left = reinterpret_cast<const uchar *>(m_before.constScanLine(y));
-        const auto *right = reinterpret_cast<const uchar *>(m_after.constScanLine(y));
+        const auto *left = reinterpret_cast<const uchar *>(before.constScanLine(y));
+        const auto *right = reinterpret_cast<const uchar *>(after.constScanLine(y));
         auto *out = reinterpret_cast<uchar *>(delta.scanLine(y));
         for (int x = 0; x < delta.width(); ++x) {
             const int offset = x * 4;
