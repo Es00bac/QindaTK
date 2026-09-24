@@ -141,7 +141,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-056"></a>
 ## WP-056 — Implement slide authoring and presentation
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-018](phase-01-services.md#wp-018), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-049](phase-03-authoring.md#wp-049), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** active (five slide/presenter controls integrated; persistent model and playback pending). **Depends on:** [WP-018](phase-01-services.md#wp-018), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-049](phase-03-authoring.md#wp-049), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-19 SlideCanvas](../proposed/05-documents-office.md#off-19), [OFF-20 SlideSorter](../proposed/05-documents-office.md#off-20), [OFF-21 SlideMasterEditor](../proposed/05-documents-office.md#off-21), [OFF-22 AnimationPane](../proposed/05-documents-office.md#off-22), [OFF-23 PresenterView](../proposed/05-documents-office.md#off-23)
 

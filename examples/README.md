@@ -31,6 +31,10 @@ pages and extracts searchable word positions through Poppler tools.
 When Poppler Qt6 is installed, `PdfAnnotationDocument` backs the fixture's
 note/highlight requests; `saveAs(path)` persists a copy with stable IDs.
 
+The [slide authoring fixture](slide-authoring/Main.qml) exercises slide
+sorting, object selection, master overrides, animation requests and separate
+presenter/audience snapshots through five toolkit controls.
+
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real
 device engine must supply enumeration and apply the settings.
