@@ -12,6 +12,10 @@ fixture for `SourceProgramMonitor` and `MediaBin`. Run it with
 `qtk-preview examples/media-source-browser.qml`; frame and thumbnail
 placeholders remain visible until an application provides real media data.
 
+The [color-grade fixture](color-grade/Main.qml) applies a tagged CPU image
+transform and compares before/after pixels and scopes. The host still supplies
+decoded frames and owns grade history.
+
 The [publishing workbench](document-publishing/Main.qml) exercises
 `StyleManager`, `PageSetupDialog`, `TextFrameEditor`, and `TableEditor` with
 host-owned sample records; it is also an `example_document-publishing` smoke
