@@ -42225,6 +42225,243 @@
       "bridge": false
     },
     {
+      "name": "MeshRigDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A bounded triangle-mesh document. Vertex, face, UV-corner and bone IDs are stable across pose/UV edits, undo, OBJ export and native save/reopen.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/mesh_rig_document.h",
+      "properties": [
+        {
+          "name": "vertices",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "faces",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "bones",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "uvIslands",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textureDataUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textureWidth",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textureHeight",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "addVertex",
+          "returns": "QString",
+          "parameters": "const QVector3D &position"
+        },
+        {
+          "name": "setVertexPosition",
+          "returns": "bool",
+          "parameters": "const QString &vertexId, const QVector3D &position"
+        },
+        {
+          "name": "removeVertex",
+          "returns": "bool",
+          "parameters": "const QString &vertexId"
+        },
+        {
+          "name": "addFace",
+          "returns": "QString",
+          "parameters": "const QString &v0, const QString &v1, const QString &v2"
+        },
+        {
+          "name": "removeFace",
+          "returns": "bool",
+          "parameters": "const QString &faceId"
+        },
+        {
+          "name": "setUV",
+          "returns": "bool",
+          "parameters": "const QString &faceId, int corner, const QPointF &uv"
+        },
+        {
+          "name": "setSeam",
+          "returns": "bool",
+          "parameters": "const QString &v0, const QString &v1, bool seam"
+        },
+        {
+          "name": "translateUvIsland",
+          "returns": "bool",
+          "parameters": "const QString &faceId, const QPointF &delta"
+        },
+        {
+          "name": "addBone",
+          "returns": "QString",
+          "parameters": "const QString &name, const QString &parentId, const QVector3D &head, const QVector3D &tail"
+        },
+        {
+          "name": "setBoneLimits",
+          "returns": "bool",
+          "parameters": "const QString &boneId, const QVector3D &minimum, const QVector3D &maximum"
+        },
+        {
+          "name": "setBonePose",
+          "returns": "bool",
+          "parameters": "const QString &boneId, const QVector3D &eulerDegrees"
+        },
+        {
+          "name": "resetPose",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "setVertexWeights",
+          "returns": "bool",
+          "parameters": "const QString &vertexId, const QVariantMap &weights"
+        },
+        {
+          "name": "resizeTexture",
+          "returns": "bool",
+          "parameters": "int width, int height"
+        },
+        {
+          "name": "beginPaint",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "paintRay",
+          "returns": "bool",
+          "parameters": "const QVector3D &origin, const QVector3D &direction, const QColor &color, int radiusPixels = 4, qreal opacity = 1.0"
+        },
+        {
+          "name": "endPaint",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelPaint",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "texture",
+          "returns": "QImage",
+          "parameters": ""
+        },
+        {
+          "name": "exportObj",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "exportTexturePng",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "fromJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "Meter",
       "kind": "cpp",
       "base": "QQuickPaintedItem",

@@ -45,6 +45,8 @@ qt_add_qml_module(qindatk
     DEPENDENCIES QtQuick QtQuick.Controls QtQuick.Templates
     SOURCES
         core/scene_model_3d.h core/scene_model_3d.cpp core/scene_model_3d_codec.cpp
+        core/mesh_rig_document.h core/mesh_rig_document.cpp
+        core/mesh_rig_document_persistence.cpp
         core/application_contracts.cpp core/application_contracts.h
         core/color_profile.cpp core/color_profile.h
         core/color_context.h core/color_engine.cpp core/color_engine.h
