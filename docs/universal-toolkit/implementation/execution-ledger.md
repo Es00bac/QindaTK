@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 46 packages accepted, 31 active, none in review, 1 planned and 6 deferred.**
+**Execution state: 49 packages accepted, 28 active, none in review, 1 planned and 6 deferred.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -34,7 +34,8 @@ and package acceptance remain open. WP-080 has a native detached-panel
 implementation accepted; mixed-scale display qualification remains in WP-088.
 WP-081 is accepted after its merged developer-surface checks; other terminal
 platforms remain in WP-088. WP-041, WP-076 and WP-078 are accepted after
-merged Qt 6.11 and Qt 6.8 checks. Scope decision by the user (2026-09-24):
+merged Qt 6.11 and Qt 6.8 checks; WP-045, WP-073 and WP-074 after the full
+suite passed on both (261/261). Scope decision by the user (2026-09-24):
 qualification covers Linux only, each package's live examples stand in for
 separate demo applications, and WP-089 to WP-094 are deferred.
 WP-049 now has beat-locked clip timing, tempo and automation editing, and
@@ -86,7 +87,7 @@ as though a later fix had already passed the earlier run.
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | accepted | [Typed curve/gradient/picker editing, managed ICC canvas output and matched software/RHI pixels](evidence/WP-043.md) |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | active | [Editable multi-contour paths, holes, native persistence, SVG output, undoable clipboard and parametric polygon, star and rounded-rectangle paths merged; booleans, stroke alignment, patterns and appearance effects open](evidence/WP-044.md) |
-| [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | active | [Tiled raster strokes, masks, brush controls, save/reopen, tablet input and image comparison integrated; canvas session and broader color work remain](evidence/WP-045.md) |
+| [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | accepted | [Raster on the canvas, bounded history, brush previews, masks, tablet input and tracked comparison passed merged checks](evidence/WP-045.md) |
 | [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
 | [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | accepted | [Clock and transport-bar checks](evidence/WP-047.md) |
 | [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | accepted | [Exact edits, dual-Qt 101/101 suites, visuals and installed consumer](evidence/WP-048.md) |
@@ -113,8 +114,8 @@ as though a later fix had already passed the earlier run.
 | [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | active | [Monitor/bin controls and local frame decode integrated; playback and frame lifecycle pending](evidence/WP-070.md) |
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | active | [Trim, multicam and transition controls integrated; sequence edit backend pending](evidence/WP-071.md) |
 | [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [Caption model, burned PNG sequence, scopes and grade edit history integrated; video encoding and fidelity work remain](evidence/WP-072.md) |
-| [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | active | [Exact-tick composition, persistence, ordered effects and rendered frame output integrated; external assets, cache and export coverage remain](evidence/WP-073.md) |
-| [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | active | [Typed graph model, editor and live rendering fixture integrated; broader operation set and qualification remain](evidence/WP-074.md) |
+| [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | accepted | [Layer timing, one-transaction path edits, bounded frame caches and exact-tick export passed merged checks](evidence/WP-073.md) |
+| [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | accepted | [Typed ports, masks, blend modes, groups, keyboard editing and file format 2 passed merged checks](evidence/WP-074.md) |
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | active | [Live model-to-control tracking and mask preview integrated; broader motion and qualification remain](evidence/WP-075.md) |
 | [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | accepted | [Quick3D viewport, materials, transform gizmo, graphics-loss recovery and shared scene save/undo/recovery passed merged checks](evidence/WP-076-completion.md) |
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | active | [Core, controls and live request wiring merged; raw GPU texture and merged UI gates pending](evidence/WP-077.md) |

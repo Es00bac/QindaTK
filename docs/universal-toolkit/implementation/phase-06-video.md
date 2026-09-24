@@ -76,7 +76,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-073"></a>
 ## WP-073 — Implement motion composition and keyframe editing
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-049](phase-03-authoring.md#wp-049), [WP-070](phase-06-video.md#wp-070)
+**Implementation lead:** Sol. **Status:** accepted (layer timing, path editing, bounded caches and exact-tick frame export). **Depends on:** [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-049](phase-03-authoring.md#wp-049), [WP-070](phase-06-video.md#wp-070)
 
 **Proposal scope:** [VID-09 EffectBrowser](../proposed/07-video-motion.md#vid-09), [VID-10 KeyframeTimeline](../proposed/07-video-motion.md#vid-10), [VID-11 DopeSheet](../proposed/07-video-motion.md#vid-11), [VID-12 CompositionView](../proposed/07-video-motion.md#vid-12), [VID-14 MotionPathOverlay](../proposed/07-video-motion.md#vid-14), [VID-17 OnionSkinView](../proposed/07-video-motion.md#vid-17)
 
@@ -95,7 +95,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-074"></a>
 ## WP-074 — Implement node-based compositing
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041), [WP-070](phase-06-video.md#wp-070), [WP-073](phase-06-video.md#wp-073)
+**Implementation lead:** Sol. **Status:** accepted (typed node graph, groups, keyboard editing and live compositing). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041), [WP-070](phase-06-video.md#wp-070), [WP-073](phase-06-video.md#wp-073)
 
 **Proposal scope:** [VID-13 NodeGraph](../proposed/07-video-motion.md#vid-13)
 
