@@ -17,6 +17,7 @@ class PropertySyncSocketServer final : public QObject {
     Q_OBJECT
 public:
     explicit PropertySyncSocketServer(QObject *parent = nullptr);
+    ~PropertySyncSocketServer() override;
     void setService(LocalPropertySyncService *service);
     void setSocketName(const QString &name);
     bool grant(const QString &actorId, const QString &credential, bool mayEdit);
@@ -28,12 +29,18 @@ signals:
     void errorOccurred(const QString &message);
 private:
     struct Grant { QString credential; bool mayEdit = false; };
-    struct Peer { QByteArray buffer; QString actorId; qsizetype sentCount = 0; };
+    struct Peer {
+        QByteArray buffer;
+        QString actorId;
+        QVariantMap presence;
+        qsizetype sentCount = 0;
+    };
     bool fail(const QString &message);
     void acceptPending();
     void readPeer(QLocalSocket *socket);
     void handleFrame(QLocalSocket *socket, const QJsonObject &frame);
     void sendBacklog(QLocalSocket *socket);
+    void broadcastPresence(QLocalSocket *origin, const QJsonObject &frame);
     void sendError(QLocalSocket *socket, const QString &message, const QString &operationId = {});
     QLocalServer m_server;
     QPointer<LocalPropertySyncService> m_service;
@@ -52,10 +59,13 @@ class PropertySyncSocketClient final : public QObject {
     Q_OBJECT
 public:
     explicit PropertySyncSocketClient(QObject *parent = nullptr);
+    ~PropertySyncSocketClient() override;
     void setService(LocalPropertySyncService *service);
+    void setLocalClient(LocalPropertySyncClient *client);
     void setSocketName(const QString &name);
     void setActorId(const QString &actorId);
     void setCredential(const QString &credential);
+    void setPresence(const QVariantMap &presence);
     bool connectToServer();
     void disconnectFromServer();
     bool isConnected() const { return m_ready; }
@@ -64,22 +74,31 @@ signals:
     void connected();
     void disconnected();
     void operationRejected(const QString &operationId, const QString &reason);
+    void presenceChanged(const QString &actorId, const QVariantMap &presence);
+    void presenceLeft(const QString &actorId);
     void errorOccurred(const QString &message);
 private:
     bool fail(const QString &message);
     void readFrames();
     void handleFrame(const QJsonObject &frame);
     void sendOutgoing();
+    void sendCurrentPresence();
+    void leaveRemotePresence();
     QLocalSocket m_socket;
     QPointer<LocalPropertySyncService> m_service;
+    QPointer<LocalPropertySyncClient> m_localClient;
     QString m_socketName;
     QString m_actorId;
     QString m_credential;
     QString m_lastError;
     QByteArray m_buffer;
     QSet<QString> m_sent;
+    QHash<QString, QVariantMap> m_remotePresence;
+    QVariantMap m_localPresence;
     bool m_ready = false;
     QMetaObject::Connection m_serviceConnection;
+    QMetaObject::Connection m_localPresenceConnection;
+    QMetaObject::Connection m_localDestroyedConnection;
 };
 
 } // namespace QindaTK

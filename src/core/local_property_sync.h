@@ -28,6 +28,7 @@ std::optional<QJsonObject> propertySyncOperationToJson(const PropertySyncOperati
 std::optional<PropertySyncOperation> propertySyncOperationFromJson(const QJsonObject &object);
 
 class LocalPropertySyncClient;
+class PropertySyncSocketClient;
 
 // GUI-thread, process-local transport with an optional QSaveFile operation
 // store. Clients hold distinct PropertyDocument instances with the same base
@@ -97,10 +98,12 @@ public:
 signals:
     void changed();
     void operationLost(const QString &operationId, const QString &winningOperationId);
+    void ownPresenceChanged(const QVariantMap &presence);
     void presenceChanged(const QString &actorId, const QVariantMap &presence);
     void presenceLeft(const QString &actorId);
 private:
     friend class LocalPropertySyncService;
+    friend class PropertySyncSocketClient;
     bool fail(const QString &message);
     bool flush();
     void receivePresence(const QString &actorId, const QVariantMap &presence);

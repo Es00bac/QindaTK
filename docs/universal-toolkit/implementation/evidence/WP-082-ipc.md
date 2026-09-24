@@ -28,8 +28,16 @@ Focused proof:
   wrong credential is rejected and a viewer's submitted edit is rejected
   without reaching the server document/log.
 
+The next presence slice relays live presence over the same authenticated
+socket, replays currently present peers to a late joiner, and emits leave on
+either peer disconnect or an observer's own socket disconnect. A two-process
+test verifies parent reconnect, child exit/restart and zero persisted
+operations for presence-only activity. It exposed and fixed a destructor-time
+socket callback after the bridge's presence hash had been destroyed. The
+final focused build and CTest pass with both test cases in the runner.
+
 Remaining WP-082: remote-network transport, secret provisioning/rotation,
-cross-process presence and expiry, domain-specific structural operations,
+idle presence expiry, domain-specific structural operations,
 version browser, branch/restore, domain-aware undo and conflict UI, log
 compaction and migrations. A rejected local offline edit remains in that
 client's local store; the host must discard/reload the replica or provide a

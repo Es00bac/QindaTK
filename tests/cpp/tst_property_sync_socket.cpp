@@ -42,10 +42,15 @@ int worker(const QStringList &arguments)
     socket.setActorId(arguments.at(5));
     socket.setSocketName(arguments.at(7));
     socket.setCredential(arguments.at(8));
+    socket.setLocalClient(&editor);
     int result = 16;
     QEventLoop loop;
     QObject::connect(&socket, &PropertySyncSocketClient::connected, &loop, [&] {
-        QTimer::singleShot(800, &loop, [&] { result = 0; loop.quit(); });
+        if (arguments.at(2) == QStringLiteral("presence"))
+            editor.setPresence({{QStringLiteral("label"), QStringLiteral("Remote editor")},
+                                {QStringLiteral("selection"), arguments.at(6)}});
+        QTimer::singleShot(arguments.at(2) == QStringLiteral("presence") ? 2500 : 800,
+                           &loop, [&] { result = 0; loop.quit(); });
     });
     QObject::connect(&socket, &PropertySyncSocketClient::operationRejected, &loop,
                      [&](const QString &, const QString &) { result = 17; loop.quit(); });
@@ -68,6 +73,95 @@ void startWorker(QProcess &process, const QString &mode, const QString &baseline
 class TstPropertySyncSocket final : public QObject {
     Q_OBJECT
 private slots:
+    void presenceReplaysAndLeavesAcrossProcesses()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        PropertyDocument base;
+        PropertyDescriptor gain;
+        gain.id = QStringLiteral("gain");
+        gain.type = QMetaType::fromType<double>();
+        gain.defaultValue = 0.0;
+        QVERIFY(base.defineProperty(gain));
+        const EntityId entity = EntityId::create();
+        QVERIFY(base.addEntity(entity));
+        const auto snapshot = ReferenceDocumentCodec::capture(base);
+        QVERIFY(snapshot);
+        const QString baseline = directory.filePath(QStringLiteral("baseline.json"));
+        QFile file(baseline);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(snapshot->payload), snapshot->payload.size());
+        file.close();
+
+        LocalPropertySyncService service;
+        service.setDocumentId(base.documentIdString());
+        const QString serverStore = directory.filePath(QStringLiteral("server.json"));
+        service.setStoragePath(serverStore);
+        QVERIFY(service.open());
+        PropertySyncSocketServer server;
+        server.setService(&service);
+        const QString socketName = directory.filePath(QStringLiteral("sync.sock"));
+        server.setSocketName(socketName);
+        QVERIFY(server.grant(QString::fromLatin1(ActorEditor),
+                             QString::fromLatin1(EditorCredential), true));
+        QVERIFY(server.grant(QString::fromLatin1(ActorViewer),
+                             QString::fromLatin1(ViewerCredential), false));
+        QVERIFY(server.listen());
+
+        auto parentReplica = ReferenceDocumentCodec::decode(snapshot->payload);
+        QVERIFY(parentReplica);
+        LocalPropertySyncService parentLocal;
+        parentLocal.setDocumentId(base.documentIdString());
+        parentLocal.setStoragePath(directory.filePath(QStringLiteral("parent.json")));
+        QVERIFY(parentLocal.open());
+        LocalPropertySyncClient parentClient;
+        parentClient.setDocument(parentReplica->document.get());
+        parentClient.setService(&parentLocal);
+        parentClient.setActorId(QString::fromLatin1(ActorViewer));
+        QVERIFY(parentClient.connectToService());
+        PropertySyncSocketClient parentSocket;
+        parentSocket.setService(&parentLocal);
+        parentSocket.setActorId(QString::fromLatin1(ActorViewer));
+        parentSocket.setCredential(QString::fromLatin1(ViewerCredential));
+        parentSocket.setSocketName(socketName);
+        parentSocket.setLocalClient(&parentClient);
+        QVERIFY(parentSocket.connectToServer());
+        QTRY_VERIFY(parentSocket.isConnected());
+        QSignalSpy present(&parentClient, &LocalPropertySyncClient::presenceChanged);
+        QSignalSpy left(&parentClient, &LocalPropertySyncClient::presenceLeft);
+
+        const QString childStore = directory.filePath(QStringLiteral("child.json"));
+        QProcess child;
+        startWorker(child, QStringLiteral("presence"), baseline, childStore,
+                    QString::fromLatin1(ActorEditor), entity.toString(), socketName,
+                    QString::fromLatin1(EditorCredential));
+        QTRY_COMPARE_WITH_TIMEOUT(present.size(), 1, 5000);
+        QCOMPARE(present.first().at(0).toString(), QString::fromLatin1(ActorEditor));
+        QCOMPARE(present.first().at(1).toMap().value(QStringLiteral("selection")).toString(),
+                 entity.toString());
+
+        // A reconnecting observer receives the still-live actor snapshot;
+        // disconnect removes the old presence once from its local view.
+        parentSocket.disconnectFromServer();
+        QTRY_COMPARE_WITH_TIMEOUT(left.size(), 1, 5000);
+        QVERIFY(parentSocket.connectToServer());
+        QTRY_COMPARE_WITH_TIMEOUT(present.size(), 2, 5000);
+        QVERIFY(child.waitForFinished(5000));
+        QCOMPARE(child.exitCode(), 0);
+        QTRY_COMPARE_WITH_TIMEOUT(left.size(), 2, 5000);
+
+        QProcess childRestarted;
+        startWorker(childRestarted, QStringLiteral("presence"), baseline, childStore,
+                    QString::fromLatin1(ActorEditor), entity.toString(), socketName,
+                    QString::fromLatin1(EditorCredential));
+        QTRY_COMPARE_WITH_TIMEOUT(present.size(), 3, 5000);
+        QVERIFY(childRestarted.waitForFinished(5000));
+        QCOMPARE(childRestarted.exitCode(), 0);
+        QTRY_COMPARE_WITH_TIMEOUT(left.size(), 3, 5000);
+        QCOMPARE(service.operationCount(), 0);
+        QVERIFY(!QFile::exists(serverStore));
+    }
+
     void durableOfflineEditCrossesProcessAndViewerIsRejected()
     {
         QTemporaryDir directory;

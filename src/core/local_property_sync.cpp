@@ -280,7 +280,10 @@ void LocalPropertySyncService::publishPresence(LocalPropertySyncClient *client,
 {
     if (!m_clients.contains(client)) return;
     for (const auto &other : m_clients)
-        if (other && other != client) other->receivePresence(client->actorId(), presence);
+        if (other && other != client) {
+            if (presence.isEmpty()) other->receivePresenceLeft(client->actorId());
+            else other->receivePresence(client->actorId(), presence);
+        }
 }
 
 LocalPropertySyncClient::~LocalPropertySyncClient()
@@ -345,7 +348,9 @@ void LocalPropertySyncClient::disconnectFromService()
     if (!m_connected) return;
     m_connected = false;
     if (m_service) m_service->detach(this);
+    const bool hadPresence = !m_presence.isEmpty();
     m_presence.clear();
+    if (hadPresence) emit ownPresenceChanged({});
     emit changed();
 }
 
@@ -425,6 +430,7 @@ void LocalPropertySyncClient::setPresence(const QVariantMap &presence)
         return;
     m_presence = presence;
     m_service->publishPresence(this, presence);
+    emit ownPresenceChanged(presence);
 }
 
 void LocalPropertySyncClient::receivePresence(const QString &actorId,

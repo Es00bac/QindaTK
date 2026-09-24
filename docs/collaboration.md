@@ -57,9 +57,16 @@ privately. A socket name is local to the same machine and the endpoint grants
 access only to the current OS user. Credentials do not enter the operation
 store. Frames are bounded to 96 KiB and queued output to 8 MiB per peer.
 
-The bridge currently relays durable property operations only. Local
-`setPresence` remains ephemeral and process-local; the socket path never
-persists presence in either store.
+Bind `PropertySyncSocketClient::setLocalClient` to the matching local client
+to relay its `setPresence` updates across processes and deliver remote
+`presenceChanged`/`presenceLeft` signals back to it. The socket bridge also
+offers `setPresence` and those two signals directly. A newly connected peer
+receives current presence; a peer or socket disconnect emits one leave for
+each actor visible through that connection. Reconnect sends the local current
+presence again. Presence is capped at 4 KiB, lives only in socket peer memory,
+and never enters either operation store. Empty presence means leave.
+If the same authenticated actor reconnects before its old socket has fully
+closed, the new connection replaces the old one and the old presence leaves.
 
 ## Conflict and history rule
 
@@ -90,7 +97,7 @@ decide whether those coordinates remain valid after an edit.
 ## Remaining WP-082 scope
 
 - Remote-network transport, credential provisioning/rotation, permission
-  change notifications, and presence broadcast/expiry across processes.
+  change notifications, and idle presence expiry beyond socket disconnect.
 - Generic domain operations, concurrent object deletion and rich text merge.
   Structural changes to the reference document currently stop synchronization.
 - A version browser with immutable previews, compare, branch and restore as a

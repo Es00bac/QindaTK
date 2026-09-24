@@ -496,6 +496,8 @@ recover the service log on restart. The revision of each replica remains a
 local counter. A local socket bridge uses the same packet codec across
 processes; each actor's local persistent log also serves as an outgoing queue.
 The server checks a host-provided credential at connection and editor/viewer
-permission per operation. Collaborative reversal requires a fresh operation;
+permission per operation. Live presence travels in separate socket frames and
+is replayed only while the origin remains connected; disconnect emits leave.
+Collaborative reversal requires a fresh operation;
 generic domain merge, version restore, credential lifecycle and remote-network
 transport remain WP-082 work. See [collaboration.md](collaboration.md).

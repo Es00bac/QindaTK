@@ -44005,6 +44005,10 @@
           "parameters": "const QString &operationId, const QString &winningOperationId"
         },
         {
+          "name": "ownPresenceChanged",
+          "parameters": "const QVariantMap &presence"
+        },
+        {
           "name": "presenceChanged",
           "parameters": "const QString &actorId, const QVariantMap &presence"
         },
