@@ -117,6 +117,7 @@ qt_add_qml_module(qindatk
         core/file_asset_backend.cpp
         core/pdf_asset_backend.cpp core/pdf_asset_backend.h
         core/video_asset_backend.cpp core/video_asset_backend.h
+        core/video_scopes_model.cpp core/video_scopes_model.h
         core/recovery_journal.cpp core/recovery_journal.h
         core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h

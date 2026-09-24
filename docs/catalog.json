@@ -29298,6 +29298,58 @@
       ]
     },
     {
+      "name": "VideoScopes",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/VideoScopes.qml",
+      "properties": [
+        {
+          "name": "snapshot",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scopeMode",
+          "type": "string",
+          "default": "\"waveform\" // waveform, histogram, vectorscope",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"CPU scopes: Rec.709 encoded-sRGB luma, full-range chroma\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "videoScopes",
+        "videoScopesCanvas",
+        "videoScopesFrameId",
+        "videoScopesMode",
+        "videoScopesStatus"
+      ]
+    },
+    {
       "name": "Viewport",
       "kind": "qml",
       "base": "Item",
@@ -46317,6 +46369,63 @@
           "name": "completeRun",
           "returns": "bool",
           "parameters": "const QString &runId, const QString &documentId, const QString &revision, const QString &resetGeneration, const QVariantList &entries"
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "VideoScopesModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/video_scopes_model.h",
+      "properties": [
+        {
+          "name": "snapshot",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "analyzeFrame",
+          "returns": "QVariantMap",
+          "parameters": "const QImage &frame, const QString &frameId"
+        },
+        {
+          "name": "analyzeColorBarsFixture",
+          "returns": "QVariantMap",
+          "parameters": "const QString &frameId = QStringLiteral(\"synthetic-color-bars\""
         },
         {
           "name": "clear",
