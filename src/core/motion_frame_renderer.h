@@ -2,6 +2,7 @@
 #pragma once
 
 #include "motion_effect_registry.h"
+#include "tracking_roto_model.h"
 
 #include <QHash>
 #include <QImage>
@@ -21,11 +22,14 @@ class MotionFrameRenderer : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QindaTK::MotionComposition *composition READ composition WRITE setComposition NOTIFY compositionChanged)
+    Q_PROPERTY(QindaTK::TrackingRotoModel *rotoModel READ rotoModel WRITE setRotoModel NOTIFY rotoModelChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
 public:
     explicit MotionFrameRenderer(QObject *parent = nullptr);
     MotionComposition *composition() const { return m_composition; }
     void setComposition(MotionComposition *composition);
+    TrackingRotoModel *rotoModel() const { return m_rotoModel; }
+    void setRotoModel(TrackingRotoModel *model);
     QString lastError() const { return m_error; }
     QImage frame() const;
     bool setSourceImage(const QString &sourceId, const QImage &image);
@@ -36,11 +40,13 @@ public:
     Q_INVOKABLE bool exportPng(const QUrl &url);
 signals:
     void compositionChanged();
+    void rotoModelChanged();
     void frameChanged();
     void errorChanged();
 private:
     void setError(const QString &error);
     QPointer<MotionComposition> m_composition;
+    QPointer<TrackingRotoModel> m_rotoModel;
     QHash<QString, QImage> m_sources;
     MotionEffectRegistry m_effects;
     qsizetype m_sourceBytes = 0;

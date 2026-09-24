@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "motion_frame_renderer.h"
 #include "motion_composition.h"
+#include "tracking_roto_model.h"
 
 #include <QColorSpace>
 #include <QFileInfo>
@@ -33,6 +34,13 @@ void MotionFrameRenderer::setComposition(MotionComposition *composition)
     if (m_composition == composition) return;
     m_composition = composition;
     emit compositionChanged();
+}
+
+void MotionFrameRenderer::setRotoModel(TrackingRotoModel *model)
+{
+    if (m_rotoModel == model) return;
+    m_rotoModel = model;
+    emit rotoModelChanged();
 }
 
 void MotionFrameRenderer::setError(const QString &error)
@@ -167,6 +175,24 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
             setError(QStringLiteral("Layer %1: %2").arg(layer.value(QStringLiteral("layerId")).toString(), effected.error));
             return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
         }
+        QImage layerImage = encodedSrgb(effected.image);
+        const QString maskId = layer.value(QStringLiteral("maskId")).toString();
+        if (!maskId.isEmpty()) {
+            bool frameOk = false;
+            const int maskFrame = timeTicks.toInt(&frameOk);
+            if (!m_rotoModel || !frameOk || maskFrame < 0) {
+                painter.end();
+                setError(QStringLiteral("Masked layer needs a roto model and integer frame time."));
+                return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
+            }
+            layerImage = m_rotoModel->applyMask(maskId, maskFrame, layerImage);
+            if (layerImage.isNull()) {
+                painter.end();
+                setError(QStringLiteral("Layer %1: %2").arg(layer.value(QStringLiteral("layerId")).toString(),
+                                      m_rotoModel->lastError()));
+                return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
+            }
+        }
         const QVariantList values = layer.value(QStringLiteral("matrix")).toList();
         if (values.size() != 6) continue;
         const QTransform matrix(values.at(0).toDouble(), values.at(1).toDouble(), 0.0,
@@ -175,7 +201,7 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
         painter.save();
         painter.setOpacity(opacity);
         painter.setTransform(matrix);
-        painter.drawImage(QPointF(0, 0), encodedSrgb(effected.image));
+        painter.drawImage(QPointF(0, 0), layerImage);
         painter.restore();
         ++drawn;
     }

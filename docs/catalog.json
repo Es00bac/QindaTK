@@ -42142,6 +42142,13 @@
           "constant": false
         },
         {
+          "name": "rotoModel",
+          "type": "QindaTK::TrackingRotoModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "lastError",
           "type": "QString",
           "default": "",
@@ -42152,6 +42159,10 @@
       "signals": [
         {
           "name": "compositionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "rotoModelChanged",
           "parameters": ""
         },
         {
@@ -49811,6 +49822,191 @@
           "name": "popTemporaryTool",
           "returns": "bool",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TrackingRotoModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: decoded, tagged source frames remain host-owned inputs; only tracks, accepted points, masks and keyframes are serialized. Generated tracking points stay in previewPoints until acceptAnalysis is called.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/tracking_roto_model.h",
+      "properties": [
+        {
+          "name": "tracks",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "masks",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "analysisRunning",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "analysisProgress",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "analysisChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "loadFrame",
+          "returns": "bool",
+          "parameters": "int frame, const QUrl &url"
+        },
+        {
+          "name": "addTrack",
+          "returns": "QString",
+          "parameters": "const QString &label, int referenceFrame, double x, double y, int radius = 5, int searchRadius = 16"
+        },
+        {
+          "name": "removeTrack",
+          "returns": "bool",
+          "parameters": "const QString &trackId"
+        },
+        {
+          "name": "startAnalysis",
+          "returns": "bool",
+          "parameters": "const QString &trackId, int startFrame, int endFrame"
+        },
+        {
+          "name": "cancelAnalysis",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "acceptAnalysis",
+          "returns": "bool",
+          "parameters": "const QString &trackId"
+        },
+        {
+          "name": "correctPoint",
+          "returns": "bool",
+          "parameters": "const QString &trackId, int frame, double x, double y"
+        },
+        {
+          "name": "offsetTrack",
+          "returns": "bool",
+          "parameters": "const QString &trackId, double dx, double dy, int fromFrame, int toFrame"
+        },
+        {
+          "name": "addMask",
+          "returns": "QString",
+          "parameters": "const QString &label"
+        },
+        {
+          "name": "removeMask",
+          "returns": "bool",
+          "parameters": "const QString &maskId"
+        },
+        {
+          "name": "setMaskKeyframe",
+          "returns": "bool",
+          "parameters": "const QString &maskId, int frame, const QVariantList &points"
+        },
+        {
+          "name": "removeMaskKeyframe",
+          "returns": "bool",
+          "parameters": "const QString &maskId, int frame"
+        },
+        {
+          "name": "setMaskFeather",
+          "returns": "bool",
+          "parameters": "const QString &maskId, double pixels"
+        },
+        {
+          "name": "evaluateMask",
+          "returns": "QVariantMap",
+          "parameters": "const QString &maskId, int frame"
+        },
+        {
+          "name": "previewTrackedMask",
+          "returns": "QVariantMap",
+          "parameters": "const QString &maskId, int sourceFrame, int targetFrame, const QString &trackId"
+        },
+        {
+          "name": "exportMaskedPng",
+          "returns": "bool",
+          "parameters": "const QString &maskId, int frame, const QUrl &url"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QUrl &url"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QUrl &url"
         }
       ],
       "enums": {},

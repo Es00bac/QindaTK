@@ -141,6 +141,9 @@ QVariantMap MotionComposition::loadContent(const QVariantMap &content)
         if (layer.contains(QStringLiteral("sourceId"))
             && layer.value(QStringLiteral("sourceId")).metaType().id() != QMetaType::QString)
             return reject(tr("Layer sourceId values must be stable strings"));
+        if (layer.contains(QStringLiteral("maskId"))
+            && layer.value(QStringLiteral("maskId")).metaType().id() != QMetaType::QString)
+            return reject(tr("Layer maskId values must be stable strings"));
         if (layer.contains(QStringLiteral("animatedProperties"))) {
             const QVariantMap animated = layer.value(QStringLiteral("animatedProperties")).toMap();
             static const QSet<QString> fields{QStringLiteral("x"), QStringLiteral("y"), QStringLiteral("rotation"),
@@ -357,6 +360,7 @@ QVariantMap MotionComposition::evaluate(const QString &timeTicks)
             {QStringLiteral("layerId"), state.id},
             {QStringLiteral("parentLayerId"), state.parentId},
             {QStringLiteral("sourceId"), state.source.value(QStringLiteral("sourceId"))},
+            {QStringLiteral("maskId"), state.source.value(QStringLiteral("maskId"))},
             {QStringLiteral("zIndex"), state.z},
             {QStringLiteral("visible"), state.visible},
             {QStringLiteral("opacity"), state.opacity},
