@@ -41,6 +41,7 @@ qt_add_qml_module(qindatk
         core/color_profile.cpp core/color_profile.h
         core/color_context.h core/color_engine.cpp core/color_engine.h
         core/color_grade_processor.cpp core/color_grade_processor.h
+        core/color_grade_edit_session.cpp core/color_grade_edit_session.h
         core/color_grade_preview_model.cpp core/color_grade_preview_model.h
         core/color_picker_model.cpp core/color_picker_model.h
         core/color_lcms_p.h

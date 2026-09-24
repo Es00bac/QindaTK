@@ -35122,6 +35122,159 @@
       "bridge": false
     },
     {
+      "name": "ColorGradeEditSession",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "One clip/frame grade gesture adapter. The host supplies a tagged source image and immutable color context; previews stay transient in PropertyDocument.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/color_grade_edit_session.h",
+      "properties": [
+        {
+          "name": "clipId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "frameId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sourceImage",
+          "type": "QImage",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "processedImage",
+          "type": "QImage",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "parameters",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "beforeImageUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "afterImageUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "beforeScopes",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "afterScopes",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorMessage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "gestureRejected",
+          "parameters": "const QString &gestureId, const QString &message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "beginGesture",
+          "returns": "bool",
+          "parameters": "const QString &gestureId"
+        },
+        {
+          "name": "preview",
+          "returns": "bool",
+          "parameters": "const QString &gestureId, const QVariantMap &candidate"
+        },
+        {
+          "name": "finishGesture",
+          "returns": "bool",
+          "parameters": "const QString &gestureId"
+        },
+        {
+          "name": "cancelGesture",
+          "returns": "bool",
+          "parameters": "const QString &gestureId"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ColorGradePreviewModel",
       "kind": "cpp",
       "base": "QObject",
@@ -35136,6 +35289,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "sourceImage",
+          "type": "QImage",
+          "default": "",
+          "readonly": true,
+          "constant": true
         },
         {
           "name": "afterImageUrl",

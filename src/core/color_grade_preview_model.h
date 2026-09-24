@@ -15,6 +15,7 @@ class ColorGradePreviewModel : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString beforeImageUrl READ beforeImageUrl NOTIFY changed)
+    Q_PROPERTY(QImage sourceImage READ sourceImage CONSTANT)
     Q_PROPERTY(QString afterImageUrl READ afterImageUrl NOTIFY changed)
     Q_PROPERTY(QVariantMap beforeScopes READ beforeScopes NOTIFY changed)
     Q_PROPERTY(QVariantMap afterScopes READ afterScopes NOTIFY changed)
@@ -22,6 +23,7 @@ class ColorGradePreviewModel : public QObject {
 public:
     explicit ColorGradePreviewModel(QObject *parent = nullptr);
     QString beforeImageUrl() const { return m_beforeImageUrl; }
+    QImage sourceImage() const { return m_beforeImage; }
     QString afterImageUrl() const { return m_afterImageUrl; }
     QVariantMap beforeScopes() const { return m_beforeScopes; }
     QVariantMap afterScopes() const { return m_afterScopes; }

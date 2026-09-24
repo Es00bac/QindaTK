@@ -7,13 +7,15 @@ Rectangle {
     width: 1280
     height: 900
     color: Tk.Theme.color.canvas
-    property var grade: ({ exposureEV: 0, lift: { x: 0.08, y: -0.04 },
-                          gamma: { x: -0.03, y: 0.06 }, gain: { x: 0.02, y: 0.01 } })
-    property var previewGrade: grade
-    property string statusText: qsTr("Linear sRGB grade fixture · ready")
-    property var wheelDefaults: ({ lift: { x: 0, y: 0 }, gamma: { x: 0, y: 0 }, gain: { x: 0, y: 0 } })
+    property string gestureId: ""
 
-    Tk.ColorGradePreviewModel { id: renderer }
+    Tk.ColorGradePreviewModel { id: fixture }
+    Tk.ColorGradeEditSession {
+        id: session
+        clipId: "fixture-clip"
+        frameId: "frame-0001"
+        sourceImage: fixture.sourceImage
+    }
 
     function wheelsFor(parameters) {
         return [
@@ -25,17 +27,28 @@ Rectangle {
               minimumX: -1, maximumX: 1, minimumY: -1, maximumY: 1, stepX: 0.01, stepY: 0.01, enabled: true }
         ]
     }
-    function replaceWheel(wheel, x, y) {
-        const next = Object.assign({}, root.previewGrade)
+    function candidate(wheel, x, y) {
+        const next = Object.assign({}, session.parameters)
         next[wheel] = { x: x, y: y }
-        root.previewGrade = next
-        const result = renderer.render(next)
-        root.statusText = result.ok ? qsTr("Live preview · generation %1").arg(result.generation) : result.error
+        return next
     }
+    function preview(gesture, wheel, x, y) {
+        if (!session.editing) {
+            root.gestureId = gesture
+            session.beginGesture(gesture)
+        }
+        const accepted = session.preview(gesture, candidate(wheel, x, y))
+        root.statusText = accepted ? qsTr("Preview · one edit gesture") : session.errorMessage
+    }
+    property string statusText: qsTr("Tagged sRGB frame · ready")
 
     Component.onCompleted: {
-        previewGrade = grade
-        renderer.render(grade)
+        const id = "fixture-seed"
+        const sample = Object.assign({}, session.parameters, { lift: { x: 0.24, y: -0.12 }, gain: { x: 0.08, y: 0.02 } })
+        session.beginGesture(id)
+        session.preview(id, sample)
+        session.finishGesture(id)
+        root.statusText = qsTr("Sample grade committed · use Undo or drag a wheel")
     }
 
     Tk.Flex {
@@ -47,13 +60,15 @@ Rectangle {
             direction: Tk.Flex.Row
             align: Tk.Flex.Center
             gap: Tk.Theme.space.md
-            Tk.Heading { level: 1; text: qsTr("CPU color grade preview"); Tk.Flex.grow: 1 }
-            Tk.Badge { text: qsTr("Fixture · 8-bit RGBA"); variant: "accent" }
+            Tk.Heading { level: 1; text: qsTr("CPU color grade session"); Tk.Flex.grow: 1 }
+            Tk.Button { text: qsTr("Undo"); enabled: session.canUndo; tooltip: qsTr("Undo the last grade gesture"); onClicked: session.undo() }
+            Tk.Button { text: qsTr("Redo"); enabled: session.canRedo; tooltip: qsTr("Redo the grade gesture"); onClicked: session.redo() }
+            Tk.Badge { text: qsTr("Host frame fixture"); variant: "accent" }
         }
         Tk.Notice {
             variant: "info"
             title: qsTr("Declared processing space")
-            text: qsTr("Tagged sRGB input converts to linear sRGB for grade math, then to tagged sRGB output. This demonstrates image color management; it does not claim broadcast, codec, or display calibration fidelity.")
+            text: qsTr("Tagged sRGB input converts to linear sRGB for grade math, then to tagged sRGB output. The fixture demonstrates edit history; it does not claim broadcast, codec, or display calibration fidelity.")
         }
         Tk.Flex {
             direction: Tk.Flex.Row
@@ -65,33 +80,27 @@ Rectangle {
                 Tk.ColorWheels {
                     id: wheels
                     anchors.fill: parent
-                    gradeId: "fixture-grade"
-                    wheels: root.wheelsFor(root.previewGrade)
+                    gradeId: session.clipId
+                    wheels: root.wheelsFor(session.parameters)
                     selectedWheelId: "lift"
                     editingEnabled: true
-                    tooltip: qsTr("Host-defined lift, gamma and gain wheel parameters")
+                    tooltip: qsTr("Host-defined lift, gamma and gain parameters")
                     statusText: root.statusText
-                    onWheelPreviewRequested: function(gesture, gradeId, wheel, x, y) { root.replaceWheel(wheel, x, y) }
+                    onWheelPreviewRequested: function(gesture, gradeId, wheel, x, y) { root.preview(gesture, wheel, x, y) }
                     onWheelEditFinished: function(gesture, gradeId, wheel, x, y) {
-                        const next = Object.assign({}, root.grade)
-                        next[wheel] = { x: x, y: y }
-                        root.grade = next
-                        root.previewGrade = next
-                        renderer.render(next)
-                        root.statusText = qsTr("Grade accepted by the local fixture")
+                        if (session.editing) session.preview(gesture, root.candidate(wheel, x, y))
+                        if (session.finishGesture(gesture)) root.statusText = qsTr("Grade gesture committed · one undo step")
                     }
-                    onWheelEditCanceled: function(gesture, gradeId, wheel) {
-                        root.previewGrade = root.grade
-                        renderer.render(root.grade)
-                        root.statusText = qsTr("Gesture canceled · committed values restored")
+                    onWheelEditCanceled: function(gesture) {
+                        if (session.editing) session.cancelGesture(gesture)
+                        root.statusText = qsTr("Gesture canceled · committed pixels restored")
                     }
                     onResetRequested: function(gradeId, wheel) {
-                        const next = Object.assign({}, root.grade)
-                        next[wheel] = root.wheelDefaults[wheel]
-                        root.grade = next
-                        root.previewGrade = next
-                        renderer.render(next)
-                        root.statusText = qsTr("%1 reset").arg(wheel)
+                        const id = "reset-" + wheel
+                        session.beginGesture(id)
+                        session.preview(id, root.candidate(wheel, 0, 0))
+                        session.finishGesture(id)
+                        root.statusText = qsTr("%1 reset · one undo step").arg(wheel)
                     }
                 }
             }
@@ -101,15 +110,16 @@ Rectangle {
                 Tk.Label { text: qsTr("Exposure"); Accessible.role: Accessible.StaticText }
                 Tk.NumberField {
                     objectName: "gradeExposure"
-                    value: root.grade.exposureEV
+                    value: session.parameters.exposureEV
                     from: -8; to: 8; decimals: 2; stepSize: 0.1; suffix: " EV"
                     tooltip: qsTr("Exposure in stops")
                     onValueModified: function(value) {
-                        const next = Object.assign({}, root.grade, { exposureEV: value })
-                        root.grade = next
-                        root.previewGrade = next
-                        renderer.render(next)
-                        root.statusText = qsTr("Exposure committed by the local fixture")
+                        const id = "exposure-" + Date.now()
+                        session.beginGesture(id)
+                        const next = Object.assign({}, session.parameters, { exposureEV: value })
+                        session.preview(id, next)
+                        session.finishGesture(id)
+                        root.statusText = qsTr("Exposure committed · one undo step")
                     }
                 }
             }
@@ -121,21 +131,21 @@ Rectangle {
                 direction: Tk.Flex.Column
                 gap: Tk.Theme.space.xs
                 Tk.Overline { title: qsTr("BEFORE · TAGGED SRGB"); wide: true }
-                Image { objectName: "gradeBeforeImage"; source: renderer.beforeImageUrl; fillMode: Image.PreserveAspectFit; width: 440; height: 190; cache: false }
+                Image { objectName: "gradeBeforeImage"; source: session.beforeImageUrl; fillMode: Image.PreserveAspectFit; width: 440; height: 190; cache: false }
             }
             Tk.Flex {
                 direction: Tk.Flex.Column
                 gap: Tk.Theme.space.xs
-                Tk.Overline { title: qsTr("AFTER · DECLARED OUTPUT"); wide: true }
-                Image { objectName: "gradeAfterImage"; source: renderer.afterImageUrl; fillMode: Image.PreserveAspectFit; width: 440; height: 190; cache: false }
+                Tk.Overline { title: qsTr("AFTER · SESSION OUTPUT"); wide: true }
+                Image { objectName: "gradeAfterImage"; source: session.afterImageUrl; fillMode: Image.PreserveAspectFit; width: 440; height: 190; cache: false }
             }
         }
         Tk.Flex {
             direction: Tk.Flex.Row
             gap: Tk.Theme.space.md
-            Tk.VideoScopes { objectName: "gradeBeforeScopes"; Tk.Flex.flex: 1; snapshot: renderer.beforeScopes; scopeMode: "histogram"; tooltip: qsTr("Before image histogram · encoded sRGB luma") }
-            Tk.VideoScopes { objectName: "gradeAfterScopes"; Tk.Flex.flex: 1; snapshot: renderer.afterScopes; scopeMode: "histogram"; tooltip: qsTr("After image histogram · encoded sRGB luma") }
+            Tk.VideoScopes { objectName: "gradeBeforeScopes"; Tk.Flex.flex: 1; snapshot: session.beforeScopes; scopeMode: "histogram"; tooltip: qsTr("Before frame histogram · encoded sRGB luma") }
+            Tk.VideoScopes { objectName: "gradeAfterScopes"; Tk.Flex.flex: 1; snapshot: session.afterScopes; scopeMode: "histogram"; tooltip: qsTr("Fixture reference histogram") }
         }
-        Tk.Label { text: renderer.errorMessage || root.statusText; color: Tk.Theme.color.textMuted; wrapMode: Text.Wrap }
+        Tk.Label { text: session.errorMessage || root.statusText; color: Tk.Theme.color.textMuted; wrapMode: Text.Wrap }
     }
 }

@@ -104,12 +104,7 @@ encoded channel to `[0,1]` and rounds to nearest byte. Alpha is copied without
 grading. Processing refuses untagged input, unresolved profiles, invalid
 parameters, unsupported working profiles/intents, and images above 16 MP.
 
-The [color-grade fixture](../examples/color-grade/Main.qml) binds the wheel
-requests to this processor and shows before/after images and bounded scope
-snapshots. Its synthetic pixels demonstrate the transform only; this is not a
-video decoder, broadcast/legal-range path, codec, calibrated display pipeline,
-or undo/export integration. `ColorGradePreviewModel` is a fixture adapter;
-production hosts should call the reusable processor with decoded tagged frames.
+The [color-grade fixture](../examples/color-grade/Main.qml) binds wheel gestures to `ColorGradeEditSession` and shows before/after images and bounded scope snapshots. The session accepts a host supplied tagged `QImage` and immutable context through `setFrame(clipId, frameId, image, context)`; QML can also bind `sourceImage` when frame ownership is elsewhere. It routes transient parameter maps through `EditTransaction` and `UndoService`, so finish records one complete grade state, cancel restores the committed state, and undo/redo rerender the same frame. A frame or context change cancels an open gesture; switching clip/frame also clears its old single-target history so undo cannot affect a different frame. Context generations must change whenever a profile or transform policy changes. The fixture uses `ColorGradePreviewModel` only for deterministic source pixels; it demonstrates single-frame edit history, not video decoding, broadcast/legal-range processing, codec fidelity, calibrated display output, clip persistence or export integration.
 
 ## Picker model and edits
 
