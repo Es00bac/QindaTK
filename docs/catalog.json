@@ -23776,6 +23776,238 @@
       ]
     },
     {
+      "name": "RotoscopeEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RotoscopeEditor.qml",
+      "properties": [
+        {
+          "name": "masks",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maskId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentFrame",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sourceFrame",
+          "type": "string",
+          "default": "String((mask.keyframes || []).length ? mask.keyframes[0].frame : currentFrame)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sourceFrameUrl",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sourceAspectRatio",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackingTrackId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "propagationPreview",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit the selected mask path on this source frame\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "generatedPreview",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "feather",
+          "type": "real",
+          "default": "Number(mask.feather || 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mask",
+          "type": "var",
+          "default": "masks.find(function(item) { return String(item.maskId) === control.maskId }) || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyframe",
+          "type": "var",
+          "default": "(mask.keyframes || []).find(function(item) { return String(item.frame) === String(control.currentFrame) }) || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "points",
+          "type": "var",
+          "default": "keyframe.points || []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewVisible",
+          "type": "bool",
+          "default": "generatedPreview || propagationPreview.state === \"preview\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "maskSelected",
+          "parameters": "string maskId"
+        },
+        {
+          "name": "propagateRequested",
+          "parameters": "string maskId, string sourceFrame, string targetFrame, string trackId"
+        },
+        {
+          "name": "acceptPreviewRequested",
+          "parameters": "string maskId, string frame, var points"
+        },
+        {
+          "name": "cancelPreviewRequested",
+          "parameters": "string maskId, string frame"
+        },
+        {
+          "name": "pointEditPreviewRequested",
+          "parameters": "string maskId, string frame, var points"
+        },
+        {
+          "name": "keyframeEditRequested",
+          "parameters": "string maskId, string frame, var points"
+        },
+        {
+          "name": "keyframeRemoveRequested",
+          "parameters": "string maskId, string frame"
+        },
+        {
+          "name": "featherChangeRequested",
+          "parameters": "string maskId, real feather"
+        },
+        {
+          "name": "editCancelled",
+          "parameters": "string maskId, string frame"
+        }
+      ],
+      "methods": [
+        {
+          "name": "movePoint",
+          "parameters": "pointId, x, y"
+        },
+        {
+          "name": "previewPoint",
+          "parameters": "pointId, x, y"
+        },
+        {
+          "name": "finishDrag",
+          "parameters": ""
+        },
+        {
+          "name": "addPoint",
+          "parameters": "x, y"
+        },
+        {
+          "name": "addPointAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "removePoint",
+          "parameters": "pointId"
+        },
+        {
+          "name": "requestPropagation",
+          "parameters": ""
+        },
+        {
+          "name": "acceptPreview",
+          "parameters": ""
+        },
+        {
+          "name": "cancelPreview",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "rotoAcceptPreview",
+        "rotoCancelPreview",
+        "rotoCanvas",
+        "rotoFeather",
+        "rotoFrameSurface",
+        "rotoMaskSelect",
+        "rotoPath",
+        "rotoPoint_",
+        "rotoPropagate",
+        "rotoRemoveKeyframe",
+        "rotoscopeEditor"
+      ]
+    },
+    {
       "name": "RoutingMatrix",
       "kind": "qml",
       "base": "T.Control",
@@ -30602,6 +30834,140 @@
         "trackRouting",
         "trackSolo",
         "trackVisibility"
+      ]
+    },
+    {
+      "name": "TrackingPanel",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TrackingPanel.qml",
+      "properties": [
+        {
+          "name": "tracks",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedTrackId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "startFrame",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "endFrame",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentFrame",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "track",
+          "type": "var",
+          "default": "tracks.find(function(item) { return String(item.trackId) === control.selectedTrackId }) || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "features",
+          "type": "var",
+          "default": "track.previewPoints || track.points || []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Inspect tracking results and correct feature positions\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "trackSelected",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "startRequested",
+          "parameters": "string trackId, string startFrame, string endFrame"
+        },
+        {
+          "name": "cancelRequested",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "acceptRequested",
+          "parameters": "string trackId"
+        },
+        {
+          "name": "correctionRequested",
+          "parameters": "string trackId, string frame, real x, real y"
+        }
+      ],
+      "methods": [
+        {
+          "name": "rerun",
+          "parameters": ""
+        },
+        {
+          "name": "cancel",
+          "parameters": ""
+        },
+        {
+          "name": "accept",
+          "parameters": ""
+        },
+        {
+          "name": "correctPoint",
+          "parameters": "frame, x, y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "trackingAccept",
+        "trackingCancel",
+        "trackingFeatureList",
+        "trackingFeature_",
+        "trackingPanel",
+        "trackingPointState_",
+        "trackingRun",
+        "trackingStatus",
+        "trackingTrackSelect"
       ]
     },
     {

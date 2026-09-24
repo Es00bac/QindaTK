@@ -78,6 +78,9 @@ typed image evaluation, cycle validation, undo and topology persistence for
 hosts that use the toolkit's initial processing nodes.
 The [live node graph fixture](node-graph-live/Main.qml) wires that model to the
 editor and displays its actual blended pixel output from two solid-color nodes.
+The [tracking and roto fixture](tracking-roto/Main.qml) presents tracked point
+confidence and loss beside editable, keyframed mask paths; snapshots and edit
+requests follow the `TrackingRotoModel` host contract.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
 The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows
