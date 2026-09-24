@@ -32,6 +32,7 @@ public:
     QVariantList nodes() const;
     QVariantList edges() const;
     QString imageDataUrl() const { return m_imageDataUrl; }
+    QImage frame() const { return m_frame; }
     QString lastError() const { return m_error; }
     qulonglong revision() const { return m_revision; }
     bool canUndo() const { return !m_undo.isEmpty(); }
