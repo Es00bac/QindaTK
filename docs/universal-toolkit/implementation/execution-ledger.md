@@ -74,7 +74,7 @@ as though a later fix had already passed the earlier run.
 | [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | accepted | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | accepted | [Seven families, dual-Qt suite and installed consumer](evidence/WP-031.md) |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | accepted | [Event, diff and resource integration status](evidence/WP-032.md) |
-| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | active | [Editable sort/filter workbench and dual-Qt consumers; lifecycle gaps open](evidence/WP-033.md) |
+| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | active | [Native collection transfer, editable two-document workbench and dual-Qt consumers; accessibility-client gate open](evidence/WP-033.md) |
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | review | [Integrated renderer and installed consumer; dual-Qt 102/102; WP-033 dependency open](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Lasso, snap, guides, shared selection and reference group transforms; persistence still open](evidence/WP-041.md) |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
@@ -112,7 +112,7 @@ as though a later fix had already passed the earlier run.
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | planned | — |
 | [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | planned | — |
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | planned | — |
-| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view and durable execution core integrated; merged wiring and output fixture under verification](evidence/WP-078.md) |
+| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and verified three-frame PNG output fixture integrated; more providers remain](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
 | [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | planned | — |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | planned | — |
