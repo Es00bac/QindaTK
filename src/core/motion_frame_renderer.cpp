@@ -66,6 +66,12 @@ bool MotionFrameRenderer::setSourceImage(const QString &sourceId, const QImage &
     return true;
 }
 
+bool MotionFrameRenderer::registerEffectProcessor(const QString &effectId,
+                                                 MotionEffectRegistry::Processor processor)
+{
+    return m_effects.registerProcessor(effectId, std::move(processor));
+}
+
 bool MotionFrameRenderer::loadSource(const QString &sourceId, const QUrl &url)
 {
     QString path;
@@ -108,6 +114,31 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
         setError(evaluation.value(QStringLiteral("error")).toString());
         return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
     }
+    const QVariantList evaluatedLayers = evaluation.value(QStringLiteral("layers")).toList();
+    qsizetype effectRecords = 0;
+    for (const QVariant &entry : evaluatedLayers) {
+        const QVariantMap layer = entry.toMap();
+        if (!layer.value(QStringLiteral("visible")).toBool()
+            || layer.value(QStringLiteral("opacity")).toDouble() <= 0.0
+            || layer.value(QStringLiteral("sourceId")).toString().isEmpty()) continue;
+        const QVariant effectValue = layer.value(QStringLiteral("effects"));
+        if (!effectValue.isValid()) continue;
+        if (effectValue.metaType().id() != QMetaType::QVariantList) {
+            setError(QStringLiteral("Layer effects must be an array of effect records."));
+            return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
+        }
+        const QVariantList effects = effectValue.toList();
+        effectRecords += effects.size();
+        if (effectRecords > 64) {
+            setError(QStringLiteral("A rendered frame may contain at most 64 effect records."));
+            return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
+        }
+        QString effectError;
+        if (!m_effects.validate(effects, &effectError)) {
+            setError(effectError);
+            return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
+        }
+    }
     QImage output(width, height, QImage::Format_ARGB32_Premultiplied);
     if (output.isNull()) {
         setError(QStringLiteral("Could not allocate the composition frame."));
@@ -120,7 +151,7 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
     QPainter painter(&output);
     painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
-    for (const QVariant &entry : evaluation.value(QStringLiteral("layers")).toList()) {
+    for (const QVariant &entry : evaluatedLayers) {
         const QVariantMap layer = entry.toMap();
         if (!layer.value(QStringLiteral("visible")).toBool()) continue;
         const double opacity = layer.value(QStringLiteral("opacity")).toDouble();
@@ -129,6 +160,13 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
         if (sourceId.isEmpty()) continue;
         const auto source = m_sources.constFind(sourceId);
         if (source == m_sources.cend()) { missing.append(sourceId); continue; }
+        const QVariantList effects = layer.value(QStringLiteral("effects")).toList();
+        const MotionEffectResult effected = m_effects.apply(source.value(), effects);
+        if (!effected) {
+            painter.end();
+            setError(QStringLiteral("Layer %1: %2").arg(layer.value(QStringLiteral("layerId")).toString(), effected.error));
+            return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
+        }
         const QVariantList values = layer.value(QStringLiteral("matrix")).toList();
         if (values.size() != 6) continue;
         const QTransform matrix(values.at(0).toDouble(), values.at(1).toDouble(), 0.0,
@@ -137,7 +175,7 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
         painter.save();
         painter.setOpacity(opacity);
         painter.setTransform(matrix);
-        painter.drawImage(QPointF(0, 0), source.value());
+        painter.drawImage(QPointF(0, 0), encodedSrgb(effected.image));
         painter.restore();
         ++drawn;
     }

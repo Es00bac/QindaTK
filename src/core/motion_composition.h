@@ -11,8 +11,8 @@
 namespace QindaTK {
 
 // AGENT-CONTRACT: MotionComposition saves layer records and AutomationModel
-// keys; MotionFrameRenderer's decoded pixels stay external behind sourceId.
-// This type records effect descriptors but does not execute them.
+// keys; MotionFrameRenderer keeps decoded pixels external behind sourceId and
+// executes each layer's ordered effects before transform/composition.
 class MotionComposition : public QObject {
     Q_OBJECT
     QML_ELEMENT

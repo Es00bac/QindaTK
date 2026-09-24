@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "../../src/core/motion_composition.h"
 #include "../../src/core/motion_frame_renderer.h"
+#include <QColorSpace>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -49,6 +50,66 @@ private slots:
         const QImage reopened(path);
         QVERIFY(!reopened.isNull());
         QCOMPARE(reopened.pixelColor(2, 1), overlap);
+    }
+
+    void orderedEffectsSkipDisabledRejectUnsupportedAndUseHostRegistry()
+    {
+        MotionComposition composition;
+        MotionFrameRenderer renderer;
+        renderer.setComposition(&composition);
+        QImage red(1, 1, QImage::Format_RGBA8888);
+        red.setColorSpace(QColorSpace(QColorSpace::SRgb));
+        red.fill(QColor(Qt::red));
+        QVERIFY(renderer.setSourceImage(QStringLiteral("pixel"), red));
+        const auto layer = [](const QVariantList &effects) {
+            return QVariantMap{{QStringLiteral("layerId"), QStringLiteral("layer")},
+                               {QStringLiteral("sourceId"), QStringLiteral("pixel")},
+                               {QStringLiteral("zIndex"), 0}, {QStringLiteral("visible"), true},
+                               {QStringLiteral("effects"), effects},
+                               {QStringLiteral("transform"), QVariantMap{}}};
+        };
+        const QVariantMap bright{{QStringLiteral("effectId"), QStringLiteral("brightness")},
+                                 {QStringLiteral("parameters"), QVariantMap{{QStringLiteral("amount"), 0.5}}}};
+        const QVariantMap gray{{QStringLiteral("effectId"), QStringLiteral("grayscale")}};
+        composition.setLayers({layer({bright, gray})});
+        QVERIFY(renderer.render(QStringLiteral("0"), 1, 1).value(QStringLiteral("ok")).toBool());
+        const QColor brightThenGray = renderer.frame().pixelColor(0, 0);
+        QVERIFY(brightThenGray.red() > 150);
+        QCOMPARE(brightThenGray.red(), brightThenGray.green());
+        QCOMPARE(brightThenGray.green(), brightThenGray.blue());
+
+        composition.setLayers({layer({gray, bright})});
+        QVERIFY(renderer.render(QStringLiteral("0"), 1, 1).value(QStringLiteral("ok")).toBool());
+        const QColor grayThenBright = renderer.frame().pixelColor(0, 0);
+        QVERIFY(grayThenBright.red() > brightThenGray.red() + 15);
+        QCOMPARE(grayThenBright.red(), grayThenBright.green());
+        QCOMPARE(grayThenBright.green(), grayThenBright.blue());
+
+        composition.setLayers({layer({QVariantMap{{QStringLiteral("effectId"), QStringLiteral("missing")},
+                                                    {QStringLiteral("enabled"), false}}})});
+        QVERIFY(renderer.render(QStringLiteral("0"), 1, 1).value(QStringLiteral("ok")).toBool());
+        QCOMPARE(renderer.frame().pixelColor(0, 0), QColor(Qt::red));
+
+        const QImage previous = renderer.frame();
+        composition.setLayers({layer({QVariantMap{{QStringLiteral("effectId"), QStringLiteral("missing")}}})});
+        const QVariantMap rejected = renderer.render(QStringLiteral("0"), 1, 1);
+        QVERIFY(!rejected.value(QStringLiteral("ok")).toBool());
+        QVERIFY(renderer.lastError().contains(QStringLiteral("Unsupported enabled motion effect")));
+        QCOMPARE(renderer.frame(), previous);
+
+        QVERIFY(renderer.registerEffectProcessor(QStringLiteral("invert"),
+            [](QImage &image, const QVariantMap &parameters, QString *error) {
+                if (!parameters.isEmpty()) { *error = QStringLiteral("invert takes no parameters"); return false; }
+                for (int y = 0; y < image.height(); ++y) {
+                    uchar *row = image.scanLine(y);
+                    for (int x = 0; x < image.width(); ++x)
+                        for (int c = 0; c < 3; ++c) row[x * 4 + c] = uchar(255 - row[x * 4 + c]);
+                }
+                return true;
+            }));
+        composition.setLayers({layer({QVariantMap{{QStringLiteral("effectId"), QStringLiteral("invert")}}})});
+        QVERIFY(renderer.render(QStringLiteral("0"), 1, 1).value(QStringLiteral("ok")).toBool());
+        QCOMPARE(renderer.frame().pixelColor(0, 0), QColor(0, 255, 255));
     }
 };
 

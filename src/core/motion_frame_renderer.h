@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include "motion_effect_registry.h"
+
 #include <QHash>
 #include <QImage>
 #include <QMutex>
@@ -27,6 +29,7 @@ public:
     QString lastError() const { return m_error; }
     QImage frame() const;
     bool setSourceImage(const QString &sourceId, const QImage &image);
+    bool registerEffectProcessor(const QString &effectId, MotionEffectRegistry::Processor processor);
     Q_INVOKABLE bool loadSource(const QString &sourceId, const QUrl &url);
     Q_INVOKABLE void removeSource(const QString &sourceId);
     Q_INVOKABLE QVariantMap render(const QString &timeTicks, int width, int height);
@@ -39,6 +42,7 @@ private:
     void setError(const QString &error);
     QPointer<MotionComposition> m_composition;
     QHash<QString, QImage> m_sources;
+    MotionEffectRegistry m_effects;
     qsizetype m_sourceBytes = 0;
     mutable QMutex m_frameMutex;
     QImage m_frame;

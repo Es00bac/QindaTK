@@ -360,6 +360,7 @@ QVariantMap MotionComposition::evaluate(const QString &timeTicks)
             {QStringLiteral("zIndex"), state.z},
             {QStringLiteral("visible"), state.visible},
             {QStringLiteral("opacity"), state.opacity},
+            {QStringLiteral("effects"), state.source.value(QStringLiteral("effects"), QVariantList{})},
             {QStringLiteral("matrix"), QVariantList{m.m11(), m.m12(), m.m21(), m.m22(), m.dx(), m.dy()}}});
     }
     setError({});
