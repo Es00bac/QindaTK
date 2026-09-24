@@ -45,6 +45,10 @@ T.Control {
     property real _anchorPosition: 0
     property real _dragFactor: 1
     readonly property bool _dragging: _source === "pointer"
+    // AGENT-GUARD (WP-062): the binding a gesture began on receives all of it.
+    // A recycled delegate gets another binding; the open gesture is canceled
+    // on the old one instead of committing into another channel's parameter.
+    property var _gestureBinding: null
     signal gestureStarted(real value, bool silent)
     signal valuePreview(real value, bool silent)
     signal gestureCommitted(real value, bool silent)
@@ -115,30 +119,35 @@ T.Control {
         if (_source.length) return false
         _source = source
         _startValue = value; _startSilent = silent
-        if (binding) binding.begin(value, silent)
+        _gestureBinding = binding
+        if (_gestureBinding) _gestureBinding.begin(value, silent)
         gestureStarted(value, silent)
         return true
     }
     function updateUser(v, isSilent) {
         const next = clamp(v)
         if (next === value && isSilent === silent) return
-        if (binding) binding.preview(next, isSilent)
-        else { value = next; silent = isSilent }
+        if (_gestureBinding) _gestureBinding.preview(next, isSilent)
+        else if (!binding) { value = next; silent = isSilent }
         valuePreview(value, silent)
     }
     function commitGesture() {
         if (!_source.length) return
         _source = ""
         wheelIdle.stop()
-        if (binding) binding.commit(value, silent)
+        const target = _gestureBinding
+        _gestureBinding = null
+        if (target) target.commit(value, silent)
         gestureCommitted(value, silent)
     }
     function cancelGesture() {
         if (!_source.length) return
         _source = ""
         wheelIdle.stop()
-        if (binding) binding.cancel()
-        else { value = _startValue; silent = _startSilent }
+        const target = _gestureBinding
+        _gestureBinding = null
+        if (target) target.cancel()
+        else if (!binding) { value = _startValue; silent = _startSilent }
         gestureCanceled(value, silent)
     }
     function setUserPosition(position) {
@@ -171,6 +180,8 @@ T.Control {
         if (_source === "key") stepBy(direction, event.modifiers)
         event.accepted = true
     }
+    onBindingChanged: if (_source.length && _gestureBinding && _gestureBinding !== binding) cancelGesture()
+    Component.onDestruction: if (_source.length && _gestureBinding) _gestureBinding.cancel()
     Keys.onUpPressed: (event) => keyStep(1, event)
     Keys.onRightPressed: (event) => keyStep(1, event)
     Keys.onDownPressed: (event) => keyStep(-1, event)

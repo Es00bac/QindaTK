@@ -61,6 +61,7 @@ pages below are the reference.
 | [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |
 | [tempo-automation.md](tempo-automation.md) | Tempo/meter events, beat-locked clips, automation curves and modes, engine schedule snapshots |
 | [audio-engine.md](audio-engine.md) | Realtime audio engine and session: threads/queues, graph lifetime, devices and reconfiguration, recording latency, persistence, relink, offline render, callback measurements |
+| [audio-mixer.md](audio-mixer.md) | Mixer and routing: channel/bus/port identities, pan laws and layouts, sends, solo in place and groups, feedback refusals, device ports that never fall back, channel meters, MixerView/ChannelStrip/PanningControl/RoutingMatrix |
 | [audio-measurement.md](audio-measurement.md) | Realtime meter tap, peak/RMS meter and BS.1770-4 loudness models, hold/fall/clip on audio time, engine parameter transactions for Knob and Fader, silence floor |
 | [vector-authoring.md](vector-authoring.md) | Vector appearance panels and undoable solid canvas style edits |
 | [chart-data.md](chart-data.md) | Typed axes/series, linked viewports, annotations, projection, hit identity, decimation, tabular export and histogram bin ranges |

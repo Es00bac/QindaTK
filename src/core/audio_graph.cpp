@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "audio_graph.h"
 
+#include "audio_channel_meters.h"
 #include "timeline_model.h"
 
+#include <QCoreApplication>
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -15,6 +17,11 @@ std::atomic<quint64> s_generations{0};
 bool isAudio(const QString &kind)
 {
     return kind.isEmpty() || kind == QLatin1String("audio");
+}
+
+QString tr(const char *text)
+{
+    return QCoreApplication::translate("AudioMixer", text);
 }
 
 // Cubic segments go through CurveEvaluator, which builds a curve per call;
@@ -44,6 +51,30 @@ QVector<AutomationPoint> flattened(const AutomationParameter &parameter, const Q
     return out;
 }
 
+// Buses in dependency order (a bus after every bus that feeds it); mixer
+// order among independent buses. validate() refuses loops, so a bus left
+// over here is only possible for content that bypassed it: it stays silent.
+QStringList sortedBuses(const AudioMixerContent &mix, QStringList &problems)
+{
+    QHash<QString, int> incoming;
+    QHash<QString, QStringList> edges;
+    for (const AudioMixerBus &bus : mix.buses) incoming.insert(bus.id, 0);
+    for (const AudioMixerBus &bus : mix.buses)
+        for (const QString &target : AudioMixer::destinationsOf(mix, bus.id))
+            if (incoming.contains(target) && target != bus.id) {
+                edges[bus.id].push_back(target);
+                ++incoming[target];
+            }
+    QStringList ready;
+    for (const AudioMixerBus &bus : mix.buses)
+        if (incoming.value(bus.id) == 0) ready.push_back(bus.id);
+    for (qsizetype next = 0; next < ready.size(); ++next)
+        for (const QString &target : edges.value(ready.at(next)))
+            if (--incoming[target] == 0) ready.push_back(target);
+    if (ready.size() != mix.buses.size()) problems.push_back(tr("Buses on a routing loop are silent"));
+    return ready;
+}
+
 } // namespace
 
 QString AudioRenderGraph::gainParameterId(const QString &trackId)
@@ -60,8 +91,58 @@ bool AudioRenderGraph::hasSilenceFloor(const AutomationParameter &parameter)
 int AudioRenderGraph::clipCount() const
 {
     int count = 0;
-    for (const Track &track : m_tracks) count += int(track.clips.size());
+    for (const Node &node : m_nodes) count += int(node.clips.size());
     return count;
+}
+
+double AudioRenderGraph::Curve::convert(double value) const noexcept
+{
+    return !decibels ? value : value <= silenceFloor ? 0.0 : std::pow(10.0, value / 20.0);
+}
+
+int AudioRenderGraph::addCurve(const EngineScheduleSnapshot *schedule, const QString &parameterId)
+{
+    const EngineScheduleSnapshot::Parameter *entry = schedule ? schedule->parameter(parameterId) : nullptr;
+    if (!entry) return -1;
+    Curve curve;
+    curve.parameter = entry->parameter;
+    curve.decibels = entry->parameter.range.unitId.compare(QLatin1String("dB"), Qt::CaseInsensitive) == 0;
+    if (curve.decibels && hasSilenceFloor(entry->parameter)) curve.silenceFloor = entry->parameter.range.minimum;
+    if (entry->overriding) {
+        curve.constant = curve.convert(entry->liveValue);
+    } else if (entry->points.isEmpty() || entry->mode == AutomationMode::Off) {
+        curve.constant = curve.convert(entry->parameter.defaultValue);
+    } else {
+        curve.points = flattened(entry->parameter, entry->points);
+        curve.automated = true;
+    }
+    m_curves.push_back(std::move(curve));
+    return int(m_curves.size()) - 1;
+}
+
+int AudioRenderGraph::portIndex(const QString &id, const Sources &sources, const QString &from)
+{
+    for (std::size_t p = 0; p < m_ports.size(); ++p)
+        if (m_ports[p].id == id) return int(p);
+    const auto port = AudioMixer::parsePort(id);
+    PortTarget target;
+    target.id = id;
+    if (port && port->main) {
+        target.main = true;
+    } else if (port && !sources.offline && !sources.deviceId.isEmpty() && port->deviceId == sources.deviceId
+               && port->first + port->count - 1 <= sources.deviceChannels) {
+        target.channel = port->first - 1;
+        target.lanes = port->count;
+    } else {
+        // AGENT-GUARD (D-112): an unavailable port plays nothing; no other
+        // port or channel of another device is chosen in its place.
+        m_problems.push_back(tr("%1 feeds %2, which is not available").arg(from, id));
+        return -1;
+    }
+    target.buffer = m_lanes;
+    m_lanes += std::size_t(target.lanes);
+    m_ports.push_back(target);
+    return int(m_ports.size()) - 1;
 }
 
 std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources &sources)
@@ -70,22 +151,61 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
     graph->m_generation = ++s_generations;
     graph->m_sampleRate = sources.sampleRate;
     graph->m_schedule = sources.schedule;
+    if (sources.sampleRate < 1) return graph;
+    const AudioMixerContent mix = sources.mixer ? *sources.mixer : AudioMixerContent{};
+    graph->m_panLaw = mix.panLaw;
+    const EngineScheduleSnapshot *schedule = sources.schedule.get();
     const TimelineModel *timeline = sources.timeline;
-    if (!timeline || sources.sampleRate < 1) return graph;
-    graph->m_timebase = timeline->timebase();
+
+    QStringList channels;
+    QSet<QString> muted, soloed;
+    if (timeline) {
+        graph->m_timebase = timeline->timebase();
+        for (const QUuid &id : timeline->trackOrder()) {
+            const TimelineTrack *record = timeline->trackRecord(id);
+            if (!record || !isAudio(record->kind)) continue;
+            const QString channel = AudioMixer::trackChannelId(id);
+            channels.push_back(channel);
+            if (record->muted) muted.insert(channel);
+            if (record->solo) soloed.insert(channel);
+        }
+    }
+    const qsizetype trackCount = channels.size();
+    channels += sortedBuses(mix, graph->m_problems);
+    channels.push_back(AudioMixer::masterId());
+    const AudioMixer::Audibility audibility = AudioMixer::audibility(mix, channels, muted, soloed);
+    QHash<QString, int> index;
+    for (int i = 0; i < int(channels.size()); ++i) index.insert(channels.at(i), i);
+
+    graph->m_nodes.resize(std::size_t(channels.size()));
+    for (int i = 0; i < int(channels.size()); ++i) {
+        Node &node = graph->m_nodes[std::size_t(i)];
+        const QString &id = channels.at(i);
+        node.channelId = id;
+        node.lanes = id == AudioMixer::masterId() ? 2 : int(AudioMixer::strip(mix, id).layout);
+        node.audible = !audibility.muted.contains(id);
+        node.buffer = graph->m_lanes;
+        graph->m_lanes += std::size_t(node.lanes);
+        node.gain = graph->addCurve(schedule, AudioMixer::parameterId(id, QStringLiteral("gain")));
+        node.pan = graph->addCurve(schedule, AudioMixer::parameterId(id, QStringLiteral("pan")));
+        node.width = graph->addCurve(schedule, AudioMixer::parameterId(id, QStringLiteral("width")));
+        if (i < AudioChannelMeterFrame::kMaxSlots) {
+            node.meterSlot = i;
+            graph->m_meterChannels.push_back(id);
+            graph->m_meterLanes.push_back(node.lanes);
+        }
+    }
+
+    // Clips of the tracks that play; a silent track neither plays nor
+    // reports missing media, as before the mixer existed.
     const TimelineRate rate{sources.sampleRate, 1};
     const auto toSamples = [&](qint64 ticks) {
         return TimelineTime::rescale(ticks, graph->m_timebase, rate, TimeMap::NearestAway);
     };
-    bool anySolo = false;
-    for (const QUuid &id : timeline->trackOrder())
-        if (const TimelineTrack *track = timeline->trackRecord(id); track && track->solo && isAudio(track->kind))
-            anySolo = true;
-    for (const QUuid &trackId : timeline->trackOrder()) {
-        const TimelineTrack *record = timeline->trackRecord(trackId);
-        if (!record || !isAudio(record->kind) || record->muted || (anySolo && !record->solo)) continue;
-        Track track;
-        for (const auto &entry : timeline->trackIndex(trackId)) {
+    for (qsizetype i = 0; i < trackCount; ++i) {
+        Node &node = graph->m_nodes[std::size_t(i)];
+        if (!node.audible) continue;
+        for (const auto &entry : timeline->trackIndex(AudioMixer::trackOf(node.channelId))) {
             const TimelineClip *clip = timeline->clipRecord(entry.id);
             if (!clip || clip->resourceId.isEmpty() || !isAudio(clip->kind)) continue;
             AudioBufferPtr media = sources.media ? sources.media(clip->resourceId, sources.sampleRate) : nullptr;
@@ -97,64 +217,37 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
             const auto end = toSamples(clip->end());
             const auto offset = toSamples(clip->sourceOffset);
             if (!start || !end || !offset || *end <= *start) continue;
-            track.clips.push_back({*start, *end, *offset, std::move(media)});
+            node.clips.push_back({*start, *end, *offset, std::move(media)});
             graph->m_length = std::max(graph->m_length, *end);
         }
-        std::sort(track.clips.begin(), track.clips.end(),
-                  [](const Clip &a, const Clip &b) { return a.start < b.start; });
-        const QString id = trackId.toString(QUuid::WithoutBraces);
-        const auto *gain = sources.schedule ? sources.schedule->parameter(gainParameterId(id)) : nullptr;
-        if (gain) {
-            track.gainParameter = gain->parameter;
-            track.decibels = gain->parameter.range.unitId.compare(QLatin1String("dB"), Qt::CaseInsensitive) == 0;
-            if (track.decibels && hasSilenceFloor(gain->parameter)) track.silenceFloor = gain->parameter.range.minimum;
-            const auto linear = [&](double value) {
-                return !track.decibels ? value : value <= track.silenceFloor ? 0.0 : std::pow(10.0, value / 20.0);
-            };
-            if (gain->overriding) {
-                track.constantGain = linear(gain->liveValue);
-            } else if (gain->points.isEmpty() || gain->mode == AutomationMode::Off) {
-                track.constantGain = linear(gain->parameter.defaultValue);
-            } else {
-                track.gainPoints = flattened(gain->parameter, gain->points);
-                track.automated = true;
-            }
-        }
-        if (!track.clips.empty()) graph->m_tracks.push_back(std::move(track));
+        std::sort(node.clips.begin(), node.clips.end(), [](const Clip &a, const Clip &b) { return a.start < b.start; });
     }
-    return graph;
-}
 
-void AudioRenderGraph::render(qint64 start, int frames, float *out, int channels, double *scratch) const noexcept
-{
-    if (frames <= 0 || frames > kMaxBlock || channels <= 0) return;
-    const qint64 stop = start + frames;
-    const TimelineRate rate{m_sampleRate, 1};
-    for (const Track &track : m_tracks) {
-        if (track.automated) {
-            for (int i = 0; i < frames; ++i) {
-                const auto ticks = TimelineTime::rescale(start + i, rate, m_timebase, TimeMap::NearestAway);
-                const double value = ticks ? AutomationCurve::valueAt(track.gainParameter, track.gainPoints, *ticks)
-                                           : track.gainParameter.defaultValue;
-                scratch[i] = !track.decibels ? value : value <= track.silenceFloor ? 0.0 : std::pow(10.0, value / 20.0);
-            }
+    // Routes: the output, then the sends. Destinations always come later in
+    // the processing order, so one pass mixes the whole graph.
+    for (int i = 0; i < int(channels.size()); ++i) {
+        Node &node = graph->m_nodes[std::size_t(i)];
+        const QString &id = node.channelId;
+        const AudioMixerStrip settings = AudioMixer::strip(mix, id);
+        QString output = settings.output;
+        if (id == AudioMixer::masterId() && sources.offline) output = AudioMixer::mainPortId();
+        if (!output.isEmpty()) {
+            Route route;
+            if (index.value(output, -1) > i) route.node = index.value(output);
+            else if (AudioMixer::isPort(output)) route.port = graph->portIndex(output, sources, id);
+            if (route.node >= 0 || route.port >= 0) node.routes.push_back(route);
         }
-        for (const Clip &clip : track.clips) {
-            if (clip.start >= stop) break;
-            if (clip.end <= start) continue;
-            const AudioBuffer &media = *clip.media;
-            const qint64 from = std::max(clip.start, start);
-            const qint64 to = std::min(clip.end, stop);
-            for (qint64 sample = from; sample < to; ++sample) {
-                const qint64 frame = clip.sourceStart + (sample - clip.start);
-                if (frame < 0 || frame >= media.frames) continue;
-                const int i = int(sample - start);
-                const double gain = track.automated ? scratch[i] : track.constantGain;
-                for (int c = 0; c < channels; ++c)
-                    out[i * channels + c] += float(double(media.channel(std::min(c, media.channels - 1))[frame]) * gain);
-            }
+        for (const AudioMixerSend &send : settings.sends) {
+            if (index.value(send.target, -1) <= i) continue;
+            Route route;
+            route.node = index.value(send.target);
+            route.preFader = send.preFader;
+            route.level = graph->addCurve(schedule, AudioMixer::parameterId(send.id, QStringLiteral("level")));
+            node.routes.push_back(route);
         }
     }
+    graph->m_work.assign(graph->m_lanes * std::size_t(kChunk), 0.0);
+    return graph;
 }
 
 } // namespace QindaTK

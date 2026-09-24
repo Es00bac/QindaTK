@@ -947,3 +947,81 @@ document-space path geometry. Enabled effects of an unknown kind refuse
 export explicitly. **Consequences.** Scaled strokes export at their canvas
 width (earlier output scaled them), browsers reproduce the appearance, and
 renderers without CSS compositing ignore the blend mode.
+
+## D-110 — Mixer state lives in AudioMixerModel; channel values are automation parameters
+
+**Context.** WP-062 mixer and routing controls held host snapshots, so no
+engine graph changed and nothing was saved or undone. Track mute and solo
+already live on `TimelineTrack` (edited by `TrackHeader`), and WP-061 made
+gain an `AutomationModel` parameter with one transaction per gesture.
+**Decision.** Each `AudioSession` owns an `AudioMixerModel`: buses, per-channel
+routing (output, layout, sends, solo safe), mute/solo groups and the pan law,
+validated as a whole and recorded as one step of its own history. Channels
+are `track:<uuid>`, `bus:<uuid>` and `master`. Track mute, solo, arm and name
+stay on the `TimelineTrack`; gain, pan, width and send levels are
+`AutomationModel` parameters (`<channel>/gain|pan|width`, `<send>/level`)
+created on request and never removed. The mixer hands out one shared
+`AudioParameterBinding` per parameter. Hidden channels are saved view state,
+not undo steps. The session saves the mix as its `mixer` part and loads it
+all or nothing. **Consequences.** Every mixer value has one owner and one
+history, which the controls and automation already share. A track's settings
+stay dormant after the track is deleted, so undo in the timeline brings back
+its routing. Undo is per owner (mixer, timeline, automation) until a host
+joins those histories.
+
+## D-111 — Pan laws, layouts and conversions
+
+**Context.** AUD-15 needs defined laws and coordinates, and the engine must
+not change what existing sessions play. **Decision.** Channels are Mono or
+Stereo; the master is Stereo. A mono source into a stereo destination follows
+the session pan law: `-3dB` constant power (default,
+L = cos((1+p)π/4), R = cos((1−p)π/4)), `-4.5dB`, `-6dB` linear or `0dB`
+balance. Pan p runs from −1 (left) to +1 (right) and width from 0 to 2, both
+in steps of 0.01. A stereo source applies mid/side width, then balance (unity
+at the centre). A mono file on a stereo channel plays on both lanes, a mono
+channel averages the first two file channels, and a stereo route into a mono
+destination averages. Every route, sends included, passes through the
+channel's panner; a pre-fader send skips only the fader. **Consequences.** The
+default mix (stereo tracks, centre, width 1, 0 dB) is bit-exact with the
+pre-mixer engine, and the laws are exact at the ends and symmetric at the
+centre. Surround layouts are outside the reference engine.
+
+## D-112 — The bus graph stays acyclic; solo propagates through it; ports never fall back
+
+**Context.** AUD-16 requires refused feedback routes to be explained and
+forbids silently connecting another port when a device goes away. Solo must
+not silence the bus a soloed track feeds. **Decision.** Tracks only feed;
+buses feed buses, the master or a port; the master feeds only a port. An
+operation that would close a loop is refused with the loop spelled out
+(for example "B → A → B"), and a file containing one is not loaded. Solo is
+solo in place: a soloed channel keeps everything upstream and downstream of
+it, through outputs and sends. Every other channel is implicitly muted
+unless it is solo safe, and a muted channel feeds nothing. Group mute and
+solo apply to the members. Ports are `main` (the running device's first
+outputs, or the file) and `device:<n>[-<m>]@<device id>`. A device port plays
+only while that device runs; after the device goes, a route to it stays
+unchanged, silent and explained, and a new route can only name an available
+port. An offline render is the main output with the master connected.
+**Consequences.** No feedback can reach the engine, and one mixing pass in
+topological order is enough. A device change never redirects audio: the user
+re-routes explicitly, and the default `main` port keeps new sessions audible.
+
+## D-113 — Channel meters travel as generation-tagged frames; held strips pin the mixer view
+
+**Context.** Per-track and bus meters were left to WP-062, and every gesture
+preview recompiles the graph, so slot numbers change between graphs.
+Virtualized strips must not lose or redirect a gesture when banks,
+visibility or track order change. **Decision.** `render()` adds each
+channel's post-fader lanes to an `AudioChannelMeterSink` (one per stream,
+preallocated). The sink closes 10 ms frames of up to 128 channels and closes
+one early when the graph generation changes. The GUI maps a frame's slots
+through the channel list of that generation and feeds one `AudioMeterModel`
+per channel (`AudioEngine::channelMeter`). `AudioMixerStripModel` moves rows
+instead of resetting them. While any channel's parameter is held, `MixerView`
+defers bank changes, keeps the held strip in view, and keeps a hidden held
+channel's strip until release. `Fader` and `Knob` send a whole gesture to the
+binding it began on and cancel it if a recycled delegate changes the binding.
+**Consequences.** Meters stay on audio time with no allocation on the device
+thread, and a frame never mixes two slot layouts. A gesture survives a track
+reorder and a bank or visibility change, and a delegate can never commit into
+another channel.

@@ -1,16 +1,23 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// AGENT-CONTRACT: ports and current connections are immutable host snapshots.
-// Selection emits a proposed connection by stable input/output IDs; only the
-// host validates cycles/layout/availability and reports acceptance or error.
+// AGENT-CONTRACT (WP-062, docs/controls.md, docs/audio-mixer.md): ports and
+// connections are immutable snapshots by stable ID. A selection proposes one
+// connection; only the owner validates cycles, layouts and availability and
+// reports acceptance or the reason for a refusal. Bound (`mixer`): sources,
+// destinations and connections come from Tk.AudioMixerModel and each request
+// is AudioMixerModel.setOutput, answered at once. A connection to a port that
+// is no longer offered (its device went away) stays shown as unavailable; it
+// is never displayed as another port or as disconnected.
 T.Control {
     id: matrix
     objectName: "routingMatrix"
+    property var mixer: null // Tk.AudioMixerModel
     property var inputPorts: [] // [{id,label,layout,available}]
-    property var outputPorts: [] // [{id,label,layout,available}]
+    property var outputPorts: [] // [{id,label,layout,available,reason}]
     property var connections: [] // [{inputId,outputId}]
     property string tooltip: qsTr("Audio routing")
     property string _serial: "0"
@@ -34,32 +41,66 @@ T.Control {
     Accessible.description: qsTr("%1 input routes to %2 output ports. %3")
             .arg(inputPorts ? inputPorts.length : 0).arg(outputPorts ? outputPorts.length : 0).arg(_routeMessage)
 
+    Binding { target: matrix; property: "inputPorts"; when: matrix.mixer !== null; value: matrix.mixer ? matrix.mixer.routingSources : [] }
+    Binding { target: matrix; property: "outputPorts"; when: matrix.mixer !== null; value: matrix.mixer ? matrix.mixer.routingDestinations : [] }
+    Binding { target: matrix; property: "connections"; when: matrix.mixer !== null; value: matrix.mixer ? matrix.mixer.connections : [] }
+
+    function find(list, id) {
+        for (let i = 0; list && i < list.length; ++i)
+            if (String(list[i].id) === String(id)) return list[i]
+        return null
+    }
     function outputIdFor(inputId) {
         for (let i = 0; i < connections.length; ++i)
             if (String(connections[i].inputId) === String(inputId)) return String(connections[i].outputId || "")
         return ""
     }
-    function outputIndexFor(inputId) {
-        const id = outputIdFor(inputId)
-        for (let i = 0; i < routeOptions.length; ++i)
-            if (String(routeOptions[i].id) === id) return i
+    // The destinations offered to one input: never itself, and its current
+    // destination even when that port is not offered any more.
+    function optionsFor(inputId) {
+        const options = routeOptions.filter(function(option) { return String(option.id) !== String(inputId) })
+        const current = outputIdFor(inputId)
+        if (current.length && !find(options, current))
+            options.push({id: current, label: qsTr("%1 (unavailable)").arg(current), available: false})
+        return options
+    }
+    function indexIn(options, id) {
+        for (let i = 0; i < options.length; ++i)
+            if (String(options[i].id) === String(id)) return i
         return 0
     }
+    function outputIndexFor(inputId) { return indexIn(optionsFor(inputId), outputIdFor(inputId)) }
+    function refuse(requestId, message) {
+        _pendingRequestId = ""
+        _routeState = "rejected"
+        _routeMessage = message
+        routeAcknowledged(requestId, "rejected", message)
+        return requestId
+    }
     function requestRoute(inputId, outputId) {
-        let input = null
-        let output = null
-        for (let i = 0; i < inputPorts.length; ++i)
-            if (String(inputPorts[i].id) === String(inputId)) input = inputPorts[i]
-        if (String(outputId).length > 0)
-            for (let i = 0; i < outputPorts.length; ++i)
-                if (String(outputPorts[i].id) === String(outputId)) output = outputPorts[i]
-        if (!input || input.available === false || (String(outputId).length > 0 && (!output || output.available === false))) return ""
+        const input = find(inputPorts, inputId)
+        if (!input) return ""
+        const target = String(outputId || "")
+        const output = target.length ? find(outputPorts, target) : null
         _serial = String(Number(_serial) + 1)
-        _pendingRequestId = "route:" + String(inputId) + ":" + _serial
+        const requestId = "route:" + String(inputId) + ":" + _serial
+        if (input.available === false)
+            return refuse(requestId, qsTr("%1 is not available").arg(input.label || input.id))
+        if (target.length && !output)
+            return refuse(requestId, qsTr("%1 is not a destination").arg(target))
+        if (output && output.available === false)
+            return refuse(requestId, String(output.reason || qsTr("%1 is not available").arg(output.label || output.id)))
+        _pendingRequestId = requestId
         _routeState = "pending"
         _routeMessage = qsTr("Waiting for host routing validation")
-        routeRequested(_pendingRequestId, String(inputId), String(outputId || ""))
-        return _pendingRequestId
+        routeRequested(requestId, String(inputId), target)
+        if (mixer) {
+            const result = mixer.setOutput(String(inputId), target)
+            acknowledgeRoute(requestId, result.ok ? "accepted" : "rejected",
+                             result.ok ? qsTr("%1 → %2").arg(input.label).arg(output ? output.label : qsTr("disconnected"))
+                                       : String(result.error))
+        }
+        return requestId
     }
     function acknowledgeRoute(requestId, state, message) {
         if (!requestId || requestId !== _pendingRequestId || _routeState !== "pending") return false
@@ -81,6 +122,7 @@ T.Control {
     }
     contentItem: Tk.Flex {
         anchors.fill: parent
+        anchors.margins: matrix.padding
         direction: Tk.Flex.Column
         gap: Tk.Theme.space.xs
         Tk.Flex {
@@ -92,6 +134,8 @@ T.Control {
         Tk.Caption {
             objectName: "routingMatrixStatus"
             visible: matrix._routeMessage.length > 0
+            width: parent.width
+            wrapMode: Text.Wrap
             text: matrix._routeMessage
             color: matrix._routeState === "rejected" || matrix._routeState === "error"
                    ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
@@ -106,6 +150,10 @@ T.Control {
             model: matrix.inputPorts
             reuseItems: true
             boundsBehavior: Flickable.StopAtBounds
+            keyNavigationEnabled: true
+            activeFocusOnTab: true
+            highlightMoveDuration: Tk.Theme.motion.instant
+            highlight: Rectangle { color: Tk.Theme.color.selection; radius: Tk.Theme.radius.sm }
             Accessible.role: Accessible.List
             Accessible.name: matrix.Accessible.name
             delegate: Item {
@@ -113,6 +161,7 @@ T.Control {
                 required property int index
                 required property var modelData
                 property var inputPort: modelData || ({})
+                readonly property var options: matrix.optionsFor(row.inputPort.id)
                 objectName: "routingMatrixRow"
                 width: routes.width
                 height: Tk.Theme.size.control + Tk.Theme.space.xs
@@ -127,24 +176,34 @@ T.Control {
                         verticalAlignment: Text.AlignVCenter
                         Accessible.name: text
                     }
+                    Tk.Caption {
+                        text: String(row.inputPort.layout || "")
+                        color: Tk.Theme.color.textMuted
+                        verticalAlignment: Text.AlignVCenter
+                    }
                     Tk.ComboBox {
+                        id: destination
                         objectName: "routingDestination"
                         width: parent.width - Tk.Theme.size.fieldWidth - Tk.Theme.space.sm
                         Tk.Flex.grow: 1
-                        model: matrix.routeOptions
+                        Tk.Flex.shrink: 1
+                        model: row.options
                         textRole: "label"
-                        currentIndex: matrix.outputIndexFor(row.inputPort.id)
                         enabled: row.inputPort.available !== false
-                        tooltip: qsTr("Destination for input %1").arg(row.inputPort.label || row.inputPort.id)
+                        tooltip: qsTr("Destination for %1").arg(row.inputPort.label || row.inputPort.id)
                         onActivated: function(index) {
-                            const destination = matrix.routeOptions[index]
-                            matrix.requestRoute(row.inputPort.id, destination.id)
+                            matrix.requestRoute(row.inputPort.id, row.options[index].id)
+                            currentIndex = matrix.outputIndexFor(row.inputPort.id)
                         }
                     }
                 }
+                // AGENT-GUARD: the combo box shows the owner's connection, not
+                // the last pick: a refused route snaps back.
+                Binding { target: destination; property: "currentIndex"; value: matrix.indexIn(row.options, matrix.outputIdFor(row.inputPort.id)) }
                 Accessible.role: Accessible.ListItem
                 Accessible.name: String(inputPort.label || inputPort.id || "")
-                Accessible.description: String(inputPort.layout || "")
+                Accessible.description: qsTr("%1, to %2").arg(String(inputPort.layout || ""))
+                        .arg(row.options.length ? row.options[matrix.indexIn(row.options, matrix.outputIdFor(inputPort.id))].label : "")
             }
         }
         Tk.EmptyState {

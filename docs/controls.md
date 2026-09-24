@@ -727,17 +727,23 @@ substitutes another device. `Tk.AudioEngine` is a complete host: bind
 
 ## Mixer and routing
 
-Mixer values, channel order, selection, meters and route connections are host
-snapshots. Controls issue operations by stable channel, parameter and port IDs;
-they do not store routing in recycled delegates or claim that a request changed
-the engine. The host validates layouts/cycles and reports acceptance or refusal.
+Bound to a session's `Tk.AudioMixerModel` (`session.mixer`), the controls
+change a real audio graph ([audio-mixer.md](audio-mixer.md)): operations go
+by stable channel, parameter, send and port IDs, the mixer answers each at
+once with acceptance or the reason for a refusal (a feedback loop, an
+unavailable port), and gain, pan, width and send levels are the mixer's
+shared `AudioParameterBinding` transactions. Nothing about routing or the
+engine lives in a recycled delegate. Without a mixer, `ChannelStrip`,
+`PanningControl` and `RoutingMatrix` keep the host request protocol: the
+host validates and acknowledges.
 
-| Type | Base | Host contract and requests | Stable objectNames |
+| Type | Base | Contract and requests | Stable objectNames |
 | --- | --- | --- | --- |
-| `PanningControl` | T.Control | `channelId`, pan/width parameter IDs, host `panValue`/`stereoWidth`, `speakerLayout`; `parameterEditRequested(channelId, parameterId, gestureId, phase, value)` with `begin`/`preview`/`commit`/`cancel`; `acknowledgeEdit(gestureId, accepted, message)` | `panningControl`, `panSlider`, `stereoWidthSlider`, `panRequestStatus`. Host supplies panning law and canonical values. |
-| `ChannelStrip` | T.Control | Stable `channelId`, `gainParameterId`, host gain/mute/solo/pan/width, optional `AudioParameterMap`, optional `AudioMeterModel` and channel index; `gainEditRequested(...)`, `panEditRequested(...)`, `channelCommandRequested(channelId, requestId, command, enabled)`; `acknowledgeGainEdit`, `acknowledgeCommand` | `channelStrip`, `channelPeakMeter`, `channelGainFader`, `channelPanning`, `channelMute`, `channelSolo`, `channelCommandStatus`, `channelSelectionArea`. |
-| `MixerView` | T.Control | Host `channels` array of stable records, optional `meterModel`, host `selectedChannelId`; forwards channel selection, gain/pan gesture and mute/solo command requests by ID | `mixerView`, `mixerChannelList`, `mixerChannelStrip`, `mixerEmptyState`. A horizontal recycled `ListView` keeps strip delegates bounded as channel count grows. |
-| `RoutingMatrix` | T.Control | Host `inputPorts`, `outputPorts`, `connections`; `routeRequested(requestId, inputPortId, outputPortId)`; `acknowledgeRoute(requestId, "accepted"/"rejected"/"error", message)` | `routingMatrix`, `routingMatrixStatus`, `routingMatrixInputs`, `routingMatrixRow`, `routingInputLabel`, `routingDestination`, `routingMatrixEmpty`. Existing connections remain visible until the host publishes a changed snapshot. |
+| `PanningControl` | T.Control | Bound: `mixer` + `channelId` (or `panBinding`/`widthBinding`); `speakerLayout` (Mono has no width), `pad`. Canonical pan −1…+1 and width 0…2 at 0.01; slider, percent field and position × width pad share the transactions, and a pad drag is one undo step for both. Host: pan/width parameter IDs, `panValue`/`stereoWidth`, `parameterEditRequested(channelId, parameterId, gestureId, phase, value)` with `begin`/`preview`/`commit`/`cancel`, `acknowledgeEdit(gestureId, accepted, message)` | `panningControl`, `panSlider`, `panField`, `stereoWidthSlider`, `widthField`, `panPad`, `panPadHandle`, `panRequestStatus`. |
+| `ChannelStrip` | T.Control | Bound: `mixer` + `channelId` and the strip row (`channelName`, `channelKind`, `layout`, `muted`, `soloed`, `armed`, `soloSafe`, `implicitlyMuted`, `output`, `sends`, `groupNames`); `detail` adds pad, solo safe, hide, groups and routing; commands (`requestCommand("mute"/"solo"/"arm"/"soloSafe"/"hide", on)`) are mixer operations answered in `commandState`/`commandMessage`. Host: `gainParameterId`, `gainValue`/`gainSilent`, optional `AudioParameterMap` and shared `AudioMeterModel` + `meterChannel`; `gainEditRequested(...)` per fader gesture phase, `panEditRequested(...)`, `channelCommandRequested(channelId, requestId, command, enabled)`; `acknowledgeGainEdit`, `acknowledgeCommand` | `channelStrip`, `channelName`, `channelPeakMeter`, `channelGainFader`, `channelPanning`, `channelMute`, `channelSolo`, `channelArm`, `channelSoloSafe`, `channelHide`, `channelGroups`, `channelRouting`, `channelRouteSummary`, `channelCommandStatus`, `channelSelectionArea`. |
+| `ChannelRoutingPanel` | T.Control | `mixer`, `channelId`, `output`, `sends` (strip row); output selector over `mixer.destinations(channelId)`; per send a level `Knob`, pre/post toggle and removal; add send; `route(id)`, `addSend(busId)`, `removeSend(sendId)`, `setPreFader(sendId, on)` return acceptance and set `status`/`statusIsError` | `channelRoutingPanel`, `channelOutput`, `channelSendRow`, `channelSendLevel`, `channelSendPreFader`, `channelSendRemove`, `channelAddSend`, `channelRoutingStatus`. |
+| `MixerView` | T.Control | `mixer`; host-owned `selectedChannelId` with `channelSelected(channelId)`; `bank` (one view width of strips; `bankSize`, `bankCount`), `detail`; read-only `channelCount`, `held`. Left/Right select, Home/End jump, Page Up/Down change bank. While a gesture holds a channel, bank changes wait, the held strip stays in view through a reorder, and a hidden held channel keeps its strip until release | `mixerView`, `mixerBankLabel`, `mixerPreviousBank`, `mixerNextBank`, `mixerGroup`, `mixerGroupMute`, `mixerGroupSolo`, `mixerDetailToggle`, `mixerChannelList`, `mixerStripCell`, `mixerChannelStrip`, `mixerEmptyState`. A horizontal recycled `ListView` over `mixer.strips`, whose rows move instead of resetting, creates strips only for the visible range. |
+| `RoutingMatrix` | T.Control | Bound: `mixer` (sources, destinations and connections from the mixer; each request is `setOutput`, answered at once). Host: `inputPorts`, `outputPorts` (`available`, `reason`), `connections`; `routeRequested(requestId, inputPortId, outputPortId)`, `acknowledgeRoute(requestId, "accepted"/"rejected"/"error", message)`. An unavailable destination is refused with its reason, without a request | `routingMatrix`, `routingMatrixStatus`, `routingMatrixInputs`, `routingMatrixRow`, `routingInputLabel`, `routingDestination`, `routingMatrixEmpty`. A connection to a port that is no longer offered stays shown as unavailable, never as another port or disconnected. |
 
 ## Plugin host controls
 

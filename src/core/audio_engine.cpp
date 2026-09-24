@@ -295,7 +295,10 @@ void AudioEngine::finishJob()
     }
     // Without a running stream the peak meter shows no channels rather than
     // freezing at its last level; the loudness measurement keeps its result.
-    if (!m_run) m_outputMeter->configure(0, 0, {});
+    if (!m_run) {
+        m_outputMeter->configure(0, 0, {});
+        clearChannelMeters();
+    }
     refreshDevices();
     publishSnapshot(false);
     if (m_queuedApply) {
@@ -335,6 +338,9 @@ QString AudioEngine::startRun(AudioDeviceStreamPtr stream, const AudioDeviceConf
     m_rate = run->format.sampleRate;
     m_bufferSize = run->format.bufferSize;
     m_run = run;
+    m_meterMaps.clear(); // the new processor's sink starts empty (D-113)
+    m_meterGeneration = 0;
+    m_channelMetersDropped = 0;
     emit formatChanged(); // the session recompiles at this rate and calls setGraph()
     offerGraph();
     QString error;
@@ -356,27 +362,6 @@ QString AudioEngine::startRun(AudioDeviceStreamPtr stream, const AudioDeviceConf
     }
     m_poll.start();
     return {};
-}
-
-void AudioEngine::drainMeters(Run &run)
-{
-    AudioMeterTap *tap = run.processor ? run.processor->outputTap() : nullptr;
-    if (!tap) return;
-    AudioMeterBlock block;
-    bool measured = false;
-    // Bounded: one ring's worth per drain, so a producer can never keep the
-    // GUI thread here.
-    for (std::size_t n = 0; n < AudioMeterTap::kRingBlocks && tap->pop(block); ++n) {
-        m_outputMeter->consume(block);
-        m_outputLoudness->consume(block);
-        measured = true;
-    }
-    const quint64 dropped = tap->droppedBlocks();
-    const quint64 newlyDropped = dropped > m_meterDropped ? dropped - m_meterDropped : 0;
-    m_meterDropped = dropped;
-    if (!measured && newlyDropped == 0) return;
-    m_outputMeter->publish(newlyDropped);
-    m_outputLoudness->publish(newlyDropped);
 }
 
 void AudioEngine::poll()
@@ -404,6 +389,7 @@ void AudioEngine::offerGraph()
     if (!m_run || !m_graph || m_graph->sampleRate() != m_run->format.sampleRate) return;
     if (!m_live.isEmpty() && m_live.last() == m_graph) return;
     m_live.push_back(m_graph);
+    registerMeterMap(*m_graph);
     if (const AudioRenderGraph *stale = m_run->processor->offer(m_graph.get()))
         m_live.removeIf([stale](const AudioRenderGraphPtr &graph) { return graph.get() == stale; });
     retireGraphs();

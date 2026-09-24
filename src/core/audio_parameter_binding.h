@@ -8,6 +8,7 @@
 #include <QPointer>
 #include <QtQml/qqmlregistration.h>
 #include <limits>
+#include <optional>
 
 namespace QindaTK {
 
@@ -90,6 +91,9 @@ public:
     Q_INVOKABLE bool begin(double value, bool silent = false);
     Q_INVOKABLE bool preview(double value, bool silent = false);
     Q_INVOKABLE bool commit(double value, bool silent = false);
+    // One gesture over two parameters (the PanningControl pad, WP-062): both
+    // gestures end together, and their static edits are ONE history step.
+    Q_INVOKABLE bool commitWith(double value, QindaTK::AudioParameterBinding *other, double otherValue);
     Q_INVOKABLE bool cancel();
     Q_INVOKABLE bool setAutomationMode(const QString &mode);
     // The value the engine stores for (value, silent): silence is the range
@@ -119,6 +123,9 @@ private:
     void refreshAutomation();
     void updateMapper();
     void release();
+    // What committing `target` stores: "recorded", "static" (with its edit),
+    // "live", "unchanged", or "rejected" when the parameter is gone.
+    QString plan(double target, std::optional<AutomationBatchEdit> &edit) const;
     void finish(const QString &result);
     bool fail(const QString &message);
     void clearError();

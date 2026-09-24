@@ -126,6 +126,9 @@ qindatk_add_test(tst_audio_meter_tap)
 qindatk_add_test(tst_audio_loudness)
 qindatk_add_test(tst_audio_parameter_binding)
 qindatk_add_test(tst_audio_engine_meter)
+qindatk_add_test(tst_audio_mixer)
+qindatk_add_test(tst_audio_mixer_dsp)
+qindatk_add_test(tst_audio_mixer_engine)
 qindatk_add_test(tst_file_asset_backend)
 # WP-070 media backend: decode, programs/export, playback and catalog/feeds.
 # Tests QSKIP when QindaTK was built without the optional FFmpeg libraries.

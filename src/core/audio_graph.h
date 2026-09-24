@@ -2,6 +2,7 @@
 #pragma once
 
 #include "audio_media.h"
+#include "audio_mixer_types.h"
 #include "engine_schedule.h"
 
 #include <QStringList>
@@ -12,16 +13,19 @@
 
 namespace QindaTK {
 
+class AudioChannelMeterSink;
 class TimelineModel;
 
 // AGENT-CONTRACT: an immutable render program compiled on the GUI thread from
-// the committed timeline, decoded media and an EngineScheduleSnapshot. The
-// realtime callback and the offline renderer execute the same render(), so a
-// device and a file receive identical samples (docs/audio-engine.md).
+// the committed timeline, decoded media, an EngineScheduleSnapshot and the
+// mixer content. The realtime callback and the offline renderer execute the
+// same render(), so a device and a file receive identical samples
+// (docs/audio-engine.md, docs/audio-mixer.md).
 class AudioRenderGraph {
 public:
     static constexpr int kMaxBlock = 8192;
     static constexpr int kCubicSteps = 32; // linear pieces per cubic automation segment
+    static constexpr int kChunk = 256;     // frames mixed per pass; work memory holds kChunk per lane
 
     struct Sources {
         const TimelineModel *timeline = nullptr;
@@ -29,15 +33,27 @@ public:
         std::function<AudioBufferPtr(const QString &resourceId, int sampleRate)> media;
         EngineScheduleSnapshotPtr schedule;
         int sampleRate = 48000;
+        // Routing (WP-062). Null: every audio track feeds the master, the
+        // master feeds "main". The master is always compiled.
+        const AudioMixerContent *mixer = nullptr;
+        // Device ports "device:<n>[-<m>]@<deviceId>" play only on this device
+        // with at least that many output channels; any other port is silent.
+        QString deviceId;
+        int deviceChannels = 0;
+        // A file render: the master feeds "main" (the file) whatever its
+        // device routing, and device ports are silent.
+        bool offline = false;
     };
-    // Audio (or untyped) tracks with audio clips. Muted tracks, and unsoloed
-    // tracks while any track is soloed, are left out.
+    // Audio (or untyped) tracks become channels in timeline order, then the
+    // buses in dependency order, then the master. Muted channels, and channels
+    // a solo leaves out (D-112), feed nothing.
     static std::shared_ptr<const AudioRenderGraph> compile(const Sources &sources);
     // Track gain automation binds by ID: "track:<track id>/gain"; a unit of
     // "dB" is converted to a linear factor, any other unit is a linear factor.
     // The engine plays the live value while a control holds the parameter or
     // a pass writes it, the static value (the parameter's defaultValue) when
     // the lane has no points or its mode is off, and the curve otherwise.
+    // Pan, width and send levels bind the same way (AudioMixer::parameterId).
     static QString gainParameterId(const QString &trackId);
     // AGENT-CONTRACT (D-101): a dB gain's range minimum is silence (-inf dB),
     // so a fader at the bottom of its travel is exact silence and no finite
@@ -49,12 +65,23 @@ public:
     qint64 length() const { return m_length; }
     int clipCount() const;
     QStringList missingResources() const { return m_missing; }
+    // Metered channels in AudioChannelMeterSink slot order, and their lanes.
+    const QStringList &meterChannels() const { return m_meterChannels; }
+    const QVector<int> &meterLanes() const { return m_meterLanes; }
+    int meterSlots() const { return int(m_meterChannels.size()); }
+    // Routes that play nothing because their port is not available.
+    QStringList problems() const { return m_problems; }
 
     // AGENT-CONTRACT: realtime-safe. Adds the signal for [start, start + frames)
     // into `out` (interleaved, `channels` wide; frames <= kMaxBlock). `scratch`
-    // holds kMaxBlock doubles owned by the caller. Never allocates, locks or
-    // performs I/O; cubic automation was flattened at compile time.
-    void render(qint64 start, int frames, float *out, int channels, double *scratch) const noexcept;
+    // holds kMaxBlock doubles owned by the caller; the channel lanes live in
+    // this graph's own work memory, sized at compile time.
+    // AGENT-GUARD: one thread renders a given graph at a time (the device
+    // thread, or the caller of an offline render that compiled its own).
+    // Never allocates, locks or performs I/O; cubic automation was flattened
+    // at compile time. `meters` (may be null) receives post-fader channel levels.
+    void render(qint64 start, int frames, float *out, int channels, double *scratch,
+                AudioChannelMeterSink *meters = nullptr) const noexcept;
 
 private:
     struct Clip {
@@ -63,22 +90,69 @@ private:
         qint64 sourceStart = 0; // media frame played at `start`
         AudioBufferPtr media;   // at the graph rate
     };
-    struct Track {
-        std::vector<Clip> clips; // sorted by start
-        AutomationParameter gainParameter;
-        QVector<AutomationPoint> gainPoints; // step/linear only
+    // One parameter, constant or evaluated per sample.
+    struct Curve {
+        AutomationParameter parameter;
+        QVector<AutomationPoint> points; // step/linear only
         bool automated = false;
         bool decibels = false;
         double silenceFloor = -std::numeric_limits<double>::infinity(); // dB at or below: gain 0
-        double constantGain = 1.0;
+        double constant = 1.0;           // the converted value when not automated
+        double convert(double value) const noexcept;
     };
+    struct Route {
+        int node = -1;          // destination channel, or -1 for a port
+        int port = -1;          // m_ports index when node < 0
+        int level = -1;         // send level curve; -1 is unity
+        bool preFader = false;
+    };
+    struct Node {
+        QString channelId;
+        int lanes = 2;
+        std::vector<Clip> clips; // tracks only, sorted by start
+        int gain = -1;           // curves; -1 is the default (unity, centre, width 1)
+        int pan = -1;
+        int width = -1;
+        bool audible = true;
+        std::vector<Route> routes;
+        int meterSlot = -1;
+        std::size_t buffer = 0;  // first lane in m_work (in kChunk units)
+    };
+    struct PortTarget {
+        QString id;
+        bool main = false;       // "main": two lanes on the first output channels (a mono output averages)
+        int channel = 0;         // first device channel (0-based)
+        int lanes = 2;
+        std::size_t buffer = 0;
+    };
+
+    int addCurve(const EngineScheduleSnapshot *schedule, const QString &parameterId);
+    int portIndex(const QString &id, const Sources &sources, const QString &from);
+    void evaluate(int curve, double fallback, qint64 start, int frames, double *out) const noexcept;
+    bool constant(int curve) const noexcept { return curve < 0 || !m_curves[std::size_t(curve)].automated; }
+    double *lane(std::size_t buffer, int index) const noexcept;
+    void addClips(const Node &node, qint64 start, int frames, double *const in[2]) const noexcept;
+    void mix(const Node &node, const Route &route, double *const in[2], int frames, const double *gain,
+             const double *pan, const double *width, const double *level) const noexcept;
+    void mixChunk(qint64 start, int frames, float *out, int channels, double *scratch,
+                  AudioChannelMeterSink *meters) const noexcept;
+    void writePorts(int frames, float *out, int channels) const noexcept;
+
     quint64 m_generation = 0;
     int m_sampleRate = 48000;
     TimelineRate m_timebase{TimelineTime::kDefaultTicksPerSecond, 1};
     qint64 m_length = 0;
-    std::vector<Track> m_tracks;
+    AudioPanLaw m_panLaw = AudioPanLaw::ConstantPower;
+    std::vector<Curve> m_curves;
+    std::vector<Node> m_nodes;   // processing order: tracks, buses (sources first), master
+    std::vector<PortTarget> m_ports;
+    std::size_t m_lanes = 0;     // lanes in m_work
+    mutable std::vector<double> m_work;
     EngineScheduleSnapshotPtr m_schedule;
     QStringList m_missing;
+    QStringList m_meterChannels;
+    QVector<int> m_meterLanes;
+    QStringList m_problems;
 };
 using AudioRenderGraphPtr = std::shared_ptr<const AudioRenderGraph>;
 

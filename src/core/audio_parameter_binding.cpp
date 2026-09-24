@@ -247,35 +247,23 @@ bool AudioParameterBinding::commit(double value, bool silent)
     AutomationModel *model = automation();
     const double target = canonical(value, silent);
     model->recordGesture(m_parameterId, ticks(), target);
-    const AutomationModel::Lane *found = lane();
-    QString result = QStringLiteral("live");
-    bool ok = true;
-    if (!found) {
+    std::optional<AutomationBatchEdit> edit;
+    QString result = plan(target, edit);
+    if (result == QLatin1String("rejected")) {
         m_active = false;
-        ok = fail(tr("No engine parameter is bound"));
-        finish(QStringLiteral("rejected"));
+        const bool ok = fail(tr("No engine parameter is bound"));
+        finish(result);
         return ok;
     }
-    if (found->writing) {
-        result = QStringLiteral("recorded"); // the pass is the transaction (touch: it ends on release)
-    } else if (found->mode == AutomationMode::Off || found->points.isEmpty()) {
-        if (target == found->parameter.defaultValue) {
-            result = QStringLiteral("unchanged");
-        } else {
-            // AGENT-GUARD: edited while the control still holds the live value
-            // and released afterwards, so the device never renders the old
-            // static value between the two snapshots.
-            AutomationBatchEdit edit;
-            edit.request.kind = AutomationEditKind::EditParameter;
-            edit.request.parameterId = m_parameterId;
-            edit.input.defaultValue = target;
-            const QString label = tr("Set %1").arg(found->parameter.name);
-            if (const OperationError error = model->applyBatch({edit}, label)) {
-                ok = fail(error.message);
-                result = QStringLiteral("rejected");
-            } else {
-                result = QStringLiteral("static");
-            }
+    bool ok = true;
+    if (edit) {
+        // AGENT-GUARD: edited while the control still holds the live value
+        // and released afterwards, so the device never renders the old
+        // static value between the two snapshots.
+        const QString label = tr("Set %1").arg(lane()->parameter.name);
+        if (const OperationError error = model->applyBatch({*edit}, label)) {
+            ok = fail(error.message);
+            result = QStringLiteral("rejected");
         }
     }
     model->endGesture(m_parameterId, ticks());
@@ -283,6 +271,66 @@ bool AudioParameterBinding::commit(double value, bool silent)
     if (ok) clearError();
     finish(result);
     return ok;
+}
+
+bool AudioParameterBinding::commitWith(double value, AudioParameterBinding *other, double otherValue)
+{
+    if (!other || other == this || other->automation() != automation()) {
+        const bool ok = commit(value);
+        return other && other != this ? other->commit(otherValue) && ok : ok;
+    }
+    if (!m_active && !begin(value)) return false;
+    if (!other->m_active && !other->begin(otherValue)) {
+        cancel();
+        return false;
+    }
+    AutomationModel *model = automation();
+    const double target = canonical(value);
+    const double otherTarget = other->canonical(otherValue);
+    model->recordGesture(m_parameterId, ticks(), target);
+    model->recordGesture(other->m_parameterId, ticks(), otherTarget);
+    std::optional<AutomationBatchEdit> edit, otherEdit;
+    QString result = plan(target, edit);
+    QString otherResult = other->plan(otherTarget, otherEdit);
+    QVector<AutomationBatchEdit> edits;
+    if (edit) edits.push_back(*edit);
+    if (otherEdit) edits.push_back(*otherEdit);
+    bool ok = result != QLatin1String("rejected") && otherResult != QLatin1String("rejected");
+    if (ok && !edits.isEmpty()) {
+        // AGENT-GUARD (D-100): one gesture over two parameters is ONE history step.
+        const QString label = tr("Set %1 and %2").arg(m_parameter.name, other->m_parameter.name);
+        if (const OperationError error = model->applyBatch(edits, label)) {
+            ok = fail(error.message);
+            if (edit) result = QStringLiteral("rejected");
+            if (otherEdit) otherResult = QStringLiteral("rejected");
+        }
+    }
+    model->endGesture(m_parameterId, ticks());
+    model->endGesture(other->m_parameterId, ticks());
+    m_active = false;
+    other->m_active = false;
+    if (ok) {
+        clearError();
+        other->clearError();
+    }
+    finish(result);
+    other->finish(otherResult);
+    return ok;
+}
+
+QString AudioParameterBinding::plan(double target, std::optional<AutomationBatchEdit> &edit) const
+{
+    const AutomationModel::Lane *found = lane();
+    if (!found) return QStringLiteral("rejected");
+    if (found->writing) return QStringLiteral("recorded"); // the pass is the transaction (touch: it ends on release)
+    if (found->mode != AutomationMode::Off && !found->points.isEmpty()) return QStringLiteral("live");
+    if (target == found->parameter.defaultValue) return QStringLiteral("unchanged");
+    AutomationBatchEdit batch;
+    batch.request.kind = AutomationEditKind::EditParameter;
+    batch.request.parameterId = m_parameterId;
+    batch.input.defaultValue = target;
+    edit = batch;
+    return QStringLiteral("static");
 }
 
 bool AudioParameterBinding::cancel()

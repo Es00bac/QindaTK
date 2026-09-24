@@ -21,8 +21,10 @@ AudioEngineProcessor::AudioEngineProcessor(const AudioStreamFormat &format, cons
       m_loopEnd(initial.loopEnd)
 {
     m_publishedPosition.store(m_position);
-    if (format.outputChannels > 0 && format.sampleRate > 0)
+    if (format.outputChannels > 0 && format.sampleRate > 0) {
         m_outputTap = std::make_unique<AudioMeterTap>(format.sampleRate, format.outputChannels);
+        m_channelMeters = std::make_unique<AudioChannelMeterSink>(format.sampleRate);
+    }
 }
 
 const AudioRenderGraph *AudioEngineProcessor::offer(const AudioRenderGraph *graph)
@@ -56,15 +58,21 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
     std::fill_n(output, std::size_t(frames) * std::size_t(channels), 0.0f);
     const qint64 blockPosition = m_position;
     const bool render = m_graph && channels > 0 && m_graph->sampleRate() == m_format.sampleRate;
+    AudioChannelMeterSink *meters = render ? m_channelMeters.get() : nullptr;
     for (int done = 0; m_playing && done < frames;) {
         int count = frames - done;
         const bool looping = m_loopEnabled && m_loopEnd > m_loopStart && m_position < m_loopEnd;
         if (looping) count = int(std::min<qint64>(count, m_loopEnd - m_position));
-        if (render) m_graph->render(m_position, count, output + std::size_t(done) * channels, channels, m_scratch.get());
+        if (render)
+            m_graph->render(m_position, count, output + std::size_t(done) * channels, channels, m_scratch.get(), meters);
         m_position += count;
         done += count;
         if (looping && m_position == m_loopEnd) m_position = m_loopStart;
     }
+    // Stopped (or nothing to render): the channel meters measure silence, so
+    // they fall on audio time exactly like the output meter (D-113).
+    if (m_channelMeters && !(m_playing && render))
+        m_channelMeters->silence(m_graph ? m_graph->generation() : 0, m_graph ? m_graph->meterSlots() : 0, frames);
     // AGENT-GUARD: the meter measures exactly what the device receives, every
     // period (silence included); AudioMeterTap::process never allocates.
     if (m_outputTap) m_outputTap->process(output, frames);

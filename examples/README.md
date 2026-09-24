@@ -183,9 +183,11 @@ The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real
 device engine must supply enumeration and apply the settings.
 
-The [mixer and routing fixture](mixer-routing.qml) exercises `ChannelStrip`,
-`MixerView`, `PanningControl`, and `RoutingMatrix` against a host-owned model.
-The audio graph and DSP remain a host/backend integration task.
+The [mixer and routing fixture](mixer-routing.qml) binds `MixerView`
+(`ChannelStrip`, `ChannelRoutingPanel`, `PanningControl`) and `RoutingMatrix`
+to a real `AudioSession` mix: buses, pre/post-fader sends, a solo-safe return,
+a group and a mono track. Every control edits the graph the engine plays, and
+refused routes show the mixer's reason ([docs/audio-mixer.md](../docs/audio-mixer.md)).
 
 The [calibrated audio controls fixture](audio-controls/Main.qml) exercises
 `Knob`, `Fader`, `AudioMeter`, and `LoudnessHistory` with provider snapshots.
