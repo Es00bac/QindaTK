@@ -2,6 +2,7 @@
 #include "canvas_transform_controller.h"
 #include "canvas_transform.h"
 
+#include <QScopedValueRollback>
 #include <QtMath>
 #include <cmath>
 
@@ -17,6 +18,20 @@ bool hasLeft(const QString &handle) { return handle.contains(QLatin1String("Left
 bool hasRight(const QString &handle) { return handle.contains(QLatin1String("Right")) || handle == QLatin1String("right"); }
 bool hasTop(const QString &handle) { return handle.contains(QLatin1String("Top")) || handle == QLatin1String("top"); }
 bool hasBottom(const QString &handle) { return handle.contains(QLatin1String("Bottom")) || handle == QLatin1String("bottom"); }
+
+// Shift-move: the nearest 45-degree document direction. Axis directions zero
+// the other component exactly; diagonals project onto (±1, ±1).
+QPointF constrainedDelta(QPointF delta)
+{
+    const qreal degrees = qRadiansToDegrees(std::atan2(delta.y(), delta.x()));
+    const int octant = (int(std::lround(degrees / 45.0)) % 8 + 8) % 8;
+    if (octant % 2 == 0)
+        return octant % 4 == 0 ? QPointF(delta.x(), 0) : QPointF(0, delta.y());
+    const qreal sx = (octant == 1 || octant == 7) ? 1 : -1;
+    const qreal sy = octant <= 3 ? 1 : -1;
+    const qreal along = (delta.x() * sx + delta.y() * sy) / 2;
+    return {sx * along, sy * along};
+}
 
 } // namespace
 
@@ -108,6 +123,25 @@ QRectF CanvasTransformController::selectionBounds() const
     return bounds;
 }
 
+const CanvasObject *CanvasTransformController::primaryObject() const
+{
+    if (!m_document || !m_tools || m_tools->document() != m_document) return nullptr;
+    for (CanvasObjectId id : m_tools->selection()) {
+        const CanvasObject *object = m_document->object(id);
+        if (object && CanvasGeometry::isRenderable(*object) && m_document->effectiveVisible(*object))
+            return object;
+    }
+    return nullptr;
+}
+
+qreal CanvasTransformController::rotation() const
+{
+    const CanvasObject *object = primaryObject();
+    if (!object) return 0;
+    return CanvasTransform::normalizeRotation(
+        qRadiansToDegrees(std::atan2(object->transform.m12(), object->transform.m11())));
+}
+
 QVariantList CanvasTransformController::previewCorners() const
 {
     const QRectF bounds = m_active ? m_baseBounds : selectionBounds();
@@ -173,7 +207,7 @@ bool CanvasTransformController::capture(const QString &handle)
     m_revision = m_document->revision();
     m_handle = handle;
     m_active = true;
-    emit previewChanged();
+    if (!m_quiet) emit previewChanged();
     return true;
 }
 
@@ -193,11 +227,20 @@ bool CanvasTransformController::update(const QString &handle, QPointF start,
             excluded.append(QString::number(object.id));
         current = m_snapModel->snapPoint(current, excluded).value(QStringLiteral("point")).toPointF();
     }
-    const QPointF delta = current - start;
     QTransform world;
+    return gestureWorld(handle, start, current, modifiers, &world) && preview(world);
+}
+
+bool CanvasTransformController::gestureWorld(const QString &handle, QPointF start, QPointF current,
+                                             int modifiers, QTransform *world) const
+{
+    QPointF delta = current - start;
     if (handle == QLatin1String("move")) {
-        world = QTransform::fromTranslate(delta.x(), delta.y());
-    } else if (handle == QLatin1String("rotate")) {
+        if (modifiers & Qt::ShiftModifier) delta = constrainedDelta(delta);
+        *world = QTransform::fromTranslate(delta.x(), delta.y());
+        return true;
+    }
+    if (handle == QLatin1String("rotate")) {
         const QPointF from = start - m_basePivot;
         const QPointF to = current - m_basePivot;
         if (std::hypot(from.x(), from.y()) <= 1e-9
@@ -207,38 +250,43 @@ bool CanvasTransformController::update(const QString &handle, QPointF start,
         degrees = CanvasTransform::normalizeRotation(degrees);
         if (modifiers & Qt::ShiftModifier)
             degrees = std::round(degrees / 15.0) * 15.0;
-        world = QTransform::fromTranslate(-m_basePivot.x(), -m_basePivot.y())
-                * QTransform().rotate(degrees)
-                * QTransform::fromTranslate(m_basePivot.x(), m_basePivot.y());
-    } else {
-        const bool xActive = hasLeft(handle) || hasRight(handle);
-        const bool yActive = hasTop(handle) || hasBottom(handle);
-        if ((xActive && m_baseBounds.width() <= 1e-12)
-            || (yActive && m_baseBounds.height() <= 1e-12)) return false;
-        const bool centered = modifiers & Qt::AltModifier;
-        const QPointF edge = handlePoint(handle, m_baseBounds);
-        const QPointF pivot(
-            centered ? m_baseBounds.center().x()
-                     : hasLeft(handle) ? m_baseBounds.right()
-                     : hasRight(handle) ? m_baseBounds.left() : m_baseBounds.center().x(),
-            centered ? m_baseBounds.center().y()
-                     : hasTop(handle) ? m_baseBounds.bottom()
-                     : hasBottom(handle) ? m_baseBounds.top() : m_baseBounds.center().y());
-        qreal sx = xActive ? (edge.x() + delta.x() - pivot.x()) / (edge.x() - pivot.x()) : 1;
-        qreal sy = yActive ? (edge.y() + delta.y() - pivot.y()) / (edge.y() - pivot.y()) : 1;
-        if ((modifiers & Qt::ShiftModifier) && xActive && yActive) {
-            if (std::abs(sx - 1) >= std::abs(sy - 1)) sy = sx;
-            else sx = sy;
-        }
-        if (!std::isfinite(sx) || !std::isfinite(sy)
-            || std::abs(sx) <= 1e-12 || std::abs(sy) <= 1e-12) return false;
-        world = QTransform::fromTranslate(-pivot.x(), -pivot.y())
-                * QTransform::fromScale(sx, sy)
-                * QTransform::fromTranslate(pivot.x(), pivot.y());
+        *world = QTransform::fromTranslate(-m_basePivot.x(), -m_basePivot.y())
+                 * QTransform().rotate(degrees)
+                 * QTransform::fromTranslate(m_basePivot.x(), m_basePivot.y());
+        return true;
     }
+    const bool xActive = hasLeft(handle) || hasRight(handle);
+    const bool yActive = hasTop(handle) || hasBottom(handle);
+    if ((xActive && m_baseBounds.width() <= 1e-12)
+        || (yActive && m_baseBounds.height() <= 1e-12)) return false;
+    const bool centered = modifiers & Qt::AltModifier;
+    const QPointF edge = handlePoint(handle, m_baseBounds);
+    const QPointF pivot(
+        centered ? m_baseBounds.center().x()
+                 : hasLeft(handle) ? m_baseBounds.right()
+                 : hasRight(handle) ? m_baseBounds.left() : m_baseBounds.center().x(),
+        centered ? m_baseBounds.center().y()
+                 : hasTop(handle) ? m_baseBounds.bottom()
+                 : hasBottom(handle) ? m_baseBounds.top() : m_baseBounds.center().y());
+    qreal sx = xActive ? (edge.x() + delta.x() - pivot.x()) / (edge.x() - pivot.x()) : 1;
+    qreal sy = yActive ? (edge.y() + delta.y() - pivot.y()) / (edge.y() - pivot.y()) : 1;
+    if ((modifiers & Qt::ShiftModifier) && xActive && yActive) {
+        if (std::abs(sx - 1) >= std::abs(sy - 1)) sy = sx;
+        else sx = sy;
+    }
+    if (!std::isfinite(sx) || !std::isfinite(sy)
+        || std::abs(sx) <= 1e-12 || std::abs(sy) <= 1e-12) return false;
+    *world = QTransform::fromTranslate(-pivot.x(), -pivot.y())
+             * QTransform::fromScale(sx, sy)
+             * QTransform::fromTranslate(pivot.x(), pivot.y());
+    return true;
+}
+
+bool CanvasTransformController::preview(const QTransform &world)
+{
     CanvasEdit preview;
-    preview.label = handle == QLatin1String("move") ? tr("Move selection")
-                    : handle == QLatin1String("rotate") ? tr("Rotate selection")
+    preview.label = m_handle == QLatin1String("move") ? tr("Move selection")
+                    : m_handle == QLatin1String("rotate") ? tr("Rotate selection")
                     : tr("Resize selection");
     for (const CanvasObject &before : std::as_const(m_before)) {
         CanvasObject after = before;
@@ -250,8 +298,19 @@ bool CanvasTransformController::update(const QString &handle, QPointF start,
     m_previewEdit = preview;
     m_previewWorld = world;
     m_previewBounds = world.mapRect(m_baseBounds);
-    emit previewChanged();
+    if (!m_quiet) emit previewChanged();
     return true;
+}
+
+bool CanvasTransformController::commitNumeric(const QString &handle, const QTransform &world)
+{
+    const QScopedValueRollback<bool> quiet(m_quiet, true);
+    if (m_active || !capture(handle)) return false;
+    if (!preview(world)) {
+        clearPreview();
+        return false;
+    }
+    return finish(handle);
 }
 
 bool CanvasTransformController::finish(const QString &handle)
@@ -262,13 +321,16 @@ bool CanvasTransformController::finish(const QString &handle)
         return false;
     }
     const CanvasEdit edit = m_previewEdit;
+    // AGENT-GUARD: end the gesture before committing, so the document's
+    // edited notification never publishes `active` for a finished gesture
+    // (an inspector field would see a read-only flicker while focused).
+    clearPreview();
     bool committed = false;
     if (!edit.isEmpty()) {
         m_committing = true;
         committed = m_document->commit(edit);
         m_committing = false;
     }
-    clearPreview();
     emit changed();
     emit gestureFinished(committed);
     return edit.isEmpty() || committed;
@@ -295,7 +357,7 @@ void CanvasTransformController::clearPreview()
 bool CanvasTransformController::nudge(const QString &handle, qreal viewDx,
                                       qreal viewDy, int modifiers)
 {
-    if (handle == QLatin1String("rotate")) return false;
+    if (handle == QLatin1String("rotate") || m_active) return false;
     if (!m_viewState || !std::isfinite(viewDx) || !std::isfinite(viewDy)
         || m_viewState->zoom() <= 0) return false;
     const qreal angle = qDegreesToRadians(m_viewState->rotation());
@@ -304,7 +366,11 @@ bool CanvasTransformController::nudge(const QString &handle, qreal viewDx,
     const QPointF delta((cosine * viewDx + sine * viewDy) / m_viewState->zoom(),
                         (-sine * viewDx + cosine * viewDy) / m_viewState->zoom());
     const QPointF start = handlePoint(handle, selectionBounds());
-    if (!update(handle, start, start + delta, modifiers)) return false;
+    const QScopedValueRollback<bool> quiet(m_quiet, true); // atomic: no preview frames
+    if (!update(handle, start, start + delta, modifiers)) {
+        cancel(handle); // a rejected step must not leave a captured gesture behind
+        return false;
+    }
     return finish(handle);
 }
 
@@ -317,8 +383,35 @@ bool CanvasTransformController::rotateBy(qreal degrees, int modifiers)
     const QPointF current = center
         + QPointF(std::cos(qDegreesToRadians(normalized)),
                   std::sin(qDegreesToRadians(normalized)));
-    if (!update(QStringLiteral("rotate"), start, current, modifiers)) return false;
+    const QScopedValueRollback<bool> quiet(m_quiet, true);
+    if (!update(QStringLiteral("rotate"), start, current, modifiers)) {
+        cancel(QStringLiteral("rotate"));
+        return false;
+    }
     return finish(QStringLiteral("rotate"));
+}
+
+bool CanvasTransformController::rotateTo(qreal degrees)
+{
+    if (!std::isfinite(degrees) || !primaryObject()) return false;
+    return rotateBy(degrees - rotation());
+}
+
+bool CanvasTransformController::setBounds(qreal x, qreal y, qreal width, qreal height)
+{
+    const QRectF base = selectionBounds();
+    if (m_active || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width)
+        || !std::isfinite(height) || !primaryObject()) return false;
+    // A zero extent (a straight polyline) can move but cannot be scaled.
+    const qreal sx = width == base.width() ? 1 : base.width() > 1e-12 ? width / base.width() : 0;
+    const qreal sy = height == base.height() ? 1 : base.height() > 1e-12 ? height / base.height() : 0;
+    if (!std::isfinite(sx) || !std::isfinite(sy)
+        || std::abs(sx) <= 1e-12 || std::abs(sy) <= 1e-12) return false;
+    const QTransform world = QTransform::fromTranslate(-base.x(), -base.y())
+                             * QTransform::fromScale(sx, sy)
+                             * QTransform::fromTranslate(x, y);
+    const bool resize = sx != 1 || sy != 1;
+    return commitNumeric(resize ? QStringLiteral("bottomRight") : QStringLiteral("move"), world);
 }
 
 } // namespace QindaTK

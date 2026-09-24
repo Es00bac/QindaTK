@@ -24,6 +24,8 @@ class CanvasTransformController : public QObject {
     Q_PROPERTY(QRectF previewBounds READ previewBounds NOTIFY previewChanged)
     Q_PROPERTY(QVariantList previewCorners READ previewCorners NOTIFY previewChanged)
     Q_PROPERTY(QPointF pivot READ pivot WRITE setPivot NOTIFY changed)
+    // Angle of the primary (first selected) object's local x axis, degrees.
+    Q_PROPERTY(qreal rotation READ rotation NOTIFY changed)
     Q_PROPERTY(bool active READ active NOTIFY previewChanged)
 public:
     explicit CanvasTransformController(QObject *parent = nullptr) : QObject(parent) {}
@@ -42,6 +44,7 @@ public:
     QPointF pivot() const { return m_hasCustomPivot ? m_pivot : selectionBounds().center(); }
     void setPivot(QPointF point);
     Q_INVOKABLE void resetPivot();
+    qreal rotation() const;
     bool active() const { return m_active; }
 
     // The first update captures selected objects and a document revision.
@@ -55,6 +58,12 @@ public:
                            int modifiers = 0);
     // Numeric/keyboard rotation in document degrees around `pivot`.
     Q_INVOKABLE bool rotateBy(qreal degrees, int modifiers = 0);
+    // Inspector entry: rotates the group so `rotation` becomes `degrees`.
+    Q_INVOKABLE bool rotateTo(qreal degrees);
+    // Inspector entry: maps selectionBounds onto this document rectangle
+    // (move when only x/y differ, otherwise resize from the top-left). The
+    // same one-CanvasEdit operation as the handles, never snapped.
+    Q_INVOKABLE bool setBounds(qreal x, qreal y, qreal width, qreal height);
 
 signals:
     void changed();
@@ -64,6 +73,11 @@ signals:
 
 private:
     bool capture(const QString &handle);
+    bool gestureWorld(const QString &handle, QPointF start, QPointF current,
+                      int modifiers, QTransform *world) const;
+    bool preview(const QTransform &world);
+    bool commitNumeric(const QString &handle, const QTransform &world);
+    const CanvasObject *primaryObject() const;
     void clearPreview();
     static bool supportedHandle(const QString &handle);
     static QPointF handlePoint(const QString &handle, const QRectF &bounds);
@@ -84,6 +98,7 @@ private:
     quint64 m_revision = 0;
     bool m_active = false;
     bool m_committing = false;
+    bool m_quiet = false; // keyboard/numeric: publish only the finished state
 };
 
 } // namespace QindaTK

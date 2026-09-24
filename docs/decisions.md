@@ -527,6 +527,26 @@ outside the radial domain surfaces as an error rather than plausible but
 false geometry. Cartesian chart APIs remain unchanged. CSV records the
 coordinate convention so the display can be interpreted outside the view.
 
+## D-041 — Canvas guides are document content
+
+**Context.** CAN-07 needs guides that snap, move through transactions and
+return after save/reopen, and it left the document/workspace ownership
+policy open. `SnapModel` and `GuideLayer` already read plain host records.
+
+**Decision.** The reference `CanvasDocument` owns an ordered guide list as
+content. Add, move and delete are ordinary `CanvasEdit` steps carrying the
+whole before/after list, so undo, stale-edit rejection and the shared session
+history need no new mechanism. The file keeps its binary layout and version:
+the record travels in the extensions JSON under `qindatk.canvas.guides`,
+which the decoder validates and moves out of the host extensions. Guide ids
+come from a saved counter that is never reused. Host extensions and guides
+share one byte budget; an overflowing save fails explicitly.
+
+**Consequences.** A document's guides survive save, reopen, recovery and
+undo, and older readers keep them as opaque extension data. Workspace-only
+or per-user guides stay possible because the overlays accept any host list;
+no workspace guide store is provided.
+
 ## D-045 — Chart axes own linked viewports; selections keep source domains
 
 **Context.** Sharing a chart scale while each renderer stores independent

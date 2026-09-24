@@ -38,6 +38,49 @@ TestCase {
         }
     }
 
+    Component {
+        id: transformComponent
+        Item {
+            id: host
+            property var session: null
+            property alias tools: hostTools
+            property alias spatial: hostTransform
+            Tk.ToolController {
+                id: hostTools
+                document: host.session ? host.session.model : null
+            }
+            Tk.SpatialTransform {
+                id: hostTransform
+                document: host.session ? host.session.model : null
+                tools: hostTools
+            }
+        }
+    }
+
+    function test_transform_and_guide_edits_share_session_history() {
+        manager.recoveryManager.directory = ""
+        const session = manager.createDocument("qindatk.canvas-document.v1")
+        verify(session !== null)
+        const host = createTemporaryObject(transformComponent, root, {session: session})
+        verify(host !== null)
+        const model = session.model
+        const id = model.addRect(10, 10, 40, 30, "#4a81a1")
+        host.tools.selection = [id]
+        verify(host.spatial.setBounds(30, 10, 40, 30))
+        compare(manager.undoService.activeModel, model)
+        compare(manager.undoService.undoText, "Move selection")
+        const guideId = model.addGuide("vertical", 30)
+        compare(guideId, "guide-1")
+        compare(manager.undoService.undoText, "Add guide")
+        verify(manager.undoService.undo())
+        compare(model.guides.length, 0)
+        verify(manager.undoService.undo())
+        compare(model.objectInfo(id).bounds.x, 10)
+        verify(manager.undoService.redo())
+        compare(model.objectInfo(id).bounds.x, 30)
+        verify(manager.closeDocument(session.documentId, Tk.DocumentManager.Discard))
+    }
+
     function test_session_model_drives_view_and_shared_history() {
         manager.recoveryManager.directory = "" // keep autosave out of the user's data
         const session = manager.createDocument("qindatk.canvas-document.v1")

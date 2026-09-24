@@ -19,8 +19,8 @@ namespace QindaTK {
 class UndoService;
 
 // One atomic document change. Object `changes` are replacements by id:
-// `before` absent = insert, `after` absent = remove. Layer, image and page
-// deltas follow the same before/after rule (a null image pointer = absent).
+// `before` absent = insert, `after` absent = remove. Layer, image, page and
+// guide deltas follow the same before/after rule (a null image pointer = absent).
 // Tools build one of these at gesture end; nothing reaches the document
 // before that. The applied edit is also the recorded undo step, so history
 // holds touched-object deltas and shared image pointers, never a scene copy.
@@ -46,6 +46,11 @@ struct CanvasEdit {
         QColor beforeColor;
         QColor afterColor;
     };
+    // The whole ordered guide list before and after (guides are few).
+    struct GuideChange {
+        QVector<CanvasGuide> before;
+        QVector<CanvasGuide> after;
+    };
     QString label;
     QVector<Change> changes;
     QVector<LayerChange> layers = {};
@@ -54,9 +59,10 @@ struct CanvasEdit {
     // The reset generation the edit was built against, when the builder
     // knows it; a different generation rejects the edit as stale.
     std::optional<quint64> baseResetGeneration = {};
+    std::optional<GuideChange> guides = {};
     [[nodiscard]] bool isEmpty() const
     {
-        return changes.isEmpty() && layers.isEmpty() && images.isEmpty() && !page;
+        return changes.isEmpty() && layers.isEmpty() && images.isEmpty() && !page && !guides;
     }
 };
 
@@ -131,6 +137,9 @@ class CanvasDocument : public CanvasDocumentAdapter, public DocumentModel, publi
     Q_PROPERTY(QByteArray outputProfileIcc READ outputProfileIcc NOTIFY changed)
     Q_PROPERTY(qulonglong activeLayer READ activeLayer WRITE setActiveLayer NOTIFY changed)
     Q_PROPERTY(QVariantList layers READ layerList NOTIFY changed)
+    // {id, orientation: "vertical"|"horizontal", position}: the record shape
+    // GuideLayer.guideData and SnapModel.guides read.
+    Q_PROPERTY(QVariantList guides READ guideList NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString undoText READ undoText NOTIFY historyChanged)
@@ -177,6 +186,8 @@ public:
     // revision and is not saved; a loaded document starts on its top layer.
     void setActiveLayer(CanvasLayerId id);
     QVariantList layerList() const;
+    QVariantList guideList() const;
+    const QVector<CanvasGuide> &guideRecords() const { return m_guides; }
     const CanvasGeometry::SpatialIndex &spatialIndex() const { return m_index; }
     QVector<CanvasObjectId> degenerateObjects() const;
     QVector<CanvasObjectId> objectIds() const; // ascending
@@ -256,6 +267,11 @@ public:
     Q_INVOKABLE bool setLayerLockedById(qulonglong id, bool locked) { return setLayerLocked(id, locked); }
     Q_INVOKABLE bool removeLayerById(qulonglong id) { return removeLayer(id); }
     Q_INVOKABLE QVariantMap objectInfo(qulonglong id) const;
+    // Document guides (docs/canvas.md#document-guides). Each accepted call is
+    // one undoable edit; addGuide returns the new stable id or "" on refusal.
+    Q_INVOKABLE QString addGuide(const QString &orientation, qreal position);
+    Q_INVOKABLE bool moveGuide(const QString &id, qreal position);
+    Q_INVOKABLE bool removeGuide(const QString &id);
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
     // Removes every object and image (a model reset, not an undoable edit).
@@ -313,6 +329,8 @@ private:
     QHash<CanvasObjectId, CanvasObject> m_objects;
     QHash<CanvasLayerId, CanvasLayer> m_layers;
     QHash<CanvasImageId, CanvasTiledImagePtr> m_images;
+    QVector<CanvasGuide> m_guides;
+    quint64 m_nextGuide = 1;
     QHash<CanvasObjectId, QRectF> m_bounds;
     QHash<CanvasLayerId, qsizetype> m_layerUse;  // objects per layer
     QHash<CanvasImageId, qsizetype> m_imageUse;  // image objects per image

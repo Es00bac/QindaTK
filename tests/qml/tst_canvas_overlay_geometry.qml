@@ -20,6 +20,7 @@ TestCase {
             property alias overlay: selectionOverlay
             property alias transformSpy: requestSpy
             property alias rotationStepSpy: rotationStepSignal
+            property alias nudgeSpy: nudgeSignal
             Tk.CanvasDocument {
                 id: documentItem
                 pageRect: Qt.rect(0, 0, 240, 200)
@@ -50,6 +51,11 @@ TestCase {
                 id: rotationStepSignal
                 target: selectionOverlay
                 signalName: "rotateStepRequested"
+            }
+            SignalSpy {
+                id: nudgeSignal
+                target: selectionOverlay
+                signalName: "transformNudgeRequested"
             }
         }
     }
@@ -106,5 +112,48 @@ TestCase {
         keyClick(Qt.Key_Right)
         compare(scene.rotationStepSpy.count, 1)
         compare(scene.rotationStepSpy.signalArguments[0][0], 15)
+    }
+
+    function test_handle_drag_at_view_edge_autoscrolls() {
+        const scene = createTemporaryObject(sceneComponent, this)
+        verify(scene !== null)
+        waitForRendering(scene)
+        const overlay = scene.overlay
+        const handle = findChild(overlay, "handleRight")
+        verify(handle !== null)
+        const start = handle.mapToItem(overlay, handle.width / 2, handle.height / 2)
+        const edgeX = overlay.width - overlay.autoScrollMargin / 2
+        const y = overlay.height / 2
+        mousePress(overlay, start.x, start.y)
+        mouseMove(overlay, edgeX, y, -1, Qt.LeftButton)
+        verify(overlay.autoScrolling)
+        const before = scene.view.mapToDocument(Qt.point(edgeX, y))
+        scene.transformSpy.clear()
+        verify(overlay.autoScrollStep(0.05))
+        const after = scene.view.mapToDocument(Qt.point(edgeX, y))
+        verify(Math.hypot(after.x - before.x, after.y - before.y) > 0.1)
+        const last = scene.transformSpy.signalArguments[scene.transformSpy.count - 1]
+        compare(last[0], "right")
+        fuzzyCompare(last[2].x, after.x, 1e-6)
+        fuzzyCompare(last[2].y, after.y, 1e-6)
+        mouseRelease(overlay, edgeX, y)
+        verify(!overlay.autoScrolling)
+        verify(!overlay.autoScrollStep(0.05))
+    }
+
+    function test_move_target_reports_keyboard_move() {
+        const scene = createTemporaryObject(sceneComponent, this)
+        verify(scene !== null)
+        waitForRendering(scene)
+        const target = findChild(scene.overlay, "selectionMoveTarget")
+        verify(target !== null)
+        compare(target.Accessible.name, "Move selection")
+        fuzzyCompare(target.width, scene.overlay.viewBounds.width, 0.01)
+        target.forceActiveFocus()
+        keyClick(Qt.Key_Left)
+        compare(scene.nudgeSpy.count, 1)
+        compare(scene.nudgeSpy.signalArguments[0][0], "move")
+        compare(scene.nudgeSpy.signalArguments[0][1], -Tk.Theme.size.controlSm)
+        compare(scene.nudgeSpy.signalArguments[0][2], 0)
     }
 }

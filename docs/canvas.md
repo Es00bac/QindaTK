@@ -14,6 +14,8 @@ and PLT-10 RenderSurfaceAdapter. Evidence:
 | `Tk.CanvasDocument` | C++ | Reference spatial document (`CanvasDocumentAdapter`, `DocumentModel`); opens, saves and recovers as a `DocumentSession` |
 | `Tk.CanvasViewState` | C++ | Shareable navigation pose; views that share one are synchronized |
 | `Tk.SnapModel` | C++ | Pure spatial snapping query over guides, visible object geometry and grid |
+| `Tk.SpatialTransform` | C++ | Group move/resize/rotate: handles, keyboard and numeric entry commit the same one edit |
+| `Tk.SpatialTransformEditor` | QML | Numeric inspector (position, size, rotation, pivot) over a `SpatialTransform` |
 | `Tk.ToolController` | C++ | Active/temporary tools and the one-gesture state machine |
 | `Tk.CanvasSelectionModel` | C++ | Shared live-object selection across tool controllers/views |
 | `Tk.HitTestService` | C++ | Point and region picking with lock/visibility policy |
@@ -141,15 +143,14 @@ bounds that cross both clamped index limits.
   `EditTransaction`, so bridging canvas edits into it is still open. Canvas
   sessions, persistence, recovery and shared undo are provided through the
   [domain model boundary](document-models.md).
-- **WP-041.** `SnapModel` supplies one-point guide/object/grid queries, and
-  `CanvasSelectionModel` shares stable selected IDs between controllers for one
-  document. Group transform edits exist on the reference canvas. Guide
-  persistence and inspector wiring remain open. Its `SelectionOverlay`
-  presentation maps a host-supplied selection and reports handle gestures.
-  The canvas exposes these contracts:
-  `CanvasToolPreview`, `ToolController.selection`, `HitTestService`,
-  `CanvasSurface::mapFromDocument` and the `canvasOverlaySlot` item. It
-  does not itself store selection or calculate snaps.
+- **WP-041.** Selection, snapping, group transforms, numeric entry and
+  document guides are described under [spatial transforms](#spatial-transforms)
+  and [document guides](#document-guides). Not claimed: skew handles, a
+  draggable pivot handle, object-angle snapping, and grid or measurement
+  overlays; none is in WP-041's requirements. The canvas itself still does not
+  store selection or calculate snaps; `CanvasToolPreview`,
+  `ToolController.selection`, `HitTestService`, `CanvasSurface::mapFromDocument`
+  and the `canvasOverlaySlot` item remain the contracts overlays build on.
 
 <a id="persistence"></a>
 ## Persistence and native format
@@ -167,7 +168,8 @@ also accepts versions 1 through 4), the
 document UUID, revision and reset generation, then the exact 64-bit
 `nextObject`/`nextLayer`/`nextImage` counters and `nextZ`, the page rectangle
 and colour, an owned output RGB ICC profile (or empty for sRGB), the session
-extensions (JSON), layers, images and objects in
+extensions (JSON, which also carries the [document guides](#document-guides)
+record), layers, images and objects in
 ascending id order, and finally a SHA-256 of everything before it. Equal
 content therefore gives equal bytes. Names are stored as UTF-16 code units,
 so every `QString` round-trips exactly; UTF-8 would drop a leading U+FEFF or
@@ -423,7 +425,13 @@ and the owning `CanvasView` as `surface`. The component maps the corners on
 each view change, paints the frame, and places eight resize handles plus a
 rotation handle. Pointer events report a handle and document-space
 start/current points; keyboard and accessible actions report a nudge or
-rotation-step request. The host owns selection identity,
+rotation-step request; the focusable `selectionMoveTarget` (no pointer
+handler, so canvas tools still get presses) reports arrow keys as a `move`
+nudge. A handle drag held within `autoScrollMargin` (`size.dropEdge`) of a
+view edge, or past it, pans the surface every frame (`autoScrolling`,
+`autoScrollStep(seconds)`) and re-reports the unchanged view point as a new
+document point, so the gesture continues over newly revealed content. The
+host owns selection identity,
 snapping, constraints, preview, cancellation and the one authoritative commit.
 `Tk.SpatialTransform` can own that edit boundary for a `CanvasDocumentAdapter`:
 connect the overlay's transform request/finish/cancel/nudge and rotation-step
@@ -435,8 +443,14 @@ from the bound `ToolController`.
 records with stable `id`, `orientation` (`vertical` or `horizontal`) and
 document-unit `position`. It clips their transformed lines to the view and
 offers pointer, keyboard and accessible move/delete requests. Its
-`requestAdd` helper maps a view point back into document coordinates. The
-host owns guide persistence and the edit transaction. The
+`requestAdd` helper maps a view point back into document coordinates. A
+pointer drag is previewed by the layer itself: it reports every move and one
+`guideMoveFinished` (or `guideMoveCanceled`), so a host that commits on finish
+records one step per drag. A keyboard or accessible step reports a move and
+its finish. `previewAdd`/`finishAdd`/`cancelAdd` let a host drag a new guide
+out of a ruler (`pendingGuide` is the previewed record). The host owns the
+records and the edit; `Tk.CanvasDocument.guides` is a ready document-owned
+source ([document guides](#document-guides)). The
 [guide scene](../examples/spatial-canvas/GuideScene.qml) shows both orientations
 over a rotated page.
 
@@ -455,6 +469,37 @@ while an artboard editing tool owns the board interior.
 Board backgrounds are document data painted by the host renderer below objects;
 the overlay only paints frames. The view does not own geometry, apply previews, clip
 content, persist, export or provide undo; those remain domain responsibilities.
+
+<a id="document-guides"></a>
+## Document guides
+
+`Tk.CanvasDocument.guides` lists `{id, orientation, position}` records in
+document order: the shape `GuideLayer.guideData` and `SnapModel.guides` read,
+so both can bind to it directly. A vertical guide is the line x = position.
+`addGuide(orientation, position)` returns a new stable id (`guide-<n>`, from a
+saved counter that is never reused) or `""`; `moveGuide(id, position)` and
+`removeGuide(id)` return whether an edit was made. Each accepted call is one
+`CanvasEdit` (*Add guide*, *Move guide*, *Delete guide*) carrying the whole
+before/after guide list, so undo, redo, stale-edit rejection and the shared
+session history work as for objects. Guides do not paint document pixels.
+Limits: `maximumGuides` (1024) and `maximumGuideIdLength` (64); positions must
+be finite.
+
+Guides are document content (decision D-041): saved inside the extensions
+JSON under `qindatk.canvas.guides` as `{next, items}`, so the binary layout and
+version are unchanged and an older reader keeps the record as opaque data.
+The decoder moves the record out of the session extensions into the
+document and validates it (orientation, numeric finite position, unique ids,
+limits, an integral counter). Host extensions and the guide record share
+`maximumExtensionBytes`; a save that would exceed it fails explicitly. A
+document that never had a guide writes no record, so its bytes are unchanged.
+Workspace-only guides remain possible: any host array works as `guideData`.
+
+A ruler creates a guide through host composition: a pointer handler over the
+`Tk.Ruler` maps each drag point into the `GuideLayer` and calls `previewAdd`,
+then `finishAdd` when released over the layer or `cancelAdd` otherwise; the
+layer's `guideAddRequested` handler calls `addGuide`. Commit guide drags from
+`guideMoveFinished` and deletes from `guideDeleteRequested`.
 
 <a id="spatial-snapping"></a>
 <a id="alignment-commands"></a>
@@ -519,9 +564,39 @@ one `CanvasEdit`, while `cancel` drops the preview. External edits or selection
 changes cancel a gesture. A keyboard nudge maps view pixels through the bound
 `CanvasViewState` rotation and zoom before committing the same operation.
 
-This slice uses the reference canvas edit history. A shared session/undo
-adapter, numeric inspector wiring, persisted pivot,
-transformed group-bounds policy and richer constraint rules remain WP-041 work.
+**Constraints and frames.** Snapping and constraints are measured in
+document space; only keyboard steps are given in view pixels. Shift while
+moving keeps the delta on the nearest 45-degree document direction (an axis
+direction zeroes the other component exactly). The selection frame is the
+axis-aligned document union of the selected objects' transformed bounds; a
+running gesture shows the transformed frame through `previewCorners`, and a
+committed rotation leaves an axis-aligned union again (no group frame is
+stored). The default pivot is the frame center. A custom `pivot` is editor
+state like the active layer: it is not document content, is not saved or
+undone, and resets when the selection changes.
+
+**Numeric entry.** `setBounds(x, y, width, height)` maps the frame onto a
+document rectangle: a pure translation is labelled *Move selection*, anything
+else *Resize selection* (scaled from the top-left). `rotation` is the angle of
+the primary (first selected, visible) object's local x axis, and
+`rotateTo(degrees)` rotates the group by the difference about `pivot`. These
+calls build the same world transform as the handles and commit the same one
+`CanvasEdit`; they never snap. A zero extent or a non-finite value is refused
+without an edit, as is any call while a pointer gesture is active (a refused
+keyboard step also cancels its captured gesture). Keyboard steps and numeric
+entries are atomic: bindings never observe `active` or a preview for them. `Tk.SpatialTransformEditor`
+exposes X/Y, W/H, rotation and pivot fields over these calls. It reads
+unedited components from the exact `selectionBounds`, follows
+`previewBounds` read-only during a gesture, and snaps a refused value back.
+Its fields are `spatialX`, `spatialY`, `spatialWidth`, `spatialHeight`,
+`spatialRotation`, `spatialPivotX` and `spatialPivotY`.
+
+**History.** Every finish, keyboard step and numeric entry is one
+`CanvasDocument` commit. In a `DocumentSession` that history is the
+application's shared `UndoService`, so the manager's undo reverts it, in order
+with guide edits. The
+[inspector scene](../examples/spatial-canvas/InspectorScene.qml) wires handles,
+keyboard, inspector, snapping and ruler-created guides to one document.
 
 `CanvasSelectionModel` is a QML-facing selection source. Set its `document`
 to the shared `CanvasDocumentAdapter`, then set each `ToolController`'s

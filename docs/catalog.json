@@ -14870,7 +14870,7 @@
       "name": "GuideLayer",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (WP-041): the host supplies guideData records with stable `id`, `orientation` (horizontal/vertical), and document-space `position`. This layer paints/maps guides and reports requests; guide persistence, snapping, and authoritative movement remain with the host model.",
+      "description": "AGENT-CONTRACT (WP-041, docs/canvas.md#document-guides): the host supplies guideData records with stable `id`, `orientation` (horizontal/vertical) and document-space `position` (Tk.CanvasDocument.guides has this shape). This layer paints/maps guides, previews a dragged guide or a ruler drag itself, and reports requests; persistence, snapping and the authoritative edit remain with the host model. A pointer drag reports moves and one finish; a keyboard or accessible step reports a move and its finish, so a host that commits on guideMoveFinished records one undo step per gesture.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/GuideLayer.qml",
@@ -14938,6 +14938,14 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "pendingGuide",
+          "type": "var",
+          "default": "_pendingAdd",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -14972,8 +14980,24 @@
           "parameters": "guide"
         },
         {
+          "name": "documentPositionAt",
+          "parameters": "orientation, localX, localY"
+        },
+        {
           "name": "requestAdd",
           "parameters": "orientation, localX, localY"
+        },
+        {
+          "name": "previewAdd",
+          "parameters": "orientation, localX, localY"
+        },
+        {
+          "name": "finishAdd",
+          "parameters": "orientation, localX, localY"
+        },
+        {
+          "name": "cancelAdd",
+          "parameters": ""
         },
         {
           "name": "moveBy",
@@ -28384,7 +28408,7 @@
       "name": "SelectionOverlay",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (docs/canvas.md#overlays, WP-041): the canvas host supplies document-space selectionCorners, or document-space selectionBounds as a fallback, and a CanvasView surface. This item owns only view-space presentation and gesture reporting; a geometry adapter owns validation, snapping, preview and commit.",
+      "description": "AGENT-CONTRACT (docs/canvas.md#overlays, WP-041): the canvas host supplies document-space selectionCorners, or document-space selectionBounds as a fallback, and a CanvasView surface. This item owns only view-space presentation and gesture reporting; a geometry adapter owns validation, snapping, preview and commit. A handle drag held within autoScrollMargin of (or beyond) a view edge pans the surface every frame and re-reports the same view point as a new document point, so the gesture continues.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/SelectionOverlay.qml",
@@ -28462,6 +28486,30 @@
           "required": false
         },
         {
+          "name": "autoScroll",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "autoScrollMargin",
+          "type": "real",
+          "default": "Tk.Theme.size.dropEdge",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "autoScrolling",
+          "type": "bool",
+          "default": "dragState.handle.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "viewCorners",
           "type": "var",
           "default": "mappedCorners()",
@@ -28520,6 +28568,18 @@
         {
           "name": "rotationPoint",
           "parameters": ""
+        },
+        {
+          "name": "trackDrag",
+          "parameters": "handle, startDocumentPoint, viewPoint, modifiers"
+        },
+        {
+          "name": "endDrag",
+          "parameters": ""
+        },
+        {
+          "name": "autoScrollStep",
+          "parameters": "seconds"
         }
       ],
       "enums": {},
@@ -28533,6 +28593,7 @@
       "objectNames": [
         "handleRotate",
         "selectionFrame",
+        "selectionMoveTarget",
         "selectionOverlay"
       ]
     },
@@ -30399,6 +30460,102 @@
       "valueType": false,
       "bridge": false,
       "objectNames": []
+    },
+    {
+      "name": "SpatialTransformEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/canvas.md#spatial-transforms, WP-041): the numeric inspector of a Tk.SpatialTransform. Position and size call setBounds, rotation calls rotateTo and pivot writes `pivot`, so a typed value is the same one-CanvasEdit operation (one undo entry, never snapped) as a handle drag or keyboard step. Unedited components come from the controller's exact selectionBounds, never from the rounded field text. While a handle gesture runs the fields follow previewBounds and are read-only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SpatialTransformEditor.qml",
+      "properties": [
+        {
+          "name": "controller",
+          "type": "Tk.SpatialTransform",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "small",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "decimals",
+          "type": "int",
+          "default": "2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "available",
+          "type": "bool",
+          "default": "controller !== null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editable",
+          "type": "bool",
+          "default": "available && !controller.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "sync",
+          "parameters": ""
+        },
+        {
+          "name": "setBoundsComponent",
+          "parameters": "index, value"
+        },
+        {
+          "name": "setRotation",
+          "parameters": "value"
+        },
+        {
+          "name": "setPivotComponent",
+          "parameters": "index, value"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "spatialHeight",
+        "spatialPivotX",
+        "spatialPivotY",
+        "spatialRotation",
+        "spatialTransformEditor",
+        "spatialWidth",
+        "spatialX",
+        "spatialY"
+      ]
     },
     {
       "name": "SpectrogramView",
@@ -38842,6 +38999,13 @@
           "constant": false
         },
         {
+          "name": "guides",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "canUndo",
           "type": "bool",
           "default": "",
@@ -39061,6 +39225,21 @@
           "name": "objectInfo",
           "returns": "QVariantMap",
           "parameters": "qulonglong id"
+        },
+        {
+          "name": "addGuide",
+          "returns": "QString",
+          "parameters": "const QString &orientation, qreal position"
+        },
+        {
+          "name": "moveGuide",
+          "returns": "bool",
+          "parameters": "const QString &id, qreal position"
+        },
+        {
+          "name": "removeGuide",
+          "returns": "bool",
+          "parameters": "const QString &id"
         },
         {
           "name": "undo",
@@ -54335,6 +54514,13 @@
           "constant": false
         },
         {
+          "name": "rotation",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "active",
           "type": "bool",
           "default": "",
@@ -54390,6 +54576,16 @@
           "name": "rotateBy",
           "returns": "bool",
           "parameters": "qreal degrees, int modifiers = 0"
+        },
+        {
+          "name": "rotateTo",
+          "returns": "bool",
+          "parameters": "qreal degrees"
+        },
+        {
+          "name": "setBounds",
+          "returns": "bool",
+          "parameters": "qreal x, qreal y, qreal width, qreal height"
         }
       ],
       "enums": {},

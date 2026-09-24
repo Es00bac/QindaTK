@@ -26,6 +26,21 @@ struct CanvasDocumentLimits {
     // Decoded ARGB32 bytes of all images together.
     qsizetype maximumImageBytes = qsizetype(256) * 1024 * 1024;
     qsizetype maximumExtensionBytes = 16 * 1024 * 1024;
+    // Document guides share the extensions JSON block (see CanvasGuide).
+    qsizetype maximumGuides = 1024;
+    qsizetype maximumGuideIdLength = 64;
+};
+
+// AGENT-CONTRACT (docs/canvas.md#document-guides): a guide is document
+// content with a stable string id, an axis (a vertical guide is the line
+// x = position) and a finite document-unit position. It is saved inside
+// the extensions JSON under CanvasDocumentFormat::GuideExtensionKey, so
+// the binary layout is unchanged and an older reader keeps it opaque.
+struct CanvasGuide {
+    QString id;
+    Qt::Orientation orientation = Qt::Vertical;
+    qreal position = 0;
+    friend bool operator==(const CanvasGuide &, const CanvasGuide &) = default;
 };
 
 // Immutable, implicitly shared copy of a canvas document's content. Taking
@@ -46,6 +61,8 @@ struct CanvasDocumentState {
     QHash<CanvasObjectId, CanvasObject> objects;
     QHash<CanvasLayerId, CanvasLayer> layers;
     QHash<CanvasImageId, CanvasTiledImagePtr> images;
+    QVector<CanvasGuide> guides; // document order
+    quint64 nextGuide = 1;
     QJsonObject extensions;
 };
 

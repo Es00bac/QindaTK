@@ -57,6 +57,17 @@ inline constexpr qsizetype FixedBytes = SignatureBytes + 4 + 16 + 8 + 8 + 4 * 8 
 [[nodiscard]] OperationError validateImage(const CanvasTiledImage &image, CanvasImageId id,
                                            const CanvasDocumentLimits &limits);
 [[nodiscard]] OperationError validatePage(const QRectF &rect, const QColor &color);
+// Document guides (canvas_document_guides.cpp): unique non-empty ids within
+// the id-length limit, a finite position and at most maximumGuides.
+inline constexpr const char *GuideExtensionKey = "qindatk.canvas.guides";
+[[nodiscard]] OperationError validateGuides(const QVector<CanvasGuide> &guides,
+                                            const CanvasDocumentLimits &limits);
+// The extensions block as saved: host extensions plus the guide record.
+[[nodiscard]] QJsonObject extensionsWithGuides(const CanvasDocumentState &state);
+// Moves a saved guide record out of `extensions` into state->guides.
+[[nodiscard]] OperationError takeGuides(const QJsonObject &extensions,
+                                        const CanvasDocumentLimits &limits,
+                                        CanvasDocumentState *state);
 [[nodiscard]] qsizetype imageBytes(const CanvasTiledImage &image);
 } // namespace CanvasDocumentFormat
 

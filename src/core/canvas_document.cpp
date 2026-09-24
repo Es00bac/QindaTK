@@ -61,6 +61,8 @@ std::unique_ptr<CanvasDocument> CanvasDocument::fromState(const CanvasDocumentSt
     document->m_pageRect = state.pageRect;
     document->m_pageColor = state.pageColor;
     document->m_outputProfileIcc = state.outputProfileIcc;
+    document->m_guides = state.guides;
+    document->m_nextGuide = state.nextGuide;
     for (const CanvasLayer &layer : state.layers) document->placeLayer(layer);
     for (auto it = state.images.cbegin(); it != state.images.cend(); ++it)
         document->placeImage(it.key(), it.value());
@@ -205,6 +207,8 @@ CanvasDocumentState CanvasDocument::state() const
     captured.objects = m_objects; // implicitly shared: O(1) until the next edit
     captured.layers = m_layers;
     captured.images = m_images;
+    captured.guides = m_guides;
+    captured.nextGuide = m_nextGuide;
     return captured;
 }
 

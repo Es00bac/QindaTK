@@ -190,7 +190,7 @@ QByteArray encode(const CanvasDocumentState &state, OperationError *error)
     w.rect(state.pageRect);
     w.out() << state.pageColor;
     w.bytes(state.outputProfileIcc);
-    w.bytes(QJsonDocument(state.extensions).toJson(QJsonDocument::Compact));
+    w.bytes(QJsonDocument(extensionsWithGuides(state)).toJson(QJsonDocument::Compact));
     const auto layerIds = sortedKeys(state.layers);
     w.out() << quint32(layerIds.size());
     for (const CanvasLayerId id : layerIds) {
@@ -308,7 +308,7 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
     const QJsonDocument extensions = QJsonDocument::fromJson(extensionBytes, &parse);
     if (parse.error != QJsonParseError::NoError || !extensions.isObject())
         return fail(problem(ErrorCode::Validation, QStringLiteral("Invalid canvas extensions"), QStringLiteral("extensions")));
-    state.extensions = extensions.object();
+    if (const auto e = takeGuides(extensions.object(), limits, &state)) return fail(e);
 
     quint32 layerCount = 0;
     if (!in.read(layerCount) || qint64(layerCount) * minimumLayerRecord > in.remaining()) return truncated();

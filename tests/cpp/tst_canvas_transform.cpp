@@ -4,7 +4,9 @@
 #include <QLineF>
 #include <QSignalSpy>
 #include <QTest>
+#include <QtMath>
 #include <cmath>
+#include <functional>
 
 using namespace QindaTK;
 
@@ -18,6 +20,63 @@ CanvasObjectId square(CanvasDocument &document, qreal x, qreal y)
     object.fill = Qt::red;
     return document.insert(object, false);
 }
+
+bool sameTransform(const QTransform &a, const QTransform &b)
+{
+    const QPointF probes[] = {{0, 0}, {10, 0}, {0, 10}};
+    for (const QPointF &p : probes)
+        if (QLineF(a.map(p), b.map(p)).length() > 1e-9) return false;
+    return true;
+}
+
+// One route's result. The route must commit exactly once (one revision) and
+// one undo must restore the start exactly, leaving that step to redo.
+struct Outcome {
+    QTransform a;
+    QTransform b;
+    QString label;
+};
+
+// A rotated, zoomed pose so view-pixel keyboard steps are non-trivial.
+struct Rig {
+    CanvasDocument document;
+    ToolController tools;
+    CanvasViewState pose;
+    CanvasTransformController transform;
+    CanvasObjectId a = 0;
+    CanvasObjectId b = 0;
+    Rig()
+    {
+        a = square(document, 5, 7);
+        b = square(document, 25, 7);
+        tools.setDocument(&document);
+        tools.setSelection({a, b});
+        pose.setZoom(2);
+        pose.setRotation(30);
+        transform.setDocument(&document);
+        transform.setTools(&tools);
+        transform.setViewState(&pose);
+    }
+    // Maps a document delta to the view-pixel step nudge() inverts.
+    QPointF viewStep(QPointF documentDelta) const
+    {
+        const qreal angle = qDegreesToRadians(pose.rotation());
+        const qreal c = std::cos(angle);
+        const qreal s = std::sin(angle);
+        return {pose.zoom() * (c * documentDelta.x() - s * documentDelta.y()),
+                pose.zoom() * (s * documentDelta.x() + c * documentDelta.y())};
+    }
+    bool run(const std::function<bool()> &operation, Outcome *outcome)
+    {
+        const QTransform beforeA = document.object(a)->transform;
+        const QTransform beforeB = document.object(b)->transform;
+        const quint64 revision = document.revision();
+        if (!operation() || transform.active() || document.revision() != revision + 1) return false;
+        *outcome = {document.object(a)->transform, document.object(b)->transform, document.undoText()};
+        return document.undo() && document.object(a)->transform == beforeA
+            && document.object(b)->transform == beforeB && document.redoText() == outcome->label;
+    }
+};
 }
 
 class TstCanvasTransform : public QObject {
@@ -30,6 +89,9 @@ private slots:
     void keyboardNudgeUsesViewPose();
     void thinPolylineCanMove();
     void rotationPivotPreviewAndUndo();
+    void handleKeyboardAndInspectorShareOneOperation();
+    void shiftMoveConstrainsToDocumentDirections();
+    void refusedNumericEntryLeavesNoGesture();
 };
 
 void TstCanvasTransform::groupMoveResizeAndUndo()
@@ -223,6 +285,102 @@ void TstCanvasTransform::rotationPivotPreviewAndUndo()
     const QPointF rotated = document.object(a)->transform.map(QPointF(5, 5));
     QVERIFY(std::abs(rotated.x() - 5.3407417) < 1e-5);
     QVERIFY(std::abs(rotated.y() - 2.4118095) < 1e-5);
+}
+
+void TstCanvasTransform::handleKeyboardAndInspectorShareOneOperation()
+{
+    Rig rig;
+    QCOMPARE(rig.transform.selectionBounds(), QRectF(5, 7, 30, 10));
+    Outcome pointer, keyboard, inspector;
+    // Move by (6, -4) document units.
+    QVERIFY(rig.run([&] {
+        return rig.transform.update(QStringLiteral("move"), {5, 7}, {11, 3})
+            && rig.transform.finish(QStringLiteral("move"));
+    }, &pointer));
+    const QPointF moveStep = rig.viewStep({6, -4});
+    QVERIFY(rig.run([&] {
+        return rig.transform.nudge(QStringLiteral("move"), moveStep.x(), moveStep.y());
+    }, &keyboard));
+    QVERIFY(rig.run([&] { return rig.transform.setBounds(11, 3, 30, 10); }, &inspector));
+    for (const Outcome *o : {&keyboard, &inspector}) {
+        QVERIFY(sameTransform(o->a, pointer.a));
+        QVERIFY(sameTransform(o->b, pointer.b));
+        QCOMPARE(o->label, QStringLiteral("Move selection"));
+    }
+    QVERIFY(sameTransform(pointer.b, QTransform::fromTranslate(31, 3)));
+
+    // Resize the right edge from 35 to 50 (width 30 -> 45).
+    QVERIFY(rig.run([&] {
+        return rig.transform.update(QStringLiteral("right"), {35, 12}, {50, 12})
+            && rig.transform.finish(QStringLiteral("right"));
+    }, &pointer));
+    const QPointF resizeStep = rig.viewStep({15, 0});
+    QVERIFY(rig.run([&] {
+        return rig.transform.nudge(QStringLiteral("right"), resizeStep.x(), resizeStep.y());
+    }, &keyboard));
+    QVERIFY(rig.run([&] { return rig.transform.setBounds(5, 7, 45, 10); }, &inspector));
+    for (const Outcome *o : {&keyboard, &inspector}) {
+        QVERIFY(sameTransform(o->a, pointer.a));
+        QVERIFY(sameTransform(o->b, pointer.b));
+        QCOMPARE(o->label, QStringLiteral("Resize selection"));
+    }
+    QVERIFY(QLineF(pointer.b.map(QPointF(10, 10)), QPointF(50, 17)).length() < 1e-9);
+
+    // Rotate 90 degrees about the selection center (20, 12).
+    QCOMPARE(rig.transform.rotation(), 0.0);
+    QVERIFY(rig.run([&] {
+        return rig.transform.update(QStringLiteral("rotate"), {30, 12}, {20, 22})
+            && rig.transform.finish(QStringLiteral("rotate"));
+    }, &pointer));
+    QVERIFY(rig.run([&] { return rig.transform.rotateBy(90); }, &keyboard));
+    QVERIFY(rig.run([&] { return rig.transform.rotateTo(90); }, &inspector));
+    for (const Outcome *o : {&keyboard, &inspector}) {
+        QVERIFY(sameTransform(o->a, pointer.a));
+        QVERIFY(sameTransform(o->b, pointer.b));
+        QCOMPARE(o->label, QStringLiteral("Rotate selection"));
+    }
+    QVERIFY(QLineF(pointer.a.map(QPointF(5, 5)), QPointF(20, 2)).length() < 1e-9);
+    QVERIFY(rig.transform.rotateTo(90));
+    QVERIFY(std::abs(rig.transform.rotation() - 90) < 1e-9);
+}
+
+void TstCanvasTransform::shiftMoveConstrainsToDocumentDirections()
+{
+    Rig rig;
+    const QPointF start(5, 7);
+    const struct {
+        QPointF pointer;
+        QPointF delta;
+    } cases[] = {{{15, 10}, {10, 0}}, {{8, 17}, {0, 10}}, {{15, 16}, {9.5, 9.5}},
+                 {{-5, 17}, {-10, 10}}, {{0, 7.5}, {-5, 0}}};
+    for (const auto &c : cases) {
+        QVERIFY(rig.transform.update(QStringLiteral("move"), start, c.pointer, Qt::ShiftModifier));
+        QCOMPARE(rig.transform.previewBounds().topLeft(), start + c.delta);
+        QVERIFY(rig.transform.cancel());
+    }
+    QVERIFY(rig.transform.update(QStringLiteral("move"), start, {15, 10}));
+    QCOMPARE(rig.transform.previewBounds().topLeft(), QPointF(15, 10)); // unconstrained
+    QVERIFY(rig.transform.cancel());
+}
+
+void TstCanvasTransform::refusedNumericEntryLeavesNoGesture()
+{
+    Rig rig;
+    const quint64 revision = rig.document.revision();
+    QVERIFY(!rig.transform.setBounds(5, 7, 0, 10)); // zero width is singular
+    QVERIFY(!rig.transform.setBounds(qQNaN(), 7, 30, 10));
+    QVERIFY(!rig.transform.rotateTo(qInf()));
+    QVERIFY(!rig.transform.active());
+    QCOMPARE(rig.document.revision(), revision);
+    QVERIFY(rig.transform.setBounds(5, 7, 30, 10)); // unchanged bounds: no edit, no step
+    QCOMPARE(rig.document.revision(), revision);
+    QVERIFY(rig.transform.update(QStringLiteral("move"), {5, 7}, {6, 7}));
+    QVERIFY(!rig.transform.setBounds(1, 1, 30, 10)); // a pointer gesture owns the edit
+    QVERIFY(!rig.transform.nudge(QStringLiteral("move"), 4, 0));
+    QVERIFY(rig.transform.finish(QStringLiteral("move")));
+    rig.tools.setSelection({});
+    QVERIFY(!rig.transform.setBounds(0, 0, 10, 10));
+    QVERIFY(!rig.transform.rotateTo(10));
 }
 
 QTEST_GUILESS_MAIN(TstCanvasTransform)

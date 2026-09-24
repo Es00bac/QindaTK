@@ -74,6 +74,8 @@ quint64 CanvasCommand::estimate(const CanvasEdit &edit)
             total += quint64(CanvasDocumentFormat::imageBytes(*i.before));
     }
     if (edit.page) total += 64;
+    if (edit.guides)
+        total += 64 + quint64(edit.guides->before.size() + edit.guides->after.size()) * 96;
     return total;
 }
 
@@ -91,6 +93,11 @@ CanvasEdit CanvasCommand::composed(const CanvasEdit &first, const CanvasEdit &se
             page.afterColor = second.page->afterColor;
         }
         if (page.beforeRect != page.afterRect || page.beforeColor != page.afterColor) result.page = page;
+    }
+    if (first.guides || second.guides) {
+        CanvasEdit::GuideChange guides{first.guides ? first.guides->before : second.guides->before,
+                                       second.guides ? second.guides->after : first.guides->after};
+        if (guides.before != guides.after) result.guides = guides;
     }
     return result;
 }
@@ -126,6 +133,12 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
             return failure(ErrorCode::StaleRevision, tr("The page changed after this edit was built"), QStringLiteral("page"));
         if (const auto e = CanvasDocumentFormat::validatePage(forward ? p.afterRect : p.beforeRect,
                                                               forward ? p.afterColor : p.beforeColor))
+            return e;
+    }
+    if (edit.guides) {
+        if (m_guides != (forward ? edit.guides->before : edit.guides->after))
+            return failure(ErrorCode::StaleRevision, tr("The guides changed after this edit was built"), QStringLiteral("guides"));
+        if (const auto e = CanvasDocumentFormat::validateGuides(forward ? edit.guides->after : edit.guides->before, m_limits))
             return e;
     }
 
@@ -241,6 +254,7 @@ void CanvasDocument::applyEdit(const CanvasEdit &edit, bool forward, QVector<QRe
         m_pageRect = rect;
         m_pageColor = forward ? edit.page->afterColor : edit.page->beforeColor;
     }
+    if (edit.guides) m_guides = forward ? edit.guides->after : edit.guides->before; // not painted
     const auto step = [&](const CanvasEdit::Change &c) {
         const auto &target = forward ? c.after : c.before;
         if (target) place(*target, damage);
