@@ -3,7 +3,9 @@
 
 The [live diagram](diagram-live/Main.qml) binds `DiagramCanvas` to a native
 `DiagramDocument`. Moving cards and connecting ports edit persistent stable
-IDs; Undo and Redo operate on the diagram graph.
+IDs; Undo and Redo operate on the diagram graph. The example shows measured
+wire quantities and per-node totals; Auto layout arranges its feedback cycle
+in one undoable step.
 
 The [extension manager fixture](extension-manager-live/Main.qml) shows a
 restored catalog with unavailable native extensions, clear diagnostics and

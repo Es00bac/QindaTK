@@ -129,7 +129,8 @@ qt_add_qml_module(qindatk
         core/motion_frame_renderer.cpp core/motion_frame_renderer.h
         core/tracking_roto_model.cpp core/tracking_roto_mask.cpp core/tracking_roto_codec.cpp core/tracking_roto_model.h
         core/node_graph_model.cpp core/node_graph_render.cpp core/node_graph_codec.cpp core/node_graph_model.h
-        core/diagram_document.cpp core/diagram_document_io.cpp core/diagram_document.h
+        core/diagram_document.cpp core/diagram_document_io.cpp core/diagram_document_layout.cpp
+        core/diagram_document.h
         core/motion_onion_skin_item.cpp core/motion_onion_skin_item.h
         core/engine_schedule.cpp core/engine_schedule.h
         core/mock_automation_engine.cpp core/mock_automation_engine.h

@@ -7211,6 +7211,14 @@
           "required": false
         },
         {
+          "name": "flowMode",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Diagram canvas\")",
@@ -7268,7 +7276,12 @@
         }
       ],
       "signals": [],
-      "methods": [],
+      "methods": [
+        {
+          "name": "autoLayout",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -17156,6 +17169,14 @@
           "required": false
         },
         {
+          "name": "flowMode",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "zoom",
           "type": "real",
           "default": "1.0",
@@ -17230,7 +17251,7 @@
         {
           "name": "nodeHeight",
           "type": "int",
-          "default": "Tk.Theme.size.header",
+          "default": "Tk.Theme.size.header + Math.max(1, GraphGeometry.maxPortCount(nodes)) * Tk.Theme.size.row + Tk.Theme.space.sm",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -17318,6 +17339,10 @@
         {
           "name": "portColor",
           "parameters": "type"
+        },
+        {
+          "name": "flowWidth",
+          "parameters": "value"
         },
         {
           "name": "visibleNode",
@@ -38711,6 +38736,16 @@
           "name": "setNodeTitle",
           "returns": "bool",
           "parameters": "const QString &nodeId, const QString &title"
+        },
+        {
+          "name": "setEdgeFlow",
+          "returns": "bool",
+          "parameters": "const QString &edgeId, double flow"
+        },
+        {
+          "name": "autoLayout",
+          "returns": "bool",
+          "parameters": "double columnStep, double rowStep, double originX = 0, double originY = 0"
         },
         {
           "name": "undo",

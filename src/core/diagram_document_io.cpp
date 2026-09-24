@@ -33,7 +33,8 @@ bool DiagramDocument::saveToFile(const QString &path)
     for (const Edge &edge : m_state.edges)
         edgeArray.append(QJsonObject{{QStringLiteral("id"), edge.id},
             {QStringLiteral("fromNode"), edge.fromNode}, {QStringLiteral("fromPort"), edge.fromPort},
-            {QStringLiteral("toNode"), edge.toNode}, {QStringLiteral("toPort"), edge.toPort}});
+            {QStringLiteral("toNode"), edge.toNode}, {QStringLiteral("toPort"), edge.toPort},
+            {QStringLiteral("flow"), edge.flow}});
     const QByteArray bytes = QJsonDocument(QJsonObject{{QStringLiteral("format"), QStringLiteral("qindatk.diagram/1")},
         {QStringLiteral("version"), 1},
         {QStringLiteral("nodes"), nodeArray}, {QStringLiteral("edges"), edgeArray}}).toJson();
@@ -108,6 +109,12 @@ bool DiagramDocument::decode(const QByteArray &bytes, State *result)
         Edge edge{e.value(QStringLiteral("id")).toString(),
             e.value(QStringLiteral("fromNode")).toString(), e.value(QStringLiteral("fromPort")).toString(),
             e.value(QStringLiteral("toNode")).toString(), e.value(QStringLiteral("toPort")).toString()};
+        const QJsonValue flowValue = e.value(QStringLiteral("flow"));
+        if (!flowValue.isUndefined()) {
+            if (!flowValue.isDouble() || !std::isfinite(flowValue.toDouble())
+                || flowValue.toDouble() < 0 || flowValue.toDouble() > 1000000000.0) return false;
+            edge.flow = flowValue.toDouble();
+        }
         const QString key = edge.fromNode + QChar(0) + edge.fromPort + QChar(0)
             + edge.toNode + QChar(0) + edge.toPort;
         if (edge.id.isEmpty() || edgeIds.contains(edge.id) || connections.contains(key)

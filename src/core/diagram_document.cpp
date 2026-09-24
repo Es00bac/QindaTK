@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "diagram_document.h"
 
+#include <QHash>
 #include <QSet>
 #include <QUuid>
 #include <cmath>
@@ -58,6 +59,11 @@ QVariantList DiagramDocument::nodes() const
 {
     QVariantList result;
     result.reserve(m_state.nodes.size());
+    QHash<QString, double> incoming, outgoing;
+    for (const Edge &edge : m_state.edges) {
+        outgoing[edge.fromNode] += edge.flow;
+        incoming[edge.toNode] += edge.flow;
+    }
     for (const Node &node : m_state.nodes) {
         QVariantList inputs, outputs;
         for (const Port &port : node.inputs)
@@ -69,6 +75,8 @@ QVariantList DiagramDocument::nodes() const
         result.append(QVariantMap{{QStringLiteral("nodeId"), node.id},
             {QStringLiteral("title"), node.title}, {QStringLiteral("stencilId"), node.stencilId},
             {QStringLiteral("x"), node.x}, {QStringLiteral("y"), node.y},
+            {QStringLiteral("inFlow"), incoming.value(node.id)},
+            {QStringLiteral("outFlow"), outgoing.value(node.id)},
             {QStringLiteral("inputs"), inputs}, {QStringLiteral("outputs"), outputs}});
     }
     return result;
@@ -83,7 +91,8 @@ QVariantList DiagramDocument::edges() const
             {QStringLiteral("fromNodeId"), edge.fromNode},
             {QStringLiteral("fromPortId"), edge.fromPort},
             {QStringLiteral("toNodeId"), edge.toNode},
-            {QStringLiteral("toPortId"), edge.toPort}});
+            {QStringLiteral("toPortId"), edge.toPort},
+            {QStringLiteral("flow"), edge.flow}});
     return result;
 }
 
@@ -231,6 +240,20 @@ bool DiagramDocument::setNodeTitle(const QString &nodeId, const QString &title)
     if (m_state.nodes.at(index).title == title) return true;
     rememberEdit();
     m_state.nodes[index].title = title;
+    setError({});
+    emit changed();
+    return true;
+}
+
+bool DiagramDocument::setEdgeFlow(const QString &edgeId, double flow)
+{
+    const int index = edgeIndex(edgeId);
+    if (index < 0 || !std::isfinite(flow) || flow < 0 || flow > 1000000000.0) {
+        setError(QStringLiteral("Invalid diagram flow")); return false;
+    }
+    if (m_state.edges.at(index).flow == flow) return true;
+    rememberEdit();
+    m_state.edges[index].flow = flow;
     setError({});
     emit changed();
     return true;

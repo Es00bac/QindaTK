@@ -21,10 +21,10 @@ Item {
         const approvedIn = diagram.addPort(approved, qsTr("Done"), "input", "work")
         const reworkIn = diagram.addPort(rework, qsTr("Revise"), "input", "work")
         const reworkOut = diagram.addPort(rework, qsTr("Resubmit"), "output", "work")
-        diagram.connectPorts(request, requestOut, triage, triageIn)
-        diagram.connectPorts(triage, triageYes, approved, approvedIn)
-        diagram.connectPorts(triage, triageNo, rework, reworkIn)
-        diagram.connectPorts(rework, reworkOut, triage, triageIn)
+        diagram.setEdgeFlow(diagram.connectPorts(request, requestOut, triage, triageIn), 12)
+        diagram.setEdgeFlow(diagram.connectPorts(triage, triageYes, approved, approvedIn), 7)
+        diagram.setEdgeFlow(diagram.connectPorts(triage, triageNo, rework, reworkIn), 5)
+        diagram.setEdgeFlow(diagram.connectPorts(rework, reworkOut, triage, triageIn), 3)
     }
 
     Rectangle { anchors.fill: parent; color: Tk.Theme.color.canvas }
@@ -41,6 +41,11 @@ Item {
             Tk.Badge { text: qsTr("Persistent graph"); variant: "accent" }
             Item { Tk.Flex.grow: 1 }
             Tk.Button {
+                text: qsTr("Auto layout")
+                tooltip: qsTr("Arrange the diagram by connection direction")
+                onClicked: canvas.autoLayout()
+            }
+            Tk.Button {
                 text: qsTr("Undo")
                 enabled: diagram.canUndo
                 tooltip: qsTr("Undo the last diagram edit")
@@ -54,7 +59,7 @@ Item {
             }
         }
         Tk.Label {
-            text: qsTr("Drag a card to reroute its wires. Activate an output, then an input, to add a connection. Middle drag pans; Ctrl+wheel zooms.")
+            text: qsTr("Wire width shows request volume. Drag cards freely or choose Auto layout. Activate output then input to connect; middle drag pans.")
             muted: true
             wrapMode: Text.Wrap
         }
@@ -63,6 +68,7 @@ Item {
             objectName: "liveDiagramCanvas"
             Tk.Flex.flex: 1
             document: diagram
+            flowMode: true
             tooltip: qsTr("Request flow diagram")
         }
         Tk.Label {

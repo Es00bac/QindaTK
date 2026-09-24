@@ -11,6 +11,7 @@ class TstDiagramDocument : public QObject {
     Q_OBJECT
 private slots:
     void editsUndoAndRoundtrip();
+    void layoutCyclesAndQuantitativeFlow();
 };
 
 void TstDiagramDocument::editsUndoAndRoundtrip()
@@ -73,6 +74,63 @@ void TstDiagramDocument::editsUndoAndRoundtrip()
     const QVariantList stableNodes = reopened.nodes();
     QVERIFY(!reopened.loadFromFile(path));
     QCOMPARE(reopened.nodes(), stableNodes);
+}
+
+void TstDiagramDocument::layoutCyclesAndQuantitativeFlow()
+{
+    DiagramDocument graph;
+    const QString a = graph.addNode(QStringLiteral("A"), 11, 17);
+    const QString b = graph.addNode(QStringLiteral("B"), 21, 27);
+    const QString c = graph.addNode(QStringLiteral("C"), 31, 37);
+    const QString d = graph.addNode(QStringLiteral("D"), 41, 47);
+    const QString a1 = graph.addPort(a, QStringLiteral("one"), QStringLiteral("output"));
+    const QString a2 = graph.addPort(a, QStringLiteral("two"), QStringLiteral("output"));
+    const QString b1 = graph.addPort(b, QStringLiteral("one"), QStringLiteral("input"));
+    const QString b2 = graph.addPort(b, QStringLiteral("two"), QStringLiteral("input"));
+    const QString bo = graph.addPort(b, QStringLiteral("out"), QStringLiteral("output"));
+    const QString ci = graph.addPort(c, QStringLiteral("in"), QStringLiteral("input"));
+    const QString co = graph.addPort(c, QStringLiteral("out"), QStringLiteral("output"));
+    const QString bi = graph.addPort(b, QStringLiteral("loop"), QStringLiteral("input"));
+    const QString di = graph.addPort(d, QStringLiteral("in"), QStringLiteral("input"));
+    const QString e1 = graph.connectPorts(a, a1, b, b1);
+    const QString e2 = graph.connectPorts(a, a2, b, b2);
+    QVERIFY(!e1.isEmpty() && !e2.isEmpty() && e1 != e2);
+    QVERIFY(!graph.connectPorts(b, bo, c, ci).isEmpty());
+    QVERIFY(!graph.connectPorts(c, co, b, bi).isEmpty());
+    QVERIFY(!graph.connectPorts(c, co, d, di).isEmpty());
+    QVERIFY(graph.setEdgeFlow(e1, 3));
+    QVERIFY(graph.setEdgeFlow(e2, 5));
+    QVERIFY(!graph.setEdgeFlow(e1, -1));
+    QCOMPARE(graph.edges().at(0).toMap().value(QStringLiteral("flow")).toDouble(), 3.0);
+    QCOMPARE(graph.nodes().at(1).toMap().value(QStringLiteral("inFlow")).toDouble(), 9.0);
+    QCOMPARE(graph.nodes().at(0).toMap().value(QStringLiteral("outFlow")).toDouble(), 8.0);
+    QCOMPARE(graph.nodes().at(0).toMap().value(QStringLiteral("x")).toDouble(), 11.0);
+    const QVariantList manual = graph.nodes();
+    const qulonglong before = graph.revision();
+    QVERIFY(graph.autoLayout(300, 100, 20, 30));
+    QCOMPARE(graph.revision(), before + 1);
+    const QVariantList laidOut = graph.nodes();
+    QCOMPARE(laidOut.at(0).toMap().value(QStringLiteral("x")).toDouble(), 20.0);
+    QCOMPARE(laidOut.at(1).toMap().value(QStringLiteral("x")).toDouble(), 320.0);
+    QCOMPARE(laidOut.at(2).toMap().value(QStringLiteral("x")).toDouble(), 320.0);
+    QCOMPARE(laidOut.at(1).toMap().value(QStringLiteral("y")).toDouble(), 30.0);
+    QCOMPARE(laidOut.at(2).toMap().value(QStringLiteral("y")).toDouble(), 130.0);
+    QCOMPARE(laidOut.at(3).toMap().value(QStringLiteral("x")).toDouble(), 620.0);
+    QVERIFY(graph.autoLayout(300, 100, 20, 30));
+    QCOMPARE(graph.revision(), before + 1);
+    QVERIFY(graph.undo());
+    QCOMPARE(graph.nodes(), manual);
+    QVERIFY(graph.redo());
+    QCOMPARE(graph.nodes(), laidOut);
+
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString path = directory.filePath(QStringLiteral("quantified.qdiagram"));
+    QVERIFY(graph.saveToFile(path));
+    DiagramDocument reopened;
+    QVERIFY(reopened.loadFromFile(path));
+    QCOMPARE(reopened.nodes(), laidOut);
+    QCOMPARE(reopened.edges(), graph.edges());
 }
 
 QTEST_MAIN(TstDiagramDocument)

@@ -42,6 +42,9 @@ public:
     Q_INVOKABLE bool moveNode(const QString &nodeId, double x, double y);
     Q_INVOKABLE bool moveNodes(const QStringList &nodeIds, double dx, double dy);
     Q_INVOKABLE bool setNodeTitle(const QString &nodeId, const QString &title);
+    Q_INVOKABLE bool setEdgeFlow(const QString &edgeId, double flow);
+    Q_INVOKABLE bool autoLayout(double columnStep, double rowStep,
+                                double originX = 0, double originY = 0);
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
     Q_INVOKABLE bool saveToFile(const QString &path);
@@ -68,6 +71,7 @@ private:
         QString fromPort;
         QString toNode;
         QString toPort;
+        double flow = 1.0;
     };
     struct State { QVector<Node> nodes; QVector<Edge> edges; };
 

@@ -18,6 +18,7 @@ Item {
     property string selectedNodeId: ""
     property string selectedEdgeId: ""
     property string wireRouting: "curved" // curved | orthogonal
+    property bool flowMode: false
     property real zoom: 1.0
     property real minZoom: 0.45
     property real maxZoom: 1.8
@@ -27,8 +28,7 @@ Item {
     property string linkStatusText: ""
     property string linkStatusState: ""
     readonly property real nodeWidth: Tk.Theme.size.panelMinWidth
-    readonly property int nodeHeight: Tk.Theme.size.header
-        + Math.max(1, GraphGeometry.maxPortCount(nodes)) * Tk.Theme.size.row + Tk.Theme.space.sm
+    readonly property int nodeHeight: Tk.Theme.size.header + Math.max(1, GraphGeometry.maxPortCount(nodes)) * Tk.Theme.size.row + Tk.Theme.space.sm
 
     signal nodeSelected(string nodeId)
     signal edgeSelected(string edgeId)
@@ -62,11 +62,11 @@ Item {
     }
 
     function portColor(type) { return Tk.Theme.color[GraphGeometry.portRole(type)] }
+    function flowWidth(value) { return Math.max(Tk.Theme.size.border,
+        Math.min(Tk.Theme.size.icon, Tk.Theme.size.border * (1 + Math.sqrt(Math.max(0, Number(value || 0)))))) }
 
-    function visibleNode(record) {
-        return GraphGeometry.visibleNode(record, nodeWidth, nodeHeight, zoom,
-                                         panX, panY, width, height)
-    }
+    function visibleNode(record) { return GraphGeometry.visibleNode(record, nodeWidth,
+        nodeHeight, zoom, panX, panY, width, height) }
 
     function beginOrFinishLink(nodeId, portId, side) {
         if (side === "output") {
@@ -117,10 +117,8 @@ Item {
         zoom = next
     }
 
-    function edgePoint(nodeId, portId, side) {
-        return GraphGeometry.edgePoint(nodes, nodeWidth, Tk.Theme.size.header,
-            Tk.Theme.size.row, zoom, panX, panY, nodeId, portId, side)
-    }
+    function edgePoint(nodeId, portId, side) { return GraphGeometry.edgePoint(nodes,
+        nodeWidth, Tk.Theme.size.header, Tk.Theme.size.row, zoom, panX, panY, nodeId, portId, side) }
 
     Keys.onPressed: function(event) {
         if (event.modifiers !== Qt.NoModifier) return
@@ -189,12 +187,9 @@ Item {
                 const b = root.edgePoint(edge.toNodeId, edge.toPortId, "input")
                 const port = root.portById(edge.fromNodeId, edge.fromPortId, "output")
                 ctx.beginPath()
-                GraphGeometry.paintEdge(ctx, a, b, root.wireRouting,
-                                        Tk.Theme.size.icon, Tk.Theme.space.xl)
-                ctx.strokeStyle = String(edge.edgeId) === root.selectedEdgeId
-                    ? Tk.Theme.color.focus : root.portColor(port ? port.type : "")
-                ctx.lineWidth = String(edge.edgeId) === root.selectedEdgeId
-                    ? Tk.Theme.size.border * 2 : Tk.Theme.size.border
+                GraphGeometry.paintEdge(ctx, a, b, root.wireRouting, Tk.Theme.size.icon, Tk.Theme.space.xl)
+                ctx.strokeStyle = String(edge.edgeId) === root.selectedEdgeId ? Tk.Theme.color.focus : root.portColor(port ? port.type : "")
+                ctx.lineWidth = (root.flowMode ? root.flowWidth(edge.flow) : Tk.Theme.size.border) + (String(edge.edgeId) === root.selectedEdgeId ? Tk.Theme.size.border : 0)
                 ctx.stroke()
             }
         }
@@ -206,6 +201,7 @@ Item {
             function onPanYChanged() { wireLayer.requestPaint() }
             function onZoomChanged() { wireLayer.requestPaint() }
             function onWireRoutingChanged() { wireLayer.requestPaint() }
+            function onFlowModeChanged() { wireLayer.requestPaint() }
             function onSelectedEdgeIdChanged() { wireLayer.requestPaint() }
         }
     }
@@ -285,6 +281,8 @@ Item {
                 ? Tk.Theme.color.accent : Tk.Theme.color.border
             Accessible.role: Accessible.ListItem
             Accessible.name: String(record.title || record.nodeId)
+            Accessible.description: root.flowMode ? qsTr("Incoming %1, outgoing %2")
+                .arg(record.inFlow || 0).arg(record.outFlow || 0) : ""
             Accessible.selected: nodeId === root.selectedNodeId
             objectName: "node_" + nodeId
 
@@ -301,7 +299,9 @@ Item {
                     anchors.fill: parent
                     anchors.leftMargin: Tk.Theme.space.sm
                     anchors.rightMargin: Tk.Theme.space.sm
-                    text: String(card.record.title || card.record.nodeId)
+                    text: root.flowMode ? qsTr("%1  ↓%2 ↑%3")
+                        .arg(card.record.title || card.record.nodeId).arg(card.record.inFlow || 0)
+                        .arg(card.record.outFlow || 0) : String(card.record.title || card.record.nodeId)
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: Tk.Theme.font.body

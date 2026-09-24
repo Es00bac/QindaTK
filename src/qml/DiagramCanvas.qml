@@ -10,6 +10,7 @@ Item {
     id: root
     objectName: "diagramCanvas"
     property Tk.DiagramDocument document: null
+    property bool flowMode: false
     property string tooltip: qsTr("Diagram canvas")
     property alias selectedNodeId: graph.selectedNodeId
     property alias selectedEdgeId: graph.selectedEdgeId
@@ -17,6 +18,12 @@ Item {
     property alias panX: graph.panX
     property alias panY: graph.panY
     readonly property alias graphView: graph
+
+    function autoLayout() {
+        return document && document.autoLayout(graph.nodeWidth + Tk.Theme.space.xl * 2,
+                                               graph.nodeHeight + Tk.Theme.space.xl,
+                                               Tk.Theme.space.lg, Tk.Theme.space.lg)
+    }
 
     implicitWidth: Tk.Theme.size.fieldWidth * 3
     implicitHeight: Tk.Theme.size.fieldWidth * 2
@@ -29,6 +36,7 @@ Item {
         anchors.fill: parent
         tooltip: root.tooltip
         wireRouting: "orthogonal"
+        flowMode: root.flowMode
         nodes: root.document ? root.document.nodes : []
         edges: root.document ? root.document.edges : []
 
