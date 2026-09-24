@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 34 packages accepted, 38 active, two in review, and 10 planned.**
+**Execution state: 35 packages accepted, 38 active, one in review, and 10 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -14,15 +14,15 @@ WP-020 and WP-022 were accepted earlier. The remaining 12 review packages
 passed the consolidated Qt 6.11/6.8 repository, QML lint, staged-consumer and
 visual gates recorded in the [2026-09-23 acceptance record](evidence/review-acceptance-2026-09-23.md).
 WP-031 subsequently passed its own installed-consumer gate and is accepted.
-WP-040 is in review: its WP-033 dependency remains open. The Qt 6.8
+WP-040 is active: its WP-033 dependency is accepted; render lifecycle
+qualification remains. The Qt 6.8
 offscreen RHI readback repair passed the full integrated suite. WP-048 is accepted
 after its time-axis and host-media boundaries were reconciled with D-045;
 both full integrated suites and its installed consumers pass. WP-050 is
 integrated and in review; WP-055 remains active in an isolated Opus worktree.
-WP-033 has a dual-Qt editable, sortable and filterable two-document
-workbench, installed lifecycle consumers and the merged domain-session,
-canvas persistence, recovery and shared-undo stack; its remaining end-to-end gates
-are recorded in its evidence. WP-041 now has a document-space snap query,
+WP-033 is accepted after its dual-Qt two-document workbench, installed
+lifecycle consumers, domain sessions, recovery, shared undo and external
+AT-SPI command action passed. WP-041 now has a document-space snap query,
 guide layer, lasso and reference-canvas group move/resize/rotation controller, while
 WP-042 has layer, navigator, alignment and artboard presentation.
 Both spatial packages still have model, command and acceptance gates open.
@@ -74,8 +74,8 @@ as though a later fix had already passed the earlier run.
 | [WP-030 — Build the general chart framework](phase-02-controls-data.md#wp-030) | 02 | Sol | accepted | [Typed core](evidence/WP-030.md); [visual, export and dual-render evidence](evidence/WP-030-visual.md) |
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | accepted | [Seven families, dual-Qt suite and installed consumer](evidence/WP-031.md) |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | accepted | [Event, diff and resource integration status](evidence/WP-032.md) |
-| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | active | [Native collection transfer, editable two-document workbench and dual-Qt consumers; accessibility-client gate open](evidence/WP-033.md) |
-| [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | review | [Integrated renderer and installed consumer; dual-Qt 102/102; WP-033 dependency open](evidence/WP-040.md) |
+| [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | accepted | [Native collection transfer, dual-Qt workbench lifecycle and external AT-SPI action passed](evidence/WP-033.md) |
+| [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | active | [Integrated renderer and installed consumer; dual-Qt 102/102; render lifecycle qualification in progress](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Lasso, snap, guides, shared selection and reference group transforms; persistence still open](evidence/WP-041.md) |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [Typed curve, gradient and picker models; ICC/evaluator backends; bounded canvas display; output integration open](evidence/WP-043.md) |

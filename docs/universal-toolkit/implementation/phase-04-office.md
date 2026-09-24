@@ -17,7 +17,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-050"></a>
 ## WP-050 — Implement rich text and paginated document editing
 
-**Implementation lead:** Sol. **Status:** review (integrated rich-text lane; focused dual-Qt checks passed; dependency gates pending). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-024](phase-02-controls-data.md#wp-024), [WP-025](phase-02-controls-data.md#wp-025), [WP-033](phase-02-controls-data.md#wp-033), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** review (integrated rich-text lane; focused dual-Qt checks passed; WP-040 render lifecycle gate pending). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-024](phase-02-controls-data.md#wp-024), [WP-025](phase-02-controls-data.md#wp-025), [WP-033](phase-02-controls-data.md#wp-033), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [OFF-01 RichTextEditor](../proposed/05-documents-office.md#off-01), [OFF-02 RichDocumentView](../proposed/05-documents-office.md#off-02), [OFF-03 FormatBar](../proposed/05-documents-office.md#off-03), [OFF-05 PageNavigator](../proposed/05-documents-office.md#off-05)
 
