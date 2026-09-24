@@ -39,6 +39,16 @@ Tk.Flex {
                            : (entry.diagnostic || qsTr("Extension action failed"))
         return ok
     }
+    function addDirectory(path) {
+        if (!registry || !path.trim().startsWith("/")) return false
+        registry.searchDirectories = registry.searchDirectories.concat([path.trim()])
+        const ok = registry.searchDirectories.indexOf(path.trim()) >= 0
+        if (ok) registry.refreshDiscovery()
+        actionMessage = ok ? qsTr("Directory scanned. Review extensions before loading.")
+                           : qsTr("Choose an absolute local directory (maximum eight).")
+        if (ok) directoryPath.text = ""
+        return ok
+    }
 
     Tk.Flex {
         direction: Tk.Flex.Row
@@ -46,6 +56,47 @@ Tk.Flex {
         gap: Tk.Theme.space.sm
         Tk.Overline { title: qsTr("Extensions"); wide: true; Tk.Flex.grow: 1 }
         Tk.Caption { text: qsTr("%1 known").arg(control.entries.length) }
+    }
+    Tk.Flex {
+        direction: Tk.Flex.Row
+        gap: Tk.Theme.space.xs
+        Tk.TextField {
+            id: directoryPath
+            objectName: "extensionDirectoryPath"
+            Tk.Flex.grow: 1
+            placeholderText: qsTr("Absolute local extension directory")
+            tooltip: qsTr("Local directory containing JSON descriptors or plugin folders")
+            onAccepted: control.addDirectory(text)
+        }
+        Tk.Button {
+            objectName: "extensionAddDirectory"
+            text: qsTr("Add directory")
+            tooltip: qsTr("Scan this local directory for extension descriptors")
+            available: !!control.registry && directoryPath.text.trim().length > 0
+            onClicked: control.addDirectory(directoryPath.text)
+        }
+        Tk.Button {
+            objectName: "extensionRefresh"
+            text: qsTr("Refresh")
+            tooltip: qsTr("Rescan configured extension directories")
+            available: !!control.registry && control.registry.searchDirectories.length > 0
+            onClicked: control.registry.refreshDiscovery()
+        }
+    }
+    Tk.Caption {
+        objectName: "extensionDirectories"
+        visible: !!control.registry && control.registry.searchDirectories.length > 0
+        text: control.registry ? qsTr("Directories: %1").arg(control.registry.searchDirectories.join(", ")) : ""
+        wrapMode: Text.WrapAnywhere
+    }
+    Tk.Caption {
+        objectName: "extensionDiscoveryDiagnostic"
+        visible: !!control.registry && control.registry.discoveryDiagnostics.length > 0
+        text: control.registry ? control.registry.discoveryDiagnostics.map(function (issue) {
+            return issue.path + ": " + issue.message
+        }).join("\n") : ""
+        color: Tk.Theme.color.warning
+        wrapMode: Text.WrapAnywhere
     }
     Tk.Caption {
         text: qsTr("Native extensions run in this application. Add only a descriptor you trust, then choose Load.")

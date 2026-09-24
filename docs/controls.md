@@ -969,7 +969,7 @@ mesh output.
 
 | Type | Base | API | Internal objectNames and behavior |
 | --- | --- | --- | --- |
-| `ExtensionManager` | `Tk.Flex` | `registry` (`Tk.ExtensionRegistry`), `tooltip`, `actionMessage`; `addDescriptor(path)`, `changeLoaded(id, shouldLoad)` | `extensionManager`, `extensionDescriptorPath`, `extensionAdd`, `extensionActionMessage`, `extensionListScroll`, `extension_<id>`, `extensionLoad_<id>`, `extensionDiagnostic_<id>`. Shows saved extensions even when their descriptor is absent, including the registry's diagnostic. Adding a descriptor reads JSON; Load is a separate explicit action that runs trusted native code. |
+| `ExtensionManager` | `Tk.Flex` | `registry` (`Tk.ExtensionRegistry`), `tooltip`, `actionMessage`; `addDescriptor(path)`, `addDirectory(path)`, `changeLoaded(id, shouldLoad)` | `extensionManager`, `extensionDirectoryPath`, `extensionAddDirectory`, `extensionRefresh`, `extensionDirectories`, `extensionDiscoveryDiagnostic`, `extensionDescriptorPath`, `extensionAdd`, `extensionActionMessage`, `extensionListScroll`, `extension_<id>`, `extensionLoad_<id>`, `extensionDiagnostic_<id>`. Explicit directory discovery and refresh show invalid or removed descriptors. Load remains a separate action that runs trusted native code. |
 
 ## Local collaboration service
 

@@ -14,8 +14,8 @@ wire quantities and per-node totals; Auto layout arranges its feedback cycle
 in one undoable step.
 
 The [extension manager fixture](extension-manager-live/Main.qml) shows a
-restored catalog with unavailable native extensions, clear diagnostics and
-explicit descriptor and Load actions.
+restored catalog with unavailable native extensions, clear diagnostics,
+explicit directory discovery and separate Load actions.
 
 The [live code editor fixture](code-editor-live/Main.qml) connects
 `CodeEditor` to a native `CodeDocument` buffer and revision-tagged sample

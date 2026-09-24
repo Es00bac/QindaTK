@@ -3,6 +3,7 @@
 #include "capability_registry.h"
 
 #include <QFile>
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -88,6 +89,69 @@ private slots:
         QVERIFY(!registry.load(QStringLiteral("org.qindatk.fixture.counter")));
         QVERIFY(registry.extension(QStringLiteral("org.qindatk.fixture.counter"))
                     .value(QStringLiteral("diagnostic")).toString().contains(QStringLiteral("not loaded")));
+    }
+    void discoveredPluginRequiresExplicitLoadAndRefreshesRemoval()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(QDir(directory.path()).mkdir(QStringLiteral("counter")));
+        const QString path = writeDescriptor(directory.path() + QStringLiteral("/counter"),
+                                             QStringLiteral("manifest"), base());
+        QVERIFY(!path.isEmpty());
+        ExtensionRegistry registry;
+        registry.setSearchDirectories({directory.path()});
+        QVERIFY(registry.refreshDiscovery());
+        auto entry = registry.extension(QStringLiteral("org.qindatk.fixture.counter"));
+        QVERIFY(entry.value(QStringLiteral("discovered")).toBool());
+        QVERIFY(entry.value(QStringLiteral("installed")).toBool());
+        QVERIFY(!entry.value(QStringLiteral("loaded")).toBool());
+        QVERIFY(registry.load(QStringLiteral("org.qindatk.fixture.counter")));
+        QCOMPARE(registry.invoke(QStringLiteral("org.qindatk.fixture.counter"),
+                                 QStringLiteral("increment")).value(QStringLiteral("count")).toInt(), 1);
+        QVERIFY(QFile::remove(path));
+        QVERIFY(registry.refreshDiscovery());
+        entry = registry.extension(QStringLiteral("org.qindatk.fixture.counter"));
+        QVERIFY(entry.value(QStringLiteral("loaded")).toBool());
+        QVERIFY(!entry.value(QStringLiteral("installed")).toBool());
+        QVERIFY(entry.value(QStringLiteral("diagnostic")).toString().contains(QStringLiteral("no longer found")));
+        QVERIFY(registry.unload(QStringLiteral("org.qindatk.fixture.counter")));
+        QVERIFY(!registry.load(QStringLiteral("org.qindatk.fixture.counter")));
+        QCOMPARE(registry.saveState().first().toMap().value(QStringLiteral("state")).toMap()
+                     .value(QStringLiteral("count")).toInt(), 1);
+        QVERIFY(!writeDescriptor(directory.path() + QStringLiteral("/counter"),
+                                 QStringLiteral("manifest"), base()).isEmpty());
+        QVERIFY(registry.refreshDiscovery());
+        QVERIFY(registry.load(QStringLiteral("org.qindatk.fixture.counter")));
+        QCOMPARE(registry.invoke(QStringLiteral("org.qindatk.fixture.counter"),
+                                 QStringLiteral("increment")).value(QStringLiteral("count")).toInt(), 2);
+        QVERIFY(registry.unload(QStringLiteral("org.qindatk.fixture.counter")));
+    }
+    void discoveryReportsBadDescriptorsAndDependencies()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        auto bad = base();
+        bad.insert(QStringLiteral("version"), QStringLiteral("future"));
+        QVERIFY(!writeDescriptor(directory.path(), QStringLiteral("bad"), bad).isEmpty());
+        auto dependent = base();
+        dependent.insert(QStringLiteral("id"), QStringLiteral("org.qindatk.fixture.dependent"));
+        dependent.insert(QStringLiteral("dependencies"), QJsonArray{
+            QJsonObject{{QStringLiteral("id"), QStringLiteral("org.qindatk.fixture.base")},
+                        {QStringLiteral("minVersion"), QStringLiteral("2.0.0")}}});
+        QVERIFY(!writeDescriptor(directory.path(), QStringLiteral("dependent"), dependent).isEmpty());
+        QFile malformed(directory.path() + QStringLiteral("/broken.json"));
+        QVERIFY(malformed.open(QIODevice::WriteOnly));
+        malformed.write("{");
+        malformed.close();
+        ExtensionRegistry registry;
+        registry.setSearchDirectories({directory.path()});
+        QVERIFY(!registry.refreshDiscovery());
+        QVERIFY(registry.extension(QStringLiteral("org.qindatk.fixture.counter"))
+                    .value(QStringLiteral("diagnostic")).toString().contains(QStringLiteral("version")));
+        QVERIFY(registry.extension(QStringLiteral("org.qindatk.fixture.dependent"))
+                    .value(QStringLiteral("diagnostic")).toString().contains(QStringLiteral("not loaded")));
+        QCOMPARE(registry.discoveryDiagnostics().size(), 2);
+        QVERIFY(!registry.load(QStringLiteral("org.qindatk.fixture.counter")));
     }
 };
 

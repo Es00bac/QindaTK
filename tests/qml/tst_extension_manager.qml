@@ -38,4 +38,16 @@ TestCase {
         verify(!manager.addDescriptor("relative.json"))
         verify(findChild(manager, "extensionActionMessage").text.length > 0)
     }
+    function test_discovery_controls_and_diagnostic() {
+        verify(!manager.addDirectory("relative"))
+        registry.searchDirectories = ["/qindatk-extension-fixture-absent"]
+        verify(!registry.refreshDiscovery())
+        const diagnostic = findChild(manager, "extensionDiscoveryDiagnostic")
+        const refresh = findChild(manager, "extensionRefresh")
+        verify(diagnostic !== null)
+        verify(diagnostic.visible)
+        verify(diagnostic.text.indexOf("unavailable") >= 0)
+        verify(refresh !== null)
+        verify(refresh.enabled)
+    }
 }

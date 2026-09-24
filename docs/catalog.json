@@ -12296,6 +12296,10 @@
         {
           "name": "changeLoaded",
           "parameters": "id, shouldLoad"
+        },
+        {
+          "name": "addDirectory",
+          "parameters": "path"
         }
       ],
       "enums": {},
@@ -12309,11 +12313,16 @@
       "objectNames": [
         "extensionActionMessage",
         "extensionAdd",
+        "extensionAddDirectory",
         "extensionDescriptorPath",
         "extensionDiagnostic_",
+        "extensionDirectories",
+        "extensionDirectoryPath",
+        "extensionDiscoveryDiagnostic",
         "extensionListScroll",
         "extensionLoad_",
         "extensionManager",
+        "extensionRefresh",
         "extension_"
       ]
     },
@@ -44321,6 +44330,20 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "searchDirectories",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "discoveryDiagnostics",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -44331,6 +44354,14 @@
         {
           "name": "extensionsChanged",
           "parameters": ""
+        },
+        {
+          "name": "searchDirectoriesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "discoveryDiagnosticsChanged",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -44338,6 +44369,11 @@
           "name": "registerDescriptor",
           "returns": "bool",
           "parameters": "const QString &path"
+        },
+        {
+          "name": "refreshDiscovery",
+          "returns": "bool",
+          "parameters": ""
         },
         {
           "name": "load",

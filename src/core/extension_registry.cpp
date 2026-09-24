@@ -4,6 +4,7 @@
 #include "extension_provider.h"
 
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -20,6 +21,8 @@ namespace {
 constexpr int manifestSchema = 1;
 constexpr int providerAbi = 1;
 constexpr qsizetype maxDescriptorBytes = 256 * 1024;
+constexpr int maxSearchDirectories = 8;
+constexpr int maxDiscoveredDescriptors = 128;
 QString backendId(const QString &id) { return QStringLiteral("extension:") + id; }
 bool validId(const QString &value)
 {
@@ -51,12 +54,115 @@ struct ExtensionRegistry::Record {
     QVector<Capability> providesCapabilities;
     QVariantMap savedState;
     bool descriptorValid = false;
+    bool discovered = false;
     bool loaded = false;
     std::unique_ptr<QPluginLoader> loader;
     ExtensionProvider *provider = nullptr;
 };
 
 ExtensionRegistry::ExtensionRegistry(QObject *parent) : QObject(parent) {}
+
+void ExtensionRegistry::setSearchDirectories(const QStringList &directories)
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    QStringList unique;
+    for (const QString &path : directories) {
+        const QFileInfo info(path);
+        if (!info.isAbsolute() || unique.contains(info.absoluteFilePath())) continue;
+        unique.append(info.absoluteFilePath());
+        if (unique.size() == maxSearchDirectories) break;
+    }
+    if (m_searchDirectories == unique) return;
+    m_searchDirectories = unique;
+    emit searchDirectoriesChanged();
+}
+
+bool ExtensionRegistry::refreshDiscovery()
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    // AGENT-GUARD: Scan only explicitly selected roots, one level deep, with
+    // a hard candidate cap. A refresh reads JSON but never loads native code.
+    QVariantList issues;
+    QStringList paths;
+    const auto issue = [&](const QString &path, const QString &message) {
+        issues.append(QVariantMap{{QStringLiteral("path"), path},
+                                  {QStringLiteral("message"), message}});
+    };
+    for (const QString &root : m_searchDirectories) {
+        const QFileInfo rootInfo(root);
+        if (!rootInfo.isDir() || rootInfo.isSymLink() || !rootInfo.isReadable()) {
+            issue(root, QStringLiteral("Directory is unavailable or is a symbolic link"));
+            continue;
+        }
+        QDirIterator iterator(root, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+        int examined = 0;
+        while (iterator.hasNext() && examined++ < 512) {
+            iterator.next();
+            const QFileInfo entry = iterator.fileInfo();
+            if (entry.isSymLink()) continue;
+            QString path;
+            if (entry.isFile() && entry.suffix() == QStringLiteral("json"))
+                path = entry.absoluteFilePath();
+            else if (entry.isDir()) {
+                const QFileInfo manifest(entry.absoluteFilePath() + QStringLiteral("/manifest.json"));
+                if (manifest.isFile() && !manifest.isSymLink()) path = manifest.absoluteFilePath();
+            }
+            if (path.isEmpty()) continue;
+            if (paths.size() == maxDiscoveredDescriptors) {
+                issue(root, QStringLiteral("Discovery limit of 128 descriptors reached"));
+                break;
+            }
+            if (!paths.contains(path)) paths.append(path);
+        }
+        if (iterator.hasNext() && paths.size() < maxDiscoveredDescriptors)
+            issue(root, QStringLiteral("Discovery entry limit of 512 reached"));
+        if (paths.size() == maxDiscoveredDescriptors) break;
+    }
+    paths.sort();
+    QSet<QString> seen;
+    for (const QString &path : paths) {
+        const QFileInfo info(path);
+        if (info.size() > maxDescriptorBytes) {
+            issue(path, QStringLiteral("Descriptor exceeds 256 KiB"));
+            continue;
+        }
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) { issue(path, QStringLiteral("Cannot read descriptor")); continue; }
+        QJsonParseError parse;
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parse);
+        if (parse.error != QJsonParseError::NoError || !document.isObject()) {
+            issue(path, QStringLiteral("Invalid descriptor JSON"));
+            continue;
+        }
+        const QString id = document.object().value(QStringLiteral("id")).toString();
+        if (!validId(id)) { issue(path, QStringLiteral("Invalid extension ID")); continue; }
+        const auto old = m_records.value(id);
+        if (old && old->loaded && old->descriptorPath != info.canonicalFilePath()) {
+            issue(path, QStringLiteral("Unload running extension before replacing descriptor: %1").arg(id));
+            continue;
+        }
+        if (seen.contains(id) || (old && old->descriptorValid &&
+                                  old->descriptorPath != info.canonicalFilePath() &&
+                                  (!old->discovered || paths.contains(old->descriptorPath)))) {
+            issue(path, QStringLiteral("Duplicate extension ID: %1").arg(id));
+            continue;
+        }
+        seen.insert(id);
+        if (old && old->loaded) continue; // A running plugin cannot be replaced by a refresh.
+        if (!registerDescriptor(path)) issue(path, extension(id).value(QStringLiteral("diagnostic")).toString());
+        if (auto record = m_records.value(id)) record->discovered = true;
+    }
+    for (const auto &record : m_records) {
+        if (!record->discovered || seen.contains(record->id)) continue;
+        record->descriptorValid = false;
+        record->error = QStringLiteral("Descriptor no longer found in configured directories");
+    }
+    m_discoveryDiagnostics = issues;
+    emit discoveryDiagnosticsChanged();
+    emit extensionsChanged();
+    return issues.isEmpty();
+}
+
 ExtensionRegistry::~ExtensionRegistry()
 {
     // Stop dependents before their providers. No caller-owned document data
@@ -151,6 +257,7 @@ QVariantMap ExtensionRegistry::view(const Record &record) const
             {QStringLiteral("requiresCapabilities"), capabilityList(record.requiresCapabilities)},
             {QStringLiteral("providesCapabilities"), capabilityList(record.providesCapabilities)},
             {QStringLiteral("installed"), record.descriptorValid},
+            {QStringLiteral("discovered"), record.discovered},
             {QStringLiteral("loaded"), record.loaded},
             {QStringLiteral("diagnostic"), issue},
             {QStringLiteral("state"), record.loaded ? record.provider->saveState() : record.savedState}};
@@ -192,7 +299,10 @@ bool ExtensionRegistry::registerDescriptor(const QString &path)
     record->id = id;
     record->version = object.value(QStringLiteral("version")).toString();
     record->descriptorPath = info.canonicalFilePath();
-    if (old) record->savedState = old->savedState;
+    if (old) {
+        record->savedState = old->savedState;
+        record->discovered = old->discovered;
+    }
     const auto fail = [&](const QString &message) {
         record->error = message;
         m_records.insert(id, record);

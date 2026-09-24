@@ -5,7 +5,7 @@
 explicitly selected, trusted native Qt plugins. Registering a descriptor only
 reads local JSON. `load(id)` is the point at which native code enters the
 process, and must be called only after the application chooses to trust that
-extension. There is no global directory scan, marketplace, sandbox or promise
+extension. There is no automatic global directory scan, marketplace, sandbox or promise
 that arbitrary binary plugins are compatible. Extensions built for another
 Qt/compiler/toolkit ABI need rebuilding. The versioned `ExtensionProvider`
 interface is `<qindatk/extension_provider.h>`.
@@ -37,6 +37,24 @@ cannot satisfy them. Incompatible schema or ABI, missing libraries and missing
 dependencies appear in `diagnostic`. A rejected descriptor with a valid ID
 remains visible so the application can explain why it failed.
 
+## Explicit local discovery
+
+Set `searchDirectories` to at most eight absolute local directories, then call
+`refreshDiscovery()`. The registry reads `*.json` files immediately inside each
+directory and `manifest.json` in its immediate child directories. It does not
+follow symlinks, descend further, or start plugins. Each refresh examines at
+most 512 entries per directory and 128 candidate descriptors in total; JSON
+retains the 256 KiB limit. Invalid JSON, unsupported versions, duplicate IDs,
+and unavailable directories appear in `discoveryDiagnostics` as path/message
+entries. Parsed descriptors with valid IDs also appear in `extensions` with
+their version, dependency, ABI, or library diagnostic.
+
+Refresh updates unloaded discoveries. A running plugin stays loaded until the
+user explicitly unloads it. If its descriptor disappears, the catalog marks
+it unavailable and retains saved state; returning the descriptor, unloading,
+and refreshing makes it loadable again. `load(id)` remains an explicit trust decision
+by the host or user. Discovery is local inventory, not a security sandbox.
+
 `ExtensionProvider::start(savedState, error)` receives only that extension's
 opaque saved map. A loaded provider may be called through
 `invoke(id, declaredOperation, arguments)`. Operations absent from the
@@ -63,9 +81,9 @@ separate process adapter behind this host boundary. QML controls supplied by
 plugins need separate application registration and accessible fallback UI.
 
 `Tk.ExtensionManager` is the reusable host panel for this registry. It accepts
-an absolute local descriptor path, lists known extensions and diagnostics, and
-has separate Load/Unload actions. A restored extension whose descriptor is
-missing remains visible with a disabled Load action. The host owns the registry
-and decides which local descriptors users may add; the panel does not scan or
-execute anything on construction. See `examples/extension-manager-live` for a
-saved-state recovery surface.
+an absolute local descriptor path or explicit directory, lists known extensions
+and diagnostics, and has Refresh and separate Load/Unload actions. A restored
+or removed extension whose descriptor is missing remains visible with a
+disabled Load action. The host owns the registry and chooses which directories
+the user may add; the panel does not scan or execute anything on construction.
+See `examples/extension-manager-live` for a saved-state recovery surface.

@@ -17,7 +17,7 @@ Rectangle {
         padding: Tk.Theme.space.lg
         Tk.Heading { text: qsTr("Local extension manager") }
         Tk.Caption {
-            text: qsTr("Saved extension records stay visible when their binary is missing.")
+            text: qsTr("Add a local directory to discover descriptors. Review each plugin before choosing Load. Saved records remain visible when missing.")
         }
         Tk.ExtensionManager {
             objectName: "liveExtensionManager"
