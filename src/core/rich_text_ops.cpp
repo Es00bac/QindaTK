@@ -177,8 +177,11 @@ std::optional<Position> RichTextDocument::splitParagraph(const Position &at)
     created->format = p->format;
     created->format.pageBreakBefore = false;
     if (at.offset == p->text.size() && p->format.headingLevel > 0) {
+        // Body text follows a heading; a heading style does not carry over.
         created->format.headingLevel = 0;
         created->format.keepWithNext = false;
+        created->format.styleId.clear();
+        created->format.overrides = 0;
     }
     created->markFormat = formatIndexAt(at);
     const Position caret{created->id, 0};
@@ -338,7 +341,9 @@ bool RichTextDocument::setParagraphFormat(const Position &a, const Position &b,
     bool ok = true;
     for (int i = first->flatIndex; ok && i <= last->flatIndex; ++i) {
         Paragraph *p = flat.at(i);
-        ParagraphFormat after = patch.applied(p->format);
+        // Patched members of a styled paragraph become direct overrides; the
+        // rest keep (or, with a new style ID, take) the style's values.
+        ParagraphFormat after = materializedFormat(m_styles, patch.applied(p->format));
         if (p->table) after.pageBreakBefore = false;
         if (!(after == p->format)) ok = !apply(StepParagraphFormat{p->id, p->format, after});
     }

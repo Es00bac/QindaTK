@@ -113,7 +113,7 @@ qt_add_qml_module(qindatk
         core/audio_graph.cpp core/audio_graph.h
         core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp
         core/audio_engine.h core/audio_engine_p.h
-        core/audio_session.cpp core/audio_session.h
+        core/audio_session.cpp core/audio_session_transport.cpp core/audio_session.h
         core/uri_validator.cpp core/uri_validator.h
         core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h
@@ -211,18 +211,21 @@ qt_add_qml_module(qindatk
         core/rich_text_edit.cpp core/rich_text_history.cpp
         core/rich_text_ops.cpp core/rich_text_ops_p.h
         core/rich_text_structure.cpp core/rich_text_fragment.cpp core/rich_text_table_edit.cpp
+        core/rich_text_table_spans.cpp core/rich_text_style_edit.cpp core/rich_text_frames.cpp
+        core/rich_text_publishing.cpp core/rich_text_publishing.h
         core/rich_text_page_setup_mm.cpp
         core/rich_text_pdf_export.cpp
-        core/rich_text_codec.cpp core/rich_text_codec_read.cpp
+        core/rich_text_codec.cpp core/rich_text_codec_read.cpp core/rich_text_codec_publishing.cpp
         core/rich_text_codec.h core/rich_text_codec_p.h
         core/rich_text_layout.h core/rich_text_layout_p.h core/rich_text_shaping_p.h
         core/rich_text_shaping.cpp core/rich_text_pagination.cpp core/rich_text_table_flow.cpp
+        core/rich_text_regions.cpp
         core/rich_text_pages.cpp core/rich_text_mapping.cpp core/rich_text_navigation.cpp
         core/rich_text_painter.cpp core/rich_text_objects.cpp core/rich_text_objects.h
         core/rich_text_asset_renderer.cpp core/rich_text_asset_renderer.h
         core/rich_text_graphemes.cpp core/rich_text_graphemes.h
         core/rich_text_area.cpp core/rich_text_area.h core/rich_text_area_input.cpp
-        core/rich_text_area_edit.cpp core/rich_text_area_commands.cpp
+        core/rich_text_area_edit.cpp core/rich_text_area_commands.cpp core/rich_text_area_structure.cpp
         core/rich_text_format_state.cpp core/rich_text_format_state.h
         core/rich_text_page_model.cpp core/rich_text_page_model.h core/rich_text_visible_pages.h
         core/rich_text_tile.cpp core/rich_text_tile.h
@@ -313,7 +316,10 @@ qt_add_qml_module(qindatk
         core/icon_data.cpp core/icon_data.h
         core/meter.cpp core/meter.h
         core/audio_meter_model.cpp core/audio_meter_model.h
+        core/audio_meter_tap.cpp core/audio_meter_tap.h
+        core/audio_loudness_model.cpp core/audio_loudness_model.h
         core/audio_parameter_map.cpp core/audio_parameter_map.h
+        core/audio_parameter_binding.cpp core/audio_parameter_binding.h
         core/layout_attached.cpp core/layout_attached.h
         core/layout_info.cpp core/layout_info.h
         core/screen_work_area.cpp core/screen_work_area.h
@@ -323,6 +329,8 @@ qt_add_qml_module(qindatk
         core/canvas_object.h
         core/canvas_geometry.cpp core/canvas_geometry.h
         core/canvas_path.cpp core/canvas_path.h
+        core/canvas_path_boolean.cpp core/canvas_path_boolean.h
+        core/canvas_appearance.cpp core/canvas_appearance_codec.cpp core/canvas_appearance.h
         core/canvas_svg_export.cpp core/canvas_svg_export.h
         core/canvas_document.cpp core/canvas_document.h
         core/canvas_document_state.h
@@ -337,6 +345,7 @@ qt_add_qml_module(qindatk
         core/canvas_document_scene_format.cpp
         core/canvas_document_qml.cpp
         core/canvas_document_path.cpp
+        core/canvas_document_boolean.cpp
         core/canvas_parametric.cpp core/canvas_parametric.h
         core/canvas_document_parametric.cpp
         core/canvas_document_contours.cpp
@@ -347,10 +356,13 @@ qt_add_qml_module(qindatk
         core/canvas_layer_tree_model.cpp core/canvas_layer_tree_commands.cpp core/canvas_layer_tree_model.h
         core/canvas_artboard_model.cpp core/canvas_artboard_model.h
         core/canvas_alignment_model.cpp core/canvas_alignment_model.h
-        core/canvas_style_model.cpp core/canvas_style_model.h
+        core/canvas_style_model.cpp core/canvas_style_model_selection.cpp core/canvas_style_model.h
+        core/canvas_appearance_model.cpp core/canvas_appearance_model.h
         core/canvas_tools.cpp
         core/canvas_render.h
         core/canvas_painter.cpp
+        core/canvas_appearance_paint.cpp core/canvas_appearance_paint.h
+        core/canvas_effects.cpp core/canvas_effects.h
         core/canvas_tessellator.cpp
         core/render_surface_adapter.cpp core/render_surface_adapter.h
         core/canvas_view_state.cpp core/canvas_view_state.h

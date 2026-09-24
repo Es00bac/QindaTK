@@ -26,8 +26,15 @@ inline constexpr int kEllipseSegments = 64;
 [[nodiscard]] QPolygonF documentOutline(const CanvasObject &object,
                                         int ellipseSegments = kEllipseSegments);
 [[nodiscard]] bool isClosed(const CanvasObject &object);
-// Document bounds including half the stroke width; empty when degenerate.
+// Document bounds including the stroke's outward reach (half the width when
+// centred, the whole width outside, none inside); empty when degenerate.
 [[nodiscard]] QRectF documentBounds(const CanvasObject &object);
+// AGENT-CONTRACT (docs/vector-authoring.md#appearance, D-107): documentBounds
+// grown by the object's enabled drop shadows and blurs, the area its pixels
+// can reach. Spatial indexes and damage use it, so an adapter's candidates()
+// must index objects by it; selection, alignment and snapping keep
+// documentBounds.
+[[nodiscard]] QRectF paintBounds(const CanvasObject &object);
 
 // Exact filled containment of a document point (false for Polyline).
 [[nodiscard]] bool fillContains(const CanvasObject &object, QPointF documentPoint);

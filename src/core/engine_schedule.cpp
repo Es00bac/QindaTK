@@ -51,7 +51,8 @@ EngineScheduleSnapshot::Value EngineScheduleSnapshot::valueAtTicks(const QString
     const Parameter *found = parameter(parameterId);
     if (!found) return {};
     if (found->overriding) return {true, false, found->liveValue};
-    return {true, true, AutomationCurve::valueAt(found->parameter, found->points, ticks)};
+    if (found->mode == AutomationMode::Off) return {true, false, found->parameter.defaultValue};
+    return {true, !found->points.isEmpty(), AutomationCurve::valueAt(found->parameter, found->points, ticks)};
 }
 
 EngineScheduleSnapshot::Value EngineScheduleSnapshot::valueAtSample(const QString &parameterId, qint64 sample) const
@@ -68,7 +69,9 @@ bool EngineScheduleSnapshot::renderBlock(const QString &parameterId, qint64 star
         const auto ticks = ticksAtSample(startSample + i);
         if (!ticks) return false;
         out[i] = found->overriding ? found->liveValue
-                                   : AutomationCurve::valueAt(found->parameter, found->points, *ticks);
+                 : found->mode == AutomationMode::Off
+                     ? found->parameter.defaultValue
+                     : AutomationCurve::valueAt(found->parameter, found->points, *ticks);
     }
     return true;
 }
@@ -167,7 +170,10 @@ void EngineSchedule::publish()
             parameter.parameter = lane->parameter;
             parameter.points = lane->points;
             parameter.mode = lane->mode;
-            parameter.overriding = lane->writing || lane->mode == AutomationMode::Off;
+            // AGENT-NOTE (D-100): a held control (touched) is heard in every
+            // mode, so a fader moves the sound even in read mode or with the
+            // transport stopped; only a write pass records it.
+            parameter.overriding = lane->writing || lane->touched;
             parameter.liveValue = lane->lastValue;
             next->m_parameters.insert(id, parameter);
             next->m_order.push_back(id);

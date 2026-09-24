@@ -141,6 +141,9 @@ public:
     OperationError beginGesture(const QString &parameterId, qint64 ticks, double value);
     OperationError recordGesture(const QString &parameterId, qint64 ticks, double value);
     OperationError endGesture(const QString &parameterId, qint64 ticks);
+    // A canceled gesture that opened the active pass (touch or latch): the
+    // pass is dropped without a history step and the control is released.
+    OperationError discardPass(const QString &parameterId);
 
     // ---- QML: parameters, points and sampling ----
     Q_INVOKABLE QVariantMap addParameterMap(const QVariantMap &parameter);

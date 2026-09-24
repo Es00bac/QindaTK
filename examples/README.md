@@ -62,10 +62,16 @@ actual frame pixels at exact millisecond positions.
 The [caption sequence fixture](caption-sequence/Main.qml) writes ordered PNG
 frames and an exact-timing manifest for a host encoder.
 
-The [publishing workbench](document-publishing/Main.qml) exercises
-`StyleManager`, `PageSetupDialog`, `TextFrameEditor`, and `TableEditor` with
-host-owned sample records; it is also an `example_document-publishing` smoke
-test. Production document transactions belong to the host backend.
+The [publishing workbench](document-publishing/Main.qml) binds
+`StyleManager`, `PageSetupDialog`, `TextFrameEditor`, and `TableEditor` to one
+`Tk.RichTextDocument` (a press release from `publishing.js`: named styles, a
+price table with a merged cell, and a story threaded through two text frames
+with overset text). Every panel request is a document undo step; choosing a
+frame or cell moves the page caret, and the caret selects them in the panels.
+Connecting the free frame on page 2 takes the overset text. It is an
+`example_document-publishing` smoke test, and
+`tests/qml/tst_publishing_example.qml` drives it
+([publishing.md](../docs/publishing.md)).
 
 The [document review workbench](document-review/Main.qml) exercises
 `EquationEditor`, `ReferenceManager`, and `ReviewPane` with host-owned sample
@@ -374,8 +380,8 @@ deletion, and relative column-width requests call the document's table
 methods, so the page reflows at once and each edit is one undo step (the
 header's Undo/Redo buttons). Selecting a cell reveals it on the page; moving
 the page caret into a cell selects it in the editor. A refused request shows
-the document's reason in `tableStructureStatus`. Merge and Split stay
-disabled because the table model has no spans yet.
+the document's reason in `tableStructureStatus`. "Extend cell selection"
+adds cells for Merge; Split restores a merged cell's slots.
 
 - Run: `qtk-preview examples/rich-table/Main.qml --size 1180x760`
 - Exercises: `RichTextDocument` table API, `TableEditor`, `RichDocumentView`,

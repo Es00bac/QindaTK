@@ -2,33 +2,62 @@
 import QtQuick
 import QindaTK as Tk
 
+// WP-061 fixture: the knobs and the fader edit real AudioSession parameters
+// through Tk.AudioParameterBinding (each gesture is one undoable transaction;
+// the knob and the fader share one gain parameter), and the meter and the
+// loudness history show values measured from generated test tones by
+// Tk.AudioMeterModel and Tk.AudioLoudnessModel (ITU-R BS.1770-4). No device
+// is opened here; examples/audio-session plays through the live engine.
 Rectangle {
     id: root
     width: 980
     height: 620
     color: Tk.Theme.color.bg
-    property real gainDb: -6
-    property real frequencyHz: 440
-    property bool muted: false
     property string gestureStatus: qsTr("Ready")
-    property var meterSnapshot: [
-        {channel: "L", peakDbfs: -2.4, rmsDbfs: -16.2, displayPeakDbfs: -2.4,
-         heldPeakDbfs: -1.8, clipped: false, silent: false},
-        {channel: "R", peakDbfs: -0.8, rmsDbfs: -14.7, displayPeakDbfs: -0.8,
-         heldPeakDbfs: -0.8, clipped: true, silent: false}
-    ]
-    property var loudnessSamples: [
-        {time: 0, value: -24.1}, {time: 1, value: -22.8}, {time: 2, value: -20.7},
-        {time: 3, value: -21.4}, {time: 4, value: -18.9}, {time: 5, value: -19.2},
-        {time: 6, value: -16.7}, {time: 7, value: -17.4}
-    ]
-    function resetClipLatch() {
-        const next = []
-        for (let i = 0; i < meterSnapshot.length; ++i) {
-            const channel = Object.assign({}, meterSnapshot[i]); channel.clipped = false; next.push(channel)
-        }
-        meterSnapshot = next
+
+    Tk.AudioSession { id: session }
+    Tk.AudioParameterBinding {
+        id: gain
+        session: session
+        onTransactionFinished: (result) => root.gestureStatus = qsTr("Gain %1: %2").arg(result).arg(gain.valueText)
     }
+    Tk.AudioParameterBinding {
+        id: frequency
+        session: session
+        resetValue: 440
+        onTransactionFinished: (result) => root.gestureStatus = qsTr("Frequency %1: %2").arg(result).arg(frequency.valueText)
+    }
+    Tk.AudioMeterModel { id: toneMeter }
+    Tk.AudioLoudnessModel { id: toneLoudness; historyMetric: "momentary" }
+
+    // Phase-continuous 1 kHz sine: `levels` dBFS for `seconds` each, `channels` wide.
+    function tone(levels, seconds, channels, rate) {
+        const samples = []
+        let n = 0
+        for (let l = 0; l < levels.length; ++l) {
+            const amplitude = Math.pow(10, levels[l] / 20)
+            for (let i = 0; i < seconds * rate; ++i, ++n) {
+                const s = amplitude * Math.sin(2 * Math.PI * 1000 * n / rate)
+                for (let c = 0; c < channels; ++c) samples.push(s)
+            }
+        }
+        return samples
+    }
+    Component.onCompleted: {
+        gain.parameterId = session.ensureGainParameter(session.addTrack(qsTr("Master")))
+        session.automation.addParameterMap({ id: "synth:frequency", name: qsTr("Oscillator frequency"),
+                                             dimension: "frequency", unitId: "Hz", minimum: 20, maximum: 20000,
+                                             default: 440, step: 1 })
+        frequency.parameterId = "synth:frequency"
+        // Measured blocks: -6 dBFS on channel 1, full scale (a clip) on channel 2.
+        const block = tone([0], 0.01, 1, 48000)
+        const stereo = []
+        for (let i = 0; i < block.length; ++i) stereo.push(0.5 * block[i], block[i])
+        toneMeter.submitInterleaved(stereo, 2, 10)
+        // Two seconds at -26 dBFS, then two at -20 dBFS, mono.
+        toneLoudness.submitInterleaved(tone([-26, -20], 2, 1, 48000), 1, 48000)
+    }
+
     Tk.Flex {
         anchors.fill: parent
         padding: Tk.Theme.space.lg
@@ -40,7 +69,7 @@ Rectangle {
             Accessible.role: Accessible.Heading
         }
         Tk.Label {
-            text: qsTr("Host owns parameter transactions and measurement snapshots; controls only present and request changes.")
+            text: qsTr("Controls edit session parameters as one transaction per gesture; meters show measured test tones.")
             muted: true
         }
         Tk.Flex {
@@ -55,14 +84,9 @@ Rectangle {
                         gap: Tk.Theme.space.xs
                         Tk.Label { text: qsTr("Output gain") }
                         Tk.Knob {
-                            parameterId: "master.gain"
+                            binding: gain
                             tooltip: qsTr("Master gain in decibels")
-                            from: -60; to: 6; defaultValue: 0; stepSize: 0.1
-                            unit: " dB"; taper: "decibel"; value: root.gainDb
-                            onGestureStarted: root.gestureStatus = qsTr("Gain gesture started")
-                            onValuePreview: (v) => { root.gainDb = v; root.muted = false }
-                            onGestureCommitted: root.gestureStatus = qsTr("Gain committed to host transaction")
-                            onGestureCanceled: root.gestureStatus = qsTr("Gain gesture canceled")
+                            stepSize: 0.1
                         }
                     }
                     Tk.Flex {
@@ -70,15 +94,11 @@ Rectangle {
                         gap: Tk.Theme.space.xs
                         Tk.Label { text: qsTr("Master fader") }
                         Tk.Fader {
-                            parameterId: "master.output"
-                            tooltip: qsTr("Master output level; −∞ is explicit silence")
-                            from: -60; to: 6; value: root.gainDb
-                            unityValue: 0; defaultValue: 0; unit: "dB"
-                            silent: root.muted; vertical: true
-                            onGestureStarted: root.gestureStatus = qsTr("Fader gesture started")
-                            onValuePreview: (v, isSilent) => { root.gainDb = v; root.muted = isSilent }
-                            onGestureCommitted: root.gestureStatus = qsTr("Fader committed to host transaction")
-                            onGestureCanceled: (v, isSilent) => { root.gainDb = v; root.muted = isSilent; root.gestureStatus = qsTr("Fader gesture canceled") }
+                            binding: gain
+                            tooltip: qsTr("Master output level; −∞ is exact silence")
+                            unityValue: 0
+                            scaleMarks: [-60, -30, -18, -12, -6, 0, 6, 12]
+                            vertical: true
                         }
                     }
                     Tk.Flex {
@@ -86,12 +106,10 @@ Rectangle {
                         gap: Tk.Theme.space.xs
                         Tk.Label { text: qsTr("Oscillator frequency") }
                         Tk.Knob {
-                            parameterId: "synth.frequency"
+                            binding: frequency
                             tooltip: qsTr("Oscillator frequency")
-                            from: 20; to: 20000; defaultValue: 440; stepSize: 1
-                            decimals: 0; unit: " Hz"; taper: "logarithmic"; value: root.frequencyHz
-                            onValuePreview: root.frequencyHz = v
-                            onGestureCommitted: root.gestureStatus = qsTr("Frequency committed to host transaction")
+                            stepSize: 1
+                            decimals: 0
                         }
                     }
                 }
@@ -100,16 +118,13 @@ Rectangle {
                 Tk.Flex {
                     direction: Tk.Flex.Column
                     gap: Tk.Theme.space.sm
-                    Tk.Label { text: qsTr("Provider measurement snapshot"); font.pixelSize: Tk.Theme.font.small }
+                    Tk.Label { text: qsTr("Measured test tone"); font.pixelSize: Tk.Theme.font.small }
                     Tk.AudioMeter {
                         width: Tk.Theme.size.fieldWidth * 2
-                        levels: root.meterSnapshot
-                        metric: "peak-rms"; unit: "dBFS"
-                        integrationWindow: "RMS: provider-declared 300 ms"
-                        tooltip: qsTr("Peak and RMS snapshot by channel")
-                        onClipResetRequested: root.resetClipLatch()
+                        meter: toneMeter
+                        tooltip: qsTr("Sample peak and RMS by channel")
                     }
-                    Tk.Label { text: qsTr("Display hold and clip state come from the provider."); muted: true }
+                    Tk.Label { text: qsTr("Hold, fall and the clip latch come from the meter model."); muted: true }
                 }
             }
         }
@@ -117,21 +132,16 @@ Rectangle {
             Tk.Flex {
                 direction: Tk.Flex.Column
                 gap: Tk.Theme.space.sm
-                Tk.Label { text: qsTr("Loudness history provider contract"); font.pixelSize: Tk.Theme.font.small }
+                Tk.Label { text: qsTr("BS.1770 momentary loudness"); font.pixelSize: Tk.Theme.font.small }
                 Tk.LoudnessHistory {
                     Tk.Flex.grow: 1
                     height: Tk.Theme.size.controlLg * 4
-                    samples: root.loudnessSamples
-                    metricId: "fixture.integrated-level"
-                    unit: "dBFS"
-                    integrationWindow: "fixture interval: one sample per second"
-                    channelLayout: "stereo (L/R)"
-                    targetProfile: "Example only; no standards compliance claim"
+                    loudness: toneLoudness
+                    targetProfile: qsTr("Example band only; not a delivery specification")
                     minimum: -60; maximum: 0; targetMinimum: -24; targetMaximum: -18
-                    tooltip: qsTr("Provider-defined demonstration history")
-                    onResetHistoryRequested: { root.loudnessSamples = []; root.gestureStatus = qsTr("History reset requested") }
+                    tooltip: qsTr("Momentary loudness of the generated test tone")
                     onExportRequested: (metric, units, window, layout, profile, values) => {
-                        root.gestureStatus = qsTr("Export requested: %1, %2, %3 samples").arg(metric).arg(units).arg(values.length)
+                        root.gestureStatus = qsTr("Report: %1, %2, %3 readings").arg(metric).arg(units).arg(values.length)
                     }
                 }
             }

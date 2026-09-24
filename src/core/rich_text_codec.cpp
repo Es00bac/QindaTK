@@ -28,6 +28,7 @@ QJsonObject charFormatJson(const CharFormat &f)
     if (f.verticalAlign != VerticalAlign::Normal)
         o.insert(QStringLiteral("verticalAlign"), verticalAlignNames().at(int(f.verticalAlign)));
     if (!f.objectId.isEmpty()) o.insert(QStringLiteral("object"), f.objectId);
+    if (!f.styleId.isEmpty()) o.insert(QStringLiteral("style"), f.styleId);
     return o;
 }
 
@@ -54,6 +55,8 @@ QJsonObject paragraphFormatJson(const ParagraphFormat &f)
     if (f.keepTogether) o.insert(QStringLiteral("keepTogether"), true);
     if (f.pageBreakBefore) o.insert(QStringLiteral("pageBreakBefore"), true);
     if (!f.styleId.isEmpty()) o.insert(QStringLiteral("style"), f.styleId);
+    if (!f.styleId.isEmpty() && f.overrides)
+        o.insert(QStringLiteral("overrides"), QJsonArray::fromStringList(overrideNames(f.overrides)));
     return o;
 }
 
@@ -69,6 +72,17 @@ QJsonObject objectJson(const RichObject &object)
     if (object.gapPt != RichObject{}.gapPt) o.insert(QStringLiteral("gapPt"), object.gapPt);
     if (!object.source.isEmpty()) o.insert(QStringLiteral("source"), object.source);
     if (!object.altText.isEmpty()) o.insert(QStringLiteral("alt"), object.altText);
+    return o;
+}
+
+QJsonObject pageJson(const PageSetup &page)
+{
+    QJsonObject o{{QStringLiteral("widthPt"), page.widthPt},
+                  {QStringLiteral("heightPt"), page.heightPt},
+                  {QStringLiteral("marginsPt"), QJsonArray{page.marginTopPt, page.marginRightPt,
+                                                           page.marginBottomPt, page.marginLeftPt}}};
+    if (page.columns != PageSetup{}.columns) o.insert(QStringLiteral("columns"), page.columns);
+    if (page.columnGapPt != PageSetup{}.columnGapPt) o.insert(QStringLiteral("columnGapPt"), page.columnGapPt);
     return o;
 }
 
@@ -142,6 +156,8 @@ struct Writer {
                               {QStringLiteral("paragraphs"), paragraphs}};
                 if (cell.background.isValid())
                     c.insert(QStringLiteral("background"), colorName(cell.background));
+                if (cell.rowSpan > 1) c.insert(QStringLiteral("rowSpan"), cell.rowSpan);
+                if (cell.columnSpan > 1) c.insert(QStringLiteral("columnSpan"), cell.columnSpan);
                 cells.append(c);
             }
             QJsonObject r{{QStringLiteral("id"), row.id.toString(QUuid::WithoutBraces)},
@@ -156,6 +172,7 @@ struct Writer {
         if (t.headerRows > 0) o.insert(QStringLiteral("headerRows"), t.headerRows);
         if (t.borderPt != Table{}.borderPt) o.insert(QStringLiteral("borderPt"), t.borderPt);
         if (t.cellPaddingPt != Table{}.cellPaddingPt) o.insert(QStringLiteral("paddingPt"), t.cellPaddingPt);
+        if (!t.styleId.isEmpty()) o.insert(QStringLiteral("style"), t.styleId);
         return o;
     }
 
@@ -190,6 +207,30 @@ QJsonArray sortedLists(const QHash<QString, ListDefinition> &lists)
 
 } // namespace
 
+namespace {
+
+bool usesVersion2(const Table &table)
+{
+    if (!table.styleId.isEmpty()) return true;
+    for (const TableRow &row : table.rows)
+        for (const TableCell &cell : row.cells)
+            if (cell.rowSpan > 1 || cell.columnSpan > 1) return true;
+    return false;
+}
+
+} // namespace
+
+int RichTextCodec::requiredVersion(const RichTextDocument &document)
+{
+    const PageSetup page = document.pageSetupValue();
+    if (!document.styleSheet().isEmpty() || !document.frameSet().frames.isEmpty()
+        || page.columns != PageSetup{}.columns || page.columnGapPt != PageSetup{}.columnGapPt)
+        return 2;
+    for (const Block &block : document.blocks())
+        if (block.table && usesVersion2(*block.table)) return 2;
+    return 1;
+}
+
 QJsonObject RichTextCodec::toJsonObject(const RichTextDocument &document)
 {
     // Entry 0 of `formats` is the default format (see Writer's initializers).
@@ -204,19 +245,20 @@ QJsonObject RichTextCodec::toJsonObject(const RichTextDocument &document)
     QHash<QString, ListDefinition> used;
     for (const Paragraph *p : document.paragraphsInOrder())
         if (const ListDefinition *list = document.list(p->format.listId)) used.insert(list->id, *list);
-    return {{QStringLiteral("schema"), schemaId()},
-            {QStringLiteral("version"), CurrentVersion},
-            {QStringLiteral("documentId"), document.documentIdString()},
-            {QStringLiteral("page"), QJsonObject{
-                 {QStringLiteral("widthPt"), page.widthPt},
-                 {QStringLiteral("heightPt"), page.heightPt},
-                 {QStringLiteral("marginsPt"), QJsonArray{page.marginTopPt, page.marginRightPt,
-                                                          page.marginBottomPt, page.marginLeftPt}}}},
-            {QStringLiteral("defaults"), defaultsJson},
-            {QStringLiteral("formats"), writer.formats},
-            {QStringLiteral("lists"), sortedLists(used)},
-            {QStringLiteral("objects"), sortedObjects(document.objects())},
-            {QStringLiteral("blocks"), blocks}};
+    QJsonObject root{{QStringLiteral("schema"), schemaId()},
+                     {QStringLiteral("version"), requiredVersion(document)},
+                     {QStringLiteral("documentId"), document.documentIdString()},
+                     {QStringLiteral("page"), pageJson(page)},
+                     {QStringLiteral("defaults"), defaultsJson},
+                     {QStringLiteral("formats"), writer.formats},
+                     {QStringLiteral("lists"), sortedLists(used)},
+                     {QStringLiteral("objects"), sortedObjects(document.objects())},
+                     {QStringLiteral("blocks"), blocks}};
+    // WP-051 members are written only when used (docs/publishing.md#persistence).
+    if (!document.styleSheet().isEmpty()) root.insert(QStringLiteral("styles"), stylesJson(document.styleSheet()));
+    if (!document.frameSet().frames.isEmpty())
+        root.insert(QStringLiteral("textFrames"), frameSetJson(document.frameSet()));
+    return root;
 }
 
 QByteArray RichTextCodec::encode(const RichTextDocument &document)
@@ -231,14 +273,18 @@ QJsonObject RichTextCodec::fragmentToJson(const Fragment &fragment)
         return i >= 0 && i < fragment.formats.size() ? fragment.formats.at(i) : empty;
     });
     const QJsonArray blocks = writer.blocks(fragment.blocks);
-    return {{QStringLiteral("schema"), fragmentSchemaId()},
-            {QStringLiteral("version"), CurrentVersion},
-            {QStringLiteral("openStart"), fragment.openStart},
-            {QStringLiteral("openEnd"), fragment.openEnd},
-            {QStringLiteral("formats"), writer.formats},
-            {QStringLiteral("lists"), sortedLists(fragment.lists)},
-            {QStringLiteral("objects"), sortedObjects(fragment.objects)},
-            {QStringLiteral("blocks"), blocks}};
+    bool version2 = !fragment.styles.isEmpty();
+    for (const Block &block : fragment.blocks) version2 = version2 || (block.table && usesVersion2(*block.table));
+    QJsonObject root{{QStringLiteral("schema"), fragmentSchemaId()},
+                     {QStringLiteral("version"), version2 ? 2 : 1},
+                     {QStringLiteral("openStart"), fragment.openStart},
+                     {QStringLiteral("openEnd"), fragment.openEnd},
+                     {QStringLiteral("formats"), writer.formats},
+                     {QStringLiteral("lists"), sortedLists(fragment.lists)},
+                     {QStringLiteral("objects"), sortedObjects(fragment.objects)},
+                     {QStringLiteral("blocks"), blocks}};
+    if (!fragment.styles.isEmpty()) root.insert(QStringLiteral("styles"), stylesJson(fragment.styles));
+    return root;
 }
 
 QVariantMap RichTextCodec::paragraphFormatToMap(const ParagraphFormat &format)

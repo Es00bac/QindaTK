@@ -58,6 +58,7 @@ void RichTextFormatState::refresh()
         const DocumentDefaults defaults = doc->defaults();
         auto addFormat = [&](CharFormat f, const ParagraphFormat &pf) {
             if (!m_hasSelection && m_area->m_pendingFormat) f = m_area->m_pendingFormat->applied(f);
+            f = doc->effectiveCharFormat(f, pf); // named styles, before heading and document defaults
             const Shaping::HeadingStyle style = Shaping::headingStyle(pf.headingLevel);
             family.add(f.family.isEmpty() ? defaults.family : f.family);
             size.add(f.sizePt > 0 ? f.sizePt : style.sizePt > 0 ? style.sizePt : defaults.sizePt);

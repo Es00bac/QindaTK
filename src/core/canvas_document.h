@@ -326,6 +326,13 @@ public:
     Q_INVOKABLE bool insertPathContourNode(qulonglong id, int contour, int index, const QVariantMap &node);
     Q_INVOKABLE bool removePathContourNode(qulonglong id, int contour, int index);
     Q_INVOKABLE bool setPathContourClosed(qulonglong id, int contour, bool closed);
+    // Path operations (docs/vector-authoring.md#path-booleans, D-108):
+    // "union", "intersect", "subtract" (backmost minus the others), "exclude"
+    // or "combine" (contours merged unchanged) over visible, unlocked closed
+    // rectangles, ellipses and paths. The result replaces the backmost operand
+    // (its id, layer, paint order, style and transform) and removes the
+    // others in one undoable edit; returns that id, or 0 with lastError set.
+    Q_INVOKABLE qulonglong combinePaths(const QVariantList &ids, const QString &operation);
     Q_INVOKABLE bool exportSvg(const QString &filePath);
     // matrix = [m11, m12, m21, m22, dx, dy] (QTransform affine order)
     Q_INVOKABLE bool setObjectTransform(qulonglong id, const QVariantList &matrix);

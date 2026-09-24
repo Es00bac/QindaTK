@@ -28,7 +28,8 @@ pages below are the reference.
 | [workbook.md](workbook.md) | Workbook model, formula grammar and functions, reference rules and names, incremental recalculation, transactions, cell and number formats, conditional formats, data validation, merged cells, sheet properties, clipboard ranges, CSV/TSV interchange, sessions and the native workbook format |
 | [query-pivot.md](query-pivot.md) | Typed query AST, null semantics, bounded grouping and pivots, provenance and grid/provider adapters |
 | [diff-view.md](diff-view.md) | Bounded local diff, lazy large-provider seam, stable hunk IDs and host transaction requests |
-| [rich-text.md](rich-text.md) | Structured rich-text model, `qindatk.richtext/1` persistence, per-view shaping and incremental pagination, commands, clipboard and object seams |
+| [rich-text.md](rich-text.md) | Structured rich-text model, `qindatk.richtext` persistence, per-view shaping and incremental pagination, commands, clipboard and object seams |
+| [publishing.md](publishing.md) | Named styles with inheritance and overrides, merged table cells, table styles, linked text frames, page columns and `qindatk.richtext` version 2 |
 | [resource-table.md](resource-table.md) | Stable resource and time-bucket identity, allocation units, conflicts and reversible edits |
 | [persistence.md](persistence.md) | Document sessions of any registered kind, the reference file format, atomic save, multi-document close and recovery behavior |
 | [document-models.md](document-models.md) | Domain model/command/codec contracts, the shared history engine, save clean marks, recovery frames and how a new domain joins |
@@ -60,7 +61,7 @@ pages below are the reference.
 | [sequence-edits.md](sequence-edits.md) | NLE sequence edits: roll, ripple, slip and slide with linked sound, frame-exact bounds, transitions and their evaluation, multicam angles and switching, and the SequenceEditor/MulticamModel backends of the trim, transition and multicam views |
 | [tempo-automation.md](tempo-automation.md) | Tempo/meter events, beat-locked clips, automation curves and modes, engine schedule snapshots |
 | [audio-engine.md](audio-engine.md) | Realtime audio engine and session: threads/queues, graph lifetime, devices and reconfiguration, recording latency, persistence, relink, offline render, callback measurements |
-| [audio-measurement.md](audio-measurement.md) | Channel peak/RMS measurement, dBFS display, peak hold, fall and clip latch |
+| [audio-measurement.md](audio-measurement.md) | Realtime meter tap, peak/RMS meter and BS.1770-4 loudness models, hold/fall/clip on audio time, engine parameter transactions for Knob and Fader, silence floor |
 | [vector-authoring.md](vector-authoring.md) | Vector appearance panels and undoable solid canvas style edits |
 | [chart-data.md](chart-data.md) | Typed axes/series, linked viewports, annotations, projection, hit identity, decimation, tabular export and histogram bin ranges |
 | [distribution-plot.md](distribution-plot.md) | Source-backed quantiles and density, declared intervals, selection and accessible tables |

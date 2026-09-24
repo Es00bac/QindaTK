@@ -5,7 +5,8 @@ import QindaTK as Tk
 
 // WP-070 fixture on real media. On start it writes two short test signals
 // (colour bars, a burned-in binary frame code and a white flash with a 1 kHz
-// pop once a second) into <temp>/qindatk-media-demo, imports them into a
+// pop once a second, starting mid-second so the first frame, which the monitors
+// and thumbnails show, is bars) into <temp>/qindatk-media-demo, imports them into a
 // MediaCatalog and cuts them into a two-clip program. The source monitor
 // plays the selected bin asset; the program monitor plays the TimelineModel
 // composite; Export queues a verified FFV1/PCM Matroska render. The files are
@@ -19,7 +20,8 @@ Item {
     readonly property string second: "705600000"
     property string status: qsTr("Writing test signals…")
     property var signalJobs: ({})
-    property var importedResources: []
+    property string harborResource: ""
+    property string interviewResource: ""
     property bool queueOpen: false
 
     Tk.ResourceResolver { id: mediaResolver }
@@ -51,10 +53,13 @@ Item {
 
     Component.onCompleted: {
         const jobs = {}
-        jobs[mediaCatalog.generateTestSignal(page.mediaFolder + "/harbor.mkv", ({frames: 75, popInterval: 25}))]
-            = {path: page.mediaFolder + "/harbor.mkv", label: qsTr("Harbor bars")}
-        jobs[mediaCatalog.generateTestSignal(page.mediaFolder + "/interview.mkv", ({frames: 100, popInterval: 50}))]
-            = {path: page.mediaFolder + "/interview.mkv", label: qsTr("Interview bars")}
+        // 75 frames (3 s) each: the program uses harbor 0-2 s and interview 1-3 s.
+        jobs[mediaCatalog.generateTestSignal(page.mediaFolder + "/harbor.mkv",
+                                             ({frames: 75, popInterval: 25, popPhase: 12}))]
+            = {path: page.mediaFolder + "/harbor.mkv", label: qsTr("Harbor bars"), role: "harbor"}
+        jobs[mediaCatalog.generateTestSignal(page.mediaFolder + "/interview.mkv",
+                                             ({frames: 75, popInterval: 50, popPhase: 25}))]
+            = {path: page.mediaFolder + "/interview.mkv", label: qsTr("Interview bars"), role: "interview"}
         page.signalJobs = jobs
     }
 
@@ -68,36 +73,54 @@ Item {
             page.status = qsTr("Test signal failed: %1").arg(error)
             return
         }
-        const assetId = mediaCatalog.importMedia(page.signalJobs[jobId].path, "", page.signalJobs[jobId].label)
+        const job = page.signalJobs[jobId]
+        const assetId = mediaCatalog.importMedia(job.path, "", job.label)
         if (!assetId.length) {
             page.status = mediaCatalog.lastError
             return
         }
-        const resources = page.importedResources.slice()
-        resources.push(mediaCatalog.asset(assetId).resourceId)
-        page.importedResources = resources
-        if (resources.length === 1) selection.select(assetId)
-        if (resources.length === 2) page.buildProgram(resources[0], resources[1])
+        const resourceId = mediaCatalog.asset(assetId).resourceId
+        if (job.role === "harbor") {
+            page.harborResource = resourceId
+            selection.select(assetId) // the source monitor opens on the harbor clip
+        } else {
+            page.interviewResource = resourceId
+            if (!selection.selectedIds.length) selection.select(assetId)
+        }
+        page.buildProgram()
     }
 
     function clipRecord(n, track, start, duration, offset, resourceId, kind, label) {
         return ({id: "00000000-0000-4000-8000-0000000000" + n, trackId: track, start: start, duration: duration,
                  sourceOffset: offset, resourceId: resourceId, kind: kind, label: label})
     }
-    function buildProgram(firstResource, secondResource) {
+    // The program cuts from harbor (0-2 s) to interview (2-4 s). Each clip joins
+    // as soon as its media is imported, so the program monitor presents a frame
+    // as early as the source monitor does.
+    function buildProgram() {
         const v1 = "00000000-0000-4000-8000-000000000001"
         const a1 = "00000000-0000-4000-8000-000000000002"
         const two = String(2 * Number(page.second))
+        const clips = []
+        if (page.harborResource.length) {
+            clips.push(page.clipRecord(11, v1, "0", two, "0", page.harborResource, "video", qsTr("Harbor")))
+            clips.push(page.clipRecord(21, a1, "0", two, "0", page.harborResource, "audio", qsTr("Harbor audio")))
+        }
+        if (page.interviewResource.length) {
+            clips.push(page.clipRecord(12, v1, two, two, page.second, page.interviewResource, "video",
+                                       qsTr("Interview")))
+            clips.push(page.clipRecord(22, a1, two, two, page.second, page.interviewResource, "audio",
+                                       qsTr("Interview audio")))
+        }
         const result = sequence.loadContent({
             timebase: {numerator: page.second, denominator: "1"},
             tracks: [{id: v1, name: "V1", kind: "video"}, {id: a1, name: "A1", kind: "audio"}],
-            clips: [page.clipRecord(11, v1, "0", two, "0", firstResource, "video", qsTr("Harbor")),
-                    page.clipRecord(12, v1, two, two, page.second, secondResource, "video", qsTr("Interview")),
-                    page.clipRecord(21, a1, "0", two, "0", firstResource, "audio", qsTr("Harbor audio")),
-                    page.clipRecord(22, a1, two, two, page.second, secondResource, "audio", qsTr("Interview audio"))],
+            clips: clips,
             markers: []
         })
-        page.status = result.ok ? qsTr("Program ready: 4 s, two cuts") : result.error
+        page.status = !result.ok ? result.error
+                    : clips.length === 4 ? qsTr("Program ready: 4 s, two cuts")
+                                         : qsTr("Program: waiting for the second clip")
     }
     // RenderQueueModel.open() takes a plain absolute path, not a file URL.
     function localPath(url) {

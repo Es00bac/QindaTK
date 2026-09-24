@@ -156,11 +156,17 @@ Item {
                 model: control.table.cells
                 delegate: Tk.Button {
                     required property var modelData
+                    readonly property bool merged: (modelData.rowSpan || 1) > 1 || (modelData.columnSpan || 1) > 1
                     objectName: "tableCell_" + modelData.id
                     text: modelData.text || ""
                     variant: control.selectedCellIds.indexOf(modelData.id) >= 0 ? "outline" : "default"
-                    tooltip: qsTr("Row %1, column %2: %3").arg(modelData.rowIndex + 1).arg(modelData.columnIndex + 1).arg(modelData.text || qsTr("empty cell"))
+                    tooltip: (merged ? qsTr("Row %1, column %2, merged across %3 rows and %4 columns: %5")
+                                           .arg(modelData.rowIndex + 1).arg(modelData.columnIndex + 1)
+                                           .arg(modelData.rowSpan || 1).arg(modelData.columnSpan || 1)
+                                     : qsTr("Row %1, column %2: %3").arg(modelData.rowIndex + 1).arg(modelData.columnIndex + 1))
+                             .arg(modelData.text || qsTr("empty cell"))
                     Accessible.role: Accessible.Cell
+                    Accessible.name: tooltip
                     Accessible.selected: control.selectedCellIds.indexOf(modelData.id) >= 0
                     Tk.Grid.row: modelData.rowIndex
                     Tk.Grid.column: modelData.columnIndex
@@ -188,10 +194,13 @@ Item {
             Tk.NumberField {
                 objectName: "tableColumnWidth"
                 label: qsTr("W")
-                value: {
+                // NumberField clamps by assigning `value`, which would drop a binding.
+                readonly property real shown: {
                     const index = control.columnIndex(control.selectedColumnId)
                     return index >= 0 ? Number(control.table.columns[index].width || 1) : 1
                 }
+                onShownChanged: value = shown
+                Component.onCompleted: value = shown
                 from: 1
                 to: 100000
                 stepSize: 1

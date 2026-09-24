@@ -21,6 +21,8 @@ AudioEngineProcessor::AudioEngineProcessor(const AudioStreamFormat &format, cons
       m_loopEnd(initial.loopEnd)
 {
     m_publishedPosition.store(m_position);
+    if (format.outputChannels > 0 && format.sampleRate > 0)
+        m_outputTap = std::make_unique<AudioMeterTap>(format.sampleRate, format.outputChannels);
 }
 
 const AudioRenderGraph *AudioEngineProcessor::offer(const AudioRenderGraph *graph)
@@ -63,6 +65,9 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
         done += count;
         if (looping && m_position == m_loopEnd) m_position = m_loopStart;
     }
+    // AGENT-GUARD: the meter measures exactly what the device receives, every
+    // period (silence included); AudioMeterTap::process never allocates.
+    if (m_outputTap) m_outputTap->process(output, frames);
     if (m_recording) captureBlock(input, frames, blockPosition);
     publish();
 }

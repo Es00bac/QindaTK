@@ -354,7 +354,8 @@ void CanvasDocument::place(const CanvasObject &object, QVector<QRectF> *damage)
 {
     unplace(object.id, damage);
     m_objects.insert(object.id, object);
-    const QRectF bounds = CanvasGeometry::documentBounds(object);
+    // Paint bounds include effect reach, so shadows get candidates and damage.
+    const QRectF bounds = CanvasGeometry::paintBounds(object);
     m_bounds.insert(object.id, bounds);
     m_index.insert(object.id, bounds);
     if (!bounds.isNull()) {

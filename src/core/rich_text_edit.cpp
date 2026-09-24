@@ -6,6 +6,19 @@
 namespace QindaTK {
 using namespace RichText;
 
+bool RichTextDocument::knownCharacterStyles(const QVector<Span> &spans, int mark) const
+{
+    auto known = [this](int index) {
+        const QString &id = charFormat(index).styleId;
+        const NamedStyle *named = id.isEmpty() ? nullptr : style(id);
+        return id.isEmpty() || (named && named->kind == StyleKind::Character);
+    };
+    if (mark >= 0 && !known(mark)) return false;
+    for (const Span &span : spans)
+        if (!known(span.format)) return false;
+    return true;
+}
+
 void RichTextDocument::touch(Paragraph *p, ChangeSet &change)
 {
     p->revision = ++m_contentCounter;
@@ -40,6 +53,8 @@ OperationError RichTextDocument::applyText(StepText &step, bool forward, ChangeS
         return reject(ErrorCode::Conflict, QStringLiteral("Paragraph text changed since the edit"));
     if (Spans::totalLength(insertedSpans) != inserted.size())
         return reject(ErrorCode::InvalidArgument, QStringLiteral("Spans do not cover the text"));
+    if (!knownCharacterStyles(insertedSpans))
+        return reject(ErrorCode::Validation, QStringLiteral("Unknown character style"));
     for (const RichObject &object : leaving)
         if (!(m_objects.value(object.id) == object))
             return reject(ErrorCode::Conflict, QStringLiteral("Object changed since the edit"));
@@ -70,6 +85,8 @@ OperationError RichTextDocument::applySpans(StepSpans &step, bool forward, Chang
     if (Spans::slice(p->spans, step.offset, length) != Spans::normalized(from)
         || (markFrom >= 0 && p->markFormat != markFrom))
         return reject(ErrorCode::Conflict, QStringLiteral("Formatting changed since the edit"));
+    if (!knownCharacterStyles(to, markTo))
+        return reject(ErrorCode::Validation, QStringLiteral("Unknown character style"));
     p->spans = Spans::replaced(p->spans, step.offset, length, to);
     if (markTo >= 0) p->markFormat = markTo;
     touch(p, change);
@@ -285,6 +302,11 @@ OperationError RichTextDocument::applyStep(Step &step, bool forward, ChangeSet &
             if (!p) return reject(ErrorCode::StaleRevision, QStringLiteral("Unknown paragraph"));
             if (!(p->format == (forward ? s.before : s.after)))
                 return reject(ErrorCode::Conflict, QStringLiteral("Paragraph format changed"));
+            // AGENT-GUARD: the codec refuses unknown style references, so a
+            // format may only name an existing paragraph style.
+            const QString &styleId = (forward ? s.after : s.before).styleId;
+            if (const NamedStyle *named = style(styleId); !styleId.isEmpty() && (!named || named->kind != StyleKind::Paragraph))
+                return reject(ErrorCode::Validation, QStringLiteral("Unknown paragraph style"));
             const bool listChange = p->format.listId != (forward ? s.after : s.before).listId
                 || p->format.listLevel != (forward ? s.after : s.before).listLevel;
             p->format = forward ? s.after : s.before;
@@ -336,7 +358,12 @@ OperationError RichTextDocument::applyStep(Step &step, bool forward, ChangeSet &
                         && charFormat(Spans::formatAt(p->spans, i)).objectId == s.objectId)
                         touch(p, change);
             return {};
+        } else if constexpr (std::is_same_v<T, StepStyle>) {
+            return applyStyleStep(s, forward, change);
+        } else if constexpr (std::is_same_v<T, StepFrames>) {
+            return applyFrames(s, forward, change);
         } else {
+            static_assert(std::is_same_v<T, StepDocument>);
             if (!(m_page == (forward ? s.pageBefore : s.pageAfter))
                 || !(m_defaults == (forward ? s.defaultsBefore : s.defaultsAfter)))
                 return reject(ErrorCode::Conflict, QStringLiteral("Page setup changed"));

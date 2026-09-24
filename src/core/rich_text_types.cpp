@@ -10,13 +10,13 @@ size_t qHash(const CharFormat &f, size_t seed) noexcept
     const auto rgba = [](const QColor &c) { return c.isValid() ? quint64(c.rgba64()) + 1 : quint64(0); };
     return qHashMulti(seed, f.family, f.sizePt, f.weight, int(f.italic) * 9 + int(f.underline) * 3
                       + int(f.strike), rgba(f.color), rgba(f.background), f.href,
-                      int(f.verticalAlign), f.objectId);
+                      int(f.verticalAlign), f.objectId, f.styleId);
 }
 
 bool CharFormatPatch::isEmpty() const
 {
     return !family && !sizePt && !weight && !italic && !underline && !strike
-        && !color && !background && !href && !verticalAlign;
+        && !color && !background && !href && !verticalAlign && !styleId;
 }
 
 CharFormat CharFormatPatch::applied(CharFormat format) const
@@ -31,6 +31,7 @@ CharFormat CharFormatPatch::applied(CharFormat format) const
     if (background) format.background = *background;
     if (href) format.href = *href;
     if (verticalAlign) format.verticalAlign = *verticalAlign;
+    if (styleId) format.styleId = *styleId;
     return format;
 }
 
@@ -46,6 +47,7 @@ void CharFormatPatch::merge(const CharFormatPatch &later)
     if (later.background) background = later.background;
     if (later.href) href = later.href;
     if (later.verticalAlign) verticalAlign = later.verticalAlign;
+    if (later.styleId) styleId = later.styleId;
 }
 
 bool ParagraphFormatPatch::isEmpty() const
@@ -74,7 +76,29 @@ ParagraphFormat ParagraphFormatPatch::applied(ParagraphFormat format) const
     if (keepTogether) format.keepTogether = *keepTogether;
     if (pageBreakBefore) format.pageBreakBefore = *pageBreakBefore;
     if (styleId) format.styleId = *styleId;
+    // Direct formatting of a styled paragraph is recorded as an override, so
+    // a later change of its style keeps it (docs/publishing.md#styles).
+    if (format.styleId.isEmpty()) format.overrides = 0;
+    else format.overrides |= styleProperties();
     return format;
+}
+
+quint32 ParagraphFormatPatch::styleProperties() const
+{
+    quint32 bits = 0;
+    if (alignment) bits |= StyleAlignment;
+    if (direction) bits |= StyleDirection;
+    if (indentStartPt) bits |= StyleIndentStart;
+    if (indentEndPt) bits |= StyleIndentEnd;
+    if (firstLineIndentPt) bits |= StyleFirstLineIndent;
+    if (spaceBeforePt) bits |= StyleSpaceBefore;
+    if (spaceAfterPt) bits |= StyleSpaceAfter;
+    if (lineHeight) bits |= StyleLineHeight;
+    if (lineHeightPt) bits |= StyleLineHeightPt;
+    if (headingLevel) bits |= StyleHeadingLevel;
+    if (keepWithNext) bits |= StyleKeepWithNext;
+    if (keepTogether) bits |= StyleKeepTogether;
+    return bits;
 }
 
 bool isListKindOrdered(ListKind kind)
