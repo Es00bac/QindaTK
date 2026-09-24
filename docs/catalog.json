@@ -40943,7 +40943,7 @@
       "name": "MotionComposition",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Deterministic transform evaluator for a host-owned 2D layer hierarchy. Source pixels, effect rendering and persistence remain outside this type.",
+      "description": "AGENT-CONTRACT: MotionComposition saves layer records and AutomationModel keys; MotionFrameRenderer's decoded pixels stay external behind sourceId. This type records effect descriptors but does not execute them.",
       "singleton": false,
       "attached": null,
       "file": "src/core/motion_composition.h",
@@ -40989,6 +40989,36 @@
           "name": "evaluate",
           "returns": "QVariantMap",
           "parameters": "const QString &timeTicks"
+        },
+        {
+          "name": "contentMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "loadContent",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &content"
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "QVariantMap",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QUrl &url"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "QVariantMap",
+          "parameters": "const QUrl &url"
         }
       ],
       "enums": {},

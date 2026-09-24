@@ -5,6 +5,12 @@
 #include "timeline_time.h"
 
 #include <QHash>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
+#include <QSaveFile>
 #include <QSet>
 #include <QTransform>
 #include <algorithm>
@@ -74,13 +80,177 @@ void MotionComposition::setLayers(const QVariantList &layers)
     emit evaluationChanged();
 }
 
+void MotionComposition::setError(const QString &message)
+{
+    if (m_lastError == message) return;
+    m_lastError = message;
+    emit evaluationChanged();
+}
+
+QVariantMap MotionComposition::reject(const QString &message)
+{
+    setError(message);
+    return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), message}};
+}
+
+QVariantMap MotionComposition::contentMap() const
+{
+    AutomationModel emptyModel;
+    const QVariantMap animation = m_animationModel ? m_animationModel->contentMap() : emptyModel.contentMap();
+    return {{QStringLiteral("schema"), schemaId()},
+            {QStringLiteral("version"), kSchemaVersion},
+            {QStringLiteral("animation"), animation},
+            {QStringLiteral("layers"), m_layers}};
+}
+
+QVariantMap MotionComposition::loadContent(const QVariantMap &content)
+{
+    if (content.value(QStringLiteral("schema")).toString() != schemaId())
+        return reject(tr("Unsupported motion composition schema"));
+    if (!content.contains(QStringLiteral("version"))
+        || content.value(QStringLiteral("version")).toInt() != kSchemaVersion)
+        return reject(tr("Unsupported motion composition version"));
+    const QVariantList layerRecords = content.value(QStringLiteral("layers")).toList();
+    if (layerRecords.size() > 10000)
+        return reject(tr("A motion composition may contain at most 10000 layers"));
+    if (!content.value(QStringLiteral("layers")).canConvert<QVariantList>())
+        return reject(tr("Motion composition layers must be an array"));
+
+    const QVariantMap animationContent = content.value(QStringLiteral("animation")).toMap();
+    if (animationContent.value(QStringLiteral("schema")).toString() != AutomationModel::schemaId())
+        return reject(tr("Motion composition automation schema is missing or unsupported"));
+    AutomationModel candidate;
+    const QVariantMap animationResult = candidate.loadContent(animationContent);
+    if (!animationResult.value(QStringLiteral("ok")).toBool())
+        return reject(animationResult.value(QStringLiteral("error")).toString());
+
+    QSet<QString> layerIds;
+    qsizetype effectCount = 0;
+    for (const QVariant &entry : layerRecords) {
+        const QVariantMap layer = entry.toMap();
+        if (!layer.contains(QStringLiteral("layerId"))
+            || layer.value(QStringLiteral("layerId")).metaType().id() != QMetaType::QString)
+            return reject(tr("Layer IDs must be stable strings"));
+        const QString id = layer.value(QStringLiteral("layerId")).toString();
+        if (id.isEmpty() || layerIds.contains(id))
+            return reject(tr("Layers need unique non-empty stable IDs"));
+        layerIds.insert(id);
+        if (layer.contains(QStringLiteral("parentLayerId"))
+            && layer.value(QStringLiteral("parentLayerId")).metaType().id() != QMetaType::QString)
+            return reject(tr("Layer parent IDs must be stable strings"));
+        if (layer.contains(QStringLiteral("sourceId"))
+            && layer.value(QStringLiteral("sourceId")).metaType().id() != QMetaType::QString)
+            return reject(tr("Layer sourceId values must be stable strings"));
+        if (layer.contains(QStringLiteral("animatedProperties"))) {
+            const QVariantMap animated = layer.value(QStringLiteral("animatedProperties")).toMap();
+            static const QSet<QString> fields{QStringLiteral("x"), QStringLiteral("y"), QStringLiteral("rotation"),
+                QStringLiteral("scaleX"), QStringLiteral("scaleY"), QStringLiteral("opacity")};
+            for (auto it = animated.cbegin(); it != animated.cend(); ++it) {
+                if (!fields.contains(it.key()) || it.value().metaType().id() != QMetaType::QString || it.value().toString().isEmpty())
+                    return reject(tr("Animated property mappings need supported transform names and stable curve IDs"));
+            }
+        }
+        if (layer.contains(QStringLiteral("effects"))) {
+            if (layer.value(QStringLiteral("effects")).metaType().id() != QMetaType::QVariantList)
+                return reject(tr("Layer effects must be an array of effect records"));
+            QSet<QString> effectIds;
+            for (const QVariant &value : layer.value(QStringLiteral("effects")).toList()) {
+                const QVariantMap effect = value.toMap();
+                if (!effect.contains(QStringLiteral("effectId"))
+                    || effect.value(QStringLiteral("effectId")).metaType().id() != QMetaType::QString)
+                    return reject(tr("Effect IDs must be stable strings"));
+                const QString effectId = effect.value(QStringLiteral("effectId")).toString();
+                if (effectId.isEmpty() || effectIds.contains(effectId))
+                    return reject(tr("Effect records need unique non-empty effectId values per layer"));
+                if (effect.contains(QStringLiteral("parameters"))
+                    && effect.value(QStringLiteral("parameters")).metaType().id() != QMetaType::QVariantMap)
+                    return reject(tr("Effect parameters must be an object"));
+                effectIds.insert(effectId);
+                if (++effectCount > 100000)
+                    return reject(tr("A motion composition may contain at most 100000 effect records"));
+            }
+        }
+    }
+
+    // Validate hierarchy, transform maps and every animated property against a
+    // detached candidate before replacing either host-owned part of the scene.
+    MotionComposition validator;
+    validator.setAnimationModel(&candidate);
+    validator.setLayers(layerRecords);
+    const QVariantMap evaluated = validator.evaluate(QStringLiteral("0"));
+    if (!evaluated.value(QStringLiteral("ok")).toBool())
+        return reject(evaluated.value(QStringLiteral("error")).toString());
+    if (!m_animationModel && !animationContent.value(QStringLiteral("parameters")).toList().isEmpty())
+        return reject(tr("Set a host AutomationModel before loading animated composition data"));
+    if (m_animationModel) {
+        const QVariantMap loaded = m_animationModel->loadContent(animationContent);
+        if (!loaded.value(QStringLiteral("ok")).toBool())
+            return reject(loaded.value(QStringLiteral("error")).toString());
+    }
+    setLayers(layerRecords);
+    setError({});
+    return {{QStringLiteral("ok"), true},
+            {QStringLiteral("layerCount"), layerRecords.size()},
+            {QStringLiteral("animationParameterCount"), animationContent.value(QStringLiteral("parameters")).toList().size()}};
+}
+
+QString MotionComposition::toJson() const
+{
+    return QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(contentMap())).toJson(QJsonDocument::Indented));
+}
+
+QVariantMap MotionComposition::loadJson(const QString &json)
+{
+    const QByteArray bytes = json.toUtf8();
+    if (bytes.size() > 64 * 1024 * 1024)
+        return reject(tr("Motion composition JSON exceeds the 64 MiB limit"));
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(bytes, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject())
+        return reject(tr("Motion composition JSON is invalid: %1").arg(parseError.errorString()));
+    return loadContent(document.object().toVariantMap());
+}
+
+bool MotionComposition::saveToFile(const QUrl &url)
+{
+    if (!url.isLocalFile()) {
+        setError(tr("Motion composition save requires a local file URL"));
+        return false;
+    }
+    const QByteArray bytes = QJsonDocument(QJsonObject::fromVariantMap(contentMap())).toJson(QJsonDocument::Indented);
+    if (bytes.size() > 64 * 1024 * 1024) {
+        setError(tr("Motion composition JSON exceeds the 64 MiB limit"));
+        return false;
+    }
+    QSaveFile file(url.toLocalFile());
+    if (!file.open(QIODevice::WriteOnly)) { setError(file.errorString()); return false; }
+    if (file.write(bytes) != bytes.size()) {
+        const QString message = file.errorString();
+        file.cancelWriting();
+        setError(message.isEmpty() ? tr("Could not write the complete motion composition") : message);
+        return false;
+    }
+    if (!file.commit()) { setError(file.errorString()); return false; }
+    setError({});
+    return true;
+}
+
+QVariantMap MotionComposition::loadFromFile(const QUrl &url)
+{
+    if (!url.isLocalFile()) return reject(tr("Motion composition load requires a local file URL"));
+    QFile file(url.toLocalFile());
+    if (!file.open(QIODevice::ReadOnly)) return reject(file.errorString());
+    if (file.size() > 64 * 1024 * 1024) return reject(tr("Motion composition file exceeds the 64 MiB limit"));
+    const QByteArray bytes = file.readAll();
+    if (file.error() != QFileDevice::NoError) return reject(file.errorString());
+    return loadJson(QString::fromUtf8(bytes));
+}
+
 QVariantMap MotionComposition::evaluate(const QString &timeTicks)
 {
     const auto exactTicks = TimelineTime::parseDecimal(timeTicks);
     if (!exactTicks) {
-        m_lastError = QStringLiteral("Composition time must be a signed decimal tick string");
-        emit evaluationChanged();
-        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_lastError}};
+        return reject(QStringLiteral("Composition time must be a signed decimal tick string"));
     }
 
     QVector<LayerState> states;
@@ -94,18 +264,14 @@ QVariantMap MotionComposition::evaluate(const QString &timeTicks)
         bool zOk = true;
         state.z = state.source.value(QStringLiteral("zIndex"), 0).toLongLong(&zOk);
         if (state.id.isEmpty() || indexes.contains(state.id) || !zOk) {
-            m_lastError = QStringLiteral("Layers need unique stable IDs and integer z indexes");
-            emit evaluationChanged();
-            return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_lastError}};
+            return reject(QStringLiteral("Layers need unique stable IDs and integer z indexes"));
         }
         indexes.insert(state.id, states.size());
         states.push_back(state);
     }
     for (const auto &state : std::as_const(states)) {
         if (!state.parentId.isEmpty() && !indexes.contains(state.parentId)) {
-            m_lastError = QStringLiteral("Layer %1 has unknown parent %2").arg(state.id, state.parentId);
-            emit evaluationChanged();
-            return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_lastError}};
+            return reject(QStringLiteral("Layer %1 has unknown parent %2").arg(state.id, state.parentId));
         }
     }
 
@@ -183,9 +349,7 @@ QVariantMap MotionComposition::evaluate(const QString &timeTicks)
     for (qsizetype z = 0; z < order.size(); ++z) {
         const qsizetype index = order.at(z);
         if (!evaluateLayer(index)) {
-            m_lastError = failure;
-            emit evaluationChanged();
-            return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_lastError}};
+            return reject(failure);
         }
         const auto &state = states.at(index);
         const auto &m = state.matrix;
@@ -198,8 +362,7 @@ QVariantMap MotionComposition::evaluate(const QString &timeTicks)
             {QStringLiteral("opacity"), state.opacity},
             {QStringLiteral("matrix"), QVariantList{m.m11(), m.m12(), m.m21(), m.m22(), m.dx(), m.dy()}}});
     }
-    m_lastError.clear();
-    emit evaluationChanged();
+    setError({});
     return {{QStringLiteral("ok"), true}, {QStringLiteral("timeTicks"), timeTicks},
             {QStringLiteral("layers"), evaluated}};
 }

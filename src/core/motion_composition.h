@@ -4,13 +4,15 @@
 #include "automation_model.h"
 
 #include <QObject>
+#include <QUrl>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
 
-// Deterministic transform evaluator for a host-owned 2D layer hierarchy.
-// Source pixels, effect rendering and persistence remain outside this type.
+// AGENT-CONTRACT: MotionComposition saves layer records and AutomationModel
+// keys; MotionFrameRenderer's decoded pixels stay external behind sourceId.
+// This type records effect descriptors but does not execute them.
 class MotionComposition : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -18,8 +20,10 @@ class MotionComposition : public QObject {
     Q_PROPERTY(QVariantList layers READ layers WRITE setLayers NOTIFY layersChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY evaluationChanged)
 public:
-    explicit MotionComposition(QObject *parent = nullptr);
+    static constexpr int kSchemaVersion = 1;
+    static QString schemaId() { return QStringLiteral("qindatk.motion-composition"); }
 
+    explicit MotionComposition(QObject *parent = nullptr);
     AutomationModel *animationModel() const { return m_animationModel; }
     void setAnimationModel(AutomationModel *model);
     QVariantList layers() const { return m_layers; }
@@ -27,6 +31,12 @@ public:
     QString lastError() const { return m_lastError; }
 
     Q_INVOKABLE QVariantMap evaluate(const QString &timeTicks);
+    Q_INVOKABLE QVariantMap contentMap() const;
+    Q_INVOKABLE QVariantMap loadContent(const QVariantMap &content);
+    Q_INVOKABLE QString toJson() const;
+    Q_INVOKABLE QVariantMap loadJson(const QString &json);
+    Q_INVOKABLE bool saveToFile(const QUrl &url);
+    Q_INVOKABLE QVariantMap loadFromFile(const QUrl &url);
 
 signals:
     void animationModelChanged();
@@ -34,6 +44,8 @@ signals:
     void evaluationChanged();
 
 private:
+    QVariantMap reject(const QString &message);
+    void setError(const QString &message);
     AutomationModel *m_animationModel = nullptr;
     QVariantList m_layers;
     QString m_lastError;
