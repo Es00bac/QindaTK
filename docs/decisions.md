@@ -755,3 +755,67 @@ available once `artboardId` names one) and the panel shows whatever list it
 is given. Alignment to a board uses the board rectangle, like the page.
 **Consequences.** Other domains can add references without panel changes;
 the panel's default list keeps existing hosts working.
+
+## D-106 — Object appearance lives in each canvas object record
+
+**Context.** WP-044 needs stroke alignment, a miter limit, opacity, blend
+modes, pattern fills and an ordered effect stack that survive undo, save,
+clipboard and export, while a richer host may carry effects the reference
+renderer cannot draw. **Decision.** `CanvasObject::appearance` holds them.
+Effects have stable token ids, an enabled flag and parameters stored as
+canonical compact JSON, so an unknown kind round-trips byte for byte and is
+reported unsupported instead of dropped. One rule set
+(`CanvasAppearanceRules`) validates commits, the decoder and both models.
+Native version 6 appends a length-prefixed appearance block to every object
+record (empty for the default appearance) rather than using the extensions
+JSON, because commit-time size accounting covers records but not that block,
+and a committed canvas must always save. **Consequences.** Plain objects grow
+by four bytes and versions 1–5 still load; appearance edits are ordinary
+object deltas, so undo, sessions and the clipboard carry them unchanged.
+
+## D-107 — Appearance renders through an offscreen layer; paint bounds index it
+
+**Context.** Group opacity, blend modes, drop shadows, blurs and one-sided
+strokes cannot be drawn primitive by primitive, and tiles would show seams
+if an effect only saw its own tile. **Decision.** The software painter paints
+such an object into an offscreen layer covering the tile plus the effect
+stack's input reach, applies the effects in stack order (the blur is the SVG
+three-box approximation, in document units scaled to device pixels), then
+composites the layer with the object's opacity and blend mode. Aligned
+strokes are twice as wide and masked by the fill area. The RHI provider
+rasterizes tiles holding non-default appearance through the same painter.
+`CanvasGeometry::paintBounds` (document bounds plus effect reach) feeds the
+spatial index and damage; selection, alignment and snapping keep
+`documentBounds`. **Consequences.** Both backends agree and shadows reach
+neighbouring tiles; layers are bounded at 4096 px, beyond which very large
+blurs render at lower resolution. Host adapters must index by paint bounds.
+
+## D-108 — Path booleans flatten operands and replace the backmost operand
+
+**Context.** Union, intersection, subtraction and exclusion need robust
+handling of fill rules and self-intersections; exact curve-curve booleans
+are a large, risky engine. **Decision.** Operands are flattened to straight
+segments within 1e-4 of their combined extent and combined with Qt's path
+clipper, which honours each operand's fill rule; `combine` merges contours
+unchanged instead. The result replaces the backmost operand (its id, layer,
+paint order, style, appearance and transform) and removes the others in one
+undoable edit. **Consequences.** Results are exact for straight input and
+within a stated tolerance for curves, and become straight-segment paths;
+selection and paint order survive through the backmost id.
+Curve-preserving booleans remain future work.
+
+## D-109 — SVG export writes appearance with SVG 1.1 constructs in document units
+
+**Context.** Canvas strokes, shadow offsets and blurs are document units,
+while SVG strokes and filters scale with element transforms, and SVG 1.1 has
+no stroke alignment or blend modes. **Decision.** Patterns become `<pattern>`
+cells in local units; aligned strokes become the fill plus a doubled stroke
+under a document-space `<mask>`; effects become filter primitives chained in
+stack order on a document-space `<g>` with `color-interpolation-filters`
+sRGB; opacity becomes `opacity` and blend the CSS `mix-blend-mode` on that
+group. A similarity transform stays an attribute with stroke widths and
+dashes divided by its scale; any other transform is written into
+document-space path geometry. Enabled effects of an unknown kind refuse
+export explicitly. **Consequences.** Scaled strokes export at their canvas
+width (earlier output scaled them), browsers reproduce the appearance, and
+renderers without CSS compositing ignore the blend mode.

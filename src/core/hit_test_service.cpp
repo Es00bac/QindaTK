@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "hit_test_service.h"
+#include "canvas_appearance.h"
 #include "canvas_transform.h"
 #include "canvas_path.h"
 
@@ -91,7 +92,8 @@ std::optional<CanvasHit> probe(const CanvasDocumentAdapter &doc, const CanvasObj
             base += o.extraContours[c - 1].nodes.size();
         }
     }
-    const qreal reach = tol + (o.hasStroke() ? std::max(o.strokeWidth, 0.0) / 2.0 : 0.0);
+    // An inside or outside stroke covers its whole width on one side (D-106).
+    const qreal reach = tol + CanvasAppearanceRules::strokeReach(o);
     if (edge <= reach) {
         const bool segmented = o.shape != CanvasShape::Ellipse;
         hit.part = segmented ? CanvasPart::Segment : CanvasPart::Stroke;

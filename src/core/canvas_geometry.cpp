@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_geometry.h"
+#include "canvas_appearance.h"
 #include "canvas_transform.h"
 #include "canvas_path.h"
 
@@ -77,13 +78,20 @@ QRectF documentBounds(const CanvasObject &object)
         // conservative; picking refines against the exact shape.
         bounds = object.transform.map(QPolygonF(object.rect)).boundingRect();
     }
-    const qreal pad = object.hasStroke() ? std::max(object.strokeWidth, 0.0) / 2.0 : 0.0;
+    const qreal pad = CanvasAppearanceRules::strokeOutset(object);
     return bounds.adjusted(-pad, -pad, pad, pad);
+}
+
+QRectF paintBounds(const CanvasObject &object)
+{
+    const QRectF bounds = documentBounds(object);
+    if (bounds.isNull() || object.appearance.effects.isEmpty()) return bounds;
+    return bounds.marginsAdded(CanvasAppearanceRules::effectMargins(object));
 }
 
 bool fillContains(const CanvasObject &object, QPointF documentPoint)
 {
-    if (!object.hasFill()) {
+    if (!object.fillsArea()) {
         return false;
     }
     const auto inverse = CanvasTransform::invert(object.transform);

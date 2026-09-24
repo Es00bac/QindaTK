@@ -2,8 +2,9 @@
 // Software rendering provider: document -> QPainter -> tile images.
 #include "canvas_render.h"
 #include "canvas_transform.h"
+#include "canvas_appearance.h"
+#include "canvas_appearance_paint.h"
 #include "canvas_managed_paint.h"
-#include "canvas_path.h"
 
 #include <QPainterPath>
 #include <algorithm>
@@ -91,7 +92,6 @@ void paintImage(QPainter *painter, const CanvasDocumentAdapter &doc, const Canva
 void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &rect, qreal scale,
            CanvasPaintStats *stats)
 {
-    const QTransform base = painter->transform();
     painter->setRenderHint(QPainter::Antialiasing, true);
     const QRectF page = doc.pageRect().intersected(rect);
     if (!page.isEmpty()) {
@@ -110,17 +110,13 @@ void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &re
         if (!o->managedFill.isEmpty() && !engine) engine = std::make_unique<ColorEngine>();
         const QBrush fillBrush = o->managedFill.isEmpty() ? QBrush(o->fill)
             : CanvasManagedPaint::brush(o->managedFill, bounds, *engine, &colorError);
-        if (o->shape == CanvasShape::Image) {
-            paintImage(painter, doc, *o, rect, base);
-            if (stats) {
-                ++stats->drawn;
-            }
-            continue;
-        }
-        if (bounds.width() < pixel && bounds.height() < pixel) {
+        const QBrush brush = colorError ? QBrush(o->fill) : fillBrush;
+        const bool image = o->shape == CanvasShape::Image;
+        if (!image && bounds.width() < pixel && bounds.height() < pixel) {
             // Sub-pixel: one device pixel keeps the density visible without
             // spending a path on it.
-            const QColor c = o->hasFill() ? o->fill : o->stroke;
+            const QColor c = o->hasFill() ? o->fill
+                : o->hasPattern() ? o->appearance.pattern.ink : o->stroke;
             painter->fillRect(QRectF(bounds.center() - QPointF(pixel / 2, pixel / 2),
                                      QSizeF(pixel, pixel)), c);
             if (stats) {
@@ -128,33 +124,15 @@ void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &re
             }
             continue;
         }
-        const qreal radius = std::max(bounds.width(), bounds.height()) * scale / 2.0;
-        if (o->shape == CanvasShape::Path) {
-            const QPainterPath path = CanvasPath::document(*o);
-            if (o->hasFill()) painter->fillPath(path, colorError ? QBrush(o->fill) : fillBrush);
-            if (o->hasStroke()) {
-                painter->setPen(CanvasPath::pen(*o, pixel));
-                painter->setBrush(Qt::NoBrush);
-                painter->drawPath(path);
-            }
-            if (stats) ++stats->drawn;
-            continue;
-        }
-        const QPolygonF outline = documentOutline(*o, ellipseSegments(radius));
-        if (o->hasFill()) {
-            painter->setPen(Qt::NoPen);
-            painter->setBrush(colorError ? QBrush(o->fill) : fillBrush);
-            painter->drawPolygon(outline, o->fillRule);
-        }
-        if (o->hasStroke()) {
-            painter->setPen(CanvasPath::pen(*o, pixel));
-            painter->setBrush(Qt::NoBrush);
-            if (isClosed(*o)) {
-                painter->drawPolygon(outline);
-            } else {
-                painter->drawPolyline(outline);
-            }
-        }
+        const auto content = [&](QPainter *target, const QRectF &visible, qreal pixels) {
+            if (image) paintImage(target, doc, *o, visible, target->transform());
+            else CanvasAppearancePaint::paintVector(target, *o, brush, pixels);
+        };
+        // Alignment, effects, opacity and blend paint through a layer (D-107).
+        if (CanvasAppearanceRules::needsLayer(*o))
+            CanvasAppearancePaint::paintLayered(painter, *o, rect, scale, content);
+        else
+            content(painter, rect, scale);
         if (stats) {
             ++stats->drawn;
         }

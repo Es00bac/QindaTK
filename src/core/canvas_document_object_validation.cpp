@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_document_format.h"
+#include "canvas_appearance.h"
 #include "canvas_transform.h"
 #include "canvas_managed_paint.h"
 #include "canvas_parametric.h"
@@ -87,7 +88,7 @@ OperationError validateObject(const CanvasObject &o, CanvasObjectId id, const Ca
             return problem(ErrorCode::Unsupported, QStringLiteral("Managed fills require a closed vector object"), QStringLiteral("objects.managedFill"));
         if (const auto error = CanvasManagedPaint::validate(o.managedFill)) return error;
     }
-    return {};
+    return CanvasAppearanceRules::validate(o);
 }
 
 } // namespace QindaTK::CanvasDocumentFormat
