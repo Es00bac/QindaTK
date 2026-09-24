@@ -8,7 +8,7 @@
       "name": "AlignDistributePanel",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (WP-042/CAN-21): the host supplies stable object IDs and owns canonical bounds, geometry previews, commit and undo. Requests carry string IDs so 64-bit CanvasObjectIds remain exact across QML/JS.",
+      "description": "AGENT-CONTRACT (WP-042/CAN-21): the host supplies stable object IDs and owns canonical bounds, geometry previews, commit and undo. Requests carry string IDs so 64-bit CanvasObjectIds remain exact across QML/JS. The reference choices are domain data (D-095): bind `referenceOptions` to CanvasAlignmentModel.referenceOptions to offer its artboard reference.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/AlignDistributePanel.qml",
@@ -62,6 +62,14 @@
           "required": false
         },
         {
+          "name": "referenceOptions",
+          "type": "var",
+          "default": "[",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "hasSelection",
           "type": "bool",
           "default": "selectedIds && selectedIds.length > 0",
@@ -70,9 +78,17 @@
           "required": false
         },
         {
+          "name": "referenceIndex",
+          "type": "int",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "referenceAvailable",
           "type": "bool",
-          "default": "referenceMode !== \"keyObject\"",
+          "default": "referenceIndex >= 0",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -443,7 +459,7 @@
       "name": "ArtboardView",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (docs/canvas.md#artboards): the host owns board records and commits; this layer only maps, paints, and reports document-space gestures.",
+      "description": "AGENT-CONTRACT (docs/canvas.md#artboards): the host owns board records and commits; this layer only maps, paints, and reports document-space gestures. With `artboardModel` (a Tk.CanvasArtboardModel over a CanvasDocument) the records and the active board come from the document and every gesture is sent to the model, which previews it and commits one undo step.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ArtboardView.qml",
@@ -457,9 +473,17 @@
           "required": false
         },
         {
+          "name": "artboardModel",
+          "type": "Tk.CanvasArtboardModel",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "boardData",
           "type": "var",
-          "default": "[]",
+          "default": "artboardModel ? artboardModel.boards : []",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -467,7 +491,7 @@
         {
           "name": "activeBoardId",
           "type": "string",
-          "default": "\"\"",
+          "default": "artboardModel ? artboardModel.activeBoardId : \"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -477,6 +501,22 @@
           "type": "bool",
           "default": "false",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "createEnabled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingBoard",
+          "type": "rect",
+          "default": "creation.rect",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         },
@@ -565,6 +605,10 @@
         {
           "name": "boardResizeCanceled",
           "parameters": "string boardId, point originalDocumentPoint"
+        },
+        {
+          "name": "boardCreateRequested",
+          "parameters": "rect documentRect"
         }
       ],
       "methods": [
@@ -16589,7 +16633,7 @@
       "name": "LayerTree",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "A flat layer list bound to CanvasDocument's current layer facade. Hierarchy, artboards and reordering require model support not present yet.",
+      "description": "AGENT-CONTRACT (docs/canvas.md#layer-tree-model, D-094): a virtual view of a CanvasDocument's layer hierarchy. Rows come from Tk.CanvasLayerTreeModel through Tk.VirtualCollectionAdapter, so only expanded rows are projected and the ListView builds delegates for visible rows only. Every edit is a model request that becomes one document undo step; object selection is the shared Tk.CanvasSelectionModel, so canvas and tree never hold two selections. The tree never writes selection in response to a selection change (reveal only moves its own current row and scroll position).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/LayerTree.qml",
@@ -16597,7 +16641,23 @@
         {
           "name": "document",
           "type": "var",
-          "default": "null",
+          "default": "null          // Tk.CanvasDocument",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionModel",
+          "type": "var",
+          "default": "null    // Tk.CanvasSelectionModel shared with ToolControllers",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showObjects",
+          "type": "bool",
+          "default": "true",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -16606,6 +16666,62 @@
           "name": "listHeight",
           "type": "real",
           "default": "Tk.Theme.size.fieldWidth * 3",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentKey",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "renamingKey",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "treeModel",
+          "type": "alias",
+          "default": "layerModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collection",
+          "type": "alias",
+          "default": "adapter",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listView",
+          "type": "alias",
+          "default": "layerList",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "dragState.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "collapsedGroups",
+          "type": "var",
+          "default": "({})",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -16624,6 +16740,66 @@
         {
           "name": "setLock",
           "parameters": "id, locked"
+        },
+        {
+          "name": "rowOf",
+          "parameters": "key"
+        },
+        {
+          "name": "setExpanded",
+          "parameters": "key, expanded"
+        },
+        {
+          "name": "setCurrent",
+          "parameters": "key"
+        },
+        {
+          "name": "expandGroups",
+          "parameters": ""
+        },
+        {
+          "name": "toggleExpanded",
+          "parameters": "key"
+        },
+        {
+          "name": "reveal",
+          "parameters": "key"
+        },
+        {
+          "name": "clickRow",
+          "parameters": "key, toggle"
+        },
+        {
+          "name": "stepCurrent",
+          "parameters": "delta"
+        },
+        {
+          "name": "startRename",
+          "parameters": "key"
+        },
+        {
+          "name": "finishRename",
+          "parameters": "commit"
+        },
+        {
+          "name": "addLayer",
+          "parameters": "group"
+        },
+        {
+          "name": "groupCurrent",
+          "parameters": ""
+        },
+        {
+          "name": "pressRow",
+          "parameters": "key, point"
+        },
+        {
+          "name": "dragRow",
+          "parameters": "point"
+        },
+        {
+          "name": "releaseRow",
+          "parameters": "key, modifiers"
         }
       ],
       "enums": {},
@@ -16635,15 +16811,22 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "layerLock_",
-        "layerName_",
-        "layerRow_",
         "layerTree",
+        "layerTreeActions",
+        "layerTreeAddGroup",
+        "layerTreeAddLayer",
+        "layerTreeDelete",
+        "layerTreeDropMarker",
         "layerTreeEmpty",
+        "layerTreeError",
+        "layerTreeGroup",
         "layerTreeList",
         "layerTreeListFrame",
+        "layerTreeMoveDown",
+        "layerTreeMoveUp",
+        "layerTreeRename",
         "layerTreeTitle",
-        "layerVisibility_"
+        "layerTreeUngroup"
       ]
     },
     {
@@ -19174,7 +19357,7 @@
       "name": "NavigatorView",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (docs/canvas.md#synchronized-views): mainView owns the authoritative navigation pose; this overview owns only its fitted preview. Pointer navigation changes mainView.viewState center, never document data.",
+      "description": "AGENT-CONTRACT (docs/canvas.md#synchronized-views, D-094): mainView owns the authoritative navigation pose; this overview owns only its fitted preview. Pointer, wheel and keyboard navigation write mainView's pose (one atomic centre change per step), never document data, selection or tool state. The preview is a second CanvasView on the same document and render providers, fitted to the content at its own low level of detail.  AGENT-GUARD: the preview keeps its own private CanvasViewState and fits to content only. Sharing mainView's state, or fitting to the main viewport, would feed every navigation back into the overview transform (the box would move under the pointer while it is dragged).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/NavigatorView.qml",
@@ -19191,6 +19374,14 @@
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Canvas navigator\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyboardStep",
+          "type": "real",
+          "default": "0.1",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -19221,6 +19412,14 @@
         {
           "name": "navigateAt",
           "parameters": "point"
+        },
+        {
+          "name": "panBy",
+          "parameters": "fractionX, fractionY"
+        },
+        {
+          "name": "zoomBy",
+          "parameters": "factor"
         }
       ],
       "enums": {},
@@ -19232,6 +19431,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "navigatorFocusRing",
         "navigatorPointerArea",
         "navigatorPreview",
         "navigatorView",
@@ -40024,7 +40224,7 @@
       "name": "CanvasAlignmentModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Applies AlignDistributePanel requests to a document in one CanvasEdit. All coordinates are document units; IDs arrive as decimal strings to keep 64-bit object identity exact across QML's Number representation.",
+      "description": "Applies AlignDistributePanel requests to a document in one CanvasEdit. All coordinates are document units; IDs arrive as decimal strings to keep 64-bit object identity exact across QML's Number representation.  AGENT-CONTRACT (docs/canvas.md#alignment-commands, D-095): the reference choices come from this domain model, not the panel. `referenceOptions` lists selection, key object and page, plus the \"artboard\" reference (the board named by `artboardId`) when the document is a CanvasDocument with artboards; AlignDistributePanel.referenceOptions binds to it.",
       "singleton": false,
       "attached": null,
       "file": "src/core/canvas_alignment_model.h",
@@ -40034,6 +40234,34 @@
           "type": "QindaTK::CanvasDocumentAdapter *",
           "default": "",
           "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionModel",
+          "type": "QindaTK::CanvasSelectionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "artboardId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "referenceOptions",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
           "constant": false
         },
         {
@@ -40050,6 +40278,18 @@
           "parameters": ""
         },
         {
+          "name": "selectionModelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "referencesChanged",
+          "parameters": ""
+        },
+        {
           "name": "errorChanged",
           "parameters": ""
         },
@@ -40059,6 +40299,143 @@
         }
       ],
       "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CanvasArtboardModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/canvas.md#artboard-model, D-093): connects Tk.ArtboardView gestures to CanvasDocument artboards. The document owns the boards; this model owns editor state only: the active board (not saved, like the active layer) and one gesture preview. A drag previews in `boards` and commits one undoable edit on finish. Cancel, a change to the board list from elsewhere (undo, another view) or a document reset drops the preview without touching the document. Object coordinates never change when a board is arranged or resized.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_artboard_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "boards",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "activeBoardId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "activeRect",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "minimumSize",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "previewing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "boardsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "activeBoardChanged",
+          "parameters": ""
+        },
+        {
+          "name": "minimumSizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "activate",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "previewArrange",
+          "returns": "bool",
+          "parameters": "const QString &id, const QPointF &start, const QPointF &current"
+        },
+        {
+          "name": "previewResize",
+          "returns": "bool",
+          "parameters": "const QString &id, const QPointF &start, const QPointF &current"
+        },
+        {
+          "name": "finish",
+          "returns": "bool",
+          "parameters": "const QString &id, const QPointF &current"
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "createBoard",
+          "returns": "QString",
+          "parameters": "const QRectF &rect, const QString &name = {}"
+        },
+        {
+          "name": "removeActive",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "boardAt",
+          "returns": "QString",
+          "parameters": "const QPointF &documentPoint"
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
@@ -40170,6 +40547,20 @@
           "constant": false
         },
         {
+          "name": "artboards",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "artboardCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "canUndo",
           "type": "bool",
           "default": "",
@@ -40234,6 +40625,56 @@
           "name": "setOutputProfileIcc",
           "returns": "bool",
           "parameters": "const QByteArray &bytes"
+        },
+        {
+          "name": "addArtboard",
+          "returns": "QString",
+          "parameters": "const QString &name, const QRectF &rect, const QColor &background = QColor(Qt::white"
+        },
+        {
+          "name": "setArtboardRect",
+          "returns": "bool",
+          "parameters": "const QString &id, const QRectF &rect"
+        },
+        {
+          "name": "renameArtboard",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &name"
+        },
+        {
+          "name": "setArtboardBackground",
+          "returns": "bool",
+          "parameters": "const QString &id, const QColor &color"
+        },
+        {
+          "name": "setArtboardBleed",
+          "returns": "bool",
+          "parameters": "const QString &id, qreal bleed"
+        },
+        {
+          "name": "moveArtboard",
+          "returns": "bool",
+          "parameters": "const QString &id, int index"
+        },
+        {
+          "name": "removeArtboard",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "artboardInfo",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "artboardAt",
+          "returns": "QString",
+          "parameters": "qreal x, qreal y"
+        },
+        {
+          "name": "exportArtboardSvg",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &filePath"
         },
         {
           "name": "addLayerNamed",
@@ -40386,6 +40827,51 @@
           "parameters": "qulonglong id"
         },
         {
+          "name": "addGroupNamed",
+          "returns": "qulonglong",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "moveLayerTo",
+          "returns": "bool",
+          "parameters": "qulonglong id, qulonglong parent, int index"
+        },
+        {
+          "name": "renameLayerById",
+          "returns": "bool",
+          "parameters": "qulonglong id, const QString &name"
+        },
+        {
+          "name": "groupLayersById",
+          "returns": "qulonglong",
+          "parameters": "const QVariantList &ids, const QString &name"
+        },
+        {
+          "name": "ungroupLayerById",
+          "returns": "bool",
+          "parameters": "qulonglong id"
+        },
+        {
+          "name": "removeLayerTreeById",
+          "returns": "bool",
+          "parameters": "qulonglong id"
+        },
+        {
+          "name": "moveObjectTo",
+          "returns": "bool",
+          "parameters": "qulonglong id, qulonglong layer, int index"
+        },
+        {
+          "name": "childLayerIds",
+          "returns": "QVariantList",
+          "parameters": "qulonglong parent"
+        },
+        {
+          "name": "layerObjectIds",
+          "returns": "QVariantList",
+          "parameters": "qulonglong layer"
+        },
+        {
           "name": "objectInfo",
           "returns": "QVariantMap",
           "parameters": "qulonglong id"
@@ -40467,6 +40953,206 @@
       "registrationKind": "qml_anonymous",
       "exported": false,
       "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CanvasLayerTreeModel",
+      "kind": "cpp",
+      "base": "QAbstractItemModel",
+      "description": "AGENT-CONTRACT (docs/canvas.md#layer-tree-model, D-094): the LayerTree's view of one CanvasDocument. It keeps no hierarchy of its own: rows are derived from the document's layers and objects after every change, and every request is a document command (one undo step) or a write to the shared CanvasSelectionModel. Node keys are \"layer:<id>\" and \"object:<id>\" (decimal); children list the front-most first, the reverse of paint order. Tk.LayerTree projects it through Tk.VirtualCollectionAdapter (idRole \"key\").",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_layer_tree_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionModel",
+          "type": "QindaTK::CanvasSelectionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "showObjects",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "nodeCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "activeKey",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedKeys",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionModelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "showObjectsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "structureChanged",
+          "parameters": ""
+        },
+        {
+          "name": "activeKeyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectedKeysChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "revealRequested",
+          "parameters": "const QString &key"
+        }
+      ],
+      "methods": [
+        {
+          "name": "select",
+          "returns": "bool",
+          "parameters": "const QString &key, bool toggle = false"
+        },
+        {
+          "name": "activate",
+          "returns": "bool",
+          "parameters": "const QString &key"
+        },
+        {
+          "name": "setShown",
+          "returns": "bool",
+          "parameters": "const QString &key, bool shown"
+        },
+        {
+          "name": "setLocked",
+          "returns": "bool",
+          "parameters": "const QString &key, bool locked"
+        },
+        {
+          "name": "rename",
+          "returns": "bool",
+          "parameters": "const QString &key, const QString &name"
+        },
+        {
+          "name": "canMove",
+          "returns": "bool",
+          "parameters": "const QString &key, const QString &targetKey, const QString &placement"
+        },
+        {
+          "name": "move",
+          "returns": "bool",
+          "parameters": "const QString &key, const QString &targetKey, const QString &placement"
+        },
+        {
+          "name": "step",
+          "returns": "bool",
+          "parameters": "const QString &key, int rows"
+        },
+        {
+          "name": "indent",
+          "returns": "bool",
+          "parameters": "const QString &key"
+        },
+        {
+          "name": "outdent",
+          "returns": "bool",
+          "parameters": "const QString &key"
+        },
+        {
+          "name": "addLayer",
+          "returns": "QString",
+          "parameters": "const QString &name, const QString &nearKey = {}, bool group = false"
+        },
+        {
+          "name": "groupLayers",
+          "returns": "QString",
+          "parameters": "const QStringList &keys, const QString &name"
+        },
+        {
+          "name": "ungroup",
+          "returns": "bool",
+          "parameters": "const QString &key"
+        },
+        {
+          "name": "remove",
+          "returns": "bool",
+          "parameters": "const QString &key"
+        },
+        {
+          "name": "ancestorKeys",
+          "returns": "QStringList",
+          "parameters": "const QString &key"
+        },
+        {
+          "name": "groupKeys",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "nodeInfo",
+          "returns": "QVariantMap",
+          "parameters": "const QString &key"
+        },
+        {
+          "name": "keyForObject",
+          "returns": "QString",
+          "parameters": "const QString &objectId"
+        },
+        {
+          "name": "keyForLayer",
+          "returns": "QString",
+          "parameters": "const QString &layerId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
       "valueType": false,
       "bridge": false
     },
@@ -41019,7 +41705,13 @@
           "parameters": ""
         }
       ],
-      "methods": [],
+      "methods": [
+        {
+          "name": "setCenter",
+          "returns": "void",
+          "parameters": "qreal x, qreal y"
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
