@@ -10,8 +10,8 @@ increase/decrease actions use the same preview and finish requests. The
 control leaves canonical colour, profile conversion, transactions, undo and
 persistence to the host.
 
-The focused `tst_color_picker.qml` run passed **6/6 cases** on Qt 6.11.1 after
-Sol integration review. It
+The focused `tst_color_picker.qml` run passed **6/6 cases** on Qt 6.11.1 and
+Qt 6.8.3 after Sol integration review. It
 covers preview/finish without mutating owner state, Escape cancellation,
 hue/alpha keyboard actions, silent owner updates and hiding the alpha rail.
 Its green/blue regression checks the normalized hue marker position and
@@ -19,7 +19,7 @@ verifies saturation/value, alpha and keyboard hue requests preserve or adjust
 the expected normalized hue. Review also made hue nudges wrap across red and
 made the implicit height shrink when the alpha rail is hidden; focused tests
 cover both behaviors.
-The example passes `qtk-preview --check`. At 900×600, the compact dump reports
+The example passes `qtk-preview --check` on both Qt versions. At 900×600, the compact dump reports
 `Item#colorPickerSceneFrame 12,54 200x248`,
 `Item#colorPickerSaturationValue 0,0 200x200`,
 `Item#colorPickerHue 0,204 200x20` and
