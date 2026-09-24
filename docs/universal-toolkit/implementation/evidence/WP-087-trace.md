@@ -39,3 +39,12 @@ kernel/process profiler data, import Chrome Trace/Perfetto files, align
 unsynchronized clock domains statistically, persist a trace archive, or
 provide flamegraph/critical-path analysis. Asset dependency ingestion and
 view remain a separate already implemented slice.
+
+## Merged integration
+
+Cherry-picked as `5a2a78d`. The merged tree rebuilt `tst_trace_index`,
+`tst_qml` and `qtk-preview` with direct build limits matching the configured
+`MAKEOPTS` (`-j24 -l24`). Focused CTest passed 2/2 (`tst_trace_index`,
+`example_trace-explorer`); the targeted QML runner passed 3/3. WP-087 remains
+active while its WP-074 and WP-083 dependencies and host extraction adapters
+remain open.

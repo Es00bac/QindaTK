@@ -168,7 +168,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-087"></a>
 ## WP-087 — Implement dependency and trace exploration
 
-**Implementation lead:** Sol. **Status:** active (asset dependency extraction/index and view merged; trace ingestion and view in progress). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-032](phase-02-controls-data.md#wp-032), [WP-048](phase-03-authoring.md#wp-048), [WP-074](phase-06-video.md#wp-074), [WP-083](phase-07-integrations.md#wp-083)
+**Implementation lead:** Sol. **Status:** active (asset dependency extraction/index and view plus bounded trace ingestion/view merged; WP-074 and WP-083 dependencies remain active). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-032](phase-02-controls-data.md#wp-032), [WP-048](phase-03-authoring.md#wp-048), [WP-074](phase-06-video.md#wp-074), [WP-083](phase-07-integrations.md#wp-083)
 
 **Proposal scope:** [EXT-10 AssetDependencyView](../proposed/09-specialized-domains.md#ext-10), [EXT-11 TraceView](../proposed/09-specialized-domains.md#ext-11)
 

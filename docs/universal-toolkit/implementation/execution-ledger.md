@@ -120,7 +120,7 @@ as though a later fix had already passed the earlier run.
 | [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | accepted | [GeoJSON editing, raster providers, antimeridian, composed export and indexed projection switching passed merged checks](evidence/WP-084.md) |
 | [WP-085 — Implement scientific plotting](phase-07-integrations.md#wp-085) | 07 | Sol | active | [Numeric, uncertainty and export implementation lane underway](evidence/WP-085.md) |
 | [WP-086 — Implement image slices, volumes and transfer functions](phase-07-integrations.md#wp-086) | 07 | Sol | planned | — |
-| [WP-087 — Implement dependency and trace exploration](phase-07-integrations.md#wp-087) | 07 | Sol | active | [QML asset extraction, bounded dependency index and diagnostic view merged; trace ingestion in progress](evidence/WP-087-asset-index.md) |
+| [WP-087 — Implement dependency and trace exploration](phase-07-integrations.md#wp-087) | 07 | Sol | active | [QML asset extraction, bounded dependency index and view plus clock-aligned trace index and explorer merged](evidence/WP-087-trace.md) |
 | [WP-088 — Qualify platform and backend integration boundaries](phase-07-integrations.md#wp-088) | 07 | Sol | planned | — |
 | [WP-089 — Qualify format, device and output fidelity](phase-07-integrations.md#wp-089) | 07 | Sol | planned | — |
 | [WP-090 — Finish representative applications and domain acceptance](phase-08-qualification.md#wp-090) | 08 | Sol | planned | — |
