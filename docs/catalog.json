@@ -6118,6 +6118,138 @@
       ]
     },
     {
+      "name": "DatabaseSchemaView",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Introspection is live; migration actions remain proposals until the host explicitly executes them through LocalDatabaseProvider.executeMigration.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DatabaseSchemaView.qml",
+      "properties": [
+        {
+          "name": "provider",
+          "type": "Tk.LocalDatabaseProvider",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedTable",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "migrationSql",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "migrationPlan",
+          "type": "var",
+          "default": "({ ok: false })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Database schema\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "schemaSnapshot",
+          "type": "var",
+          "default": "({ ok: false, fields: [], relationships: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "migrationPreviewRequested",
+          "parameters": "string requestId, var plan"
+        },
+        {
+          "name": "migrationCommitRequested",
+          "parameters": "string requestId, var plan"
+        }
+      ],
+      "methods": [
+        {
+          "name": "refreshSchema",
+          "parameters": ""
+        },
+        {
+          "name": "chooseTable",
+          "parameters": "index"
+        },
+        {
+          "name": "requestPreview",
+          "parameters": ""
+        },
+        {
+          "name": "requestCommit",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "id, state, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "databaseSchemaView",
+        "schemaField_",
+        "schemaMigrationSql",
+        "schemaPreviewMigration",
+        "schemaRelation_",
+        "schemaRequestMigration",
+        "schemaTablePicker"
+      ]
+    },
+    {
       "name": "DateTimeField",
       "kind": "qml",
       "base": "T.Control",
@@ -11709,6 +11841,187 @@
         "fontSpecimen",
         "fontSpecimenText",
         "fontStylePicker"
+      ]
+    },
+    {
+      "name": "FormDesigner",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Schema and record values are host snapshots. Edits are saved only by a host request; design mode never writes to the database.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FormDesigner.qml",
+      "properties": [
+        {
+          "name": "provider",
+          "type": "Tk.LocalDatabaseProvider",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tableName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"design\" // design, preview, edit",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "recordId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "record",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "workingRecord",
+          "type": "var",
+          "default": "record",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "design",
+          "type": "var",
+          "default": "({ title: \"Untitled form\", tableName: \"\", fields: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Database form designer\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "schemaSnapshot",
+          "type": "var",
+          "default": "({ ok: false, fields: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "designChangeRequested",
+          "parameters": "string fieldName, var value"
+        },
+        {
+          "name": "designSaveRequested",
+          "parameters": "string requestId, var design"
+        },
+        {
+          "name": "recordSaveRequested",
+          "parameters": "string requestId, string tableName, string recordId, var changes"
+        }
+      ],
+      "methods": [
+        {
+          "name": "refreshSchema",
+          "parameters": ""
+        },
+        {
+          "name": "fieldDesign",
+          "parameters": "name"
+        },
+        {
+          "name": "caption",
+          "parameters": "name"
+        },
+        {
+          "name": "quoteIdentifier",
+          "parameters": "name"
+        },
+        {
+          "name": "setFieldValue",
+          "parameters": "name, value"
+        },
+        {
+          "name": "validateRecord",
+          "parameters": "values"
+        },
+        {
+          "name": "requestRecordSave",
+          "parameters": ""
+        },
+        {
+          "name": "requestDesignSave",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "id, state, message"
+        },
+        {
+          "name": "updateLabel",
+          "parameters": "fieldName, label"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "formBool_",
+        "formDesignLabel_",
+        "formDesigner",
+        "formField_",
+        "formLabel_",
+        "formSaveDesign",
+        "formSaveRecord",
+        "formValue_"
       ]
     },
     {
@@ -21036,6 +21349,197 @@
         "referenceTarget",
         "referenceType",
         "reference_"
+      ]
+    },
+    {
+      "name": "ReportDesigner",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Preview runs one allow-listed, parameterized read through the local provider.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ReportDesigner.qml",
+      "properties": [
+        {
+          "name": "provider",
+          "type": "Tk.LocalDatabaseProvider",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tableName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filterField",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filterValue",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "groupField",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageSize",
+          "type": "int",
+          "default": "20",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerText",
+          "type": "string",
+          "default": "qsTr(\"Data report\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "footerText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewRows",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewColumns",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewTruncated",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewError",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Report designer and query preview\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "reportState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "schemaSnapshot",
+          "type": "var",
+          "default": "({ ok: false, fields: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "previewRequested",
+          "parameters": "string requestId, var querySpec"
+        },
+        {
+          "name": "exportRequested",
+          "parameters": "string requestId, var reportDesign"
+        }
+      ],
+      "methods": [
+        {
+          "name": "quoteIdentifier",
+          "parameters": "name"
+        },
+        {
+          "name": "fieldExists",
+          "parameters": "name"
+        },
+        {
+          "name": "refreshSchema",
+          "parameters": ""
+        },
+        {
+          "name": "runPreview",
+          "parameters": ""
+        },
+        {
+          "name": "requestExport",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "reportDesigner",
+        "reportFilterField",
+        "reportFilterValue",
+        "reportFooter",
+        "reportGroupField",
+        "reportHeader",
+        "reportPageSize",
+        "reportRequestExport",
+        "reportRunPreview",
+        "reportTable"
       ]
     },
     {
@@ -38508,6 +39012,118 @@
           "name": "describe",
           "returns": "QString",
           "parameters": "QQuickItem *item"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "LocalDatabaseProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A small, local SQLite adapter. Reads are prepared and parameterized; schema mutation has a separate preview and explicit execution path.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_database_provider.h",
+      "properties": [
+        {
+          "name": "connected",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "filePath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rowsAffected",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tables",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "recordsChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "openMemory",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "close",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "tables",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "schema",
+          "returns": "QVariantMap",
+          "parameters": "const QString &tableName"
+        },
+        {
+          "name": "query",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sql, const QVariantList &bindings = {}"
+        },
+        {
+          "name": "execute",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sql, const QVariantList &bindings = {}"
+        },
+        {
+          "name": "previewMigration",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sql"
+        },
+        {
+          "name": "executeMigration",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sql"
         }
       ],
       "enums": {},

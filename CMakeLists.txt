@@ -18,6 +18,7 @@ option(QINDATK_BUILD_EXAMPLES "Build the gallery and studio-shell examples" ON)
 option(QINDATK_BUILD_TOOLS "Build qtk-preview (headless render/dump tool)" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg Concurrent)
+find_package(SQLite3 REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2>=2.14)
 pkg_check_modules(POPPLER_QT6 QUIET IMPORTED_TARGET poppler-qt6)

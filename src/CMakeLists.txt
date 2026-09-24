@@ -159,6 +159,7 @@ qt_add_qml_module(qindatk
         core/query_detail.cpp core/query_join.cpp core/query_persistence.cpp
         core/query_grid_adapter.cpp core/query_grid_adapter.h
         core/query_controller.cpp core/query_controller.h
+        core/local_database_provider.cpp core/local_database_provider.h
         core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h
         core/density.cpp core/density.h
         core/focus_manager.cpp core/focus_manager.h
@@ -248,7 +249,7 @@ target_include_directories(qindatk PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
-    PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2)
+    PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2 SQLite3::SQLite3)
 if(POPPLER_QT6_FOUND)
     target_link_libraries(qindatk PRIVATE PkgConfig::POPPLER_QT6)
     target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_POPPLER_QT6=1)

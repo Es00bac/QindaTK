@@ -235,6 +235,31 @@ mail offline, acknowledges draft requests without disk writes, blocks delivery,
 and displays a host-provided recurrence preview. It is not a provider or local
 store implementation.
 
+## Local database, forms and reports
+
+`Tk.LocalDatabaseProvider` is a local SQLite adapter used by host applications.
+`open(path)` opens/creates a local file; `openMemory()` creates a process-local
+fixture. `tables` and `schema(tableName)` expose table, field, primary-key and
+foreign-key metadata. `query(sql, bindings)` prepares exactly one read-only SQL
+statement and binds each `?` value, returning `{ok, columns, rows, truncated}`
+with a 5000-row cap. `execute(sql, bindings)` permits a single prepared
+non-schema write. Schema changes go through `previewMigration(sql)` and only
+run after an explicit host call to `executeMigration(sql)`. Statements cannot
+contain multiple SQL operations. These APIs do not provide a remote connection,
+transaction manager, permission policy, or query planner.
+
+| Type | Host snapshot | Requests / methods | Notes |
+| --- | --- | --- | --- |
+| `FormDesigner` | `provider`, `tableName`, `recordId`, `record`, `design` (`title`, `fields` with `fieldName`, `label`), `mode` (`design`, `preview`, `edit`) | `designChangeRequested(fieldName, value)`, `designSaveRequested(requestId, design)`, `recordSaveRequested(requestId, tableName, recordId, changes)`; `acknowledge(requestId, state, message)`, `setFieldValue`, `validateRecord`, `requestRecordSave` | Fields come from provider schema; required values are checked from SQLite nullability. Edits are held as a working record and sent to the host as one change map; the control does not write the database. Design mode is read-only with respect to records. objectNames `formField_<name>`, `formValue_<name>`, `formBool_<name>`, `formDesignLabel_<name>`, `formSaveDesign`, `formSaveRecord`. |
+| `DatabaseSchemaView` | `provider`, `selectedTable`, `migrationSql`, `schemaSnapshot`, `migrationPlan`, `requestState` | `migrationPreviewRequested(requestId, plan)`, `migrationCommitRequested(requestId, plan)`; `requestPreview`, `requestCommit`, `acknowledge` | Shows columns, types, nullability, primary keys, defaults and foreign-key relationships from SQLite introspection. Preview validates one CREATE/ALTER/DROP statement without executing it. “Request apply” only emits a host request; the host must explicitly call `executeMigration`. objectNames `schemaTablePicker`, `schemaField_<name>`, `schemaRelation_<id>_<sequence>`, `schemaMigrationSql`, `schemaPreviewMigration`, `schemaRequestMigration`. |
+| `ReportDesigner` | `provider`, `tableName`, `filterField`, `filterValue`, `groupField`, `pageSize`, `headerText`, `footerText`, `previewRows`, `previewColumns`, `reportState` | `previewRequested(requestId, querySpec)`, `exportRequested(requestId, reportDesign)`; `runPreview`, `requestExport` | Builds only identifier-checked, parameterized read queries from the selected schema. Optional exact-match filter and group/count summary are supported; preview is limited to 1–500 rows. Export is a host request; this UI does not paginate or render a final report. objectNames `reportRunPreview`, `reportRequestExport`, `reportTable`, `reportFilterField`, `reportFilterValue`, `reportGroupField`, `reportPageSize`, `reportHeader`, `reportFooter`. |
+
+[`examples/forms-schema-report`](../examples/forms-schema-report/Main.qml)
+opens an in-memory SQLite database, edits an actual row through bound values,
+introspects its relationships, previews a grouped query and separates schema
+preview from explicit migration execution. Form design remains in example
+memory for this fixture.
+
 ## Asset-backed media adapters
 
 These controls own one `Tk.AssetProvider` subscription each. They request only
