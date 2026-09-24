@@ -82,7 +82,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-083"></a>
 ## WP-083 — Implement diagramming and CAD surfaces
 
-**Implementation lead:** Sol. **Status:** active (persistent diagram model, canvas and routed-edge lane underway; CAD remains open). **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-074](phase-06-video.md#wp-074), [WP-076](phase-06-video.md#wp-076)
+**Implementation lead:** Sol. **Status:** active (persistent diagram model, canvas and orthogonal routing merged; CAD and flow remain open). **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-074](phase-06-video.md#wp-074), [WP-076](phase-06-video.md#wp-076)
 
 **Proposal scope:** [EXT-03 DiagramCanvas](../proposed/09-specialized-domains.md#ext-03), [EXT-04 CadViewport](../proposed/09-specialized-domains.md#ext-04)
 
