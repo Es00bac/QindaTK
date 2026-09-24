@@ -47,11 +47,14 @@ private:
     struct Entry {
         QPointer<QQuickItem> content;
         QPointer<QQuickItem> home;
+        QPointer<QQuickItem> focusItem;
         QString windowId;
         bool geometryScheduled = false;
     };
     void queueSync();
     void saveGeometry(const QString &panelId);
+    void rememberFocus(Entry &entry);
+    void restoreFocus(const Entry &entry);
     void reclaim(const QString &panelId);
     bool open(const QString &panelId);
     bool fail(const QString &message);

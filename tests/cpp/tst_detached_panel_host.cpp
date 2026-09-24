@@ -25,10 +25,17 @@ void tst_detached_panel_host::nativeWindowKeepsContentAndPlacement()
     DetachedPanelHost detached;
     detached.setModel(&model);
     detached.setWindowHost(&windows);
+    QQuickWindow mainWindow;
+    mainWindow.show();
     QQuickItem home;
+    home.setParentItem(mainWindow.contentItem());
     QQuickItem content;
     content.setObjectName(QStringLiteral("persistentEditor"));
     content.setParentItem(&home);
+    QQuickItem focusTarget;
+    focusTarget.setParentItem(&content);
+    focusTarget.forceActiveFocus();
+    QTRY_COMPARE(mainWindow.activeFocusItem(), &focusTarget);
     QVERIFY(detached.registerContent(QStringLiteral("layers"), &content));
     model.detachPanel(QStringLiteral("layers"), QRectF(100000, 100000, 320, 400));
     model.setDetachedScreen(QStringLiteral("layers"), QStringLiteral("missing-screen"));
@@ -38,6 +45,7 @@ void tst_detached_panel_host::nativeWindowKeepsContentAndPlacement()
     QQuickWindow *native = windows.window(firstId);
     QVERIFY(native);
     QCOMPARE(content.window(), native);
+    QTRY_COMPARE(native->activeFocusItem(), &focusTarget);
     QCOMPARE(content.objectName(), QStringLiteral("persistentEditor"));
     QVERIFY(model.panel(QStringLiteral("layers")).value(QStringLiteral("detached")).toBool());
     QVERIFY(model.floatingPanels().isEmpty());
@@ -56,6 +64,7 @@ void tst_detached_panel_host::nativeWindowKeepsContentAndPlacement()
 
     QVERIFY(detached.reattach(QStringLiteral("layers")));
     QCOMPARE(content.parentItem(), &home);
+    QTRY_COMPARE(mainWindow.activeFocusItem(), &focusTarget);
     QVERIFY(detached.windowId(QStringLiteral("layers")).isEmpty());
     QCOMPARE(model.panel(QStringLiteral("layers")).value(QStringLiteral("mode")).toString(),
              QStringLiteral("docked"));
@@ -63,6 +72,7 @@ void tst_detached_panel_host::nativeWindowKeepsContentAndPlacement()
     QTRY_VERIFY(!detached.windowId(QStringLiteral("layers")).isEmpty());
     QVERIFY(windows.closeWindow(detached.windowId(QStringLiteral("layers"))));
     QTRY_COMPARE(content.parentItem(), &home);
+    QTRY_COMPARE(mainWindow.activeFocusItem(), &focusTarget);
     QCOMPARE(model.panel(QStringLiteral("layers")).value(QStringLiteral("mode")).toString(),
              QStringLiteral("docked"));
 }

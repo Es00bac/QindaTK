@@ -598,7 +598,8 @@ clipboard, save and reopen.
 `Tk.DetachedPanelHost` connects that model to `Tk.WindowHost` for real native
 panel windows. DockHost's `detachedHost` property registers each declared
 content item and its `detachPanelNative`/`reattachPanel` functions move it
-between windows. A detached native window has objectName
+between windows while restoring focus to the previously focused panel child.
+A detached native window has objectName
 `detachedPanelWindow_<panelId>`; see [docking.md](docking.md).
 `DockTabStrip` is a named PageTabList; its panel entries are PageTabs with
 accessible titles and selected state. Tab focuses an entry, Left/Right moves

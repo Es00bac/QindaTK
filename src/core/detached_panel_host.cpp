@@ -9,6 +9,15 @@
 #include <algorithm>
 
 namespace QindaTK {
+namespace {
+bool belongsTo(QQuickItem *item, QQuickItem *ancestor)
+{
+    for (; item; item = item->parentItem())
+        if (item == ancestor) return true;
+    return false;
+}
+} // namespace
+
 DetachedPanelHost::DetachedPanelHost(QObject *parent) : QObject(parent) {}
 
 DetachedPanelHost::~DetachedPanelHost()
@@ -53,7 +62,11 @@ void DetachedPanelHost::setWindowHost(WindowHost *host)
         connect(host, &QObject::destroyed, this, [this] {
             for (auto it = m_entries.begin(); it != m_entries.end(); ++it) {
                 it->windowId.clear();
-                if (it->content && it->home) it->content->setParentItem(it->home);
+                if (it->content && it->home) {
+                    it->content->setParentItem(it->home);
+                    it->content->setVisible(true);
+                    restoreFocus(*it);
+                }
             }
             emit changed();
         });
@@ -65,6 +78,7 @@ void DetachedPanelHost::setWindowHost(WindowHost *host)
                 if (it->content && it->home) {
                     it->content->setParentItem(it->home);
                     it->content->setVisible(true);
+                    restoreFocus(*it);
                 }
                 if (m_model && m_model->panel(panelId).value(QStringLiteral("detached")).toBool()) {
                     const QString zone = m_model->panel(panelId).value(QStringLiteral("zone"),
@@ -103,7 +117,7 @@ bool DetachedPanelHost::registerContent(const QString &panelId, QQuickItem *cont
         return fail(QStringLiteral("Panel content requires an identity and home item"));
     if (m_entries.contains(panelId) && m_entries.value(panelId).content == content) return true;
     unregisterContent(panelId);
-    m_entries.insert(panelId, {content, content->parentItem(), {}, false});
+    m_entries.insert(panelId, {content, content->parentItem(), {}, {}, false});
     connect(content, &QObject::destroyed, this, [this, panelId] {
         auto it = m_entries.find(panelId);
         if (it == m_entries.end()) return;
@@ -167,12 +181,30 @@ void DetachedPanelHost::reclaim(const QString &panelId)
     if (it == m_entries.end()) return;
     const QString id = it->windowId;
     it->windowId.clear();
+    rememberFocus(*it);
     if (it->content && it->home) {
         it->content->setParentItem(it->home);
         it->content->setVisible(true);
+        restoreFocus(*it);
     }
     if (m_windowHost && !id.isEmpty()) m_windowHost->closeWindow(id);
     emit changed();
+}
+
+void DetachedPanelHost::rememberFocus(Entry &entry)
+{
+    if (!entry.content || !entry.content->window()) return;
+    auto *focused = entry.content->window()->activeFocusItem();
+    if (belongsTo(focused, entry.content)) entry.focusItem = focused;
+}
+
+void DetachedPanelHost::restoreFocus(const Entry &entry)
+{
+    QPointer<QQuickItem> target = entry.focusItem;
+    if (!target || !entry.content || !belongsTo(target, entry.content)) return;
+    QTimer::singleShot(0, this, [target] {
+        if (target && target->window()) target->forceActiveFocus(Qt::OtherFocusReason);
+    });
 }
 
 void DetachedPanelHost::saveGeometry(const QString &panelId)
@@ -218,6 +250,7 @@ bool DetachedPanelHost::open(const QString &panelId)
     if (!m_windowHost->moveWindow(id, wanted,
             info.value(QStringLiteral("detachedScreenId")).toString()))
         m_windowHost->moveWindow(id, wanted);
+    rememberFocus(*it);
     it->content->setParentItem(nullptr);
     it->content->setParentItem(window->contentItem());
     it->content->setPosition({0, 0});
@@ -234,8 +267,13 @@ bool DetachedPanelHost::open(const QString &panelId)
     connect(window, &QWindow::widthChanged, this, geometryChanged);
     connect(window, &QWindow::heightChanged, this, geometryChanged);
     connect(window, &QWindow::screenChanged, this, geometryChanged);
+    connect(window, &QQuickWindow::activeFocusItemChanged, this, [this, panelId] {
+        auto entry = m_entries.find(panelId);
+        if (entry != m_entries.end()) rememberFocus(*entry);
+    });
     window->show();
     window->requestActivate();
+    restoreFocus(*it);
     m_lastError.clear();
     emit panelDetached(panelId);
     emit changed();
