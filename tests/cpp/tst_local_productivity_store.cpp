@@ -5,10 +5,63 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <algorithm>
 
 class LocalProductivityStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void staleWriterGetsConflictAndCanReloadThenRetry()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath(QStringLiteral("shared.json"));
+        QindaTK::LocalProductivityStore seed;
+        seed.setFilePath(path);
+        QVERIFY(seed.upsert(QStringLiteral("messages"), {
+            {QStringLiteral("id"), QStringLiteral("base")},
+            {QStringLiteral("subject"), QStringLiteral("Shared start")}}).value("ok").toBool());
+        QVERIFY(seed.save());
+
+        QindaTK::LocalProductivityStore first;
+        QindaTK::LocalProductivityStore stale;
+        QVERIFY(first.loadFrom(path));
+        QVERIFY(stale.loadFrom(path));
+        QVERIFY(first.upsert(QStringLiteral("messages"), {
+            {QStringLiteral("id"), QStringLiteral("first")},
+            {QStringLiteral("subject"), QStringLiteral("First writer")}}).value("ok").toBool());
+        QVERIFY(first.save());
+        QFile recoveryBeforeFile(path + QStringLiteral(".recovery"));
+        QVERIFY(recoveryBeforeFile.open(QIODevice::ReadOnly));
+        const QByteArray recoveryBefore = recoveryBeforeFile.readAll();
+        recoveryBeforeFile.close();
+        QVERIFY(stale.upsert(QStringLiteral("messages"), {
+            {QStringLiteral("id"), QStringLiteral("stale")},
+            {QStringLiteral("subject"), QStringLiteral("Stale writer")}}).value("ok").toBool());
+        QVERIFY(!stale.save());
+        QCOMPARE(stale.status(), QStringLiteral("conflict"));
+        QVERIFY(stale.lastError().contains(QStringLiteral("reload")));
+
+        QindaTK::LocalProductivityStore disk;
+        QVERIFY(disk.loadFrom(path));
+        const QVariantList diskMessages = disk.messages();
+        QCOMPARE(diskMessages.size(), 2);
+        QVERIFY(std::none_of(diskMessages.cbegin(), diskMessages.cend(), [](const QVariant &row) {
+            return row.toMap().value(QStringLiteral("id")).toString() == QStringLiteral("stale");
+        }));
+        QFile recoveryAfterFile(path + QStringLiteral(".recovery"));
+        QVERIFY(recoveryAfterFile.open(QIODevice::ReadOnly));
+        QCOMPARE(recoveryAfterFile.readAll(), recoveryBefore);
+
+        QVERIFY(stale.load());
+        QVERIFY(stale.upsert(QStringLiteral("messages"), {
+            {QStringLiteral("id"), QStringLiteral("stale")},
+            {QStringLiteral("subject"), QStringLiteral("Reapplied after reload")}}).value("ok").toBool());
+        QVERIFY(stale.save());
+        QindaTK::LocalProductivityStore merged;
+        QVERIFY(merged.loadFrom(path));
+        QCOMPARE(merged.messages().size(), 3);
+    }
+
     void shiftsAndUndoesCalendarEventInLocalWallTime()
     {
         QindaTK::LocalProductivityStore store;

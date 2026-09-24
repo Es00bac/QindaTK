@@ -44,6 +44,18 @@ Both files have a 16 MiB read bound. Empty paths, malformed JSON, unknown
 schemas, duplicate IDs, oversized files and I/O failures return explicit
 errors. A first save has no prior recovery snapshot to preserve.
 
+Each successful load or save also records the primary file's revision and
+SHA-256 content identity. `saveTo` takes a per-file `QLockFile` before checking
+that baseline and writing. If another store has changed or replaced the file,
+save returns `false`, `status` becomes `conflict`, and `lastError` asks the
+caller to reload and reapply the edit; it leaves both the primary and recovery
+files untouched. A lock that cannot be acquired within five seconds reports
+`busy`. After a conflict, `load()`/`loadFrom(path)` replaces the local snapshot
+with the latest saved version. The caller then reapplies or merges its pending
+edit and retries. This prevents silent lost updates among writers using this
+store; it does not merge records automatically or coordinate arbitrary tools
+that ignore the lock file.
+
 The default path is in `QStandardPaths::AppLocalDataLocation`. Applications
 may set `filePath` or call `loadFrom`/`saveTo` for another local path. Callers
 decide when to save; `upsert` and `remove` update memory and revision but do

@@ -5,6 +5,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QVector>
+#include <QByteArray>
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
@@ -67,19 +68,24 @@ private:
     const QVariantList *collection(const QString &name) const;
     static QString idOf(const QVariantMap &record);
     static bool validateSnapshot(const QVariantMap &snapshot, QString *error);
-    static QVariantMap readSnapshot(const QString &path, QString *error);
+    static QVariantMap readSnapshot(const QString &path, QString *error,
+                                    QByteArray *sourceBytes = nullptr);
     static bool writeAtomic(const QString &path, const QByteArray &bytes, QString *error);
     QVariantMap result(bool ok, const QString &error = {}) const;
     void setStatus(const QString &status, const QString &error = {});
     void pushTaskUndo();
 
     QString m_filePath;
+    QString m_expectedFilePath;
+    QByteArray m_expectedFileDigest;
+    QString m_expectedDiskRevision;
     QVariantList m_messages, m_drafts, m_events, m_tasks;
     QVector<QVariantList> m_taskUndo;
     QVector<QVariantList> m_eventUndo;
     quint64 m_revision = 0;
     QString m_lastError, m_status = QStringLiteral("empty");
     bool m_recoveryAvailable = false;
+    bool m_expectedFileExists = false;
 };
 
 } // namespace QindaTK

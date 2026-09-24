@@ -3,10 +3,12 @@
 
 #include <QDir>
 #include <QDateTime>
+#include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLockFile>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QSet>
@@ -23,6 +25,16 @@ constexpr int kUndoLimit = 100;
 QVariantList listFrom(const QVariantMap &snapshot, const QString &name)
 {
     return snapshot.value(name).toList();
+}
+
+QString stableFilePath(const QString &path)
+{
+    const QFileInfo info(path);
+    const QString canonical = info.canonicalFilePath();
+    if (!canonical.isEmpty()) return canonical;
+    const QString canonicalParent = QDir(info.absolutePath()).canonicalPath();
+    return QDir::cleanPath((canonicalParent.isEmpty() ? info.absolutePath() : canonicalParent)
+                           + QLatin1Char('/') + info.fileName());
 }
 }
 
@@ -115,8 +127,10 @@ bool LocalProductivityStore::validateSnapshot(const QVariantMap &snapshot, QStri
     return true;
 }
 
-QVariantMap LocalProductivityStore::readSnapshot(const QString &path, QString *error)
+QVariantMap LocalProductivityStore::readSnapshot(const QString &path, QString *error,
+                                                 QByteArray *sourceBytes)
 {
+    if (sourceBytes) sourceBytes->clear();
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         *error = file.errorString();
@@ -126,7 +140,9 @@ QVariantMap LocalProductivityStore::readSnapshot(const QString &path, QString *e
         *error = QStringLiteral("Productivity store is empty or exceeds 16 MiB");
         return {};
     }
-    const auto json = QJsonDocument::fromJson(file.readAll());
+    const QByteArray bytes = file.readAll();
+    if (sourceBytes) *sourceBytes = bytes;
+    const auto json = QJsonDocument::fromJson(bytes);
     if (!json.isObject()) {
         *error = QStringLiteral("Productivity store is not a JSON object");
         return {};
@@ -158,7 +174,9 @@ bool LocalProductivityStore::loadFrom(const QString &path)
 {
     if (path.trimmed().isEmpty()) { setStatus(QStringLiteral("error"), QStringLiteral("Store path is empty")); return false; }
     QString primaryError;
-    QVariantMap snapshot = readSnapshot(path, &primaryError);
+    QByteArray primaryBytes;
+    QVariantMap primarySnapshot = readSnapshot(path, &primaryError, &primaryBytes);
+    QVariantMap snapshot = primarySnapshot;
     bool recovered = false;
     m_recoveryAvailable = QFileInfo::exists(path + QStringLiteral(".recovery"));
     if (snapshot.isEmpty() && m_recoveryAvailable) {
@@ -172,6 +190,12 @@ bool LocalProductivityStore::loadFrom(const QString &path)
         return false;
     }
     setFilePath(path);
+    m_expectedFilePath = stableFilePath(path);
+    m_expectedFileExists = QFileInfo::exists(path);
+    m_expectedFileDigest = m_expectedFileExists
+        ? QCryptographicHash::hash(primaryBytes, QCryptographicHash::Sha256) : QByteArray();
+    m_expectedDiskRevision = primarySnapshot.isEmpty()
+        ? QString() : primarySnapshot.value(QStringLiteral("revision")).toString();
     m_messages = listFrom(snapshot, QStringLiteral("messages"));
     m_drafts = listFrom(snapshot, QStringLiteral("drafts"));
     m_events = listFrom(snapshot, QStringLiteral("events"));
@@ -192,26 +216,70 @@ bool LocalProductivityStore::save() { return saveTo(m_filePath); }
 bool LocalProductivityStore::saveTo(const QString &path)
 {
     if (path.trimmed().isEmpty()) { setStatus(QStringLiteral("error"), QStringLiteral("Store path is empty")); return false; }
+    const QFileInfo pathInfo(path);
+    if (!QDir().mkpath(pathInfo.absolutePath())) {
+        setStatus(QStringLiteral("error"), QStringLiteral("Cannot create productivity-store directory"));
+        return false;
+    }
+    const QString absolutePath = stableFilePath(path);
+    QLockFile lock(absolutePath + QStringLiteral(".lock"));
+    if (!lock.tryLock(5000)) {
+        setStatus(QStringLiteral("busy"), QStringLiteral("Another process is saving this productivity store"));
+        return false;
+    }
+
+    const bool currentExists = QFileInfo::exists(path);
+    QByteArray currentBytes;
+    QString currentError;
+    const QVariantMap currentSnapshot = currentExists
+        ? readSnapshot(path, &currentError, &currentBytes) : QVariantMap();
+    const bool sameExpectedPath = m_expectedFilePath == absolutePath;
+    bool matchesExpected = false;
+    if (sameExpectedPath) {
+        matchesExpected = currentExists == m_expectedFileExists;
+        if (matchesExpected && currentExists) {
+            matchesExpected = QCryptographicHash::hash(currentBytes, QCryptographicHash::Sha256)
+                == m_expectedFileDigest;
+            if (matchesExpected && !m_expectedDiskRevision.isEmpty()) {
+                matchesExpected = !currentSnapshot.isEmpty()
+                    && currentSnapshot.value(QStringLiteral("revision")).toString() == m_expectedDiskRevision;
+            }
+        }
+    } else {
+        // A new Save As target is safe only while it is still absent.
+        matchesExpected = !currentExists;
+    }
+    if (!matchesExpected) {
+        const QString message = sameExpectedPath
+            ? QStringLiteral("Productivity store changed since it was loaded; reload and reapply this edit")
+            : QStringLiteral("Save target already exists without a loaded baseline; load it before replacing it");
+        setStatus(QStringLiteral("conflict"), message);
+        return false;
+    }
+
     QVariantMap snapshot = exportSnapshot();
     snapshot.insert(QStringLiteral("revision"), QString::number(m_revision + 1));
     QString error;
     if (!validateSnapshot(snapshot, &error)) { setStatus(QStringLiteral("error"), error); return false; }
     const QByteArray bytes = QJsonDocument::fromVariant(snapshot).toJson(QJsonDocument::Compact);
-    if (QFileInfo::exists(path)) {
-        QString oldError;
-        const auto old = readSnapshot(path, &oldError);
-        const QByteArray recoveryBytes = old.isEmpty()
+    if (currentExists) {
+        const QByteArray recoveryBytes = currentSnapshot.isEmpty()
             ? QJsonDocument::fromVariant(exportSnapshot()).toJson(QJsonDocument::Compact)
-            : QJsonDocument::fromVariant(old).toJson(QJsonDocument::Compact);
+            : QJsonDocument::fromVariant(currentSnapshot).toJson(QJsonDocument::Compact);
         if (!writeAtomic(path + QStringLiteral(".recovery"), recoveryBytes, &error)) {
-            setStatus(QStringLiteral("error"), error.isEmpty() ? oldError : error);
+            setStatus(QStringLiteral("error"), error.isEmpty() ? currentError : error);
             return false;
         }
     }
     if (!writeAtomic(path, bytes, &error)) { setStatus(QStringLiteral("error"), error); return false; }
-    setFilePath(path);
     ++m_revision;
+    m_expectedFilePath = absolutePath;
+    m_expectedFileExists = true;
+    m_expectedFileDigest = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
+    m_expectedDiskRevision = snapshot.value(QStringLiteral("revision")).toString();
     m_recoveryAvailable = QFileInfo::exists(path + QStringLiteral(".recovery"));
+    lock.unlock();
+    setFilePath(path);
     emit dataChanged();
     setStatus(QStringLiteral("saved"));
     return true;
