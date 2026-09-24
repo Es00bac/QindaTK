@@ -4,12 +4,53 @@
 #include "canvas_document_format.h"
 
 #include <QJsonArray>
+#include <QtEndian>
 #include <QSet>
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace QindaTK::CanvasDocumentFormat {
 namespace {
+
+// AGENT-NOTE: QJsonDocument writes U+FEFF as raw UTF-8 and drops it again when
+// parsing, and UTF-8 cannot carry an unpaired surrogate. An artboard name the
+// JSON would change is therefore also saved as base64 UTF-16LE code units in
+// "nameUtf16", which loading prefers, so artboard names are as exact as the
+// binary layer and object names (canvas_document_format.h).
+bool jsonKeepsText(const QString &text)
+{
+    for (qsizetype i = 0; i < text.size(); ++i) {
+        const QChar c = text.at(i);
+        if (c.unicode() == 0xFEFF) return false;
+        if (c.isHighSurrogate() && i + 1 < text.size() && text.at(i + 1).isLowSurrogate()) {
+            ++i;
+            continue;
+        }
+        if (c.isSurrogate()) return false;
+    }
+    return true;
+}
+
+QString utf16Base64(const QString &text)
+{
+    QByteArray bytes(text.size() * 2, Qt::Uninitialized);
+    for (qsizetype i = 0; i < text.size(); ++i)
+        qToLittleEndian<quint16>(text.at(i).unicode(), bytes.data() + 2 * i);
+    return QString::fromLatin1(bytes.toBase64());
+}
+
+std::optional<QString> fromUtf16Base64(const QString &encoded)
+{
+    const auto decoded = QByteArray::fromBase64Encoding(encoded.toLatin1(),
+                                                        QByteArray::AbortOnBase64DecodingErrors);
+    if (!decoded || (*decoded).size() % 2) return std::nullopt;
+    const QByteArray &bytes = *decoded;
+    QString text(bytes.size() / 2, Qt::Uninitialized);
+    for (qsizetype i = 0; i < text.size(); ++i)
+        text[i] = QChar(char16_t(qFromLittleEndian<quint16>(bytes.constData() + 2 * i)));
+    return text;
+}
 OperationError problem(ErrorCode code, const QString &message, const QString &field)
 {
     return {code, message, field, QStringLiteral("canvas.scene")};
@@ -65,6 +106,13 @@ OperationError takeArtboards(const CanvasDocumentLimits &limits, CanvasDocumentS
         CanvasArtboard board;
         board.id = value("id").toString();
         board.name = value("name").toString();
+        if (item.contains(QLatin1String("nameUtf16"))) {
+            const auto exact = value("nameUtf16").isString()
+                ? fromUtf16Base64(value("nameUtf16").toString()) : std::nullopt;
+            if (!exact)
+                return problem(ErrorCode::Validation, QStringLiteral("Invalid artboard name"), QStringLiteral("artboards.name"));
+            board.name = *exact;
+        }
         board.rect = QRectF(value("x").toDouble(), value("y").toDouble(),
                             value("width").toDouble(), value("height").toDouble());
         board.background = background;
@@ -189,15 +237,18 @@ QJsonObject savedExtensions(const CanvasDocumentState &state)
     extensions.remove(QLatin1String(LayerTreeExtensionKey));
     if (!state.artboards.isEmpty() || state.nextArtboard > 1) {
         QJsonArray items;
-        for (const CanvasArtboard &board : state.artboards)
-            items.append(QJsonObject{{QStringLiteral("id"), board.id},
-                                     {QStringLiteral("name"), board.name},
-                                     {QStringLiteral("x"), board.rect.x()},
-                                     {QStringLiteral("y"), board.rect.y()},
-                                     {QStringLiteral("width"), board.rect.width()},
-                                     {QStringLiteral("height"), board.rect.height()},
-                                     {QStringLiteral("background"), board.background.name(QColor::HexArgb)},
-                                     {QStringLiteral("bleed"), board.bleed}});
+        for (const CanvasArtboard &board : state.artboards) {
+            QJsonObject item{{QStringLiteral("id"), board.id},
+                             {QStringLiteral("name"), board.name},
+                             {QStringLiteral("x"), board.rect.x()},
+                             {QStringLiteral("y"), board.rect.y()},
+                             {QStringLiteral("width"), board.rect.width()},
+                             {QStringLiteral("height"), board.rect.height()},
+                             {QStringLiteral("background"), board.background.name(QColor::HexArgb)},
+                             {QStringLiteral("bleed"), board.bleed}};
+            if (!jsonKeepsText(board.name)) item.insert(QStringLiteral("nameUtf16"), utf16Base64(board.name));
+            items.append(item);
+        }
         extensions.insert(QLatin1String(ArtboardExtensionKey),
                           QJsonObject{{QStringLiteral("next"), double(state.nextArtboard)},
                                       {QStringLiteral("items"), items}});

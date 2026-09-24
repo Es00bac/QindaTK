@@ -177,7 +177,11 @@ layout and version stay unchanged and an older reader keeps them as opaque
 data. The decoder moves each record out of the host extensions and validates
 it against the decoded layers and objects (unique ids, finite geometry, group
 parents, no cycles, depth, no objects on a group). A flat document without
-guides or boards writes none of them, so its bytes are unchanged. Host
+guides or boards writes none of them, so its bytes are unchanged. Qt's JSON
+drops U+FEFF and cannot carry an unpaired surrogate, so an artboard name that
+JSON would change is also written as base64 UTF-16LE code units in
+`nameUtf16`, which the decoder prefers; artboard names round-trip exactly,
+like binary layer and object names. Host
 extensions and these records share `maximumExtensionBytes`; a save that would
 exceed it fails explicitly.
 

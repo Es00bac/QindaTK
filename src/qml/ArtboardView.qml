@@ -171,7 +171,11 @@ Item {
     function finishGesture(point) {
         if (!gesture.active) return
         if (gesture.kind === "create") {
-            const created = creation.rect
+            // AGENT-GUARD: copy the rect. A value-type property read into a
+            // local is a live reference here, so resetting creation.rect first
+            // would zero `created` and no board would be requested.
+            const pending = creation.rect
+            const created = Qt.rect(pending.x, pending.y, pending.width, pending.height)
             creation.rect = Qt.rect(0, 0, 0, 0)
             gesture.active = false
             if (!gesture.canceled && gesture.dragging && created.width > 0 && created.height > 0)
