@@ -22266,6 +22266,119 @@
       "bridge": false
     },
     {
+      "name": "CurveEditorModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Host-owned typed curve state with transient previews and one undo step per gesture.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/curve_editor_model.h",
+      "properties": [
+        {
+          "name": "definition",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "knots",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "samples",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorMessage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "beginKnotEdit",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "beginTangentEdit",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &side"
+        },
+        {
+          "name": "previewKnot",
+          "returns": "bool",
+          "parameters": "const QString &id, double x, double y"
+        },
+        {
+          "name": "previewTangent",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &side, double x, double y"
+        },
+        {
+          "name": "commitEdit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "saveJson",
+          "returns": "QByteArray",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "bool",
+          "parameters": "const QByteArray &json"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "Density",
       "kind": "cpp",
       "base": "QObject",

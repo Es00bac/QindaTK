@@ -130,6 +130,18 @@ fixtures. Additional cases cover negative/positive repeat seams, limiting
 endpoint slopes, constant single knots, malformed constraints, unit mismatch
 and output overflow. The fixture formulas are independent of the evaluator.
 
-Automatic/mirrored tangents, monotone-y transfer-curve constraints, multi-knot
-editing rules, QML codecs, adaptive display sampling, exact time projection,
-transactions, undo and persistence remain host or later WP-043 work.
+## Editor model integration
+
+`Tk.CurveEditorModel` is the reference host adapter for `Tk.CurveEditor`. It
+exposes `knots`, evaluator-backed `samples`, and a versioned `definition` map.
+Call `beginKnotEdit(id)` or `beginTangentEdit(id, side)` once at gesture start,
+then `previewKnot`/`previewTangent` for pointer updates and `commitEdit` or
+`cancelEdit` at gesture end. Each gesture previews through `EditTransaction`,
+validates with `CurveEvaluator`, and commits as one undo step. Hosts can install
+a C++ domain constraint callback for rules such as monotone transfer curves.
+`saveJson()` and `loadJson()` use the `qindatk.curve/1` schema and preserve typed
+axis metadata, stable IDs, interpolation, handles, and edge policies. Sampling
+returns 129 evenly spaced host-evaluated points for the editor; applications
+with other display requirements can sample the same typed definition directly.
+The `examples/curve-editor` scene wires all pointer gesture signals to this
+model so knot and tangent drags preview, commit, and cancel against real state.

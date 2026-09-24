@@ -43,6 +43,7 @@ qt_add_qml_module(qindatk
         core/color_lcms_p.h
         core/curve_evaluator.cpp core/curve_evaluator.h
         core/curve_validation.cpp core/curve_evaluator_p.h
+        core/curve_editor_model.cpp core/curve_editor_model.h
         core/gradient_evaluator.cpp core/gradient_evaluator.h
         core/capability_registry.cpp core/capability_registry.h
         core/command_context.cpp core/command_context.h
