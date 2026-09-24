@@ -73,6 +73,11 @@ reverse order.
 immutable 256² `QImage` tiles. Renderers and GPU uploads share those tiles
 without copying.
 
+Raster painting also has a focused reference backend in
+[raster-document.md](raster-document.md). It owns editable premultiplied pixel
+tiles and optional grayscale masks independently from CanvasObject's immutable
+image assets; the two document contracts are not yet unified.
+
 Subobject parts on a hit are `Vertex` (index = corner or polyline point),
 `Segment` (index = edge), `Stroke` (ellipse outline), `Fill`, and
 `ImageTile` (index = row × columns + column).

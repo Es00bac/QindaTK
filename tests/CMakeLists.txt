@@ -130,6 +130,7 @@ qindatk_add_test(tst_canvas_alignment_model)
 qindatk_add_test(tst_canvas_style_model)
 qindatk_add_test(tst_canvas_render)
 qindatk_add_test(tst_canvas_display)
+qindatk_add_test(tst_tiled_raster_document)
 add_test(NAME tst_canvas_display_rhi COMMAND tst_canvas_display managedDisplaySceneGraph)
 set_tests_properties(tst_canvas_display_rhi PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")

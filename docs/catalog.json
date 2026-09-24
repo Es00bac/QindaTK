@@ -47098,6 +47098,155 @@
       "bridge": false
     },
     {
+      "name": "TiledRasterDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/tiled_raster_document.h",
+      "properties": [
+        {
+          "name": "width",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "height",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "layerIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "imageDataUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "resizeCanvas",
+          "returns": "bool",
+          "parameters": "int width, int height"
+        },
+        {
+          "name": "createLayer",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &name"
+        },
+        {
+          "name": "addMask",
+          "returns": "bool",
+          "parameters": "const QString &layerId"
+        },
+        {
+          "name": "setMaskEnabled",
+          "returns": "bool",
+          "parameters": "const QString &layerId, bool enabled"
+        },
+        {
+          "name": "beginStroke",
+          "returns": "bool",
+          "parameters": "const QString &layerId, bool paintMask, const QColor &color, const QVariantMap &preset"
+        },
+        {
+          "name": "sampleStroke",
+          "returns": "bool",
+          "parameters": "qreal x, qreal y, qreal pressure = 1.0, qreal tiltX = 0.0, qreal tiltY = 0.0"
+        },
+        {
+          "name": "endStroke",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelStroke",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "composite",
+          "returns": "QImage",
+          "parameters": ""
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "layerInfo",
+          "returns": "QVariantMap",
+          "parameters": "const QString &layerId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "TimeMap",
       "kind": "cpp",
       "base": "QObject",

@@ -248,6 +248,7 @@ qt_add_qml_module(qindatk
         core/canvas_snap_model.cpp core/canvas_snap_model.h
         core/canvas_transform_controller.cpp core/canvas_transform_controller.h
         core/canvas_surface.cpp core/canvas_surface.h
+        core/tiled_raster_document.cpp core/tiled_raster_document.h
         core/canvas_surface_input.cpp
         core/canvas_surface_nodes.cpp core/canvas_surface_nodes.h
         core/canvas_overlay.cpp core/canvas_overlay.h
