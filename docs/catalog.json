@@ -39753,6 +39753,46 @@
       "bridge": false
     },
     {
+      "name": "RecurrenceService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Expands local-wall-time event rules for CalendarView and RecurrenceEditor. The host remains responsible for event storage and provider synchronization.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/recurrence_service.h",
+      "properties": [
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "expand",
+          "returns": "QVariantList",
+          "parameters": "const QString &eventId, const QString &startLocal, int durationSeconds, const QString &zoneId, const QVariantMap &rule, const QString &rangeStartUtc, const QString &rangeEndUtc, int limit = 200"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "RenderSurfaceAdapter",
       "kind": "cpp",
       "base": "QObject",

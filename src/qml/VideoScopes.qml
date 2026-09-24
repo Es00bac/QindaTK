@@ -30,13 +30,15 @@ T.Control {
 
     contentItem: Item {
         id: content
-        Column {
+        Tk.Flex {
             anchors.fill: parent
-            spacing: Tk.Theme.space.sm
-            Row {
+            direction: Tk.Flex.Column
+            gap: Tk.Theme.space.sm
+            Tk.Flex {
                 id: headerRow
                 width: parent.width
-                spacing: Tk.Theme.space.sm
+                direction: Tk.Flex.Row
+                gap: Tk.Theme.space.sm
                 Text {
                     text: control.scopeMode.toUpperCase()
                     color: Tk.Theme.color.text
@@ -55,7 +57,8 @@ T.Control {
                 id: plot
                 objectName: "videoScopesCanvas"
                 width: parent.width
-                height: Math.max(Tk.Theme.size.waveformHeight, parent.height - headerRow.implicitHeight - statusLabel.implicitHeight - 2 * Tk.Theme.space.sm)
+                implicitHeight: Tk.Theme.size.waveformHeight
+                Tk.Flex.grow: 1
                 onPaint: {
                     const ctx = getContext("2d")
                     ctx.reset()
