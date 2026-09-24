@@ -120,8 +120,10 @@ Tk.AppWindow {
             Tk.DatabaseSchemaView {
                 id: schema; Tk.Flex.flex: 1; provider: database; selectedTable: "contacts"
                 migrationSql: "CREATE INDEX idx_contacts_name ON contacts(display_name)"
+                migrationStatements: ["CREATE INDEX idx_contacts_name ON contacts(display_name)",
+                                      "CREATE INDEX idx_contacts_department ON contacts(department_id)"]
                 onMigrationCommitRequested: function(requestId, plan) {
-                    const result = database.executeMigration(plan.sql)
+                    const result = plan.statements ? database.executeMigrationPlan(plan.statements) : database.executeMigration(plan.sql)
                     acknowledge(requestId, result.ok ? "accepted" : "rejected", result.ok ? qsTr("Schema updated explicitly") : result.error)
                 }
             }

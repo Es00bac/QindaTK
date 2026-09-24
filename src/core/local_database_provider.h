@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QVariantList>
 #include <QVariantMap>
+#include <QStringList>
 #include <QtQml/qqmlregistration.h>
 
 struct sqlite3;
@@ -40,6 +41,8 @@ public:
     Q_INVOKABLE QVariantMap execute(const QString &sql, const QVariantList &bindings = {});
     Q_INVOKABLE QVariantMap previewMigration(const QString &sql) const;
     Q_INVOKABLE QVariantMap executeMigration(const QString &sql);
+    Q_INVOKABLE QVariantMap previewMigrationPlan(const QStringList &statements);
+    Q_INVOKABLE QVariantMap executeMigrationPlan(const QStringList &statements);
 
 signals:
     void changed();
@@ -51,6 +54,7 @@ private:
     void setError(QString error);
     QVariantMap failure(const QString &error);
     static QString firstKeyword(const QString &sql);
+    QVariantMap runMigrationPlan(const QStringList &statements, bool commit);
 
     sqlite3 *m_db = nullptr;
     QString m_filePath;

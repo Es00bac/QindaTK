@@ -6162,7 +6162,7 @@
       "name": "DatabaseSchemaView",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Introspection is live; migration actions remain proposals until the host explicitly executes them through LocalDatabaseProvider.executeMigration.",
+      "description": "Introspection is live; migration actions remain proposals until the host explicitly executes them through LocalDatabaseProvider migration methods.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/DatabaseSchemaView.qml",
@@ -6187,6 +6187,14 @@
           "name": "migrationSql",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "migrationStatements",
+          "type": "var",
+          "default": "[] // host-provided ordered, single-statement steps",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -39520,6 +39528,16 @@
           "name": "executeMigration",
           "returns": "QVariantMap",
           "parameters": "const QString &sql"
+        },
+        {
+          "name": "previewMigrationPlan",
+          "returns": "QVariantMap",
+          "parameters": "const QStringList &statements"
+        },
+        {
+          "name": "executeMigrationPlan",
+          "returns": "QVariantMap",
+          "parameters": "const QStringList &statements"
         }
       ],
       "enums": {},

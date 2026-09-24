@@ -237,6 +237,78 @@ QVariantMap LocalDatabaseProvider::executeMigration(const QString &sql)
     return {{"ok", true}, {"rowsAffected", m_rowsAffected}, {"operation", plan.value("operation")}};
 }
 
+QVariantMap LocalDatabaseProvider::previewMigrationPlan(const QStringList &statements)
+{
+    return runMigrationPlan(statements, false);
+}
+
+QVariantMap LocalDatabaseProvider::executeMigrationPlan(const QStringList &statements)
+{
+    return runMigrationPlan(statements, true);
+}
+
+QVariantMap LocalDatabaseProvider::runMigrationPlan(const QStringList &statements, bool commit)
+{
+    if (!m_db) return failure(tr("Database is closed"));
+    if (statements.isEmpty() || statements.size() > 64)
+        return failure(tr("Migration plan must contain 1–64 statements"));
+    char *sqliteError = nullptr;
+    if (sqlite3_exec(m_db, "BEGIN IMMEDIATE", nullptr, nullptr, &sqliteError) != SQLITE_OK) {
+        const QString message = QString::fromUtf8(sqliteError ? sqliteError : sqlite3_errmsg(m_db));
+        sqlite3_free(sqliteError);
+        return failure(message);
+    }
+    QStringList operations;
+    bool destructive = false;
+    for (const QString &sql : statements) {
+        const QString keyword = firstKeyword(sql);
+        if (keyword != QLatin1String("CREATE") && keyword != QLatin1String("ALTER")
+            && keyword != QLatin1String("DROP")) {
+            sqlite3_exec(m_db, "ROLLBACK", nullptr, nullptr, nullptr);
+            return failure(tr("Migration plans accept only CREATE, ALTER and DROP statements"));
+        }
+        sqlite3_stmt *statement = nullptr;
+        QString error;
+        if (!prepareOne(sql, &statement, &error)) {
+            sqlite3_exec(m_db, "ROLLBACK", nullptr, nullptr, nullptr);
+            return failure(error);
+        }
+        if (sqlite3_stmt_readonly(statement)) {
+            sqlite3_finalize(statement);
+            sqlite3_exec(m_db, "ROLLBACK", nullptr, nullptr, nullptr);
+            return failure(tr("Migration plan contains a read-only statement"));
+        }
+        const int status = sqlite3_step(statement);
+        if (status != SQLITE_DONE) error = QString::fromUtf8(sqlite3_errmsg(m_db));
+        sqlite3_finalize(statement);
+        if (status != SQLITE_DONE) {
+            sqlite3_exec(m_db, "ROLLBACK", nullptr, nullptr, nullptr);
+            return failure(error);
+        }
+        operations.append(keyword.toLower());
+        destructive |= keyword == QLatin1String("DROP");
+    }
+    // AGENT-GUARD: SQLite DDL is transactional. Preview must roll back the
+    // whole executed plan; otherwise dependent statements cannot be checked.
+    const char *finish = commit ? "COMMIT" : "ROLLBACK";
+    if (sqlite3_exec(m_db, finish, nullptr, nullptr, &sqliteError) != SQLITE_OK) {
+        const QString message = QString::fromUtf8(sqliteError ? sqliteError : sqlite3_errmsg(m_db));
+        sqlite3_free(sqliteError);
+        sqlite3_exec(m_db, "ROLLBACK", nullptr, nullptr, nullptr);
+        return failure(message);
+    }
+    setError({});
+    if (commit) {
+        m_rowsAffected = sqlite3_changes(m_db);
+        emit changed();
+        emit recordsChanged();
+    }
+    return {{QStringLiteral("ok"), true}, {QStringLiteral("operations"), operations},
+            {QStringLiteral("statements"), statements},
+            {QStringLiteral("previewOnly"), !commit},
+            {QStringLiteral("warning"), destructive ? tr("Plan includes a DROP statement") : QString()}};
+}
+
 bool LocalDatabaseProvider::prepareOne(const QString &sql, sqlite3_stmt **statement, QString *error) const
 {
     if (!m_db) { *error = tr("Database is closed"); return false; }

@@ -4,13 +4,14 @@ import QtQuick
 import QindaTK as Tk
 
 // Introspection is live; migration actions remain proposals until the host
-// explicitly executes them through LocalDatabaseProvider.executeMigration.
+// explicitly executes them through LocalDatabaseProvider migration methods.
 Tk.Box {
     id: control
     objectName: "databaseSchemaView"
     property Tk.LocalDatabaseProvider provider: null
     property string selectedTable: ""
     property string migrationSql: ""
+    property var migrationStatements: [] // host-provided ordered, single-statement steps
     property var migrationPlan: ({ ok: false })
     property string requestState: "idle"
     property string requestMessage: ""
@@ -27,8 +28,10 @@ Tk.Box {
     function refreshSchema() { schemaSnapshot = provider && selectedTable ? provider.schema(selectedTable) : ({ ok: false, fields: [], relationships: [] }) }
     function chooseTable(index) { if (!provider || index < 0 || index >= provider.tables.length) return false; selectedTable = provider.tables[index]; refreshSchema(); return true }
     function requestPreview() {
-        if (!provider || !migrationSql.trim()) return false
-        const plan = provider.previewMigration(migrationSql)
+        if (!provider || (!migrationSql.trim() && !migrationStatements.length)) return false
+        const plan = migrationStatements.length
+            ? provider.previewMigrationPlan(migrationStatements)
+            : provider.previewMigration(migrationSql)
         migrationPlan = plan
         const id = "migration-preview-" + Date.now() + "-" + (++_requestSerial)
         lastRequestId = id; requestState = plan.ok ? "preview" : "rejected"; requestMessage = plan.warning || plan.error || ""
@@ -44,6 +47,8 @@ Tk.Box {
     }
     function acknowledge(id, state, message) { if (id !== lastRequestId || requestState !== "pending") return false; requestState = state; requestMessage = message || ""; return true }
 
+    onMigrationSqlChanged: migrationPlan = ({ ok: false })
+    onMigrationStatementsChanged: migrationPlan = ({ ok: false })
     onProviderChanged: refreshSchema()
     onSelectedTableChanged: refreshSchema()
     Connections {
@@ -97,7 +102,8 @@ Tk.Box {
             }
         }
         Tk.Overline { title: qsTr("MIGRATION PREVIEW"); wide: true }
-        Tk.TextArea { objectName: "schemaMigrationSql"; width: parent.width; rows: 2; text: control.migrationSql; placeholderText: qsTr("CREATE INDEX ..."); tooltip: qsTr("SQL migration draft"); Accessible.name: tooltip; onTextChanged: control.migrationSql = text }
+        Tk.TextArea { objectName: "schemaMigrationSql"; width: parent.width; rows: 2; text: control.migrationSql; placeholderText: qsTr("CREATE INDEX ..."); tooltip: qsTr("SQL migration draft"); Accessible.name: tooltip; onTextChanged: { if (text !== control.migrationSql) { control.migrationSql = text; control.migrationStatements = [] } } }
+        Tk.Caption { visible: control.migrationStatements.length > 0; text: qsTr("%1 ordered schema steps; preview rolls all back").arg(control.migrationStatements.length); muted: true }
         Tk.Flex {
             direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center
             Tk.Label { text: control.requestMessage || control.requestState; muted: true; wrapMode: Text.Wrap; Tk.Flex.grow: 1 }

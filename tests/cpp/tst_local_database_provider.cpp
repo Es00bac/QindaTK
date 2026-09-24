@@ -8,6 +8,27 @@ using QindaTK::LocalDatabaseProvider;
 class LocalDatabaseProviderTest final : public QObject {
     Q_OBJECT
 private slots:
+    void previewsAndCommitsAtomicMigrationPlan()
+    {
+        LocalDatabaseProvider provider;
+        QVERIFY(provider.openMemory());
+        QVERIFY(provider.executeMigration("CREATE TABLE contacts(id INTEGER PRIMARY KEY)").value("ok").toBool());
+        const QStringList plan{
+            QStringLiteral("ALTER TABLE contacts ADD COLUMN nickname TEXT"),
+            QStringLiteral("CREATE INDEX idx_contacts_nickname ON contacts(nickname)")};
+        QVERIFY(provider.previewMigrationPlan(plan).value("ok").toBool());
+        QCOMPARE(provider.schema(QStringLiteral("contacts")).value("fields").toList().size(), 1);
+        const QStringList broken{
+            QStringLiteral("ALTER TABLE contacts ADD COLUMN skipped TEXT"),
+            QStringLiteral("CREATE INDEX invalid_index ON contacts(missing_field)")};
+        QVERIFY(!provider.previewMigrationPlan(broken).value("ok").toBool());
+        QCOMPARE(provider.schema(QStringLiteral("contacts")).value("fields").toList().size(), 1);
+        QVERIFY(provider.executeMigrationPlan(plan).value("ok").toBool());
+        QCOMPARE(provider.schema(QStringLiteral("contacts")).value("fields").toList().size(), 2);
+        QVERIFY(!provider.executeMigrationPlan(broken).value("ok").toBool());
+        QCOMPARE(provider.schema(QStringLiteral("contacts")).value("fields").toList().size(), 2);
+    }
+
     void preparedReadsAndSchemaMetadata()
     {
         LocalDatabaseProvider provider;
