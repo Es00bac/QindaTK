@@ -174,6 +174,7 @@ Rectangle {
                 PlanningSection { filter: search.text }
                 CanvasSection { filter: search.text }
                 DiagramSection { filter: search.text }
+                CadSection { filter: search.text }
                 RasterSection { filter: search.text }
                 QuerySection { filter: search.text }
                 DiffSection { filter: search.text }

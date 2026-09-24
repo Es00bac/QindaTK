@@ -1,6 +1,10 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Examples
 
+The [CAD sketch](cad-sketch/Main.qml) renders a constrained mounting plate
+with four circular bores. `CadViewport` can select, drag, snap, and create
+points, segments and circles against the persistent `CadDocument` model.
+
 The [live diagram](diagram-live/Main.qml) binds `DiagramCanvas` to a native
 `DiagramDocument`. Moving cards and connecting ports edit persistent stable
 IDs; Undo and Redo operate on the diagram graph. The example shows measured

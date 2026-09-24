@@ -63,7 +63,7 @@ does not avoid unrelated cards or optimize crossings.
 The diagram slice has manual and automatic placement and explicit quantified
 edges. Obstacle-aware routing, multi-selection gestures, reusable visual
 stencil assets, conservation checks, true Sankey band placement,
-shared domain-session history, and import/export adapters remain. The CAD
-model, unit/precision policy, geometry kernel, constraint solver, 2D/3D
-viewport and CAD export are separate future work. See
+shared domain-session history, and import/export adapters remain. The separate
+[CAD sketch model and viewport](cad.md) provide a first 2D slice; advanced
+geometry, 3D modeling and CAD export remain. See
 [WP-083](universal-toolkit/implementation/phase-07-integrations.md#wp-083).
