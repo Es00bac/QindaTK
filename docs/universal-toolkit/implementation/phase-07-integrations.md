@@ -105,7 +105,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-084"></a>
 ## WP-084 — Implement geographic mapping
 
-**Implementation lead:** Sol. **Status:** active (GeoJSON editing, offline/network tiles, antimeridian, composed export, projection switching and indexed picking merged; WP-043 dependency remains active). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-029](phase-02-controls-data.md#wp-029), [WP-040](phase-03-authoring.md#wp-040), [WP-043](phase-03-authoring.md#wp-043)
+**Implementation lead:** Sol. **Status:** accepted (GeoJSON editing, offline/network tiles, antimeridian, composed export, projection switching and indexed picking; [evidence](evidence/WP-084.md)). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-029](phase-02-controls-data.md#wp-029), [WP-040](phase-03-authoring.md#wp-040), [WP-043](phase-03-authoring.md#wp-043)
 
 **Proposal scope:** [EXT-05 MapView](../proposed/09-specialized-domains.md#ext-05)
 

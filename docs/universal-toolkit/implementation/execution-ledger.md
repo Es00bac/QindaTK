@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 37 packages accepted, 39 active, none in review, and 8 planned.**
+**Execution state: 39 packages accepted, 37 active, none in review, and 8 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -78,7 +78,7 @@ as though a later fix had already passed the earlier run.
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | accepted | [Integrated renderer, installed consumer, dual-Qt 102/102 and focused resource lifecycle checks](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Lasso, snap, guides, shared selection and reference group transforms; persistence still open](evidence/WP-041.md) |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
-| [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [Typed curve, gradient and picker models; ICC/evaluator backends; bounded canvas display; output integration open](evidence/WP-043.md) |
+| [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | accepted | [Typed curve/gradient/picker editing, managed ICC canvas output and matched software/RHI pixels](evidence/WP-043.md) |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | active | [Four panels and undoable solid canvas style edits; path/render/export work open](evidence/WP-044.md) |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | active | [Tiled raster strokes, masks, brush controls, save/reopen, tablet input and image comparison integrated; canvas session and broader color work remain](evidence/WP-045.md) |
 | [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
@@ -117,7 +117,7 @@ as though a later fix had already passed the earlier run.
 | [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | active | [PTY terminal, code editor, script runtime and extension registry/manager merged; language services and broader host integration open](evidence/WP-081.md) |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | active | [Two-client sync, authenticated IPC, mapped remote presence and synchronized version restore merged; WP-081 dependency open](evidence/WP-082-presence-layer.md) |
 | [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | active | [Diagram graph/flow and constrained CAD sketch merged; additional CAD output in progress](evidence/WP-083-cad.md) |
-| [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | active | [GeoJSON editing, raster providers, antimeridian, composed export and indexed projection switching merged; WP-043 dependency open](evidence/WP-084.md) |
+| [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | accepted | [GeoJSON editing, raster providers, antimeridian, composed export and indexed projection switching passed merged checks](evidence/WP-084.md) |
 | [WP-085 — Implement scientific plotting](phase-07-integrations.md#wp-085) | 07 | Sol | active | [Numeric, uncertainty and export implementation lane underway](evidence/WP-085.md) |
 | [WP-086 — Implement image slices, volumes and transfer functions](phase-07-integrations.md#wp-086) | 07 | Sol | planned | — |
 | [WP-087 — Implement dependency and trace exploration](phase-07-integrations.md#wp-087) | 07 | Sol | active | [QML asset extraction, bounded dependency index and diagnostic view merged; trace ingestion in progress](evidence/WP-087-asset-index.md) |

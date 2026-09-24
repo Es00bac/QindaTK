@@ -1,9 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 03 — Spatial editing and exact time
 
-**Execution underway.** WP-046 through WP-048 are accepted; WP-040 is in
-integrated review. WP-041 through WP-043 have active slices. Other packages
-remain planned.
+**Execution underway.** WP-040, WP-043 and WP-046 through WP-049 are
+accepted. WP-041, WP-042, WP-044 and WP-045 have active slices.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -81,7 +80,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-043"></a>
 ## WP-043 — Implement document color and curve editing
 
-**Implementation lead:** Sol. **Status:** active curve, tangent, gradient and picker presentation plus numerical RGB ICC, typed curve, gradient and ColorPicker model slices ([evidence](evidence/WP-043.md); WP-040 dependency in review). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** accepted (typed curve, gradient and picker editing, managed canvas output, ICC persistence and software/RHI known-color evidence; [evidence](evidence/WP-043.md)). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [CAN-11 ColorContext](../proposed/04-canvas-color.md#can-11), [CAN-12 ColorPicker](../proposed/04-canvas-color.md#can-12), [CAN-13 GradientEditor](../proposed/04-canvas-color.md#can-13), [CAN-14 CurveEditor](../proposed/04-canvas-color.md#can-14)
 
