@@ -34,4 +34,9 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
                 --check --size 520x640)
     set_tests_properties(example_color_picker_model PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    add_test(NAME example_media_source_browser
+        COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/media-source-browser.qml"
+                --check --size 1120x680)
+    set_tests_properties(example_media_source_browser PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
