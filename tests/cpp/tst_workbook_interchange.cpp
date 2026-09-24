@@ -22,11 +22,11 @@ bool writeAll(const QString &path, const QByteArray &bytes)
 QVariantMap waitForJob(FormatRegistry &registry, const QString &id)
 {
     if (id.isEmpty()) return {};
-    QTest::qWaitFor([&]() {
+    const bool finished = QTest::qWaitFor([&]() {
         const QString state = registry.jobs()->job(id).value("state").toString();
         return state == QStringLiteral("succeeded") || state == QStringLiteral("failed");
     }, 10000);
-    return registry.jobs()->job(id);
+    return finished ? registry.jobs()->job(id) : QVariantMap();
 }
 }
 

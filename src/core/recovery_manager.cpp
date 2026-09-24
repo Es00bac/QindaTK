@@ -43,7 +43,8 @@ struct Scan {
     int entries = 0;
 };
 
-Scan scan(const QByteArray &bytes, DocumentId expected)
+Scan scan(const QByteArray &bytes, DocumentId expected,
+          const std::function<bool(const QByteArray &, SnapshotHeader *)> &readHeader)
 {
     Scan result;
     qsizetype offset = 0;
@@ -63,17 +64,15 @@ Scan scan(const QByteArray &bytes, DocumentId expected)
         }
         const QByteArray hash = bytes.mid(offset + 24, 32);
         const QByteArray payload = bytes.mid(offset + frameHeaderBytes, qsizetype(length));
-        OperationError error;
-        auto decoded = ReferenceDocumentCodec::decode(payload, &error);
-        if (AtomicDocumentStore::sha256(payload) != hash || !decoded
-            || decoded->document->documentId() != expected
-            || decoded->document->revision().value != revision
+        SnapshotHeader header;
+        header.revision.value = revision; // frames carry the revision
+        if (AtomicDocumentStore::sha256(payload) != hash || !readHeader(payload, &header)
+            || header.documentId != expected || header.revision.value != revision
             || (result.latest && revision < result.latest->header.revision.value)) {
             result.truncated = true;
             break;
         }
-        result.latest = std::make_shared<const ImmutableSnapshot>(
-            ImmutableSnapshot{decoded->document->header(), payload});
+        result.latest = std::make_shared<const ImmutableSnapshot>(ImmutableSnapshot{header, payload});
         ++result.entries;
         offset += frameHeaderBytes + qsizetype(length);
     }
@@ -106,6 +105,28 @@ OperationError writeAtomic(const QString &path, const QByteArray &bytes)
 } // namespace
 
 RecoveryManager::RecoveryManager(QObject *parent) : QObject(parent) {}
+
+void RecoveryManager::addPayloadValidator(PayloadValidator validator)
+{
+    if (validator) m_validators.push_back(std::move(validator));
+}
+
+bool RecoveryManager::readHeader(const QByteArray &payload, SnapshotHeader *header) const
+{
+    OperationError error;
+    if (auto decoded = ReferenceDocumentCodec::decode(payload, &error)) {
+        *header = decoded->document->header();
+        return true;
+    }
+    for (const auto &validator : m_validators) {
+        SnapshotHeader candidate = *header;
+        if (!validator(payload, &candidate)) {
+            *header = candidate;
+            return true;
+        }
+    }
+    return false;
+}
 
 void RecoveryManager::setDirectory(const QString &path)
 {
@@ -149,8 +170,11 @@ std::optional<RecoverySnapshot> RecoveryManager::inspect(DocumentId id) const
         path(id, QStringLiteral(".journal")),
         m_maxJournalBytes + ReferenceDocumentCodec::MaximumBytes + frameHeaderBytes,
         &journalReadable);
-    Scan base = scan(checkpointBytes, id);
-    Scan journal = scan(journalBytes, id);
+    const auto reader = [this](const QByteArray &payload, SnapshotHeader *header) {
+        return readHeader(payload, header);
+    };
+    Scan base = scan(checkpointBytes, id, reader);
+    Scan journal = scan(journalBytes, id, reader);
     const bool truncated = !checkpointReadable || !journalReadable || base.truncated
         || journal.truncated || base.entries > 1;
     SnapshotPtr latest = base.latest;
@@ -194,11 +218,10 @@ OperationError RecoveryManager::record(SnapshotPtr snapshot)
     if (!snapshot || !snapshot->header.documentId.isValid() || m_directory.isEmpty())
         return fail({ErrorCode::InvalidArgument,
                      QStringLiteral("Invalid recovery request"), {}, {}});
-    OperationError codecError;
-    auto decoded = ReferenceDocumentCodec::decode(snapshot->payload, &codecError);
-    if (!decoded || decoded->document->documentId() != snapshot->header.documentId
-        || decoded->document->revision() != snapshot->header.revision
-        || decoded->document->resetGeneration() != snapshot->header.resetGeneration)
+    SnapshotHeader header = snapshot->header;
+    if (!readHeader(snapshot->payload, &header) || header.documentId != snapshot->header.documentId
+        || header.revision != snapshot->header.revision
+        || header.resetGeneration != snapshot->header.resetGeneration)
         return fail({ErrorCode::InvalidArgument,
                      QStringLiteral("Invalid recovery snapshot"), {}, {}});
     if (!QDir().mkpath(m_directory))

@@ -85,7 +85,7 @@ qt_add_qml_module(qindatk
         core/property_document.cpp core/property_document.h
         core/reference_document_codec.cpp core/reference_document_codec.h
         core/property_binding.cpp core/property_binding.h
-        core/undo_service.cpp core/undo_service.h
+        core/undo_service.cpp core/undo_service.h core/undo_participants.cpp
         core/validation_model.cpp core/validation_model.h
         core/selection_model.cpp core/selection_model.h
         core/editable_grid_model.cpp core/editable_grid_model.h
@@ -104,6 +104,7 @@ qt_add_qml_module(qindatk
         core/workbook_sheetops.cpp core/workbook_ruleops.cpp
         core/workbook_codec_features.cpp core/workbook_transfer.cpp
         core/workbook_delimited.cpp core/workbook_delimited.h
+        core/workbook_session.cpp core/workbook_session.h
         core/workbook.cpp core/workbook.h core/workbook_p.h
         core/workbook_recalc.cpp core/workbook_mutations.cpp core/workbook_ops.cpp
         core/workbook_codec.cpp core/workbook_codec_p.h

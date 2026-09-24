@@ -109,6 +109,24 @@ public:
     virtual SnapshotPtr exportSnapshot() const = 0;
 };
 
+// AGENT-CONTRACT (docs/editing.md#history-participants): a document model that
+// keeps its own history (e.g. Tk.Workbook) joins UndoService routing as the
+// active participant. Its QObject emits historyChanged() when any of these
+// values changes. isModified() is true when the state differs from the last
+// markSaved().
+class UndoParticipant {
+public:
+    virtual ~UndoParticipant() = default;
+    virtual bool canUndo() const = 0;
+    virtual bool canRedo() const = 0;
+    virtual QString undoText() const = 0;
+    virtual QString redoText() const = 0;
+    virtual bool isModified() const = 0;
+    virtual bool undo() = 0;
+    virtual bool redo() = 0;
+    virtual void markSaved() = 0;
+};
+
 class CancellationToken {
 public:
     CancellationToken() = default;

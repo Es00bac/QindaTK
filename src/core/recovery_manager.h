@@ -3,6 +3,8 @@
 
 #include "reference_document_codec.h"
 #include <QObject>
+#include <functional>
+#include <vector>
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
@@ -36,12 +38,21 @@ public:
     std::optional<DecodedReferenceDocument> restore(DocumentId id,
                                                      OperationError *error = nullptr) const;
     bool discard(DocumentId id);
+    // Payloads of a domain serializer (docs/persistence.md#domain-recovery):
+    // for a valid payload a validator fills header.schemaId and documentId
+    // (and revision/resetGeneration when its payload records them; frames
+    // supply the revision otherwise). Reference documents need none; a domain
+    // app reads its recovered bytes with inspect() instead of restore().
+    using PayloadValidator = std::function<OperationError(const QByteArray &payload, SnapshotHeader *header)>;
+    void addPayloadValidator(PayloadValidator validator);
     Q_INVOKABLE QVariantMap inspectId(const QString &documentId) const;
     Q_INVOKABLE bool discardId(const QString &documentId);
 signals:
     void changed();
 private:
     QString path(DocumentId id, const QString &suffix) const;
+    bool readHeader(const QByteArray &payload, SnapshotHeader *header) const;
+    std::vector<PayloadValidator> m_validators;
     OperationError checkpoint(DocumentId id, SnapshotPtr snapshot);
     QString m_directory;
     QString m_lastError;

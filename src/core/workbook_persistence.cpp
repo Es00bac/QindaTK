@@ -278,8 +278,7 @@ bool Workbook::adoptImport(QObject *formatRegistry, const QString &jobId)
     if (!restore(result.value(QStringLiteral("documentBytes")).toByteArray())) return false;
     d->fileUrl.clear();
     d->fileSha256.clear();
-    d->cleanCursor = -1; // imported content is not saved in the native format yet
-    emit historyChanged();
+    markUnsaved(); // imported content is not saved in the native format yet
     emit fileChanged();
     return true;
 }

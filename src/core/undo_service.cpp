@@ -33,7 +33,7 @@ UndoService::History *UndoService::history(PropertyDocument *document)
 
 const UndoService::History *UndoService::activeHistory() const
 {
-    if (!m_active) return nullptr;
+    if (!m_active || participant()) return nullptr;
     auto it = m_histories.constFind(m_active->documentIdString());
     return it != m_histories.cend() && it->document == m_active ? &it.value() : nullptr;
 }
@@ -80,30 +80,35 @@ void UndoService::setActiveDocument(PropertyDocument *document)
 
 bool UndoService::canUndo() const
 {
+    if (const auto *p = participant()) return p->canUndo();
     const auto *state = activeHistory();
     return state && state->macroLabel.isEmpty() && state->cursor > 0;
 }
 
 bool UndoService::canRedo() const
 {
+    if (const auto *p = participant()) return p->canRedo();
     const auto *state = activeHistory();
     return state && state->macroLabel.isEmpty() && state->cursor < state->steps.size();
 }
 
 QString UndoService::undoText() const
 {
+    if (const auto *p = participant()) return p->undoText();
     const auto *state = activeHistory();
     return canUndo() ? state->steps[state->cursor - 1].label : QString{};
 }
 
 QString UndoService::redoText() const
 {
+    if (const auto *p = participant()) return p->redoText();
     const auto *state = activeHistory();
     return canRedo() ? state->steps[state->cursor].label : QString{};
 }
 
 bool UndoService::isClean() const
 {
+    if (const auto *p = participant()) return !p->isModified();
     const auto *state = activeHistory();
     return state && state->macroLabel.isEmpty() && state->cleanCursor == state->cursor;
 }
@@ -290,6 +295,7 @@ void UndoService::clearDocument(const QString &id)
 bool UndoService::undo()
 {
     Q_ASSERT(thread() == QThread::currentThread());
+    if (auto *p = participant()) return p->undo() || fail(QStringLiteral("No edit to undo"));
     if (!canUndo()) return fail(QStringLiteral("No edit to undo"));
     auto *state = history(m_active);
     const auto result = m_active->applyCommitted(state->steps[state->cursor - 1].changes, false);
@@ -303,6 +309,7 @@ bool UndoService::undo()
 bool UndoService::redo()
 {
     Q_ASSERT(thread() == QThread::currentThread());
+    if (auto *p = participant()) return p->redo() || fail(QStringLiteral("No edit to redo"));
     if (!canRedo()) return fail(QStringLiteral("No edit to redo"));
     auto *state = history(m_active);
     const auto result = m_active->applyCommitted(state->steps[state->cursor].changes, true);
@@ -315,6 +322,7 @@ bool UndoService::redo()
 
 void UndoService::markClean()
 {
+    if (auto *p = participant()) { p->markSaved(); return; }
     markClean(m_active);
 }
 

@@ -16,6 +16,9 @@ class UndoService : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QindaTK::PropertyDocument *activeDocument READ activeDocument WRITE setActiveDocument NOTIFY changed)
+    // A QObject that is an UndoParticipant; while set, undo/redo/clean state
+    // route to it instead of activeDocument (docs/editing.md#history-participants).
+    Q_PROPERTY(QObject *activeParticipant READ activeParticipant WRITE setActiveParticipant NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY changed)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY changed)
     Q_PROPERTY(QString undoText READ undoText NOTIFY changed)
@@ -33,6 +36,8 @@ public:
     bool removeDocument(PropertyDocument *document);
     PropertyDocument *activeDocument() const { return m_active; }
     void setActiveDocument(PropertyDocument *document);
+    QObject *activeParticipant() const { return m_participantObject; }
+    void setActiveParticipant(QObject *participant);
     bool canUndo() const;
     bool canRedo() const;
     QString undoText() const;
@@ -87,8 +92,11 @@ private:
     History *history(PropertyDocument *document);
     const History *activeHistory() const;
     bool fail(const QString &message);
+    UndoParticipant *participant() const;
     QHash<QString, History> m_histories;
     QPointer<PropertyDocument> m_active;
+    QPointer<QObject> m_participantObject;
+    QMetaObject::Connection m_participantConnection;
     quint64 m_memoryLimit = 8 * 1024 * 1024;
     QString m_lastError;
 };

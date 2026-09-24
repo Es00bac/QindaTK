@@ -19,7 +19,7 @@ struct WorkbookPrivate;
 // route every change through these operations; none keeps cell state.
 // docs/workbook.md defines the grammar, functions, reference rules,
 // transactions and the native file format.
-class Workbook : public QObject, public SnapshotSource {
+class Workbook : public QObject, public SnapshotSource, public UndoParticipant {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString documentId READ documentId NOTIFY resetOccurred)
@@ -58,11 +58,11 @@ public:
     QString resetGeneration() const;
     QVariantList sheets() const;
     int sheetCount() const;
-    bool canUndo() const;
-    bool canRedo() const;
-    QString undoText() const;
-    QString redoText() const;
-    bool isModified() const;
+    bool canUndo() const override;
+    bool canRedo() const override;
+    QString undoText() const override;
+    QString redoText() const override;
+    bool isModified() const override;
     bool transactionActive() const;
     QString lastError() const;
     QVariantMap lastErrorDetail() const;
@@ -204,9 +204,11 @@ public:
     Q_INVOKABLE bool beginTransaction(const QString &label);
     Q_INVOKABLE bool commitTransaction();
     Q_INVOKABLE bool cancelTransaction();
-    Q_INVOKABLE bool undo();
-    Q_INVOKABLE bool redo();
-    Q_INVOKABLE void markSaved();
+    Q_INVOKABLE bool undo() override;
+    Q_INVOKABLE bool redo() override;
+    Q_INVOKABLE void markSaved() override;
+    // The current state is not saved anywhere (an import or a recovery).
+    Q_INVOKABLE void markUnsaved();
 
     // Native versioned format (docs/workbook.md). Restore is all-or-nothing,
     // replaces the document, clears history and recalculates every formula.

@@ -354,6 +354,12 @@ bool Workbook::cancelTransaction()
 }
 bool Workbook::undo() { return d->replay(true); }
 bool Workbook::redo() { return d->replay(false); }
+void Workbook::markUnsaved()
+{
+    if (d->cleanCursor == -1) return;
+    d->cleanCursor = -1;
+    emit historyChanged();
+}
 void Workbook::markSaved()
 {
     if (d->cleanCursor == qint64(d->cursor)) return;
