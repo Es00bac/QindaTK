@@ -2,9 +2,11 @@
 #pragma once
 
 #include "property_document.h"
+#include <QJsonObject>
 #include <QPointer>
 #include <QVector>
 #include <QtQml/qqmlregistration.h>
+#include <optional>
 
 namespace QindaTK {
 
@@ -19,6 +21,11 @@ struct PropertySyncOperation {
     QString propertyId;
     QVariant value;
 };
+
+// The bounded, type-preserving wire/store representation shared by local and
+// interprocess transports. Rejected payloads never reach a document.
+std::optional<QJsonObject> propertySyncOperationToJson(const PropertySyncOperation &operation);
+std::optional<PropertySyncOperation> propertySyncOperationFromJson(const QJsonObject &object);
 
 class LocalPropertySyncClient;
 

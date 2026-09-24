@@ -3,10 +3,11 @@
 
 `LocalPropertySyncService` and `LocalPropertySyncClient` synchronize scalar
 `PropertyDocument` values between independent document instances on one Qt GUI
-thread. The transport is process-local: the service routes operation packets
-between clients and stores accepted packets through `QSaveFile` when
-`storagePath` is set. This is a functional two-client backend, not a network
-protocol or a general document merge engine.
+thread. The service routes operation packets and stores accepted packets
+through `QSaveFile` when `storagePath` is set. `PropertySyncSocketServer` and
+`PropertySyncSocketClient` connect independent processes over an owner-only
+`QLocalServer` socket. This is a local collaboration backend, not an Internet
+service or a general document merge engine.
 
 ## Set up
 
@@ -30,6 +31,35 @@ idempotent. A fresh client can replay the durable log against the same
 baseline after the service restarts. The service stores at most 4,096
 operations in a 4 MiB file; each encoded value is at most 64 KiB, property
 names at most 256 characters, and up to eight clients may connect.
+
+## Interprocess transport and permissions
+
+The server owns an opened `LocalPropertySyncService`. Set the socket name,
+then grant each canonical actor UUID a private credential and an editor or
+viewer permission with `PropertySyncSocketServer::grant`, then `listen()`.
+Each process owns a separate opened `LocalPropertySyncService` with the same
+document UUID **and a writable `storagePath`**, plus a normal
+`LocalPropertySyncClient` attached to its replica. Set the socket bridge's
+local service, socket name, actor UUID and credential, then call
+`connectToServer()`. Its `connected` signal means server replay has arrived
+and it has begun sending this actor's outgoing operations. Listen for
+`operationRejected` and `errorOccurred` to show permission or transport errors.
+
+The local service store doubles as the durable outgoing queue. Editing while
+the socket is disconnected still commits to that store. A new process can
+reopen the same store and baseline replica, attach its local client, then
+reconnect; the bridge resends the actor's operations with their original IDs.
+The server deduplicates exact matches and rejects reused IDs with different
+contents. It checks actor credentials at connection and editor permission
+on every submitted operation. A viewer receives the log but cannot submit.
+There is no automatic credential provisioning: the host must distribute them
+privately. A socket name is local to the same machine and the endpoint grants
+access only to the current OS user. Credentials do not enter the operation
+store. Frames are bounded to 96 KiB and queued output to 8 MiB per peer.
+
+The bridge currently relays durable property operations only. Local
+`setPresence` remains ephemeral and process-local; the socket path never
+persists presence in either store.
 
 ## Conflict and history rule
 
@@ -59,8 +89,8 @@ decide whether those coordinates remain valid after an edit.
 
 ## Remaining WP-082 scope
 
-- A network or interprocess transport, authenticated actors, authorization and
-  permission changes, and a durable offline queue across client process exit.
+- Remote-network transport, credential provisioning/rotation, permission
+  change notifications, and presence broadcast/expiry across processes.
 - Generic domain operations, concurrent object deletion and rich text merge.
   Structural changes to the reference document currently stop synchronization.
 - A version browser with immutable previews, compare, branch and restore as a

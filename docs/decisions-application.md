@@ -493,6 +493,9 @@ invalidates stale local history.
 
 **Consequences.** Two property replicas converge from the same baseline and
 recover the service log on restart. The revision of each replica remains a
-local counter. Collaborative reversal requires a fresh operation; generic
-domain merge, permissions, version restore and durable client queues remain
-WP-082 work. See [collaboration.md](collaboration.md).
+local counter. A local socket bridge uses the same packet codec across
+processes; each actor's local persistent log also serves as an outgoing queue.
+The server checks a host-provided credential at connection and editor/viewer
+permission per operation. Collaborative reversal requires a fresh operation;
+generic domain merge, version restore, credential lifecycle and remote-network
+transport remain WP-082 work. See [collaboration.md](collaboration.md).

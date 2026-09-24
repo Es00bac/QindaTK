@@ -160,6 +160,7 @@ qt_add_qml_module(qindatk
         core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h
         core/local_property_sync.cpp core/local_property_sync.h
+        core/property_sync_socket.cpp core/property_sync_socket.h
         core/reference_document_codec.cpp core/reference_document_codec.h
         core/reference_collection_value.cpp core/reference_collection_value.h
         core/rich_text_types.cpp core/rich_text_types.h core/rich_text_spans.h
@@ -293,7 +294,7 @@ target_include_directories(qindatk PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/core>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(qindatk
-    PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
+    PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network
     PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2 SQLite3::SQLite3
     PUBLIC PkgConfig::VTERM)
 if(TARGET Qt6::Quick3D)

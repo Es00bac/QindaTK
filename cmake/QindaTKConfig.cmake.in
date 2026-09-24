@@ -1,7 +1,7 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(Qt6 COMPONENTS Core Gui Qml Quick Svg)
+find_dependency(Qt6 COMPONENTS Core Gui Qml Quick Svg Network)
 find_dependency(PkgConfig)
 pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
 

@@ -138,6 +138,16 @@ bool sameOperation(const PropertySyncOperation &a, const PropertySyncOperation &
 }
 }
 
+std::optional<QJsonObject> propertySyncOperationToJson(const PropertySyncOperation &operation)
+{
+    return encode(operation);
+}
+
+std::optional<PropertySyncOperation> propertySyncOperationFromJson(const QJsonObject &object)
+{
+    return decode(object);
+}
+
 void LocalPropertySyncService::setDocumentId(const QString &id)
 {
     if (m_opened || m_documentId == id) return;

@@ -918,5 +918,7 @@ mesh output.
 
 | Type | Base | API | Behavior |
 | --- | --- | --- | --- |
-| `LocalPropertySyncService` | C++ `QObject` | `documentId`, `storagePath`, `operationCount`, `lastError`, `open()` | Bounded process-local operation routing and atomic log persistence. No visual objectNames. |
-| `LocalPropertySyncClient` | C++ `QObject` | `document`, `service`, `actorId`, `connected`, `pendingCount`, `lastError`, `connectToService()`, `disconnectFromService()`, `setValue(entityId, propertyId, typedValue)`, `setPresence(map)`; `operationLost`, `presenceChanged`, `presenceLeft` | One property replica with offline queue and ephemeral presence. No visual objectNames. See [collaboration.md](collaboration.md). |
+| `LocalPropertySyncService` | C++ `QObject` | `documentId`, `storagePath`, `operationCount`, `lastError`, `open()` | Bounded operation routing and atomic log persistence. No visual objectNames. |
+| `LocalPropertySyncClient` | C++ `QObject` | `document`, `service`, `actorId`, `connected`, `pendingCount`, `lastError`, `connectToService()`, `disconnectFromService()`, `setValue(entityId, propertyId, typedValue)`, `setPresence(map)`; `operationLost`, `presenceChanged`, `presenceLeft` | One property replica with offline queue and ephemeral local presence. No visual objectNames. See [collaboration.md](collaboration.md). |
+| `PropertySyncSocketServer` | C++ `QObject` | `setService`, `setSocketName`, `grant(actor, credential, mayEdit)`, `listen`, `close`, `lastError` | Owner-only local socket, per-actor credential and editor/viewer authorization. No visual objectNames. |
+| `PropertySyncSocketClient` | C++ `QObject` | `setService`, `setSocketName`, `setActorId`, `setCredential`, `connectToServer`, `disconnectFromServer`; `connected`, `operationRejected`, `errorOccurred` | Cross-process replay and resend from the local service's durable log. No visual objectNames. |
