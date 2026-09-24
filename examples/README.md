@@ -346,6 +346,26 @@ and a `PageNavigator` shows thumbnails and an outline. `showcase.qtkrich` is a n
 - Screenshots: [compact](../docs/universal-toolkit/implementation/evidence/WP-050-compact.png),
   [comfortable](../docs/universal-toolkit/implementation/evidence/WP-050-comfortable.png)
 
+## rich-table
+
+Structured table editing (WP-051): `Tk.TableEditor` bound to the paginated
+`Tk.RichTextDocument` loaded from the rich-document fixture. The editor shows
+the document's `tables` snapshot, and its cell-text, row/column insertion and
+deletion, and relative column-width requests call the document's table
+methods, so the page reflows at once and each edit is one undo step (the
+header's Undo/Redo buttons). Selecting a cell reveals it on the page; moving
+the page caret into a cell selects it in the editor. A refused request shows
+the document's reason in `tableStructureStatus`. Merge and Split stay
+disabled because the table model has no spans yet.
+
+- Run: `qtk-preview examples/rich-table/Main.qml --size 1180x760`
+- Exercises: `RichTextDocument` table API, `TableEditor`, `RichDocumentView`,
+  `Panel`, `Scroll`, `IconButton`
+- Screenshots: [compact](../docs/universal-toolkit/implementation/evidence/WP-051-rich-table-compact.png),
+  [comfortable](../docs/universal-toolkit/implementation/evidence/WP-051-rich-table-comfortable.png),
+  [after edits](../docs/universal-toolkit/implementation/evidence/WP-051-rich-table-edited.png)
+- Test: `tests/qml/tst_rich_table_example.qml` drives the same flow
+
 ## rich-asset
 
 The [managed-image fixture](rich-asset/Main.qml) registers a stable resource ID
