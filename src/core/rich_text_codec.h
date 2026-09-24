@@ -11,8 +11,11 @@ namespace QindaTK {
 // Encoding is canonical (formats re-interned in document order, lists and
 // objects sorted by ID, sorted JSON keys), so save -> reopen -> save is
 // byte-identical. Decoding validates everything before replacing content.
-// AGENT-CONTRACT: docs/rich-text.md#persistence documents the schema; a
-// schema change bumps CurrentVersion and keeps decoding older versions.
+// AGENT-CONTRACT: docs/rich-text.md#persistence documents the schema; an
+// incompatible schema change bumps CurrentVersion and keeps decoding older
+// versions. An additive optional member (table `columnIds`) stays in
+// version 1: older decoders report it as ignored, and this decoder derives
+// it when absent. RichTextSessionAdapter::liveJson writes the same members.
 class RichTextCodec {
 public:
     static constexpr int CurrentVersion = 1;

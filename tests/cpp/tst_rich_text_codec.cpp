@@ -118,6 +118,8 @@ private slots:
         QTest::newRow("lone surrogate") << "surrogate" << "blocks[0].paragraph.text";
         QTest::newRow("duplicate id") << "duplicate" << "blocks[1].paragraph.id";
         QTest::newRow("cell count") << "cells" << "blocks[1].table.rows[0].cells";
+        QTest::newRow("column identity count") << "columnIds" << "blocks[2].table.columnIds";
+        QTest::newRow("duplicate column identity") << "columnIdDuplicate" << "blocks[2].table.columnIds[1]";
         QTest::newRow("table last") << "tableLast" << "blocks";
         QTest::newRow("schema") << "schema" << "schema";
     }
@@ -151,13 +153,23 @@ private slots:
         } else if (mutation == u"duplicate") {
             const QString id = blocks.at(0).toObject().value(QStringLiteral("paragraph")).toObject().value(QStringLiteral("id")).toString();
             editParagraph(1, [&id](QJsonObject &p) { p.insert(QStringLiteral("id"), id); });
-        } else if (mutation == u"cells") {
+        } else if (mutation == u"cells" || mutation == u"columnIds" || mutation == u"columnIdDuplicate") {
             QJsonObject block = blocks.at(2).toObject();
             QJsonObject table = block.value(QStringLiteral("table")).toObject();
-            table.insert(QStringLiteral("columns"), QJsonArray{1, 1, 1});
+            QJsonArray columnIds = table.value(QStringLiteral("columnIds")).toArray();
+            if (mutation == u"cells") {
+                // Three consistent columns over rows of two cells.
+                table.insert(QStringLiteral("columns"), QJsonArray{1, 1, 1});
+                columnIds.append(QUuid::createUuid().toString(QUuid::WithoutBraces));
+                blocks.removeAt(1);
+            } else if (mutation == u"columnIds") {
+                columnIds.removeLast();
+            } else {
+                columnIds.replace(1, columnIds.at(0));
+            }
+            table.insert(QStringLiteral("columnIds"), columnIds);
             block.insert(QStringLiteral("table"), table);
-            blocks.replace(2, block);
-            blocks.removeAt(1);
+            blocks.replace(mutation == u"cells" ? 1 : 2, block);
         } else if (mutation == u"tableLast") {
             blocks.removeLast();
         } else if (mutation == u"schema") {

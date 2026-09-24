@@ -9,7 +9,7 @@ choice and its measurements are decision [D-050](decisions-application.md#d-050-
 
 | Layer | Type | Files |
 | --- | --- | --- |
-| Model | `RichTextDocument` (QML `Tk.RichTextDocument`) | `src/core/rich_text_document.*`, `rich_text_edit.cpp`, `rich_text_history.cpp`, `rich_text_ops.cpp`, `rich_text_structure.cpp`, `rich_text_fragment.cpp` |
+| Model | `RichTextDocument` (QML `Tk.RichTextDocument`) | `src/core/rich_text_document.*`, `rich_text_edit.cpp`, `rich_text_history.cpp`, `rich_text_ops.cpp`, `rich_text_structure.cpp`, `rich_text_table_edit.cpp`, `rich_text_fragment.cpp` |
 | Persistence | `RichTextCodec`, `RichTextSessionAdapter` | `rich_text_codec*.{h,cpp}`, `rich_text_session_adapter.*` |
 | Layout (one per view) | `RichTextLayout` | `rich_text_layout.h`, `rich_text_shaping.cpp`, `rich_text_pagination.cpp`, `rich_text_table_flow.cpp`, `rich_text_pages.cpp`, `rich_text_mapping.cpp`, `rich_text_navigation.cpp`, `rich_text_painter.cpp` |
 | Interactive surface | `RichTextArea` (QQuickItem) | `rich_text_area*.{h,cpp}`, `rich_text_format_state.*`, `rich_text_visible_pages.h` |
@@ -39,13 +39,50 @@ paragraph) and a revision that every change bumps.
 
 Every edit is a transaction of invertible, precondition-checked steps
 (`StepText`, `StepSpans`, `StepParagraphFormat`, `StepSplit`, `StepMerge`,
-`StepBlocks`, `StepMove`, `StepList`, `StepObject`, `StepDocument`).
+`StepBlocks`, `StepMove`, `StepList`, `StepObject`, `StepDocument`, `StepTable`).
 A step whose precondition fails, such as a stale paragraph or a changed
 format, rejects the whole transaction. The document then keeps its previous
 state. Registered `PositionAnchor`s are mapped forward by every applied
 step. This is how a selection in one view survives edits made in another.
 Each commit emits `contentChanged(ChangeSet)`. Views invalidate from that
 set.
+
+### Structured table edits
+
+`RichTextDocument.tables` (every table in document order) and
+`tableSnapshot(id)` return the snapshot `Tk.TableEditor` consumes:
+`{id, rows:[{id,label,header}], columns:[{id,label,width}], cells:[{id,rowId,
+columnId,rowIndex,columnIndex,rowSpan,columnSpan,text,paragraphIds}],
+headerRows, canMerge, maxRows, maxColumns}`. Table, row, column and cell IDs
+are stable across edits and persistence; `paragraphIds` lets a host move a
+text caret into a cell (`RichTextArea.goToParagraph`). The editor's requests
+map onto `insertTableRow(tableId, index)`, `removeTableRow(tableId, rowId)`,
+`insertTableColumn(tableId, index)`, `removeTableColumn(tableId, columnId)`,
+`setTableColumnWidth(tableId, columnId, width)` and
+`setTableCellText(tableId, cellId, text)`. Each returns false and sets
+`lastError` without changing the document when the request is invalid.
+
+- Every grid edit is one `StepTable` undo step that swaps the whole grid.
+  Unchanged cells keep their paragraph objects, so their IDs, revisions and
+  anchors are untouched. Removed cells and their inline objects come back on
+  undo. A row inserted inside the header block becomes a header row. New
+  cells copy the neighbouring cell's typing format, paragraph format (without
+  list membership) and background. A new column also copies the width of the
+  column on its left.
+- An anchor (caret or selection end) in a removed cell moves to the start of
+  the nearest surviving cell: same row and column where possible, else the
+  next row or column, or the previous one at the end.
+- Widths are relative weights from 1 to 1,000,000. Tables keep at least one
+  row and one column and allow at most 10,000 rows and 64 columns.
+- `setTableCellText` replaces the text of a one-paragraph cell in one step,
+  in the format of the text it replaces. Text that would split the paragraph
+  (`\n`, `\r`, U+2029) or contains U+FFFC is refused. Multi-paragraph cells
+  and inline objects remain editable in the rich-text views.
+- The change set names the table and its added and removed paragraphs, so
+  views re-lay the table at its new column widths and repaginate from it.
+- Merge and split are not available: the table model and codec hold one cell
+  per column and no spans, so snapshots report `canMerge: false` and every
+  span is 1.
 
 History is local by default: at most 512 transactions or 64 MiB, with
 typing coalesced while the merge key and caret continue. With
@@ -61,9 +98,16 @@ The native format is JSON with schema `qindatk.richtext`, version 1 (the
 extension `.qtkrich` is used by the example). `RichTextCodec::encode` is
 canonical. Formats are re-interned in document order, lists and objects are
 sorted by ID, and keys are sorted. Save → reopen → save is therefore
-byte-identical. `tst_rich_text_codec` checks this on a document that has a
+byte-identical. `tst_rich_text_codec` checks canonical encoding on a document that has a
 heading, a bold run, a link, a numbered list, inline, float and page
 objects, a table with a header row, Hebrew text and a page break.
+
+Table `columnIds` (one UUID per column weight) is an additive member of
+version 1. A decoder written before it reports it as an ignored member.
+When it is absent, as in files written before WP-051, this decoder derives
+each ID as UUIDv5 of the table ID and the column index, so reopening an old
+file gives the same IDs every time; the next save stores them. The session
+adapter's live encoding writes them too.
 
 `FormatRegistry` registers `qindatk.richtext.v1` for `.qtkrich` import and
 export. Import wraps the validated rich-text payload in a reference session's
@@ -81,8 +125,8 @@ export acknowledgment.
                  "widthPt": 150, "heightPt": 190, "source": "data:…", "alt": "Figure 1" } ],
   "blocks": [ { "paragraph": { "id": "<uuid>", "text": "Bold text", "spans": [[4, 1], [5, 0]],
                                "mark": 0, "format": { "heading": 1, "list": "l1" } } },
-              { "table": { "id": "<uuid>", "columns": [1, 1], "headerRows": 1,
-                           "borderPt": 0.75, "paddingPt": 4, "rows": [ … ] } } ] }
+              { "table": { "id": "<uuid>", "columns": [1, 1], "columnIds": ["<uuid>", "<uuid>"],
+                           "headerRows": 1, "borderPt": 0.75, "paddingPt": 4, "rows": [ … ] } } ] }
 ```
 
 - `formats[0]` must be `{}` (inherit everything). Spans are
@@ -317,4 +361,4 @@ seams are typed; nothing here is a stand-in contract.
 | WP-033 shared framework | Not available; the controls have not been verified against it. |
 | WP-040 canvas / WP-017 assets | `asset:` images resolve through `assetProvider` on either rich-text view. Canvas geometry editing remains a host adapter. |
 | UndoService | `PropertyDocument`-only; use `externalUndo` (D-050). |
-| WP-051 | Style, table, text-frame and page-setup controls are integrated. Document-wide page size and margins connect to rich-text history; named style resolution, merged/table structural edits, linked frames and advanced page geometry remain. |
+| WP-051 | Style, table, text-frame and page-setup controls are integrated. Document-wide page size and margins, and table row/column/width/cell-text edits, connect to rich-text history. Named style resolution, table and cell styles, merged cells, linked frames and advanced page geometry remain. |

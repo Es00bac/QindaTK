@@ -153,6 +153,9 @@ struct FragmentImporter {
     {
         auto t = std::make_shared<Table>(source);
         t->id = QUuid::createUuid();
+        // One fresh identity per column, whatever the source carried.
+        t->columnIds.clear();
+        for (int c = 0; c < t->columnWeights.size(); ++c) t->columnIds.append(QUuid::createUuid());
         for (TableRow &row : t->rows) {
             row.id = QUuid::createUuid();
             for (TableCell &cell : row.cells) {

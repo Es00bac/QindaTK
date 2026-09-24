@@ -186,7 +186,7 @@ qt_add_qml_module(qindatk
         core/rich_text_document.cpp core/rich_text_document.h
         core/rich_text_edit.cpp core/rich_text_history.cpp
         core/rich_text_ops.cpp core/rich_text_ops_p.h
-        core/rich_text_structure.cpp core/rich_text_fragment.cpp
+        core/rich_text_structure.cpp core/rich_text_fragment.cpp core/rich_text_table_edit.cpp
         core/rich_text_page_setup_mm.cpp
         core/rich_text_pdf_export.cpp
         core/rich_text_codec.cpp core/rich_text_codec_read.cpp

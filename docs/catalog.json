@@ -52071,6 +52071,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "tables",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -52100,6 +52107,41 @@
         }
       ],
       "methods": [
+        {
+          "name": "tableSnapshot",
+          "returns": "QVariantMap",
+          "parameters": "const QString &tableId"
+        },
+        {
+          "name": "insertTableRow",
+          "returns": "bool",
+          "parameters": "const QString &tableId, int index"
+        },
+        {
+          "name": "removeTableRow",
+          "returns": "bool",
+          "parameters": "const QString &tableId, const QString &rowId"
+        },
+        {
+          "name": "insertTableColumn",
+          "returns": "bool",
+          "parameters": "const QString &tableId, int index"
+        },
+        {
+          "name": "removeTableColumn",
+          "returns": "bool",
+          "parameters": "const QString &tableId, const QString &columnId"
+        },
+        {
+          "name": "setTableColumnWidth",
+          "returns": "bool",
+          "parameters": "const QString &tableId, const QString &columnId, double width"
+        },
+        {
+          "name": "setTableCellText",
+          "returns": "bool",
+          "parameters": "const QString &tableId, const QString &cellId, const QString &text"
+        },
         {
           "name": "undo",
           "returns": "bool",

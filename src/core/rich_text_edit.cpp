@@ -170,6 +170,9 @@ OperationError RichTextDocument::applyBlocks(StepBlocks &step, bool insert, Chan
         if ((!block.paragraph && !block.table) || (!body && block.table))
             return reject(ErrorCode::Unsupported, QStringLiteral("Tables cannot nest in cells"));
     if (insert) {
+        for (const Block &block : std::as_const(step.blocks))
+            if (block.table && block.table->columnIds.size() != block.table->columnWeights.size())
+                return reject(ErrorCode::Validation, QStringLiteral("Table columns need one identity each"));
         if (step.index < 0 || step.index > size)
             return reject(ErrorCode::InvalidArgument, QStringLiteral("Block index out of range"));
         for (const Block &block : std::as_const(step.blocks))
@@ -306,6 +309,8 @@ OperationError RichTextDocument::applyStep(Step &step, bool forward, ChangeSet &
             return applyBlocks(s, forward == s.insert, change);
         } else if constexpr (std::is_same_v<T, StepMove>) {
             return applyMove(s, forward, change);
+        } else if constexpr (std::is_same_v<T, StepTable>) {
+            return applyTable(s, forward, change);
         } else if constexpr (std::is_same_v<T, StepList>) {
             const auto &from = forward ? s.before : s.after;
             const auto &to = forward ? s.after : s.before;

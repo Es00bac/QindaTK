@@ -84,6 +84,20 @@ quint64 RichTextDocument::cost(const Transaction &transaction)
         else if (const auto *blocks = std::get_if<StepBlocks>(&step))
             for (const Block &block : blocks->blocks)
                 bytes += block.paragraph ? quint64(block.paragraph->text.size()) * 2 + 96 : 4096;
+        else if (const auto *table = std::get_if<StepTable>(&step)) {
+            // Approximate: the grids implicitly share unchanged cell arrays
+            // and paragraphs with the live table, so a step owns its row
+            // arrays, the per-row cell arrays a column edit copies, and the
+            // cells of added or removed rows. Charging every cell twice would
+            // exceed MaximumHistoryBytes on large tables and drop the step.
+            const Table &a = *table->before;
+            const Table &b = *table->after;
+            const quint64 rows = quint64(qMax(a.rows.size(), b.rows.size()));
+            const quint64 columns = quint64(qMax(a.columnWeights.size(), b.columnWeights.size()));
+            bytes += quint64(a.rows.size() + b.rows.size()) * 48 + columns * 48;
+            if (a.columnIds != b.columnIds) bytes += rows * (columns * 64 + 160);
+            bytes += quint64(qAbs(a.rows.size() - b.rows.size())) * columns * 160;
+        }
     }
     return bytes;
 }

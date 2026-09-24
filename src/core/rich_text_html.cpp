@@ -242,6 +242,7 @@ struct Importer {
         auto t = std::make_shared<Table>();
         t->id = QUuid::createUuid();
         t->columnWeights = QVector<double>(source->columns(), 1.0);
+        for (int c = 0; c < source->columns(); ++c) t->columnIds.append(QUuid::createUuid());
         t->headerRows = qBound(0, source->format().headerRowCount(), qMax(0, source->rows() - 1));
         for (int r = 0; r < source->rows(); ++r) {
             TableRow row{QUuid::createUuid(), {}, 0};
