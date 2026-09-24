@@ -187,7 +187,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-088"></a>
 ## WP-088 — Qualify platform and backend integration boundaries
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-005](phase-00-baseline.md#wp-005), [WP-018](phase-01-services.md#wp-018), [WP-053](phase-04-office.md#wp-053), [WP-060](phase-05-audio.md#wp-060), [WP-066](phase-05-audio.md#wp-066), [WP-070](phase-06-video.md#wp-070), [WP-077](phase-06-video.md#wp-077), [WP-080](phase-07-integrations.md#wp-080), [WP-081](phase-07-integrations.md#wp-081)
+**Implementation lead:** Sol. **Status:** planned (Linux only, by the user). **Depends on:** [WP-005](phase-00-baseline.md#wp-005), [WP-018](phase-01-services.md#wp-018), [WP-053](phase-04-office.md#wp-053), [WP-060](phase-05-audio.md#wp-060), [WP-066](phase-05-audio.md#wp-066), [WP-070](phase-06-video.md#wp-070), [WP-077](phase-06-video.md#wp-077), [WP-080](phase-07-integrations.md#wp-080), [WP-081](phase-07-integrations.md#wp-081)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
@@ -206,7 +206,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-089"></a>
 ## WP-089 — Qualify format, device and output fidelity
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-045](phase-03-authoring.md#wp-045), [WP-052](phase-04-office.md#wp-052), [WP-054](phase-04-office.md#wp-054), [WP-055](phase-04-office.md#wp-055), [WP-056](phase-04-office.md#wp-056), [WP-058](phase-04-office.md#wp-058), [WP-059](phase-04-office.md#wp-059), [WP-065](phase-05-audio.md#wp-065), [WP-066](phase-05-audio.md#wp-066), [WP-067](phase-05-audio.md#wp-067), [WP-068](phase-05-audio.md#wp-068), [WP-078](phase-06-video.md#wp-078), [WP-083](phase-07-integrations.md#wp-083), [WP-084](phase-07-integrations.md#wp-084), [WP-086](phase-07-integrations.md#wp-086)
+**Implementation lead:** Sol. **Status:** deferred by the user (2026-09-24). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-045](phase-03-authoring.md#wp-045), [WP-052](phase-04-office.md#wp-052), [WP-054](phase-04-office.md#wp-054), [WP-055](phase-04-office.md#wp-055), [WP-056](phase-04-office.md#wp-056), [WP-058](phase-04-office.md#wp-058), [WP-059](phase-04-office.md#wp-059), [WP-065](phase-05-audio.md#wp-065), [WP-066](phase-05-audio.md#wp-066), [WP-067](phase-05-audio.md#wp-067), [WP-068](phase-05-audio.md#wp-068), [WP-078](phase-06-video.md#wp-078), [WP-083](phase-07-integrations.md#wp-083), [WP-084](phase-07-integrations.md#wp-084), [WP-086](phase-07-integrations.md#wp-086)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

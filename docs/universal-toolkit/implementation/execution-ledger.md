@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 43 packages accepted, 34 active, none in review, and 7 planned.**
+**Execution state: 46 packages accepted, 31 active, none in review, 1 planned and 6 deferred.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -33,7 +33,10 @@ tangent UI, managed canvas display and soft proofing. Typed canvas rendering
 and package acceptance remain open. WP-080 has a native detached-panel
 implementation accepted; mixed-scale display qualification remains in WP-088.
 WP-081 is accepted after its merged developer-surface checks; other terminal
-platforms remain in WP-088.
+platforms remain in WP-088. WP-041, WP-076 and WP-078 are accepted after
+merged Qt 6.11 and Qt 6.8 checks. Scope decision by the user (2026-09-24):
+qualification covers Linux only, each package's live examples stand in for
+separate demo applications, and WP-089 to WP-094 are deferred.
 WP-049 now has beat-locked clip timing, tempo and automation editing, and
 engine-facing immutable schedule snapshots; its focused Qt 6.11 and Qt 6.8
 build, test and preview checks passed. WP-061 has calibrated control visuals,
@@ -79,7 +82,7 @@ as though a later fix had already passed the earlier run.
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | accepted | [Event, diff and resource integration status](evidence/WP-032.md) |
 | [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | accepted | [Native collection transfer, dual-Qt workbench lifecycle and external AT-SPI action passed](evidence/WP-033.md) |
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | accepted | [Integrated renderer, installed consumer, dual-Qt 102/102 and focused resource lifecycle checks](evidence/WP-040.md) |
-| [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Lasso, snap, guides, shared selection and reference group transforms; persistence still open](evidence/WP-041.md) |
+| [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | accepted | [Lasso, snapping, persistent guides, shared selection, group and numeric transforms passed merged checks](evidence/WP-041.md) |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | accepted | [Typed curve/gradient/picker editing, managed ICC canvas output and matched software/RHI pixels](evidence/WP-043.md) |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | active | [Editable multi-contour paths, holes, native persistence, SVG output, undoable clipboard and parametric polygon, star and rounded-rectangle paths merged; booleans, stroke alignment, patterns and appearance effects open](evidence/WP-044.md) |
@@ -113,9 +116,9 @@ as though a later fix had already passed the earlier run.
 | [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | active | [Exact-tick composition, persistence, ordered effects and rendered frame output integrated; external assets, cache and export coverage remain](evidence/WP-073.md) |
 | [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | active | [Typed graph model, editor and live rendering fixture integrated; broader operation set and qualification remain](evidence/WP-074.md) |
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | active | [Live model-to-control tracking and mask preview integrated; broader motion and qualification remain](evidence/WP-075.md) |
-| [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | active | [Real Quick3D viewport, shaded materials and shared scene save/undo/recovery merged; mesh and device qualification open](evidence/WP-076-scene-session.md) |
+| [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | accepted | [Quick3D viewport, materials, transform gizmo, graphics-loss recovery and shared scene save/undo/recovery passed merged checks](evidence/WP-076-completion.md) |
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | active | [Core, controls and live request wiring merged; raw GPU texture and merged UI gates pending](evidence/WP-077.md) |
-| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and real PNG/PDF/WAV providers integrated; acceptance gate remains](evidence/WP-078.md) |
+| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | accepted | [Durable queue, view and real PNG/PDF/WAV providers passed merged Qt 6.11 and Qt 6.8 checks](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | accepted | [Real native windows, state, focus, popup routing and screen fallback passed focused checks](evidence/WP-080.md) |
 | [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | accepted | [Real PTY terminal, code editor with clangd LSP, bounded script runtime with macro persistence, and explicit extension discovery and load passed merged checks](evidence/WP-081.md) |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | active | [Two-client sync, authenticated IPC, mapped remote presence and synchronized version restore merged; remote transport, domain operations and shared checkpoints open](evidence/WP-082-presence-layer.md) |
@@ -124,10 +127,10 @@ as though a later fix had already passed the earlier run.
 | [WP-085 — Implement scientific plotting](phase-07-integrations.md#wp-085) | 07 | Sol | active | [Numeric, uncertainty and export implementation lane underway](evidence/WP-085.md) |
 | [WP-086 — Implement image slices, volumes and transfer functions](phase-07-integrations.md#wp-086) | 07 | Sol | active | [Typed voxel volumes, linked slice views and transfer editing merged; GPU volume rendering follows](evidence/WP-086-volume-slices.md) |
 | [WP-087 — Implement dependency and trace exploration](phase-07-integrations.md#wp-087) | 07 | Sol | active | [QML asset extraction, bounded dependency index and view plus clock-aligned trace index and explorer merged](evidence/WP-087-trace.md) |
-| [WP-088 — Qualify platform and backend integration boundaries](phase-07-integrations.md#wp-088) | 07 | Sol | planned | — |
-| [WP-089 — Qualify format, device and output fidelity](phase-07-integrations.md#wp-089) | 07 | Sol | planned | — |
-| [WP-090 — Finish representative applications and domain acceptance](phase-08-qualification.md#wp-090) | 08 | Sol | planned | — |
-| [WP-091 — Complete performance and fault qualification](phase-08-qualification.md#wp-091) | 08 | Sol | planned | — |
-| [WP-092 — Complete accessibility, localization and input qualification](phase-08-qualification.md#wp-092) | 08 | Sol | planned | — |
-| [WP-093 — Complete SDK, documentation and distributable artifacts](phase-08-qualification.md#wp-093) | 08 | Sol | planned | — |
-| [WP-094 — Audit complete scope and hand off the finished implementation](phase-08-qualification.md#wp-094) | 08 | Sol | planned | — |
+| [WP-088 — Qualify platform and backend integration boundaries](phase-07-integrations.md#wp-088) | 07 | Sol | planned | Linux only, by the user (2026-09-24) |
+| [WP-089 — Qualify format, device and output fidelity](phase-07-integrations.md#wp-089) | 07 | Sol | deferred | Deferred by the user (2026-09-24) |
+| [WP-090 — Finish representative applications and domain acceptance](phase-08-qualification.md#wp-090) | 08 | Sol | deferred | Deferred by the user (2026-09-24) |
+| [WP-091 — Complete performance and fault qualification](phase-08-qualification.md#wp-091) | 08 | Sol | deferred | Deferred by the user (2026-09-24) |
+| [WP-092 — Complete accessibility, localization and input qualification](phase-08-qualification.md#wp-092) | 08 | Sol | deferred | Deferred by the user (2026-09-24) |
+| [WP-093 — Complete SDK, documentation and distributable artifacts](phase-08-qualification.md#wp-093) | 08 | Sol | deferred | Deferred by the user (2026-09-24) |
+| [WP-094 — Audit complete scope and hand off the finished implementation](phase-08-qualification.md#wp-094) | 08 | Sol | deferred | Deferred by the user (2026-09-24) |

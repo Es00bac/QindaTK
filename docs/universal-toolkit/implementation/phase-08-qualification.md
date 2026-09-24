@@ -15,7 +15,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-090"></a>
 ## WP-090 — Finish representative applications and domain acceptance
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-021](phase-02-controls-data.md#wp-021), [WP-033](phase-02-controls-data.md#wp-033), [WP-045](phase-03-authoring.md#wp-045), [WP-052](phase-04-office.md#wp-052), [WP-053](phase-04-office.md#wp-053), [WP-054](phase-04-office.md#wp-054), [WP-055](phase-04-office.md#wp-055), [WP-056](phase-04-office.md#wp-056), [WP-057](phase-04-office.md#wp-057), [WP-058](phase-04-office.md#wp-058), [WP-059](phase-04-office.md#wp-059), [WP-062](phase-05-audio.md#wp-062), [WP-063](phase-05-audio.md#wp-063), [WP-064](phase-05-audio.md#wp-064), [WP-065](phase-05-audio.md#wp-065), [WP-066](phase-05-audio.md#wp-066), [WP-067](phase-05-audio.md#wp-067), [WP-068](phase-05-audio.md#wp-068), [WP-071](phase-06-video.md#wp-071), [WP-072](phase-06-video.md#wp-072), [WP-073](phase-06-video.md#wp-073), [WP-074](phase-06-video.md#wp-074), [WP-075](phase-06-video.md#wp-075), [WP-077](phase-06-video.md#wp-077), [WP-078](phase-06-video.md#wp-078), [WP-081](phase-07-integrations.md#wp-081), [WP-082](phase-07-integrations.md#wp-082), [WP-083](phase-07-integrations.md#wp-083), [WP-084](phase-07-integrations.md#wp-084), [WP-085](phase-07-integrations.md#wp-085), [WP-086](phase-07-integrations.md#wp-086), [WP-087](phase-07-integrations.md#wp-087), [WP-088](phase-07-integrations.md#wp-088), [WP-089](phase-07-integrations.md#wp-089)
+**Implementation lead:** Sol. **Status:** deferred by the user (2026-09-24). **Depends on:** [WP-021](phase-02-controls-data.md#wp-021), [WP-033](phase-02-controls-data.md#wp-033), [WP-045](phase-03-authoring.md#wp-045), [WP-052](phase-04-office.md#wp-052), [WP-053](phase-04-office.md#wp-053), [WP-054](phase-04-office.md#wp-054), [WP-055](phase-04-office.md#wp-055), [WP-056](phase-04-office.md#wp-056), [WP-057](phase-04-office.md#wp-057), [WP-058](phase-04-office.md#wp-058), [WP-059](phase-04-office.md#wp-059), [WP-062](phase-05-audio.md#wp-062), [WP-063](phase-05-audio.md#wp-063), [WP-064](phase-05-audio.md#wp-064), [WP-065](phase-05-audio.md#wp-065), [WP-066](phase-05-audio.md#wp-066), [WP-067](phase-05-audio.md#wp-067), [WP-068](phase-05-audio.md#wp-068), [WP-071](phase-06-video.md#wp-071), [WP-072](phase-06-video.md#wp-072), [WP-073](phase-06-video.md#wp-073), [WP-074](phase-06-video.md#wp-074), [WP-075](phase-06-video.md#wp-075), [WP-077](phase-06-video.md#wp-077), [WP-078](phase-06-video.md#wp-078), [WP-081](phase-07-integrations.md#wp-081), [WP-082](phase-07-integrations.md#wp-082), [WP-083](phase-07-integrations.md#wp-083), [WP-084](phase-07-integrations.md#wp-084), [WP-085](phase-07-integrations.md#wp-085), [WP-086](phase-07-integrations.md#wp-086), [WP-087](phase-07-integrations.md#wp-087), [WP-088](phase-07-integrations.md#wp-088), [WP-089](phase-07-integrations.md#wp-089)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
@@ -36,7 +36,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-091"></a>
 ## WP-091 — Complete performance and fault qualification
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-090](phase-08-qualification.md#wp-090)
+**Implementation lead:** Sol. **Status:** deferred by the user (2026-09-24). **Depends on:** [WP-090](phase-08-qualification.md#wp-090)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
@@ -57,7 +57,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-092"></a>
 ## WP-092 — Complete accessibility, localization and input qualification
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-090](phase-08-qualification.md#wp-090)
+**Implementation lead:** Sol. **Status:** deferred by the user (2026-09-24). **Depends on:** [WP-090](phase-08-qualification.md#wp-090)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
@@ -78,7 +78,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-093"></a>
 ## WP-093 — Complete SDK, documentation and distributable artifacts
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-090](phase-08-qualification.md#wp-090), [WP-091](phase-08-qualification.md#wp-091), [WP-092](phase-08-qualification.md#wp-092)
+**Implementation lead:** Sol. **Status:** deferred by the user (2026-09-24). **Depends on:** [WP-090](phase-08-qualification.md#wp-090), [WP-091](phase-08-qualification.md#wp-091), [WP-092](phase-08-qualification.md#wp-092)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 
@@ -99,7 +99,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-094"></a>
 ## WP-094 — Audit complete scope and hand off the finished implementation
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-093](phase-08-qualification.md#wp-093)
+**Implementation lead:** Sol. **Status:** deferred by the user (2026-09-24). **Depends on:** [WP-093](phase-08-qualification.md#wp-093)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

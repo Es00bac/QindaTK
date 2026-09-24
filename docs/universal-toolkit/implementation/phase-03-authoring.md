@@ -42,7 +42,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-041"></a>
 ## WP-041 — Implement spatial selection, snapping and transforms
 
-**Implementation lead:** Sol. **Status:** active spatial slice ([evidence](evidence/WP-041.md); WP-040 dependency accepted, guide and inspector integration remain). **Depends on:** [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** accepted (lasso, snapping, persistent guides, shared selection, group and numeric transforms). **Depends on:** [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [CAN-04 SnapModel](../proposed/04-canvas-color.md#can-04), [CAN-05 SelectionOverlay](../proposed/04-canvas-color.md#can-05), [CAN-06 TransformHandles](../proposed/04-canvas-color.md#can-06), [CAN-07 GuideLayer](../proposed/04-canvas-color.md#can-07)
 
