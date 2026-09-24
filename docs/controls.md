@@ -230,11 +230,13 @@ to cached data so stale snapshots remain usable.
 | `RecurrenceEditor` | `rule` (`frequency`, `interval`, `weekdays` 1–7, `endMode`, `count`, `until`, `exceptions`), `eventId`, `zone`, `preview`, `previewState`, `requestState`, `requestMessage` | `ruleChangeRequested(requestId, eventId, proposedRule)`, `previewRequested(requestId, eventId, rule)`, `occurrenceExceptionRequested(requestId, eventId, occurrenceId, excluded)`; `acknowledge(requestId, state, message)` | `toggleWeekday(index)` proposes a copied rule; the count/until fields propose an explicit end condition; `requestPreview()` asks the host recurrence service. “Skip once” requests exclusion for a host-supplied occurrence ID. Only host-supplied preview rows are rendered; the view never expands rules. objectNames `recurrenceFrequency`, `recurrenceInterval`, `recurrenceWeekday_<index>`, `recurrenceCount`, `recurrenceUntil`, `recurrencePreview`. |
 | `RecurrenceService` | `error`; `expand(eventId, startLocal, durationSeconds, zoneId, rule, rangeStartUtc, rangeEndUtc, limit)` | Returns bounded occurrence snapshots; `errorChanged` | Local wall-time recurrence with daily/weekly/monthly/yearly rules, exclusions and an explicit DST policy. It does not store or synchronize events. See [productivity.md](productivity.md). |
 | `TaskBoard` | `columns` (`status`, `label`, `tasks`: `taskId`, `title`, `assignee`, `dueDate`, `priority`), `offline`, `errorText`, `filterText` | `moveRequested(requestId, taskId, fromStatus, toStatus)`, `editRequested(requestId, taskId)`; `acknowledge(requestId, state, message)` | Host owns ordering and commits. Each card offers keyboard-accessible edit and labeled move actions to other status columns. `filterText` filters title/assignee. Offline proposals are rejected locally. objectNames `taskFilter`, `taskColumn_<status>`, `taskCard_<id>`. |
+| `LocalProductivityStore` | `filePath`, read-only `messages`, `drafts`, `events`, `tasks`, `revision`, `lastError`, `status`, `recoveryAvailable`, `canUndoTaskMove` | `upsert(collection, record)`, `remove(collection, id)`, `moveTask(taskId, toStatus, targetOrder)`, `undoTaskMove()`, `load()`/`save()` or `loadFrom(path)`/`saveTo(path)` | Offline-first JSON snapshot with stable IDs, attachment metadata, recurrence rules retained verbatim, atomic replacement and previous-snapshot recovery. Task moves have bounded undo. This is local persistence only; delivery, sync and recurrence evaluation require host providers. See `docs/productivity-store.md`. |
 
-The `examples/productivity-suite` fixture uses sample records only. It keeps
-mail offline, acknowledges draft requests without disk writes, blocks delivery,
-and displays a host-provided recurrence preview. It is not a provider or local
-store implementation.
+The `examples/local-productivity` fixture saves and reloads local messages,
+drafts/attachment metadata, events and task ordering; it connects the existing
+mail, composer, calendar and task request signals to the store/host seam. Draft
+sends and remote refresh remain explicitly unavailable. `examples/productivity-suite`
+continues to show provider-independent request snapshots.
 
 ## Local database, forms and reports
 

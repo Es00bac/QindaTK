@@ -39475,6 +39475,168 @@
       "bridge": false
     },
     {
+      "name": "LocalProductivityStore",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Local offline-first persistence for mail, calendar and task snapshots. Remote transport/delivery is deliberately outside this store.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_productivity_store.h",
+      "properties": [
+        {
+          "name": "filePath",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "defaultPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "messages",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "drafts",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "events",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tasks",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "status",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "recoveryAvailable",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndoTaskMove",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "filePathChanged",
+          "parameters": ""
+        },
+        {
+          "name": "dataChanged",
+          "parameters": ""
+        },
+        {
+          "name": "statusChanged",
+          "parameters": ""
+        },
+        {
+          "name": "taskHistoryChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "load",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "save",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "loadFrom",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "saveTo",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "upsert",
+          "returns": "QVariantMap",
+          "parameters": "const QString &collection, const QVariantMap &record"
+        },
+        {
+          "name": "remove",
+          "returns": "QVariantMap",
+          "parameters": "const QString &collection, const QString &recordId"
+        },
+        {
+          "name": "moveTask",
+          "returns": "QVariantMap",
+          "parameters": "const QString &taskId, const QString &toStatus, int targetOrder = -1"
+        },
+        {
+          "name": "undoTaskMove",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "exportSnapshot",
+          "returns": "QVariantMap",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "LocaleService",
       "kind": "cpp",
       "base": "QObject",

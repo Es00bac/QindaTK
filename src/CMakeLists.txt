@@ -59,6 +59,7 @@ qt_add_qml_module(qindatk
         core/document_session.cpp core/document_session.h
         core/document_manager.cpp core/document_manager.h
         core/settings_model.cpp core/settings_model.h
+        core/local_productivity_store.cpp core/local_productivity_store.h
         core/state_store.cpp core/state_store.h
         core/settings_persistence.cpp core/settings_persistence.h
         core/workspace_session.cpp core/workspace_session.h
