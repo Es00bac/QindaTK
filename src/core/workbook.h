@@ -106,6 +106,14 @@ public:
     // lastPasteReport lists every invalid cell either way.
     Q_INVOKABLE bool pasteInputs(const QString &sheetId, int row, int column, const QVariantList &rows,
                                  const QString &policy = QStringLiteral("allOrNothing"));
+    // Clipboard ranges (docs/workbook.md#clipboard). rangeTransfer returns
+    // {ok, range (a TransferItemKind::Range payload), text (tab-separated
+    // display values)} or {ok: false, message}; pasteTransfer pastes such a
+    // range from this or another workbook as one "Paste cells" step.
+    Q_INVOKABLE QVariantMap rangeTransfer(const QString &sheetId, int firstRow, int firstColumn, int lastRow,
+                                          int lastColumn) const;
+    Q_INVOKABLE bool pasteTransfer(const QString &sheetId, int row, int column, const QVariantMap &range,
+                                   const QString &policy = QStringLiteral("allOrNothing"));
     // Inputs [{row, column, input}] as one transaction under a paste policy.
     Q_INVOKABLE bool setCellInputs(const QString &sheetId, const QVariantList &cells,
                                    const QString &policy = QStringLiteral("allOrNothing"),

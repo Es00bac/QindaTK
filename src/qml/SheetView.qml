@@ -20,8 +20,13 @@ T.Control {
     // back to the first sheet when the requested one is removed).
     property string sheetId: ""
     property string tooltip: qsTr("Spreadsheet")
-    // Policy for pasteText: "allOrNothing" or "skipInvalid" (Workbook.pasteInputs).
+    // Policy for pastes: "allOrNothing" or "skipInvalid" (Workbook.pasteInputs).
     property string pastePolicy: "allOrNothing"
+    // Optional system clipboard: copies publish the range (Workbook.rangeTransfer)
+    // with its tab-separated text; pastes take a workbook range from any
+    // workbook (one undo step, sheets remapped) or plain text. Without it,
+    // copy/paste stay inside this view (formula-aware copyRange/pasteCopied).
+    property Tk.ClipboardService clipboard: null
     property int epoch: 0
     readonly property alias adapter: sheetAdapter
     readonly property alias grid: sheetGrid
@@ -135,9 +140,20 @@ T.Control {
     }
     function copySelection() {
         const r = selectionOrActive()
-        return !!r && sheetAdapter.copyRange(r.firstRow, r.firstColumn, r.lastRow, r.lastColumn)
+        if (!r || !sheetAdapter.copyRange(r.firstRow, r.firstColumn, r.lastRow, r.lastColumn)) return false
+        if (!clipboard || !workbook) return true
+        const transfer = workbook.rangeTransfer(currentSheetId, r.firstRow, r.firstColumn, r.lastRow, r.lastColumn)
+        return transfer.ok && clipboard.copyRange(workbook.documentId, workbook.revision, transfer.range, transfer.text)
     }
-    function pasteCopied() { return hasActiveCell && sheetAdapter.pasteCopied(activeRow, activeColumn) }
+    function pasteCopied() {
+        if (!hasActiveCell) return false
+        const data = clipboard ? clipboard.rangePasteData() : ({ kind: "" })
+        if (data.kind === "range")
+            return sheetAdapter.reportResult(workbook.pasteTransfer(currentSheetId, activeRow, activeColumn,
+                                                                    data.range, pastePolicy))
+        if (data.kind === "text") return pasteText(data.text)
+        return sheetAdapter.pasteCopied(activeRow, activeColumn)
+    }
     // Tab/newline text under `pastePolicy`: validated per cell, applied as one
     // "Paste cells" step; Workbook.lastPasteReport lists invalid cells.
     function pasteText(text) {

@@ -83,6 +83,14 @@ public:
                               const QString &entityId, const QString &revision);
     Q_INVOKABLE bool copyImage(const QByteArray &png, const QString &documentId,
                                const QString &entityId, const QString &revision);
+    // A range of cells (e.g. a spreadsheet selection) as one Range item plus
+    // the plain text other applications paste (docs/clipboard.md#ranges).
+    Q_INVOKABLE bool copyRange(const QString &documentId, const QString &revision,
+                               const QVariantMap &range, const QString &text);
+    // What a range-aware paste can use now: {kind: "range", range,
+    // sourceDocumentId, text} for a copyRange payload, {kind: "text", text}
+    // for any plain text, else {kind: ""}.
+    Q_INVOKABLE QVariantMap rangePasteData() const;
 
 signals:
     void changed();
@@ -98,7 +106,8 @@ private:
     OperationError prepare(PropertyDocument *document, EntityId target,
                            const QString &propertyId, PreparedPaste *result,
                            qsizetype insertionIndex = -1) const;
-    OperationError publishPayload(const TransferPayload &payload);
+    OperationError publishPayload(const TransferPayload &payload,
+                                  const QMap<QString, QByteArray> &projections = {});
     void refresh();
     bool clearPendingCut();
     OperationError fail(ErrorCode code, const QString &message,

@@ -85,6 +85,9 @@ Item {
         id: book
         Component.onCompleted: root.seed()
     }
+    // Ctrl+C/Ctrl+V use the system clipboard: ranges paste into any workbook,
+    // and other applications receive tab-separated text.
+    Tk.ClipboardService { id: clipboard }
     Tk.MessageDialog {
         id: removal
         objectName: "removeSheetDialog"
@@ -266,6 +269,7 @@ Item {
                     workbook: book
                     tooltip: "Budget workbook"
                     pastePolicy: validationEditor.pastePolicy
+                    clipboard: clipboard
                     onInputRejected: function(message) { root.status = message }
                 }
                 Tk.Card {
