@@ -113,6 +113,8 @@ engines remain outside the core.
 Future feature packs use separately selected CMake targets with their own
 dependencies and explicit application registration. A core-only install and
 consumer must build and query missing operations without those targets.
-Pack-specific QML registration, plugin packaging, ABI versioning and
-discovery/loading policy are settled by the first pack that needs them;
-no global scan or implicit `dlopen` is part of this version-one registry.
+The opt-in [ExtensionRegistry](extension-registry.md) now provides a local,
+explicit native plugin lifecycle with descriptor and ABI version checks. It
+publishes capabilities only for providers that have started successfully.
+Pack-specific QML registration and plugin packaging remain application-owned;
+there is no global scan or implicit load when querying a capability.

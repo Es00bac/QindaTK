@@ -67,6 +67,7 @@ qt_add_qml_module(qindatk
         core/gradient_evaluator.cpp core/gradient_evaluator.h
         core/gradient_editor_model.cpp core/gradient_editor_model.h
         core/capability_registry.cpp core/capability_registry.h
+        core/extension_registry.cpp core/extension_registry.h core/extension_provider.h
         core/command_context.cpp core/command_context.h
         core/command_registry.cpp core/command_registry.h
         core/edit_transaction.cpp core/edit_transaction.h

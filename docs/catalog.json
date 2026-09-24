@@ -39823,6 +39823,87 @@
       "bridge": false
     },
     {
+      "name": "ExtensionRegistry",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/extension_registry.h",
+      "properties": [
+        {
+          "name": "capabilities",
+          "type": "CapabilityRegistry *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "extensions",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "capabilitiesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "extensionsChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "registerDescriptor",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "load",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "unload",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "invoke",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id, const QString &operation, const QVariantMap &arguments = {}"
+        },
+        {
+          "name": "extension",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "saveState",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "restoreState",
+          "returns": "bool",
+          "parameters": "const QVariantList &snapshot"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "FileDialogAdapter",
       "kind": "cpp",
       "base": "QObject",
