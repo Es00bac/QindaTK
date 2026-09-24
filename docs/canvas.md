@@ -432,9 +432,24 @@ root item, so refreshing host knots during a drag does not destroy the drag
 owner. A click selects a knot without an edit. Keyboard and accessible
 increments send one preview followed by finish.
 
+Knots may also provide optional `inHandle` and `outHandle` records, each with
+`{x, y}` as an absolute normalized plot position in the same 0–1 coordinate
+space as the knot. They are not relative vectors. Each supplied handle has a
+visible line to its knot and a focusable pointer target. The editor emits
+`tangentPreviewRequested(knotId, side, x, y)`,
+`tangentEditFinished(knotId, side, x, y)` and
+`tangentEditCanceled(knotId, side, x, y)`; `side` is `"in"` or `"out"`, and
+all positions are normalized absolute coordinates. Cancel reports the
+position captured when that handle press began. Arrow keys and accessible
+increase/decrease use the same request lifecycle. These are proposals only:
+the host validates and replaces its records, while CurveEditor never writes
+to them. Stable visual names are `curveTangent_<id>_<side>` for handles and
+`curveTangentLine_<id>_<side>` for their connections.
+
 This is a WP-043 presentation slice. A domain curve evaluator must supply
-interpolation, tangents, constraints, typed units, transaction history and
-persisted samples. The editor does not infer those from the displayed line.
+constraints, typed units, transaction history and persisted samples. A
+stateless evaluator may consume the same normalized handle records; the editor
+does not infer curve semantics from the displayed line.
 
 <a id="gradient-editor"></a>
 ## GradientEditor

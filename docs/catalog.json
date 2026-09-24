@@ -3748,7 +3748,7 @@
       "name": "CurveEditor",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT: CurveEditor presents host-owned stable-ID knots and sampled normalized points. It emits selection and edit lifecycle requests; the host owns canonical coordinates, interpolation, constraints, transactions, and undo. A host may replace `knots` during a preview; the editor keeps pointer ownership at the root so delegate replacement cannot lose an active drag.",
+      "description": "AGENT-CONTRACT: CurveEditor presents host-owned stable-ID knots and sampled normalized points. It emits selection and edit lifecycle requests; the host owns canonical coordinates, interpolation, constraints, transactions, and undo. Pointer ownership stays on the root through knot-array replacement.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/CurveEditor.qml",
@@ -3756,7 +3756,7 @@
         {
           "name": "knots",
           "type": "var",
-          "default": "[]       // [{id, x, y, label?}], normalized x/y in 0..1",
+          "default": "[] // {id, x, y, label?, inHandle?, outHandle?}",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -3764,7 +3764,7 @@
         {
           "name": "samples",
           "type": "var",
-          "default": "[]     // [{x, y}], already evaluated by the host",
+          "default": "[] // host-evaluated normalized {x, y} points",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -3808,6 +3808,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "tangentHandles",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -3826,6 +3834,18 @@
         {
           "name": "moveCancelled",
           "parameters": "string id"
+        },
+        {
+          "name": "tangentPreviewRequested",
+          "parameters": "string knotId, string side, real x, real y"
+        },
+        {
+          "name": "tangentEditFinished",
+          "parameters": "string knotId, string side, real x, real y"
+        },
+        {
+          "name": "tangentEditCanceled",
+          "parameters": "string knotId, string side, real x, real y"
         }
       ],
       "methods": [
@@ -3858,8 +3878,32 @@
           "parameters": "id"
         },
         {
+          "name": "requestTangent",
+          "parameters": "id, side, x, y"
+        },
+        {
+          "name": "finishTangent",
+          "parameters": "id, side, x, y"
+        },
+        {
+          "name": "cancelTangent",
+          "parameters": "id, side, x, y"
+        },
+        {
+          "name": "cancelPress",
+          "parameters": "event"
+        },
+        {
+          "name": "hitTangent",
+          "parameters": "px, py"
+        },
+        {
           "name": "hitKnot",
           "parameters": "px, py"
+        },
+        {
+          "name": "keyboardTangent",
+          "parameters": "id, side, dx, dy"
         }
       ],
       "enums": {},
@@ -3873,7 +3917,9 @@
       "objectNames": [
         "curveEditor",
         "curveKnot_",
-        "curvePlot"
+        "curvePlot",
+        "curveTangentLine_",
+        "curveTangent_"
       ]
     },
     {

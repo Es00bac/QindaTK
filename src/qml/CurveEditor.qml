@@ -5,13 +5,12 @@ import QindaTK as Tk
 // AGENT-CONTRACT: CurveEditor presents host-owned stable-ID knots and sampled
 // normalized points. It emits selection and edit lifecycle requests; the host
 // owns canonical coordinates, interpolation, constraints, transactions, and
-// undo. A host may replace `knots` during a preview; the editor keeps pointer
-// ownership at the root so delegate replacement cannot lose an active drag.
+// undo. Pointer ownership stays on the root through knot-array replacement.
 Item {
     id: root
     objectName: "curveEditor"
-    property var knots: []       // [{id, x, y, label?}], normalized x/y in 0..1
-    property var samples: []     // [{x, y}], already evaluated by the host
+    property var knots: [] // {id, x, y, label?, inHandle?, outHandle?}
+    property var samples: [] // host-evaluated normalized {x, y} points
     property string tooltip: qsTr("Curve editor")
     property string accessibleName: qsTr("Curve editor")
     property string selectedKnotId: ""
@@ -19,15 +18,40 @@ Item {
     readonly property rect plotRect: Qt.rect(plotPadding, plotPadding,
                                               Math.max(0, width - 2 * plotPadding),
                                               Math.max(0, height - 2 * plotPadding))
+    readonly property var tangentHandles: {
+        const result = []
+        const source = root.knots || []
+        for (let i = 0; i < source.length; ++i) {
+            const knot = source[i]
+            for (const side of ["in", "out"]) {
+                const handle = knot[side + "Handle"]
+                if (handle && isFinite(Number(handle.x)) && isFinite(Number(handle.y)))
+                    result.push({ id: String(knot.id), label: knot.label || qsTr("Curve knot"),
+                                  side: side, x: Number(handle.x), y: Number(handle.y),
+                                  knotX: Number(knot.x), knotY: Number(knot.y) })
+            }
+        }
+        return result
+    }
     signal knotSelected(string id)
     signal movePreview(string id, real x, real y)
     signal moveFinished(string id)
     signal moveCancelled(string id)
+    signal tangentPreviewRequested(string knotId, string side, real x, real y)
+    signal tangentEditFinished(string knotId, string side, real x, real y)
+    signal tangentEditCanceled(string knotId, string side, real x, real y)
     property string _activeId: ""
     property string _pressedId: ""
+    property string _pressedKind: ""
+    property string _pressedSide: ""
     property bool _suppressPress: false
+    property bool _hasPreview: false
     property real _dragOffsetX: 0
     property real _dragOffsetY: 0
+    property real _originX: 0
+    property real _originY: 0
+    property real _lastX: 0
+    property real _lastY: 0
 
     implicitWidth: Tk.Theme.size.sparkline
     implicitHeight: Tk.Theme.size.panelMinHeight
@@ -36,14 +60,7 @@ Item {
     Accessible.description: root.tooltip
     activeFocusOnTab: true
     focus: true
-    Keys.onEscapePressed: {
-        if (root._activeId.length || root._pressedId.length) {
-            if (root._activeId.length) root.moveCancelled(root._activeId)
-            root._activeId = ""
-            root._suppressPress = root._pressedId.length > 0
-            event.accepted = true
-        }
-    }
+    Keys.onEscapePressed: function(event) { cancelPress(event) }
 
     function normalizedAt(px, py) {
         const r = root.plotRect
@@ -82,19 +99,79 @@ Item {
         root._activeId = ""
         return true
     }
+    function requestTangent(id, side, x, y) {
+        if (!id || (side !== "in" && side !== "out") || !isFinite(x) || !isFinite(y)) return false
+        const px = Math.max(0, Math.min(1, x))
+        const py = Math.max(0, Math.min(1, y))
+        root._activeId = id
+        root._lastX = px
+        root._lastY = py
+        root._hasPreview = true
+        root.tangentPreviewRequested(id, side, px, py)
+        return true
+    }
+    function finishTangent(id, side, x, y) {
+        if (root._activeId !== id || !root._hasPreview) return false
+        root.tangentEditFinished(id, side, x, y)
+        root._activeId = ""
+        root._hasPreview = false
+        return true
+    }
+    function cancelTangent(id, side, x, y) {
+        if (root._activeId !== id || !root._hasPreview) return false
+        root.tangentEditCanceled(id, side, x, y)
+        root._activeId = ""
+        root._hasPreview = false
+        return true
+    }
+    function cancelPress(event) {
+        if (root._pressedKind === "tangent" && root._hasPreview)
+            root.cancelTangent(root._pressedId, root._pressedSide, root._originX, root._originY)
+        else if (root._pressedKind === "knot" && root._activeId.length)
+            root.cancelMove(root._pressedId)
+        if (root._pressedKind.length) {
+            root._suppressPress = true
+            root._pressedId = ""
+            root._pressedKind = ""
+            root._pressedSide = ""
+            root._hasPreview = false
+            event.accepted = true
+        }
+    }
     function _knot(id) {
-        for (let i = 0; i < root.knots.length; ++i)
+        for (let i = 0; i < (root.knots || []).length; ++i)
             if (String(root.knots[i].id) === String(id)) return root.knots[i]
+        return null
+    }
+    function hitTangent(px, py) {
+        const radius = Tk.Theme.size.controlSm / 2
+        for (let i = root.tangentHandles.length - 1; i >= 0; --i) {
+            const handle = root.tangentHandles[i]
+            const point = root.pixelAt(handle.x, handle.y)
+            if (Math.abs(px - point.x) <= radius && Math.abs(py - point.y) <= radius)
+                return { id: handle.id, side: handle.side, point: point,
+                         x: handle.x, y: handle.y, index: i }
+        }
         return null
     }
     function hitKnot(px, py) {
         const radius = Tk.Theme.size.controlSm / 2
-        for (let i = root.knots.length - 1; i >= 0; --i) {
+        for (let i = (root.knots || []).length - 1; i >= 0; --i) {
             const point = root.pixelAt(Number(root.knots[i].x), Number(root.knots[i].y))
             if (Math.abs(px - point.x) <= radius && Math.abs(py - point.y) <= radius)
                 return { id: String(root.knots[i].id), index: i, point: point }
         }
         return null
+    }
+    function keyboardTangent(id, side, dx, dy) {
+        const knot = root._knot(id)
+        const handle = knot ? knot[side + "Handle"] : null
+        if (!handle) return false
+        const x = Math.max(0, Math.min(1, Number(handle.x) + dx))
+        const y = Math.max(0, Math.min(1, Number(handle.y) + dy))
+        root.requestTangent(id, side, x, y)
+        root.finishTangent(id, side, x, y)
+        return true
     }
 
     Rectangle {
@@ -131,8 +208,59 @@ Item {
             }
         }
         Connections { target: root; function onSamplesChanged() { graph.requestPaint() } }
+        Connections { target: root; function onKnotsChanged() { graph.requestPaint() } }
         Connections { target: root; function onWidthChanged() { graph.requestPaint() } }
         Connections { target: root; function onHeightChanged() { graph.requestPaint() } }
+    }
+    Repeater {
+        id: tangentRepeater
+        model: root.tangentHandles
+        delegate: Item {
+            id: tangent
+            required property var modelData
+            readonly property point center: root.pixelAt(modelData.x, modelData.y)
+            readonly property point knotCenter: root.pixelAt(modelData.knotX, modelData.knotY)
+            x: center.x - Tk.Theme.size.controlSm / 2
+            y: center.y - Tk.Theme.size.controlSm / 2
+            width: Tk.Theme.size.controlSm; height: Tk.Theme.size.controlSm
+            objectName: "curveTangent_" + modelData.id + "_" + modelData.side
+            activeFocusOnTab: true
+            Accessible.role: Accessible.Slider
+            Accessible.name: qsTr("%1 %2 tangent").arg(modelData.label).arg(modelData.side)
+            Accessible.description: qsTr("Normalized handle x %1, y %2")
+                                      .arg(Number(modelData.x).toFixed(3)).arg(Number(modelData.y).toFixed(3))
+            Accessible.onIncreaseAction: root.keyboardTangent(modelData.id, modelData.side, 0, 0.01)
+            Accessible.onDecreaseAction: root.keyboardTangent(modelData.id, modelData.side, 0, -0.01)
+            Keys.onLeftPressed: function(event) { root.keyboardTangent(modelData.id, modelData.side, -0.01, 0); event.accepted = true }
+            Keys.onRightPressed: function(event) { root.keyboardTangent(modelData.id, modelData.side, 0.01, 0); event.accepted = true }
+            Keys.onUpPressed: function(event) { root.keyboardTangent(modelData.id, modelData.side, 0, 0.01); event.accepted = true }
+            Keys.onDownPressed: function(event) { root.keyboardTangent(modelData.id, modelData.side, 0, -0.01); event.accepted = true }
+            Keys.onEscapePressed: function(event) { root.cancelPress(event) }
+            Rectangle {
+                objectName: "curveTangentLine_" + tangent.modelData.id + "_" + tangent.modelData.side
+                x: (tangent.knotCenter.x + tangent.center.x) / 2 - width / 2 - tangent.x
+                y: (tangent.knotCenter.y + tangent.center.y) / 2 - height / 2 - tangent.y
+                width: Math.sqrt(Math.pow(tangent.center.x - tangent.knotCenter.x, 2)
+                                 + Math.pow(tangent.center.y - tangent.knotCenter.y, 2))
+                height: Tk.Theme.size.border
+                transformOrigin: Item.Center
+                rotation: Math.atan2(tangent.center.y - tangent.knotCenter.y,
+                                     tangent.center.x - tangent.knotCenter.x) * 180 / Math.PI
+                color: Tk.Theme.color.controlActiveBorder
+                Accessible.ignored: true
+            }
+            Rectangle {
+                anchors.centerIn: parent
+                width: Tk.Theme.size.controlSm / 2; height: width
+                radius: Tk.Theme.radius.full
+                color: Tk.Theme.color.controlActiveBg
+                border.color: tangent.activeFocus || root.selectedKnotId === modelData.id
+                              ? Tk.Theme.color.focus : Tk.Theme.color.accent
+                border.width: Tk.Theme.size.border
+            }
+            Tk.ToolTip { visible: tangentHover.hovered && root.tooltip.length > 0; text: root.tooltip }
+            HoverHandler { id: tangentHover }
+        }
     }
     Repeater {
         id: knotRepeater
@@ -152,12 +280,11 @@ Item {
             Accessible.description: qsTr("x %1, y %2").arg(Number(modelData.x).toFixed(3)).arg(Number(modelData.y).toFixed(3))
             Accessible.onIncreaseAction: root.nudge(knotId, Number(modelData.x), Number(modelData.y) + 0.01)
             Accessible.onDecreaseAction: root.nudge(knotId, Number(modelData.x), Number(modelData.y) - 0.01)
-            Keys.onLeftPressed: { root.nudge(knotId, Number(modelData.x) - 0.01, Number(modelData.y)); event.accepted = true }
-            Keys.onRightPressed: { root.nudge(knotId, Number(modelData.x) + 0.01, Number(modelData.y)); event.accepted = true }
-            Keys.onUpPressed: { root.nudge(knotId, Number(modelData.x), Number(modelData.y) + 0.01); event.accepted = true }
-            Keys.onDownPressed: { root.nudge(knotId, Number(modelData.x), Number(modelData.y) - 0.01); event.accepted = true }
-            Keys.onReturnPressed: root.finishMove(knotId)
-            Keys.onEnterPressed: root.finishMove(knotId)
+            Keys.onLeftPressed: function(event) { root.nudge(knotId, Number(modelData.x) - 0.01, Number(modelData.y)); event.accepted = true }
+            Keys.onRightPressed: function(event) { root.nudge(knotId, Number(modelData.x) + 0.01, Number(modelData.y)); event.accepted = true }
+            Keys.onUpPressed: function(event) { root.nudge(knotId, Number(modelData.x), Number(modelData.y) + 0.01); event.accepted = true }
+            Keys.onDownPressed: function(event) { root.nudge(knotId, Number(modelData.x), Number(modelData.y) - 0.01); event.accepted = true }
+            Keys.onEscapePressed: function(event) { root.cancelPress(event) }
             Rectangle {
                 anchors.centerIn: parent
                 width: Tk.Theme.size.controlSm / 2; height: width
@@ -177,16 +304,20 @@ Item {
         preventStealing: true
         onPressed: function(mouse) {
             root._suppressPress = false
-            const hit = root.hitKnot(mouse.x, mouse.y)
-            if (!hit) {
-                mouse.accepted = false
-                return
-            }
-            root._pressedId = hit.id
-            root._dragOffsetX = mouse.x - hit.point.x
-            root._dragOffsetY = mouse.y - hit.point.y
-            root.selectKnot(hit.id)
-            const item = knotRepeater.itemAt(hit.index)
+            const tangent = root.hitTangent(mouse.x, mouse.y)
+            const knot = tangent ? null : root.hitKnot(mouse.x, mouse.y)
+            if (!tangent && !knot) { mouse.accepted = false; return }
+            const id = tangent ? tangent.id : knot.id
+            root._pressedId = id
+            root._pressedKind = tangent ? "tangent" : "knot"
+            root._pressedSide = tangent ? tangent.side : ""
+            root._hasPreview = false
+            const point = tangent ? tangent.point : knot.point
+            root._dragOffsetX = mouse.x - point.x
+            root._dragOffsetY = mouse.y - point.y
+            if (tangent) { root._originX = tangent.x; root._originY = tangent.y }
+            root.selectKnot(id)
+            const item = tangent ? tangentRepeater.itemAt(tangent.index) : knotRepeater.itemAt(knot.index)
             if (item) item.forceActiveFocus()
             mouse.accepted = true
         }
@@ -194,17 +325,25 @@ Item {
             if (!pressed || !root._pressedId || root._suppressPress) return
             const point = root.normalizedAt(mouse.x - root._dragOffsetX,
                                             mouse.y - root._dragOffsetY)
-            root.requestMove(root._pressedId, point.x, point.y)
+            if (root._pressedKind === "tangent")
+                root.requestTangent(root._pressedId, root._pressedSide, point.x, point.y)
+            else root.requestMove(root._pressedId, point.x, point.y)
         }
         onReleased: {
-            if (root._pressedId && !root._suppressPress) root.finishMove(root._pressedId)
-            root._pressedId = ""
-            root._suppressPress = false
+            if (root._pressedKind === "tangent" && !root._suppressPress && root._hasPreview)
+                root.finishTangent(root._pressedId, root._pressedSide, root._lastX, root._lastY)
+            else if (root._pressedKind === "knot" && !root._suppressPress && root._activeId.length)
+                root.finishMove(root._pressedId)
+            root._pressedId = ""; root._pressedKind = ""; root._pressedSide = ""
+            root._suppressPress = false; root._hasPreview = false
         }
         onCanceled: {
-            if (root._pressedId && !root._suppressPress) root.cancelMove(root._pressedId)
-            root._pressedId = ""
-            root._suppressPress = false
+            if (root._pressedKind === "tangent" && !root._suppressPress && root._hasPreview)
+                root.cancelTangent(root._pressedId, root._pressedSide, root._originX, root._originY)
+            else if (root._pressedKind === "knot" && !root._suppressPress && root._activeId.length)
+                root.cancelMove(root._pressedId)
+            root._pressedId = ""; root._pressedKind = ""; root._pressedSide = ""
+            root._suppressPress = false; root._hasPreview = false
         }
     }
 }

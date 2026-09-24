@@ -31,8 +31,10 @@ Rectangle {
             tooltip: qsTr("Select and drag knots. Escape cancels the active preview.")
             knots: [
                 { id: "black", x: 0, y: 0, label: qsTr("Black point") },
-                { id: "shadow", x: 0.23, y: 0.16, label: qsTr("Shadow point") },
-                { id: "midtone", x: 0.55, y: 0.52, label: qsTr("Midtone point") },
+                { id: "shadow", x: 0.23, y: 0.16, label: qsTr("Shadow point"),
+                  inHandle: { x: 0.15, y: 0.11 }, outHandle: { x: 0.31, y: 0.24 } },
+                { id: "midtone", x: 0.55, y: 0.52, label: qsTr("Midtone point"),
+                  inHandle: { x: 0.44, y: 0.42 }, outHandle: { x: 0.67, y: 0.66 } },
                 { id: "white", x: 1, y: 1, label: qsTr("White point") }
             ]
             samples: [

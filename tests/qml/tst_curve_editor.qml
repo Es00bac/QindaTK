@@ -14,7 +14,10 @@ TestCase {
         id: editorComponent
         Tk.CurveEditor {
             width: 400; height: 240
-            knots: [{ id: "k-left", x: 0.25, y: 0.75 }, { id: "k-right", x: 0.8, y: 0.2 }]
+            knots: [{ id: "k-left", x: 0.25, y: 0.75,
+                      inHandle: { x: 0.17, y: 0.67 }, outHandle: { x: 0.36, y: 0.82 } },
+                    { id: "k-right", x: 0.8, y: 0.2,
+                      inHandle: { x: 0.68, y: 0.31 } }]
             samples: [{ x: 0, y: 0 }, { x: 0.5, y: 0.6 }, { x: 1, y: 1 }]
         }
     }
@@ -66,6 +69,79 @@ TestCase {
         mouseRelease(editor, start.x + 36, start.y + 22)
         compare(finishSpy.count, 1)
         compare(finishSpy.signalArguments[0][0], "k-left")
+    }
+
+    function test_tangent_hit_drag_survives_refresh_and_never_mutates_records() {
+        const editor = createTemporaryObject(editorComponent, this)
+        verify(editor !== null)
+        const selectSpy = createTemporaryObject(spyComponent, this,
+                                                { target: editor, signalName: "knotSelected" })
+        const previewSpy = createTemporaryObject(spyComponent, this,
+                                                 { target: editor, signalName: "tangentPreviewRequested" })
+        const finishSpy = createTemporaryObject(spyComponent, this,
+                                                { target: editor, signalName: "tangentEditFinished" })
+        const handle = editor.pixelAt(0.36, 0.82)
+        mouseClick(editor, handle.x, handle.y)
+        compare(selectSpy.count, 1)
+        compare(selectSpy.signalArguments[0][0], "k-left")
+        compare(finishSpy.count, 0)
+        mousePress(editor, handle.x, handle.y)
+        mouseMove(editor, handle.x + 24, handle.y - 12)
+        verify(previewSpy.count > 0)
+        compare(previewSpy.signalArguments[0][0], "k-left")
+        compare(previewSpy.signalArguments[0][1], "out")
+        editor.knots = [{ id: "k-left", x: 0.25, y: 0.75,
+                          inHandle: { x: 0.17, y: 0.67 }, outHandle: { x: 0.36, y: 0.82 } },
+                        { id: "k-right", x: 0.8, y: 0.2, inHandle: { x: 0.68, y: 0.31 } }]
+        mouseMove(editor, handle.x + 32, handle.y - 16)
+        mouseRelease(editor, handle.x + 32, handle.y - 16)
+        compare(finishSpy.count, 1)
+        compare(finishSpy.signalArguments[0][0], "k-left")
+        compare(finishSpy.signalArguments[0][1], "out")
+        verify(finishSpy.signalArguments[0][2] > 0.36)
+        verify(finishSpy.signalArguments[0][3] > 0.82)
+        compare(editor.knots[0].outHandle.x, 0.36)
+        compare(editor.knots[0].outHandle.y, 0.82)
+    }
+
+    function test_tangent_escape_cancels_from_original_position() {
+        const editor = createTemporaryObject(editorComponent, this)
+        const previewSpy = createTemporaryObject(spyComponent, this,
+                                                 { target: editor, signalName: "tangentPreviewRequested" })
+        const cancelSpy = createTemporaryObject(spyComponent, this,
+                                                { target: editor, signalName: "tangentEditCanceled" })
+        const finishSpy = createTemporaryObject(spyComponent, this,
+                                                { target: editor, signalName: "tangentEditFinished" })
+        const handle = editor.pixelAt(0.36, 0.82)
+        mousePress(editor, handle.x, handle.y)
+        mouseMove(editor, handle.x + 20, handle.y - 15)
+        verify(previewSpy.count > 0)
+        keyClick(Qt.Key_Escape)
+        compare(cancelSpy.count, 1)
+        compare(cancelSpy.signalArguments[0][0], "k-left")
+        compare(cancelSpy.signalArguments[0][1], "out")
+        fuzzyCompare(cancelSpy.signalArguments[0][2], 0.36, 0.0001)
+        fuzzyCompare(cancelSpy.signalArguments[0][3], 0.82, 0.0001)
+        mouseRelease(editor, handle.x + 20, handle.y - 15)
+        compare(finishSpy.count, 0)
+    }
+
+    function test_tangent_keyboard_request_uses_normalized_coordinates() {
+        const editor = createTemporaryObject(editorComponent, this)
+        const previewSpy = createTemporaryObject(spyComponent, this,
+                                                 { target: editor, signalName: "tangentPreviewRequested" })
+        const finishSpy = createTemporaryObject(spyComponent, this,
+                                                { target: editor, signalName: "tangentEditFinished" })
+        const target = findChild(editor, "curveTangent_k-left_out")
+        verify(target !== null)
+        target.forceActiveFocus()
+        verify(target.activeFocus)
+        keyClick(Qt.Key_Right)
+        compare(previewSpy.count, 1)
+        compare(previewSpy.signalArguments[0][0], "k-left")
+        compare(previewSpy.signalArguments[0][1], "out")
+        fuzzyCompare(previewSpy.signalArguments[0][2], 0.37, 0.0001)
+        compare(finishSpy.count, 1)
     }
 
     Component { id: spyComponent; SignalSpy {} }
