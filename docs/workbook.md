@@ -541,7 +541,8 @@ the first sheet when its sheet is removed or the document is replaced.
 ## Consumed contract changes
 
 The first engine slice consumed the WP-019/WP-028 contracts unchanged and
-recorded eight gaps. All are now closed by additive contract changes:
+recorded eight gaps; the final visual review found a ninth. All are now
+closed by additive contract changes:
 
 | ID | Gap | Resolution |
 | --- | --- | --- |
@@ -553,6 +554,7 @@ recorded eight gaps. All are now closed by additive contract changes:
 | G-6 | Registry export took only `PropertyDocument`/`DocumentSession`; imports were adopted as sessions. | `SnapshotSource` with `FormatRegistry.preflightExportSource`/`startExportSource`, and `Workbook.adoptImport`. |
 | G-7 | `UndoService`/`DocumentSession` were `PropertyDocument`-specific. | The integrated domain-document boundary (D-053): the Workbook is a `DocumentModel` recording `WorkbookCommand`s, with a built-in `DocumentCodec`. The lane's interim `UndoParticipant` routing, recovery validators and `WorkbookSession` were retired when D-053 was merged. |
 | G-8 | O(rows + columns) grid ID strings: a 100,000-row sheet took about 190 ms to present. | `GridAxisIds` keeps generated IDs as runs; the adapter measures in `tst_workbook_adapter`. |
+| G-9 | The grid drew its selection outline and cell editor under its opaque cells: the editor was hidden, the outline showed only through cell borders (not at all in high contrast), and a frozen strip scrolled under the frozen corner drew over it. | Cells stack by pane; the selection and then the editor draw above them, each clipped to its pane (`EditableGridModel.frozenExtent()`, `frozenRow`/`frozenColumn` in `layoutCells`). Tested by pixel in `tst_sheet_features`. |
 
 ## Not supported
 

@@ -36,13 +36,17 @@ Item {
         return model && model.ranges.length > 0 ? model.ranges[model.ranges.length - 1] : null
     }
 
-    // Bottom-right corner of the last range in viewport coordinates, or null.
+    // Bottom-right corner of the last range in viewport coordinates, or null
+    // when it is outside the viewport or scrolled under a frozen pane.
     function selectionCorner() {
         const range = grid && grid.dataEpoch >= 0 && grid.model && !grid.model.readOnly ? lastRange() : null
         if (!range) return null
-        const rect = grid.model.cellRect(range.lastRow, range.lastColumn, grid.scrollX, grid.scrollY)
+        const model = grid.model, frozen = model.frozenExtent()
+        const rect = model.cellRect(range.lastRow, range.lastColumn, grid.scrollX, grid.scrollY)
         const x = rect.x + rect.width, y = rect.y + rect.height
-        return rect.width > 0 && x > 0 && y > 0 && x <= grid.bodyWidth && y <= grid.bodyHeight
+        const underFrozen = (range.lastColumn >= model.frozenColumns && x <= frozen.width)
+            || (range.lastRow >= model.frozenRows && y <= frozen.height)
+        return rect.width > 0 && x > 0 && y > 0 && x <= grid.bodyWidth && y <= grid.bodyHeight && !underFrozen
             ? Qt.point(x, y) : null
     }
 

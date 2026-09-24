@@ -442,39 +442,63 @@ T.Control {
                                   && editor.activeFocus
                 }
             }
+            // AGENT-NOTE: panes. Frozen rows and columns split the viewport into
+            // panes that scroll independently (EditableGridModel.layoutCells).
+            // Cells stack by pane (GridCellDelegate: body 1, frozen edge bands
+            // 2, frozen corner 3), so a band scrolled under a pane that stays
+            // put is covered by it. The selection draws above every pane and
+            // the editor above the selection, each clipped to its own pane;
+            // under the cells they were hidden by opaque cell backgrounds.
             Tk.RangeSelectionOverlay {
                 objectName: "gridRangeOverlay"
                 anchors.fill: parent
+                z: 4
                 gridModel: grid.model
                 scrollX: grid.scrollX
                 scrollY: grid.scrollY
             }
-            Tk.TextField {
-                id: editor
-                objectName: "gridCellEditor"
-                visible: grid.cellEditing
-                x: grid.editorRect.x
-                y: grid.editorRect.y
-                width: grid.editorRect.width
-                height: grid.editorRect.height
-                text: grid.editText
-                tooltip: qsTr("Edit grid cell")
-                // AGENT-GUARD: TextInput ignores Return after `accepted`, so the key
-                // would reach the grid's own handler and reopen an editor; consume it.
-                Keys.onReturnPressed: function(event) {
-                    event.accepted = true
-                    grid.commitCellEdit(text)
+            Item {
+                id: editorPane
+                objectName: "gridEditorPane"
+                readonly property int row: grid.model && grid.dataEpoch >= 0 ? grid.model.rowIndex(grid.editingRowId) : -1
+                readonly property int column: grid.model && grid.dataEpoch >= 0 ? grid.model.columnIndex(grid.editingColumnId) : -1
+                readonly property size frozen: grid.model && grid.dataEpoch >= 0 ? grid.model.frozenExtent() : Qt.size(0, 0)
+                readonly property bool frozenRow: row >= 0 && row < grid.model.frozenRows
+                readonly property bool frozenColumn: column >= 0 && column < grid.model.frozenColumns
+                x: frozenColumn ? 0 : frozen.width
+                y: frozenRow ? 0 : frozen.height
+                width: frozenColumn ? frozen.width : Math.max(0, parent.width - x)
+                height: frozenRow ? frozen.height : Math.max(0, parent.height - y)
+                z: 5
+                clip: true
+                // The editor, above the selection and clipped to its cell's pane.
+                Tk.TextField {
+                    id: editor
+                    objectName: "gridCellEditor"
+                    visible: grid.cellEditing
+                    x: grid.editorRect.x - editorPane.x
+                    y: grid.editorRect.y - editorPane.y
+                    width: grid.editorRect.width
+                    height: grid.editorRect.height
+                    text: grid.editText
+                    tooltip: qsTr("Edit grid cell")
+                    // AGENT-GUARD: TextInput ignores Return after `accepted`, so the key
+                    // would reach the grid's own handler and reopen an editor; consume it.
+                    Keys.onReturnPressed: function(event) {
+                        event.accepted = true
+                        grid.commitCellEdit(text)
+                    }
+                    Keys.onEnterPressed: function(event) {
+                        event.accepted = true
+                        grid.commitCellEdit(text)
+                    }
+                    Keys.onEscapePressed: function(event) {
+                        event.accepted = true
+                        grid.cancelCellEdit()
+                    }
+                    onActiveFocusChanged: if (!activeFocus && visible && grid.model
+                                              && grid.model.editing) grid.commitCellEdit(text)
                 }
-                Keys.onEnterPressed: function(event) {
-                    event.accepted = true
-                    grid.commitCellEdit(text)
-                }
-                Keys.onEscapePressed: function(event) {
-                    event.accepted = true
-                    grid.cancelCellEdit()
-                }
-                onActiveFocusChanged: if (!activeFocus && visible && grid.model
-                                          && grid.model.editing) grid.commitCellEdit(text)
             }
             Tk.GridFillHandle {
                 grid: grid

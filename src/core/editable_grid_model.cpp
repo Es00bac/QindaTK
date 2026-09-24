@@ -243,6 +243,8 @@ QRectF EditableGridModel::cellRect(int row, int column, qreal scrollX, qreal scr
             m_rowPositions[row] - (row < m_frozenRows ? 0 : scrollY),
             m_columnSizes[column], m_rowSizes[row]};
 }
+QSizeF EditableGridModel::frozenExtent() const
+{ return {m_columnPositions.value(m_frozenColumns), m_rowPositions.value(m_frozenRows)}; }
 QVariantMap EditableGridModel::hitTest(qreal x, qreal y, qreal scrollX, qreal scrollY) const
 {
     if (!std::isfinite(x) || !std::isfinite(y)) return {};

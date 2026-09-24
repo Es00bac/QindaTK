@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-23",
+  "generated": "2026-09-24",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -7793,6 +7793,7 @@
         "gridCellViewport",
         "gridColumnHeaders",
         "gridCornerHeader",
+        "gridEditorPane",
         "gridRangeOverlay",
         "gridRowHeaders",
         "gridWheel"
@@ -15152,6 +15153,8 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "gridRangeBorder_",
+        "gridRangePane_",
         "gridRangeSelection_"
       ]
     },
@@ -26457,6 +26460,11 @@
           "name": "cellRect",
           "returns": "QRectF",
           "parameters": "int row, int column, qreal scrollX, qreal scrollY"
+        },
+        {
+          "name": "frozenExtent",
+          "returns": "QSizeF",
+          "parameters": ""
         },
         {
           "name": "hitTest",

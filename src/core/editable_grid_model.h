@@ -8,6 +8,7 @@
 #include <QRect>
 #include <QRectF>
 #include <QSet>
+#include <QSizeF>
 #include <QStringList>
 #include <QVariantList>
 #include <QVector>
@@ -140,15 +141,18 @@ public:
     // Smallest index rectangle holding the given one and every merged area it
     // touches: {firstRow, firstColumn, lastRow, lastColumn}; {} for an empty grid.
     Q_INVOKABLE QVariantMap mergeBounds(int firstRow, int firstColumn, int lastRow, int lastColumn) const;
-    // The cells a viewport shows: visibleCells records plus x/y/width/height
-    // and frozen, one record per merged area (rowSpan/columnSpan; covered
-    // cells omitted). At most 4096 records.
+    // The cells a viewport shows: visibleCells records plus x/y/width/height,
+    // frozen and its pane (frozenRow, frozenColumn), one record per merged
+    // area (rowSpan/columnSpan; covered cells omitted). At most 4096 records.
     Q_INVOKABLE QVariantList layoutCells(qreal viewportWidth, qreal viewportHeight,
                                          qreal scrollX, qreal scrollY) const;
     Q_INVOKABLE QVariantList visibleCells(int firstRow, int rows, int firstColumn, int columns) const;
     Q_INVOKABLE QVariantList visibleRegions(qreal viewportWidth, qreal viewportHeight,
                                             qreal scrollX, qreal scrollY) const;
     Q_INVOKABLE QRectF cellRect(int row, int column, qreal scrollX, qreal scrollY) const;
+    // Width of the frozen columns and height of the frozen rows: where the
+    // scrolling panes start in viewport coordinates.
+    Q_INVOKABLE QSizeF frozenExtent() const;
     Q_INVOKABLE QVariantMap hitTest(qreal x, qreal y, qreal scrollX, qreal scrollY) const;
     Q_INVOKABLE bool requestRowResize(const QString &id, qreal size);
     Q_INVOKABLE bool requestColumnResize(const QString &id, qreal size);

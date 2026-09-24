@@ -57,7 +57,8 @@ returns an empty list. Each record has row/column indices and IDs plus the
 value. `visibleRegions(viewportWidth, viewportHeight, scrollX, scrollY)`
 returns up to four index rectangles: frozen corner, frozen row strip, frozen
 column strip and scrolling body. `cellRect` and `hitTest` use the same section
-size prefix arrays. A section resize updates those arrays; a move carries its
+size prefix arrays; `frozenExtent()` is the width of the frozen columns and the
+height of the frozen rows, where the scrolling panes start. A section resize updates those arrays; a move carries its
 size with its ID. The initial logical sizes are 24 for rows and 100 for
 columns. `defaultRowSize` and `defaultColumnSize` let a QML view bind the
 defaults to density-aware `Tk.Theme.size` roles. Changing a default updates
@@ -165,7 +166,8 @@ Merged areas change geometry and navigation, not storage:
   touches; selections and the editor grow to it.
 - `layoutCells(viewportWidth, viewportHeight, scrollX, scrollY)` returns
   the visible cells positioned for a view: the `visibleCells` fields plus
-  `x`, `y`, `width`, `height` and `frozen`, with `style` from `cellStyle`.
+  `x`, `y`, `width`, `height`, `frozen` and the cell's pane (`frozenRow`,
+  `frozenColumn`), with `style` from `cellStyle`.
   A merged area is one record with `rowSpan`/`columnSpan`, positioned over
   the whole area, so it shows the anchor's value even when the anchor is
   scrolled out. An area that crosses a frozen edge is drawn once per pane,
@@ -186,7 +188,8 @@ previews the target in `gridFillPreview`: it extends the range along the
 axis the pointer is furthest outside, down, up, left or right. Releasing
 calls `fillRange` and selects source plus target. A drag cut short (the
 handle hides because an edit starts) fills nothing. The handle is hidden
-for read-only models and when the corner is scrolled out. Keyboard users
+for read-only models and when the corner is scrolled out or under a frozen
+pane. Keyboard users
 fill through host commands (SheetView: Ctrl+D / Ctrl+R).
 
 ## QML view layer
@@ -202,13 +205,20 @@ fill switches to a contrasting theme color), a data bar
 error values; a merged record spans its area. A `numeric` value that does not
 fit shows whole `#` glyphs (`gridCellHashes`) while its accessible name keeps
 the value; other text elides. The `gridCellViewport` clip
-keeps scrolling content below frozen rows and columns; cell delegates in
-frozen regions draw above the body. `Tk.HeaderView` resolves visible section
+keeps scrolling content below frozen rows and columns. Cells stack by pane:
+the body, then the frozen row and column strips, then the frozen corner, so
+a strip scrolled under a pane that stays put is covered by it. The selection
+(`gridRangeOverlay`) draws above every pane and the editor
+(`gridCellEditor`, in `gridEditorPane`) above the selection, each clipped to
+its own pane. `Tk.HeaderView` resolves visible section
 IDs and geometry from the model on structural or geometry changes. Dragging a
 header seam resizes its model section and calls `finishResize` on release;
 dragging the section body submits a stable-ID move. `Tk.RangeSelectionOverlay`
 splits a selection at frozen row/column boundaries so the visible borders
-follow the four distinct cell regions. `Tk.GridFillHandle` is shown while
+follow the four distinct cell regions; each band's outline
+(`gridRangeBorder_<index>`) is drawn in a clip of its pane
+(`gridRangePane_<index>`), so a band scrolled under a frozen pane is cut
+there, border included. `gridRangeSelection_<index>` keeps the whole band. `Tk.GridFillHandle` is shown while
 `fillHandleEnabled` (default true) and the model is editable.
 
 Keyboard navigation keeps focus on the table and exposes its current cell,

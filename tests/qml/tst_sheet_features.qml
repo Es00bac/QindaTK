@@ -323,6 +323,66 @@ TestCase {
         keyClick(Qt.Key_Escape)
     }
 
+    // The selection outline and the cell editor draw above the cells (opaque
+    // cells used to hide them), and a band scrolled under a frozen pane is
+    // covered there, like its cells; the frozen corner covers both edge bands.
+    function test_selection_and_editor_draw_above_their_pane() {
+        const host = createTemporaryObject(plainFixture, root)
+        const grid = host.grid, model = host.model
+        const viewport = findChild(grid, "gridCellViewport")
+        // Colours as #rrggbb: derived theme roles can carry 16-bit channels.
+        const colorAt = function(image, x, y) { return String(image.pixel(Math.floor(x), Math.floor(y))) }
+        const role = function(name) { return String(Tk.Theme.color[name]) }
+        verify(model.setDimensions(40, 12))
+        grid.setCurrent(2, 2, false)
+        grid.setCurrent(4, 3, true)
+        waitForRendering(host)
+        const range = model.cellRect(3, 2, grid.scrollX, grid.scrollY)
+        compare(colorAt(grabImage(viewport), range.x + 1, range.y + range.height / 2), role("accent"))
+        grid.setCurrent(3, 3, false)
+        grid.beginCellEdit()
+        const editor = findChild(grid, "gridCellEditor")
+        tryVerify(function() { return editor.visible && editor.activeFocus })
+        waitForRendering(host)
+        let box = grid.editorRect
+        compare(colorAt(grabImage(viewport), box.x + box.width / 2, box.y + box.height / 2), role("inputBg"))
+        keyClick(Qt.Key_Escape)
+
+        // Half a column and half a row scroll B2:E5 partly under the frozen
+        // row 1 and column A.
+        model.frozenRows = 1
+        model.frozenColumns = 1
+        const frozen = model.frozenExtent()
+        const scrollHalfway = function() {
+            grid.scrollX = model.cellRect(0, 1, 0, 0).width / 2
+            grid.scrollY = model.cellRect(1, 0, 0, 0).height / 2
+            waitForRendering(host)
+        }
+        grid.setCurrent(1, 1, false)
+        grid.setCurrent(4, 4, true)
+        scrollHalfway()
+        let image = grabImage(viewport)
+        const topBand = model.cellRect(0, 1, grid.scrollX, grid.scrollY)
+        verify(topBand.x < frozen.width)
+        compare(colorAt(image, topBand.x, frozen.height / 2), role("panel"))
+        const first = model.cellRect(2, 1, grid.scrollX, grid.scrollY)
+        verify(first.x < frozen.width)
+        compare(colorAt(image, first.x + 1, first.y + first.height / 2), role("panel"))
+        const bottom = model.cellRect(4, 1, grid.scrollX, grid.scrollY)
+        compare(colorAt(image, frozen.width + 4, bottom.y + bottom.height - 1), role("accent"))
+
+        grid.setCurrent(2, 1, false)
+        grid.beginCellEdit()
+        tryVerify(function() { return editor.visible && editor.activeFocus })
+        scrollHalfway()
+        image = grabImage(viewport)
+        box = grid.editorRect
+        verify(box.x < frozen.width)
+        compare(colorAt(image, box.x + 1, box.y + box.height / 2), role("panel"))
+        compare(colorAt(image, frozen.width + 4, box.y + box.height / 2), role("inputBg"))
+        keyClick(Qt.Key_Escape)
+    }
+
     function test_plain_grid_fill_handle_repeats_values() {
         const host = createTemporaryObject(plainFixture, root)
         const grid = host.grid, model = host.model

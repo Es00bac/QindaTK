@@ -40,7 +40,10 @@ Item {
     y: modelData.y
     width: modelData.width
     height: modelData.height
-    z: modelData.frozen ? 2 : 1
+    // Pane layer (EditableGrid's AGENT-NOTE on panes): body 1, frozen edge
+    // bands 2, frozen corner 3, so a band scrolled under a pane that stays
+    // put is covered by it.
+    z: modelData.frozenRow && modelData.frozenColumn ? 3 : modelData.frozen ? 2 : 1
     Accessible.role: Accessible.Cell
     Accessible.name: (merged ? qsTr("Rows %1–%2, columns %3–%4: %5")
                                .arg(modelData.row + 1).arg(modelData.row + (modelData.rowSpan || 1))

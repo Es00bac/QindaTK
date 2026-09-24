@@ -131,14 +131,16 @@ QVariantList EditableGridModel::layoutCells(qreal viewportWidth, qreal viewportH
 {
     QVariantList result;
     const auto *hooks = extension();
-    const auto place = [&](QVariantMap cell, const QRect &area, bool frozen) {
+    const auto place = [&](QVariantMap cell, const QRect &area, bool frozenRow, bool frozenColumn) {
         const QRectF first = cellRect(area.top(), area.left(), scrollX, scrollY);
         const QRectF last = cellRect(area.bottom(), area.right(), scrollX, scrollY);
         cell.insert(QStringLiteral("x"), first.x());
         cell.insert(QStringLiteral("y"), first.y());
         cell.insert(QStringLiteral("width"), last.x() + last.width() - first.x());
         cell.insert(QStringLiteral("height"), last.y() + last.height() - first.y());
-        cell.insert(QStringLiteral("frozen"), frozen);
+        cell.insert(QStringLiteral("frozen"), frozenRow || frozenColumn);
+        cell.insert(QStringLiteral("frozenRow"), frozenRow);
+        cell.insert(QStringLiteral("frozenColumn"), frozenColumn);
         if (area.width() > 1 || area.height() > 1) {
             cell.insert(QStringLiteral("rowSpan"), area.height());
             cell.insert(QStringLiteral("columnSpan"), area.width());
@@ -174,7 +176,7 @@ QVariantList EditableGridModel::layoutCells(qreal viewportWidth, qreal viewportH
             for (int c = window.left(); c <= window.right(); ++c) {
                 if (covered[qsizetype(r - window.top()) * window.width() + (c - window.left())]) continue;
                 if (result.size() >= MaxVisibleCells) return result;
-                place(cellRecord(r, c, hooks), QRect(c, r, 1, 1), frozenRow || frozenColumn);
+                place(cellRecord(r, c, hooks), QRect(c, r, 1, 1), frozenRow, frozenColumn);
             }
         for (const auto &[area, part] : std::as_const(parts)) {
             if (result.size() >= MaxVisibleCells) return result;
@@ -187,7 +189,7 @@ QVariantList EditableGridModel::layoutCells(qreal viewportWidth, qreal viewportH
                     cell.insert(QStringLiteral("style"), anchor.value(QStringLiteral("style")));
                 cell.insert(QStringLiteral("mergeContinuation"), true);
             }
-            place(cell, part, frozenRow || frozenColumn);
+            place(cell, part, frozenRow, frozenColumn);
         }
     }
     return result;
