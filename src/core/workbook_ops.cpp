@@ -36,6 +36,15 @@ QVariantList Workbook::visibleCells(const QString &sheetId, int firstRow, int ro
     return result;
 }
 
+QVariantMap Workbook::usedRange(const QString &sheetId) const
+{
+    const Sheet *s = d->sheet(sheetId);
+    if (!s || s->cells.empty()) return {};
+    int lastColumn = 0;
+    for (const auto &[position, cell] : s->cells) lastColumn = std::max(lastColumn, keyColumn(position));
+    return {{"lastRow", keyRow(s->cells.rbegin()->first)}, {"lastColumn", lastColumn}};
+}
+
 QVariantMap Workbook::checkInput(const QString &sheetId, const QString &input) const
 {
     QVariantMap result{{"ok", true}, {"message", QString()}, {"start", 0}, {"end", 0},

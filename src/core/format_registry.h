@@ -108,15 +108,22 @@ public:
     Q_INVOKABLE QString startExportSession(DocumentSession *session, const QUrl &destination,
                                            const QString &formatId, const QVariantMap &options = {});
     Q_INVOKABLE DocumentSession *adoptImport(DocumentManager *manager, const QString &jobId);
+    // Export of any snapshot (docs/formats.md#snapshot-sources): a QObject
+    // that is a SnapshotSource (such as Tk.Workbook) from QML, or a snapshot.
+    Q_INVOKABLE QVariantMap preflightExportSource(QObject *source, const QUrl &destination,
+                                                  const QString &formatId,
+                                                  const QVariantMap &options = {}) const;
+    Q_INVOKABLE QString startExportSource(QObject *source, const QUrl &destination,
+                                          const QString &formatId, const QVariantMap &options = {});
+    QVariantMap preflightSnapshot(const SnapshotPtr &snapshot, const QUrl &destination,
+                                  const QString &formatId, const QVariantMap &options) const;
+    QString startExportSnapshot(const SnapshotPtr &snapshot, const QUrl &destination,
+                                const QString &formatId, const QVariantMap &options);
 signals:
     void formatsChanged();
     void changed();
 private:
     FormatProviderPtr provider(const QString &id) const;
-    QVariantMap preflightSnapshot(const SnapshotPtr &snapshot, const QUrl &destination,
-                                  const QString &formatId, const QVariantMap &options) const;
-    QString startExportSnapshot(const SnapshotPtr &snapshot, const QUrl &destination,
-                                const QString &formatId, const QVariantMap &options);
     bool fail(const QString &message);
     QVector<FormatProviderPtr> m_providers;
     JobModel *m_jobs = nullptr;

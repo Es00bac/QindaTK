@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "format_io.h"
 #include "workbook_codec_p.h"
+#include "workbook_delimited.h"
 #include "workbook_format.h"
 
 #include <QFile>
@@ -256,7 +257,31 @@ void Workbook::reset()
 bool Workbook::registerFormat(QObject *formatRegistry) const
 {
     auto *registry = qobject_cast<FormatRegistry *>(formatRegistry);
-    return registry && registry->registerProvider(std::make_shared<WorkbookFormat>());
+    if (!registry) return false;
+    const bool native = registry->registerProvider(std::make_shared<WorkbookFormat>());
+    const bool csv = registry->registerProvider(std::make_shared<WorkbookDelimitedFormat>(QLatin1Char(',')));
+    const bool tsv = registry->registerProvider(std::make_shared<WorkbookDelimitedFormat>(QLatin1Char('\t')));
+    return native && csv && tsv;
+}
+bool Workbook::adoptImport(QObject *formatRegistry, const QString &jobId)
+{
+    auto *registry = qobject_cast<FormatRegistry *>(formatRegistry);
+    if (!registry) return d->fail(QStringLiteral("No format registry"));
+    const QVariantMap record = registry->jobs()->job(jobId);
+    const QVariantMap result = record.value(QStringLiteral("result")).toMap();
+    const QString formatId = result.value(QStringLiteral("formatId")).toString();
+    if (record.value(QStringLiteral("state")).toString() != u"succeeded" || result.value(QStringLiteral("operation")).toString() != u"import")
+        return d->fail(QStringLiteral("The import job has not succeeded"));
+    if (formatId != QLatin1StringView(WorkbookFormat::FormatId) && formatId != QLatin1StringView(WorkbookDelimitedFormat::CsvId)
+        && formatId != QLatin1StringView(WorkbookDelimitedFormat::TsvId))
+        return d->fail(QStringLiteral("The import is not a workbook"));
+    if (!restore(result.value(QStringLiteral("documentBytes")).toByteArray())) return false;
+    d->fileUrl.clear();
+    d->fileSha256.clear();
+    d->cleanCursor = -1; // imported content is not saved in the native format yet
+    emit historyChanged();
+    emit fileChanged();
+    return true;
 }
 
 } // namespace QindaTK

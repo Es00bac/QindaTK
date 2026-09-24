@@ -317,6 +317,20 @@ QString FormatRegistry::startExportSnapshot(const SnapshotPtr &snapshot, const Q
     if (id.isEmpty()) fail(m_jobs->lastError()); else { m_lastError.clear(); emit changed(); }
     return id;
 }
+QVariantMap FormatRegistry::preflightExportSource(QObject *source, const QUrl &destination,
+                                                  const QString &formatId, const QVariantMap &options) const
+{
+    const auto *snapshots = dynamic_cast<const SnapshotSource *>(source);
+    if (!snapshots) return {{"ok", false}, {"error", QVariantMap{{"message", QStringLiteral("Not a snapshot source")}}}};
+    return preflightSnapshot(snapshots->exportSnapshot(), destination, formatId, options);
+}
+QString FormatRegistry::startExportSource(QObject *source, const QUrl &destination,
+                                          const QString &formatId, const QVariantMap &options)
+{
+    const auto *snapshots = dynamic_cast<const SnapshotSource *>(source);
+    if (!snapshots) { fail(QStringLiteral("Not a snapshot source")); return {}; }
+    return startExportSnapshot(snapshots->exportSnapshot(), destination, formatId, options);
+}
 DocumentSession *FormatRegistry::adoptImport(DocumentManager *manager, const QString &jobId)
 {
     if (!manager) { fail(QStringLiteral("No document manager")); return nullptr; }

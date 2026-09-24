@@ -19,7 +19,7 @@ struct WorkbookPrivate;
 // route every change through these operations; none keeps cell state.
 // docs/workbook.md defines the grammar, functions, reference rules,
 // transactions and the native file format.
-class Workbook : public QObject {
+class Workbook : public QObject, public SnapshotSource {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString documentId READ documentId NOTIFY resetOccurred)
@@ -93,6 +93,8 @@ public:
     Q_INVOKABLE QVariant cellValue(const QString &sheetId, int row, int column) const;
     Q_INVOKABLE QString cellType(const QString &sheetId, int row, int column) const;
     Q_INVOKABLE QVariantMap cellInfo(const QString &sheetId, int row, int column) const;
+    // {lastRow, lastColumn} of the stored cells ({} for an empty sheet).
+    Q_INVOKABLE QVariantMap usedRange(const QString &sheetId) const;
     // Non-blank cells of a window of at most MaxVisibleCells positions.
     Q_INVOKABLE QVariantList visibleCells(const QString &sheetId, int firstRow, int rowCount,
                                           int firstColumn, int columnCount) const;
@@ -213,6 +215,7 @@ public:
     bool restore(const QByteArray &bytes);
     // Immutable payload for FormatProvider export (schema qindatk.workbook.v1).
     SnapshotPtr snapshot() const;
+    SnapshotPtr exportSnapshot() const override { return snapshot(); }
     Q_INVOKABLE QString serializedText() const;
     Q_INVOKABLE bool restoreText(const QString &text);
     // Atomic local-file save. An existing file is replaced only when it still
@@ -221,8 +224,12 @@ public:
     Q_INVOKABLE bool save(const QUrl &url, bool replaceExisting = false);
     Q_INVOKABLE bool open(const QUrl &url);
     Q_INVOKABLE void reset();
-    // Adds the qindatk.workbook.v1 provider to a Tk.FormatRegistry.
+    // Adds the native (qindatk.workbook.v1), CSV (text.csv) and TSV (text.tsv)
+    // providers to a Tk.FormatRegistry; false when one was already registered.
     Q_INVOKABLE bool registerFormat(QObject *formatRegistry) const;
+    // Replaces this document with a succeeded registry import job of a
+    // workbook provider (all-or-nothing, like restore); the file stays unsaved.
+    Q_INVOKABLE bool adoptImport(QObject *formatRegistry, const QString &jobId);
 
     Q_INVOKABLE QString columnName(int column) const { return Calc::columnName(column); }
     // Signature text for a supported function name, or "" (FormulaBar hints).
