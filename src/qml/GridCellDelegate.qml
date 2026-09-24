@@ -9,13 +9,13 @@ import QindaTK as Tk
 // state. objectName gridCell_<rowId>_<columnId> is part of the grid contract.
 // Style keys: horizontalAlignment, bold, italic, underline, strikeout,
 // textColor/fillColor (document colors), dataBar (0-1) + dataBarColor,
-// icon + iconTone (positive|neutral|negative -> theme roles), error.
+// icon + iconTone (positive|neutral|negative -> theme roles), error, numeric.
 Item {
     id: cell
 
     required property var modelData
     required property int index
-    property Item grid: null
+    property var grid: null // the Tk.EditableGrid, if any (var: see ConditionalRuleForm)
     property bool editorActive: false
     readonly property var cellStyle: modelData.style || ({})
     readonly property string displayText: modelData.value === undefined || modelData.value === null
@@ -23,6 +23,9 @@ Item {
     readonly property bool merged: (modelData.rowSpan || 1) > 1 || (modelData.columnSpan || 1) > 1
     readonly property bool hasIcon: String(cellStyle.icon || "").length > 0
     readonly property color fill: cellStyle.fillColor ? cellStyle.fillColor : "transparent"
+    // AGENT-GUARD: a number is never shown cut short ("…50.00" misreads as 50):
+    // when it does not fit, whole # glyphs fill the cell, as in other spreadsheets.
+    readonly property bool hashed: cellStyle.numeric === true && cellText.implicitWidth > cellText.width
 
     // Text over a document fill without its own text color: a shade of the
     // fill itself, dark on light fills and light on dark ones (the theme's
@@ -90,6 +93,7 @@ Item {
              : cell.cellStyle.iconTone === "negative" ? Tk.Theme.color.danger : Tk.Theme.color.warning
     }
     Tk.Label {
+        id: cellText
         objectName: "gridCellText"
         anchors.fill: parent
         anchors.leftMargin: cell.hasIcon ? Tk.Theme.space.xs * 2 + Tk.Theme.size.iconSm : Tk.Theme.space.xs
@@ -108,7 +112,29 @@ Item {
         font.underline: cell.cellStyle.underline === true
         font.strikeout: cell.cellStyle.strikeout === true
         elide: cell.cellStyle.horizontalAlignment === "right" ? Text.ElideLeft : Text.ElideRight
-        visible: !cell.editorActive
+        visible: !cell.editorActive && !cell.hashed
+    }
+    Loader {
+        objectName: "gridCellHashes"
+        active: cell.hashed && !cell.editorActive
+        anchors.fill: cellText
+        sourceComponent: Component {
+            Item {
+                Tk.Label {
+                    // Right-aligned in a width of whole glyphs, so none is cut.
+                    readonly property real glyph: implicitWidth / text.length
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: glyph > 0 ? Math.max(glyph, Math.floor(parent.width / glyph) * glyph) : 0
+                    clip: true
+                    horizontalAlignment: Text.AlignRight
+                    elide: Text.ElideNone
+                    text: "################################"
+                    font: cellText.font
+                    color: cellText.color
+                }
+            }
+        }
     }
     MouseArea {
         anchors.fill: parent

@@ -75,6 +75,32 @@ TestCase {
         return end
     }
 
+    // A number too wide for its column shows whole # glyphs, never a cut
+    // value; text still elides, and a wide enough column shows the number.
+    function test_numbers_that_do_not_fit_show_hashes() {
+        const host = make()
+        const book = host.book, sheet = host.sheet, s = sheet.currentSheetId
+        verify(book.pasteInputs(s, 0, 0, [["123456789.25", "a long piece of text"]]))
+        verify(book.applyStyle(s, 0, 0, 0, 0, { numberFormat: "#,##0.00" }))
+        verify(book.setColumnWidth(s, 0, 40))
+        verify(book.setColumnWidth(s, 1, 40))
+        // Resizing recreates delegates: look the cells up after the change.
+        tryVerify(function() { const c = cellOf(sheet.grid, 0, 0); return c !== null && c.width === 40 && c.hashed })
+        const number = cellOf(sheet.grid, 0, 0), text = cellOf(sheet.grid, 0, 1)
+        verify(!findChild(number, "gridCellText").visible)
+        const hashes = findChild(number, "gridCellHashes")
+        tryVerify(function() { return hashes.item !== null && hashes.item.visible })
+        const glyphs = hashes.item.children[0]
+        verify(glyphs.width > 0 && glyphs.width <= hashes.width)
+        compare(Math.round(glyphs.width / glyphs.glyph * 1000) % 1000, 0) // whole glyphs only
+        verify(!text.hashed) // text is not a number: it elides
+        verify(findChild(text, "gridCellText").truncated)
+        compare(number.Accessible.name, "Row 1, column 1: 123,456,789.25") // the value, not ###
+        verify(book.setColumnWidth(s, 0, 200))
+        tryVerify(function() { return !cellOf(sheet.grid, 0, 0).hashed })
+        compare(findChild(cellOf(sheet.grid, 0, 0), "gridCellText").text, "123,456,789.25")
+    }
+
     function test_type_to_edit_and_source_editing() {
         const host = make()
         const book = host.book, sheet = host.sheet, s = sheet.currentSheetId

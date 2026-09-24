@@ -134,6 +134,25 @@ record structural edits as first-class inverse steps instead. `removeDocument`
 and QObject destruction retire a history; the active document must be set to
 another live session by the application.
 
+<a id="history-participants"></a>
+## History participants
+
+A domain model that keeps its own exact history, such as `Tk.Workbook`, does
+not register values with `UndoService`. It implements `UndoParticipant`
+(`<qindatk/application_contracts.h>`): `canUndo`, `canRedo`, `undoText`,
+`redoText`, `isModified`, `undo`, `redo` and `markSaved`, and its QObject
+emits `historyChanged()` when any of them changes. Setting
+`UndoService.activeParticipant` to that object routes the facade to it:
+`canUndo`, `canRedo`, `undoText`, `redoText`, `clean` (`!isModified()`),
+`undo()`, `redo()` and `markClean()`, with `changed` forwarded from
+`historyChanged()`. A QObject that is not a participant is refused (“Not an
+undo participant”) and the previous participant stays. While a participant
+is active, the property-document history is not shown (`historyEntries` is
+empty) and macros are refused; the participant groups its own steps (the
+Workbook's transactions). Set `activeParticipant` to null to return to
+`activeDocument`. The host switches it with the active view, so menu,
+shortcut and toolbar commands reach the document the user is working in.
+
 ## Selection and validation
 
 `SelectionModel` stores UUID-backed `selectedIds`, `currentId`, `anchorId`

@@ -50,7 +50,8 @@ QVariantMap Workbook::statistics() const
             {"lastDirty", d->stats.dirty}, {"lastEvaluated", d->stats.evaluated},
             {"lastCycleCells", d->stats.cycleCells}, {"lastRecalcMicroseconds", d->stats.microseconds},
             {"totalEvaluations", d->stats.totalEvaluations},
-            {"historySteps", qint64(d->history.size())}, {"historyCursor", qint64(d->cursor)}};
+            {"historySteps", qint64(d->history.size())}, {"historyCursor", qint64(d->cursor)},
+            {"historyBytes", d->historyBytes}};
 }
 
 int WorkbookPrivate::indexOf(const Sheet *s) const
@@ -261,15 +262,8 @@ bool WorkbookPrivate::commit()
     step.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     step.label = t.label;
     step.undo = flattenReversed(t.inverses);
-    history.resize(cursor);
     if (cleanCursor > qint64(cursor)) cleanCursor = -1;
-    history.push_back(std::move(step));
-    ++cursor;
-    if (history.size() > size_t(Workbook::MaxHistorySteps)) {
-        history.erase(history.begin());
-        --cursor;
-        cleanCursor = cleanCursor > 0 ? cleanCursor - 1 : -1;
-    }
+    pushHistory(std::move(step));
     ++revision;
     finish(t.label, true, changed, t);
     return true;
@@ -304,7 +298,7 @@ bool WorkbookPrivate::replay(bool undoing)
     }
     Transaction t = std::move(*txn);
     txn.reset();
-    (undoing ? step.redo : step.undo) = flattenReversed(t.inverses);
+    storeReplayed(step, undoing, flattenReversed(t.inverses));
     QHash<quint32, Bounds> changed = t.touched;
     recalculate(t.seeds, &changed);
     cursor = undoing ? cursor - 1 : cursor + 1;

@@ -12,7 +12,7 @@ import QindaTK as Tk
 Item {
     id: assist
 
-    property Item view: null
+    property var view: null // the Tk.SheetView (var: see ConditionalRuleForm)
     // {row, column, input, check, source: "grid" | "api"} while a prompt is open.
     property var pending: null
     readonly property var validation: view ? view.activeValidation : ({})

@@ -91,8 +91,9 @@ T.Control {
         return qsTr("%1 — %2").arg(condition).arg(rule.ranges.join(" "))
     }
     function buildDraft() {
+        // Scales, bars and icons never "match", so stopIfTrue means nothing for them.
         const rule = { ranges: ranges.split(/[\s,;]+/).filter(function(part) { return part.length > 0 }), type: type,
-                       stopIfTrue: stopIfTrue }
+                       stopIfTrue: styled && stopIfTrue }
         if (ruleId.length > 0) rule.id = ruleId
         if (compares) { rule.operator = operator; rule.value1 = value1; if (twoValues) rule.value2 = value2 }
         if (type === "expression") rule.value1 = value1

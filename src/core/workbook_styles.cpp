@@ -172,6 +172,7 @@ QVariantMap WorkbookPrivate::presentation(const Sheet &s, int row, int column, c
               : (value.isBoolean() || value.isError()) ? QStringLiteral("center") : QStringLiteral("left");
     result.insert(QStringLiteral("horizontalAlignment"), align);
     if (value.isError()) result.insert(QStringLiteral("error"), true);
+    if (value.isNumber()) result.insert(QStringLiteral("numeric"), true); // shown as ### when it does not fit
     return result;
 }
 

@@ -84,7 +84,7 @@ public:
     Q_INVOKABLE bool copyImage(const QByteArray &png, const QString &documentId,
                                const QString &entityId, const QString &revision);
     // A range of cells (e.g. a spreadsheet selection) as one Range item plus
-    // the plain text other applications paste (docs/clipboard.md#ranges).
+    // the plain text other applications paste (docs/transfers.md#ranges).
     Q_INVOKABLE bool copyRange(const QString &documentId, const QString &revision,
                                const QVariantMap &range, const QString &text);
     // What a range-aware paste can use now: {kind: "range", range,

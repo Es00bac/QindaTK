@@ -152,6 +152,15 @@ TestCase {
         compare(findChild(cf, "cfError").text, "Enter the second value of the range")
         verify(!findChild(cf, "cfApply").available)
         compare(cf.apply(), "")
+
+        // Scales never "match": stop-if-true is hidden and left out of the draft.
+        cf.newRule("A1:A4")
+        cf.stopIfTrue = true
+        verify(findChild(cf, "cfStopIfTrue").visible)
+        compare(cf.draft.stopIfTrue, true)
+        cf.type = "colorScale"
+        verify(!findChild(cf, "cfStopIfTrue").visible)
+        compare(cf.draft.stopIfTrue, false)
     }
 
     function test_validation_editor_list_and_paste_policy() {

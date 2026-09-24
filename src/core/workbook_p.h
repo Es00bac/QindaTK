@@ -79,6 +79,8 @@ struct Mutation {
     NamesPtr names;                           // SetNames
 };
 using MutationList = std::vector<Mutation>;
+// Estimated heap bytes a mutation list keeps alive (history budgets).
+qint64 retainedBytes(const MutationList &list);
 
 struct RangeKey {
     quint32 sheet = 0;
@@ -121,11 +123,14 @@ struct WorkbookPrivate final : Calc::EvalContext {
         bool sheetsChanged = false;
         bool namesChanged = false;
     };
+    // AGENT-NOTE: a step keeps only the list it needs next (undo before the
+    // cursor, redo after it); the other is recomputed when it is replayed.
     struct Step {
         QString id;
         QString label;
         MutationList undo;
         MutationList redo;
+        qint64 bytes = 0; // Calc::retainedBytes of both lists
     };
     struct RecalcStats {
         qint64 dirty = 0, evaluated = 0, cycleCells = 0, microseconds = 0;
@@ -209,6 +214,12 @@ struct WorkbookPrivate final : Calc::EvalContext {
     bool commit();
     void cancel();
     bool replay(bool undo);
+    // History bookkeeping (workbook_mutations.cpp): pushHistory drops the
+    // redo branch, appends a committed step and trims the oldest steps past
+    // MaxHistorySteps or MaxHistoryBytes (the newest step always stays);
+    // storeReplayed keeps a replayed step's opposite list and its bytes.
+    void pushHistory(Step step);
+    void storeReplayed(Step &step, bool undone, MutationList opposite);
     void finish(const QString &label, bool emitChanges, QHash<quint32, Calc::Bounds> changed,
                 const Transaction &txn);
     template <typename Body> bool mutate(const QString &label, Body body);
@@ -234,6 +245,7 @@ struct WorkbookPrivate final : Calc::EvalContext {
     std::optional<Transaction> txn;
     std::vector<Step> history;
     size_t cursor = 0;
+    qint64 historyBytes = 0;
     qint64 cleanCursor = 0; // -1 once the saved state left the history
     RecalcStats stats;
     QUrl fileUrl;

@@ -108,7 +108,7 @@ public:
     Q_INVOKABLE QString startExportSession(DocumentSession *session, const QUrl &destination,
                                            const QString &formatId, const QVariantMap &options = {});
     Q_INVOKABLE DocumentSession *adoptImport(DocumentManager *manager, const QString &jobId);
-    // Export of any snapshot (docs/formats.md#snapshot-sources): a QObject
+    // Export of any snapshot (docs/format-registry.md#snapshot-sources): a QObject
     // that is a SnapshotSource (such as Tk.Workbook) from QML, or a snapshot.
     Q_INVOKABLE QVariantMap preflightExportSource(QObject *source, const QUrl &destination,
                                                   const QString &formatId,

@@ -119,6 +119,7 @@ void WorkbookPrivate::adopt(DecodedWorkbook &&data)
     byId.clear();
     byUid.clear();
     history.clear();
+    historyBytes = 0;
     cursor = 0;
     cleanCursor = 0;
     documentId = data.documentId;

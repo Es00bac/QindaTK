@@ -88,6 +88,20 @@ Item {
     // Ctrl+C/Ctrl+V use the system clipboard: ranges paste into any workbook,
     // and other applications receive tab-separated text.
     Tk.ClipboardService { id: clipboard }
+    // The shared services: the toolbar's Undo/Redo go through UndoService,
+    // which routes them to the Workbook's own history, and Save/Reopen go
+    // through a WorkbookSession (the write runs on a worker).
+    Tk.UndoService {
+        id: history
+        activeParticipant: book
+    }
+    Tk.WorkbookSession {
+        id: session
+        workbook: book
+        onSaveFinished: function(ok, error, revision) {
+            root.status = ok ? "Saved revision " + revision : error
+        }
+    }
     Tk.MessageDialog {
         id: removal
         objectName: "removeSheetDialog"
@@ -132,33 +146,38 @@ Item {
                 Tk.IconButton {
                     objectName: "undoButton"
                     iconName: "undo-2"
-                    tooltip: book.canUndo ? "Undo " + book.undoText : "Nothing to undo"
-                    enabled: book.canUndo && !formula.editing
-                    onClicked: book.undo()
+                    tooltip: history.canUndo ? "Undo " + history.undoText : "Nothing to undo"
+                    enabled: history.canUndo && !formula.editing
+                    onClicked: history.undo()
                 }
                 Tk.IconButton {
                     objectName: "redoButton"
                     iconName: "redo-2"
-                    tooltip: book.canRedo ? "Redo " + book.redoText : "Nothing to redo"
-                    enabled: book.canRedo && !formula.editing
-                    onClicked: book.redo()
+                    tooltip: history.canRedo ? "Redo " + history.redoText : "Nothing to redo"
+                    enabled: history.canRedo && !formula.editing
+                    onClicked: history.redo()
                 }
                 Tk.Button {
                     objectName: "saveButton"
-                    text: "Save"
+                    text: session.saving ? "Saving…" : "Save"
                     iconName: "save"
                     tooltip: "Save the workbook to " + root.fileUrl
-                    enabled: !formula.editing
-                    onClicked: root.status = book.save(root.fileUrl, true) ? "Saved revision " + book.revision
-                                                                           : book.lastError
+                    enabled: !formula.editing && !session.saving
+                    // The example's fixed file may exist from an earlier run.
+                    onClicked: {
+                        const started = session.url.toString() === root.fileUrl.toString()
+                            ? session.requestSave() : session.requestSaveAs(root.fileUrl, true)
+                        if (!started) root.status = session.lastError
+                    }
                 }
                 Tk.Button {
                     objectName: "reopenButton"
                     text: "Reopen saved"
                     iconName: "folder-open"
                     tooltip: "Discard changes and reopen the saved workbook file"
-                    enabled: !formula.editing && book.fileUrl.toString().length > 0
-                    onClicked: root.status = book.open(root.fileUrl) ? "Reopened the saved workbook" : book.lastError
+                    enabled: !formula.editing && !session.saving && session.url.toString().length > 0
+                    onClicked: root.status = session.open(root.fileUrl) ? "Reopened the saved workbook"
+                                                                        : session.lastError
                 }
                 Tk.Caption {
                     objectName: "workbookMessage"

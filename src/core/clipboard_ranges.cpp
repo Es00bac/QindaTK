@@ -3,7 +3,7 @@
 
 #include <QThread>
 
-// Range items (docs/clipboard.md#ranges): a Range payload with a plain-text
+// Range items (docs/transfers.md#ranges): a Range payload with a plain-text
 // projection for other applications, and a reader for range-aware pastes.
 namespace QindaTK {
 

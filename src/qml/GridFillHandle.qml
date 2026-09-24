@@ -13,7 +13,7 @@ import QindaTK as Tk
 Item {
     id: handle
 
-    property Item grid: null
+    property var grid: null // the Tk.EditableGrid (var: see ConditionalRuleForm)
     property bool active: true
     // The previewed target {firstRow, firstColumn, lastRow, lastColumn}, or null.
     property var target: null

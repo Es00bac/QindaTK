@@ -134,6 +134,10 @@ applying a whole step. `PropertyDocument` and `UndoService` remain unchanged.
 The view and domain must supply accessible virtual cells, labels, persistence
 and formula evaluation. See [editable-grid.md](editable-grid.md).
 
+**Amended by D-055.** A domain source that owns its data and history can run
+the grid in `sourceCommits` mode instead: validated change sets go to the
+source and the grid keeps no overrides or history.
+
 ## D-041 — Carry typed query plans and source provenance across pivot refreshes
 
 **Context.** Filters and pivots must distinguish null from errors, preserve
@@ -236,31 +240,48 @@ adapter. Snapping, selection handles and guides (WP-041) and colour transforms
 **Context.** WP-055 needs spreadsheet references with relative and absolute
 anchors, structural row/column edits that keep formula targets, sheet renames
 and reorders that keep reference identity, and sparse sheets up to the
-1,048,576 × 16,384 grid. `EditableGridModel` already provides stable view
-IDs, bounded windows and an external-history bridge; `UndoService` records
-only `PropertyDocument` changes. (The number is provisional; the parallel
-lanes may renumber at integration.)
+1,048,576 × 16,384 grid. Formats, rules, merged areas, names and sheet
+properties must follow the same edits and undo exactly. `EditableGridModel`
+provides stable view IDs, bounded windows and an external-history bridge, and
+`UndoService`, `RecoveryManager` and `FormatRegistry` were written for
+`PropertyDocument`. (The number is provisional; the parallel lanes may
+renumber at integration.)
 
 **Decision.** Cells are stored by position in ordered per-sheet sparse maps.
 A reference stores its absolute target, per-axis anchor flags and, when
 explicit, the target sheet's stable ID; copy/fill moves only relative parts,
 and row/column insertion or removal rewrites references by a documented rule
-instead of giving every row and column an identity. Every change is a
-primitive mutation whose exact inverse is computed when it is applied; one
-operation or explicit transaction is one history step, and undo/redo
-recompute inverses. Values are never stored in history or files: commit,
-undo, redo, cancel and open recalculate the dirty closure found through a
-cell/range dependency index, ordered with Kahn's algorithm, with Tarjan SCCs
-evaluating to `#CYCLE!`. The Workbook is the single revision and history
-owner; `WorkbookSheetAdapter` runs the grid in `externalUndo` mode, applies
-each committed grid change set as one Workbook transaction and reverts the
-grid's override layer, so the grid never stores values.
+instead of giving every row and column an identity. Names store the name, and
+evaluation resolves it. Formats, rules, merges and properties are rectangles
+in an immutable per-sheet feature set: an edit swaps in a new copy, and a
+structural edit transforms it with the same rules as references. Every
+change is a primitive mutation whose exact inverse is computed when it is
+applied; one operation or explicit transaction is one history step. Values
+are never stored in history or files: commit, undo, redo, cancel and open
+recalculate the dirty closure found through a cell/range dependency index,
+ordered with Kahn's algorithm, with Tarjan SCCs evaluating to `#CYCLE!`.
+
+The Workbook is the single revision and history owner. The grid joins it as
+a domain source (`GridCellSourceExtension`, `sourceCommits`): a committed
+edit, paste or fill reaches the Workbook as one transaction and the grid keeps
+no values or history. Shared services join it through small additive
+contracts instead of wrapping it in a `PropertyDocument`: `UndoParticipant`
+routes `UndoService` commands, recovery payload validators accept its
+snapshots, `SnapshotSource` lets `FormatRegistry` export it, and
+`WorkbookSession` applies the persistence rules with a workbook
+`DocumentStore`.
 
 **Consequences.** Memory follows content, not declared dimensions, and
 insertion is value-neutral (no recalculation). A structural edit costs a
 rewrite of the formulas that refer to the sheet and a dependency-index
 rebuild (about 150 ms for 25,000 formulas in a Debug build). Typed formula
-whitespace and case are not preserved; the canonical rendering is. Grid row
-and column IDs are view-local. Gaps found in the consumed grid and format
-contracts are listed in [workbook.md](workbook.md#gaps-in-consumed-contracts)
-for their owners.
+whitespace and case are not preserved; the canonical rendering is. A feature
+step keeps the previous feature set (768 KiB at the 4,096-area and
+16,384-merge limits), so the history is bounded by bytes as well as steps
+(64 MiB). Grid row and column IDs are view-local. The contract changes closed
+the gaps listed in
+[workbook.md](workbook.md#gaps-in-consumed-contracts). If the domain
+document boundary proposed by the WP-033 domain-session lane (`DocumentModel`,
+`DocumentCommand`, `DocumentCodec`) is integrated, the Workbook's mutation
+lists map onto its command steps and `WorkbookSession` onto its generic
+session; the participant and validator hooks then become adapters to retire.

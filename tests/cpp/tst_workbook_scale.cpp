@@ -2,7 +2,13 @@
 #include "workbook.h"
 #include <QElapsedTimer>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QtTest>
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 
 using namespace QindaTK;
 
@@ -21,6 +27,16 @@ qint64 statusKiB(const char *field)
 void metric(const char *name, qint64 value)
 { qInfo().noquote() << QStringLiteral("METRIC %1 %2").arg(QLatin1String(name)).arg(value); }
 qint64 evaluated(Workbook &wb) { return wb.statistics().value(QStringLiteral("lastEvaluated")).toLongLong(); }
+// Heap bytes in use; RSS misses allocations that reuse freed, resident pages.
+qint64 heapInUse()
+{
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || __GLIBC_MINOR__ >= 33)
+    const struct mallinfo2 info = mallinfo2();
+    return qint64(info.uordblks + info.hblkhd);
+#else
+    return -1;
+#endif
+}
 }
 
 class WorkbookScaleTest : public QObject {
@@ -28,6 +44,7 @@ class WorkbookScaleTest : public QObject {
 private slots:
     void sparseMillionRowSheet();
     void longChainAndLongCycle();
+    void featuresAtScale();
 };
 
 void WorkbookScaleTest::sparseMillionRowSheet()
@@ -162,6 +179,88 @@ void WorkbookScaleTest::longChainAndLongCycle()
     metric("chain.editUs", chainUs);
     metric("chain.closeCycleUs", cycleUs);
     metric("chain.breakCycleUs", breakUs);
+}
+
+// Whole-column formulas, a color scale over a million rows, and the format
+// and merged-area limits, including what one feature step retains for undo.
+void WorkbookScaleTest::featuresAtScale()
+{
+    constexpr int Values = 20000, Stride = 50, Rows = 1000000;
+    Workbook wb;
+    const QString s = wb.addSheet(QStringLiteral("Features"), -1, Rows, 100);
+    QVERIFY(wb.beginTransaction(QStringLiteral("Seed")));
+    for (int i = 0; i < Values; ++i) QVERIFY(wb.setCellInput(s, i * Stride, 0, QString::number(i + 1)));
+    QVERIFY(wb.commitTransaction());
+    QElapsedTimer timer;
+    timer.start();
+    QVERIFY(wb.setCellInput(s, 0, 2, QStringLiteral("=SUM(A:A)")));
+    metric("features.wholeColumnSumUs", timer.nsecsElapsed() / 1000);
+    QCOMPARE(wb.cellDisplay(s, 0, 2), QStringLiteral("200010000"));
+    timer.restart();
+    QVERIFY(wb.setCellInput(s, (Values - 1) * Stride, 0, QStringLiteral("0")));
+    metric("features.wholeColumnRecalcUs", timer.nsecsElapsed() / 1000);
+    QCOMPARE(evaluated(wb), 1);
+    QCOMPARE(wb.cellDisplay(s, 0, 2), QStringLiteral("199990000"));
+
+    // The scale's minimum and maximum are computed once per revision.
+    QVERIFY(!wb.setConditionalFormat(s, {{"ranges", QStringList{QStringLiteral("A1:A1000000")}},
+                                         {"type", QStringLiteral("colorScale")}}).isEmpty());
+    timer.restart();
+    QCOMPARE(wb.cellPresentation(s, (Values - 2) * Stride, 0).value("fillColor").toString(), QStringLiteral("#63be7b"));
+    metric("features.colorScaleFirstUs", timer.nsecsElapsed() / 1000);
+    timer.restart();
+    for (int r = 0; r < 40; ++r)
+        for (int c = 0; c < 20; ++c) wb.cellPresentation(s, r * Stride, c);
+    metric("features.colorScaleWindow800Us", timer.nsecsElapsed() / 1000);
+    QCOMPARE(wb.cellPresentation(s, (Values - 1) * Stride, 0).value("fillColor").toString(), QStringLiteral("#f8696b"));
+
+    // The limits, loaded from a file: 4,095 format areas and 16,384 merged areas.
+    Workbook limits;
+    const QString l = limits.addSheet(QStringLiteral("Limits"), -1, 20000, 26);
+    QJsonArray formats, merges;
+    for (int i = 0; i < 4095; ++i)
+        formats.append(QJsonObject{{"range", QStringLiteral("F%1").arg(i + 1)}, {"style", QJsonObject{{"bold", true}}}});
+    for (int i = 0; i < 16384; ++i) merges.append(QStringLiteral("H%1:I%1").arg(i + 1));
+    QJsonObject root = QJsonDocument::fromJson(limits.serialize()).object();
+    QJsonArray sheets = root.value(QStringLiteral("sheets")).toArray();
+    QJsonObject sheet = sheets.at(1).toObject();
+    sheet.insert(QStringLiteral("formats"), formats);
+    sheet.insert(QStringLiteral("merges"), merges);
+    sheets.replace(1, sheet);
+    root.insert(QStringLiteral("sheets"), sheets);
+    root.insert(QStringLiteral("version"), 2);
+    timer.restart();
+    QVERIFY2(limits.restore(QJsonDocument(root).toJson(QJsonDocument::Compact)), qPrintable(limits.lastError()));
+    metric("features.limitsRestoreMs", timer.elapsed());
+    timer.restart();
+    for (int r = 0; r < 40; ++r)
+        for (int c = 0; c < 20; ++c) limits.cellPresentation(l, r, c);
+    metric("features.formats4095Window800Us", timer.nsecsElapsed() / 1000);
+    timer.restart();
+    QCOMPARE(limits.mergedAreas(l, 0, 0, 39, 19).size(), 40);
+    metric("features.merges16384WindowUs", timer.nsecsElapsed() / 1000);
+    QVERIFY(limits.applyStyle(l, 4095, 5, 4095, 5, {{"bold", true}})); // the 4,096th area
+    QVERIFY(!limits.applyStyle(l, 4096, 5, 4096, 5, {{"bold", true}}));
+    QVERIFY(limits.lastError().contains(QStringLiteral("4096")));
+    QVERIFY(!limits.mergeCells(l, 17000, 7, 17000, 8));
+    QVERIFY(limits.lastError().contains(QStringLiteral("16384")));
+
+    // A feature step keeps the previous feature set: at the limit, 100 steps.
+    const qint64 heapBefore = heapInUse();
+    timer.restart();
+    for (int i = 0; i < 100; ++i) QVERIFY(limits.applyStyle(l, 0, 5, 0, 5, {{"bold", i % 2 == 1}}));
+    metric("features.formats4096StepUs", timer.nsecsElapsed() / 1000 / 100);
+    if (heapBefore >= 0) metric("features.formats4096StepHeapKiB", (heapInUse() - heapBefore) / 1024 / 100);
+    // About 75 MiB of steps: the history keeps the newest ones within its byte budget.
+    const QVariantMap history = limits.statistics();
+    const qint64 steps = history.value("historySteps").toLongLong(), bytes = history.value("historyBytes").toLongLong();
+    QVERIFY(bytes <= Workbook::MaxHistoryBytes);
+    QVERIFY(steps > 1 && steps < 100);
+    metric("features.historyStepsKept", steps);
+    metric("features.historyStepEstimateKiB", bytes / steps / 1024);
+    QCOMPARE(limits.cellFormat(l, 0, 5).value("bold").toBool(), true);
+    QVERIFY(limits.undo());
+    QCOMPARE(limits.cellFormat(l, 0, 5).value("bold").toBool(), false);
 }
 
 QTEST_GUILESS_MAIN(WorkbookScaleTest)

@@ -196,6 +196,8 @@ void WorkbookFeaturesTest::formatsAndAlignment()
     QCOMPARE(look(wb, s, "A2").value("horizontalAlignment").toString(), QStringLiteral("left"));
     QCOMPARE(look(wb, s, "A3").value("horizontalAlignment").toString(), QStringLiteral("center"));
     QCOMPARE(look(wb, s, "A4").value("error").toBool(), true);
+    QCOMPARE(look(wb, s, "A1").value("numeric").toBool(), true); // views show ### rather than cut it
+    QVERIFY(!look(wb, s, "A2").contains("numeric"));
     QVERIFY(wb.applyStyle(s, 0, 0, 0, 0, {{"numberFormat", "#,##0.00"}}));
     QCOMPARE(out(wb, s, "A1"), QStringLiteral("1,234.50"));
     QCOMPARE(in(wb, s, "A1"), QStringLiteral("1234.5")); // the input is never formatted

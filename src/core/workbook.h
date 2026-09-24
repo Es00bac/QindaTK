@@ -47,6 +47,8 @@ public:
     static constexpr int MaxTransactionCells = 65536;
     static constexpr int MaxVisibleCells = 4096;
     static constexpr int MaxHistorySteps = 200;
+    // Estimated undo data the history retains; the oldest steps go first.
+    static constexpr qint64 MaxHistoryBytes = 64 * 1024 * 1024;
     static constexpr qsizetype MaxTextLength = 32767;
     static constexpr qsizetype MaxFileBytes = 64 * 1024 * 1024;
 
@@ -143,7 +145,7 @@ public:
     // Explicit formatting of one cell, without conditional formats.
     Q_INVOKABLE QVariantMap cellFormat(const QString &sheetId, int row, int column) const;
     // What a view draws: formats, then conditional formats (which win), the
-    // general alignment of the value's type, dataBar/icon and error flags.
+    // general alignment of the value's type, dataBar/icon, error and numeric flags.
     Q_INVOKABLE QVariantMap cellPresentation(const QString &sheetId, int row, int column) const;
     Q_INVOKABLE QString numberFormatProblem(const QString &format) const;
 

@@ -13,7 +13,9 @@ import QindaTK as Tk
 Tk.Grid {
     id: form
 
-    property Item editor: null
+    // AGENT-NOTE: var, not Tk.ConditionalFormatEditor: a property typed with the
+    // type that instantiates this one is a cycle that crashes compiled lookups.
+    property var editor: null
 
     columns: "auto 1fr"
     columnGap: Tk.Theme.space.sm
@@ -177,9 +179,11 @@ Tk.Grid {
         current: form.editor && form.editor.maxColor ? form.editor.maxColor : "transparent"
         onSelected: function(color) { form.editor.maxColor = color.toString() }
     }
-    Tk.Label { text: ""; visible: true }
+    Tk.Label { text: ""; visible: stopCheck.visible }
     Tk.CheckBox {
+        id: stopCheck
         objectName: "cfStopIfTrue"
+        visible: !!form.editor && form.editor.styled
         small: true
         text: qsTr("Stop evaluating later rules when this one matches")
         checked: !!form.editor && form.editor.stopIfTrue

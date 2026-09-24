@@ -3,7 +3,8 @@ import QtQuick
 import QtTest
 
 // Drives examples/workbook/Main.qml the way a user would: switch sheets,
-// edit through the formula bar, fill a formula, undo, save and reopen.
+// edit through the formula bar, fill a formula, undo through the shared
+// UndoService, save through the WorkbookSession (asynchronous) and reopen.
 TestCase {
     id: root
     name: "WorkbookExample"
@@ -38,6 +39,7 @@ TestCase {
         compare(book.cellInput(book.sheetIdAt(0), 4, 5), "=SUM(B5:E5)")
         compare(book.cellDisplay(book.sheetIdAt(0), 4, 5), "2,350.00")
         compare(book.undoText, "Fill cells")
+        compare(part("undoButton").tooltip, "Undo Fill cells") // UndoService routes to the Workbook
 
         mouseClick(part("workbookTab_sheet-2"))
         tryCompare(sheet, "currentSheetId", "sheet-2")
@@ -59,7 +61,8 @@ TestCase {
         compare(book.cellInput("sheet-2", 3, 1), "42")
 
         mouseClick(part("saveButton"))
-        verify(!book.modified)
+        tryVerify(function() { return !book.modified }, 10000)
+        compare(part("workbookMessage").text.indexOf("Saved revision"), 0)
         verify(book.setCellInput("sheet-2", 3, 1, "changed"))
         verify(book.modified)
         mouseClick(part("reopenButton"))

@@ -3,23 +3,28 @@
 
 `Tk.Workbook` (C++ `QindaTK::Workbook`, `<qindatk/workbook.h>`) is the
 authoritative spreadsheet document: ordered sheets with stable IDs, sparse
-cells, typed literals and formulas, computed values, one revision counter and
-one undo/redo history. Views never keep cell state. `Tk.SheetView`,
-`Tk.FormulaBar` and `Tk.WorkbookTabs` present it; `Tk.WorkbookSheetAdapter`
-feeds `Tk.EditableGrid` through the grid's existing public contract
-([editable-grid.md](editable-grid.md)). This page is the contract for WP-055's
-engine slice; [controls.md](controls.md#workbook-and-spreadsheet) lists the
-QML members.
+cells, typed literals and formulas, computed values, cell formats,
+conditional formats, validation rules, merged areas, sheet properties,
+workbook names, one revision counter and one undo/redo history. Views never
+keep cell state. `Tk.SheetView`, `Tk.FormulaBar`, `Tk.WorkbookTabs`,
+`Tk.ConditionalFormatEditor` and `Tk.DataValidationEditor` present and edit
+it. `Tk.WorkbookSheetAdapter` feeds `Tk.EditableGrid` as a domain source
+([editable-grid.md](editable-grid.md#domain-sources)), and
+`Tk.WorkbookSession` connects it to the shared save, recovery and history
+services. This page is the contract for WP-055;
+[controls.md](controls.md#workbook-and-spreadsheet) lists the QML members.
 
 ## Document model
 
 | Concept | Rule |
 | --- | --- |
-| Sheet identity | `sheet-N` IDs from a counter that is persisted and never rolls back, so an ID is never reused in a document, even after undo or reopen. Order and names are separate, editable state. |
+| Sheet identity | `sheet-N` IDs come from a counter that is persisted and never rolls back, so an ID is never reused in a document, even after undo or reopen. Order and names are separate, editable state. |
 | Sheet names | 1–31 UTF-16 units, none of `[ ] : * ? / \`, no leading/trailing `'`, no control characters, unique ignoring case. |
-| Dimensions | Each sheet declares `rowCount × columnCount` (default 1000 × 26) up to the engine grid 1,048,576 × 16,384 (`A1:XFD1048576`). Row/column insertion grows the declaration; a sheet keeps at least one row and column. Cells are only stored where they have content, so memory follows content, not dimensions. |
+| Dimensions | Each sheet declares `rowCount × columnCount` (default 1000 × 26), up to the engine grid of 1,048,576 × 16,384 (`A1:XFD1048576`). Row/column insertion grows the declaration; a sheet keeps at least one row and column. Cells are stored only where they have content, so memory follows content, not dimensions. |
 | Cell content | Empty, a literal (`number`, `text`, `boolean`, `error`) or a formula. A formula cell also caches its computed value. |
 | Address | A row/column position. Views give rows/columns stable grid IDs, but formulas refer to positions and are rewritten by structural edits (below). |
+| Sheet features | Cell formats, conditional formats, validation rules, merged areas and sheet properties (tab color, hidden, protected, frozen panes, row/column sizes) belong to one sheet. They are stored as rectangles, not per cell, and follow structural edits ([formats and rules](#formats-rules-and-names)). |
+| Names | Workbook-wide names for one rectangle on one sheet ([names](#names)). |
 
 ### Typed input
 
@@ -53,29 +58,36 @@ term        = power    { ("*" | "/") power }
 power       = percent  { "^" percent }              ; left associative: 2^3^2 = 64
 percent     = unary    { "%" }
 unary       = ("-" | "+") unary | primary            ; binds tighter than ^: -2^2 = 4
-primary     = number | string | TRUE | FALSE | error | reference
+primary     = number | string | TRUE | FALSE | error | reference | name
             | function "(" [ comparison { "," comparison } ] ")" | "(" comparison ")"
-reference   = [ sheet "!" ] cell [ ":" cell ]
+reference   = [ sheet "!" ] ( cell [ ":" cell ] | columns | rows )
 cell        = ["$"] column ["$"] row                 ; A..XFD, 1..1048576, any case
+columns     = ["$"] column ":" ["$"] column          ; whole columns: A:A, $B:$D
+rows        = ["$"] row ":" ["$"] row                ; whole rows: 1:1, $3:$5
+name        = (letter | "_") { letter | digit | "_" | "." }   ; see Names
 sheet       = plain-name | "'" name-with-'' "'"      ; quoted when not [A-Za-z_][A-Za-z0-9_.]*
 string      = '"' { any | '""' } '"'
 ```
 
 Whitespace between tokens is ignored (there is no intersection operator).
 Arguments are separated by `,` and numbers use `.` regardless of locale.
-Unknown names, unknown functions and wrong argument counts are parse errors,
-not `#NAME?` results. Limits: 8,192 UTF-16 units typed (stored formulas may
-render up to 8× longer after reference rewrites), 64 nested
-parentheses/calls/unary prefixes, AST height 1,024, 4,096 nodes, 255
-arguments. Every error names a span `[start, end)` into the input, counting
-the leading `=`; `Workbook.checkInput` returns it without changing anything,
-along with every reference's span, target sheet and rectangle.
+Unknown functions and wrong argument counts are parse errors. A word that is
+a valid name parses as a name even when no such name is defined yet; it
+evaluates to `#NAME?` until one is. A word that cannot be a name, such as a
+function name without `(` or an address outside the grid (`XFE1`), is a
+parse error. Limits: 8,192 UTF-16 units typed (stored formulas may render up
+to 8× longer after reference rewrites), 64 nested parentheses/calls/unary
+prefixes, AST height 1,024, 4,096 nodes, 255 arguments. Every error names a
+span `[start, end)` into the input, counting the leading `=`;
+`Workbook.checkInput` returns it without changing anything, along with every
+reference's span, target sheet and rectangle.
 
 Canonical rendering is uppercase, without whitespace, keeps explicit
 parentheses, writes numbers in shortest round-trip form with a two-digit
 upper-case exponent (`1.5E-07`), normalizes ranges per axis (`$B2:A$1` →
-`A$1:$B2`) and quotes sheet names when needed (`'Q3 plan'!A1`, `'2024'!A1`).
-Parsing a rendering reproduces the same formula.
+`A$1:$B2`, `C:A` → `A:C`), writes names in their defined case and quotes
+sheet names when needed (`'Q3 plan'!A1`, `'2024'!A1`). Parsing a rendering
+reproduces the same formula.
 
 ### Functions
 
@@ -90,6 +102,10 @@ Parsing a rendering reproduces the same formula.
 | `NOT(x)`, `ABS(x)` | Scalar coercions as below. |
 | `ROUND(x, digits)` | Half away from zero on the decimal value: the scaled value is first rounded to 15 significant digits, so `ROUND(2.675,2)` is 2.68. `digits` is truncated; negative digits round to tens, hundreds, … |
 
+Whole columns, whole rows and names work wherever a range does. A range
+function visits only stored cells, so `SUM(A:A)` costs the column's content,
+not 1,048,576 positions.
+
 ### Values, coercion and errors
 
 - Blank is 0 in arithmetic, `""` in `&`, and takes the other operand's type
@@ -98,51 +114,84 @@ Parsing a rendering reproduces the same formula.
   input does; other text is `#VALUE!`. Results that are not finite are
   `#NUM!`, except division by zero and `0^negative` (`#DIV/0!`); `0^0` is
   `#NUM!`.
-- `&` joins display text: numbers use up to 15 significant digits
+- `&` joins General display text: numbers use up to 15 significant digits
   (`1/3&""` is `0.333333333333333`), booleans `TRUE`/`FALSE`. Text longer
   than 32,767 units is `#VALUE!`.
 - Comparisons never coerce across types: Number < Text < Boolean; text
   compares case-insensitively (Unicode simple case folding).
 - A multi-cell range used as a single value is `#VALUE!`; a 1×1 range is its cell.
 - Errors propagate left to right: `=1/0+#N/A` is `#DIV/0!`.
-- Display ("General"): up to 15 significant digits, exponent form from
-  1E+15 upward and below 1E-4 (`0.00001` shows `1E-05`), `TRUE`/`FALSE`,
-  error literals, text unchanged. There are no number formats yet.
+- Display: the cell's [number format](#number-formats) when it has one,
+  otherwise General: up to 15 significant digits, exponent form from 1E+15
+  upward and below 1E-4 (`0.00001` shows `1E-05`), `TRUE`/`FALSE`, error
+  literals, text unchanged.
 
 ## References
 
 | Operation | Rule |
 | --- | --- |
-| Copy, paste, fill | Relative row/column parts move by the distance from the source cell; `$` parts stay. A reference moved outside `A1:XFD1048576` becomes `#REF!` (`=G1*2` filled up from G2 to G1 becomes `=#REF!*2`). Implicit-sheet references follow the destination sheet; explicit `Sheet!` references keep their sheet. |
+| Copy, paste, fill | Relative row/column parts move by the distance from the source cell; `$` parts stay. Whole columns move only across columns and whole rows only down rows (`A:A` filled right is `B:B`). A reference moved outside `A1:XFD1048576` becomes `#REF!` (`=G1*2` filled up from G2 to G1 becomes `=#REF!*2`). Implicit-sheet references follow the destination sheet; explicit `Sheet!` references keep their sheet. |
 | Fill | The source block repeats over the target in both directions, aligned to the source origin. Literals are copied, not extrapolated into series. `WorkbookSheetAdapter.fillDown/fillRight` follow Excel: a multi-row selection copies its top row down; a single row copies the row above. |
-| Insert rows/columns | Every reference into the sheet keeps its target cell, regardless of `$`. A range spanning the insertion point grows. A reference pushed past the grid becomes `#REF!` and is recalculated; otherwise values are unchanged and nothing is recalculated (measured: 0 evaluations). |
+| Insert rows/columns | Every reference into the sheet keeps its target cell, regardless of `$`. A range spanning the insertion point grows; whole columns ignore row edits and whole rows ignore column edits. A reference pushed past the grid becomes `#REF!` and is recalculated; otherwise values are unchanged and nothing is recalculated (measured: 0 evaluations). |
 | Remove rows/columns | A single-cell reference into the removed band becomes `#REF!`. A range loses the removed band and becomes `#REF!` only when all of it is removed. Only formulas whose value can change are recalculated. |
 | Rename/reorder sheets | References hold sheet IDs, so identity is unchanged; formula text re-renders with the new name. Nothing recalculates. A name typed after a rename must be the new one. |
 | Remove sheet | Every reference to it becomes `#REF!` (`=Data!A1*2` → `=#REF!*2`). Undo restores the sheet (same ID) and every rewritten formula exactly. |
+| Rule formulas | Conditional-format and validation formulas are relative to their rule's first cell and follow the same rules, including `#REF!`. |
+
+## Names
+
+`defineName(name, sheetId, firstRow, firstColumn, lastRow, lastColumn)` adds
+or redefines a workbook name, and `removeName(name)` removes one; each is one
+undo step. `names` lists `{name, sheetId, valid, reference, firstRow,
+firstColumn, lastRow, lastColumn, range}` sorted by name. A name has 1–255
+ASCII letters, digits, `_` and `.`, starts with a letter or `_` and compares
+ignoring case. It cannot look like a cell (`A1`, `XFD9`), an R1C1 reference
+(`R`, `C`, `R1C2`), `TRUE`/`FALSE` or a function name.
+`nameProblem(name)` names the first rule a candidate breaks. A workbook
+holds at most 4,096 names.
+
+A formula stores the name, not its target: `=SUM(Totals)` follows a
+redefinition and recalculates. After `removeName` it shows `#NAME?`, and a
+new definition makes it work again. Every change to the name table rebuilds
+the dependency index, so formulas that use a name recalculate when the name
+or its cells change. A name holds one absolute rectangle. Row/column edits
+move, grow and shrink it like a range. A name whose cells were all removed,
+or whose sheet was removed, stays in `names` as `#REF!` (`valid: false`) and
+evaluates to `#REF!`; undo restores it exactly.
 
 ## Transactions, history and revision
 
-Every operation (`setCellInput`, `pasteInputs`, `copyCells`, `fill`,
-`clearCells`, row/column and sheet operations) validates everything first and
-is one atomic history step. `beginTransaction(label)` groups several into
-one step; `commitTransaction` recalculates and records it;
-`cancelTransaction` restores the exact prior state, values included. A failing
-operation inside an open transaction rolls back only itself. While a
-transaction is open, `undo`/`redo`/`save` are refused and values are not yet
-recalculated.
+Every operation validates everything first and is one atomic history step.
+That covers `setCellInput`, `setCellInputs`, `pasteInputs`, `pasteTransfer`,
+`copyCells`, `fill` and `clearCells`; row, column and sheet operations;
+formatting, merges, rules, names, sheet properties and sizes.
+`beginTransaction(label)` groups several operations into one step;
+`commitTransaction` recalculates and records it; `cancelTransaction`
+restores the exact prior state, values included. A failing operation inside
+an open transaction rolls back only itself. While a transaction is open,
+`undo`/`redo`/`save` are refused and values are not yet recalculated.
 
 The history stores exact inverse mutations, recomputed at every undo/redo, so
 undo reproduces the previous serialization byte for byte (except the
-sheet-ID counter). History keeps 200 steps. `revision` increases on every
-commit, undo, redo, restore and reset; `modified` compares the history
-position with the last `save`/`open`/`markSaved`. An input equal to the
-current content (after canonicalization) records nothing.
+sheet-ID counter). A feature edit builds a new immutable copy of the sheet's
+features (or of the name table) and swaps it in, so its inverse is the
+previous copy. History keeps up to 200 steps and about 64 MiB
+(`MaxHistoryBytes`) of undo data, estimated from each step's stored
+inverse; the oldest steps are dropped first, and the newest step always
+stays. A step keeps only the list it needs next (undo before the cursor,
+redo after it). At the feature limits one format step keeps 768 KiB (4,096
+format areas and 16,384 merged areas), so about 85 such steps stay undoable.
+`revision` increases on every commit, undo, redo, restore and reset. `modified` compares the history
+position with the last `save`/`open`/`markSaved`; `markUnsaved` marks the
+current state as not saved anywhere (an adopted import or a recovered
+revision). An input equal to the current content (after canonicalization)
+records nothing.
 
 ## Recalculation
 
 - The dependency index maps each referenced cell to its formulas and each
   distinct range to its formulas, bucketed by column (ranges wider than 32
-  columns are indexed per sheet).
+  columns, whole rows included, are indexed per sheet).
 - Commit seeds recalculation with the changed positions. Every formula
   reachable through the index is dirty, ordered with Kahn's algorithm and
   evaluated once. No work is done for formulas outside that closure.
@@ -152,78 +201,344 @@ current content (after canonicalization) records nothing.
   depend on a cycle evaluate normally and usually propagate it (`IFERROR`
   can absorb it). Chains and cycles of 50,000 cells need no recursion.
 - `statistics` reports `lastDirty`, `lastEvaluated`, `lastCycleCells`,
-  `lastRecalcMicroseconds`, `totalEvaluations` and index sizes.
+  `lastRecalcMicroseconds`, `totalEvaluations`, index sizes and
+  `historySteps`, `historyCursor` and `historyBytes`.
 - Range functions scan stored cells: a range of at most 4,096 positions
   probes them; a larger one walks the stored cells of its row band. A
   running total such as `=SUM(A$1:A1)` filled down is quadratic.
+
+<a id="formats-rules-and-names"></a>
+## Formats and rules
+
+Rules and styles are maps. The QML API, the editors, the clipboard payload
+and the native file use the same keys, and every error names the offending
+field. Rule ranges are plain `A1`/`A1:B5` texts inside the rule's sheet (a
+list or a space-separated string), at most 64 per rule. Rule values are
+typed like cell input, or `=formula`.
+
+A protected sheet refuses cell edits, pastes, fills, clears, row/column
+edits, formats, merges, rules and sizes. Sheet properties, renaming,
+reordering, removal and names stay available, so a sheet can be unprotected.
+
+### Cell formats
+
+`applyStyle(sheetId, firstRow, firstColumn, lastRow, lastColumn, patch)`
+sets only the keys it names:
+
+| Key | Values |
+| --- | --- |
+| `numberFormat` | A [number format](#number-formats); `General` resets it. |
+| `horizontalAlignment` | `general` (by value type), `left`, `center`, `right`. |
+| `bold`, `italic`, `underline`, `strikeout` | Booleans. |
+| `textColor`, `fillColor` | Document colors `#rgb`/`#rrggbb` (stored as `#rrggbb`); `""` restores the theme default. |
+
+Formats are layers `{area, style}` per sheet; a later layer wins per key.
+A patch drops older layers inside its area whose keys it replaces entirely,
+so reformatting the same cells does not grow the list. `clearFormats` cuts a
+rectangle out of every layer (at most four pieces each). A sheet holds at
+most 4,096 layers, and an edit beyond that is refused. `copyCells`, `fill`
+and `pasteTransfer` carry formats with the cells: the target takes the
+source block's layers, tiled like the values, and loses its own (at most
+2,048 new layers per operation).
+
+`cellFormat(sheetId, row, column)` returns a cell's explicit keys.
+`cellPresentation` returns what a view draws, resolved in this order:
+
+1. The explicit formats.
+2. Conditional formats, which win per key ([below](#conditional-formats)).
+3. `horizontalAlignment` by value type while it is `general`: numbers
+   right, booleans and errors centered, text left.
+4. Extra keys: `dataBar` (0–1) and `dataBarColor`, `icon` and `iconTone`
+   (`negative`, `neutral`, `positive`), `error: true` for error values and
+   `numeric: true` for numbers. A view shows a number that does not fit its
+   column as `###`, never cut short.
+
+### Number formats
+
+A number format changes only how a number is displayed; `cellValue`,
+formulas and `&` keep the number. Text, booleans and errors ignore it.
+`numberFormatProblem(format)` returns `""` for a supported code.
+
+| Code | Meaning | Example (1234.5) |
+| --- | --- | --- |
+| `General` or `""` | General display (above). | `1234.5` |
+| `@` | Text: General display. | `1234.5` |
+| `0`, `0.00`, `#,##0`, `#,##0.00`, `.00` | Integer digits (`0` pads, `#` does not), optional `,` grouping, up to 15 decimals. Rounded half away from zero like `ROUND`. | `#,##0.00` → `1,234.50` |
+| `0%`, `0.0%` | Percent: the value × 100. | `0%` → `123450%` |
+| `0.00E+00` | Scientific: 1–3 exponent digits. | `1.23E+03` |
+| `yyyy-mm-dd`, `d/m/yy`, `dddd`, `mmm yyyy`, `h:mm`, `hh:mm:ss AM/PM` | Dates and times over serial days since 1899-12-30 (1 = 1899-12-31, 0.5 = noon; serials from 61, 1900-03-01, match other spreadsheets). `m` next to `h` or `s` is minutes; `mmm`/`mmmm` and `ddd`/`dddd` are C-locale names. | `yyyy-mm-dd` → `1903-05-18` |
+
+Either kind may have a literal prefix or suffix: quoted text, `\x`, or any
+of `$ € £ ¥ - + ( ) / : , .` and space (`"USD "#,##0`, `0.0 "kg"`). A
+negative number shows `-` before the prefix. Dates outside
+0 ≤ serial < 2,958,466 (year 10000) show `######`. There are no sections
+(`;`), colors, conditions or locale-specific separators. At most 64
+characters.
+
+### Conditional formats
+
+A sheet keeps up to 256 conditional formats in priority order (index 0
+first). `setConditionalFormat(sheetId, rule, priority = -1)` adds a rule
+(empty or unknown `id`: a new `cfN` ID) or replaces the rule with that ID,
+validates it completely and returns the ID, or `""` on failure. Priority −1
+keeps a replaced rule's place and puts a new rule first.
+`moveConditionalFormat`, `removeConditionalFormat`, `conditionalFormats`
+and `checkConditionalFormat` (`{ok, message}`, nothing changes) complete the
+set.
+
+| `type` | Matches or draws | Keys |
+| --- | --- | --- |
+| `cellValue` | The value compared with `value1` (and `value2` for `between`/`notBetween`); blank counts as 0, errors never match. | `operator`: `between`, `notBetween`, `equal`, `notEqual`, `greater`, `less`, `greaterOrEqual`, `lessOrEqual`; `style` |
+| `expression` | `value1` is a formula that is `TRUE` for the cell (relative to the rule's first cell, like a filled formula). | `value1` (`=…`), `style` |
+| `containsText` | General display text contains `text`, ignoring case. | `text`, `style` |
+| `blank`, `notBlank`, `errors`, `noErrors` | The value's kind (empty text counts as blank). | `style` |
+| `colorScale` | Fill interpolated from `minColor` (default `#f8696b`) through optional `midColor` to `maxColor` (default `#63be7b`) over the numeric minimum and maximum of the rule's ranges. | colors |
+| `dataBar` | `dataBar` = (value − min)/(max − min) in `maxColor` (default `#638ec6`). | `maxColor` |
+| `iconSet` | Three icons by thirds of the same span: `arrow-down`, `arrow-right`, `arrow-up`. | — |
+
+Rules apply in priority order. The first rule that sets a key keeps it, and
+`stopIfTrue` ends evaluation after its rule matches. Every conditional key
+wins over the cell's own format. Scales, bars and icons ignore cells that do
+not hold numbers; when all values are equal, a scale uses `maxColor`, a bar
+is full and the icon is neutral. Their minimum and maximum are computed once
+per workbook revision. `previewConditionalFormat(sheetId, rule, firstRow,
+firstColumn, rowCount, columnCount)` returns `cellPresentation` records (with
+`row`, `column`, `display`) for at most 4,096 cells as if `rule` were set. It
+runs the same code on a candidate copy of the rules, so the preview equals
+what commits, saves and reopens.
+
+### Data validation
+
+Each cell has at most one validation rule; a sheet keeps up to 256.
+`setValidation(sheetId, rule)` adds (`dvN` IDs, appended) or replaces a
+rule, and the new rule takes its cells from older rules, which are split
+around it (at most 64 ranges each; a rule left with no cells is removed).
+`removeValidation`, `validations`, `checkValidation` and
+`validationAt(sheetId, row, column)` complete the set.
+
+| `type` | Accepts | Keys |
+| --- | --- | --- |
+| `any` | Everything (input messages only). | — |
+| `wholeNumber`, `decimal` | A number (integral for `wholeNumber`) within the bounds. | `operator`, `value1`, `value2` (numbers or formulas) |
+| `textLength` | Display text whose length is within the bounds. | as above |
+| `list` | Display text equal to an item, ignoring case. `items` holds up to 1,024 inline items of 1–1,024 characters; otherwise `value1` names a source range or name (`=$D$1:$D$9`, `=Categories`) whose non-blank values are the items. | `items` or `value1` |
+| `custom` | `value1` is `TRUE` with the candidate in place, so `=B2<=C2` sees the new B2. | `value1` (`=…`) |
+
+Shared keys: `allowBlank` (default true; blank or empty text passes),
+`inputTitle`/`inputMessage` (shown while the cell is active), `errorStyle`
+(`stop`, `warning`, `information`) and `errorTitle`/`errorMessage`. Without
+an error message the engine writes one (“Enter a whole number between 1 and
+10”, “Choose one of: Rent, Travel, Food”). `validationItems(sheetId, row, column)`
+returns a list rule's current items.
+
+`validateInput(sheetId, row, column, input)` returns `{ok, style, title,
+message, ruleId}` (or the parse error with its span) without changing
+anything. `setCellInput` refuses only `stop` rules; warning and information
+rules are the view's question to ask (SheetView asks). Pastes validate every
+cell and follow a policy. `allOrNothing` (the default) applies nothing when
+any cell fails to parse or breaks a stop rule. `skipInvalid` applies every
+other cell. Cells that break a warning or information rule are applied
+under both policies and reported. `lastPasteReport` (and the `pasteReported`
+signal) gives `{policy, ok, applied, invalid: [{row, column, address,
+message, style, ruleId}]}`; a parse failure has `syntax: true` with its
+span. A partial paste is still one undo step.
+
+### Merged cells
+
+`mergeCells(sheetId, firstRow, firstColumn, lastRow, lastColumn)` merges a
+rectangle of at least two cells into one area. It replaces merged areas it
+intersects, keeps the top-left input and clears the other cells, all in one
+step. `unmergeCells` removes every merged area that intersects the
+rectangle. `mergedAreas(sheetId, …window)` and `mergeAt(sheetId, row,
+column)` return `{firstRow, firstColumn, lastRow, lastColumn, range}`.
+Areas never overlap; a sheet holds at most 16,384. Row/column edits grow and
+shrink them, and an area reduced to one cell disappears. `copyCells` and
+`pasteTransfer` carry merged areas that lie entirely inside the copied
+block; `fill` does not. Views draw the top-left value across the area and
+edit only that cell.
+
+### Sheet properties and sizes
+
+`sheetProperties(sheetId)` returns `{tabColor, hidden, protected,
+frozenRows, frozenColumns}`. `setSheetProperties(sheetId, changes)`
+validates every key before changing any: `tabColor` is `#rrggbb` or `""`,
+`hidden` and `protected` are booleans, and `frozenRows`/`frozenColumns` are
+0 to the sheet's rows/columns − 1. Unknown keys are refused, and a workbook
+keeps at least one visible sheet. `setColumnWidth(sheetId, column, width)`
+and `setRowHeight(sheetId, row, height)` store sizes in device-independent
+pixels (1–100,000; ≤ 0 restores the default); `columnWidths`/`rowHeights`
+return `{"<index>": size}`. Sizes move with row/column edits and disappear
+with their row or column.
 
 ## Native file format
 
 `serialize()`/`restore()`, `save(url)`/`open(url)` and the FormatRegistry
 provider `qindatk.workbook.v1` (`.qtkwb`, `WorkbookFormat` in
 `<qindatk/workbook_format.h>`) share one codec. Files are compact UTF-8 JSON
-with sorted keys:
+with sorted keys (shown wrapped):
 
 ```json
-{"documentId":"<uuid>","format":"qindatk.workbook","nextSheetNumber":3,
+{"documentId":"<uuid>","format":"qindatk.workbook",
+ "names":[{"name":"Totals","ref":"Budget!F2:F5"}],"nextSheetNumber":3,
  "sheets":[{"cells":[["A1","s","Item"],["B2","n",1200.5],["C2","b",true],
                      ["D2","e","#N/A"],["F2","f","=SUM(B2:E2)"]],
-            "columns":26,"id":"sheet-1","name":"Budget","rows":1000}],
- "version":1}
+            "columnWidths":{"A":140},"columns":26,
+            "conditionalFormats":[{"id":"cf1","operator":"greater","ranges":["F2:F5"],
+                                   "style":{"bold":true},"type":"cellValue","value1":"4000"}],
+            "formats":[{"range":"B2:F5","style":{"numberFormat":"#,##0.00"}}],
+            "frozenRows":1,"id":"sheet-1","merges":["A7:C7"],"name":"Budget",
+            "rows":1000,"tabColor":"#3b82f6",
+            "validations":[{"id":"dv1","operator":"between","ranges":["B2:E5"],
+                            "type":"decimal","value1":"0","value2":"100000"}]}],
+ "version":2}
 ```
 
 Cells are row-major `[address, type, value]` with `n` number (shortest
 round trip), `s` non-empty text, `b` boolean, `e` error literal, `f` canonical
 formula text naming sheets. Computed values are not stored; opening
 recalculates every formula deterministically, so `serialize(restore(bytes))`
-equals `bytes`. Restore validates everything (format, version 1 only,
-unknown fields, IDs, names, dimensions, addresses, duplicates, literal types
-and every formula with its span) before replacing anything, and clears
-history. `save` writes atomically with `FormatIO::writeAtomic`; an existing
-file is replaced only if it still has the SHA-256 this workbook last read or
-wrote there (or with `replaceExisting` for a file it has not seen).
+equals `bytes`. Version 2 adds the per-sheet `formats`,
+`conditionalFormats`, `validations` (rule maps with defaults omitted),
+`merges`, `tabColor`, `hidden`, `protected`, `frozenRows`, `frozenColumns`,
+`columnWidths` (by column letter) and `rowHeights` (by 1-based row), and the
+workbook `names` (`ref` is `#REF!` for an invalid name). A workbook with no
+names and no sheet features is written as version 1, so older files
+re-save byte-identically. Restore reads versions 1 and 2 and validates
+everything before replacing anything: format, version, unknown fields, IDs,
+names, dimensions, addresses, duplicates, literal types, every formula with
+its span, every rule, overlapping merges or validation areas, rule IDs and
+sizes. A restore clears history. `save` writes atomically with
+`FormatIO::writeAtomic`; an existing file is replaced only if it still has
+the SHA-256 this workbook last read or wrote there (or with
+`replaceExisting` for a file it has not seen).
 
-The provider claims import, export and roundtrip for this format only. Its
-import job returns canonical bytes in `jobs.job(id).result.documentBytes`
-for `Workbook.restore`. No CSV, XLSX, ODS or other interchange format is
-recognized.
+<a id="clipboard"></a>
+## Clipboard
+
+`rangeTransfer(sheetId, firstRow, firstColumn, lastRow, lastColumn)`
+captures a rectangle of at most 65,536 positions and 30,000 filled cells as
+`{ok, range, text}`. `range` is a versioned `qindatk.workbook.range`
+payload. It records the source document ID, sheet ID and origin, the size,
+the workbook's sheet name → ID map, the stored inputs as `[row, column,
+input]` relative to the origin, and the formats and merged areas inside the
+rectangle. `text` holds the displayed values, tab-separated, one line per
+row with a trailing newline; tabs and line breaks inside a value become
+spaces. `SheetView.copySelection()` puts both on the system clipboard
+through `ClipboardService.copyRange` ([transfers.md](transfers.md#ranges)).
+
+`pasteTransfer(sheetId, row, column, range, policy)` pastes such a payload
+as one “Paste cells” step. Every target position takes the range's input
+(blank positions clear it); then the range's formats and merged areas
+replace the target's. Formulas are re-read first. In the document they came
+from, sheet names resolve through the copied name → ID map, so a rename after
+the copy does not matter. In another workbook they resolve by name, and a
+sheet that does not exist there becomes `#REF!`. Relative references then
+move by the offset from the source origin, as in `copyCells`. The cells go
+through validation and the paste policy. A damaged or foreign payload
+changes nothing. `SheetView.pasteCopied()` uses a range payload first, then
+plain text (tab-separated values under `pastePolicy`), then the adapter's
+in-view copy.
+
+<a id="interchange"></a>
+## Interchange
+
+`registerFormat(registry)` adds three providers to a `Tk.FormatRegistry`:
+the native `qindatk.workbook.v1` (import, export, roundtrip) and `text.csv`
+and `text.tsv` (`WorkbookDelimitedFormat`, `<qindatk/workbook_delimited.h>`;
+import and export). A Workbook is a `SnapshotSource`, so
+`FormatRegistry.preflightExportSource(workbook, url, formatId, options)` and
+`startExportSource(…)` export its committed state as a background job
+([format-registry.md](format-registry.md#snapshot-sources)).
+`adoptImport(registry, jobId)` replaces the document with a succeeded import
+job's result, all-or-nothing like `restore`; the adopted document is
+unsaved and has no file URL.
+
+| Delimited text | Import | Export |
+| --- | --- | --- |
+| Encoding | Strict UTF-8, optional byte-order mark; invalid bytes fail the job. | UTF-8; `byteOrderMark: true` adds a mark. |
+| Structure | RFC 4180 quoting (`""`, delimiters and line breaks inside quotes); at most 1,000,000 cells, 1,048,576 rows and 16,384 columns. | Fields are quoted when they contain the delimiter, a quote or a line break, or start or end with a space. Lines end `\r\n` (CSV) or `\n` (TSV) unless `lineEnding` is `lf` or `crlf`. |
+| Values | Numbers, `TRUE`/`FALSE` and error literals as typed input. A field starting with `=` stays text unless `formulas: true`; a warning counts them, and unparseable formulas stay text. Other fields are text as written. | The displayed values (number formats applied) of one sheet's used range. |
+| Sheets | One sheet named `sheetName` (default `Sheet1`), at least 1000 × 26. | `sheet` names the sheet (any case); by default the first visible sheet. |
+| Declared losses | — | Only what the workbook has: `formulas`, `otherSheets`, `names`, `formats`, `mergedCells`, `conditionalFormats`, `validation`, `sheetProperties`. |
+
+XLSX and ODS are not provided. Both are ZIP packages of XML parts, and the
+toolkit has no package reader or writer. Their fidelity (styles, shared
+formulas, function coverage) is the subject of WP-089.
+
+<a id="sessions"></a>
+## Sessions and shared history
+
+`Tk.WorkbookSession` (`<qindatk/workbook_session.h>`) is the document
+lifecycle of one Workbook under the shared persistence rules
+([persistence.md](persistence.md#domain-recovery)):
+
+- `requestSave()`/`requestSaveAs(url, overwriteExisting)` capture an
+  immutable snapshot on the GUI thread and write it on a worker through a
+  `DocumentStore` (`WorkbookDocumentStore`: payload validation, SHA-256
+  baseline, atomic replacement). One save runs at a time, and a transaction
+  must be closed first. Save As refuses an existing file unless
+  `overwriteExisting`; a file changed behind the session is a conflict.
+- The workbook is marked saved only if its revision and reset generation
+  still match the snapshot, so an edit made during a save stays dirty.
+  `saveFinished(ok, error, revision)` reports each save.
+- `requestClose()` closes a clean document (`closed`) or emits
+  `closeRequested`. `respondToClose("save" | "discard" | "cancel")`: save
+  closes only after a successful save and emits `closeBlocked(reason)` when
+  the save fails or the document changed meanwhile; discard drops recovery
+  frames and closes.
+- With a `recovery` manager, `autosaveInterval` (ms) records a frame after
+  changes while dirty, and every save first records the state it writes.
+  The session registers a workbook payload validator with the manager.
+  `inspectRecovery()`, `restoreRecovery()` (the newest valid revision,
+  reopened as unsaved at the same URL), `recordRecovery()` and
+  `discardRecovery()` complete it.
+
+The Workbook remains its own history owner. It implements `UndoParticipant`,
+so `UndoService.activeParticipant = workbook` routes the shared undo/redo
+commands, their labels and clean state to it
+([editing.md](editing.md#history-participants)).
 
 ## Views and adapter
 
 `WorkbookSheetAdapter` gives `EditableGridModel` the sheet's dimensions as
-stable IDs (`r:N`, `c:N`), returns display text from `GridCellSource.value`
-only for requested cells, validates candidate inputs with the formula parser
-and sets `externalUndo` so the Workbook stays the only history owner. A
-committed grid edit or paste becomes one Workbook transaction; the adapter
-then reverts the grid's override layer through `applyHistoryChanges`, so the
-grid never holds values. Workbook changes emit the grid's `dataChanged` and
-`cellsChanged`; structural changes insert fresh IDs or remove the deleted
-ones, so selections and section sizes follow content. The adapter falls back
-to the first sheet when its sheet is removed or the document is replaced.
+compact generated row/column ID runs, and runs the grid in `sourceCommits`
+mode through a `GridCellSourceExtension`. The grid reads display text,
+editor text (the source input), `cellPresentation` and merged areas only for
+the cells it shows. A committed edit, paste or fill-handle drag reaches the
+Workbook as one transaction, and the grid keeps no values or history. A
+single-cell edit that breaks a warning or information rule is not applied;
+the adapter emits `validationPrompt` and SheetView asks. Workbook changes
+call `notifySourceChanged` for the changed rectangle. Structural changes
+insert or remove IDs at the changed position, so selections follow content;
+a reset or reopen of the same sheet keeps its IDs. Protected sheets make the
+grid read-only. Frozen panes and row/column sizes come from the sheet
+properties, and a finished header resize is recorded with `setColumnWidth`
+or `setRowHeight` (a refused resize snaps back). The adapter falls back to
+the first sheet when its sheet is removed or the document is replaced.
 `sourceReadCount()` measures the bounded visible work.
 
-## Gaps in consumed contracts
+<a id="gaps-in-consumed-contracts"></a>
+## Consumed contract changes
 
-These are consumed as-is; each is recorded for the WP-019/WP-028 owners
-rather than changed here.
+The first engine slice consumed the WP-019/WP-028 contracts unchanged and
+recorded eight gaps. All are now closed by additive contract changes:
 
-| ID | Contract | Gap and current handling | Proposed change |
-| --- | --- | --- | --- |
-| G-1 | EditableGridModel commit | The grid pre-fills its editor from `cellValue` (display) and drops a commit whose text equals it, so replacing a formula shown as `6` with the literal `6` never reaches `committed`. SheetView sets `editText` to the source input and also applies every `editCommitted` value through `commitInput` (a no-op when unchanged). | `GridCellSource::editValue()` for the editor and a source-owned commit mode. |
-| G-2 | EditableGridModel source changes | No public request for "source values changed"; the adapter emits the model's public `dataChanged`/`cellsChanged` signals itself. | `notifySourceChanged(firstRow, rows, firstColumn, columns)`. |
-| G-3 | EditableGrid view | At `224a681`, `activeRow`/`activeColumn` bind to `rowIndex(activeRowId)` and do not re-evaluate after rows move. SheetView derives its own indices from the IDs. | Depend on `dataEpoch` — done on the integration branch by `47086db`; SheetView's copy then becomes redundant. |
-| G-4 | EditableGrid view | No per-cell presentation hook (alignment, type or error styling), no type-to-edit, no fill handle. Numbers are left-aligned. | A delegate or style-role hook. |
-| G-5 | EditableGridModel fill | `fill` copies display values; formula fill uses `Workbook.fill` instead. | — (domain operation) |
-| G-6 | FormatRegistry export | `startExport` accepts only `PropertyDocument`/`DocumentSession`; a workbook snapshot cannot be exported through the registry. The provider's `exportDocument` works directly. `adoptImport` creates a `DocumentSession`, so workbook imports are adopted with `restore`. | A public `startExportSnapshot(SnapshotPtr, …)` or snapshot-source interface. |
-| G-7 | UndoService / DocumentSession | Both are `PropertyDocument`-specific; the Workbook keeps its own history and saved state. | A document-agnostic history participant. |
-| G-8 | Grid identity scale | `EditableGridModel` keeps O(rows + columns) ID strings; a 100,000-row sheet takes about 190 ms to present (Debug build), and a 1,048,576-row sheet is not practical in the view even though the engine handles it. | Range-compressed or lazy section IDs. |
+| ID | Gap | Resolution |
+| --- | --- | --- |
+| G-1 | The grid pre-filled its editor from the displayed value and dropped a commit equal to it. | `GridCellSourceExtension::editValue` and `EditableGridModel.sourceCommits` ([editable-grid.md](editable-grid.md#domain-sources)). SheetView's editor workaround is removed. |
+| G-2 | No public "source values changed" request. | `EditableGridModel.notifySourceChanged(firstRow, rowCount, firstColumn, columnCount)`. |
+| G-3 | `activeRow`/`activeColumn` went stale after moves. | Fixed on the integration branch (`47086db`); SheetView binds the grid's values and its derived copy is removed. |
+| G-4 | No per-cell presentation, type-to-edit or fill handle. | `cellStyle`/`mergedRanges` hooks, `layoutCells`, `Tk.GridCellDelegate`, `Tk.GridFillHandle` and type-to-edit in `Tk.EditableGrid`. |
+| G-5 | Grid fill copied display values. | `GridCellSourceExtension::fillCells`: the Workbook fills formulas and formats. |
+| G-6 | Registry export took only `PropertyDocument`/`DocumentSession`; imports were adopted as sessions. | `SnapshotSource` with `FormatRegistry.preflightExportSource`/`startExportSource`, and `Workbook.adoptImport`. |
+| G-7 | `UndoService`/`DocumentSession` were `PropertyDocument`-specific. | `UndoParticipant` routing in `UndoService`, recovery payload validators, and `WorkbookSession`. |
+| G-8 | O(rows + columns) grid ID strings: a 100,000-row sheet took about 190 ms to present. | `GridAxisIds` keeps generated IDs as runs; the adapter measures in `tst_workbook_adapter`. |
 
-## Not supported yet
+## Not supported
 
-Named ranges, whole-row/column references (`A:A`, `1:1`), 3-D references,
-array formulas and spilling, volatile and lookup functions (`NOW`, `ROW`,
-`VLOOKUP`…), dates and number formats, locale-specific separators, merged
-cells, freeze-pane persistence, column widths in the file, conditional
-formatting (OFF-17), data validation (OFF-18), system-clipboard formula
-transfer (copy/paste is internal to one adapter) and interchange with other
-spreadsheet formats.
+3-D references (`Sheet1:Sheet3!A1`), array formulas and spilling, volatile
+and lookup functions (`NOW`, `ROW`, `VLOOKUP`…), text, date and statistical
+function families, sheet-scoped names, number-format sections and
+locale-specific separators, rich text inside a cell, vertical alignment and
+wrapping, borders, cell comments, charts, filters and sorting in the
+Workbook, and XLSX/ODS interchange.

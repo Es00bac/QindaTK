@@ -131,21 +131,33 @@ rename). This is the shape the QindaQt office suite's windows take.
 
 ## workbook
 
-The WP-055 spreadsheet slice over a two-sheet budget. `WorkbookTabs` switch
+The WP-055 spreadsheet over a two-sheet budget. `WorkbookTabs` switch
 between the Budget and Summary sheets (whose formulas refer to Budget by
-sheet ID, so renames and reordering keep them). The `FormulaBar` edits the
-active cell's source input and shows its computed value; Enter commits,
-Escape restores, and clicking cells while editing a formula inserts their
-references. Select F2:F5 and press Fill down (Ctrl+D) to complete the totals
-with relative references moved. Undo/Redo use the Workbook's history. Save
-writes a `.qtkwb` file to the temporary directory, and Reopen saved restores
-it, discarding later changes. The status line reports the revision and the
-last recalculation's evaluated cells.
+sheet ID, so renames and reordering keep them; the tab menu colors, hides
+and protects sheets). The `FormulaBar` edits the active cell's source input
+and shows its formatted value; Enter commits, Escape restores, and clicking
+cells while editing a formula inserts their references. Select F2:F5 and
+press Fill down (Ctrl+D) or drag the fill handle to complete the totals with
+relative references moved. The Budget sheet has number formats, a frozen
+header row and column, a data bar and a highlight rule, and a validated tax
+rate (B8 warns above 50%). Summary uses the name `Totals`, a whole-column
+`COUNTA(Budget!A:A)` and a merged note. The format toolbar applies bold,
+italic, underline, alignment, number formats, a highlight fill, merges
+and freeze panes to the selection; the side panel edits conditional formats
+(with a live preview) and validation rules. Ctrl+C/Ctrl+V use the system
+clipboard. Undo/Redo go through the shared `UndoService` to the Workbook's
+history. Save writes a `.qtkwb` file to the temporary directory through a
+`WorkbookSession` on a worker, and Reopen saved restores it, discarding
+later changes. The status line reports the revision and the last
+recalculation's evaluated cells.
 
 - Run: `qtk-preview examples/workbook/Main.qml`
-- Dump: `qtk-preview examples/workbook/Main.qml --dump --size 1180x720`
-- Exercises: `Workbook`, `SheetView` (over `EditableGrid`), `FormulaBar`,
-  `WorkbookTabs`, `MessageDialog` (sheet removal prompt), `Button`, `IconButton`
+- Dump: `qtk-preview examples/workbook/Main.qml --dump --size 1440x820`
+- Exercises: `Workbook`, `WorkbookSession`, `UndoService`, `ClipboardService`,
+  `SheetView` (over `EditableGrid`, `GridCellDelegate`, `GridFillHandle`),
+  `FormulaBar`, `WorkbookTabs`, `ConditionalFormatEditor`,
+  `DataValidationEditor`, `Segmented`, `ComboBox`, `MessageDialog`
+  (sheet removal prompt), `Button`, `IconButton`
 - Captures: [compact](../docs/universal-toolkit/implementation/evidence/WP-055-compact.png),
   [comfortable](../docs/universal-toolkit/implementation/evidence/WP-055-comfortable.png),
   [rejected formula](../docs/universal-toolkit/implementation/evidence/WP-055-formula-error.png)

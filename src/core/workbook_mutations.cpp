@@ -386,4 +386,76 @@ bool WorkbookPrivate::applySheetChange(const Mutation &m, MutationList *inverse,
     return true;
 }
 
+// ---- history bookkeeping ---------------------------------------------------
+
+namespace {
+qint64 contentBytes(const CellContent &content)
+{
+    qint64 bytes = qint64(sizeof(CellEntry));
+    if (content.literal.isText()) bytes += qint64(content.literal.text.size()) * qint64(sizeof(QChar));
+    // Formulas can be shared; counting each use keeps the estimate conservative.
+    if (content.formula) bytes += qint64(sizeof(Formula)) + qint64(content.formula->nodes.size()) * qint64(sizeof(Node));
+    return bytes;
+}
+qint64 featureBytes(const SheetFeatures &f)
+{
+    qint64 bytes = qint64(sizeof(SheetFeatures)) + qint64(f.formats.size()) * qint64(sizeof(FormatLayer))
+        + qint64(f.merges.size()) * qint64(sizeof(Area))
+        + qint64(f.properties.columnWidths.size() + f.properties.rowHeights.size()) * 48;
+    for (const ConditionalRule &rule : f.conditional)
+        bytes += qint64(sizeof(ConditionalRule)) + qint64(rule.areas.size()) * qint64(sizeof(Area));
+    for (const ValidationRule &rule : f.validations) {
+        bytes += qint64(sizeof(ValidationRule)) + qint64(rule.areas.size()) * qint64(sizeof(Area));
+        for (const QString &item : rule.items) bytes += qint64(sizeof(QString)) + qint64(item.size()) * qint64(sizeof(QChar));
+    }
+    return bytes;
+}
+} // namespace
+
+qint64 Calc::retainedBytes(const MutationList &list)
+{
+    qint64 bytes = 0;
+    for (const Mutation &m : list) {
+        bytes += qint64(sizeof(Mutation));
+        for (const CellEntry &entry : m.cells) bytes += contentBytes(entry.content);
+        if (m.state) {
+            bytes += qint64(sizeof(SheetState));
+            for (const CellEntry &entry : m.state->cells) bytes += contentBytes(entry.content);
+            if (m.state->features) bytes += featureBytes(*m.state->features);
+        }
+        if (m.features) bytes += featureBytes(*m.features);
+        if (m.names) bytes += qint64(m.names->size()) * qint64(sizeof(NamedRange) + 64);
+    }
+    return bytes;
+}
+
+void WorkbookPrivate::pushHistory(Step step)
+{
+    for (size_t i = cursor; i < history.size(); ++i) historyBytes -= history[i].bytes;
+    history.resize(cursor);
+    step.bytes = retainedBytes(step.undo);
+    historyBytes += step.bytes;
+    history.push_back(std::move(step));
+    ++cursor;
+    // AGENT-GUARD: only steps before the cursor are dropped, and the saved
+    // position moves with them (or becomes unreachable), so modified stays right.
+    while (history.size() > 1 && cursor > 0
+           && (history.size() > size_t(Workbook::MaxHistorySteps) || historyBytes > Workbook::MaxHistoryBytes)) {
+        historyBytes -= history.front().bytes;
+        history.erase(history.begin());
+        --cursor;
+        cleanCursor = cleanCursor > 0 ? cleanCursor - 1 : -1;
+    }
+}
+
+void WorkbookPrivate::storeReplayed(Step &step, bool undone, MutationList opposite)
+{
+    historyBytes -= step.bytes;
+    // The list just applied is recomputed by the next replay; keep only its opposite.
+    (undone ? step.redo : step.undo) = std::move(opposite);
+    MutationList().swap(undone ? step.undo : step.redo);
+    step.bytes = retainedBytes(undone ? step.redo : step.undo);
+    historyBytes += step.bytes;
+}
+
 } // namespace QindaTK
