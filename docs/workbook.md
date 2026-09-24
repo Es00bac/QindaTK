@@ -537,6 +537,13 @@ or `setRowHeight` (a refused resize snaps back). The adapter falls back to
 the first sheet when its sheet is removed or the document is replaced.
 `sourceReadCount()` measures the bounded visible work.
 
+Assistive technologies see the sheet as a Pane (the current cell's address,
+input and result as its description), a Table of Cells named "Row r,
+column c: value" whose Press makes the cell current, and PageTabs whose Press
+switches sheets (`tst_sheet_accessibility`). The cell editor accepts
+input-method composition; type-to-edit reacts to key events only, so
+composed text starts from Enter or F2.
+
 <a id="gaps-in-consumed-contracts"></a>
 ## Consumed contract changes
 

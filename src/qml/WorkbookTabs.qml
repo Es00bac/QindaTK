@@ -158,6 +158,9 @@ Item {
                             + qsTr("Sheet %1 of %2. F2 renames; Ctrl+Shift+Left or Right moves it; the Menu key opens its menu.")
                               .arg(slot.index + 1).arg(control.visibleSheets.length)
                         Accessible.selected: slot.current
+                        // The PageTab role drops TabButton's own press action:
+                        // an assistive press must switch sheets like a click.
+                        Accessible.onPressAction: control.activate(slot.modelData.id)
                         onClicked: control.activate(slot.modelData.id)
                         onDoubleClicked: control.beginRename(slot.modelData.id)
                         Keys.onPressed: function(event) {
