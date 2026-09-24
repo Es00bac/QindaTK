@@ -4770,6 +4770,185 @@
       ]
     },
     {
+      "name": "DeviceSettingsPanel",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: host supplies stable device IDs/capabilities and both active and pending configurations. This panel emits candidate/apply requests only; only the host/engine may acknowledge or reject a reconfiguration.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DeviceSettingsPanel.qml",
+      "properties": [
+        {
+          "name": "devices",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeConfiguration",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingConfiguration",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Audio device and I/O settings\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "accessibleName",
+          "type": "string",
+          "default": "qsTr(\"Device settings\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingDevice",
+          "type": "var",
+          "default": "deviceForId(String(pendingConfiguration.deviceId || \"\"))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "applyState",
+          "type": "string",
+          "default": "_applyState",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "applyMessage",
+          "type": "string",
+          "default": "_applyMessage",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "configurationChanged",
+          "type": "bool",
+          "default": "!sameConfiguration(activeConfiguration, pendingConfiguration)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "configurationAvailable",
+          "type": "bool",
+          "default": "!!pendingDevice && pendingDevice.available !== false",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeSummary",
+          "type": "string",
+          "default": "summary(activeConfiguration)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingSummary",
+          "type": "string",
+          "default": "summary(pendingConfiguration)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configurationChangeRequested",
+          "parameters": "var candidate"
+        },
+        {
+          "name": "applyRequested",
+          "parameters": "string requestId, var configuration"
+        },
+        {
+          "name": "applyAcknowledged",
+          "parameters": "string requestId, string state, var activeConfiguration, string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "deviceForId",
+          "parameters": "id"
+        },
+        {
+          "name": "deviceIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "optionIndex",
+          "parameters": "options, value"
+        },
+        {
+          "name": "optionAvailable",
+          "parameters": "options, value"
+        },
+        {
+          "name": "sameConfiguration",
+          "parameters": "a, b"
+        },
+        {
+          "name": "summary",
+          "parameters": "configuration"
+        },
+        {
+          "name": "requestChange",
+          "parameters": "field, value"
+        },
+        {
+          "name": "requestApply",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledgeApply",
+          "parameters": "requestId, state, configuration, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "deviceSettingsActive",
+        "deviceSettingsApply",
+        "deviceSettingsBufferSize",
+        "deviceSettingsDevice",
+        "deviceSettingsInputLayout",
+        "deviceSettingsOutputLayout",
+        "deviceSettingsPanel",
+        "deviceSettingsPending",
+        "deviceSettingsSampleRate",
+        "deviceSettingsStatus"
+      ]
+    },
+    {
       "name": "Dialog",
       "kind": "qml",
       "base": "T.Dialog",

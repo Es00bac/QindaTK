@@ -480,6 +480,19 @@ Its stable parts are `transportPlay`, `transportStop`, `transportRecord`,
 `transportStatus`. A real media engine must implement the `TransportAdapter`
 interface; `TestTransportClock` is a deterministic contract fixture.
 
+`Tk.DeviceSettingsPanel` displays host-enumerated devices and their supported
+sample rates, buffer sizes, input layouts and output layouts. The host supplies
+stable IDs plus active and pending configuration snapshots. Selector changes
+emit `configurationChangeRequested(candidate)`; Apply emits a request ID and
+snapshot, and the panel waits for `acknowledgeApply(requestId, state,
+configuration, message)`. Accepted, rejected and error outcomes are explicit;
+the host remains responsible for actual reconfiguration and updating both
+snapshots. It does not infer latency, device availability or successful I/O.
+
+| Type | Base | Host contract | Stable objectNames |
+| --- | --- | --- | --- |
+| `DeviceSettingsPanel` | T.Control | `devices` (`[{id, name, available, unavailableReason, sampleRates, bufferSizes, inputLayouts, outputLayouts}]`), `activeConfiguration`, `pendingConfiguration`; read-only `applyState`/`applyMessage`; `configurationChangeRequested(candidate)`, `applyRequested(requestId, configuration)`, `applyAcknowledged(requestId, state, activeConfiguration, message)`; `acknowledgeApply(requestId, "accepted"/"rejected"/"error", activeConfiguration, message)` | `deviceSettingsPanel`, `deviceSettingsActive`, `deviceSettingsPending`, `deviceSettingsDevice`, `deviceSettingsSampleRate`, `deviceSettingsBufferSize`, `deviceSettingsInputLayout`, `deviceSettingsOutputLayout`, `deviceSettingsStatus`, `deviceSettingsApply`. |
+
 ## Audio measurement
 
 | Type | Base | Main properties and actions | Behavior |
