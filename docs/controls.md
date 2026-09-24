@@ -565,6 +565,18 @@ the engine. The host validates layouts/cycles and reports acceptance or refusal.
 | `MixerView` | T.Control | Host `channels` array of stable records, optional `meterModel`, host `selectedChannelId`; forwards channel selection, gain/pan gesture and mute/solo command requests by ID | `mixerView`, `mixerChannelList`, `mixerChannelStrip`, `mixerEmptyState`. A horizontal recycled `ListView` keeps strip delegates bounded as channel count grows. |
 | `RoutingMatrix` | T.Control | Host `inputPorts`, `outputPorts`, `connections`; `routeRequested(requestId, inputPortId, outputPortId)`; `acknowledgeRoute(requestId, "accepted"/"rejected"/"error", message)` | `routingMatrix`, `routingMatrixStatus`, `routingMatrixInputs`, `routingMatrixRow`, `routingInputLabel`, `routingDestination`, `routingMatrixEmpty`. Existing connections remain visible until the host publishes a changed snapshot. |
 
+## Plugin host controls
+
+The browser and rack render registry and instance snapshots supplied by an app.
+They issue request IDs and expose host acknowledgments; neither claims that a
+plugin is installed, loaded, processed, or safely isolated. The host publishes
+the resulting descriptor/chain snapshots after accepting an operation.
+
+| Type | Base | Main properties and requests | Notes and stable objectNames |
+| --- | --- | --- | --- |
+| `PluginBrowser` | T.Control | `plugins` (`pluginId`, name/vendor/category/kind, supported layouts, availability, scan state, reason, presets), `query`, `kindFilter`, `categoryFilter`, `scanState`, `scanMessage`; `addRequested(requestId, pluginId, presetId)`, `presetPreviewRequested(requestId, pluginId, presetId)`; `acknowledgeAdd(requestId, state, message)` | Search/category/kind filter registry snapshots. Available entries can be dragged to a rack or explicitly added; unavailable/missing entries remain visible and cannot be added. Preset preview is a separate host job request. Names `pluginBrowser`, `pluginSearch`, `pluginKindFilter`, `pluginCategoryFilter`, `pluginBrowserStatus`, `pluginResults`, `pluginResult_<pluginId>`, `pluginAdd_<pluginId>`. |
+| `PluginRack` | T.Control | Ordered host `instances` (`instanceId`, `pluginId`, state/bypass/latency/error, editor availability and stable parameter descriptors); `channelId`; `pluginActionRequested(requestId, instanceId, action, payload)`, `pluginActionAcknowledged(...)`; `acknowledgeAction(requestId, state, message)`, `requestAdd`, `requestReorder`, `requestBypass`, `requestRemove`, `requestEditor`, `requestParameterEdit` | Drag or arrow buttons request reordering; bypass, remove, editor and parameter actions carry stable instance/parameter IDs. Acknowledgment updates request status only; rows and bypass state continue to reflect the last host snapshot until the host republishes. Names `pluginRack`, `pluginRackStatus`, `pluginRackListFrame`, `pluginRackInstances`, `pluginRackDropTarget`, `pluginSlot_<instanceId>`, `pluginBypass_<instanceId>`. |
+
 ## Audio measurement
 
 | Type | Base | Main properties and actions | Behavior |

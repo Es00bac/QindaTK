@@ -16288,6 +16288,336 @@
       ]
     },
     {
+      "name": "PluginBrowser",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "Registry metadata and scan results are snapshots from the host. Search and filtering are local presentation state; add/preview actions remain requests.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PluginBrowser.qml",
+      "properties": [
+        {
+          "name": "plugins",
+          "type": "var",
+          "default": "[] // {pluginId,name,vendor,category,kind,layouts,available,state,reason,presets}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kindFilter",
+          "type": "string",
+          "default": "\"All\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "categoryFilter",
+          "type": "string",
+          "default": "\"All\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scanState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scanMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "categories",
+          "type": "var",
+          "default": "root.categoryOptions()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filteredPlugins",
+          "type": "var",
+          "default": "root.filterPlugins()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "_requestState",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "_requestMessage",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "addRequested",
+          "parameters": "string requestId, string pluginId, string presetId"
+        },
+        {
+          "name": "presetPreviewRequested",
+          "parameters": "string requestId, string pluginId, string presetId"
+        },
+        {
+          "name": "requestAcknowledged",
+          "parameters": "string requestId, string state, string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "pluginById",
+          "parameters": "pluginId"
+        },
+        {
+          "name": "categoryOptions",
+          "parameters": ""
+        },
+        {
+          "name": "filterPlugins",
+          "parameters": ""
+        },
+        {
+          "name": "requestAdd",
+          "parameters": "pluginId, presetId"
+        },
+        {
+          "name": "acknowledgeAdd",
+          "parameters": "requestId, state, message"
+        },
+        {
+          "name": "requestPresetPreview",
+          "parameters": "pluginId, presetId"
+        },
+        {
+          "name": "presetFor",
+          "parameters": "plugin"
+        },
+        {
+          "name": "statusFor",
+          "parameters": "plugin"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "pluginAdd_",
+        "pluginBrowser",
+        "pluginBrowserStatus",
+        "pluginCategoryFilter",
+        "pluginDrag_",
+        "pluginKindFilter",
+        "pluginResult_",
+        "pluginResults",
+        "pluginSearch"
+      ]
+    },
+    {
+      "name": "PluginRack",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "`instances` is an ordered host snapshot. Every button, switch and drag emits a request; the rack waits for host acknowledgement and a new snapshot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PluginRack.qml",
+      "properties": [
+        {
+          "name": "instances",
+          "type": "var",
+          "default": "[] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters,editorAvailable}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "emptyText",
+          "type": "string",
+          "default": "qsTr(\"Drop a plugin here or add one from the browser\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "reorderDistance",
+          "type": "real",
+          "default": "Tk.Theme.size.row + Tk.Theme.space.xs",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "_status",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusState",
+          "type": "string",
+          "default": "_statusState",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "instanceCount",
+          "type": "int",
+          "default": "instances ? instances.length : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pluginActionRequested",
+          "parameters": "string requestId, string instanceId, string action, var payload"
+        },
+        {
+          "name": "pluginActionAcknowledged",
+          "parameters": "string requestId, string instanceId, string action, string state, string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "indexOf",
+          "parameters": "instanceId"
+        },
+        {
+          "name": "instanceById",
+          "parameters": "instanceId"
+        },
+        {
+          "name": "isActionPending",
+          "parameters": "instanceId, action"
+        },
+        {
+          "name": "nextRequestId",
+          "parameters": "instanceId, action"
+        },
+        {
+          "name": "requestAction",
+          "parameters": "instanceId, action, payload"
+        },
+        {
+          "name": "acknowledgeAction",
+          "parameters": "requestId, state, message"
+        },
+        {
+          "name": "requestAdd",
+          "parameters": "pluginId, presetId"
+        },
+        {
+          "name": "requestReorder",
+          "parameters": "instanceId, targetIndex"
+        },
+        {
+          "name": "requestBypass",
+          "parameters": "instanceId, bypassed"
+        },
+        {
+          "name": "requestRemove",
+          "parameters": "instanceId"
+        },
+        {
+          "name": "requestEditor",
+          "parameters": "instanceId"
+        },
+        {
+          "name": "requestParameterEdit",
+          "parameters": "instanceId, parameter"
+        },
+        {
+          "name": "toggleParameters",
+          "parameters": "instanceId"
+        },
+        {
+          "name": "dropTargetIndex",
+          "parameters": "y"
+        },
+        {
+          "name": "stateColor",
+          "parameters": "state"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "pluginBypass_",
+        "pluginRack",
+        "pluginRackDropTarget",
+        "pluginRackInstances",
+        "pluginRackListFrame",
+        "pluginRackStatus",
+        "pluginSlot_"
+      ]
+    },
+    {
       "name": "PolarView",
       "kind": "qml",
       "base": "T.Control",
