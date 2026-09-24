@@ -14870,6 +14870,350 @@
       ]
     },
     {
+      "name": "PreflightPanel",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The preflight engine owns checks and repair policy. This view lists stable issue IDs and reports explicit navigation/repair requests to that host.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PreflightPanel.qml",
+      "properties": [
+        {
+          "name": "issues",
+          "type": "var",
+          "default": "[] // [{id,severity,category,title,description,targetId,scope,repairActionIds,repairLabel,repairAvailable,error}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedIssueId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filterSeverity",
+          "type": "string",
+          "default": "\"all\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preflightStatus",
+          "type": "string",
+          "default": "\"ready\" // ready, running, unavailable, failed",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "profileId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Review production issues before output\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filteredIssues",
+          "type": "var",
+          "default": "filter()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedIssue",
+          "type": "var",
+          "default": "issueById(selectedIssueId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockingCount",
+          "type": "int",
+          "default": "countAtOrAbove(\"error\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "issueSelectionRequested",
+          "parameters": "string issueId"
+        },
+        {
+          "name": "navigateRequested",
+          "parameters": "string issueId, string targetId"
+        },
+        {
+          "name": "repairRequested",
+          "parameters": "string issueId, string repairActionId"
+        },
+        {
+          "name": "refreshRequested",
+          "parameters": "string profileId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "issueById",
+          "parameters": "id"
+        },
+        {
+          "name": "rank",
+          "parameters": "severity"
+        },
+        {
+          "name": "countAtOrAbove",
+          "parameters": "severity"
+        },
+        {
+          "name": "filter",
+          "parameters": ""
+        },
+        {
+          "name": "selectIssue",
+          "parameters": "id"
+        },
+        {
+          "name": "navigate",
+          "parameters": ""
+        },
+        {
+          "name": "repair",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "preflightIssueDetail",
+        "preflightIssueError",
+        "preflightIssueScroll",
+        "preflightIssue_",
+        "preflightNavigate",
+        "preflightRefresh",
+        "preflightRepair",
+        "preflightSeverityFilter",
+        "preflightUnavailable"
+      ]
+    },
+    {
+      "name": "PrintPreview",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Settings and print jobs belong to a PrintAdapter. The host inserts the same document page renderer used for export; this panel never paints fake pages.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PrintPreview.qml",
+      "properties": [
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentPage",
+          "type": "int",
+          "default": "0 // zero-based",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageRange",
+          "type": "var",
+          "default": "({ startPage: 1, endPage: Math.max(1, pageCount) }) // one-based inclusive",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "settings",
+          "type": "var",
+          "default": "({ paperId: \"a4\", orientation: \"portrait\", scaleMode: \"fit\",",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ paperIds: [\"a4\"], orientations: [\"portrait\"], scaleModes: [\"fit\"],",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "job",
+          "type": "var",
+          "default": "({ id: \"\", status: \"idle\", progress: 0, error: \"\", affectedStart: 0, affectedEnd: 0 })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewError",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Preview document pages and submit a print request\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageContent",
+          "type": "alias",
+          "default": "previewHost.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "validRange",
+          "type": "bool",
+          "default": "pageRange.startPage >= 1 && pageRange.endPage >= pageRange.startPage",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "printPending",
+          "type": "bool",
+          "default": "job.status === \"pending\" || job.status === \"running\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rangeError",
+          "type": "string",
+          "default": "pageCount < 1 ? qsTr(\"No laid out pages are available.\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pageRequested",
+          "parameters": "int pageIndex"
+        },
+        {
+          "name": "pageRangeChangeRequested",
+          "parameters": "var pageRange"
+        },
+        {
+          "name": "settingsChangeRequested",
+          "parameters": "var settings"
+        },
+        {
+          "name": "previewRefreshRequested",
+          "parameters": "var pageRange, var settings"
+        },
+        {
+          "name": "printRequested",
+          "parameters": "var settings, var pageRange"
+        },
+        {
+          "name": "cancelPrintRequested",
+          "parameters": "string jobId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "clone",
+          "parameters": "value"
+        },
+        {
+          "name": "requestRange",
+          "parameters": "startPage, endPage"
+        },
+        {
+          "name": "requestSetting",
+          "parameters": "key, value"
+        },
+        {
+          "name": "requestPreview",
+          "parameters": ""
+        },
+        {
+          "name": "submitOrCancel",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "printCapabilityStatus",
+        "printColorMode",
+        "printCopies",
+        "printDuplex",
+        "printJobProgress",
+        "printJobStatus",
+        "printNextPage",
+        "printOrientation",
+        "printPageCount",
+        "printPageSurface",
+        "printPaper",
+        "printPreviewError",
+        "printPreviewStatus",
+        "printPreviousPage",
+        "printRangeEnd",
+        "printRangeError",
+        "printRangeStart",
+        "printRefreshPreview",
+        "printScaleMode",
+        "printScalePercent",
+        "printSubmit"
+      ]
+    },
+    {
       "name": "ProgressBar",
       "kind": "qml",
       "base": "T.ProgressBar",
