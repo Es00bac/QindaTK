@@ -68,6 +68,13 @@ reopens a versioned composition with exact animation ticks and stable layer
 IDs; artwork remains an external asset.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
+The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows
+stable channel/preset snapshots and explicit host acknowledgments for brush
+dynamics requests. The [tiled raster fixture](tiled-raster/Main.qml) paints
+actual masked RGBA tiles, undoes a stroke and exports a composite PNG.
+The [raster workbench fixture](raster-workbench/Main.qml) connects those
+controls to the tiled document, paints with mouse gestures and compares live
+before/after PNG pixels without writing temporary source images.
 
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real

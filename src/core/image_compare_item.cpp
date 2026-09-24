@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "image_compare_item.h"
 
+#include <QBuffer>
 #include <QColorSpace>
 #include <QImageReader>
 #include <QPainter>
@@ -27,6 +28,19 @@ ImageCompareItem::ImageCompareItem(QQuickItem *parent) : QQuickPaintedItem(paren
 
 QImage ImageCompareItem::read(const QUrl &url)
 {
+    const QString text = url.toString();
+    constexpr auto prefix = "data:image/png;base64,";
+    if (text.startsWith(QLatin1String(prefix))) {
+        const QByteArray encoded = text.mid(QLatin1String(prefix).size()).toLatin1();
+        if (encoded.size() > 32 * 1024 * 1024) return {};
+        QByteArray bytes = QByteArray::fromBase64(encoded);
+        QBuffer buffer(&bytes);
+        if (!buffer.open(QIODevice::ReadOnly)) return {};
+        QImageReader reader(&buffer, "PNG");
+        const QSize size = reader.size();
+        if (size.isEmpty() || qint64(size.width()) * size.height() > kMaximumPixels) return {};
+        return reader.read();
+    }
     const QString path = url.isLocalFile() ? url.toLocalFile() : url.toString();
     if (path.isEmpty()) return {};
     QImageReader reader(path);

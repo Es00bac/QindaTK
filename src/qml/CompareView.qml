@@ -4,7 +4,8 @@ import QtQuick.Templates as T
 import QindaTK as Tk
 
 // AGENT-CONTRACT: both sources use one image transform. The host supplies
-// local images; encoded-sRGB difference is visual inspection, not proofing.
+// local images or bounded PNG data URLs; encoded-sRGB difference is visual
+// inspection, not proofing.
 T.Control {
     id: control
     objectName: "compareView"
