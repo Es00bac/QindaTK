@@ -38,7 +38,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-071"></a>
 ## WP-071 — Implement professional timeline video edits
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-048](phase-03-authoring.md#wp-048), [WP-070](phase-06-video.md#wp-070)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-048](phase-03-authoring.md#wp-048), [WP-070](phase-06-video.md#wp-070)
 
 **Proposal scope:** [VID-03 TrimView](../proposed/07-video-motion.md#vid-03), [VID-04 MulticamView](../proposed/07-video-motion.md#vid-04), [VID-05 TransitionEditor](../proposed/07-video-motion.md#vid-05)
 

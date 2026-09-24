@@ -14731,6 +14731,190 @@
       "objectNames": []
     },
     {
+      "name": "MulticamView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Synchronized angle snapshot and explicit switch requests. Playback, source offsets and cut creation belong to the sequence host.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MulticamView.qml",
+      "properties": [
+        {
+          "name": "angles",
+          "type": "var",
+          "default": "[] // {angleId,label,resourceId,syncOffsetTicks,frameId,available,active}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetProvider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rateNumerator",
+          "type": "string",
+          "default": "\"24\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rateDenominator",
+          "type": "string",
+          "default": "\"1\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeAngleId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Synchronized multicamera angles\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "angleCount",
+          "type": "int",
+          "default": "angles ? angles.length : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapshotValid",
+          "type": "bool",
+          "default": "root.validateAngles()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "angleSwitchRequested",
+          "parameters": "string requestId, string angleId, string atTicks"
+        },
+        {
+          "name": "seekAngleRequested",
+          "parameters": "string angleId, string frameId, string atTicks"
+        },
+        {
+          "name": "switchAcknowledged",
+          "parameters": "string requestId, bool accepted, string activeAngleId, string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "isTicks",
+          "parameters": "value"
+        },
+        {
+          "name": "validateAngles",
+          "parameters": ""
+        },
+        {
+          "name": "angleById",
+          "parameters": "id"
+        },
+        {
+          "name": "requestId",
+          "parameters": ""
+        },
+        {
+          "name": "switchTo",
+          "parameters": "id"
+        },
+        {
+          "name": "requestSeek",
+          "parameters": "id"
+        },
+        {
+          "name": "acknowledgeSwitch",
+          "parameters": "requestId, accepted, confirmedAngleId, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "multicamAngleGrid",
+        "multicamAngle_",
+        "multicamFrame_",
+        "multicamStatus",
+        "multicamSwitchActive",
+        "multicamSyncReadout",
+        "multicamView"
+      ]
+    },
+    {
       "name": "NavigationRail",
       "kind": "qml",
       "base": "Item",
@@ -28029,6 +28213,195 @@
       "objectNames": []
     },
     {
+      "name": "TransitionEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Host-owned transition descriptor; edits are requests, never local mutation.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TransitionEditor.qml",
+      "properties": [
+        {
+          "name": "transition",
+          "type": "var",
+          "default": "null // {transitionId,leftClipId,rightClipId,type,durationTicks,alignment,headHandleTicks,tailHandleTicks,parameters}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "durationTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "default": "\"dissolve\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "alignment",
+          "type": "string",
+          "default": "\"center\" // start, center, end",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewState",
+          "type": "string",
+          "default": "\"idle\" // idle, pending, ready, failed",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Transition settings\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hovered",
+          "type": "bool",
+          "default": "hover.hovered",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validSnapshot",
+          "type": "bool",
+          "default": "root.transition !== null && root.transition !== undefined",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validDuration",
+          "type": "bool",
+          "default": "/^[0-9]+$/.test(root.durationTicks) && root.durationTicks !== \"0\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handlesAvailable",
+          "type": "bool",
+          "default": "root.validSnapshot && root.transition.missingMedia !== true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "parameterDescriptors",
+          "type": "var",
+          "default": "root.validSnapshot && root.transition.parameters",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "parameterEditRequested",
+          "parameters": "string requestId, string transitionId, string parameter, string value"
+        },
+        {
+          "name": "previewRequested",
+          "parameters": "string requestId, string transitionId"
+        },
+        {
+          "name": "cancelPreviewRequested",
+          "parameters": "string requestId, string transitionId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "compareDecimal",
+          "parameters": "a, b"
+        },
+        {
+          "name": "durationFitsHandles",
+          "parameters": ""
+        },
+        {
+          "name": "halfParts",
+          "parameters": "value"
+        },
+        {
+          "name": "incrementDecimal",
+          "parameters": "value"
+        },
+        {
+          "name": "halfUp",
+          "parameters": "value"
+        },
+        {
+          "name": "halfDown",
+          "parameters": "value"
+        },
+        {
+          "name": "requestId",
+          "parameters": "kind"
+        },
+        {
+          "name": "edit",
+          "parameters": "parameter, value"
+        },
+        {
+          "name": "requestPreview",
+          "parameters": ""
+        },
+        {
+          "name": "cancelPreview",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "transitionAlignment",
+        "transitionCancelPreview",
+        "transitionDurationTicks",
+        "transitionEditor",
+        "transitionParameter_",
+        "transitionPreview",
+        "transitionStatus",
+        "transitionType"
+      ]
+    },
+    {
       "name": "TransportBar",
       "kind": "qml",
       "base": "Tk.ToolBar",
@@ -28246,6 +28619,212 @@
         "treeChevron",
         "treeEditor",
         "treeFocusRing"
+      ]
+    },
+    {
+      "name": "TrimView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Host-owned trim snapshot. The control only proposes exact decimal tick deltas; source bounds, linked clips and edit transactions stay in the sequence engine.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TrimView.qml",
+      "properties": [
+        {
+          "name": "edit",
+          "type": "var",
+          "default": "null // {editId,leftClipId,rightClipId,leftResourceId,rightResourceId,leftHeadTicks,rightHeadTicks,leftTailTicks,rightTailTicks,legalHead,legalTail,missingLeft,missingRight}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetProvider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rateNumerator",
+          "type": "string",
+          "default": "\"24\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rateDenominator",
+          "type": "string",
+          "default": "\"1\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"roll\" // roll, ripple, slip, slide",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "deltaTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewOperationId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewStatus",
+          "type": "string",
+          "default": "\"idle\" // idle, pending, ready, rejected",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Precision trim editor\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hovered",
+          "type": "bool",
+          "default": "hover.hovered",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapshotValid",
+          "type": "bool",
+          "default": "root.edit !== null && root.edit !== undefined",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validDelta",
+          "type": "bool",
+          "default": "/^-?[0-9]+$/.test(root.deltaTicks)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handlesLegal",
+          "type": "bool",
+          "default": "root.snapshotValid && root.edit.missingLeft !== true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "previewRequested",
+          "parameters": "string requestId, string editId, string mode, string deltaTicks"
+        },
+        {
+          "name": "commitRequested",
+          "parameters": "string requestId, string operationId"
+        },
+        {
+          "name": "cancelRequested",
+          "parameters": "string requestId, string operationId"
+        },
+        {
+          "name": "frameSeekRequested",
+          "parameters": "string editId, string side, string timeTicks"
+        }
+      ],
+      "methods": [
+        {
+          "name": "requestId",
+          "parameters": "kind"
+        },
+        {
+          "name": "requestPreview",
+          "parameters": ""
+        },
+        {
+          "name": "commitPreview",
+          "parameters": ""
+        },
+        {
+          "name": "cancelPreview",
+          "parameters": ""
+        },
+        {
+          "name": "requestFrame",
+          "parameters": "side, ticks"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "trimCancel",
+        "trimCommit",
+        "trimDeltaTicks",
+        "trimIncomingFrames",
+        "trimMode",
+        "trimOutgoingFrames",
+        "trimPreview",
+        "trimStatus",
+        "trimView"
       ]
     },
     {

@@ -164,6 +164,7 @@ Rectangle {
                 RichTextSection { filter: search.text }
                 TelemetrySection { filter: search.text }
                 TimelineSection { filter: search.text }
+                VideoSection { filter: search.text }
                 ChartReviewSection { filter: search.text }
                 PlanningSection { filter: search.text }
                 CanvasSection { filter: search.text }
