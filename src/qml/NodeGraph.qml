@@ -17,6 +17,7 @@ Item {
     property var edges: [] // {edgeId,fromNodeId,fromPortId,toNodeId,toPortId}
     property string selectedNodeId: ""
     property string selectedEdgeId: ""
+    property string wireRouting: "curved" // curved | orthogonal
     property real zoom: 1.0
     property real minZoom: 0.45
     property real maxZoom: 1.8
@@ -186,11 +187,10 @@ Item {
                 const edge = source[i]
                 const a = root.edgePoint(edge.fromNodeId, edge.fromPortId, "output")
                 const b = root.edgePoint(edge.toNodeId, edge.toPortId, "input")
-                const dx = Math.max(Tk.Theme.size.icon, Math.abs(b.x - a.x) * 0.45)
                 const port = root.portById(edge.fromNodeId, edge.fromPortId, "output")
                 ctx.beginPath()
-                ctx.moveTo(a.x, a.y)
-                ctx.bezierCurveTo(a.x + dx, a.y, b.x - dx, b.y, b.x, b.y)
+                GraphGeometry.paintEdge(ctx, a, b, root.wireRouting,
+                                        Tk.Theme.size.icon, Tk.Theme.space.xl)
                 ctx.strokeStyle = String(edge.edgeId) === root.selectedEdgeId
                     ? Tk.Theme.color.focus : root.portColor(port ? port.type : "")
                 ctx.lineWidth = String(edge.edgeId) === root.selectedEdgeId
@@ -205,6 +205,7 @@ Item {
             function onPanXChanged() { wireLayer.requestPaint() }
             function onPanYChanged() { wireLayer.requestPaint() }
             function onZoomChanged() { wireLayer.requestPaint() }
+            function onWireRoutingChanged() { wireLayer.requestPaint() }
             function onSelectedEdgeIdChanged() { wireLayer.requestPaint() }
         }
     }

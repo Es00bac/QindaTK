@@ -1,6 +1,10 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Examples
 
+The [live diagram](diagram-live/Main.qml) binds `DiagramCanvas` to a native
+`DiagramDocument`. Moving cards and connecting ports edit persistent stable
+IDs; Undo and Redo operate on the diagram graph.
+
 The [extension manager fixture](extension-manager-live/Main.qml) shows a
 restored catalog with unavailable native extensions, clear diagnostics and
 explicit descriptor and Load actions.

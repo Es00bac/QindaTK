@@ -60,3 +60,25 @@ function edgePoint(nodes, nodeWidth, headerHeight, rowHeight, zoom, panX, panY,
     const y = Number(node.y || 0) + headerHeight + rowHeight * (index + 0.5)
     return Qt.point(panX + x * zoom, panY + y * zoom)
 }
+
+// Deterministic source-to-target route. Reverse links travel above both cards
+// so the path never crosses either endpoint card's interior.
+function paintEdge(ctx, a, b, mode, stub, clearance) {
+    ctx.moveTo(a.x, a.y)
+    if (mode !== "orthogonal") {
+        const dx = Math.max(stub, Math.abs(b.x - a.x) * 0.45)
+        ctx.bezierCurveTo(a.x + dx, a.y, b.x - dx, b.y, b.x, b.y)
+    } else if (b.x >= a.x + stub * 2) {
+        const middle = (a.x + b.x) / 2
+        ctx.lineTo(middle, a.y)
+        ctx.lineTo(middle, b.y)
+        ctx.lineTo(b.x, b.y)
+    } else {
+        const laneY = Math.min(a.y, b.y) - clearance
+        ctx.lineTo(a.x + stub, a.y)
+        ctx.lineTo(a.x + stub, laneY)
+        ctx.lineTo(b.x - stub, laneY)
+        ctx.lineTo(b.x - stub, b.y)
+        ctx.lineTo(b.x, b.y)
+    }
+}

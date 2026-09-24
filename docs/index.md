@@ -12,6 +12,7 @@ pages below are the reference.
 | [theming.md](theming.md) | Theme roles, ladders, density, presets, JSON themes, the QindaQt QST-1 bridge |
 | [controls.md](controls.md) | Every control: properties, signals, sizes, objectNames (the API contract) |
 | [code-editor.md](code-editor.md) | Native text buffer, syntax/diagnostic provider contract, find/navigation and local UTF-8 save/reopen |
+| [diagram.md](diagram.md) | Stable diagram nodes/ports/edges, editing, deterministic orthogonal paths and local JSON |
 | [script-runtime.md](script-runtime.md) | Bounded local JavaScript, explicit command allowlist, replay, semantic undo group and console UI |
 | [collaboration.md](collaboration.md) | Property synchronization: operation identity, deterministic conflicts, local IPC, actor permissions, durable offline reconnect, presence and scope limits |
 | [gantt.md](gantt.md) | Task schema, working-calendar projection, schedule transactions, dependency and grid seams |

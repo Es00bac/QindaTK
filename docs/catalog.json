@@ -7194,6 +7194,95 @@
       ]
     },
     {
+      "name": "DiagramCanvas",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/diagram.md): the document owns identities, edits and history; this view forwards gestures and renders the current snapshot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DiagramCanvas.qml",
+      "properties": [
+        {
+          "name": "document",
+          "type": "Tk.DiagramDocument",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Diagram canvas\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedNodeId",
+          "type": "alias",
+          "default": "graph.selectedNodeId",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEdgeId",
+          "type": "alias",
+          "default": "graph.selectedEdgeId",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "alias",
+          "default": "graph.zoom",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panX",
+          "type": "alias",
+          "default": "graph.panX",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panY",
+          "type": "alias",
+          "default": "graph.panY",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "graphView",
+          "type": "alias",
+          "default": "graph",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "diagramCanvas",
+        "diagramGraph"
+      ]
+    },
+    {
       "name": "Dialog",
       "kind": "qml",
       "base": "T.Dialog",
@@ -17014,6 +17103,14 @@
           "name": "selectedEdgeId",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "wireRouting",
+          "type": "string",
+          "default": "\"curved\" // curved | orthogonal",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -38460,6 +38557,140 @@
           "name": "windowId",
           "returns": "QString",
           "parameters": "const QString &panelId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "DiagramDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/diagram.md): persistent diagram identity and edits live here; DiagramCanvas only presents snapshots and forwards gestures by ID.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/diagram_document.h",
+      "properties": [
+        {
+          "name": "nodes",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "edges",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "addNode",
+          "returns": "QString",
+          "parameters": "const QString &title, double x, double y, const QString &stencilId = QStringLiteral(\"process\""
+        },
+        {
+          "name": "addPort",
+          "returns": "QString",
+          "parameters": "const QString &nodeId, const QString &label, const QString &direction, const QString &type = QStringLiteral(\"any\""
+        },
+        {
+          "name": "connectPorts",
+          "returns": "QString",
+          "parameters": "const QString &fromNodeId, const QString &fromPortId, const QString &toNodeId, const QString &toPortId"
+        },
+        {
+          "name": "disconnectEdge",
+          "returns": "bool",
+          "parameters": "const QString &edgeId"
+        },
+        {
+          "name": "removeNode",
+          "returns": "bool",
+          "parameters": "const QString &nodeId"
+        },
+        {
+          "name": "moveNode",
+          "returns": "bool",
+          "parameters": "const QString &nodeId, double x, double y"
+        },
+        {
+          "name": "moveNodes",
+          "returns": "bool",
+          "parameters": "const QStringList &nodeIds, double dx, double dy"
+        },
+        {
+          "name": "setNodeTitle",
+          "returns": "bool",
+          "parameters": "const QString &nodeId, const QString &title"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
         }
       ],
       "enums": {},
