@@ -2,6 +2,7 @@
 #pragma once
 
 #include "application_contracts.h"
+#include "rich_text_publishing.h"
 #include "rich_text_types.h"
 #include <QHash>
 #include <QJsonObject>
@@ -86,8 +87,21 @@ struct StepTable {
     TablePtr after;
     QVector<RichObject> removedObjects; // objects in removed rows/columns
 };
+// Creates (no `before`), replaces or removes (no `after`) one named style.
+// Paragraph styles also rewrite their paragraphs' resolved formats with
+// separate StepParagraphFormat steps of the same transaction.
+struct StepStyle {
+    QString styleId;
+    std::optional<NamedStyle> before;
+    std::optional<NamedStyle> after;
+};
+struct StepFrames {                       // the whole frame set (frames are few)
+    FrameSet before;
+    FrameSet after;
+};
 using Step = std::variant<StepText, StepSpans, StepParagraphFormat, StepSplit, StepMerge,
-                          StepBlocks, StepMove, StepList, StepObject, StepDocument, StepTable>;
+                          StepBlocks, StepMove, StepList, StepObject, StepDocument, StepTable,
+                          StepStyle, StepFrames>;
 
 struct Transaction {
     QUuid id;
@@ -125,6 +139,7 @@ struct Fragment {
     QVector<CharFormat> formats;    // spans index this list
     QHash<QString, RichObject> objects;
     QHash<QString, ListDefinition> lists;
+    StyleSheet styles;              // the styles the blocks use, with their parents
     bool openStart = true;          // first paragraph joins the insertion point
     bool openEnd = true;            // last paragraph joins the text after it
 };
@@ -156,6 +171,10 @@ class RichTextDocument : public QObject {
     Q_PROPERTY(QString defaultFontFamily READ defaultFontFamily NOTIFY changed)
     Q_PROPERTY(double defaultFontSize READ defaultFontSize NOTIFY changed)
     Q_PROPERTY(QVariantList tables READ tableSnapshots NOTIFY changed)
+    Q_PROPERTY(QVariantList styles READ styleSnapshots NOTIFY changed)
+    Q_PROPERTY(QStringList styleKinds READ styleKinds CONSTANT)
+    Q_PROPERTY(QVariantList frames READ frameSnapshots NOTIFY changed)
+    Q_PROPERTY(QString storyFrameId READ storyFrameId NOTIFY changed)
 public:
     static constexpr int MaximumHistory = 512;
     static constexpr quint64 MaximumHistoryBytes = 64ull * 1024 * 1024;
@@ -206,6 +225,14 @@ public:
     const RichText::RichObject *object(const QString &id) const;
     RichText::PageSetup pageSetupValue() const { return m_page; }
     RichText::DocumentDefaults defaults() const { return m_defaults; }
+    const RichText::StyleSheet &styleSheet() const { return m_styles; }
+    const RichText::NamedStyle *style(const QString &id) const;
+    // A run's attributes with its character style and its paragraph's style
+    // applied (heading and document defaults still inherit); cached per style.
+    RichText::CharFormat effectiveCharFormat(const RichText::CharFormat &direct,
+                                             const RichText::ParagraphFormat &paragraph) const;
+    RichText::TableStyle tableStyle(const RichText::Table &table) const; // resolved style of a table
+    const RichText::FrameSet &frameSet() const { return m_frames; }
     QVariantMap pageSetupMap() const;
     QVariantMap pageSetupMm() const;
     QString defaultFontFamily() const { return m_defaults.family; }
@@ -244,6 +271,11 @@ public:
     Q_INVOKABLE bool removeTableColumn(const QString &tableId, const QString &columnId);
     Q_INVOKABLE bool setTableColumnWidth(const QString &tableId, const QString &columnId, double width);
     Q_INVOKABLE bool setTableCellText(const QString &tableId, const QString &cellId, const QString &text);
+    // Merged cells (rich_text_table_spans.cpp): the cells must tile a
+    // rectangle that stays inside or outside the header rows.
+    Q_INVOKABLE bool mergeTableCells(const QString &tableId, const QStringList &cellIds);
+    Q_INVOKABLE bool splitTableCell(const QString &tableId, const QString &cellId);
+    Q_INVOKABLE bool setTableStyle(const QString &tableId, const QString &styleId);
     std::optional<RichText::Position> insertPageBreak(const RichText::Position &at);
     bool setPageSetup(const RichText::PageSetup &page);
     bool setDefaults(const RichText::DocumentDefaults &defaults);
@@ -260,12 +292,42 @@ public:
     QVector<RichText::RichObject> objectsIn(const RichText::Paragraph &p, int from, int to) const;
     QVector<RichText::RichObject> objectsIn(const QVector<RichText::Block> &blocks) const;
 
+    // --- named styles (rich_text_style_edit.cpp); each edit is one transaction
+    QVariantList styleSnapshots() const;
+    QStringList styleKinds() const;
+    Q_INVOKABLE QString createStyle(const QString &name, const QString &kind, const QString &parentId = {});
+    // `patch`: name, parentId, and "character", "paragraph" or "table" maps in
+    // the persistence keys; a null member clears it (inherits).
+    Q_INVOKABLE bool updateStyle(const QString &styleId, const QVariantMap &patch);
+    // Paragraph styles: whole paragraphs; character styles: their text; table
+    // styles: tables. An empty `styleId` removes the kind's style.
+    Q_INVOKABLE bool applyStyle(const QString &styleId, const QStringList &targetIds, const QString &kind = {});
+    Q_INVOKABLE QVariantList directOverrides(const QStringList &paragraphIds) const;
+    // `keys` like "paragraph.align" or "character.sizePt"; empty: all of them.
+    Q_INVOKABLE bool resetDirectFormatting(const QStringList &paragraphIds, const QStringList &keys = {});
+    // The style-controlled look of a paragraph, as an updateStyle() patch.
+    Q_INVOKABLE QVariantMap stylePatchFromParagraph(const QString &paragraphId) const;
+    bool applyParagraphStyle(const RichText::Position &a, const RichText::Position &b, const QString &styleId);
+    bool applyCharacterStyle(const RichText::Position &a, const RichText::Position &b, const QString &styleId);
+
+    // --- text frames (rich_text_frames.cpp); geometry maps use millimetres
+    QVariantList frameSnapshots() const;
+    QString storyFrameId() const { return m_frames.storyStart; }
+    Q_INVOKABLE QString createTextFrame(int pageIndex, const QVariantMap &geometryMm);
+    Q_INVOKABLE bool setTextFrameGeometry(const QString &frameId, const QVariantMap &geometryMm);
+    Q_INVOKABLE bool setTextFrameLayout(const QString &frameId, const QVariantMap &layout);
+    Q_INVOKABLE bool connectTextFrames(const QString &sourceId, const QString &targetId);
+    Q_INVOKABLE bool disconnectTextFrame(const QString &frameId);
+    Q_INVOKABLE bool removeTextFrame(const QString &frameId);
+    bool setFrameSet(const RichText::FrameSet &frames, const QString &label);
+
     // --- content replacement (loading); clears history, bumps reset generation
     void resetContent(QVector<RichText::Block> blocks, QVector<RichText::CharFormat> formats,
                       QHash<QString, RichText::ListDefinition> lists,
                       QHash<QString, RichText::RichObject> objects,
                       const RichText::PageSetup &page, const RichText::DocumentDefaults &defaults,
-                      const DocumentId &id = {});
+                      const DocumentId &id = {}, RichText::StyleSheet styles = {},
+                      RichText::FrameSet frames = {});
     void clear();
 
     // --- history
@@ -325,6 +387,12 @@ private:
     OperationError applyBlocks(RichText::StepBlocks &step, bool insert, RichText::ChangeSet &change);
     OperationError applyMove(const RichText::StepMove &step, bool forward, RichText::ChangeSet &change);
     OperationError applyTable(const RichText::StepTable &step, bool forward, RichText::ChangeSet &change);
+    OperationError applyStyleStep(const RichText::StepStyle &step, bool forward, RichText::ChangeSet &change);
+    // AGENT-GUARD: formats may only name existing character styles, or the
+    // saved file would not load (the codec refuses unknown style references).
+    bool knownCharacterStyles(const QVector<RichText::Span> &spans, int mark = -1) const;
+    OperationError applyFrames(const RichText::StepFrames &step, bool forward, RichText::ChangeSet &change);
+    bool commitStyle(const QString &label, std::optional<RichText::NamedStyle> after, const QString &styleId);
     QVector<RichText::Block> *bodyOrNull(const RichText::ContainerSpec &spec);
     QVector<RichText::ParagraphPtr> *cellParagraphs(const RichText::ContainerSpec &spec);
     void registerBlock(const RichText::Block &block);
@@ -353,6 +421,9 @@ private:
     QHash<QString, RichText::RichObject> m_objects;
     RichText::PageSetup m_page;
     RichText::DocumentDefaults m_defaults;
+    RichText::StyleSheet m_styles;
+    RichText::FrameSet m_frames;
+    mutable QHash<QString, RichText::CharFormatPatch> m_resolvedCharacter; // cleared by style steps
     mutable QVector<RichText::Paragraph *> m_flat;
     mutable bool m_orderDirty = true;
     std::optional<RichText::Transaction> m_open;

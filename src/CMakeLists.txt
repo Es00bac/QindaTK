@@ -194,18 +194,21 @@ qt_add_qml_module(qindatk
         core/rich_text_edit.cpp core/rich_text_history.cpp
         core/rich_text_ops.cpp core/rich_text_ops_p.h
         core/rich_text_structure.cpp core/rich_text_fragment.cpp core/rich_text_table_edit.cpp
+        core/rich_text_table_spans.cpp core/rich_text_style_edit.cpp core/rich_text_frames.cpp
+        core/rich_text_publishing.cpp core/rich_text_publishing.h
         core/rich_text_page_setup_mm.cpp
         core/rich_text_pdf_export.cpp
-        core/rich_text_codec.cpp core/rich_text_codec_read.cpp
+        core/rich_text_codec.cpp core/rich_text_codec_read.cpp core/rich_text_codec_publishing.cpp
         core/rich_text_codec.h core/rich_text_codec_p.h
         core/rich_text_layout.h core/rich_text_layout_p.h core/rich_text_shaping_p.h
         core/rich_text_shaping.cpp core/rich_text_pagination.cpp core/rich_text_table_flow.cpp
+        core/rich_text_regions.cpp
         core/rich_text_pages.cpp core/rich_text_mapping.cpp core/rich_text_navigation.cpp
         core/rich_text_painter.cpp core/rich_text_objects.cpp core/rich_text_objects.h
         core/rich_text_asset_renderer.cpp core/rich_text_asset_renderer.h
         core/rich_text_graphemes.cpp core/rich_text_graphemes.h
         core/rich_text_area.cpp core/rich_text_area.h core/rich_text_area_input.cpp
-        core/rich_text_area_edit.cpp core/rich_text_area_commands.cpp
+        core/rich_text_area_edit.cpp core/rich_text_area_commands.cpp core/rich_text_area_structure.cpp
         core/rich_text_format_state.cpp core/rich_text_format_state.h
         core/rich_text_page_model.cpp core/rich_text_page_model.h core/rich_text_visible_pages.h
         core/rich_text_tile.cpp core/rich_text_tile.h

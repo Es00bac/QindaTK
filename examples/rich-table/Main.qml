@@ -4,10 +4,10 @@ import QindaTK as Tk
 
 // Structured table editing (WP-051): Tk.TableEditor bound to the paginated
 // Tk.RichTextDocument loaded from the rich-document fixture. Row, column,
-// cell-text and width requests call the document's table methods, so each
-// one is a document undo step and the page reflows at once. Selecting a cell
-// reveals it on the page; moving the page caret into a cell selects it in
-// the editor. Merge stays disabled: the model has no spans (canMerge false).
+// cell-text, width, merge and split requests call the document's table
+// methods, so each one is a document undo step and the page reflows at once.
+// Selecting a cell reveals it on the page; moving the page caret into a cell
+// selects it in the editor. "Extend cell selection" adds cells to merge.
 // Run: qtk-preview examples/rich-table/Main.qml --size 1180x760
 Rectangle {
     id: root
@@ -23,6 +23,7 @@ Rectangle {
         return tables.length ? tables[0] : emptyTable
     }
     property string selectedCellId: ""
+    property var extraCellIds: [] // added with "Extend cell selection", for Merge
     property string selectedRowId: ""
     property string selectedColumnId: ""
     property int selectedRowIndex: 0
@@ -37,6 +38,7 @@ Rectangle {
         return null
     }
     function select(cell) {
+        root.extraCellIds = []
         root.selectedCellId = cell.id
         root.selectedRowId = cell.rowId
         root.selectedColumnId = cell.columnId
@@ -146,14 +148,26 @@ Rectangle {
                         anchors.top: parent.top
                         width: parent.width - Tk.Theme.size.scrollbar - Tk.Theme.space.xs
                         table: Object.assign({ validationMessage: root.requestError }, root.snapshot)
-                        selectedCellIds: root.selectedCellId ? [root.selectedCellId] : []
+                        selectedCellIds: (root.selectedCellId ? [root.selectedCellId] : []).concat(root.extraCellIds)
                         selectedRowId: root.selectedRowId
                         selectedColumnId: root.selectedColumnId
                         onCellSelectionRequested: function(id, extend) {
                             const cell = root.cellWhere(c => c.id === id)
                             if (!cell) return
+                            if (extend && root.selectedCellId && id !== root.selectedCellId) {
+                                const extra = root.extraCellIds.filter(other => other !== id)
+                                root.extraCellIds = extra.length < root.extraCellIds.length ? extra : extra.concat([id])
+                                return
+                            }
                             root.select(cell)
                             root.reveal()
+                        }
+                        onCellsMergeRequested: function(ids) {
+                            root.request(document.mergeTableCells(root.snapshot.id, ids))
+                            root.extraCellIds = []
+                        }
+                        onCellSplitRequested: function(id) {
+                            root.request(document.splitTableCell(root.snapshot.id, id))
                         }
                         onCellTextChangeRequested: function(id, text) {
                             root.request(document.setTableCellText(root.snapshot.id, id, text))

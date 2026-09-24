@@ -1,223 +1,121 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 import QtQuick
 import QindaTK as Tk
+import "publishing.js" as Fixture
 
-// A tiny publishing host. The QML panels send stable-ID requests; this host
-// applies the accepted changes to page, style, frame and table snapshots.
+// Publishing workbench (WP-051). One Tk.RichTextDocument owns every edit:
+// StyleManager, TextFrameEditor, TableEditor and PageSetupDialog only send
+// requests, and each accepted request is one document undo step. The page
+// view shows the story flowing through linked text frames. The caret picks
+// the style targets, the frame and the table cell shown in the panels, and
+// choosing a frame or a cell in a panel moves the caret there, so the text,
+// the page and the inspector never hold separate copies.
+// Run: qtk-preview examples/document-publishing/Main.qml --size 1280x900
 Rectangle {
     id: scene
     width: 1280
     height: 900
     color: Tk.Theme.color.bg
 
-    QtObject {
-        id: document
-        property int revision: 0
-        property string lastRequest: qsTr("Ready · sample document has one selected story")
-        property string pageId: "page-1"
-        property string selectedFrameId: "frame-1"
-        property string selectedRowId: "row-1"
-        property string selectedColumnId: "column-1"
-        property var selectedCellIds: ["cell-1-1"]
-        property var pageSetup: ({
-            widthMm: 210, heightMm: 297, unit: "mm", orientation: "portrait", scope: "document",
-            marginsMm: { top: 18, right: 18, bottom: 20, left: 22 }, gutterMm: 8, columns: 2, bleedMm: 3
+    property string status: qsTr("Loading")
+    property string selectedStyleId: ""
+    property string selectedFrameId: ""
+    property var selectedCellIds: []
+    property string tableError: ""
+    readonly property var emptyTable: ({ id: "", rows: [], columns: [], cells: [], canMerge: false })
+    readonly property var table: document.tables.length ? document.tables[0] : emptyTable
+    readonly property var selectedStyle: styleById(selectedStyleId)
+    // Frames as TextFrameEditor rows: the story's last frame reports the overset text.
+    readonly property var frames: {
+        let last = ""
+        let index = -1
+        for (const frame of document.frames)
+            if (frame.storyIndex > index) { index = frame.storyIndex; last = frame.id }
+        const overset = view.area.oversetCharacters
+        return document.frames.map(function(frame) {
+            const status = frame.storyIndex < 0 ? qsTr("not threaded")
+                : frame.id === last && overset > 0 ? qsTr("overset")
+                : qsTr("frame %1 of the story").arg(frame.storyIndex + 1)
+            return Object.assign({}, frame, { storyId: frame.storyIndex >= 0 ? qsTr("press release") : qsTr("none"),
+                                              oversetChars: frame.id === last ? overset : 0, flowStatus: status })
         })
-        property var styleRows: [
-            { id: "body", name: "Body", kind: "paragraph", parentId: "", summary: "Main reading style", preview: "The quick brown fox crosses a quiet page.", compatible: true, builtIn: true },
-            { id: "heading-1", name: "Heading 1", kind: "paragraph", parentId: "body", summary: "Section heading", preview: "A new section begins here.", compatible: true, builtIn: false },
-            { id: "emphasis", name: "Emphasis", kind: "character", parentId: "", summary: "Italic emphasis", preview: "words that carry emphasis", compatible: true, builtIn: false },
-            { id: "table-body", name: "Table body", kind: "table", parentId: "body", summary: "Compact data cells", preview: "Label · Value", compatible: false, compatibilityReason: qsTr("Select a table cell to apply a table style."), builtIn: true }
-        ]
-        property string selectedStyleId: "body"
-        property var targetIds: ["paragraph-1"]
-        property var directOverrides: [{ key: "fontSize", label: "Font size", value: "12 pt" }, { key: "ink", label: "Text colour", value: "Accent" }]
-        property string appliedStyleId: "body"
-        property var frames: [
-            { id: "frame-1", label: "Frame 1 · page 1", pageId: "page-1", xMm: 22, yMm: 18, widthMm: 78, heightMm: 105, storyId: "story-1", nextFrameId: "frame-2", columns: 1, gutterMm: 6, insetMm: 4, oversetChars: 68, flowStatus: "overset" },
-            { id: "frame-2", label: "Frame 2 · page 1", pageId: "page-1", xMm: 110, yMm: 18, widthMm: 78, heightMm: 105, storyId: "story-1", nextFrameId: "", columns: 1, gutterMm: 6, insetMm: 4, oversetChars: 0, flowStatus: "receiving story" }
-        ]
-        property var table: ({
-            id: "table-1", styleId: "grid", maxRows: 40, maxColumns: 12, canMerge: true,
-            styles: [{ id: "grid", label: "Simple grid" }, { id: "banded", label: "Banded rows" }],
-            rows: [{ id: "row-1", label: "Row 1" }, { id: "row-2", label: "Row 2" }],
-            columns: [{ id: "column-1", label: "Item", width: 42 }, { id: "column-2", label: "Quantity", width: 28 }, { id: "column-3", label: "Notes", width: 64 }],
-            cells: [
-                { id: "cell-1-1", rowId: "row-1", columnId: "column-1", rowIndex: 0, columnIndex: 0, text: "Paper", rowSpan: 1, columnSpan: 1 },
-                { id: "cell-1-2", rowId: "row-1", columnId: "column-2", rowIndex: 0, columnIndex: 1, text: "240 gsm", rowSpan: 1, columnSpan: 1 },
-                { id: "cell-1-3", rowId: "row-1", columnId: "column-3", rowIndex: 0, columnIndex: 2, text: "Uncoated", rowSpan: 1, columnSpan: 1 },
-                { id: "cell-2-1", rowId: "row-2", columnId: "column-1", rowIndex: 1, columnIndex: 0, text: "Trim", rowSpan: 1, columnSpan: 1 },
-                { id: "cell-2-2", rowId: "row-2", columnId: "column-2", rowIndex: 1, columnIndex: 1, text: "A4", rowSpan: 1, columnSpan: 1 },
-                { id: "cell-2-3", rowId: "row-2", columnId: "column-3", rowIndex: 1, columnIndex: 2, text: "3 mm bleed", rowSpan: 1, columnSpan: 1 }
-            ]
-        })
-
-        function changed(message) {
-            ++revision
-            lastRequest = qsTr("%1 · revision %2").arg(message).arg(revision)
-        }
-        function styleById(id) {
-            for (let i = 0; i < styleRows.length; ++i) if (styleRows[i].id === id) return styleRows[i]
-            return null
-        }
-        function createStyle(name, kind, parentId) {
-            const id = "style-" + (styleRows.length + 1)
-            styleRows = styleRows.concat([{ id: id, name: name, kind: kind, parentId: parentId, summary: qsTr("Custom %1 style").arg(kind), preview: name, compatible: true, builtIn: false }])
-            selectedStyleId = id
-            changed(qsTr("Created style %1").arg(name))
-        }
-        function updateStyle(id, patch) {
-            styleRows = styleRows.map(function(style) { return style.id === id ? Object.assign({}, style, patch) : style })
-            changed(qsTr("Updated style %1").arg(id))
-        }
-        function applyStyle(id, targets) {
-            if (!styleById(id) || !targets.length) return
-            appliedStyleId = id
-            directOverrides = []
-            changed(qsTr("Applied %1 to %2 target(s)").arg(id).arg(targets.length))
-        }
-        function resetOverrides(targets, keys) {
-            if (!targets.length || !keys.length) return
-            directOverrides = []
-            changed(qsTr("Reset %1 direct override(s)").arg(keys.length))
-        }
-        function applyPageSetup(settings) {
-            pageSetup = settings
-            changed(qsTr("Applied %1 page setup to %2").arg(settings.scope).arg(pageId))
-        }
-        function selectFrame(id) { selectedFrameId = id }
-        function updateFrameGeometry(id, geometry) {
-            frames = frames.map(function(frame) { return frame.id === id ? Object.assign({}, frame, geometry) : frame })
-            changed(qsTr("Resized %1").arg(id))
-        }
-        function updateFrameLayout(id, layout) {
-            frames = frames.map(function(frame) { return frame.id === id ? Object.assign({}, frame, layout) : frame })
-            changed(qsTr("Updated columns and inset for %1").arg(id))
-        }
-        function connectFrames(sourceId, targetId) {
-            frames = frames.map(function(frame) { return frame.id === sourceId ? Object.assign({}, frame, { nextFrameId: targetId, flowStatus: "threaded" }) : frame })
-            changed(qsTr("Connected %1 → %2").arg(sourceId).arg(targetId))
-        }
-        function disconnectFrame(sourceId) {
-            frames = frames.map(function(frame) { return frame.id === sourceId ? Object.assign({}, frame, { nextFrameId: "", flowStatus: "overset" }) : frame })
-            changed(qsTr("Disconnected %1").arg(sourceId))
-        }
-        function createFrame(targetPageId, geometry) {
-            const id = "frame-" + (frames.length + 1)
-            frames = frames.concat([Object.assign({ id: id, label: qsTr("Frame %1 · page 1").arg(frames.length + 1), pageId: targetPageId, storyId: "story-1", nextFrameId: "", columns: 1, gutterMm: 6, insetMm: 4, oversetChars: 0, flowStatus: "new frame" }, geometry)])
-            selectedFrameId = id
-            changed(qsTr("Created %1").arg(id))
-        }
-        function cellById(id) {
-            for (let i = 0; i < table.cells.length; ++i) if (table.cells[i].id === id) return table.cells[i]
-            return null
-        }
-        function selectCell(id, extend) {
-            const next = extend ? selectedCellIds.slice() : []
-            const index = next.indexOf(id)
-            if (index >= 0) next.splice(index, 1)
-            else next.push(id)
-            selectedCellIds = next
-            const cell = cellById(id)
-            if (cell) { selectedRowId = cell.rowId; selectedColumnId = cell.columnId }
-        }
-        function insertRow(index) {
-            index = Math.max(0, Math.min(index, table.rows.length))
-            const next = Object.assign({}, table)
-            const rowId = "row-" + (table.rows.length + 1)
-            next.rows = table.rows.slice()
-            next.rows.splice(index, 0, { id: rowId, label: qsTr("Row %1").arg(table.rows.length + 1) })
-            next.cells = table.cells.map(function(cell) { return Object.assign({}, cell, { rowIndex: cell.rowIndex >= index ? cell.rowIndex + 1 : cell.rowIndex }) })
-            table.columns.forEach(function(column, columnIndex) {
-                next.cells.push({ id: "cell-" + rowId + "-" + column.id, rowId: rowId, columnId: column.id, rowIndex: index, columnIndex: columnIndex, text: "", rowSpan: 1, columnSpan: 1 })
-            })
-            table = next
-            selectedRowId = rowId
-            changed(qsTr("Inserted %1").arg(rowId))
-        }
-        function deleteRow(rowId) {
-            if (table.rows.length <= 1) return
-            const index = table.rows.findIndex(function(row) { return row.id === rowId })
-            const next = Object.assign({}, table)
-            next.rows = table.rows.filter(function(row) { return row.id !== rowId })
-            next.cells = table.cells.filter(function(cell) { return cell.rowId !== rowId }).map(function(cell) { return Object.assign({}, cell, { rowIndex: cell.rowIndex > index ? cell.rowIndex - 1 : cell.rowIndex }) })
-            table = next
-            selectedRowId = next.rows[Math.max(0, index - 1)].id
-            changed(qsTr("Deleted %1").arg(rowId))
-        }
-        function insertColumn(index) {
-            index = Math.max(0, Math.min(index, table.columns.length))
-            const next = Object.assign({}, table)
-            const columnId = "column-" + (table.columns.length + 1)
-            next.columns = table.columns.slice()
-            next.columns.splice(index, 0, { id: columnId, label: qsTr("Column %1").arg(table.columns.length + 1), width: 36 })
-            next.cells = table.cells.map(function(cell) { return Object.assign({}, cell, { columnIndex: cell.columnIndex >= index ? cell.columnIndex + 1 : cell.columnIndex }) })
-            table.rows.forEach(function(row, rowIndex) { next.cells.push({ id: "cell-" + row.id + "-" + columnId, rowId: row.id, columnId: columnId, rowIndex: rowIndex, columnIndex: index, text: "", rowSpan: 1, columnSpan: 1 }) })
-            table = next
-            selectedColumnId = columnId
-            changed(qsTr("Inserted %1").arg(columnId))
-        }
-        function deleteColumn(columnId) {
-            if (table.columns.length <= 1) return
-            const index = table.columns.findIndex(function(column) { return column.id === columnId })
-            const next = Object.assign({}, table)
-            next.columns = table.columns.filter(function(column) { return column.id !== columnId })
-            next.cells = table.cells.filter(function(cell) { return cell.columnId !== columnId }).map(function(cell) { return Object.assign({}, cell, { columnIndex: cell.columnIndex > index ? cell.columnIndex - 1 : cell.columnIndex }) })
-            table = next
-            selectedColumnId = next.columns[Math.max(0, index - 1)].id
-            changed(qsTr("Deleted %1").arg(columnId))
-        }
-        function mergeCells(cellIds) {
-            if (cellIds.length < 2) return
-            const chosen = cellIds.map(cellById).filter(function(cell) { return cell !== null })
-            if (chosen.length < 2) return
-            const first = chosen[0]
-            const count = chosen.filter(function(cell) { return cell.rowId === first.rowId }).length
-            if (count !== chosen.length) return
-            const removed = chosen.slice(1).map(function(cell) { return cell.id })
-            const next = Object.assign({}, table)
-            next.cells = table.cells.filter(function(cell) { return removed.indexOf(cell.id) < 0 }).map(function(cell) {
-                return cell.id === first.id ? Object.assign({}, cell, { columnSpan: chosen.length }) : cell
-            })
-            table = next
-            selectedCellIds = [first.id]
-            changed(qsTr("Merged %1 adjacent cells").arg(chosen.length))
-        }
-        function splitCell(cellId) {
-            const source = cellById(cellId)
-            if (!source || (source.columnSpan || 1) < 2) return
-            const next = Object.assign({}, table)
-            const span = source.columnSpan
-            next.cells = table.cells.map(function(cell) { return cell.id === cellId ? Object.assign({}, cell, { columnSpan: 1 }) : Object.assign({}, cell, { columnIndex: cell.columnIndex > source.columnIndex ? cell.columnIndex + span - 1 : cell.columnIndex }) })
-            for (let offset = 1; offset < span; ++offset) next.cells.push({ id: cellId + "-split-" + offset, rowId: source.rowId, columnId: table.columns[source.columnIndex + offset].id, rowIndex: source.rowIndex, columnIndex: source.columnIndex + offset, text: "", rowSpan: 1, columnSpan: 1 })
-            table = next
-            selectedCellIds = [cellId]
-            changed(qsTr("Split merged cell"))
-        }
-        function updateCellText(id, text) {
-            table = Object.assign({}, table, { cells: table.cells.map(function(cell) { return cell.id === id ? Object.assign({}, cell, { text: text }) : cell }) })
-            changed(qsTr("Edited %1").arg(id))
-        }
-        function resizeColumn(id, width) {
-            table = Object.assign({}, table, { columns: table.columns.map(function(column) { return column.id === id ? Object.assign({}, column, { width: width }) : column }) })
-            changed(qsTr("Resized %1").arg(id))
-        }
-        function setTableStyle(id) {
-            table = Object.assign({}, table, { styleId: id })
-            changed(qsTr("Applied table style %1").arg(id))
-        }
     }
 
-    QtObject {
-        id: frameGeometry
-        readonly property var defaults: ({ xMm: 22, yMm: 150, widthMm: 78, heightMm: 90 })
+    function styleById(id) {
+        for (const style of document.styles) if (style.id === id) return style
+        return null
+    }
+    function cellById(id) {
+        for (const cell of table.cells) if (cell.id === id) return cell
+        return null
+    }
+    function cellOfParagraph(paragraphId) {
+        for (const cell of table.cells) if (cell.paragraphIds.indexOf(paragraphId) >= 0) return cell
+        return null
+    }
+    // Reports a request's outcome; a refusal shows the document's reason.
+    function report(accepted, message) {
+        status = accepted ? message : qsTr("Refused: %1").arg(document.lastError)
+        return accepted
+    }
+    // Style requests reach the text through the view's commands, so the
+    // selection and focus stay; table styles go to the table.
+    function applyStyle(styleId) {
+        const style = styleById(styleId)
+        if (!style) return false
+        if (style.kind === "table")
+            return report(document.setTableStyle(table.id, styleId), qsTr("Applied %1 to the table").arg(style.name))
+        const command = style.kind === "character" ? "text.style" : "paragraph.style"
+        return report(view.area.invokeCommand(command, { value: styleId }), qsTr("Applied %1").arg(style.name))
+    }
+    // Redefines the selected style from the paragraph at the caret.
+    function matchCaret() {
+        const style = selectedStyle
+        if (!style || style.kind === "table") return false
+        const look = document.stylePatchFromParagraph(view.area.caretParagraphId)
+        const patch = style.kind === "character" ? { character: look.character } : look
+        return report(document.updateStyle(style.id, patch), qsTr("%1 now matches the caret paragraph").arg(style.name))
+    }
+    function selectCell(cellId, extend) {
+        const cell = cellById(cellId)
+        if (!cell) return
+        if (extend) {
+            const next = selectedCellIds.slice()
+            const index = next.indexOf(cellId)
+            if (index >= 0) next.splice(index, 1)
+            else next.push(cellId)
+            selectedCellIds = next
+            return
+        }
+        selectedCellIds = [cellId]
+        view.area.goToParagraph(cell.paragraphIds[0], 0)
+    }
+    function tableRequest(accepted, message) {
+        tableError = accepted ? "" : document.lastError
+        return report(accepted, message)
+    }
+
+    Tk.RichTextDocument {
+        id: document
+        Component.onCompleted: scene.report(loadJson(Fixture.documentJson()), qsTr("Loaded the press release"))
+    }
+    Connections {
+        target: view.area
+        // The caret in a frame or a table cell selects it in the inspector.
+        function onCaretChanged() {
+            if (view.area.caretFrameId.length) scene.selectedFrameId = view.area.caretFrameId
+            const cell = scene.cellOfParagraph(view.area.caretParagraphId)
+            if (cell && scene.selectedCellIds.indexOf(cell.id) < 0) scene.selectedCellIds = [cell.id]
+        }
     }
 
     Tk.PageSetupDialog {
         id: pageSetupDialog
-        pageSetup: document.pageSetup
-        onPageSetupRequested: function(settings) { document.applyPageSetup(settings) }
-        onPageSetupCancelled: document.lastRequest = qsTr("Page setup cancelled · document unchanged")
+        pageSetup: document.pageSetupMm
+        onPageSetupRequested: function(settings) {
+            scene.report(document.applyPageSetupMm(settings), qsTr("Page setup applied"))
+        }
+        onPageSetupCancelled: scene.status = qsTr("Page setup cancelled · document unchanged")
     }
 
     Tk.Flex {
@@ -229,15 +127,38 @@ Rectangle {
         Tk.Flex {
             direction: Tk.Flex.Row
             align: Tk.Flex.Center
-            gap: Tk.Theme.space.md
+            gap: Tk.Theme.space.sm
             Tk.Overline { title: qsTr("PUBLISHING WORKBENCH"); Tk.Flex.grow: 1; Tk.Flex.basis: 0 }
-            Tk.Badge { text: qsTr("%1 × %2 mm").arg(document.pageSetup.widthMm).arg(document.pageSetup.heightMm); variant: "accent" }
-            Tk.Badge { text: qsTr("Revision %1").arg(document.revision); variant: "default" }
+            Tk.Badge {
+                objectName: "publishingPages"
+                text: qsTr("%1 pages").arg(view.pageCount)
+                variant: "default"
+            }
+            Tk.Badge {
+                objectName: "publishingOverset"
+                text: view.area.oversetCharacters > 0 ? qsTr("%1 characters overset").arg(view.area.oversetCharacters)
+                                                      : qsTr("Story fits")
+                variant: view.area.oversetCharacters > 0 ? "warning" : "accent"
+            }
+            Tk.IconButton {
+                objectName: "publishingUndo"
+                iconName: "undo-2"
+                tooltip: document.canUndo ? qsTr("Undo %1").arg(document.undoText) : qsTr("Undo")
+                enabled: document.canUndo
+                onClicked: document.undo()
+            }
+            Tk.IconButton {
+                objectName: "publishingRedo"
+                iconName: "redo-2"
+                tooltip: document.canRedo ? qsTr("Redo %1").arg(document.redoText) : qsTr("Redo")
+                enabled: document.canRedo
+                onClicked: document.redo()
+            }
             Tk.Button {
                 objectName: "openPageSetup"
                 text: qsTr("Page setup…")
-                iconName: "file-cog"
-                tooltip: qsTr("Change page geometry and section scope")
+                iconName: "ruler"
+                tooltip: qsTr("Change page size, margins and columns")
                 onClicked: pageSetupDialog.open()
             }
         }
@@ -248,77 +169,14 @@ Rectangle {
             direction: Tk.Flex.Row
             gap: Tk.Theme.space.lg
 
-            Tk.Box {
-                objectName: "publishingDocumentHost"
-                color: Tk.Theme.color.panel
-                borderColor: Tk.Theme.color.divider
-                padding: Tk.Theme.space.md
+            Tk.RichDocumentView {
+                id: view
+                objectName: "publishingDocument"
+                document: document
+                zoom: 0.72
+                tooltip: qsTr("Press release pages")
                 Tk.Flex.grow: 1
                 Tk.Flex.basis: 0
-
-                Tk.Flex {
-                    anchors.fill: parent
-                    direction: Tk.Flex.Column
-                    gap: Tk.Theme.space.md
-                    Tk.SectionHeader { title: qsTr("Press release"); count: qsTr("Page 1") }
-                    Item {
-                        id: pageStage
-                        objectName: "publishingPageStage"
-                        Tk.Flex.grow: 1
-                        Tk.Flex.basis: 0
-                        Rectangle {
-                            id: page
-                            anchors.centerIn: parent
-                            height: parent.height - Tk.Theme.space.xl * 2
-                            width: Math.min(parent.width - Tk.Theme.space.xl * 2, height * document.pageSetup.widthMm / document.pageSetup.heightMm)
-                            color: Tk.Theme.color.surface
-                            border.width: Tk.Theme.size.border
-                            border.color: Tk.Theme.color.divider
-                            Rectangle {
-                                objectName: "publishingTextFrame"
-                                x: parent.width * document.frames[0].xMm / document.pageSetup.widthMm
-                                y: parent.height * document.frames[0].yMm / document.pageSetup.heightMm
-                                width: parent.width * document.frames[0].widthMm / document.pageSetup.widthMm
-                                height: parent.height * document.frames[0].heightMm / document.pageSetup.heightMm
-                                color: Tk.Theme.color.inputBg
-                                border.width: Tk.Theme.size.border
-                                border.color: document.selectedFrameId === "frame-1" ? Tk.Theme.color.accent : Tk.Theme.color.borderStrong
-                                Tk.Label {
-                                    anchors.fill: parent
-                                    anchors.margins: Tk.Theme.space.sm
-                                    text: "New edition reaches readers across the city"
-                                    color: Tk.Theme.color.text
-                                    wrapMode: Text.WordWrap
-                                    font.pixelSize: Tk.Theme.font.body
-                                }
-                            }
-                            Rectangle {
-                                objectName: "publishingLinkedFrame"
-                                x: parent.width * document.frames[1].xMm / document.pageSetup.widthMm
-                                y: parent.height * document.frames[1].yMm / document.pageSetup.heightMm
-                                width: parent.width * document.frames[1].widthMm / document.pageSetup.widthMm
-                                height: parent.height * document.frames[1].heightMm / document.pageSetup.heightMm
-                                color: Tk.Theme.color.panelAlt
-                                border.width: Tk.Theme.size.border
-                                border.color: document.selectedFrameId === "frame-2" ? Tk.Theme.color.accent : Tk.Theme.color.borderStrong
-                                Tk.Caption {
-                                    anchors { left: parent.left; right: parent.right; top: parent.top }
-                                    anchors.margins: Tk.Theme.space.sm
-                                    text: qsTr("Linked story continues")
-                                    wrapMode: Text.WordWrap
-                                }
-                            }
-                            Tk.Caption {
-                                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                                anchors.margins: Tk.Theme.space.md
-                                text: qsTr("Applied style: %1 · %2 frames · %3 table rows").arg(document.styleById(document.appliedStyleId).name).arg(document.frames.length).arg(document.table.rows.length)
-                                mono: true
-                                horizontalAlignment: Text.AlignHCenter
-                            }
-                        }
-                    }
-                    Tk.Notice { objectName: "publishingHostStatus"; text: document.lastRequest; variant: "info" }
-                }
             }
 
             Tk.Scroll {
@@ -331,64 +189,127 @@ Rectangle {
                 accessibleName: qsTr("Publishing inspector")
 
                 Tk.Flex {
-                    width: parent.width
+                    width: parent.width - Tk.Theme.size.scrollbar - Tk.Theme.space.xs
                     direction: Tk.Flex.Column
                     gap: Tk.Theme.space.md
                     padding: Tk.Theme.space.xs
 
                     Tk.StyleManager {
+                        id: styleManager
                         objectName: "publishingStyleManager"
                         width: parent.width
-                        styles: document.styleRows
-                        targetIds: document.targetIds
-                        selectedStyleId: document.selectedStyleId
-                        directOverrides: document.directOverrides
-                        onStyleSelectionRequested: function(id) { document.selectedStyleId = id }
-                        onCreateStyleRequested: function(name, kind, parentId) { document.createStyle(name, kind, parentId) }
-                        onUpdateStyleRequested: function(id, patch) { document.updateStyle(id, patch) }
-                        onApplyStyleRequested: function(id, targets) { document.applyStyle(id, targets) }
-                        onResetOverridesRequested: function(targets, keys) { document.resetOverrides(targets, keys) }
+                        styles: document.styles
+                        styleKinds: document.styleKinds
+                        targetIds: styleManager.selectedStyle && styleManager.selectedStyle.kind === "table"
+                                   ? (scene.table.id ? [scene.table.id] : []) : view.area.selectedParagraphIds
+                        selectedStyleId: scene.selectedStyleId
+                        directOverrides: {
+                            document.revision // re-read after every edit
+                            return document.directOverrides(view.area.selectedParagraphIds)
+                        }
+                        onStyleSelectionRequested: function(id) { scene.selectedStyleId = id }
+                        onCreateStyleRequested: function(name, kind, parentId) {
+                            const id = document.createStyle(name, kind, parentId)
+                            if (scene.report(id.length > 0, qsTr("Created style %1").arg(name))) scene.selectedStyleId = id
+                        }
+                        onUpdateStyleRequested: function(id, patch) {
+                            scene.report(document.updateStyle(id, { name: patch.name, parentId: patch.parentId }),
+                                         qsTr("Updated style %1").arg(patch.name))
+                        }
+                        onApplyStyleRequested: function(id, targets) { scene.applyStyle(id) }
+                        onResetOverridesRequested: function(targets, keys) {
+                            scene.report(document.resetDirectFormatting(targets, keys), qsTr("Direct formatting reset"))
+                        }
+                    }
+                    Tk.Button {
+                        objectName: "publishingMatchCaret"
+                        text: qsTr("Match caret paragraph")
+                        iconName: "pipette"
+                        tooltip: qsTr("Redefine the selected style from the paragraph at the caret")
+                        enabled: scene.selectedStyle !== null && scene.selectedStyle.kind !== "table"
+                        onClicked: scene.matchCaret()
                     }
                     Tk.Divider {}
                     Tk.TextFrameEditor {
                         objectName: "publishingTextFrameEditor"
                         width: parent.width
-                        frames: document.frames
-                        selectedFrameId: document.selectedFrameId
-                        pageId: document.pageId
-                        newFrameGeometryMm: frameGeometry.defaults
-                        onFrameSelectionRequested: function(id) { document.selectFrame(id) }
-                        onGeometryChangeRequested: function(id, geometry) { document.updateFrameGeometry(id, geometry) }
-                        onLayoutChangeRequested: function(id, layout) { document.updateFrameLayout(id, layout) }
-                        onConnectRequested: function(sourceId, targetId) { document.connectFrames(sourceId, targetId) }
-                        onDisconnectRequested: function(id) { document.disconnectFrame(id) }
-                        onCreateFrameRequested: function(pageId, geometry) { document.createFrame(pageId, geometry) }
+                        frames: scene.frames
+                        selectedFrameId: scene.selectedFrameId
+                        pageId: "page-" + (view.currentPage + 1)
+                        newFrameGeometryMm: ({ xMm: 20, yMm: 150, widthMm: 80, heightMm: 60 })
+                        onFrameSelectionRequested: function(id) {
+                            scene.selectedFrameId = id
+                            view.area.goToFrame(id)
+                        }
+                        onGeometryChangeRequested: function(id, geometry) {
+                            scene.report(document.setTextFrameGeometry(id, geometry), qsTr("Frame moved or resized"))
+                        }
+                        onLayoutChangeRequested: function(id, layout) {
+                            scene.report(document.setTextFrameLayout(id, layout), qsTr("Frame columns changed"))
+                        }
+                        onConnectRequested: function(sourceId, targetId) {
+                            scene.report(document.connectTextFrames(sourceId, targetId), qsTr("Frames connected"))
+                        }
+                        onDisconnectRequested: function(id) {
+                            scene.report(document.disconnectTextFrame(id), qsTr("Frame disconnected"))
+                        }
+                        onCreateFrameRequested: function(pageId, geometry) {
+                            const id = document.createTextFrame(Number(pageId.slice(5)) - 1, geometry)
+                            if (scene.report(id.length > 0, qsTr("Frame created"))) scene.selectedFrameId = id
+                        }
                     }
                     Tk.Divider {}
                     Tk.TableEditor {
                         objectName: "publishingTableEditor"
                         width: parent.width
-                        table: document.table
-                        selectedCellIds: document.selectedCellIds
-                        selectedRowId: document.selectedRowId
-                        selectedColumnId: document.selectedColumnId
-                        onCellSelectionRequested: function(id, extend) { document.selectCell(id, extend) }
-                        onCellTextChangeRequested: function(id, text) { document.updateCellText(id, text) }
-                        onRowInsertRequested: function(index) { document.insertRow(index) }
-                        onRowDeleteRequested: function(id) { document.deleteRow(id) }
-                        onColumnInsertRequested: function(index) { document.insertColumn(index) }
-                        onColumnDeleteRequested: function(id) { document.deleteColumn(id) }
-                        onCellsMergeRequested: function(ids) { document.mergeCells(ids) }
-                        onCellSplitRequested: function(id) { document.splitCell(id) }
-                        onColumnWidthChangeRequested: function(id, width) { document.resizeColumn(id, width) }
-                        onTableStyleChangeRequested: function(id) { document.setTableStyle(id) }
+                        table: Object.assign({ validationMessage: scene.tableError }, scene.table)
+                        // Cells merged away or deleted leave the selection.
+                        selectedCellIds: scene.selectedCellIds.filter(function(id) { return scene.cellById(id) !== null })
+                        selectedRowId: {
+                            const cell = scene.cellById(scene.selectedCellIds[scene.selectedCellIds.length - 1] || "")
+                            return cell ? cell.rowId : ""
+                        }
+                        selectedColumnId: {
+                            const cell = scene.cellById(scene.selectedCellIds[scene.selectedCellIds.length - 1] || "")
+                            return cell ? cell.columnId : ""
+                        }
+                        onCellSelectionRequested: function(id, extend) { scene.selectCell(id, extend) }
+                        onCellTextChangeRequested: function(id, text) {
+                            scene.tableRequest(document.setTableCellText(scene.table.id, id, text), qsTr("Cell text changed"))
+                        }
+                        onRowInsertRequested: function(index) {
+                            scene.tableRequest(document.insertTableRow(scene.table.id, index), qsTr("Row inserted"))
+                        }
+                        onRowDeleteRequested: function(id) {
+                            scene.tableRequest(document.removeTableRow(scene.table.id, id), qsTr("Row deleted"))
+                        }
+                        onColumnInsertRequested: function(index) {
+                            scene.tableRequest(document.insertTableColumn(scene.table.id, index), qsTr("Column inserted"))
+                        }
+                        onColumnDeleteRequested: function(id) {
+                            scene.tableRequest(document.removeTableColumn(scene.table.id, id), qsTr("Column deleted"))
+                        }
+                        onCellsMergeRequested: function(ids) {
+                            if (scene.tableRequest(document.mergeTableCells(scene.table.id, ids), qsTr("Cells merged")))
+                                scene.selectedCellIds = [ids[0]]
+                        }
+                        onCellSplitRequested: function(id) {
+                            scene.tableRequest(document.splitTableCell(scene.table.id, id), qsTr("Cell split"))
+                        }
+                        onColumnWidthChangeRequested: function(id, width) {
+                            scene.tableRequest(document.setTableColumnWidth(scene.table.id, id, width), qsTr("Column width changed"))
+                        }
+                        onTableStyleChangeRequested: function(id) {
+                            scene.tableRequest(document.setTableStyle(scene.table.id, id), qsTr("Table style changed"))
+                        }
                     }
                 }
             }
         }
-        Tk.Caption {
-            text: qsTr("Style, page, frame and table operations are applied by this host and advance its revision.")
-            wrapMode: Text.WordWrap
+        Tk.Notice {
+            objectName: "publishingHostStatus"
+            text: scene.status
+            variant: scene.status.startsWith(qsTr("Refused")) ? "warning" : "info"
         }
     }
 }

@@ -8,23 +8,26 @@
 namespace QindaTK {
 using namespace RichText;
 
-qreal RichTextLayout::itemWidth() const
-{
-    return m_mode == Mode::Paged ? contentRect().width() : m_flowWidth;
-}
-
 QVector<PageLine> RichTextLayout::pageLines(int pageIndex)
 {
     QVector<PageLine> result;
     if (!m_document || pageIndex < 0 || pageIndex >= pageCount()) return result;
     const Page &page = m_pages.at(pageIndex);
     const QPointF content = contentRect().topLeft();
+    // AGENT-GUARD: build every table geometry of the page first. Building one
+    // re-lays its cell paragraphs at that width, which would change metrics
+    // that PageLines collected earlier still point to (a table continued in a
+    // frame of another width on the same page).
+    QVector<std::shared_ptr<const TableGeometry>> tables;
+    for (const PageItem &item : page.items)
+        tables.append(item.kind == PageItem::TableRows && !item.headerRepeat
+                          ? tableGeometry(*m_document->table(item.block), item.width) : nullptr);
     for (int j = 0; j < page.items.size(); ++j) {
         const PageItem &item = page.items.at(j);
         if (item.kind == PageItem::Lines) {
             const Paragraph *p = m_document->paragraph(item.block);
-            ParagraphMetrics &m = ensureParagraph(*p, itemWidth(), item.exclusions);
-            const QPointF origin = content + QPointF(0, item.y - m.lines.at(item.first).y);
+            ParagraphMetrics &m = itemMetrics(*p, item);
+            const QPointF origin = content + QPointF(item.x, item.y - m.lines.at(item.first).y);
             for (int l = item.first; l < item.first + item.count; ++l) {
                 const LineBox &box = m.lines.at(l);
                 result.append({p, &m, l, QRectF(origin.x() + box.x, origin.y() + box.y, box.width, box.height),
@@ -32,28 +35,22 @@ QVector<PageLine> RichTextLayout::pageLines(int pageIndex)
             }
             continue;
         }
-        if (item.kind != PageItem::TableRows || item.headerRepeat) continue;
-        const Table *table = m_document->table(item.block);
-        const auto &g = tableGeometry(*table);
-        qreal rowTop = item.y;
-        for (int r = item.first; r < item.first + item.count; ++r) {
-            for (int c = 0; c < g.cells.at(r).size(); ++c) {
-                const auto &cell = g.cells.at(r).at(c);
-                const int firstLine = item.cellFirstLine.value(c, 0);
-                const qreal shift = firstLine < cell.lines.size() ? cell.lines.at(firstLine).top : 0;
-                const QPointF cellOrigin = content + QPointF(cell.contentX, rowTop + g.border + g.padding - shift);
-                for (int l = firstLine; l < cell.lines.size(); ++l) {
-                    const auto &line = cell.lines.at(l);
-                    if (item.rowClip > 0 && line.bottom - shift > item.rowClip + 0.01) break;
-                    const Paragraph *p = m_document->paragraph(cell.paragraphs.at(line.paragraph));
-                    ParagraphMetrics &m = ensureParagraph(*p, cell.contentWidth);
-                    const QPointF origin = cellOrigin + QPointF(0, cell.paragraphTop.at(line.paragraph));
-                    const LineBox &box = m.lines.at(line.line);
-                    result.append({p, &m, line.line, QRectF(origin.x() + box.x, origin.y() + box.y, box.width, box.height),
-                                   origin, pageIndex, true});
-                }
+        if (!tables.at(j)) continue;
+        const TableGeometry &g = *tables.at(j);
+        for (const TableGeometry::VisibleCell &visible : g.visibleCells(item)) {
+            const TableGeometry::Cell &cell = *visible.cell;
+            const qreal shift = cell.origin(visible.start);
+            const QPointF cellOrigin = content + QPointF(item.x + cell.contentX,
+                                                         item.y + visible.top + g.border + g.padding - shift);
+            for (int l = visible.start; l < visible.end; ++l) {
+                const auto &line = cell.lines.at(l);
+                const Paragraph *p = m_document->paragraph(cell.paragraphs.at(line.paragraph));
+                ParagraphMetrics &m = ensureParagraph(*p, cell.contentWidth);
+                const QPointF origin = cellOrigin + QPointF(0, cell.paragraphTop.at(line.paragraph));
+                const LineBox &box = m.lines.at(line.line);
+                result.append({p, &m, line.line, QRectF(origin.x() + box.x, origin.y() + box.y, box.width, box.height),
+                               origin, pageIndex, true});
             }
-            rowTop += item.cellFirstLine.isEmpty() ? g.rowHeight.at(r) : item.height - g.border;
         }
     }
     return result;
@@ -77,10 +74,14 @@ std::optional<PageLine> RichTextLayout::lineOf(const Position &position, int *la
     ensurePaginatedThrough(position);
     int line = -1;
     int lo = 0;
+    const ParagraphMetrics *seen = nullptr;
     for (int page : pagesContaining(p)) {
         for (const PageLine &candidate : pageLines(page)) {
             if (candidate.paragraph != p) continue;
-            if (line < 0) {
+            // AGENT-GUARD: a paragraph continued in a region of another width
+            // has one metrics per width, each with its own line indexes.
+            if (candidate.metrics != seen) {
+                seen = candidate.metrics;
                 const ParagraphMetrics &m = *candidate.metrics;
                 lo = layoutOffset(m, qBound(0, position.offset, int(p->text.size())));
                 // The caret of an active composition sits inside the preedit text.

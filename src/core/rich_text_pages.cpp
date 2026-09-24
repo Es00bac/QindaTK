@@ -46,39 +46,63 @@ QString RichTextLayout::listMarker(const QUuid &paragraph) const
     return m_markers.value(paragraph);
 }
 
-static size_t hashItems(const RichTextDocument &doc, const Page &page, const QHash<QUuid, QString> &markers)
+static size_t hashItems(const RichTextDocument &doc, const Page &page, const QHash<QUuid, QString> &markers,
+                        int pageIndex, bool frames)
 {
     size_t seed = 0;
     for (const PageItem &item : page.items) {
-        seed = qHashMulti(seed, int(item.kind), item.block, item.first, item.count,
-                          qRound64(item.y * 64), qRound64(item.height * 64), item.cellFirstLine,
-                          qRound64(item.rowClip * 64), item.objectId, item.headerRepeat);
+        seed = qHashMulti(seed, int(item.kind), item.block, item.first, item.count, qRound64(item.x * 64),
+                          qRound64(item.y * 64), qRound64(item.width * 64), qRound64(item.height * 64),
+                          item.cellFirstLine, item.objectId, item.headerRepeat, item.frameId);
+        for (qreal height : item.rowHeights) seed = qHashMulti(seed, qRound64(height * 64));
+        for (const WidthBreak &w : item.widths) seed = qHashMulti(seed, w.line, qRound64(w.width * 64));
         if (const Paragraph *p = doc.paragraph(item.block))
             seed = qHashMulti(seed, p->revision, markers.value(p->id));
         else if (const Table *t = doc.table(item.block))
             seed = qHashMulti(seed, t->revision);
     }
+    // A frame page also shows its frames (guides), threaded or not.
+    if (frames)
+        for (const TextFrame &f : doc.frameSet().frames)
+            if (f.page == pageIndex)
+                seed = qHashMulti(seed, f.id, f.xPt, f.yPt, f.widthPt, f.heightPt, f.next, f.columns);
     return seed;
 }
 
 void RichTextLayout::pageRange(Page &page)
 {
+    // First and last logical positions shown. Merged cells continue on later
+    // pages with earlier paragraphs, so every shown line is compared; a cell
+    // box counts from its resume line even when no line fits in it.
     page.first = page.last = Position{};
+    auto note = [&](const Position &position) {
+        if (!page.first.isValid() || m_document->compare(position, page.first) < 0) page.first = position;
+        if (!page.last.isValid() || m_document->compare(position, page.last) > 0) page.last = position;
+    };
     for (const PageItem &item : page.items) {
         if (item.kind == PageItem::Lines) {
             const Paragraph *p = m_document->paragraph(item.block);
-            const ParagraphMetrics &m = ensureParagraph(*p, itemWidth(), item.exclusions);
+            const ParagraphMetrics &m = itemMetrics(*p, item);
             const LineBox &firstLine = m.lines.at(item.first);
             const LineBox &lastLine = m.lines.at(item.first + item.count - 1);
-            if (!page.first.isValid()) page.first = {p->id, modelOffset(m, firstLine.start)};
-            page.last = {p->id, modelOffset(m, lastLine.start + lastLine.length)};
+            note({p->id, modelOffset(m, firstLine.start)});
+            note({p->id, modelOffset(m, lastLine.start + lastLine.length)});
         } else if (item.kind == PageItem::TableRows && !item.headerRepeat) {
-            const Table *t = m_document->table(item.block);
-            const TableRow &firstRow = t->rows.at(item.first);
-            const TableRow &lastRow = t->rows.at(item.first + item.count - 1);
-            if (!page.first.isValid()) page.first = {firstRow.cells.first().paragraphs.first()->id, 0};
-            const Paragraph *tail = lastRow.cells.last().paragraphs.last().get();
-            page.last = {tail->id, int(tail->text.size())};
+            const auto g = tableGeometry(*m_document->table(item.block), item.width);
+            for (const TableGeometry::VisibleCell &visible : g->visibleCells(item)) {
+                const TableGeometry::Cell &cell = *visible.cell;
+                if (cell.lines.isEmpty()) continue;
+                const int from = qMin(visible.start, int(cell.lines.size()) - 1);
+                const int to = qMax(from, visible.end - 1);
+                for (int l : {from, to}) {
+                    const auto &line = cell.lines.at(l);
+                    const Paragraph *p = m_document->paragraph(cell.paragraphs.at(line.paragraph));
+                    const ParagraphMetrics &m = ensureParagraph(*p, cell.contentWidth);
+                    const LineBox &box = m.lines.at(line.line);
+                    note({p->id, modelOffset(m, box.start)});
+                    note({p->id, modelOffset(m, box.start + box.length)});
+                }
+            }
         }
     }
 }
@@ -111,7 +135,10 @@ void RichTextLayout::finalizePages(int firstChanged, int reusedFrom)
         page.key = QUuid::createUuidV5(PageKeyNamespace, pageSection.toRfc4122() + QByteArray::number(pageOrdinal));
         if (!reused) {
             pageRange(page);
-            page.contentHash = hashItems(*m_document, page, m_markers);
+            // An empty frame page sits where the story stopped before it.
+            if (!page.first.isValid())
+                page.first = page.last = i > 0 ? m_pages.at(i - 1).last : m_document->startPosition();
+            page.contentHash = hashItems(*m_document, page, m_markers, i, frameMode());
             const auto previous = m_revisions.constFind(page.key);
             page.revision = previous != m_revisions.constEnd() && previous->first == page.contentHash
                 ? previous->second : ++m_revisionCounter;

@@ -464,6 +464,9 @@ PaintContext RichTextArea::paintContext(bool decorations) const
     context.marker = m_markerColor;
     context.caretWidth = qMax<qreal>(1, m_caretWidth) / m_zoom;
     context.objects = m_renderer;
+    context.frameGuide = m_frameGuideColor;
+    context.overset = m_oversetColor;
+    context.guides = decorations && paged();
     if (decorations && m_document) {
         context.selection = selection();
         context.hasSelection = hasSelection();

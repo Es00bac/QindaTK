@@ -112,6 +112,11 @@ void RichTextArea::keyPressEvent(QKeyEvent *event)
         if (commandState(QStringLiteral("text.link")).value(QStringLiteral("enabled")).toBool()) emit linkRequested();
         return handled();
     }
+    // Ctrl+Alt+Page Down/Up: the next or previous text frame of the story.
+    if (word && (event->modifiers() & Qt::AltModifier)
+        && (event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp))
+        return invokeCommand(event->key() == Qt::Key_PageDown ? QStringLiteral("navigate.nextFrame")
+                                                             : QStringLiteral("navigate.previousFrame")), handled();
     const Position caret = m_focus.position;
     switch (event->key()) {
     case Qt::Key_Left:

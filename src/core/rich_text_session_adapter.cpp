@@ -151,6 +151,8 @@ QJsonObject RichTextSessionAdapter::liveJson()
                     QJsonObject c{{QStringLiteral("id"), cell.id.toString(QUuid::WithoutBraces)},
                                   {QStringLiteral("paragraphs"), paragraphs}};
                     if (cell.background.isValid()) c.insert(QStringLiteral("background"), Codec::colorName(cell.background));
+                    if (cell.rowSpan > 1) c.insert(QStringLiteral("rowSpan"), cell.rowSpan);
+                    if (cell.columnSpan > 1) c.insert(QStringLiteral("columnSpan"), cell.columnSpan);
                     cells.append(c);
                 }
                 QJsonObject r{{QStringLiteral("id"), row.id.toString(QUuid::WithoutBraces)}, {QStringLiteral("cells"), cells}};
@@ -162,6 +164,7 @@ QJsonObject RichTextSessionAdapter::liveJson()
                               {QStringLiteral("rows"), rows},
                               {QStringLiteral("headerRows"), t.headerRows}, {QStringLiteral("borderPt"), t.borderPt},
                               {QStringLiteral("paddingPt"), t.cellPaddingPt}};
+            if (!t.styleId.isEmpty()) table.insert(QStringLiteral("style"), t.styleId);
             slot = {t.revision, QJsonObject{{QStringLiteral("table"), table}}};
         }
         blocks.append(slot.second);
@@ -181,18 +184,19 @@ QJsonObject RichTextSessionAdapter::liveJson()
     const DocumentDefaults defaults = doc.defaults();
     QJsonObject defaultsJson{{QStringLiteral("family"), defaults.family}, {QStringLiteral("sizePt"), defaults.sizePt}};
     if (defaults.color.isValid()) defaultsJson.insert(QStringLiteral("color"), Codec::colorName(defaults.color));
-    return {{QStringLiteral("schema"), RichTextCodec::schemaId()},
-            {QStringLiteral("version"), RichTextCodec::CurrentVersion},
-            {QStringLiteral("documentId"), doc.documentIdString()},
-            {QStringLiteral("page"), QJsonObject{{QStringLiteral("widthPt"), page.widthPt},
-                                                 {QStringLiteral("heightPt"), page.heightPt},
-                                                 {QStringLiteral("marginsPt"), QJsonArray{page.marginTopPt, page.marginRightPt,
-                                                                                          page.marginBottomPt, page.marginLeftPt}}}},
-            {QStringLiteral("defaults"), defaultsJson},
-            {QStringLiteral("formats"), m_formats},
-            {QStringLiteral("lists"), lists},
-            {QStringLiteral("objects"), objects},
-            {QStringLiteral("blocks"), blocks}};
+    QJsonObject root{{QStringLiteral("schema"), RichTextCodec::schemaId()},
+                     {QStringLiteral("version"), RichTextCodec::requiredVersion(doc)},
+                     {QStringLiteral("documentId"), doc.documentIdString()},
+                     {QStringLiteral("page"), Codec::pageJson(page)},
+                     {QStringLiteral("defaults"), defaultsJson},
+                     {QStringLiteral("formats"), m_formats},
+                     {QStringLiteral("lists"), lists},
+                     {QStringLiteral("objects"), objects},
+                     {QStringLiteral("blocks"), blocks}};
+    // AGENT-CONTRACT: the same WP-051 members as RichTextCodec::toJsonObject.
+    if (!doc.styleSheet().isEmpty()) root.insert(QStringLiteral("styles"), Codec::stylesJson(doc.styleSheet()));
+    if (!doc.frameSet().frames.isEmpty()) root.insert(QStringLiteral("textFrames"), Codec::frameSetJson(doc.frameSet()));
+    return root;
 }
 
 bool RichTextSessionAdapter::flush()

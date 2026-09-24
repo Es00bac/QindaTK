@@ -228,6 +228,9 @@ qindatk_add_test(tst_rich_text_session)
 qindatk_add_test(tst_rich_text_find_replace)
 qindatk_add_test(tst_rich_text_asset_renderer)
 qindatk_add_test(tst_rich_text_tables)
+qindatk_add_test(tst_rich_text_styles)
+qindatk_add_test(tst_rich_text_merged_cells)
+qindatk_add_test(tst_rich_text_frames)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)

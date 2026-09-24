@@ -141,14 +141,20 @@ bool RichTextArea::tabKey(bool backwards)
 {
     const Paragraph *p = m_document ? m_document->paragraph(m_focus.position.paragraph) : nullptr;
     if (!p) return false;
+    m_document->paragraphsInOrder(); // current table, row and cell of p
     if (p->table) {
-        // Tab moves between cells; past the last cell it leaves the table.
+        // Tab moves between cells in reading order, over the slots a merged
+        // cell covers; past the last cell it leaves the table.
         const Table *table = p->table;
         const int columns = int(table->columnWeights.size());
-        int index = p->row * columns + p->cell + (backwards ? -1 : 1);
+        const int slotCount = int(table->rows.size()) * columns;
+        int index = p->row * columns + p->cell;
+        do index += backwards ? -1 : 1;
+        while (index >= 0 && index < slotCount && table->rows.at(index / columns).cells.at(index % columns).paragraphs.isEmpty());
         if (index < 0) return true;
-        if (index >= table->rows.size() * columns) {
-            const Paragraph *after = m_document->nextParagraph(table->rows.last().cells.last().paragraphs.last().get());
+        if (index >= slotCount) {
+            const Paragraph *after = m_document->nextParagraph(p);
+            while (after && after->table == table) after = m_document->nextParagraph(after);
             if (after) moveCaret({after->id, 0}, false);
             return true;
         }

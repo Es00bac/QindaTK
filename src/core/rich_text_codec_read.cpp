@@ -21,8 +21,15 @@ struct Reader {
     QVector<CharFormat> formats;
     QHash<QString, RichObject> objects;
     QHash<QString, ListDefinition> lists;
+    StyleSheet styles;
     QSet<QString> anchoredObjects;
     int paragraphs = 0;
+
+    bool styleOfKind(const QString &id, StyleKind kind) const
+    {
+        const auto found = styles.constFind(id);
+        return found != styles.constEnd() && found->kind == kind;
+    }
 
     bool fail(const QString &path, const QString &message)
     {
@@ -106,11 +113,20 @@ struct Reader {
         if (!v.isObject()) return fail(path, QStringLiteral("Object expected"));
         const QJsonObject o = v.toObject();
         checkKeys(o, path, {"family", "sizePt", "weight", "italic", "underline", "strike", "color",
-                            "background", "href", "verticalAlign", "object"});
+                            "background", "href", "verticalAlign", "object", "style"});
         CharFormat f;
         f.family = o.value(QStringLiteral("family")).toString();
         f.href = o.value(QStringLiteral("href")).toString();
         f.objectId = o.value(QStringLiteral("object")).toString();
+        f.styleId = o.value(QStringLiteral("style")).toString();
+        // AGENT-NOTE: a session's live encoding writes the whole format pool,
+        // which can keep an unused format naming a style whose creation was
+        // undone (text in use always names an existing style). Such a
+        // reference is dropped with a warning instead of refusing the file.
+        if (!f.styleId.isEmpty() && !styleOfKind(f.styleId, StyleKind::Character)) {
+            warnings.append(QStringLiteral("%1.style ignored: unknown character style").arg(path));
+            f.styleId.clear();
+        }
         bool italic = false, underline = false, strike = false;
         const bool ok = number(o, "sizePt", &f.sizePt, 1, 1638, path)
             && integer(o, "weight", &f.weight, 1, 1000, path)
@@ -130,9 +146,15 @@ struct Reader {
     {
         checkKeys(o, path, {"align", "direction", "indentStartPt", "indentEndPt", "firstLineIndentPt",
                             "spaceBeforePt", "spaceAfterPt", "lineHeight", "lineHeightPt", "heading",
-                            "list", "listLevel", "keepWithNext", "keepTogether", "pageBreakBefore", "style"});
+                            "list", "listLevel", "keepWithNext", "keepTogether", "pageBreakBefore", "style",
+                            "overrides"});
         f->listId = o.value(QStringLiteral("list")).toString();
         f->styleId = o.value(QStringLiteral("style")).toString();
+        if (!f->styleId.isEmpty() && !styleOfKind(f->styleId, StyleKind::Paragraph))
+            return fail(path + QStringLiteral(".style"), QStringLiteral("Unknown paragraph style"));
+        const std::optional<quint32> overrides = overrideBits(o.value(QStringLiteral("overrides")));
+        if (!overrides) return fail(path + QStringLiteral(".overrides"), QStringLiteral("Unknown overridden property"));
+        f->overrides = f->styleId.isEmpty() ? 0 : *overrides;
         return name(o, "align", alignmentNames(), &f->alignment, path)
             && name(o, "direction", directionNames(), &f->direction, path)
             && number(o, "indentStartPt", &f->indentStartPt, -1440, 1440, path)
@@ -185,6 +207,8 @@ struct Reader {
             return fail(path + QStringLiteral(".mark"), QStringLiteral("Invalid mark format")), nullptr;
         if (!paragraphFormat(o.value(QStringLiteral("format")).toObject(), &p->format, path + QStringLiteral(".format")))
             return nullptr;
+        // A styled paragraph takes its style's values except where overridden.
+        p->format = materializedFormat(styles, p->format);
         if (!p->format.listId.isEmpty() && !lists.contains(p->format.listId))
             return fail(path + QStringLiteral(".format.list"), QStringLiteral("Unknown list")), nullptr;
         if (inCell && p->format.pageBreakBefore)
@@ -207,9 +231,12 @@ struct Reader {
     TablePtr table(const QJsonValue &v, const QString &path)
     {
         const QJsonObject o = v.toObject();
-        checkKeys(o, path, {"id", "columns", "columnIds", "rows", "headerRows", "borderPt", "paddingPt"});
+        checkKeys(o, path, {"id", "columns", "columnIds", "rows", "headerRows", "borderPt", "paddingPt", "style"});
         auto t = std::make_shared<Table>();
         if (!uuid(o.value(QStringLiteral("id")), &t->id, path + QStringLiteral(".id"))) return nullptr;
+        t->styleId = o.value(QStringLiteral("style")).toString();
+        if (!t->styleId.isEmpty() && !styleOfKind(t->styleId, StyleKind::Table))
+            return fail(path + QStringLiteral(".style"), QStringLiteral("Unknown table style")), nullptr;
         for (const QJsonValue &weight : o.value(QStringLiteral("columns")).toArray()) {
             if (!(weight.toDouble() > 0 && weight.toDouble() <= 1e6))
                 return fail(path + QStringLiteral(".columns"), QStringLiteral("Invalid column weight")), nullptr;
@@ -255,10 +282,12 @@ struct Reader {
             for (int c = 0; c < cells.size(); ++c) {
                 const QString cellPath = rowPath + QStringLiteral(".cells[%1]").arg(c);
                 const QJsonObject cell = cells.at(c).toObject();
-                checkKeys(cell, cellPath, {"id", "paragraphs", "background"});
+                checkKeys(cell, cellPath, {"id", "paragraphs", "background", "rowSpan", "columnSpan"});
                 TableCell tableCell;
                 if (!uuid(cell.value(QStringLiteral("id")), &tableCell.id, cellPath + QStringLiteral(".id"))
-                    || !color(cell, "background", &tableCell.background, cellPath))
+                    || !color(cell, "background", &tableCell.background, cellPath)
+                    || !integer(cell, "rowSpan", &tableCell.rowSpan, 1, 10000, cellPath)
+                    || !integer(cell, "columnSpan", &tableCell.columnSpan, 1, 64, cellPath))
                     return nullptr;
                 const QJsonArray paragraphs = cell.value(QStringLiteral("paragraphs")).toArray();
                 for (int i = 0; i < paragraphs.size(); ++i) {
@@ -266,19 +295,29 @@ struct Reader {
                     if (!p) return nullptr;
                     tableCell.paragraphs.append(p);
                 }
-                if (tableCell.paragraphs.isEmpty())
-                    return fail(cellPath, QStringLiteral("Empty cell")), nullptr;
+                // An empty cell is valid only where a merged cell covers it (checked below).
                 tableRow.cells.append(tableCell);
             }
             t->rows.append(tableRow);
         }
         if (t->rows.isEmpty() || t->headerRows >= t->rows.size())
             return fail(path + QStringLiteral(".rows"), QStringLiteral("Invalid rows")), nullptr;
+        TableGridMap map;
+        if (const QString problem = mapTableGrid(*t, &map); !problem.isEmpty())
+            return fail(path + QStringLiteral(".rows"), problem), nullptr;
         return t;
     }
 
     bool common(const QJsonObject &root)
     {
+        // Styles come first: formats, paragraphs and tables refer to them.
+        const QJsonValue styleArray = root.value(QStringLiteral("styles"));
+        if (!styleArray.isUndefined()) {
+            PublishingError problem;
+            if (!styleArray.isArray()) return fail(QStringLiteral("styles"), QStringLiteral("Array expected"));
+            if (!stylesFromJson(styleArray.toArray(), &styles, &problem, &warnings))
+                return fail(problem.path, problem.message);
+        }
         const QJsonArray formatArray = root.value(QStringLiteral("formats")).toArray();
         if (formatArray.isEmpty() || !formatArray.first().toObject().isEmpty()
             || formatArray.size() > RichTextCodec::MaximumFormats)
@@ -387,7 +426,8 @@ bool RichTextCodec::fromJsonObject(const QJsonObject &root, RichTextDocument &do
         || root.value(QStringLiteral("version")).toInt() > CurrentVersion)
         return setError(error, {ErrorCode::Unsupported, QStringLiteral("Unsupported rich-text schema or version"), QStringLiteral("schema"), QStringLiteral("richtext")});
     reader.checkKeys(root, QStringLiteral("root"), {"schema", "version", "documentId", "page", "defaults",
-                                                    "formats", "lists", "objects", "blocks"});
+                                                    "formats", "lists", "objects", "blocks", "styles",
+                                                    "textFrames"});
     PageSetup page;
     const QJsonObject pageJson = root.value(QStringLiteral("page")).toObject();
     const QJsonArray margins = pageJson.value(QStringLiteral("marginsPt")).toArray();
@@ -397,6 +437,8 @@ bool RichTextCodec::fromJsonObject(const QJsonObject &root, RichTextDocument &do
     QVector<Block> blocks;
     const bool ok = reader.number(pageJson, "widthPt", &page.widthPt, 72, 14400, QStringLiteral("page"))
         && reader.number(pageJson, "heightPt", &page.heightPt, 72, 14400, QStringLiteral("page"))
+        && reader.integer(pageJson, "columns", &page.columns, 1, 24, QStringLiteral("page"))
+        && reader.number(pageJson, "columnGapPt", &page.columnGapPt, 0, 1440, QStringLiteral("page"))
         && (margins.isEmpty() || margins.size() == 4 || reader.fail(QStringLiteral("page.marginsPt"), QStringLiteral("Four margins expected")))
         && reader.number(defaultsJson, "sizePt", &defaults.sizePt, 1, 1638, QStringLiteral("defaults"))
         && reader.color(defaultsJson, "color", &defaults.color, QStringLiteral("defaults"))
@@ -409,13 +451,22 @@ bool RichTextCodec::fromJsonObject(const QJsonObject &root, RichTextDocument &do
         page.marginLeftPt = margins.at(3).toDouble(-1);
     }
     if (page.marginTopPt < 0 || page.marginRightPt < 0 || page.marginBottomPt < 0
-        || page.marginLeftPt < 0 || page.contentWidthPt() < 36 || page.contentHeightPt() < 36)
+        || page.marginLeftPt < 0 || page.contentWidthPt() < 36 || page.contentHeightPt() < 36
+        || page.columnWidthPt() < 36)
         return setError(error, {ErrorCode::InvalidArgument, QStringLiteral("Page content area is too small"), QStringLiteral("page"), QStringLiteral("richtext")});
+    FrameSet frames;
+    if (root.contains(QStringLiteral("textFrames"))) {
+        PublishingError problem;
+        if (!root.value(QStringLiteral("textFrames")).isObject()
+            || !frameSetFromJson(root.value(QStringLiteral("textFrames")).toObject(), &frames, &problem, &reader.warnings))
+            return setError(error, {ErrorCode::InvalidArgument, problem.message.isEmpty() ? QStringLiteral("Object expected") : problem.message,
+                                    problem.path.isEmpty() ? QStringLiteral("textFrames") : problem.path, QStringLiteral("richtext")});
+    }
     if (blocks.isEmpty() || !blocks.last().paragraph)
         return setError(error, {ErrorCode::InvalidArgument, QStringLiteral("The body must end with a paragraph"), QStringLiteral("blocks"), QStringLiteral("richtext")});
     const DocumentId id = DocumentId::parse(root.value(QStringLiteral("documentId")).toString());
     document.resetContent(std::move(blocks), reader.formats, reader.lists, reader.objects, page,
-                          defaults, id.isValid() ? id : DocumentId::create());
+                          defaults, id.isValid() ? id : DocumentId::create(), reader.styles, frames);
     if (warnings) *warnings = reader.warnings;
     return true;
 }
@@ -424,7 +475,8 @@ std::optional<Fragment> RichTextCodec::fragmentFromJson(const QJsonObject &root,
 {
     Reader reader;
     if (root.value(QStringLiteral("schema")).toString() != fragmentSchemaId()
-        || root.value(QStringLiteral("version")).toInt() != CurrentVersion) {
+        || root.value(QStringLiteral("version")).toInt() < 1
+        || root.value(QStringLiteral("version")).toInt() > CurrentVersion) {
         setError(error, {ErrorCode::Unsupported, QStringLiteral("Unsupported fragment schema"), QStringLiteral("schema"), QStringLiteral("richtext")});
         return std::nullopt;
     }
@@ -437,6 +489,7 @@ std::optional<Fragment> RichTextCodec::fragmentFromJson(const QJsonObject &root,
     fragment.formats = reader.formats;
     fragment.objects = reader.objects;
     fragment.lists = reader.lists;
+    fragment.styles = reader.styles;
     fragment.openStart = root.value(QStringLiteral("openStart")).toBool(true) && fragment.blocks.first().paragraph;
     fragment.openEnd = root.value(QStringLiteral("openEnd")).toBool(true) && fragment.blocks.last().paragraph;
     return fragment;

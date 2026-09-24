@@ -18,7 +18,9 @@ Item {
     property string tooltip: qsTr("Manage document styles")
     readonly property var selectedStyle: styleById(selectedStyleId)
     readonly property var visibleStyles: filterStyles()
-    readonly property var styleKinds: ["character", "paragraph", "table", "object"]
+    // The kinds the host's style graph supports (RichTextDocument.styleKinds
+    // is paragraph, character and table).
+    property var styleKinds: ["character", "paragraph", "table", "object"]
     readonly property bool canApply: selectedStyle !== null && selectedStyle.compatible !== false && targetIds.length > 0
     readonly property bool canUpdate: selectedStyle !== null && !selectedStyle.builtIn && validationError.length === 0
 

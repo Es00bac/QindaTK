@@ -16,7 +16,7 @@ namespace RichText {
 bool sameFlow(const FlowState &a, const FlowState &b)
 {
     return a.blockId == b.blockId && a.line == b.line && a.row == b.row
-        && a.cellLine == b.cellLine && a.exclusions == b.exclusions;
+        && a.cellLine == b.cellLine && a.exclusions == b.exclusions && a.widths == b.widths;
 }
 
 FlowBuilder::FlowBuilder(RichTextLayout &layout, const RichTextDocument &document, qreal width,
@@ -47,6 +47,7 @@ bool FlowBuilder::build(const FlowState &start, Page *page, FlowState *next)
         state.line = state.row = 0;
         state.cellLine.clear();
         state.exclusions.clear();
+        state.widths.clear();
         if (state.block < blocks.size()) state.blockId = blocks.at(state.block).id();
     }
     *next = state;
@@ -89,10 +90,12 @@ qreal FlowBuilder::firstLineHeight(int block)
         const ParagraphMetrics &m = m_layout.ensureParagraph(*p, m_width);
         return m.spaceBefore + (m.lines.isEmpty() ? 0 : m.lines.first().height);
     }
-    const auto &geometry = m_layout.tableGeometry(*blocks.at(block).table);
-    const int rows = qMin(int(geometry.rowHeight.size()), blocks.at(block).table->headerRows + 1);
-    qreal height = geometry.border;
-    for (int r = 0; r < rows; ++r) height += geometry.rowHeight.at(r);
+    // Header rows and the first body row group start the table together.
+    const auto geometry = m_layout.tableGeometry(*blocks.at(block).table, m_width);
+    if (geometry->rows == 0) return geometry->border;
+    const int last = geometry->groupEnd.at(qMin(blocks.at(block).table->headerRows, geometry->rows - 1));
+    qreal height = geometry->border;
+    for (int r = 0; r <= last; ++r) height += geometry->rowHeight.at(r);
     return height;
 }
 
@@ -144,7 +147,21 @@ bool FlowBuilder::placeParagraph(const Paragraph &p, FlowState &state, Page &pag
     const bool keepWithNext = p.format.keepWithNext || p.format.headingLevel > 0;
     const qreal next = m_paged && !continuation && m_hasContent && keepWithNext
         ? firstLineHeight(state.block + 1) : 0;
-    ParagraphMetrics &m = m_layout.ensureParagraph(p, m_width, exclusions);
+    // AGENT-NOTE: a paragraph continued from a region of another width keeps
+    // the line breaks it had there; its lines from here on take this region's
+    // width (WidthBreak). Equal widths keep the ordinary one-width metrics.
+    QVector<WidthBreak> widths = continuation ? state.widths : QVector<WidthBreak>{};
+    if (!widths.isEmpty()) {
+        qreal current = widths.first().width;
+        for (const WidthBreak &w : std::as_const(widths))
+            if (w.line <= state.line) current = w.width;
+        if (!qFuzzyCompare(current + 1, m_width + 1)) widths.append({state.line, m_width});
+        bool uniform = true;
+        for (const WidthBreak &w : std::as_const(widths)) uniform = uniform && qFuzzyCompare(w.width + 1, m_width + 1);
+        if (uniform) widths.clear();
+    }
+    ParagraphMetrics &m = m_layout.ensureParagraph(p, widths.isEmpty() ? m_width : widths.first().width,
+                                                   exclusions, false, widths);
     const int n = int(m.lines.size());
     const int first = qMin(state.line, n - 1);
     const qreal linesTop = m.lines.at(first).y;
@@ -178,6 +195,7 @@ bool FlowBuilder::placeParagraph(const Paragraph &p, FlowState &state, Page &pag
         item.width = m_width;
         item.height = bottomOf(first + fit - 1) - top;
         item.exclusions = exclusions;
+        item.widths = widths;
         page.items.append(item);
         if (first == 0) addObjects(p, own, page);
         m_hasContent = true;
@@ -185,6 +203,10 @@ bool FlowBuilder::placeParagraph(const Paragraph &p, FlowState &state, Page &pag
     if (split) {
         state.line = first + fit;
         state.exclusions = fit > 0 ? exclusions : QVector<Exclusion>{};
+        // The next region continues these line breaks at its own width; a
+        // paragraph that moves whole (no line here) starts afresh there.
+        state.widths = fit == 0 ? QVector<WidthBreak>{}
+                                : widths.isEmpty() ? QVector<WidthBreak>{{0, m_width}} : widths;
         return false;
     }
     m_y = bottomOf(n - 1) + m.spaceAfter;
@@ -203,6 +225,8 @@ QSizeF RichTextLayout::pageSize() const
 QRectF RichTextLayout::contentRect() const
 {
     if (m_mode == Mode::Continuous) return QRectF(0, 0, m_flowWidth, m_flowHeight);
+    // Text frames are placed from the page corner, so the whole page is their content box.
+    if (frameMode()) return QRectF(QPointF(0, 0), pageSize());
     const PageSetup page = m_document ? m_document->pageSetupValue() : PageSetup{};
     return QRectF(page.marginLeftPt * PxPerPt, page.marginTopPt * PxPerPt,
                   page.contentWidthPt() * PxPerPt, page.contentHeightPt() * PxPerPt);
@@ -212,6 +236,7 @@ qreal RichTextLayout::flowHeight() const { return m_flowHeight; }
 
 int RichTextLayout::estimatedPageCount() const
 {
+    if (frameMode()) return qMax(pageCount(), m_document->frameSet().pageCount());
     if (m_complete || !m_document || m_pages.isEmpty()) return pageCount();
     const int blocks = int(m_document->blocks().size());
     const int done = qMax(1, m_frontier.block);
@@ -255,15 +280,11 @@ void RichTextLayout::continuePagination(qint64 budgetNs, int stopPage)
     if (!m_document || m_complete) return;
     QElapsedTimer timer;
     timer.start();
-    const bool paged = m_mode == Mode::Paged;
-    const qreal width = paged ? contentRect().width() : m_flowWidth;
-    const qreal height = paged ? contentRect().height() : std::numeric_limits<qreal>::infinity();
-    FlowBuilder builder(*this, *m_document, width, height, paged);
     const int firstNew = pageCount();
     while (!m_complete && pageCount() < stopPage) {
         Page page;
         FlowState next;
-        const bool more = builder.build(m_frontier, &page, &next);
+        const bool more = buildPage(pageCount(), m_frontier, &page, &next);
         m_pages.append(page);
         ++m_stats.pagesPaginated;
         m_frontier = next;
@@ -394,14 +415,12 @@ void RichTextLayout::repaginateFrom(int dirtyFirst, int dirtyLast)
     }
     QMultiHash<QUuid, int> oldByBlock;
     for (int i = 1; i < old.size(); ++i) oldByBlock.insert(old.at(i).start.blockId, i);
-    const bool paged = m_mode == Mode::Paged;
-    const qreal width = paged ? contentRect().width() : m_flowWidth;
-    const qreal height = paged ? contentRect().height() : std::numeric_limits<qreal>::infinity();
-    FlowBuilder builder(*this, *m_document, width, height, paged);
+    // Frame pages differ page by page, so a page is reused only at its old index.
+    const bool frames = frameMode();
     for (;;) {
         Page page;
         FlowState next;
-        const bool more = builder.build(state, &page, &next);
+        const bool more = buildPage(pageCount(), state, &page, &next);
         m_pages.append(page);
         ++m_stats.pagesPaginated;
         if (!more) {
@@ -412,7 +431,9 @@ void RichTextLayout::repaginateFrom(int dirtyFirst, int dirtyLast)
         if (state.block <= dirtyLast) continue;
         int reuse = -1;
         for (auto it = oldByBlock.constFind(state.blockId); it != oldByBlock.constEnd() && it.key() == state.blockId; ++it)
-            if (sameFlow(old.at(it.value()).start, state) && (reuse < 0 || it.value() < reuse)) reuse = it.value();
+            if (sameFlow(old.at(it.value()).start, state) && (reuse < 0 || it.value() < reuse)
+                && (!frames || restart + it.value() == pageCount()))
+                reuse = it.value();
         if (reuse < 0) continue;
         // Converged: every later page starts from identical content and state.
         const int delta = state.block - old.at(reuse).start.block;

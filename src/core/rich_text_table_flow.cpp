@@ -1,53 +1,164 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Table measurement and table placement in the page flow.
+// Table measurement (merged cells, table styles) and table placement in the page flow.
 #include "rich_text_layout_p.h"
 
 namespace QindaTK {
 using namespace RichText;
 
-qreal RichTextLayout::TableGeometry::remainingRowHeight(int row, const QVector<int> &firstLine) const
+namespace {
+
+qreal total(const QVector<qreal> &values)
 {
-    qreal content = 0;
-    const auto &rowCells = cells.at(row);
-    for (int c = 0; c < rowCells.size(); ++c) {
-        const Cell &cell = rowCells.at(c);
-        const int line = firstLine.value(c, 0);
-        const qreal origin = line < cell.lines.size() ? cell.lines.at(line).top : cell.contentHeight;
-        content = qMax(content, cell.contentHeight - origin);
-    }
-    return border + 2 * padding + content;
+    qreal sum = 0;
+    for (qreal value : values) sum += value;
+    return sum;
 }
 
-const RichTextLayout::TableGeometry &RichTextLayout::tableGeometry(const Table &table)
+} // namespace
+
+int RichTextLayout::TableGeometry::Cell::fitEnd(int from, qreal height) const
 {
-    const qreal width = m_mode == Mode::Paged ? contentRect().width() : m_flowWidth;
-    std::shared_ptr<TableGeometry> &slot = m_tables[table.id];
-    if (slot && slot->revision == table.revision && qFuzzyCompare(slot->width + 1, width + 1)) return *slot;
+    const qreal start = origin(from);
+    int end = from;
+    while (end < lines.size() && lines.at(end).bottom - start <= height + 0.01) ++end;
+    return end;
+}
+
+QVector<qreal> RichTextLayout::TableGeometry::segmentHeights(int first, int last, const QVector<int> &resume) const
+{
+    // A row that continues from the previous page (one of its own cells
+    // resumes past line 0) does not repeat its minimum height.
+    bool continued = false;
+    for (int c = 0; c < columns && !resume.isEmpty(); ++c) {
+        const Cell &cell = at(first, c);
+        continued = continued || (cell.column == c && cell.row == first && resume.value(c, 0) > 0);
+    }
+    QVector<qreal> heights;
+    heights.reserve(last - first + 1);
+    for (int k = first; k <= last; ++k) {
+        heights.append(k == first && continued ? 0 : minHeight.at(k));
+        // A cell ending at row k needs its remaining lines across its rows here;
+        // what its earlier rows lack goes to its last row.
+        for (int index : endingAt.at(k)) {
+            const Cell &cell = cells.at(index);
+            const int start = cell.row <= first ? resume.value(cell.column, 0) : 0;
+            const qreal need = border + 2 * padding + cell.contentHeight - cell.origin(start);
+            qreal have = 0;
+            for (int r = qMax(cell.row, first); r <= k; ++r) have += heights.at(r - first);
+            if (need > have) heights[k - first] += need - have;
+        }
+    }
+    return heights;
+}
+
+qreal RichTextLayout::TableGeometry::boxContent(const QVector<qreal> &heights, int first, int top, int last) const
+{
+    qreal height = 0;
+    for (int r = top; r <= last; ++r) height += heights.value(r - first);
+    return height - border - 2 * padding;
+}
+
+QVector<int> RichTextLayout::TableGeometry::continuation(int first, const QVector<qreal> &heights,
+                                                          const QVector<int> &resume, int breakRow) const
+{
+    QVector<int> lines(columns, 0);
+    bool any = false;
+    for (int c = 0; c < columns; ++c) {
+        const Cell &cell = at(breakRow, c);
+        if (cell.column != c || cell.row >= breakRow) continue;
+        const int from = cell.row <= first ? resume.value(c, 0) : 0;
+        lines[c] = cell.fitEnd(from, boxContent(heights, first, qMax(cell.row, first), breakRow - 1));
+        any = any || lines.at(c) > 0;
+    }
+    return any ? lines : QVector<int>{};
+}
+
+QVector<RichTextLayout::TableGeometry::VisibleCell>
+RichTextLayout::TableGeometry::visibleCells(const PageItem &item) const
+{
+    QVector<VisibleCell> result;
+    const int last = qMin(item.first + item.count, rows) - 1;
+    qreal rowTop = 0;
+    for (int r = item.first; r <= last; ++r) {
+        for (int c = 0; c < columns; ++c) {
+            const Cell &cell = at(r, c);
+            if (cell.column != c || qMax(cell.row, item.first) != r) continue;
+            const int bottom = qMin(cell.lastRow(), last);
+            qreal height = 0;
+            for (int k = r; k <= bottom; ++k) height += item.rowHeights.value(k - item.first);
+            const int start = cell.row <= item.first ? item.cellFirstLine.value(c, 0) : 0;
+            const int end = cell.fitEnd(start, boxContent(item.rowHeights, item.first, r, bottom));
+            result.append({&cell, rowTop, height, start, end});
+        }
+        rowTop += item.rowHeights.value(r - item.first);
+    }
+    return result;
+}
+
+std::shared_ptr<const RichTextLayout::TableGeometry> RichTextLayout::tableGeometry(const Table &table, qreal width)
+{
+    // Up to four widths per table (a table continued across frames of other
+    // widths); a stale revision is rebuilt in place. Callers hold the shared
+    // pointer, so a replaced entry stays valid for them.
+    QVector<std::shared_ptr<TableGeometry>> &entries = m_tables[table.id];
+    int reuse = -1;
+    for (int i = 0; i < entries.size(); ++i) {
+        if (!qFuzzyCompare(entries.at(i)->width + 1, width + 1)) continue;
+        if (entries.at(i)->revision == table.revision) return entries.at(i);
+        reuse = i;
+    }
+    if (reuse < 0) {
+        if (entries.size() >= 4) entries.removeFirst();
+        entries.append(std::shared_ptr<TableGeometry>());
+        reuse = int(entries.size()) - 1;
+    }
+    std::shared_ptr<TableGeometry> &slot = entries[reuse];
     auto g = std::make_shared<TableGeometry>();
     g->revision = table.revision;
     g->width = width;
-    g->border = table.borderPt * PxPerPt;
-    g->padding = table.cellPaddingPt * PxPerPt;
-    double total = 0;
-    for (double weight : table.columnWeights) total += weight;
-    const qreal inner = qMax<qreal>(1, width - g->border);
+    const TableStyle style = m_document->tableStyle(table);
+    g->border = style.borderPt.value_or(table.borderPt) * PxPerPt;
+    g->padding = style.paddingPt.value_or(table.cellPaddingPt) * PxPerPt;
+    g->rows = int(table.rows.size());
+    g->columns = int(table.columnWeights.size());
+    double weights = 0;
+    for (double weight : table.columnWeights) weights += weight;
+    g->inner = qMax<qreal>(1, width - g->border);
     qreal x = 0;
     for (double weight : table.columnWeights) {
-        const qreal w = inner * weight / total;
+        const qreal w = g->inner * weight / weights;
         g->columnX.append(x);
         g->columnWidth.append(w);
         x += w;
     }
-    for (int r = 0; r < table.rows.size(); ++r) {
+    TableGridMap map;
+    mapTableGrid(table, &map);
+    g->cellAt.resize(g->rows * g->columns);
+    g->endingAt.resize(g->rows);
+    for (int r = 0; r < g->rows; ++r) {
         const TableRow &row = table.rows.at(r);
-        QVector<TableGeometry::Cell> cells;
-        qreal content = 0;
-        for (int c = 0; c < row.cells.size(); ++c) {
+        g->minHeight.append(row.minHeightPt * PxPerPt);
+        for (int c = 0; c < g->columns; ++c) {
+            const int slotIndex = r * g->columns + c;
+            if (map.anchorOf(r, c) != slotIndex) { // covered: part of an earlier cell
+                g->cellAt[slotIndex] = g->cellAt.at(map.anchorOf(r, c));
+                continue;
+            }
+            const TableCell &source = row.cells.at(c);
             TableGeometry::Cell cell;
+            cell.row = r;
+            cell.column = c;
+            cell.rowSpan = qBound(1, source.rowSpan, g->rows - r);
+            cell.columnSpan = qBound(1, source.columnSpan, g->columns - c);
             cell.contentX = g->columnX.at(c) + g->border + g->padding;
-            cell.contentWidth = qMax<qreal>(1, g->columnWidth.at(c) - g->border - 2 * g->padding);
+            cell.contentWidth = qMax<qreal>(1, g->columnRight(c + cell.columnSpan) - g->columnX.at(c)
+                                                   - g->border - 2 * g->padding);
+            // Direct cell colour first, then the table style's header or band colour.
+            cell.background = source.background.isValid() ? source.background
+                : r < table.headerRows ? style.headerBackground.value_or(QColor())
+                : (r - table.headerRows) % 2 == 1 ? style.bandBackground.value_or(QColor()) : QColor();
             qreal y = 0;
-            const auto &paragraphs = row.cells.at(c).paragraphs;
+            const auto &paragraphs = source.paragraphs;
             for (int i = 0; i < paragraphs.size(); ++i) {
                 const ParagraphMetrics &m = ensureParagraph(*paragraphs.at(i), cell.contentWidth);
                 if (i > 0) y += m.spaceBefore;
@@ -58,157 +169,188 @@ const RichTextLayout::TableGeometry &RichTextLayout::tableGeometry(const Table &
                 y += m.height + (i + 1 < paragraphs.size() ? m.spaceAfter : 0);
             }
             cell.contentHeight = y;
-            content = qMax(content, y);
-            cells.append(cell);
+            g->cellAt[slotIndex] = int(g->cells.size());
+            g->endingAt[cell.lastRow()].append(int(g->cells.size()));
+            g->cells.append(cell);
         }
-        g->cells.append(cells);
-        g->rowHeight.append(qMax(g->border + 2 * g->padding + content, row.minHeightPt * PxPerPt));
     }
-    for (int r = 0; r < qMin(table.headerRows, int(g->rowHeight.size())); ++r) g->headerHeight += g->rowHeight.at(r);
+    if (g->rows > 0) g->rowHeight = g->segmentHeights(0, g->rows - 1, {});
+    // Row groups: rows joined by cells spanning them stay on one page when they fit.
+    g->groupEnd.resize(g->rows);
+    int start = 0;
+    int end = -1;
+    for (int r = 0; r < g->rows; ++r) {
+        if (r > end) {
+            for (int k = start; k < r; ++k) g->groupEnd[k] = end;
+            start = r;
+            end = r;
+        }
+        for (int c = 0; c < g->columns; ++c) {
+            const TableGeometry::Cell &cell = g->at(r, c);
+            if (cell.row == r && cell.column == c) end = qMax(end, cell.lastRow());
+        }
+    }
+    for (int k = start; k < g->rows; ++k) g->groupEnd[k] = end;
+    for (int r = 0; r < qMin(table.headerRows, g->rows); ++r) g->headerHeight += g->rowHeight.at(r);
     slot = g;
-    return *slot;
+    return slot;
 }
 
 namespace RichText {
 
+PageItem FlowBuilder::tableItem(const Table &table, int first, const QVector<qreal> &heights,
+                                const QVector<int> &resume, qreal y, bool headerRepeat, qreal border,
+                                qreal width) const
+{
+    PageItem item;
+    item.kind = PageItem::TableRows;
+    item.block = table.id;
+    item.first = first;
+    item.count = int(heights.size());
+    item.y = y;
+    item.width = width;
+    item.rowHeights = heights;
+    item.cellFirstLine = resume;
+    item.headerRepeat = headerRepeat;
+    // A repeated header has no bottom border: the rows below draw their top one.
+    item.height = total(heights) + (headerRepeat ? 0 : border);
+    return item;
+}
+
 bool FlowBuilder::placeTable(const Table &table, FlowState &state, Page &page)
 {
-    const auto &g = m_layout.tableGeometry(table);
-    const int rows = int(table.rows.size());
+    // AGENT-NOTE: a cell's continuation lines index its lines at one width,
+    // so a table that breaks inside a cell keeps that width in the next
+    // region (FlowState::widths); after a break between rows it takes the
+    // width of the region it continues in.
+    const qreal width = !state.cellLine.isEmpty() && !state.widths.isEmpty() ? state.widths.first().width : m_width;
+    const auto geometry = m_layout.tableGeometry(table, width);
+    const RichTextLayout::TableGeometry &g = *geometry;
+    const int rows = g.rows;
     const qreal b = g.border;
-    int r = state.row;
-    QVector<int> cellLine = state.cellLine;
-    // A table starts where its header rows and first body row fit together.
-    if (m_paged && r == 0 && cellLine.isEmpty() && m_hasContent) {
+    const qreal limit = m_height + 0.01;
+    const int first = state.row;
+    const QVector<int> resume = state.cellLine;
+    // A table starts where its header rows and first body row group fit together.
+    if (m_paged && first == 0 && resume.isEmpty() && m_hasContent && rows > 0) {
         qreal need = b;
-        for (int i = 0; i <= qMin(table.headerRows, rows - 1); ++i) need += g.rowHeight.at(i);
+        for (int i = 0; i <= g.groupEnd.at(qMin(table.headerRows, rows - 1)); ++i) need += g.rowHeight.at(i);
         if (m_y + need > m_height && need <= m_height) return false;
     }
-    const bool repeatHeader = m_paged && table.headerRows > 0 && r >= table.headerRows
+    const bool repeatHeader = m_paged && table.headerRows > 0 && first >= table.headerRows
         && g.headerHeight + b < m_height / 2;
     if (repeatHeader && !m_hasContent) {
-        PageItem header;
-        header.kind = PageItem::TableRows;
-        header.block = table.id;
-        header.first = 0;
-        header.count = table.headerRows;
-        header.y = m_y;
-        header.width = m_width;
-        header.height = g.headerHeight;
-        header.headerRepeat = true;
-        page.items.append(header);
+        page.items.append(tableItem(table, 0, g.rowHeight.mid(0, table.headerRows), {}, m_y, true, b, width));
         m_y += g.headerHeight;
     }
-    PageItem run;
-    auto startRun = [&](int row, qreal y) {
-        run = PageItem{};
-        run.kind = PageItem::TableRows;
-        run.block = table.id;
-        run.first = row;
-        run.y = y;
-        run.width = m_width;
-    };
-    qreal y = m_y;
-    startRun(r, y);
-    auto flush = [&]() {
-        if (run.count == 0) return;
-        run.height = y + b - run.y;
-        page.items.append(run);
-        m_hasContent = true;
-    };
-    while (r < rows) {
-        const bool continuing = !cellLine.isEmpty();
-        const qreal h = continuing ? g.remainingRowHeight(r, cellLine) : g.rowHeight.at(r);
-        if (!m_paged || y + h + b <= m_height + 0.01) {
-            if (!continuing) {
-                ++run.count;
-                y += h;
-                ++r;
-                continue;
-            }
-            flush();
-            PageItem part;
-            part.kind = PageItem::TableRows;
-            part.block = table.id;
-            part.first = r;
-            part.count = 1;
-            part.y = y;
-            part.width = m_width;
-            part.height = h + b;
-            part.cellFirstLine = cellLine;
-            page.items.append(part);
+    const qreal top = m_y;
+    QVector<qreal> heights; // rows [first, first + heights.size()) on this page
+    // Ends this region; the table resumes at `row` with its cells at `lines`.
+    auto breakAt = [&](int row, const QVector<int> &lines) {
+        if (!heights.isEmpty()) {
+            page.items.append(tableItem(table, first, heights, resume, top, false, b, width));
             m_hasContent = true;
-            y += h;
-            ++r;
-            cellLine.clear();
-            startRun(r, y);
+            m_y = top + total(heights) + b;
+        }
+        state.row = row;
+        state.cellLine = lines;
+        state.widths = lines.isEmpty() ? QVector<WidthBreak>{} : QVector<WidthBreak>{{0, width}};
+        return false;
+    };
+    int k = first;
+    while (k < rows) {
+        const int end = g.groupEnd.at(k);
+        const QVector<int> start = k == first ? resume : QVector<int>{};
+        const QVector<qreal> group = g.segmentHeights(k, end, start);
+        const qreal used = total(heights);
+        if (!m_paged || top + used + total(group) + b <= limit) {
+            heights += group;
+            k = end + 1;
             continue;
         }
-        const bool pageHasContent = m_hasContent || run.count > 0;
-        const qreal repeat = repeatHeader || (table.headerRows > 0 && r >= table.headerRows) ? g.headerHeight : 0;
-        if (pageHasContent && h + b + repeat <= m_height + 0.01) {
-            flush();
-            m_y = y + (run.count > 0 ? b : 0);
-            state.row = r;
-            state.cellLine = cellLine;
-            return false;
+        const bool pageHasContent = m_hasContent || !heights.isEmpty();
+        const qreal repeat = table.headerRows > 0 && k >= table.headerRows ? g.headerHeight : 0;
+        // The row group fits on the next page: keep it together there.
+        if (pageHasContent && total(group) + b + repeat <= limit) return breakAt(k, start);
+        // A row group taller than a page breaks between its rows; cells that
+        // cross the break continue from their first line not shown here.
+        QVector<qreal> fitted;
+        int count = 0;
+        while (k + count < end) {
+            const QVector<qreal> trial = g.segmentHeights(k, k + count, start);
+            if (top + used + total(trial) + b > limit) break;
+            fitted = trial;
+            ++count;
         }
-        // Taller than a page: split the row at line boundaries of each cell.
-        flush();
-        const int columns = int(g.cells.at(r).size());
-        const QVector<int> startLines = continuing ? cellLine : QVector<int>(columns, 0);
-        const qreal available = m_height - y - 2 * b - 2 * g.padding;
-        QVector<int> nextLines(columns);
-        qreal shown = 0;
-        bool progress = false;
-        bool finished = true;
-        for (int c = 0; c < columns; ++c) {
-            const auto &cell = g.cells.at(r).at(c);
-            const int line = startLines.at(c);
-            const qreal origin = line < cell.lines.size() ? cell.lines.at(line).top : cell.contentHeight;
-            int end = line;
-            while (end < cell.lines.size() && cell.lines.at(end).bottom - origin <= available) ++end;
-            if (end == line && !pageHasContent && line < cell.lines.size()) {
-                ++end;
-                page.overflow = true;
-            }
-            progress = progress || end > line;
-            if (end > line) shown = qMax(shown, cell.lines.at(end - 1).bottom - origin);
-            nextLines[c] = end;
-            finished = finished && end >= cell.lines.size();
+        if (count > 0) {
+            heights += fitted;
+            return breakAt(k + count, g.continuation(first, heights, resume, k + count));
         }
-        if (!progress) {
-            m_y = y;
-            state.row = r;
-            state.cellLine = cellLine;
-            return false;
-        }
-        PageItem part;
-        part.kind = PageItem::TableRows;
-        part.block = table.id;
-        part.first = r;
-        part.count = 1;
-        part.y = y;
-        part.width = m_width;
-        part.height = 2 * b + 2 * g.padding + shown;
-        part.cellFirstLine = startLines;
-        part.rowClip = qMax<qreal>(shown, 0.001);
-        page.items.append(part);
-        m_hasContent = true;
-        if (!finished) {
-            state.row = r;
-            state.cellLine = nextLines;
-            return false;
-        }
-        y += part.height - b;
-        ++r;
-        cellLine.clear();
-        startRun(r, y);
+        if (pageHasContent) return breakAt(k, start);
+        // Not even row k fits on an empty page: split it at line boundaries.
+        return splitRow(table, g, k, top, state, page);
     }
-    flush();
-    m_y = y + b;
+    if (!heights.isEmpty()) page.items.append(tableItem(table, first, heights, resume, top, false, b, width));
+    m_y = top + total(heights) + b;
     m_hasContent = true;
     return true;
+}
+
+bool FlowBuilder::splitRow(const Table &table, const RichTextLayout::TableGeometry &g, int row, qreal top,
+                           FlowState &state, Page &page)
+{
+    const qreal b = g.border;
+    const QVector<int> resume = state.cellLine; // the page is empty: `row` is state.row
+    const qreal available = m_height - top - 2 * b - 2 * g.padding;
+    QVector<int> ends(g.columns, 0);
+    qreal shown = 0;
+    for (int c = 0; c < g.columns; ++c) {
+        const auto &cell = g.at(row, c);
+        if (cell.column != c) continue;
+        const int from = resume.value(c, 0);
+        int end = cell.fitEnd(from, available);
+        if (end == from && from < cell.lines.size()) { // a line taller than the page
+            ++end;
+            page.overflow = true;
+        }
+        if (end > from) shown = qMax(shown, cell.lines.at(end - 1).bottom - cell.origin(from));
+        ends[c] = end;
+    }
+    // Every cell shows what fits in the tallest part (visibleCells does the same).
+    bool finished = true;
+    for (int c = 0; c < g.columns; ++c) {
+        const auto &cell = g.at(row, c);
+        if (cell.column != c) continue;
+        ends[c] = qMax(ends.at(c), cell.fitEnd(resume.value(c, 0), shown));
+        if (cell.lastRow() == row) finished = finished && ends.at(c) >= cell.lines.size();
+    }
+    const qreal width = g.width;
+    page.items.append(tableItem(table, row, {b + 2 * g.padding + shown}, resume, top, false, b, width));
+    m_hasContent = true;
+    m_y = top + 2 * b + 2 * g.padding + shown;
+    if (!finished) {
+        state.row = row;
+        state.cellLine = ends;
+        state.widths = {{0, width}};
+        return false;
+    }
+    if (row + 1 >= g.rows) {
+        state.widths.clear();
+        return true;
+    }
+    // The row is complete; cells spanning below it continue in the next row.
+    QVector<int> next(g.columns, 0);
+    bool any = false;
+    for (int c = 0; c < g.columns; ++c) {
+        const auto &cell = g.at(row + 1, c);
+        if (cell.column != c || cell.row > row) continue;
+        next[c] = ends.at(c);
+        any = any || next.at(c) > 0;
+    }
+    state.row = row + 1;
+    state.cellLine = any ? next : QVector<int>{};
+    state.widths = any ? QVector<WidthBreak>{{0, width}} : QVector<WidthBreak>{};
+    return false;
 }
 
 } // namespace RichText

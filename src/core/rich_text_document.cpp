@@ -246,7 +246,9 @@ QVariantMap RichTextDocument::pageSetupMap() const
             {QStringLiteral("marginTopPt"), m_page.marginTopPt},
             {QStringLiteral("marginRightPt"), m_page.marginRightPt},
             {QStringLiteral("marginBottomPt"), m_page.marginBottomPt},
-            {QStringLiteral("marginLeftPt"), m_page.marginLeftPt}};
+            {QStringLiteral("marginLeftPt"), m_page.marginLeftPt},
+            {QStringLiteral("columns"), m_page.columns},
+            {QStringLiteral("columnGapPt"), m_page.columnGapPt}};
 }
 
 void RichTextDocument::registerBlock(const Block &block)
@@ -276,7 +278,8 @@ void RichTextDocument::unregisterBlock(const Block &block)
 void RichTextDocument::resetContent(QVector<Block> blocks, QVector<CharFormat> formats,
                                     QHash<QString, ListDefinition> lists,
                                     QHash<QString, RichObject> objects, const PageSetup &page,
-                                    const DocumentDefaults &defaults, const DocumentId &id)
+                                    const DocumentDefaults &defaults, const DocumentId &id,
+                                    StyleSheet styles, FrameSet frames)
 {
     if (m_open) cancelTransaction();
     if (blocks.isEmpty() || !blocks.last().paragraph) {
@@ -297,6 +300,11 @@ void RichTextDocument::resetContent(QVector<Block> blocks, QVector<CharFormat> f
     m_objects = std::move(objects);
     m_page = page;
     m_defaults = defaults;
+    // AGENT-GUARD: the codec validates styles and frames before calling this;
+    // hand-built content must satisfy styleSheetProblem/frameSetProblem too.
+    m_styles = std::move(styles);
+    m_frames = std::move(frames);
+    m_resolvedCharacter.clear();
     if (id.isValid()) m_documentId = id;
     m_paragraphs.clear();
     m_tables.clear();
@@ -414,6 +422,8 @@ QStringList RichTextDocument::missingFontFamilies() const
     }
     QStringList families{m_defaults.family};
     for (int index : std::as_const(used)) families.append(charFormat(index).family);
+    for (const NamedStyle &style : m_styles)
+        if (style.character.family) families.append(*style.character.family);
     QStringList missing;
     for (const QString &family : std::as_const(families))
         if (!family.isEmpty() && !isGenericFamily(family) && !missing.contains(family)

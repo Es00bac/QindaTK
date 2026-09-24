@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include "rich_text_publishing.h"
 #include "rich_text_types.h"
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QStringList>
 
@@ -45,9 +47,55 @@ inline QString colorName(const QColor &color)
     return color.alpha() == 255 ? color.name(QColor::HexRgb) : color.name(QColor::HexArgb);
 }
 
+// Paragraph format keys of the StyleProperty bits, in bit order.
+inline const QStringList &stylePropertyNames()
+{
+    static const QStringList names{QStringLiteral("align"), QStringLiteral("direction"),
+                                   QStringLiteral("indentStartPt"), QStringLiteral("indentEndPt"),
+                                   QStringLiteral("firstLineIndentPt"), QStringLiteral("spaceBeforePt"),
+                                   QStringLiteral("spaceAfterPt"), QStringLiteral("lineHeight"),
+                                   QStringLiteral("lineHeightPt"), QStringLiteral("heading"),
+                                   QStringLiteral("keepWithNext"), QStringLiteral("keepTogether")};
+    return names;
+}
+// Character keys a style or a direct-formatting reset can name.
+inline const QStringList &characterPropertyNames()
+{
+    static const QStringList names{QStringLiteral("family"), QStringLiteral("sizePt"),
+                                   QStringLiteral("weight"), QStringLiteral("italic"),
+                                   QStringLiteral("underline"), QStringLiteral("strike"),
+                                   QStringLiteral("color"), QStringLiteral("background"),
+                                   QStringLiteral("verticalAlign")};
+    return names;
+}
+
 QJsonObject charFormatJson(const CharFormat &format);
 QJsonObject paragraphFormatJson(const ParagraphFormat &format);
 QJsonObject objectJson(const RichObject &object);
 QJsonObject listJson(const ListDefinition &list);
+QJsonObject pageJson(const PageSetup &page);
+
+// Publishing members (rich_text_codec_publishing.cpp). A reader returns
+// false with `error` set to a message and `path` to the member below the
+// object it read (for example "character.sizePt"); `warnings` receives
+// unknown members prefixed with `base`.
+struct PublishingError {
+    QString message;
+    QString path;
+};
+QStringList overrideNames(quint32 bits);
+QJsonObject characterPatchJson(const CharFormatPatch &patch);
+QJsonObject paragraphPatchJson(const ParagraphFormatPatch &patch);
+QJsonObject tableStyleJson(const TableStyle &style);
+QJsonObject styleJson(const NamedStyle &style);
+QJsonArray stylesJson(const StyleSheet &styles);        // sorted by ID
+QJsonObject frameSetJson(const FrameSet &frames);
+bool styleFromJson(const QJsonObject &o, NamedStyle *style, PublishingError *error,
+                   QStringList *warnings = nullptr, const QString &base = {});
+bool stylesFromJson(const QJsonArray &array, StyleSheet *styles, PublishingError *error,
+                    QStringList *warnings = nullptr);    // paths start at "styles[i]"
+bool frameSetFromJson(const QJsonObject &o, FrameSet *frames, PublishingError *error,
+                      QStringList *warnings = nullptr);  // paths start at "textFrames"
+std::optional<quint32> overrideBits(const QJsonValue &names);
 
 } // namespace QindaTK::RichText::Codec

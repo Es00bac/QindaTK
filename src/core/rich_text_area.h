@@ -60,6 +60,13 @@ class RichTextArea : public QQuickItem {
     Q_PROPERTY(QString caretParagraphId READ caretParagraphId NOTIFY caretChanged)
     Q_PROPERTY(int caretOffset READ caretOffset NOTIFY caretChanged)
     Q_PROPERTY(QStringList missingFonts READ missingFonts NOTIFY documentChanged)
+    // Publishing structure (WP-051): the paragraphs a style request targets,
+    // the caret's frame and structural location, and story text no frame holds.
+    Q_PROPERTY(QStringList selectedParagraphIds READ selectedParagraphIds NOTIFY selectionChanged)
+    Q_PROPERTY(QString caretFrameId READ caretFrameId NOTIFY caretChanged)
+    Q_PROPERTY(QString caretContext READ caretContext NOTIFY caretChanged)
+    Q_PROPERTY(bool frameLayout READ frameLayout NOTIFY pagesChanged)
+    Q_PROPERTY(int oversetCharacters READ oversetCharacters NOTIFY pagesChanged)
     Q_PROPERTY(QColor inkColor MEMBER m_ink NOTIFY colorsChanged)
     Q_PROPERTY(QColor pageColor MEMBER m_pageColor NOTIFY colorsChanged)
     Q_PROPERTY(QColor linkColor MEMBER m_linkColor NOTIFY colorsChanged)
@@ -70,6 +77,8 @@ class RichTextArea : public QQuickItem {
     Q_PROPERTY(QColor objectFillColor MEMBER m_objectFill NOTIFY colorsChanged)
     Q_PROPERTY(QColor objectTextColor MEMBER m_objectText NOTIFY colorsChanged)
     Q_PROPERTY(QColor markerColor MEMBER m_markerColor NOTIFY colorsChanged)
+    Q_PROPERTY(QColor frameGuideColor MEMBER m_frameGuideColor NOTIFY colorsChanged)
+    Q_PROPERTY(QColor oversetColor MEMBER m_oversetColor NOTIFY colorsChanged)
     Q_PROPERTY(qreal caretWidth MEMBER m_caretWidth NOTIFY colorsChanged)
 public:
     explicit RichTextArea(QQuickItem *parent = nullptr);
@@ -117,6 +126,11 @@ public:
     QString caretParagraphId() const { return m_focus.position.paragraph.toString(QUuid::WithoutBraces); }
     int caretOffset() const { return m_focus.position.offset; }
     QStringList missingFonts() const;
+    QStringList selectedParagraphIds() const;
+    QString caretFrameId() const;
+    QString caretContext() const;
+    bool frameLayout() const { return m_layout->frameMode(); }
+    int oversetCharacters() const { return m_layout->oversetCharacters(); }
 
     RichText::Selection selection() const { return {m_anchor.position, m_focus.position}; }
     void setSelection(const RichText::Selection &selection, bool ensureVisible = true);
@@ -141,6 +155,10 @@ public:
     Q_INVOKABLE void ensureCaretVisible();
     Q_INVOKABLE int pageAtY(qreal itemY) const;
     Q_INVOKABLE QRectF pageRect(int page) const;              // item coordinates
+    Q_INVOKABLE QString frameAt(qreal itemX, qreal itemY) const; // text frame under an item point
+    // Shows a frame and puts the caret at its first character (or just the
+    // frame's page when the story does not reach it).
+    Q_INVOKABLE bool goToFrame(const QString &frameId);
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 
 signals:
@@ -254,7 +272,7 @@ private:
     mutable QVector<int> m_accessibleStarts;   // paragraph start offsets, by flat index
     mutable quint64 m_accessibleRevision = ~0ull;
     QColor m_ink, m_pageColor, m_linkColor, m_selectionColor, m_selectedTextColor, m_caretColor;
-    QColor m_borderColor, m_objectFill, m_objectText, m_markerColor;
+    QColor m_borderColor, m_objectFill, m_objectText, m_markerColor, m_frameGuideColor, m_oversetColor;
     qreal m_caretWidth = 1.0;
 };
 
