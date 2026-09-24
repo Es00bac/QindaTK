@@ -496,6 +496,20 @@ snapshots. It does not infer latency, device availability or successful I/O.
 | --- | --- | --- | --- |
 | `DeviceSettingsPanel` | T.Control | `devices` (`[{id, name, available, unavailableReason, sampleRates, bufferSizes, inputLayouts, outputLayouts}]`), `activeConfiguration`, `pendingConfiguration`; read-only `applyState`/`applyMessage`; `configurationChangeRequested(candidate)`, `applyRequested(requestId, configuration)`, `applyAcknowledged(requestId, state, activeConfiguration, message)`; `acknowledgeApply(requestId, "accepted"/"rejected"/"error", activeConfiguration, message)` | `deviceSettingsPanel`, `deviceSettingsActive`, `deviceSettingsPending`, `deviceSettingsDevice`, `deviceSettingsSampleRate`, `deviceSettingsBufferSize`, `deviceSettingsInputLayout`, `deviceSettingsOutputLayout`, `deviceSettingsStatus`, `deviceSettingsApply`. |
 
+## Mixer and routing
+
+Mixer values, channel order, selection, meters and route connections are host
+snapshots. Controls issue operations by stable channel, parameter and port IDs;
+they do not store routing in recycled delegates or claim that a request changed
+the engine. The host validates layouts/cycles and reports acceptance or refusal.
+
+| Type | Base | Host contract and requests | Stable objectNames |
+| --- | --- | --- | --- |
+| `PanningControl` | T.Control | `channelId`, pan/width parameter IDs, host `panValue`/`stereoWidth`, `speakerLayout`; `parameterEditRequested(channelId, parameterId, gestureId, phase, value)` with `begin`/`preview`/`commit`/`cancel`; `acknowledgeEdit(gestureId, accepted, message)` | `panningControl`, `panSlider`, `stereoWidthSlider`, `panRequestStatus`. Host supplies panning law and canonical values. |
+| `ChannelStrip` | T.Control | Stable `channelId`, `gainParameterId`, host gain/mute/solo/pan/width, optional `AudioParameterMap`, optional `AudioMeterModel` and channel index; `gainEditRequested(...)`, `panEditRequested(...)`, `channelCommandRequested(channelId, requestId, command, enabled)`; `acknowledgeGainEdit`, `acknowledgeCommand` | `channelStrip`, `channelPeakMeter`, `channelGainFader`, `channelPanning`, `channelMute`, `channelSolo`, `channelCommandStatus`, `channelSelectionArea`. |
+| `MixerView` | T.Control | Host `channels` array of stable records, optional `meterModel`, host `selectedChannelId`; forwards channel selection, gain/pan gesture and mute/solo command requests by ID | `mixerView`, `mixerChannelList`, `mixerChannelStrip`, `mixerEmptyState`. A horizontal recycled `ListView` keeps strip delegates bounded as channel count grows. |
+| `RoutingMatrix` | T.Control | Host `inputPorts`, `outputPorts`, `connections`; `routeRequested(requestId, inputPortId, outputPortId)`; `acknowledgeRoute(requestId, "accepted"/"rejected"/"error", message)` | `routingMatrix`, `routingMatrixStatus`, `routingMatrixInputs`, `routingMatrixRow`, `routingInputLabel`, `routingDestination`, `routingMatrixEmpty`. Existing connections remain visible until the host publishes a changed snapshot. |
+
 ## Audio measurement
 
 | Type | Base | Main properties and actions | Behavior |

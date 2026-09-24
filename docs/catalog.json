@@ -2479,6 +2479,335 @@
       "objectNames": []
     },
     {
+      "name": "ChannelStrip",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: this strip is a view over host channel/parameter/meter snapshots. Gain and mute/solo operations target stable channel/parameter IDs; delegate state never owns routing, automation or engine values.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ChannelStrip.qml",
+      "properties": [
+        {
+          "name": "channelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelKind",
+          "type": "string",
+          "default": "\"audio\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gainParameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gainValue",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gainSilent",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gainMinimum",
+          "type": "real",
+          "default": "-60",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gainMaximum",
+          "type": "real",
+          "default": "6",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gainMap",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "soloed",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panValue",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stereoWidth",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "speakerLayout",
+          "type": "string",
+          "default": "\"Stereo\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "meterModel",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "meterChannel",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "peakDbfs",
+          "type": "real",
+          "default": "-120",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rmsDbfs",
+          "type": "real",
+          "default": "-120",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "routeSummary",
+          "type": "string",
+          "default": "qsTr(\"No route details\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "commandState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "commandMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Channel strip\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panningControl",
+          "type": "alias",
+          "default": "pan",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "measuredLevel",
+          "type": "var",
+          "default": "meterModel && meterModel.levels",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shownPeak",
+          "type": "real",
+          "default": "measuredLevel ? Number(measuredLevel.displayPeakDbfs) : peakDbfs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shownRms",
+          "type": "real",
+          "default": "measuredLevel ? Number(measuredLevel.rmsDbfs) : rmsDbfs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "meterPosition",
+          "type": "real",
+          "default": "Math.max(0, Math.min(1, (shownPeak + 60) / 60))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sliderValue",
+          "type": "real",
+          "default": "gainMap ? gainMap.positionFor(gainValue, gainSilent) : gainValue",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gainText",
+          "type": "string",
+          "default": "gainSilent ? \"−∞ dB\" : Number(gainValue).toFixed(1) + \" dB\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "gainEditRequested",
+          "parameters": "string channelId, string parameterId, string gestureId, string phase, real value, bool silent"
+        },
+        {
+          "name": "panEditRequested",
+          "parameters": "string channelId, string parameterId, string gestureId, string phase, real value"
+        },
+        {
+          "name": "channelCommandRequested",
+          "parameters": "string channelId, string requestId, string command, bool enabled"
+        },
+        {
+          "name": "channelSelected",
+          "parameters": "string channelId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "nextId",
+          "parameters": "kind"
+        },
+        {
+          "name": "canonical",
+          "parameters": "position"
+        },
+        {
+          "name": "sendGain",
+          "parameters": "phase, position"
+        },
+        {
+          "name": "startGain",
+          "parameters": ""
+        },
+        {
+          "name": "updateGain",
+          "parameters": "position"
+        },
+        {
+          "name": "finishGain",
+          "parameters": "position"
+        },
+        {
+          "name": "cancelGain",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledgeGainEdit",
+          "parameters": "requestId, state, message"
+        },
+        {
+          "name": "requestCommand",
+          "parameters": "command, value"
+        },
+        {
+          "name": "acknowledgeCommand",
+          "parameters": "requestId, state, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "channelCommandStatus",
+        "channelGainFader",
+        "channelMute",
+        "channelPanning",
+        "channelPeakMeter",
+        "channelSelectionArea",
+        "channelSolo",
+        "channelStrip"
+      ]
+    },
+    {
       "name": "ChartLegend",
       "kind": "qml",
       "base": "Item",
@@ -12147,6 +12476,98 @@
       ]
     },
     {
+      "name": "MixerView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: channels, ordering, selection and meter snapshots are host-owned. The horizontal ListView recycles strips; every edit/request keeps the channel's stable ID so delegate reuse cannot redirect an operation.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MixerView.qml",
+      "properties": [
+        {
+          "name": "channels",
+          "type": "var",
+          "default": "[] // [{id,name,kind,gainParameterId,gainValue,gainSilent,muted,soloed,routeSummary}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "meterModel",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedChannelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Mixer channels\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelList",
+          "type": "alias",
+          "default": "strips",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelCount",
+          "type": "int",
+          "default": "strips.count",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "channelSelected",
+          "parameters": "string channelId"
+        },
+        {
+          "name": "gainEditRequested",
+          "parameters": "string channelId, string parameterId, string gestureId, string phase, real value, bool silent"
+        },
+        {
+          "name": "panEditRequested",
+          "parameters": "string channelId, string parameterId, string gestureId, string phase, real value"
+        },
+        {
+          "name": "channelCommandRequested",
+          "parameters": "string channelId, string requestId, string command, bool enabled"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "mixerChannelList",
+        "mixerChannelStrip",
+        "mixerEmptyState",
+        "mixerView"
+      ]
+    },
+    {
       "name": "Mono",
       "kind": "qml",
       "base": "Tk.Label",
@@ -13319,6 +13740,155 @@
         "panelFloat",
         "panelHeader",
         "panelTitle"
+      ]
+    },
+    {
+      "name": "PanningControl",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: panning values/law/layout come from the host. Gesture phases target stable channel/parameter IDs; only host acknowledgments mark them accepted or rejected, and this control never evaluates audio panning.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PanningControl.qml",
+      "properties": [
+        {
+          "name": "channelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panParameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "widthParameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panValue",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stereoWidth",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "speakerLayout",
+          "type": "string",
+          "default": "\"Stereo\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Pan and stereo width\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "_requestState",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "_requestMessage",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clampedPan",
+          "type": "real",
+          "default": "Math.max(-1, Math.min(1, panValue))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clampedWidth",
+          "type": "real",
+          "default": "Math.max(0, Math.min(2, stereoWidth))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "parameterEditRequested",
+          "parameters": "string channelId, string parameterId, string gestureId, string phase, real value"
+        },
+        {
+          "name": "editAcknowledged",
+          "parameters": "string gestureId, bool accepted, string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "nextId",
+          "parameters": "parameterId"
+        },
+        {
+          "name": "begin",
+          "parameters": "parameterId, widthEdit"
+        },
+        {
+          "name": "update",
+          "parameters": "parameterId, value, widthEdit"
+        },
+        {
+          "name": "finish",
+          "parameters": "parameterId, value, widthEdit"
+        },
+        {
+          "name": "cancel",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledgeEdit",
+          "parameters": "gestureId, accepted, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "panRequestStatus",
+        "panSlider",
+        "panningControl",
+        "stereoWidthSlider"
       ]
     },
     {
@@ -16196,6 +16766,126 @@
         "richTextEditorPlaceholder",
         "richTextEditorScrollBar",
         "richTextEditorTile"
+      ]
+    },
+    {
+      "name": "RoutingMatrix",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: ports and current connections are immutable host snapshots. Selection emits a proposed connection by stable input/output IDs; only the host validates cycles/layout/availability and reports acceptance or error.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RoutingMatrix.qml",
+      "properties": [
+        {
+          "name": "inputPorts",
+          "type": "var",
+          "default": "[] // [{id,label,layout,available}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "outputPorts",
+          "type": "var",
+          "default": "[] // [{id,label,layout,available}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "connections",
+          "type": "var",
+          "default": "[] // [{inputId,outputId}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Audio routing\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "routeState",
+          "type": "string",
+          "default": "_routeState",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "routeMessage",
+          "type": "string",
+          "default": "_routeMessage",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputList",
+          "type": "alias",
+          "default": "routes",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "routeOptions",
+          "type": "var",
+          "default": "[{id: \"\", label: qsTr(\"Disconnected\"), available: true}]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "routeRequested",
+          "parameters": "string requestId, string inputPortId, string outputPortId"
+        },
+        {
+          "name": "routeAcknowledged",
+          "parameters": "string requestId, string state, string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "outputIdFor",
+          "parameters": "inputId"
+        },
+        {
+          "name": "outputIndexFor",
+          "parameters": "inputId"
+        },
+        {
+          "name": "requestRoute",
+          "parameters": "inputId, outputId"
+        },
+        {
+          "name": "acknowledgeRoute",
+          "parameters": "requestId, state, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "routingDestination",
+        "routingInputLabel",
+        "routingMatrix",
+        "routingMatrixEmpty",
+        "routingMatrixInputs",
+        "routingMatrixRow",
+        "routingMatrixStatus"
       ]
     },
     {
