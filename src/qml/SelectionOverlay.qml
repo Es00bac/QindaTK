@@ -18,6 +18,7 @@ Item {
     property bool handlesEnabled: true
     property string accessibleName: qsTr("Selection transform handles")
     property real handleSize: Tk.Theme.size.controlSm
+    property real rotationHandleDistance: Tk.Theme.size.controlLg
     property real outlineWidth: Tk.Theme.size.border
     property int geometryRevision: 0
     readonly property var viewCorners: mappedCorners()
@@ -28,10 +29,11 @@ Item {
     signal transformFinished(string handle)
     signal transformCanceled(string handle)
     signal transformNudgeRequested(string handle, real viewDx, real viewDy, int modifiers)
+    signal rotateStepRequested(real degrees, int modifiers)
 
     Accessible.role: Accessible.Grouping
     Accessible.name: accessibleName
-    Accessible.description: qsTr("Selection bounds and resize handles")
+    Accessible.description: qsTr("Selection bounds, resize handles and rotation handle")
 
     function documentCorners() {
         if (selectionCorners && selectionCorners.length === 4)
@@ -73,6 +75,20 @@ Item {
         return Qt.point((before.x + after.x) / 2, (before.y + after.y) / 2)
     }
 
+    function rotationPoint() {
+        const points = viewCorners
+        if (points.length !== 4) return Qt.point(0, 0)
+        const top = Qt.point((points[0].x + points[1].x) / 2,
+                             (points[0].y + points[1].y) / 2)
+        const center = Qt.point((points[0].x + points[1].x + points[2].x + points[3].x) / 4,
+                                (points[0].y + points[1].y + points[2].y + points[3].y) / 4)
+        const dx = top.x - center.x
+        const dy = top.y - center.y
+        const length = Math.hypot(dx, dy)
+        return Qt.point(top.x + (length > 0 ? dx / length : 0) * rotationHandleDistance,
+                        top.y + (length > 0 ? dy / length : -1) * rotationHandleDistance)
+    }
+
     Connections {
         target: root.surface
         function onViewChanged() { root.geometryRevision += 1 }
@@ -96,6 +112,14 @@ Item {
                 context.lineTo(points[i].x, points[i].y)
             context.closePath()
             context.stroke()
+            if (root.handlesEnabled) {
+                const top = root.handlePoint(1)
+                const rotation = root.rotationPoint()
+                context.beginPath()
+                context.moveTo(top.x, top.y)
+                context.lineTo(rotation.x, rotation.y)
+                context.stroke()
+            }
         }
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()
@@ -105,6 +129,8 @@ Item {
     onSelectionBoundsChanged: frame.requestPaint()
     onSelectionCornersChanged: frame.requestPaint()
     onOutlineWidthChanged: frame.requestPaint()
+    onRotationHandleDistanceChanged: frame.requestPaint()
+    onHandlesEnabledChanged: frame.requestPaint()
 
     Repeater {
         model: root.handlesEnabled && root.viewCorners.length === 4 ? 8 : 0
@@ -126,6 +152,11 @@ Item {
             Accessible.name: qsTr("Resize selection %1").arg(handle.handleName)
             Accessible.description: root.accessibleName
             Accessible.onPressAction: root.transformNudgeRequested(handle.handleName, 0, 0, 0)
+            HoverHandler { id: resizeHover }
+            Tk.ToolTip {
+                text: qsTr("Resize selection %1").arg(handle.handleName)
+                visible: resizeHover.hovered
+            }
 
             Rectangle {
                 anchors.fill: parent
@@ -171,6 +202,58 @@ Item {
                 onReleased: root.transformFinished(handle.handleName)
                 onCanceled: root.transformCanceled(handle.handleName)
             }
+        }
+    }
+
+    Item {
+        id: rotationHandle
+        objectName: "handleRotate"
+        visible: root.handlesEnabled && root.viewCorners.length === 4
+        readonly property point center: root.rotationPoint()
+        x: center.x - width / 2
+        y: center.y - height / 2
+        width: root.handleSize
+        height: root.handleSize
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: qsTr("Rotate selection")
+        Accessible.description: root.accessibleName
+        Accessible.onIncreaseAction: root.rotateStepRequested(15, 0)
+        Accessible.onDecreaseAction: root.rotateStepRequested(-15, 0)
+        HoverHandler { id: rotationHover }
+        Tk.ToolTip { text: qsTr("Rotate selection"); visible: rotationHover.hovered }
+        Rectangle {
+            anchors.fill: parent
+            radius: Tk.Theme.radius.full
+            color: Tk.Theme.color.canvas
+            border.color: Tk.Theme.color.accent
+            border.width: Tk.Theme.size.border
+        }
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Left || event.key === Qt.Key_Down)
+                root.rotateStepRequested(-15, event.modifiers)
+            else if (event.key === Qt.Key_Right || event.key === Qt.Key_Up)
+                root.rotateStepRequested(15, event.modifiers)
+            else return
+            event.accepted = true
+        }
+        MouseArea {
+            anchors.fill: parent
+            preventStealing: true
+            property point startDocumentPoint
+            onPressed: function(mouse) {
+                rotationHandle.forceActiveFocus()
+                startDocumentPoint = root.surface.mapToDocument(
+                            mapToItem(root.surface, mouse.x, mouse.y))
+            }
+            onPositionChanged: function(mouse) {
+                if (!pressed) return
+                const viewPoint = mapToItem(root.surface, mouse.x, mouse.y)
+                root.transformRequested("rotate", startDocumentPoint,
+                                        root.surface.mapToDocument(viewPoint), mouse.modifiers)
+            }
+            onReleased: root.transformFinished("rotate")
+            onCanceled: root.transformCanceled("rotate")
         }
     }
 }

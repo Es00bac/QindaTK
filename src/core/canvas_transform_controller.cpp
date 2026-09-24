@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_transform_controller.h"
+#include "canvas_transform.h"
 
 #include <QtMath>
 #include <cmath>
@@ -25,6 +26,7 @@ void CanvasTransformController::setDocument(CanvasDocumentAdapter *document)
     cancel();
     if (m_document) disconnect(m_document, nullptr, this, nullptr);
     m_document = document;
+    m_hasCustomPivot = false;
     if (document) {
         connect(document, &CanvasDocumentAdapter::edited, this, [this] {
             if (m_active && !m_committing) cancel();
@@ -56,6 +58,7 @@ void CanvasTransformController::setTools(ToolController *tools)
     if (tools) {
         connect(tools, &ToolController::selectionChanged, this, [this] {
             if (m_active && !m_committing) cancel();
+            m_hasCustomPivot = false;
             emit changed();
             emit previewChanged();
         });
@@ -105,13 +108,39 @@ QRectF CanvasTransformController::selectionBounds() const
     return bounds;
 }
 
+QVariantList CanvasTransformController::previewCorners() const
+{
+    const QRectF bounds = m_active ? m_baseBounds : selectionBounds();
+    if (!bounds.isValid() || bounds.isEmpty()) return {};
+    const QTransform world = m_active ? m_previewWorld : QTransform{};
+    return {world.map(bounds.topLeft()), world.map(bounds.topRight()),
+            world.map(bounds.bottomRight()), world.map(bounds.bottomLeft())};
+}
+
+void CanvasTransformController::setPivot(QPointF point)
+{
+    if (!finite(point) || m_active) return;
+    if (m_hasCustomPivot && m_pivot == point) return;
+    m_pivot = point;
+    m_hasCustomPivot = true;
+    emit changed();
+}
+
+void CanvasTransformController::resetPivot()
+{
+    if (!m_hasCustomPivot || m_active) return;
+    m_hasCustomPivot = false;
+    emit changed();
+}
+
 bool CanvasTransformController::supportedHandle(const QString &handle)
 {
     static const QStringList handles = {
         QStringLiteral("move"), QStringLiteral("topLeft"), QStringLiteral("top"),
         QStringLiteral("topRight"), QStringLiteral("right"),
         QStringLiteral("bottomRight"), QStringLiteral("bottom"),
-        QStringLiteral("bottomLeft"), QStringLiteral("left")};
+        QStringLiteral("bottomLeft"), QStringLiteral("left"),
+        QStringLiteral("rotate")};
     return handles.contains(handle);
 }
 
@@ -139,6 +168,8 @@ bool CanvasTransformController::capture(const QString &handle)
     }
     m_baseBounds = selectionBounds();
     m_previewBounds = m_baseBounds;
+    m_previewWorld = {};
+    m_basePivot = pivot();
     m_revision = m_document->revision();
     m_handle = handle;
     m_active = true;
@@ -155,7 +186,8 @@ bool CanvasTransformController::update(const QString &handle, QPointF start,
         cancel();
         return false;
     }
-    if (m_snapModel && m_snapModel->document() == m_document) {
+    if (handle != QLatin1String("rotate") && m_snapModel
+        && m_snapModel->document() == m_document) {
         QVariantList excluded;
         for (const CanvasObject &object : std::as_const(m_before))
             excluded.append(QString::number(object.id));
@@ -165,6 +197,19 @@ bool CanvasTransformController::update(const QString &handle, QPointF start,
     QTransform world;
     if (handle == QLatin1String("move")) {
         world = QTransform::fromTranslate(delta.x(), delta.y());
+    } else if (handle == QLatin1String("rotate")) {
+        const QPointF from = start - m_basePivot;
+        const QPointF to = current - m_basePivot;
+        if (std::hypot(from.x(), from.y()) <= 1e-9
+            || std::hypot(to.x(), to.y()) <= 1e-9) return false;
+        qreal degrees = qRadiansToDegrees(std::atan2(to.y(), to.x())
+                                           - std::atan2(from.y(), from.x()));
+        degrees = CanvasTransform::normalizeRotation(degrees);
+        if (modifiers & Qt::ShiftModifier)
+            degrees = std::round(degrees / 15.0) * 15.0;
+        world = QTransform::fromTranslate(-m_basePivot.x(), -m_basePivot.y())
+                * QTransform().rotate(degrees)
+                * QTransform::fromTranslate(m_basePivot.x(), m_basePivot.y());
     } else {
         const bool xActive = hasLeft(handle) || hasRight(handle);
         const bool yActive = hasTop(handle) || hasBottom(handle);
@@ -192,7 +237,9 @@ bool CanvasTransformController::update(const QString &handle, QPointF start,
                 * QTransform::fromTranslate(pivot.x(), pivot.y());
     }
     CanvasEdit preview;
-    preview.label = handle == QLatin1String("move") ? tr("Move selection") : tr("Resize selection");
+    preview.label = handle == QLatin1String("move") ? tr("Move selection")
+                    : handle == QLatin1String("rotate") ? tr("Rotate selection")
+                    : tr("Resize selection");
     for (const CanvasObject &before : std::as_const(m_before)) {
         CanvasObject after = before;
         after.transform = before.transform * world;
@@ -201,6 +248,7 @@ bool CanvasTransformController::update(const QString &handle, QPointF start,
             preview.changes.append({before.id, before, after});
     }
     m_previewEdit = preview;
+    m_previewWorld = world;
     m_previewBounds = world.mapRect(m_baseBounds);
     emit previewChanged();
     return true;
@@ -238,6 +286,7 @@ void CanvasTransformController::clearPreview()
 {
     m_before.clear();
     m_previewEdit = {};
+    m_previewWorld = {};
     m_handle.clear();
     m_active = false;
     emit previewChanged();
@@ -246,6 +295,7 @@ void CanvasTransformController::clearPreview()
 bool CanvasTransformController::nudge(const QString &handle, qreal viewDx,
                                       qreal viewDy, int modifiers)
 {
+    if (handle == QLatin1String("rotate")) return false;
     if (!m_viewState || !std::isfinite(viewDx) || !std::isfinite(viewDy)
         || m_viewState->zoom() <= 0) return false;
     const qreal angle = qDegreesToRadians(m_viewState->rotation());
@@ -256,6 +306,19 @@ bool CanvasTransformController::nudge(const QString &handle, qreal viewDx,
     const QPointF start = handlePoint(handle, selectionBounds());
     if (!update(handle, start, start + delta, modifiers)) return false;
     return finish(handle);
+}
+
+bool CanvasTransformController::rotateBy(qreal degrees, int modifiers)
+{
+    if (!std::isfinite(degrees) || m_active) return false;
+    const qreal normalized = CanvasTransform::normalizeRotation(degrees);
+    const QPointF center = pivot();
+    const QPointF start = center + QPointF(1, 0);
+    const QPointF current = center
+        + QPointF(std::cos(qDegreesToRadians(normalized)),
+                  std::sin(qDegreesToRadians(normalized)));
+    if (!update(QStringLiteral("rotate"), start, current, modifiers)) return false;
+    return finish(QStringLiteral("rotate"));
 }
 
 } // namespace QindaTK

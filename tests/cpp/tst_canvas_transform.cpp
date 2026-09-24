@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_transform_controller.h"
 
+#include <QLineF>
 #include <QSignalSpy>
 #include <QTest>
 #include <cmath>
@@ -28,6 +29,7 @@ private slots:
     void cancelAndExternalEdit();
     void keyboardNudgeUsesViewPose();
     void thinPolylineCanMove();
+    void rotationPivotPreviewAndUndo();
 };
 
 void TstCanvasTransform::groupMoveResizeAndUndo()
@@ -173,6 +175,54 @@ void TstCanvasTransform::thinPolylineCanMove()
     QVERIFY(transform.update(QStringLiteral("move"), {0, 0}, {5, 5}));
     QVERIFY(transform.finish(QStringLiteral("move")));
     QCOMPARE(document.object(id)->transform.map(QPointF(0, 0)), QPointF(5, 5));
+}
+
+void TstCanvasTransform::rotationPivotPreviewAndUndo()
+{
+    CanvasDocument document;
+    const CanvasObjectId a = square(document, 0, 0);
+    const CanvasObjectId b = square(document, 20, 0);
+    ToolController tools;
+    tools.setDocument(&document);
+    tools.setSelection({a, b});
+    CanvasTransformController transform;
+    transform.setDocument(&document);
+    transform.setTools(&tools);
+    const quint64 revision = document.revision();
+
+    transform.setPivot({0, 0});
+    QCOMPARE(transform.pivot(), QPointF(0, 0));
+    QVERIFY(transform.update(QStringLiteral("rotate"), {10, 0}, {0, 10}));
+    QCOMPARE(document.revision(), revision);
+    const QVariantList corners = transform.previewCorners();
+    QCOMPARE(corners.size(), 4);
+    QVERIFY(QLineF(corners[1].toPointF(), QPointF(0, 30)).length() < 1e-8);
+    QVERIFY(transform.finish(QStringLiteral("rotate")));
+    QCOMPARE(document.revision(), revision + 1);
+    QVERIFY(QLineF(document.object(a)->transform.map(QPointF(5, 5)),
+                   QPointF(-5, 5)).length() < 1e-8);
+    QVERIFY(QLineF(document.object(b)->transform.map(QPointF(5, 5)),
+                   QPointF(-5, 25)).length() < 1e-8);
+    QVERIFY(document.undo());
+    QCOMPARE(document.revision(), revision + 2);
+    QCOMPARE(document.object(a)->transform.map(QPointF(5, 5)), QPointF(5, 5));
+
+    transform.resetPivot();
+    QCOMPARE(transform.pivot(), QPointF(15, 5));
+    QVERIFY(transform.rotateBy(90));
+    QVERIFY(QLineF(document.object(a)->transform.map(QPointF(5, 5)),
+                   QPointF(15, -5)).length() < 1e-8);
+    QVERIFY(QLineF(document.object(b)->transform.map(QPointF(5, 5)),
+                   QPointF(15, 15)).length() < 1e-8);
+    QVERIFY(document.undo());
+
+    const QPointF start(15, -5);
+    const QPointF pointer(18.42, -4.4); // about 20 degrees from the top
+    QVERIFY(transform.update(QStringLiteral("rotate"), start, pointer, Qt::ShiftModifier));
+    QVERIFY(transform.finish(QStringLiteral("rotate")));
+    const QPointF rotated = document.object(a)->transform.map(QPointF(5, 5));
+    QVERIFY(std::abs(rotated.x() - 5.3407417) < 1e-5);
+    QVERIFY(std::abs(rotated.y() - 2.4118095) < 1e-5);
 }
 
 QTEST_GUILESS_MAIN(TstCanvasTransform)

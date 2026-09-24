@@ -304,14 +304,16 @@ coordinates from the same transform the renderer uses.
 `Tk.SelectionOverlay` is an application overlay for that slot. The host passes
 four ordered document-space corners, or an axis-aligned `selectionBounds`,
 and the owning `CanvasView` as `surface`. The component maps the corners on
-each view change, paints the frame, and places eight themed handles. Pointer
-events report a handle and document-space start/current points; keyboard and
-accessible actions report a nudge request. The host owns selection identity,
+each view change, paints the frame, and places eight resize handles plus a
+rotation handle. Pointer events report a handle and document-space
+start/current points; keyboard and accessible actions report a nudge or
+rotation-step request. The host owns selection identity,
 snapping, constraints, preview, cancellation and the one authoritative commit.
 `Tk.SpatialTransform` can own that edit boundary for a `CanvasDocumentAdapter`:
-connect the overlay's transform request/finish/cancel/nudge signals to its
-matching methods and bind `selectionBounds` to `previewBounds`. It reads the
-selected IDs from the bound `ToolController`.
+connect the overlay's transform request/finish/cancel/nudge and rotation-step
+signals to its matching methods, bind `selectionBounds` to `previewBounds`,
+and bind `selectionCorners` to `previewCorners`. It reads the selected IDs
+from the bound `ToolController`.
 
 `Tk.GuideLayer` is another application overlay. The host supplies guide
 records with stable `id`, `orientation` (`vertical` or `horizontal`) and
@@ -373,6 +375,11 @@ objects as a group. Raw document-space pointer updates may pass through the
 bound `SnapModel`, excluding the selection from snap targets. A move uses the
 pointer delta; the eight resize handles scale around the opposite side or
 corner. Alt resizes about the center, and Shift keeps the corner scale uniform.
+The rotation handle rotates the group around its selection center or a
+host-supplied document-space `pivot`; Shift constrains pointer rotation to
+15-degree increments. `rotateBy(degrees)` is the equivalent numeric and
+keyboard operation. `previewCorners` preserves the rotated frame shape while
+the axis-aligned `previewBounds` remains available to consumers.
 The controller accepts negative scale when the resulting object transforms
 remain invertible, and rejects a zero scale. `previewBounds` moves the selection
 frame without mutating the document; `finish` commits all object transforms in
@@ -381,8 +388,8 @@ changes cancel a gesture. A keyboard nudge maps view pixels through the bound
 `CanvasViewState` rotation and zoom before committing the same operation.
 
 This slice uses the reference canvas edit history. A shared session/undo
-adapter, rotation/pivot handles, numeric inspector equivalence, transformed
-group-bounds policy and richer constraint rules remain WP-041 work.
+adapter, a shared selection model, numeric inspector wiring, persisted pivot,
+transformed group-bounds policy and richer constraint rules remain WP-041 work.
 
 `Tk.LayerTree` reads the current `CanvasDocument.layers` facade and sends
 active, visibility and lock requests back to it. The list is flat. Layer

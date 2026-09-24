@@ -2,7 +2,7 @@
 import QtQuick
 import QindaTK as Tk
 
-// WP-041 fixture: the frame previews a group resize while canonical objects
+// WP-041 fixture: the frame previews a group transform while canonical objects
 // remain in place until the gesture is finished.
 Rectangle {
     id: root
@@ -11,6 +11,7 @@ Rectangle {
     color: Tk.Theme.color.bg
     property var firstId: 0
     property var secondId: 0
+    property bool rotatePreview: false
 
     Tk.CanvasDocument {
         id: document
@@ -44,6 +45,7 @@ Rectangle {
             anchors.fill: parent
             surface: view
             selectionBounds: transform.previewBounds
+            selectionCorners: transform.previewCorners
             onTransformRequested: function(handle, start, current, modifiers) {
                 transform.update(handle, start, current, modifiers)
             }
@@ -52,10 +54,16 @@ Rectangle {
             onTransformNudgeRequested: function(handle, dx, dy, modifiers) {
                 transform.nudge(handle, dx, dy, modifiers)
             }
+            onRotateStepRequested: function(degrees, modifiers) {
+                transform.rotateBy(degrees, modifiers)
+            }
         }
     }
     Component.onCompleted: Qt.callLater(function() {
         tools.selection = [root.firstId, root.secondId]
-        transform.update("bottomRight", Qt.point(460, 280), Qt.point(505, 315))
+        if (root.rotatePreview)
+            transform.update("rotate", Qt.point(270, 70), Qt.point(310, 82))
+        else
+            transform.update("bottomRight", Qt.point(460, 280), Qt.point(505, 315))
     })
 }

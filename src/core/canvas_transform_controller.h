@@ -22,6 +22,8 @@ class CanvasTransformController : public QObject {
     Q_PROPERTY(QindaTK::CanvasViewState *viewState READ viewState WRITE setViewState NOTIFY changed)
     Q_PROPERTY(QRectF selectionBounds READ selectionBounds NOTIFY changed)
     Q_PROPERTY(QRectF previewBounds READ previewBounds NOTIFY previewChanged)
+    Q_PROPERTY(QVariantList previewCorners READ previewCorners NOTIFY previewChanged)
+    Q_PROPERTY(QPointF pivot READ pivot WRITE setPivot NOTIFY changed)
     Q_PROPERTY(bool active READ active NOTIFY previewChanged)
 public:
     explicit CanvasTransformController(QObject *parent = nullptr) : QObject(parent) {}
@@ -36,10 +38,14 @@ public:
     void setViewState(CanvasViewState *viewState);
     QRectF selectionBounds() const;
     QRectF previewBounds() const { return m_active ? m_previewBounds : selectionBounds(); }
+    QVariantList previewCorners() const;
+    QPointF pivot() const { return m_hasCustomPivot ? m_pivot : selectionBounds().center(); }
+    void setPivot(QPointF point);
+    Q_INVOKABLE void resetPivot();
     bool active() const { return m_active; }
 
     // The first update captures selected objects and a document revision.
-    // `handle`: move or one of SelectionOverlay's eight resize handle names.
+    // `handle`: move, rotate or one of SelectionOverlay's eight resize handles.
     Q_INVOKABLE bool update(const QString &handle, QPointF start, QPointF current,
                             int modifiers = 0);
     Q_INVOKABLE bool finish(const QString &handle);
@@ -47,6 +53,8 @@ public:
     // View-pixel keyboard step using the bound pose; commits one edit.
     Q_INVOKABLE bool nudge(const QString &handle, qreal viewDx, qreal viewDy,
                            int modifiers = 0);
+    // Numeric/keyboard rotation in document degrees around `pivot`.
+    Q_INVOKABLE bool rotateBy(qreal degrees, int modifiers = 0);
 
 signals:
     void changed();
@@ -68,6 +76,10 @@ private:
     CanvasEdit m_previewEdit;
     QRectF m_baseBounds;
     QRectF m_previewBounds;
+    QTransform m_previewWorld;
+    QPointF m_pivot;
+    QPointF m_basePivot;
+    bool m_hasCustomPivot = false;
     QString m_handle;
     quint64 m_revision = 0;
     bool m_active = false;

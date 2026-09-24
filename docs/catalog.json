@@ -14791,6 +14791,14 @@
           "required": false
         },
         {
+          "name": "rotationHandleDistance",
+          "type": "real",
+          "default": "Tk.Theme.size.controlLg",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "outlineWidth",
           "type": "real",
           "default": "Tk.Theme.size.border",
@@ -14839,6 +14847,10 @@
         {
           "name": "transformNudgeRequested",
           "parameters": "string handle, real viewDx, real viewDy, int modifiers"
+        },
+        {
+          "name": "rotateStepRequested",
+          "parameters": "real degrees, int modifiers"
         }
       ],
       "methods": [
@@ -14857,6 +14869,10 @@
         {
           "name": "handlePoint",
           "parameters": "index"
+        },
+        {
+          "name": "rotationPoint",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -14868,6 +14884,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "handleRotate",
         "selectionFrame",
         "selectionOverlay"
       ]
@@ -28397,6 +28414,20 @@
           "constant": false
         },
         {
+          "name": "previewCorners",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pivot",
+          "type": "QPointF",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "active",
           "type": "bool",
           "default": "",
@@ -28424,6 +28455,11 @@
       ],
       "methods": [
         {
+          "name": "resetPivot",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
           "name": "update",
           "returns": "bool",
           "parameters": "const QString &handle, QPointF start, QPointF current, int modifiers = 0"
@@ -28442,6 +28478,11 @@
           "name": "nudge",
           "returns": "bool",
           "parameters": "const QString &handle, qreal viewDx, qreal viewDy, int modifiers = 0"
+        },
+        {
+          "name": "rotateBy",
+          "returns": "bool",
+          "parameters": "qreal degrees, int modifiers = 0"
         }
       ],
       "enums": {},

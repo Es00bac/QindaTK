@@ -19,6 +19,7 @@ TestCase {
             property alias view: canvasView
             property alias overlay: selectionOverlay
             property alias transformSpy: requestSpy
+            property alias rotationStepSpy: rotationStepSignal
             Tk.CanvasDocument {
                 id: documentItem
                 pageRect: Qt.rect(0, 0, 240, 200)
@@ -44,6 +45,11 @@ TestCase {
                 id: requestSpy
                 target: selectionOverlay
                 signalName: "transformRequested"
+            }
+            SignalSpy {
+                id: rotationStepSignal
+                target: selectionOverlay
+                signalName: "rotateStepRequested"
             }
         }
     }
@@ -80,5 +86,25 @@ TestCase {
         const expectedStart = scene.view.mapToDocument(start)
         fuzzyCompare(emittedStart.x, expectedStart.x, 0.5)
         fuzzyCompare(emittedStart.y, expectedStart.y, 0.5)
+    }
+
+    function test_rotation_handle_reports_drag_and_keyboard_step() {
+        const scene = createTemporaryObject(sceneComponent, this)
+        verify(scene !== null)
+        waitForRendering(scene)
+        const handle = findChild(scene.overlay, "handleRotate")
+        verify(handle !== null)
+        const start = handle.mapToItem(scene.overlay, handle.width / 2, handle.height / 2)
+        mouseDrag(scene.overlay, start.x, start.y, start.x + 15, start.y + 12)
+        verify(scene.transformSpy.count > 0)
+        compare(scene.transformSpy.signalArguments[0][0], "rotate")
+        const emitted = scene.transformSpy.signalArguments[0][1]
+        const expected = scene.view.mapToDocument(start)
+        fuzzyCompare(emitted.x, expected.x, 0.5)
+        fuzzyCompare(emitted.y, expected.y, 0.5)
+        handle.forceActiveFocus()
+        keyClick(Qt.Key_Right)
+        compare(scene.rotationStepSpy.count, 1)
+        compare(scene.rotationStepSpy.signalArguments[0][0], 15)
     }
 }
