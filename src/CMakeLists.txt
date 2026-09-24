@@ -38,6 +38,9 @@ qt_add_qml_module(qindatk
     DEPENDENCIES QtQuick QtQuick.Controls QtQuick.Templates
     SOURCES
         core/application_contracts.cpp core/application_contracts.h
+        core/color_profile.cpp core/color_profile.h
+        core/color_context.h core/color_engine.cpp core/color_engine.h
+        core/color_lcms_p.h
         core/capability_registry.cpp core/capability_registry.h
         core/command_context.cpp core/command_context.h
         core/command_registry.cpp core/command_registry.h
@@ -187,7 +190,7 @@ target_include_directories(qindatk PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
-    PRIVATE Qt6::Svg Qt6::Concurrent)
+    PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2)
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
 

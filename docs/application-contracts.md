@@ -16,7 +16,7 @@ Applications can continue using the existing QML controls with only
 | `SnapshotHeader` | Schema ID, document ID, revision and reset generation | `ContractCodec::toQml()` map; both integers are decimal strings |
 | `ExactTime` | Signed ticks and a positive rational rate; domain engines choose the tick convention | All three integers are decimal strings; no QML `Number` roundtrip |
 | `UnitQuantity` | Finite numeric magnitude, dimension and explicit unit ID | Domain adapters convert units; the toolkit never guesses from a bare number |
-| `ColorValue` | Finite components, alpha, profile ID and transfer ID | A color engine converts profiles before combining values |
+| `ColorValue` | Straight-alpha RGB doubles, finite extended RGB, alpha in [0,1], profile and transfer IDs | [ColorEngine](color.md) validates the complete encoding and converts before combining profiles |
 
 `ContractCodec::snapshotHeaderFromQml()` and `exactTimeFromQml()` reject
 numeric QVariant values, invalid decimal strings, overflows, invalid UUIDs
@@ -107,7 +107,9 @@ adapter or later roundtrip; an unavailable action may not discard it.
 ## Optional build and registration boundary
 
 `QindaTK::qindatk` and `import QindaTK as Tk` contain the contracts and
-existing controls but link no optional creative, Office or media engine.
+existing controls. Little CMS is a required private dependency for the
+[numerical color service](color.md); optional creative, Office and media
+engines remain outside the core.
 Future feature packs use separately selected CMake targets with their own
 dependencies and explicit application registration. A core-only install and
 consumer must build and query missing operations without those targets.

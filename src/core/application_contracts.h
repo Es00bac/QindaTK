@@ -57,8 +57,10 @@ struct ExactTime {
     friend bool operator==(const ExactTime &, const ExactTime &) = default;
 };
 
-// A color value carries its profile and transfer identity; a conversion
-// engine is required before blending values from different profiles.
+// Straight-alpha RGB doubles; finite extended RGB is valid, alpha is [0,1].
+// A color value carries its complete profile/transfer identity; an engine
+// must validate that pair and convert profiles before combining values.
+// ColorEngine uses profile content hashes and transferId "icc" (docs/color.md).
 struct ColorValue {
     double red = 0.0;
     double green = 0.0;

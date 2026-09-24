@@ -544,3 +544,22 @@ exact domain edges, units and final-edge inclusivity.
 view. Hosts that need only X synchronization share only X. The annotation
 model and histogram selection do not infer analysis or color context; the
 host supplies those source semantics.
+
+
+## D-047 — Own ICC encodings and keep numeric color independent of Theme
+
+**Context.** QColor and canvas metadata cannot represent a validated document
+profile pipeline or prove that display pixels were transformed.
+
+**Decision.** The core numerical ColorEngine privately links Little CMS.
+Immutable profiles own exact ICC bytes and content hashes. ColorValue carries
+straight-alpha RGB doubles; ICC owns its complete transfer encoding. The first
+backend performs Float32 relative-colorimetric CPU conversions with BPC off,
+preserves alpha separately, tags results with context generations, and returns
+structured errors for unsupported proof/model/intent operations.
+
+**Consequences.** LCMS and pkg-config become required build dependencies.
+Profile import and the transform cache are bounded; no native handles enter
+public headers. Gamut status remains unknown. Canvas/GPU display management,
+proofing and gradient interpolation require their own fixtures and integration;
+no Theme change modifies stored colors. See [color.md](color.md).
