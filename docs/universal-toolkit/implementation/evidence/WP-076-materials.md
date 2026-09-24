@@ -28,3 +28,7 @@ This slice remains per-entity primitive material editing. Shared material
 assets, texture maps, procedural shaders, imported meshes, shared document
 undo/session integration, device-loss handling, Qt 6.8 qualification and
 multi-view validation remain in WP-076.
+
+Cherry-picked as `8970afe`. The combined merged build and focused CTest 6/6
+passed; the MaterialPreview QML suite passed 6/6 in integration. The shaded
+GPU capture above was opened and inspected.

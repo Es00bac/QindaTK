@@ -42,3 +42,7 @@ server requests. It does not provide snippets, additional edits, semantic
 tokens, workspace/project operations, remote servers or unversioned
 diagnostic attribution. Qt 6.8 and an installed consumer were not checked.
 This evidence does not mark WP-081 accepted.
+
+Cherry-picked as `939423e`. The combined merged build and focused CTest 6/6
+passed, including the real clangd process; the CodeEditor QML suite passed
+5/5 in integration. The clangd screenshot above was opened and inspected.

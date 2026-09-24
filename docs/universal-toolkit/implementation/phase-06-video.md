@@ -137,7 +137,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-076"></a>
 ## WP-076 — Implement 3D scene rendering and manipulation
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-040](phase-03-authoring.md#wp-040), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-073](phase-06-video.md#wp-073)
+**Implementation lead:** Sol. **Status:** active (shaded material editor merged; shared scene session work underway). **Depends on:** [WP-040](phase-03-authoring.md#wp-040), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-073](phase-06-video.md#wp-073)
 
 **Proposal scope:** [VID-19 SceneView3D](../proposed/07-video-motion.md#vid-19), [VID-20 SceneOutliner](../proposed/07-video-motion.md#vid-20), [VID-21 TransformGizmo3D](../proposed/07-video-motion.md#vid-21), [VID-22 MaterialPreview](../proposed/07-video-motion.md#vid-22)
 
