@@ -12762,6 +12762,109 @@
       ]
     },
     {
+      "name": "PageSetupDialog",
+      "kind": "qml",
+      "base": "Tk.Dialog",
+      "description": "Page geometry is canonical millimetres. This dialog edits a local draft and submits one complete proposal; the host validates printer/document limits.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PageSetupDialog.qml",
+      "properties": [
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Page size, margins, columns and section scope\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draft",
+          "type": "var",
+          "default": "pageSetup ? copySettings(pageSetup) : ({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validationMessage",
+          "type": "string",
+          "default": "validateDraft()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validDraft",
+          "type": "bool",
+          "default": "validationMessage.length === 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pageSetupRequested",
+          "parameters": "var settings"
+        },
+        {
+          "name": "pageSetupCancelled",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "copySettings",
+          "parameters": "source"
+        },
+        {
+          "name": "displayValue",
+          "parameters": "mm"
+        },
+        {
+          "name": "canonicalValue",
+          "parameters": "value"
+        },
+        {
+          "name": "setDimension",
+          "parameters": "key, value"
+        },
+        {
+          "name": "setMargin",
+          "parameters": "side, value"
+        },
+        {
+          "name": "setLayout",
+          "parameters": "key, value"
+        },
+        {
+          "name": "validateDraft",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "pageBleed",
+        "pageColumns",
+        "pageGutter",
+        "pageHeight",
+        "pageMargin_",
+        "pageOrientation",
+        "pageScope",
+        "pageSetupValidation",
+        "pageUnits",
+        "pageWidth"
+      ]
+    },
+    {
       "name": "Panel",
       "kind": "qml",
       "base": "Item",
@@ -17550,6 +17653,215 @@
       ]
     },
     {
+      "name": "StyleManager",
+      "kind": "qml",
+      "base": "Item",
+      "description": "A view over the host's document style graph. Style identity, validation, selection targets, overrides, transactions and persistence remain host-owned.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/StyleManager.qml",
+      "properties": [
+        {
+          "name": "styles",
+          "type": "var",
+          "default": "[] // [{id,name,kind,parentId,summary,preview,compatible,validationError}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "directOverrides",
+          "type": "var",
+          "default": "[] // [{key,label,value}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedStyleId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filterText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftKind",
+          "type": "string",
+          "default": "\"paragraph\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftParentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validationError",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Manage document styles\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedStyle",
+          "type": "var",
+          "default": "styleById(selectedStyleId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleStyles",
+          "type": "var",
+          "default": "filterStyles()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "styleKinds",
+          "type": "var",
+          "default": "[\"character\", \"paragraph\", \"table\", \"object\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canApply",
+          "type": "bool",
+          "default": "selectedStyle !== null && selectedStyle.compatible !== false && targetIds.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canUpdate",
+          "type": "bool",
+          "default": "selectedStyle !== null && !selectedStyle.builtIn && validationError.length === 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "styleSelectionRequested",
+          "parameters": "string styleId"
+        },
+        {
+          "name": "createStyleRequested",
+          "parameters": "string name, string kind, string parentId"
+        },
+        {
+          "name": "updateStyleRequested",
+          "parameters": "string styleId, var patch"
+        },
+        {
+          "name": "applyStyleRequested",
+          "parameters": "string styleId, var targetIds"
+        },
+        {
+          "name": "resetOverridesRequested",
+          "parameters": "var targetIds, var overrideKeys"
+        }
+      ],
+      "methods": [
+        {
+          "name": "styleById",
+          "parameters": "id"
+        },
+        {
+          "name": "filterStyles",
+          "parameters": ""
+        },
+        {
+          "name": "chooseStyle",
+          "parameters": "styleId"
+        },
+        {
+          "name": "applySelected",
+          "parameters": ""
+        },
+        {
+          "name": "createStyle",
+          "parameters": ""
+        },
+        {
+          "name": "styleNameExists",
+          "parameters": "name"
+        },
+        {
+          "name": "updateSelected",
+          "parameters": ""
+        },
+        {
+          "name": "resetDirectOverrides",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "styleApply",
+        "styleCompatibility",
+        "styleCreate",
+        "styleKind",
+        "styleListScroll",
+        "styleName",
+        "styleParent",
+        "styleResetOverrides",
+        "styleSearch",
+        "styleUpdate",
+        "styleValidation",
+        "style_"
+      ]
+    },
+    {
       "name": "Switch",
       "kind": "qml",
       "base": "T.Switch",
@@ -17897,6 +18209,180 @@
       "valueType": false,
       "bridge": false,
       "objectNames": []
+    },
+    {
+      "name": "TableEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Structured cells and merge/selection policy belong to the document model. This control reports stable row, column and cell IDs without flattening text.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TableEditor.qml",
+      "properties": [
+        {
+          "name": "selectedCellIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedRowId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedColumnId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "extendSelection",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit structured table rows, columns and cells\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedCell",
+          "type": "var",
+          "default": "cellById(selectedCellIds.length ? selectedCellIds[selectedCellIds.length - 1] : \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canMerge",
+          "type": "bool",
+          "default": "selectedCellIds.length > 1 && table.canMerge !== false",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canSplit",
+          "type": "bool",
+          "default": "selectedCell !== null && ((selectedCell.rowSpan || 1) > 1 || (selectedCell.columnSpan || 1) > 1)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "cellSelectionRequested",
+          "parameters": "string cellId, bool extend"
+        },
+        {
+          "name": "cellTextChangeRequested",
+          "parameters": "string cellId, string text"
+        },
+        {
+          "name": "rowInsertRequested",
+          "parameters": "int index"
+        },
+        {
+          "name": "rowDeleteRequested",
+          "parameters": "string rowId"
+        },
+        {
+          "name": "columnInsertRequested",
+          "parameters": "int index"
+        },
+        {
+          "name": "columnDeleteRequested",
+          "parameters": "string columnId"
+        },
+        {
+          "name": "cellsMergeRequested",
+          "parameters": "var cellIds"
+        },
+        {
+          "name": "cellSplitRequested",
+          "parameters": "string cellId"
+        },
+        {
+          "name": "columnWidthChangeRequested",
+          "parameters": "string columnId, real width"
+        },
+        {
+          "name": "tableStyleChangeRequested",
+          "parameters": "string styleId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "cellById",
+          "parameters": "id"
+        },
+        {
+          "name": "cellAt",
+          "parameters": "rowIndex, columnIndex"
+        },
+        {
+          "name": "rowIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "columnIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "selectCell",
+          "parameters": "cellId"
+        },
+        {
+          "name": "insertRow",
+          "parameters": ""
+        },
+        {
+          "name": "insertColumn",
+          "parameters": ""
+        },
+        {
+          "name": "mergeSelection",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "tableCellGrid",
+        "tableCellText",
+        "tableCell_",
+        "tableColumnWidth",
+        "tableDeleteColumn",
+        "tableDeleteRow",
+        "tableExtendSelection",
+        "tableInsertColumn",
+        "tableInsertRow",
+        "tableMergeCells",
+        "tableSplitCell",
+        "tableStructureStatus",
+        "tableStyle"
+      ]
     },
     {
       "name": "TargetDisplay",
@@ -18656,6 +19142,169 @@
       "bridge": false,
       "objectNames": [
         "fieldClear"
+      ]
+    },
+    {
+      "name": "TextFrameEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Geometry, story order and frame threading are owned by the typesetter. This inspector reports stable-ID edit requests and displays model overset state.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TextFrameEditor.qml",
+      "properties": [
+        {
+          "name": "frames",
+          "type": "var",
+          "default": "[] // [{id,label,pageId,xMm,yMm,widthMm,heightMm,storyId,nextFrameId,columns,gutterMm,insetMm,oversetChars,flowStatus}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedFrameId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayUnit",
+          "type": "string",
+          "default": "\"mm\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "newFrameGeometryMm",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit text frame geometry and story flow\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentFrame",
+          "type": "var",
+          "default": "frameById(selectedFrameId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "connectionTargets",
+          "type": "var",
+          "default": "frames.filter(function(frame) {",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetFrameId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "frameSelectionRequested",
+          "parameters": "string frameId"
+        },
+        {
+          "name": "geometryChangeRequested",
+          "parameters": "string frameId, var geometryMm"
+        },
+        {
+          "name": "layoutChangeRequested",
+          "parameters": "string frameId, var layout"
+        },
+        {
+          "name": "connectRequested",
+          "parameters": "string sourceFrameId, string targetFrameId"
+        },
+        {
+          "name": "disconnectRequested",
+          "parameters": "string frameId"
+        },
+        {
+          "name": "createFrameRequested",
+          "parameters": "string pageId, var geometryMm"
+        }
+      ],
+      "methods": [
+        {
+          "name": "frameById",
+          "parameters": "id"
+        },
+        {
+          "name": "display",
+          "parameters": "mm"
+        },
+        {
+          "name": "canonical",
+          "parameters": "value"
+        },
+        {
+          "name": "geometryWith",
+          "parameters": "patch"
+        },
+        {
+          "name": "setGeometry",
+          "parameters": "key, value"
+        },
+        {
+          "name": "setLayout",
+          "parameters": "key, value"
+        },
+        {
+          "name": "createFrame",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "textFrameColumns",
+        "textFrameConnect",
+        "textFrameConnectTarget",
+        "textFrameCreate",
+        "textFrameDisconnect",
+        "textFrameGutter",
+        "textFrameHeight",
+        "textFrameInset",
+        "textFrameOverset",
+        "textFrameSelect",
+        "textFrameStoryStatus",
+        "textFrameWidth",
+        "textFrameX",
+        "textFrameY"
       ]
     },
     {
