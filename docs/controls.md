@@ -232,6 +232,10 @@ asset.
 | `AssetWaveform` | `provider`, `resourceId`, `requestOptions`, `columns` (0 uses the displayed width), `document`, `viewId`, `active`, `color`, `showCentreLine`, `tooltip` | `subscriptionId`, `assetState`, `assetData`, `assetError`, `peaks`; `refresh()` | Requests kind `"waveform"` and passes returned `assetData.peaks` to `Tk.Waveform`. The backend reduces peaks to the requested number of columns; width changes coalesce through `Theme.motion.fast`. Empty, missing, cancelled, or failed results remain visibly empty and report their state; no sample peaks are invented. The subscription retains the provider that created it so replacing `provider` releases it from the original owner. objectNames `assetWaveform`, `assetWaveformDisplay`, `assetWaveformStatus`. |
 | `AssetFilmstrip` | `provider`, `resourceId`, `headTimeTicks` (`"0"`), `tailTimeTicks` (empty means unknown and inactive), `rateNumerator`/`rateDenominator` (decimal strings), `document`, `viewId`, `active`, `crop`, `frameSize`, `tooltip` | `assetState`, `assetError` | Requests `"frame"` assets for the supplied head and tail times. The tail request stays inactive until `tailTimeTicks` is supplied. An injected video backend can return endpoint frames; the default `FileAssetBackend` reports `Unsupported` because it does not decode video. It never substitutes fabricated frames. objectNames `assetFilmstrip`, `assetFilmstripFrames`, `assetFilmstripHead`, `assetFilmstripTail`. |
 
+For PDF pages, `Tk.AssetThumbnail` can request `"pdf-page"` with zero-based
+`requestOptions.pageIndex` and `rotation` (0/90/180/270). The default file
+backend returns a real PNG through Poppler's installed command-line tools.
+
 All three controls use `Tk.AssetProvider` and `Tk.ResourceResolver`; register a
 logical resource ID before requesting it. `document` and `viewId` scope
 subscriptions to a live editing context. `invalidateView(viewId)` makes those

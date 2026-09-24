@@ -55,7 +55,8 @@ leak into the next session.
 
 `AssetProvider` accepts `AssetRequest` records by C++ or
 `requestAsset(resourceId,kind,options,document,viewId)` from QML. Kind,
-region, exact decimal-string time/rate, size, quality and revision form a
+region, exact decimal-string time/rate, size, quality, PDF page index/rotation
+and revision form a
 cache identity. It uses `ResourceResolver.lookup`, coalesces duplicate
 in-flight requests, runs a replaceable `AssetBackend` through its `JobModel`,
 and has a 32 MiB LRU cache by default. `cacheBudgetBytes` is configurable;
@@ -73,7 +74,12 @@ manage those subscriptions for QML callers.
 The default `FileAssetBackend` handles local paths and `file:` URIs. It reads
 ordinary metadata, decodes/crops/scales images to PNG thumbnails, and reduces
 integer PCM RIFF/WAV samples (8/16/24/32-bit) to bounded peak columns on a
-worker. The reference adapter limits files to 256 MiB, source images to 100
+worker. For local PDFs, `metadata` returns a page count and `pdf-page` returns
+a rendered PNG for zero-based `pageIndex` and clockwise `rotation` (0, 90,
+180 or 270 degrees). PDF rendering uses Poppler's `pdfinfo`/`pdftoppm`
+executables in the worker process, with a 30-second timeout and 32 MiB encoded
+output limit; missing tools produce an explicit `Unsupported` result. The
+reference adapter limits files to 256 MiB, source images to 100
 million pixels, and waveform output to 8192 columns. It reports video frame
 and filmstrip requests as unsupported; a domain backend supplies video
 decoding, remote files, larger media and domain-specific revision rules. No

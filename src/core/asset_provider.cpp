@@ -80,7 +80,8 @@ QString AssetProvider::keyFor(const AssetRequest &request)
         {QStringLiteral("timeTicks"), QString::number(request.timeTicks)},
         {QStringLiteral("rateNumerator"), QString::number(request.rateNumerator)},
         {QStringLiteral("rateDenominator"), QString::number(request.rateDenominator)},
-        {QStringLiteral("quality"), request.quality}, {QStringLiteral("columns"), request.columns}};
+        {QStringLiteral("quality"), request.quality}, {QStringLiteral("columns"), request.columns},
+        {QStringLiteral("pageIndex"), request.pageIndex}, {QStringLiteral("rotation"), request.rotation}};
     return QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(fields))
                                  .toJson(QJsonDocument::Compact));
 }
@@ -103,7 +104,9 @@ QString AssetProvider::request(AssetRequest request, PropertyDocument *document,
 {
     if (request.resourceId.isEmpty() || request.kind.isEmpty() || !m_backend
         || m_subscriptions.size() >= 4096 || request.quality < 1 || request.quality > 100
-        || request.columns < 0 || request.columns > 16384
+        || request.columns < 0 || request.columns > 16384 || request.pageIndex < 0
+        || (request.rotation != 0 && request.rotation != 90
+            && request.rotation != 180 && request.rotation != 270)
         || request.size.width() < 0 || request.size.height() < 0
         || request.size.width() > 8192 || request.size.height() > 8192
         || request.rateNumerator <= 0 || request.rateDenominator <= 0) {
@@ -209,6 +212,9 @@ QString AssetProvider::requestAsset(const QString &resourceId, const QString &ki
     request.kind = kind;
     request.quality = options.value(QStringLiteral("quality"), 75).toInt();
     request.columns = options.value(QStringLiteral("columns"), 0).toInt();
+    bool pageOk = false, rotationOk = false;
+    request.pageIndex = options.value(QStringLiteral("pageIndex"), 0).toInt(&pageOk);
+    request.rotation = options.value(QStringLiteral("rotation"), 0).toInt(&rotationOk);
     const QVariantMap size = options.value(QStringLiteral("size")).toMap();
     request.size = QSize(size.value(QStringLiteral("width")).toInt(),
                          size.value(QStringLiteral("height")).toInt());
@@ -234,7 +240,10 @@ QString AssetProvider::requestAsset(const QString &resourceId, const QString &ki
     request.timeTicks = ticks.toLongLong(&ticksOk);
     request.rateNumerator = numerator.toLongLong(&numeratorOk);
     request.rateDenominator = denominator.toLongLong(&denominatorOk);
-    if (!ticksOk || !numeratorOk || !denominatorOk || request.rateNumerator <= 0
+    if (!ticksOk || !numeratorOk || !denominatorOk || !pageOk || !rotationOk
+        || request.pageIndex < 0 || (request.rotation != 0 && request.rotation != 90
+                                   && request.rotation != 180 && request.rotation != 270)
+        || request.rateNumerator <= 0
         || request.rateDenominator <= 0 || request.quality < 1 || request.quality > 100
         || request.columns < 0 || request.size.width() < 0 || request.size.height() < 0
         || request.region.width() < 0 || request.region.height() < 0) {

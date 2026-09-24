@@ -5,8 +5,13 @@
 #include <QFile>
 #include <QImage>
 #include <QImageReader>
+#include <QPageSize>
+#include <QPainter>
+#include <QPdfWriter>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <algorithm>
 
 using namespace QindaTK;
 
@@ -145,6 +150,43 @@ private slots:
         request.kind = QStringLiteral("metadata");
         result = backend.fetch(request, source.token(), {});
         QCOMPARE(result.error.code, ErrorCode::Cancelled);
+    }
+
+    void pdfPageRendersAtRequestedSize()
+    {
+        if (QStandardPaths::findExecutable(QStringLiteral("pdftoppm")).isEmpty()
+            || QStandardPaths::findExecutable(QStringLiteral("pdfinfo")).isEmpty())
+            QSKIP("Poppler command-line tools are unavailable");
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("sample.pdf"));
+        {
+            QPdfWriter writer(path);
+            writer.setPageSize(QPageSize(QPageSize::A4));
+            QPainter painter(&writer);
+            QVERIFY(painter.isActive());
+            painter.fillRect(QRect(100, 100, 500, 300), Qt::red);
+        }
+        FileAssetBackend backend;
+        AssetRequest request;
+        request.uri = path;
+        request.kind = QStringLiteral("metadata");
+        AssetResult result = backend.fetch(request, {}, {});
+        QVERIFY2(!result.error, qPrintable(result.error.message));
+        QCOMPARE(result.metadata.value(QStringLiteral("pageCount")).toInt(), 1);
+        request.kind = QStringLiteral("pdf-page");
+        request.size = QSize(320, 320);
+        result = backend.fetch(request, {}, {});
+        QVERIFY2(!result.error, qPrintable(result.error.message));
+        QImage image;
+        QVERIFY(image.loadFromData(result.bytes, "PNG"));
+        QCOMPARE(std::max(image.width(), image.height()), 320);
+        request.rotation = 90;
+        result = backend.fetch(request, {}, {});
+        QVERIFY2(!result.error, qPrintable(result.error.message));
+        QImage rotated;
+        QVERIFY(rotated.loadFromData(result.bytes, "PNG"));
+        QCOMPARE(rotated.size(), QSize(image.height(), image.width()));
     }
 };
 

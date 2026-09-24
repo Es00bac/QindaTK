@@ -112,6 +112,7 @@ qt_add_qml_module(qindatk
         core/plain_text_format.cpp
         core/asset_provider.cpp core/asset_provider.h
         core/file_asset_backend.cpp
+        core/pdf_asset_backend.cpp core/pdf_asset_backend.h
         core/recovery_journal.cpp core/recovery_journal.h
         core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h

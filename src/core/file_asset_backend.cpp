@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "asset_provider.h"
+#include "pdf_asset_backend.h"
 
 #include <QBuffer>
 #include <QFile>
@@ -253,6 +254,11 @@ AssetResult FileAssetBackend::fetch(const AssetRequest &request, const Cancellat
         return result;
     }
     const QString kind = request.kind.trimmed().toLower();
+    if (kind == QStringLiteral("pdf-page")
+        || (kind == QStringLiteral("metadata")
+            && info.suffix().compare(QStringLiteral("pdf"), Qt::CaseInsensitive) == 0)) {
+        return fetchPdfAsset(path, request, cancel, progress);
+    }
     if (kind == QStringLiteral("filmstrip") || kind == QStringLiteral("frame")
         || kind == QStringLiteral("video")) {
         result.error = error(ErrorCode::Unsupported,
