@@ -37,8 +37,34 @@ tile snapshots, dropping oldest edits when necessary. `composite()` returns
 the actual image, `imageDataUrl` is a preview, and `exportPng(path)` writes the
 composite with `QSaveFile` atomic replacement.
 
+## Local document file
+
+`saveToFile(path)` atomically writes compact JSON. Its envelope identifies
+`format: "qindatk.tiled-raster"`, `version: 1`, `tileSize: 256`, canvas width
+and height, the active `brushPreset`, and an ordered `layers` array. Every
+layer stores its stable `id`, name, visibility, mask-presence/enabled flags,
+and sparse `pixels`/`mask` arrays. Each tile entry stores its row-major tile
+`index` and base64 data. Pixel bytes are portable row-major premultiplied RGBA
+channel bytes (R, G, B, A); mask bytes are one grayscale coverage byte per
+pixel. Missing pixel tiles are transparent; missing mask tiles are full white
+coverage. The QML preview and PNG export are derived and are not embedded.
+
+`loadFromFile(path)` validates into temporary state, then replaces the live
+document only after every field and tile passes. It refuses unknown versions,
+non-256 tile sizes, duplicate/empty layer IDs or tile indices, unsupported
+image dimensions, non-premultiplied pixels, malformed base64, incompatible
+tile lengths, mask data on a layer without a mask, or bound overflows. A failed
+load leaves the current pixels and layers intact. Reopening establishes a clean
+undo baseline; undo history and in-progress strokes are not saved.
+
+Exact limits: input/output JSON ≤192 MiB; canvas ≤8192 per side and ≤16
+megapixels; ≤256 layers; live pixel and mask tiles ≤128 MiB; each tile ≤256²
+pixels; IDs/names ≤256 characters; brush values use the ranges above. The file
+is local raster document state, not a project/session or color-managed asset
+container.
+
 The `examples/tiled-raster/Main.qml` fixture paints a real pressure/tilt stroke
 over a 256 px tile boundary, masks a segment, exposes undo and exports a PNG.
-This standalone raster model does not yet attach to `CanvasDocument` image
-objects, persist its layer/mask model, support color-managed export, or provide
-a brush preset store/UI.
+It can also save and reopen the versioned raster file. This standalone raster
+model does not yet attach to `CanvasDocument` image objects, support
+color-managed export, or provide a brush preset store/UI.

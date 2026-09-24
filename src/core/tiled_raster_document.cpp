@@ -98,6 +98,49 @@ bool TiledRasterDocument::setMaskEnabled(const QString &layerId, bool enabled)
     return true;
 }
 
+QVariantMap TiledRasterDocument::brushPreset() const
+{
+    return {{QStringLiteral("diameter"), m_brush.diameter}, {QStringLiteral("hardness"), m_brush.hardness},
+            {QStringLiteral("spacing"), m_brush.spacing}, {QStringLiteral("opacity"), m_brush.opacity},
+            {QStringLiteral("pressureSize"), m_brush.pressureSize},
+            {QStringLiteral("pressureOpacity"), m_brush.pressureOpacity}};
+}
+
+bool TiledRasterDocument::brushFromMap(const QVariantMap &values, Brush *result) const
+{
+    if (!result) return false;
+    Brush brush = m_brush;
+    brush.diameter = values.value(QStringLiteral("diameter"), brush.diameter).toReal();
+    brush.hardness = values.value(QStringLiteral("hardness"), brush.hardness).toReal();
+    brush.spacing = values.value(QStringLiteral("spacing"), brush.spacing).toReal();
+    brush.opacity = values.value(QStringLiteral("opacity"), brush.opacity).toReal();
+    brush.pressureSize = values.value(QStringLiteral("pressureSize"), brush.pressureSize).toReal();
+    brush.pressureOpacity = values.value(QStringLiteral("pressureOpacity"), brush.pressureOpacity).toReal();
+    if (!finite(brush.diameter) || !finite(brush.hardness) || !finite(brush.spacing)
+        || !finite(brush.opacity) || !finite(brush.pressureSize) || !finite(brush.pressureOpacity)
+        || brush.diameter < 1 || brush.diameter > 512 || brush.hardness < 0 || brush.hardness > 1
+        || brush.spacing < 0.05 || brush.spacing > 1 || brush.opacity < 0 || brush.opacity > 1
+        || brush.pressureSize < 0 || brush.pressureSize > 1 || brush.pressureOpacity < 0 || brush.pressureOpacity > 1)
+        return false;
+    *result = brush;
+    return true;
+}
+
+bool TiledRasterDocument::updateBrushPreset(const QVariantMap &preset)
+{
+    Brush brush;
+    if (m_strokeActive || !brushFromMap(preset, &brush)) {
+        setError(QStringLiteral("Brush preset is invalid or cannot change during a stroke."));
+        return false;
+    }
+    m_brush = brush; m_error.clear(); emit changed(); return true;
+}
+
+void TiledRasterDocument::setBrushPreset(const QVariantMap &preset)
+{
+    updateBrushPreset(preset);
+}
+
 bool TiledRasterDocument::beginStroke(const QString &layerId, bool paintMask,
                                       const QColor &color, const QVariantMap &preset)
 {
@@ -108,17 +151,7 @@ bool TiledRasterDocument::beginStroke(const QString &layerId, bool paintMask,
         return false;
     }
     Brush brush;
-    brush.diameter = preset.value(QStringLiteral("diameter"), brush.diameter).toReal();
-    brush.hardness = preset.value(QStringLiteral("hardness"), brush.hardness).toReal();
-    brush.spacing = preset.value(QStringLiteral("spacing"), brush.spacing).toReal();
-    brush.opacity = preset.value(QStringLiteral("opacity"), brush.opacity).toReal();
-    brush.pressureSize = preset.value(QStringLiteral("pressureSize"), brush.pressureSize).toReal();
-    brush.pressureOpacity = preset.value(QStringLiteral("pressureOpacity"), brush.pressureOpacity).toReal();
-    if (!finite(brush.diameter) || !finite(brush.hardness) || !finite(brush.spacing)
-        || !finite(brush.opacity) || !finite(brush.pressureSize) || !finite(brush.pressureOpacity)
-        || brush.diameter < 1 || brush.diameter > 512 || brush.hardness < 0 || brush.hardness > 1
-        || brush.spacing < 0.05 || brush.spacing > 1 || brush.opacity < 0 || brush.opacity > 1
-        || brush.pressureSize < 0 || brush.pressureSize > 1 || brush.pressureOpacity < 0 || brush.pressureOpacity > 1) {
+    if (!brushFromMap(preset, &brush)) {
         setError(QStringLiteral("Brush preset values are outside their supported finite ranges.")); return false;
     }
     m_strokeActive = true; m_strokeMask = paintMask; m_strokeLayer = index;

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "../../src/core/tiled_raster_document.h"
 
+#include <QFile>
 #include <QImageReader>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -49,6 +52,34 @@ private slots:
         QCOMPARE(reopened.size(), QSize(520, 120));
         QCOMPARE(reopened.pixelColor(256, 60).alpha(), 0);
         QVERIFY(reopened.pixelColor(244, 60).alpha() > 0);
+
+        const QImage expectedComposite = document.composite();
+        const QVariantMap expectedPreset = document.brushPreset();
+        const QString statePath = directory.filePath(QStringLiteral("raster-document.qtraster.json"));
+        QVERIFY(document.saveToFile(statePath));
+        TiledRasterDocument restored;
+        QVERIFY(restored.loadFromFile(statePath));
+        QCOMPARE(restored.width(), 520);
+        QCOMPARE(restored.height(), 120);
+        QCOMPARE(restored.layerIds(), QStringList{QStringLiteral("paint-main")});
+        QVERIFY(restored.layerInfo(QStringLiteral("paint-main")).value(QStringLiteral("hasMask")).toBool());
+        QCOMPARE(restored.brushPreset(), expectedPreset);
+        QVERIFY(!restored.canUndo()); // load starts a new clean history baseline
+        QVERIFY(!restored.canRedo());
+        QVERIFY(restored.composite() == expectedComposite);
+
+        QFile stateFile(statePath);
+        QVERIFY(stateFile.open(QIODevice::ReadOnly));
+        QJsonObject invalidState = QJsonDocument::fromJson(stateFile.readAll()).object();
+        stateFile.close();
+        invalidState.insert(QStringLiteral("version"), 999);
+        const QString invalidPath = directory.filePath(QStringLiteral("unsupported-version.json"));
+        QFile invalidFile(invalidPath);
+        QVERIFY(invalidFile.open(QIODevice::WriteOnly));
+        QCOMPARE(invalidFile.write(QJsonDocument(invalidState).toJson()), qint64(QJsonDocument(invalidState).toJson().size()));
+        invalidFile.close();
+        QVERIFY(!restored.loadFromFile(invalidPath));
+        QVERIFY(restored.composite() == expectedComposite); // invalid load is all-or-nothing
 
         QVERIFY(document.undo()); // mask stroke
         QVERIFY(document.composite().pixelColor(256, 60).alpha() > 0);

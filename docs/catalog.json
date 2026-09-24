@@ -47160,6 +47160,13 @@
           "constant": false
         },
         {
+          "name": "brushPreset",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "revision",
           "type": "qulonglong",
           "default": "",
@@ -47254,6 +47261,21 @@
           "name": "exportPng",
           "returns": "bool",
           "parameters": "const QString &path"
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "updateBrushPreset",
+          "returns": "bool",
+          "parameters": "const QVariantMap &preset"
         },
         {
           "name": "layerInfo",

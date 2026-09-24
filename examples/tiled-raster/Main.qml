@@ -7,6 +7,7 @@ Item {
     width: 1080
     height: 680
     property string statusText: qsTr("A deterministic pressure stroke spans the 256 px tile seam.")
+    readonly property string statePath: "/tmp/qindatk-tiled-raster-document.qtraster.json"
     readonly property var brush: ({diameter: 34, hardness: 0.84, spacing: 0.16, opacity: 0.96,
                                   pressureSize: 0.48, pressureOpacity: 0.3})
     readonly property var maskBrush: ({diameter: 30, hardness: 1, spacing: 0.2, opacity: 1,
@@ -33,6 +34,14 @@ Item {
         const path = "/tmp/qindatk-tiled-raster-" + Date.now() + ".png"
         root.statusText = document.exportPng(path) ? qsTr("PNG written · %1").arg(path) : document.error
     }
+    function saveDemo() {
+        root.statusText = document.saveToFile(root.statePath)
+            ? qsTr("Saved tiled pixels and mask state · %1").arg(root.statePath) : document.error
+    }
+    function reopenDemo() {
+        root.statusText = document.loadFromFile(root.statePath)
+            ? qsTr("Reopened %1 · history is clean: %2").arg(root.statePath).arg(!document.canUndo) : document.error
+    }
 
     Tk.Flex {
         anchors.fill: parent
@@ -50,6 +59,8 @@ Item {
             Tk.Button { text: qsTr("Paint stroke"); iconName: "brush"; tooltip: qsTr("Commit a deterministic pressure and tilt stroke"); onClicked: root.paintDemoStroke() }
             Tk.Button { text: qsTr("Undo"); iconName: "undo-2"; enabled: document.canUndo; tooltip: qsTr("Undo the most recent stroke as one edit"); onClicked: { document.undo(); root.statusText = qsTr("Stroke undone") } }
             Tk.Button { text: qsTr("Export PNG"); iconName: "download"; tooltip: qsTr("Atomically export the composited image"); onClicked: root.exportDemo() }
+            Tk.Button { text: qsTr("Save State"); iconName: "save"; tooltip: qsTr("Atomically save tiled pixels, masks and brush preset"); onClicked: root.saveDemo() }
+            Tk.Button { text: qsTr("Reopen"); iconName: "folder-open"; tooltip: qsTr("Reload the saved raster document and begin a clean undo history"); onClicked: root.reopenDemo() }
         }
         Tk.Grid {
             width: parent.width
@@ -87,6 +98,7 @@ Item {
                     Tk.KeyValue { key: qsTr("Tile grid"); value: qsTr("3 × 2 · 256 px") }
                     Tk.KeyValue { key: qsTr("Stable layer"); value: "ink" }
                     Tk.KeyValue { key: qsTr("Mask"); value: qsTr("8-bit coverage") }
+                    Tk.KeyValue { key: qsTr("Saved brush"); value: qsTr("%1 px · %2% opacity").arg(document.brushPreset.diameter.toFixed(0)).arg((document.brushPreset.opacity * 100).toFixed(0)) }
                     Tk.Divider {}
                     Tk.Caption { text: qsTr("Layer pixels use premultiplied RGBA. The optional grayscale mask attenuates alpha during compositing."); wrapMode: Text.Wrap; color: Tk.Theme.color.textMuted }
                     Tk.Spacer { Tk.Flex.grow: 1 }
@@ -101,5 +113,6 @@ Item {
         document.addMask("ink")
         root.paintDemoStroke()
         root.exportDemo()
+        root.saveDemo()
     }
 }

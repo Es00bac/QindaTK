@@ -20,6 +20,7 @@ class TiledRasterDocument : public QObject {
     Q_PROPERTY(int height READ height NOTIFY changed)
     Q_PROPERTY(QStringList layerIds READ layerIds NOTIFY changed)
     Q_PROPERTY(QString imageDataUrl READ imageDataUrl NOTIFY changed)
+    Q_PROPERTY(QVariantMap brushPreset READ brushPreset WRITE setBrushPreset NOTIFY changed)
     Q_PROPERTY(qulonglong revision READ revision NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY changed)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY changed)
@@ -30,6 +31,8 @@ public:
     int height() const { return m_size.height(); }
     QStringList layerIds() const;
     QString imageDataUrl() const { return m_imageDataUrl; }
+    QVariantMap brushPreset() const;
+    void setBrushPreset(const QVariantMap &preset);
     qulonglong revision() const { return m_revision; }
     bool canUndo() const { return m_cursor > 0; }
     bool canRedo() const { return m_cursor < m_history.size(); }
@@ -49,6 +52,9 @@ public:
     Q_INVOKABLE bool redo();
     Q_INVOKABLE QImage composite() const;
     Q_INVOKABLE bool exportPng(const QString &path);
+    Q_INVOKABLE bool saveToFile(const QString &path);
+    Q_INVOKABLE bool loadFromFile(const QString &path);
+    Q_INVOKABLE bool updateBrushPreset(const QVariantMap &preset);
     Q_INVOKABLE QVariantMap layerInfo(const QString &layerId) const;
 
 signals:
@@ -87,6 +93,7 @@ private:
     void updatePreview();
     void setError(const QString &error);
     static QString pngDataUrl(const QImage &image);
+    bool brushFromMap(const QVariantMap &values, Brush *result) const;
 
     QSize m_size{512, 512};
     QVector<Layer> m_layers;
