@@ -11203,6 +11203,144 @@
       ]
     },
     {
+      "name": "MediaBin",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: the host owns the asset catalog, durable IDs, metadata, relinking and proxy jobs. MediaBin virtualizes thumbnails through AssetGrid and emits requests; it never mutates catalog records itself.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MediaBin.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "identityModel",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionModel",
+          "type": "Tk.SelectionModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "idRole",
+          "type": "string",
+          "default": "\"id\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedAssetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedMetadata",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Browse source media\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "accessibleName",
+          "type": "string",
+          "default": "qsTr(\"Media bin\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "searchRequested",
+          "parameters": "string query"
+        },
+        {
+          "name": "assetActivated",
+          "parameters": "string assetId"
+        },
+        {
+          "name": "relinkRequested",
+          "parameters": "string assetId"
+        },
+        {
+          "name": "proxyActionRequested",
+          "parameters": "string assetId, string action"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "mediaBin",
+        "mediaBinAssetMetadata",
+        "mediaBinAssetName",
+        "mediaBinAssetStatus",
+        "mediaBinAssets",
+        "mediaBinMetadata",
+        "mediaBinProxy",
+        "mediaBinRelink",
+        "mediaBinSearch",
+        "mediaBinUseProxy"
+      ]
+    },
+    {
       "name": "Menu",
       "kind": "qml",
       "base": "T.Menu",
@@ -16594,6 +16732,265 @@
       "valueType": false,
       "bridge": false,
       "objectNames": []
+    },
+    {
+      "name": "SourceProgramMonitor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: the monitor presents a host-acknowledged frame identity and timestamp, and asks an injected provider for that exact frame. The host owns decoding, frame/resource lifetime, color transform, TimeMap conversion, transport state and seek acceptance. Requests never advance the playhead.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SourceProgramMonitor.qml",
+      "properties": [
+        {
+          "name": "role",
+          "type": "string",
+          "default": "\"source\" // source or program",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameProvider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "transport",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameId",
+          "type": "string",
+          "default": "\"\" // exact stable host frame ID; often a decimal string",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameTimeTicks",
+          "type": "string",
+          "default": "\"0\" // exact timestamp for the currently acknowledged frame",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rateNumerator",
+          "type": "string",
+          "default": "\"1\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rateDenominator",
+          "type": "string",
+          "default": "\"1\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previousFrameId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previousFrameTimeTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nextFrameId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nextFrameTimeTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "streamMetadata",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayTransform",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overlaysVisible",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Video monitor\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "accessibleName",
+          "type": "string",
+          "default": "qsTr(\"Video monitor\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingRequestId",
+          "type": "string",
+          "default": "_pendingRequestId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameState",
+          "type": "string",
+          "default": "frame.assetState",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameError",
+          "type": "string",
+          "default": "frame.assetError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playbackText",
+          "type": "string",
+          "default": "!transport ? qsTr(\"No transport\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameDescription",
+          "type": "string",
+          "default": "qsTr(\"Frame %1 at %2 ticks\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "seekRequested",
+          "parameters": "string requestId, string timeTicks, string frameId"
+        },
+        {
+          "name": "seekAcknowledged",
+          "parameters": "string requestId, bool accepted, string frameId, string timeTicks, string message"
+        },
+        {
+          "name": "transportCommandRequested",
+          "parameters": "string action, string requestId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "requestSeek",
+          "parameters": "timeTicks, requestedFrameId"
+        },
+        {
+          "name": "acknowledgeSeek",
+          "parameters": "requestId, accepted, frameId, timeTicks, message"
+        },
+        {
+          "name": "stepFrame",
+          "parameters": "direction"
+        },
+        {
+          "name": "play",
+          "parameters": ""
+        },
+        {
+          "name": "stop",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "monitorFrame",
+        "monitorFrameIdentity",
+        "monitorFrameOverlay",
+        "monitorFrameViewport",
+        "monitorNextFrame",
+        "monitorPlay",
+        "monitorPreviousFrame",
+        "monitorRequestStatus",
+        "monitorStop",
+        "sourceProgramMonitor"
+      ]
     },
     {
       "name": "Spacer",
