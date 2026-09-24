@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 05 — Audio and music workflows
 
-**PLANNED — no implementation or execution is claimed by this plan.**
+**IN PROGRESS — WP-061 has an initial measurement slice; other phase packages remain planned.**
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -38,7 +38,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-061"></a>
 ## WP-061 — Implement calibrated audio controls and meters
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-022](phase-02-controls-data.md#wp-022), [WP-030](phase-02-controls-data.md#wp-030), [WP-060](phase-05-audio.md#wp-060)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-022](phase-02-controls-data.md#wp-022), [WP-030](phase-02-controls-data.md#wp-030), [WP-060](phase-05-audio.md#wp-060)
 
 **Proposal scope:** [AUD-10 Knob](../proposed/06-audio-music.md#aud-10), [AUD-11 Fader](../proposed/06-audio-music.md#aud-11), [AUD-12 AudioMeter](../proposed/06-audio-music.md#aud-12), [AUD-29 LoudnessHistory](../proposed/06-audio-music.md#aud-29)
 

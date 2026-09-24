@@ -21348,6 +21348,92 @@
       "bridge": false
     },
     {
+      "name": "AudioMeterModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "GUI-thread presentation snapshot. An audio analysis worker measures blocks and queues their compact peak/RMS arrays to submitLevels(); it never touches QML. WP-060 must provide a preallocated realtime callback handoff.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_meter_model.h",
+      "properties": [
+        {
+          "name": "levels",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "channelCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "holdMilliseconds",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fallDbPerSecond",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "levelsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "settingsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "submitLevels",
+          "returns": "bool",
+          "parameters": "const QVariantList &peaks, const QVariantList &rms, double elapsedMilliseconds"
+        },
+        {
+          "name": "submitInterleaved",
+          "returns": "bool",
+          "parameters": "const QVariantList &samples, int channels, double elapsedMilliseconds"
+        },
+        {
+          "name": "resetClip",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "AutomationModel",
       "kind": "cpp",
       "base": "QObject",

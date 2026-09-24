@@ -191,6 +191,7 @@ qt_add_qml_module(qindatk
         core/icon.cpp core/icon.h
         core/icon_data.cpp core/icon_data.h
         core/meter.cpp core/meter.h
+        core/audio_meter_model.cpp core/audio_meter_model.h
         core/layout_attached.cpp core/layout_attached.h
         core/layout_info.cpp core/layout_info.h
         core/screen_work_area.cpp core/screen_work_area.h

@@ -474,6 +474,12 @@ Its stable parts are `transportPlay`, `transportStop`, `transportRecord`,
 `transportStatus`. A real media engine must implement the `TransportAdapter`
 interface; `TestTransportClock` is a deterministic contract fixture.
 
+## Audio measurement
+
+| Type | Base | Main properties and actions | Behavior |
+| --- | --- | --- | --- |
+| `AudioMeterModel` | QObject (C++) | `levels` (one `{channel, peakDbfs, rmsDbfs, displayPeakDbfs, heldPeakDbfs, clipped, silent, invalidSamples}` map per channel), `channelCount`, `holdMilliseconds`, `fallDbPerSecond`, `lastError`; `submitLevels(peaks,rms,elapsedMilliseconds)`, `submitInterleaved(samples,channels,elapsedMilliseconds)`, `resetClip()` | Block peak and RMS are linear full scale on input and dBFS in snapshots, floored at −120 dBFS with a separate silence flag. Overload at a sample magnitude of 1 or greater latches clip until reset. `submitInterleaved` is for fixtures/offline use; see [audio-measurement.md](audio-measurement.md). |
+
 ## Edit timeline
 
 A virtualized multitrack editor over `Tk.TimelineModel`; the exact-time,
