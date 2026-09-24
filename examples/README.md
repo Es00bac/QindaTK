@@ -73,9 +73,16 @@ Connecting the free frame on page 2 takes the overset text. It is an
 `tests/qml/tst_publishing_example.qml` drives it
 ([publishing.md](../docs/publishing.md)).
 
-The [document review workbench](document-review/Main.qml) exercises
-`EquationEditor`, `ReferenceManager`, and `ReviewPane` with host-owned sample
-records, including a broken reference and orphaned comment.
+The [document review workbench](document-review/Main.qml) binds
+`ReferenceManager`, `ReviewPane` and `EquationEditor` to one
+`Tk.RichTextDocument` beside its page view. The field report's captions,
+cross-reference, citations, bibliography, equation, comment thread and
+tracked replacement are made with the document's own operations, so adding a
+caption renumbers the cross-reference in one undo step, accepting a change
+edits the text, and the equation is drawn on the page from its source. It
+runs as the `example_document-review` smoke test, and
+`tests/qml/tst_review_example.qml` drives it
+([references-review.md](../docs/references-review.md)).
 
 The [print and preflight workbench](print-preflight/Main.qml) exercises
 `PrintPreview` and `PreflightPanel` with a live rich-document preview and

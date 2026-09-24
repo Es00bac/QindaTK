@@ -196,6 +196,7 @@ QJsonObject RichTextSessionAdapter::liveJson()
     // AGENT-CONTRACT: the same WP-051 members as RichTextCodec::toJsonObject.
     if (!doc.styleSheet().isEmpty()) root.insert(QStringLiteral("styles"), Codec::stylesJson(doc.styleSheet()));
     if (!doc.frameSet().frames.isEmpty()) root.insert(QStringLiteral("textFrames"), Codec::frameSetJson(doc.frameSet()));
+    Codec::insertAnnotationMembers(doc.annotations(), &root); // WP-052 (D-117)
     return root;
 }
 

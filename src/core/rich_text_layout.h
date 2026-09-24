@@ -159,6 +159,9 @@ struct PaintContext {
     bool guides = false;        // editing guides (text frame outlines); off for output
     QColor frameGuide;          // outline of a text frame in the story
     QColor overset;             // marker of story text that no frame holds
+    QColor insertion;           // tracked insertions (underlined); invalid: text colour
+    QColor deletion;            // tracked deletions (struck through)
+    QColor comment;             // background of text under an open comment
     RichTextObjectRenderer *objects = nullptr;
 };
 

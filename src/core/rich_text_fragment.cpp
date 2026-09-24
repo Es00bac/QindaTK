@@ -110,6 +110,8 @@ struct FragmentImporter {
     QHash<QString, QString> objectIds;
     QHash<QString, QString> listIds;
     QHash<QString, QString> styleIds;
+    QSet<QString> reanchored;   // fields and comments whose text is not in the document
+    QString insertion;          // tracked insertion of the paste, or ""
 
     bool nameTaken(const QString &name) const
     {
@@ -173,6 +175,14 @@ struct FragmentImporter {
         for (CharFormat format : fragment.formats) {
             if (!format.objectId.isEmpty()) format.objectId = objectIds.value(format.objectId);
             format.styleId = styleIds.value(format.styleId);
+            // AGENT-NOTE (docs/references-review.md#moving-annotated-text): a
+            // field or comment whose text left the document (cut) anchors
+            // again where it is pasted; a copy of text still in place is
+            // plain. Change marks never travel: a tracked paste is an insertion.
+            if (!reanchored.contains(format.fieldId)) format.fieldId.clear();
+            format.commentIds.removeIf([this](const QString &id) { return !reanchored.contains(id); });
+            format.deletionId.clear();
+            format.insertionId = insertion;
             formats.append(doc.internFormat(format));
         }
         return true;
@@ -231,16 +241,29 @@ struct FragmentImporter {
 
 } // namespace
 
-std::optional<Position> RichTextDocument::insertFragment(const Position &at, const Fragment &fragment)
+std::optional<Position> RichTextDocument::insertFragment(const Position &requested, const Fragment &fragment)
 {
-    if (!isValidPosition(at)) {
+    if (!isValidPosition(requested)) {
         reject(ErrorCode::InvalidArgument, QStringLiteral("Invalid paste position"));
         return std::nullopt;
     }
+    const Position at = outsideField(requested); // field results are atomic
     if (fragment.blocks.isEmpty()) return at;
     AutoTransaction transaction(this, tr("Paste"));
     if (!transaction.valid) return std::nullopt;
-    FragmentImporter importer{*this, fragment, {}, {}, {}, {}};
+    FragmentImporter importer{*this, fragment, {}, {}, {}, {}, {}, {}};
+    for (auto it = m_annotations.fields.keyBegin(); it != m_annotations.fields.keyEnd(); ++it) importer.reanchored.insert(*it);
+    for (auto it = m_annotations.threads.keyBegin(); it != m_annotations.threads.keyEnd(); ++it) importer.reanchored.insert(*it);
+    if (!importer.reanchored.isEmpty())
+        for (const Paragraph *p : paragraphsInOrder())
+            for (const Span &span : p->spans) {
+                const CharFormat &format = charFormat(span.format);
+                importer.reanchored.remove(format.fieldId);
+                for (const QString &id : format.commentIds) importer.reanchored.remove(id);
+            }
+    const std::optional<QString> insertion = trackedInsertionId(at);
+    if (!insertion) return transaction.finish(false, at), std::nullopt;
+    importer.insertion = *insertion;
     if (!importer.prepare()) return transaction.finish(false, at), std::nullopt;
     const bool inCell = paragraph(at.paragraph)->table;
     const Block &single = fragment.blocks.first();

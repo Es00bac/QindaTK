@@ -32,6 +32,7 @@ paragraph) and a revision that every change bumps.
 | Character attributes | `CharFormat`: family, size (pt), CSS weight, tri-state italic/underline/strike, colour, background, link `href`, super/subscript, `objectId`, character `styleId`. Empty values inherit from the character style, the paragraph style, heading defaults, then document defaults ([styles](publishing.md#styles)). |
 | Paragraph attributes | `ParagraphFormat`: alignment (start/end/left/right/center/justify), direction (auto/ltr/rtl), start/end/first-line indents, space before/after, line height (multiple or exact pt), heading level 0–6, list ID and level 0–8, keep-with-next, keep-together, page-break-before, paragraph `styleId` and its direct `overrides`. |
 | Publishing structure | Named styles, merged cells (`TableCell.rowSpan`/`columnSpan`), table styles, text frames and page columns: [publishing.md](publishing.md). |
+| Semantic content | Equations (inline objects of kind `equation`), reference fields (`CharFormat.fieldId`), comment and tracked-change marks (`commentIds`, `insertionId`, `deletionId`) and their records: [references-review.md](references-review.md). |
 | Lists | `ListDefinition` with 1–9 levels (disc, circle, square, decimal, lower/upper alpha, lower/upper roman; start; indent). Numbering follows document order per list and level. |
 | Objects | U+FFFC in the text whose format carries `objectId`; `RichObject` holds kind, placement, size, offsets, gap, source URI and alt text. See [Objects](#objects). |
 | Soft line break | U+2028 inside a paragraph (Shift+Enter). |
@@ -41,7 +42,8 @@ paragraph) and a revision that every change bumps.
 Every edit is a transaction of invertible, precondition-checked steps
 (`StepText`, `StepSpans`, `StepParagraphFormat`, `StepSplit`, `StepMerge`,
 `StepBlocks`, `StepMove`, `StepList`, `StepObject`, `StepDocument`, `StepTable`,
-`StepStyle`, `StepFrames`).
+`StepStyle`, `StepFrames`, `StepAnnotation`). Commit also rewrites stale
+reference-field results inside the transaction ([D-115](decisions-domains.md#d-115--field-results-are-rewritten-inside-the-committing-transaction)).
 A step whose precondition fails, such as a stale paragraph or a changed
 format, rejects the whole transaction. The document then keeps its previous
 state. Registered `PositionAnchor`s are mapped forward by every applied
@@ -102,8 +104,9 @@ of D-040, because `UndoService` records `PropertyDocument` properties only.
 The native format is JSON with schema `qindatk.richtext`, versions 1 and 2
 (the extension `.qtkrich` is used by the example). Version 2 adds styles,
 merged cells, table styles, text frames and page columns
-([publishing.md](publishing.md#persistence)); a document without them is
-still written as version 1. `RichTextCodec::encode` is
+([publishing.md](publishing.md#persistence)), and reference fields,
+sources, comments and tracked changes ([references-review.md](references-review.md#persistence));
+a document without them is still written as version 1. `RichTextCodec::encode` is
 canonical. Formats are re-interned in document order, lists and objects are
 sorted by ID, and keys are sorted. Save → reopen → save is therefore
 byte-identical. `tst_rich_text_codec` checks canonical encoding on a document that has a
@@ -378,3 +381,4 @@ seams are typed; nothing here is a stand-in contract.
 | WP-040 canvas / WP-017 assets | `asset:` images resolve through `assetProvider` on either rich-text view. Canvas geometry editing remains a host adapter. |
 | UndoService | `PropertyDocument`-only; use `externalUndo` (D-050). |
 | WP-051 | Named styles, merged cells, table styles, linked text frames and page columns are document operations ([publishing.md](publishing.md)). Section and page scopes and bleed belong to WP-053. |
+| WP-052 | Equations, reference fields, comments and tracked changes are document content ([references-review.md](references-review.md)). Footnotes need a page note area and are refused. |

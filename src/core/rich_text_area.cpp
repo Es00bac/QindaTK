@@ -471,6 +471,9 @@ PaintContext RichTextArea::paintContext(bool decorations) const
     context.objects = m_renderer;
     context.frameGuide = m_frameGuideColor;
     context.overset = m_oversetColor;
+    context.insertion = m_insertionColor;
+    context.deletion = m_deletionColor;
+    context.comment = m_commentColor;
     context.guides = decorations && paged();
     if (decorations && m_document) {
         context.selection = selection();

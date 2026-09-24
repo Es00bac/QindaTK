@@ -22,6 +22,8 @@ struct Reader {
     QHash<QString, RichObject> objects;
     QHash<QString, ListDefinition> lists;
     StyleSheet styles;
+    Annotations annotations;
+    bool fragment = false;          // marks are kept for the pasting document to check
     QSet<QString> anchoredObjects;
     int paragraphs = 0;
 
@@ -113,7 +115,8 @@ struct Reader {
         if (!v.isObject()) return fail(path, QStringLiteral("Object expected"));
         const QJsonObject o = v.toObject();
         checkKeys(o, path, {"family", "sizePt", "weight", "italic", "underline", "strike", "color",
-                            "background", "href", "verticalAlign", "object", "style"});
+                            "background", "href", "verticalAlign", "object", "style", "field", "comments",
+                            "insertion", "deletion"});
         CharFormat f;
         f.family = o.value(QStringLiteral("family")).toString();
         f.href = o.value(QStringLiteral("href")).toString();
@@ -127,6 +130,9 @@ struct Reader {
             warnings.append(QStringLiteral("%1.style ignored: unknown character style").arg(path));
             f.styleId.clear();
         }
+        PublishingError marks;
+        if (!readMarks(o, fragment ? nullptr : &annotations, &f, path, &marks, &warnings))
+            return fail(marks.path, marks.message);
         bool italic = false, underline = false, strike = false;
         const bool ok = number(o, "sizePt", &f.sizePt, 1, 1638, path)
             && integer(o, "weight", &f.weight, 1, 1000, path)
@@ -318,6 +324,9 @@ struct Reader {
             if (!stylesFromJson(styleArray.toArray(), &styles, &problem, &warnings))
                 return fail(problem.path, problem.message);
         }
+        // WP-052 records come before the formats whose marks name them.
+        if (PublishingError problem; !fragment && !annotationsFromJson(root, &annotations, &problem, &warnings))
+            return fail(problem.path, problem.message);
         const QJsonArray formatArray = root.value(QStringLiteral("formats")).toArray();
         if (formatArray.isEmpty() || !formatArray.first().toObject().isEmpty()
             || formatArray.size() > RichTextCodec::MaximumFormats)
@@ -427,7 +436,7 @@ bool RichTextCodec::fromJsonObject(const QJsonObject &root, RichTextDocument &do
         return setError(error, {ErrorCode::Unsupported, QStringLiteral("Unsupported rich-text schema or version"), QStringLiteral("schema"), QStringLiteral("richtext")});
     reader.checkKeys(root, QStringLiteral("root"), {"schema", "version", "documentId", "page", "defaults",
                                                     "formats", "lists", "objects", "blocks", "styles",
-                                                    "textFrames"});
+                                                    "textFrames", "fields", "sources", "comments", "changes"});
     PageSetup page;
     const QJsonObject pageJson = root.value(QStringLiteral("page")).toObject();
     const QJsonArray margins = pageJson.value(QStringLiteral("marginsPt")).toArray();
@@ -466,7 +475,8 @@ bool RichTextCodec::fromJsonObject(const QJsonObject &root, RichTextDocument &do
         return setError(error, {ErrorCode::InvalidArgument, QStringLiteral("The body must end with a paragraph"), QStringLiteral("blocks"), QStringLiteral("richtext")});
     const DocumentId id = DocumentId::parse(root.value(QStringLiteral("documentId")).toString());
     document.resetContent(std::move(blocks), reader.formats, reader.lists, reader.objects, page,
-                          defaults, id.isValid() ? id : DocumentId::create(), reader.styles, frames);
+                          defaults, id.isValid() ? id : DocumentId::create(), reader.styles, frames,
+                          reader.annotations);
     if (warnings) *warnings = reader.warnings;
     return true;
 }
@@ -481,6 +491,7 @@ std::optional<Fragment> RichTextCodec::fragmentFromJson(const QJsonObject &root,
         return std::nullopt;
     }
     Fragment fragment;
+    reader.fragment = true;
     if (!reader.common(root) || !reader.blocks(root.value(QStringLiteral("blocks")).toArray(), &fragment.blocks)
         || fragment.blocks.isEmpty()) {
         setError(error, reader.error ? reader.error : OperationError{ErrorCode::InvalidArgument, QStringLiteral("Empty fragment"), {}, QStringLiteral("richtext")});

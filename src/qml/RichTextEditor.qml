@@ -96,6 +96,9 @@ T.Control {
             objectFillColor: Tk.Theme.color.panelAlt
             objectTextColor: Tk.Theme.color.textMuted
             markerColor: Tk.Theme.color.textMuted
+            insertionColor: Tk.Theme.color.success
+            deletionColor: Tk.Theme.color.danger
+            commentColor: Tk.Theme.color.accentSubtle
             caretWidth: Tk.Theme.size.border
             onLinkActivated: href => control.linkActivated(href)
 

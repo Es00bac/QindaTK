@@ -111,7 +111,12 @@ bool RichTextArea::deleteForward(bool word)
         if (!next || next->table != p->table || next->row != p->row || next->cell != p->cell) return false;
         to = {next->id, 0};
     }
-    return edit(tr("Delete"), QStringLiteral("delete"), [caret, to](RichTextDocument &doc) { return doc.deleteRange(caret, to); });
+    return edit(tr("Delete"), QStringLiteral("delete"), [caret, to](RichTextDocument &doc) -> std::optional<Position> {
+        const auto result = doc.deleteRange(caret, to);
+        // Tracked deletions stay in the text: Delete moves on past them.
+        if (!result || !doc.trackChanges()) return result;
+        return doc.afterTrackedDeletion(*result);
+    });
 }
 
 bool RichTextArea::newParagraph()

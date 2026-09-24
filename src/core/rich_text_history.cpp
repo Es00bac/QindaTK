@@ -44,6 +44,22 @@ void RichTextDocument::cancelTransaction()
 bool RichTextDocument::commitTransaction(const Selection &after)
 {
     if (!m_open) return false;
+    // AGENT-NOTE (D-115): generated field text follows the edits of this
+    // transaction inside it, so renumbering is part of the same undo step.
+    // The after-selection is mapped through those steps like any anchor.
+    PositionAnchor mappedAnchor{after.anchor};
+    PositionAnchor mappedFocus{after.focus};
+    registerAnchor(&mappedAnchor);
+    registerAnchor(&mappedFocus);
+    const bool fieldsOk = reconcileFields();
+    unregisterAnchor(&mappedAnchor);
+    unregisterAnchor(&mappedFocus);
+    if (!fieldsOk) {
+        cancelTransaction();
+        reject(ErrorCode::Validation, QStringLiteral("Reference fields could not be updated"));
+        return false;
+    }
+    const Selection mapped = after.anchor.isValid() ? Selection{mappedAnchor.position, mappedFocus.position} : after;
     ensureOrder();
     const bool bodyValid = !m_blocks.isEmpty() && m_blocks.last().paragraph;
     // Only tables this transaction touched can have changed; a table's
@@ -62,10 +78,11 @@ bool RichTextDocument::commitTransaction(const Selection &after)
     m_open.reset();
     ChangeSet change = std::exchange(m_openChange, {});
     if (transaction.steps.isEmpty()) return true;
-    transaction.after = after.anchor.isValid() ? after : transaction.after;
+    transaction.after = mapped.anchor.isValid() ? mapped : transaction.after;
     transaction.bytes = cost(transaction);
     ++m_revision;
     m_lastError.clear();
+    m_lastErrorCode.clear();
     recordHistory(std::move(transaction));
     finishChange(change);
     emit historyChanged();
@@ -104,6 +121,8 @@ quint64 RichTextDocument::cost(const Transaction &transaction)
             bytes += 512;
         } else if (const auto *frames = std::get_if<StepFrames>(&step)) {
             bytes += quint64(frames->before.frames.size() + frames->after.frames.size()) * 160;
+        } else if (std::holds_alternative<StepAnnotation>(step)) {
+            bytes += 512;
         }
     }
     return bytes;
