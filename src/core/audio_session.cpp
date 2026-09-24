@@ -417,14 +417,22 @@ bool AudioSession::open(const QString &file)
     if (!document.isObject()) return fail(tr("The session is not valid JSON: %1").arg(parse.errorString()));
     if (root.value(QStringLiteral("schema")).toString() != schemaId())
         return fail(tr("Unsupported audio session schema"));
-    for (const char *part : {"tempo", "automation", "timeline"}) {
-        const QString key = QString::fromLatin1(part);
-        const QVariantMap content = root.value(key).toMap();
-        const QVariantMap result = key == QLatin1String("tempo") ? m_tempo->loadContent(content)
-                                   : key == QLatin1String("automation") ? m_automation->loadContent(content)
-                                                                         : m_timeline->loadContent(content);
-        if (!result.value(QStringLiteral("ok")).toBool())
+    // AGENT-GUARD: opening is all or nothing. Each model validates before it
+    // replaces its content, so when a later part is rejected the parts already
+    // replaced are restored; a bad file never leaves a half-loaded session.
+    static constexpr const char *kParts[] = {"tempo", "automation", "timeline"};
+    const QVariantMap before[] = {m_tempo->contentMap(), m_automation->contentMap(), m_timeline->contentMap()};
+    const auto loadPart = [this](int part, const QVariantMap &content) {
+        return part == 0 ? m_tempo->loadContent(content)
+               : part == 1 ? m_automation->loadContent(content) : m_timeline->loadContent(content);
+    };
+    for (int part = 0; part < 3; ++part) {
+        const QString key = QString::fromLatin1(kParts[part]);
+        const QVariantMap result = loadPart(part, root.value(key).toMap());
+        if (!result.value(QStringLiteral("ok")).toBool()) {
+            for (int loaded = part - 1; loaded >= 0; --loaded) loadPart(loaded, before[loaded]);
             return fail(tr("The session %1 could not be loaded: %2").arg(key, resultError(result)));
+        }
     }
     for (const QVariant &value : m_resources->resources())
         m_resources->removeResource(value.toMap().value(QStringLiteral("resourceId")).toString());

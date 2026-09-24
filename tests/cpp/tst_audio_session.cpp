@@ -215,6 +215,50 @@ private slots:
         QCOMPARE(a[999], 0.0f);
         QCOMPARE(a[1000], float(double(ramp(0)) * std::pow(10.0, -6.0 / 20.0)));
     }
+
+    void rejectedOpenKeepsTheSession()
+    {
+        QTemporaryDir dir;
+        const QString media = writeRamp(dir.filePath(QStringLiteral("ramp.wav")), 4800);
+        const QString file = dir.filePath(QStringLiteral("session.qtkaudio"));
+        const QString other = dir.filePath(QStringLiteral("other.qtkaudio"));
+        AudioSession session;
+        const QString track = session.addTrack(QStringLiteral("Voice"));
+        QVERIFY(session.importMedia(media, track, QStringLiteral("0")).value(QStringLiteral("ok")).toBool());
+        const QString gain = session.ensureGainParameter(track);
+        QVERIFY(session.automation()->applyEdit({{QStringLiteral("kind"), QStringLiteral("addPoint")},
+                                                 {QStringLiteral("parameterId"), gain},
+                                                 {QStringLiteral("ticks"), QStringLiteral("0")},
+                                                 {QStringLiteral("value"), -6.0}}).value(QStringLiteral("ok")).toBool());
+        QVERIFY2(session.save(file), qPrintable(session.lastError()));
+        {
+            AudioSession empty; // its automation part is valid and differs from the session's
+            QVERIFY2(empty.save(other), qPrintable(empty.lastError()));
+        }
+        const auto readRoot = [](const QString &path) {
+            QFile in(path);
+            return in.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(in.readAll()).object() : QJsonObject();
+        };
+        QJsonObject root = readRoot(file);
+        root.insert(QStringLiteral("automation"), readRoot(other).value(QStringLiteral("automation")));
+        root.insert(QStringLiteral("timeline"), QJsonObject{{QStringLiteral("timebase"),
+                                                             QJsonObject{{QStringLiteral("numerator"), QStringLiteral("x")},
+                                                                         {QStringLiteral("denominator"), QStringLiteral("1")}}}});
+        const QString bad = dir.filePath(QStringLiteral("bad.qtkaudio"));
+        QFile out(bad);
+        QVERIFY(out.open(QIODevice::WriteOnly));
+        QVERIFY(out.write(QJsonDocument(root).toJson()) > 0);
+        out.close();
+
+        const QVariantMap automation = session.automation()->contentMap();
+        const QVariantMap timeline = session.timeline()->contentMap();
+        QVERIFY(!session.open(bad));
+        QVERIFY(session.lastError().contains(QStringLiteral("timeline")));
+        QCOMPARE(session.automation()->contentMap(), automation); // restored, not half-loaded
+        QCOMPARE(session.timeline()->contentMap(), timeline);
+        QCOMPARE(session.timeline()->clipCount(), 1);
+        QVERIFY(session.missingMedia().isEmpty());
+    }
 };
 
 QTEST_MAIN(TestAudioSession)
