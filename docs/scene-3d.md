@@ -2,8 +2,9 @@
 # 3D scene model and viewport
 
 `SceneModel3D` is a small persistent scene hierarchy. `SceneView3D` renders it
-through Qt Quick 3D and supports picking, constrained translation, rotation,
-uniform scale, snapping, keyboard movement and cancellation. This is a reusable toolkit slice, with
+through Qt Quick 3D and supports picking, on-object transform handles
+(`TransformGizmo3D`), constrained translation, rotation, uniform scale,
+snapping, keyboard movement and cancellation. This is a reusable toolkit slice, with
 512 primitive entities maximum; it does not provide a mesh authoring app.
 
 ## Model
@@ -16,6 +17,16 @@ built-in meshes (nominal size 100 world units). The return value is a stable UUI
 `worldRotation`, `worldScale`, `color`, inherited `visible`, and `localVisible`
 fields. `localVisible` reports the entity's own visibility setting; `visible`
 remains the effective value after parent visibility is inherited.
+
+**Identity and units.** A scene is identified by `documentId` (a UUID) and its
+committed `revision`; entities by stable UUIDs that survive save and reopen.
+Materials have no separate ID: each entity owns exactly one material, addressed
+by the entity ID, and its revision is the scene revision that committed it.
+Cameras are view state, not scene data: each `SceneView3D` owns one camera
+(`cameraPosition`, `cameraEulerDegrees`, `cameraTarget`), identified by that
+view, never saved and never in undo, so serialized transforms do not depend on
+any view. Lengths are world units (primitives are 100 units across), angles
+are degrees and scale is a uniform factor.
 
 Transforms use right-handed coordinates, degrees and positive **uniform** scale.
 `setTransform(id, position, eulerDegrees, scale)` edits local coordinates.
@@ -82,8 +93,23 @@ SDKs without Quick3D still build the model and control, with an unavailable stat
 The Qt Quick software adaptation displays an explicit unavailable message.
 `rendererAvailable` reports a suitable Qt graphics backend and successfully
 loaded renderer component; module loading failure displays an explicit message.
-Graphics device initialization failures are reported by Qt. Qt owns render
-resource lifetime.
+Graphics device initialization failures are reported by Qt.
+
+**Render resources and device loss.** Each view loads its own
+`SceneView3DRenderer`; the Qt Quick 3D models, materials, geometry and textures
+it uploads belong to that renderer and its window's scene graph.
+`renderGeneration` counts renderer instances. When Qt invalidates the window's
+scene graph (a graphics device loss, or hiding a window whose graphics and scene
+graph are not persistent), the view cancels its gestures and replaces the
+renderer; the replacement rebuilds every resource from `SceneModel3D` and
+`MeshRigDocument` when the scene graph initializes again. `resetRenderer()`
+performs the same replacement on request. Scene data, selection, history and
+cameras are unaffected, and views in other windows keep their renderers.
+
+**Multiple views.** Any number of views may show one model. Each owns its
+camera, renderer and GPU resources. The model owns entities, selection and the
+single active transaction, so a committed edit reaches every view and only one
+gesture runs at a time. A resized view resizes its projection and picking.
 
 Set `meshDocument` to a `Tk.MeshRigDocument` to upload its current posed
 triangle snapshot, UV coordinates and sRGB texture alongside primitive scene
@@ -99,7 +125,8 @@ The view exposes `cameraPosition`, `cameraEulerDegrees`, `cameraTarget`, `transl
 `transformConstraint` (`free`, axes or planes), `transformSpace` (`world`,
 `local`) and
 `entityPicked(entityId, worldPosition)`. `projectWorldPosition(position)` maps a
-world point to viewport pixels/depth; `pickEntity(x,y)` returns the nearest visible
+world point to viewport pixels/depth; `viewRay(x,y)` returns the world-space
+`origin` and `direction` through a pixel; `pickEntity(x,y)` returns the nearest visible
 mesh hit (`entityId`, `worldPosition`, `distance`) or an empty object. Coordinates
 are relative to the view content, with no padding. A left press uses Qt's actual nearest
 mesh hit test, selects that stable ID and starts a camera-plane drag. Pixel to
@@ -121,10 +148,51 @@ as `orbitCamera(dx, dy)`, `panCamera(dx, dy)` and `zoomCamera(wheelSteps)` so ho
 can use other devices. Camera gestures are view state and do not enter scene undo.
 
 Internal objectNames: `sceneView3D`, `sceneRenderer3D`, `sceneTransformBar3D`,
-`sceneMode3D_<mode>`, `sceneAxis3D_<constraint>`, `sceneSpace3D`, and
-`sceneEntity3D_<stable UUID>`. The viewport has an accessible graphic role/name
-and supports keyboard selection movement. A future outliner must supply complete
-keyboard traversal of entities.
+`sceneMode3D_<mode>`, `sceneAxis3D_<constraint>`, `sceneSpace3D`,
+`sceneEntity3D_<stable UUID>` and the gizmo's names below. The viewport has an
+accessible graphic role/name and supports keyboard selection movement;
+`SceneOutliner` supplies keyboard traversal of entities.
+
+<a id="transform-gizmo"></a>
+## Transform gizmo
+
+`Tk.TransformGizmo3D` draws on-object handles for the selected entity; every
+`SceneView3D` contains one that follows its `transformMode`, `transformSpace`
+and snaps. Translate mode shows X/Y/Z arrows and XY/XZ/YZ plane squares,
+rotate mode one ring per axis, scale mode a circle for uniform scale. In
+`local` space the handles follow the entity's world orientation, otherwise the
+world axes. Handles keep `armLength` screen pixels (theme `size.action` × 2) at
+any camera distance and are draggable within `hitTolerance` (half of
+`size.handle`). The inner 30% of the arm belongs to the object, so the viewport
+still picks and drags it there; any press that misses a handle falls through.
+
+One drag is one `SceneModel3D` transaction: `beginTransform` on press, previews
+measured from the press, `commitTransform` on release (one undo step). An arrow
+previews `previewAxisTranslation` with the pointer's travel along the drawn
+arrow in world units at the pivot; a plane square previews
+`previewConstrainedTranslation` with the pointer ray's delta on that plane; a
+ring previews `previewRotation` with the angle swept around the projected
+pivot, signed by whether the axis faces the camera; the circle previews
+`previewUniformScale` with the ratio of pointer distances from the pivot.
+Escape, pointer cancellation, hiding the gizmo, a scene change or a renderer
+reset cancel. The model performs the parent conversion, so a gizmo drag and the
+same numeric `previewAxisTranslation` or `setTransform` edit give the same
+transform for parented entities. Arrows within about 11° of the sight line,
+nearly edge-on plane squares and rings within about 6° of edge-on are neither
+drawn nor draggable; orbit the camera or use the toolbar constraint.
+
+`view` is the projection adapter: `projectWorldPosition(vector3d)` returns
+`vector3d(x, y, depth)` in the gizmo's pixels (negative depth hides it) and
+`viewRay(x, y)` returns world-space `{origin, direction}`; the host calls
+`refresh()` when its projection changes. `SceneView3D` is the standard
+adapter. Read-only `handles` exposes the drawn geometry (`origin`, `length`,
+`axes`, `planes`, `rings`); `activeHandle` and `hoveredHandle` name handles
+(`x`, `y`, `z`, `xy`, `xz`, `yz`, `uniform`). `handleAt(x, y)` hit-tests and
+`nudge(handle, steps)` commits one step (translation snap or 1 unit, rotation
+snap or 15°, scale × 1.25). Accessible Button targets
+`transformGizmoHandle3D_<handle>` expose press/increase/decrease actions that
+call `nudge`. ObjectNames: `transformGizmo3D`, `transformGizmoCanvas3D`,
+`transformGizmoPointer3D`.
 
 ## Persistence and verification
 
@@ -145,7 +213,11 @@ Direct `saveToFile` remains version 2 for existing consumers; a managed
 Run `QT_QPA_PLATFORM=xcb qtk-preview examples/scene-3d/Main.qml --gpu --grab scene.png` to see the
 actual renderer. `tst_scene_model_3d` covers rotated/scaled parent reparenting,
 world snapping, cancel/undo, saving during a preview, reload and inherited
-visibility in one focused scenario.
+visibility in one focused scenario. `tst_transform_gizmo_3d.qml` drives the
+gizmo headlessly through an exact orthographic adapter: screen-constant handles,
+a local-axis drag under a rotated, scaled parent that matches the numeric
+edits, plane, ring and scale drags, cancellation, fall-through and accessible
+nudges.
 
 `Tk.SceneOutliner { scene: sceneModel }` shows the entity hierarchy with
 stable IDs, keyboard selection/traversal, expand/collapse, per-entity visibility,
@@ -153,17 +225,30 @@ and drag-to-parent reparent requests. `keepWorldOnDrop` explicitly chooses
 whether a drop preserves the world transform or keeps local coordinates. The
 outliner does not rename entities because the scene model has no rename command.
 
-## Remaining WP-076 scope
+## Scope limits
 
-On-object 3D gizmo handles, constrained scale and per-axis scale;
-instance and imported mesh/resource providers; shared material assets,
-texture maps and procedural shaders; application document
-session UX and format-provider export integration; device loss and multiple-view qualification;
-Qt 6.8 validation and accessibility traversal. This slice does not claim WP-076
-acceptance, renderer-independent materials, nonuniform transforms or CAD accuracy.
+Not provided: imported mesh files, instancing and lock state, shared material
+assets, texture maps and procedural shaders, asynchronous or quality-tiered
+material rendering, nonuniform and per-axis scale, scene export through format
+providers, and application-level session UX. Device loss is handled through
+Qt's scene-graph invalidation; driver-level resets on each platform and
+mixed-scale displays are platform qualification. No renderer-independent
+material model or CAD accuracy is claimed.
 
-The optional GPU interaction check runs separately from the toolkit's software
-suite: `QT_QPA_PLATFORM=xcb QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl
-qmltestrunner -import build/wp076/qml -input tests/gpu/tst_scene_view_3d.qml`.
-It exercises actual mesh picking, world-to-pixel mapping, drag/undo and Escape
-within a still-held pointer press. An OpenGL-capable display/platform is required.
+The GPU checks run separately from the toolkit's software suite and need an
+OpenGL-capable display:
+
+```sh
+QT_QPA_PLATFORM=xcb QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl \
+  qmltestrunner -import build/wp076/qml -input tests/gpu/tst_scene_view_3d.qml
+QT_QPA_PLATFORM=xcb QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl \
+  build/wp076/tests/tst_scene_view_3d_render
+```
+
+The first exercises actual mesh picking, world-to-pixel mapping, drag/undo,
+Escape within a still-held press and the gizmo's arrow, ring and cancel
+gestures at two camera distances. The second resizes a view, keeps two windows
+on one scene and one posed mesh document, hides one non-persistent window mid-drag on the threaded render
+loop, checks that only that renderer is replaced, then shows it again and
+verifies drawn pixels, picking and a new undoable drag. Under ctest's software
+backend it is skipped.

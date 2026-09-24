@@ -7,6 +7,7 @@ Item {
     width: 640
     height: 480
     Tk.SceneModel3D { id: sceneData }
+    Tk.SceneModel3D { id: gizmoScene }
     Tk.SceneView3D {
         id: viewport
         anchors.fill: parent
@@ -93,6 +94,69 @@ Item {
             mouseRelease(viewport, 360, 260)
             verify(sceneData.worldTransform(id).position.x > 0)
             fuzzyCompare(sceneData.worldTransform(id).position.y, 0, 0.001)
+        }
+        // Sorted after test_pickDragCancel, which reads sceneData.entities[0].
+        function test_transformGizmoHandles() {
+            viewport.scene = gizmoScene
+            viewport.transformMode = "translate"
+            viewport.transformConstraint = "free"
+            viewport.transformSpace = "world"
+            viewport.cameraPosition = Qt.vector3d(0, 0, 600)
+            viewport.cameraEulerDegrees = Qt.vector3d(0, 0, 0)
+            viewport.cameraTarget = Qt.vector3d(0, 0, 0)
+            const id = gizmoScene.addEntity("Gizmo cube", "cube", Qt.vector3d(0, 0, 0), "#35bbc4")
+            verify(gizmoScene.select(id))
+            const gizmo = findChild(viewport, "transformGizmo3D")
+            verify(gizmo)
+            // Relayout is deferred: wait until the handles sit on the new selection.
+            tryVerify(function() { return gizmo.handles.visible && gizmo.handles.mode === "translate"
+                                          && Math.abs(gizmo.handles.origin.x - 320) < 0.5 })
+            fuzzyCompare(gizmo.handles.axes[0].end.x - gizmo.handles.origin.x, gizmo.armLength, 0.5)
+            // Twice the camera distance doubles the world length, not the screen length.
+            const nearLength = gizmo.handles.length
+            viewport.zoomCamera(-4)
+            tryVerify(function() { return Math.abs(gizmo.handles.length / nearLength - 2) < 0.02 })
+            let origin = gizmo.handles.origin
+            const arrow = gizmo.handles.axes[0]
+            fuzzyCompare(arrow.end.x - origin.x, gizmo.armLength, 0.5)
+            const px = origin.x + (arrow.end.x - origin.x) * 0.7
+            mousePress(viewport, px, origin.y)
+            compare(gizmo.activeHandle, "x")
+            mouseMove(viewport, px + 36, origin.y + 20)
+            mouseRelease(viewport, px + 36, origin.y + 20)
+            const moved = gizmoScene.worldTransform(id).position
+            verify(moved.x > 0)
+            fuzzyCompare(moved.y, 0, 0.001)
+            fuzzyCompare(moved.z, 0, 0.001)
+            // The object followed the pointer along the arrow; the off-axis motion was ignored.
+            fuzzyCompare(viewport.projectWorldPosition(moved).x, origin.x + 36, 1)
+            verify(gizmoScene.undo())
+            fuzzyCompare(gizmoScene.worldTransform(id).position.x, 0, 0.001)
+
+            viewport.transformMode = "rotate"
+            tryVerify(function() { return gizmo.handles.mode === "rotate" })
+            origin = gizmo.handles.origin
+            const r = gizmo.armLength * Math.SQRT1_2
+            mousePress(viewport, origin.x + r, origin.y - r)
+            compare(gizmo.activeHandle, "z")
+            mouseMove(viewport, origin.x - r, origin.y - r)
+            mouseRelease(viewport, origin.x - r, origin.y - r)
+            fuzzyCompare(gizmoScene.entities[0].eulerDegrees.z, 90, 0.5)
+            verify(gizmoScene.undo())
+
+            viewport.transformMode = "translate"
+            tryVerify(function() { return gizmo.handles.mode === "translate" })
+            origin = gizmo.handles.origin
+            mousePress(viewport, origin.x + gizmo.armLength * 0.7, origin.y)
+            mouseMove(viewport, origin.x + gizmo.armLength * 0.7 + 30, origin.y)
+            verify(gizmoScene.editing)
+            keyClick(Qt.Key_Escape)
+            mouseMove(viewport, origin.x + gizmo.armLength * 0.7 + 60, origin.y)
+            mouseRelease(viewport, origin.x + gizmo.armLength * 0.7 + 60, origin.y)
+            verify(!gizmoScene.editing)
+            fuzzyCompare(gizmoScene.worldTransform(id).position.x, 0, 0.001)
+            viewport.scene = sceneData
+            viewport.cameraPosition = Qt.vector3d(0, 0, 600)
         }
     }
 }
