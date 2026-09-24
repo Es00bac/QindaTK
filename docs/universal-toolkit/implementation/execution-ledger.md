@@ -80,7 +80,7 @@ as though a later fix had already passed the earlier run.
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [Typed curve, gradient and picker models; ICC/evaluator backends; bounded canvas display; output integration open](evidence/WP-043.md) |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | active | [Four panels and undoable solid canvas style edits; path/render/export work open](evidence/WP-044.md) |
-| [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | active | [Image comparison integrated; raster and brush work in progress](evidence/WP-045.md) |
+| [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | active | [Tiled raster strokes, masks, brush controls, save/reopen, tablet input and image comparison integrated; canvas session and broader color work remain](evidence/WP-045.md) |
 | [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
 | [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | accepted | [Clock and transport-bar checks](evidence/WP-047.md) |
 | [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | accepted | [Exact edits, dual-Qt 101/101 suites, visuals and installed consumer](evidence/WP-048.md) |
@@ -93,7 +93,7 @@ as though a later fix had already passed the earlier run.
 | [WP-055 — Implement a workbook and spreadsheet editing stack](phase-04-office.md#wp-055) | 04 | Sol | active | Isolated Opus lane; G-1–G-8 and full package scope remain under review |
 | [WP-056 — Implement slide authoring and presentation](phase-04-office.md#wp-056) | 04 | Sol | active | [Five slide/presenter controls integrated; persistent model and playback pending](evidence/WP-056.md) |
 | [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | active | [NotebookView and BlockEditor integrated; persistent block model and content providers pending](evidence/WP-057.md) |
-| [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | active | [Five host-backed controls integrated; persistence and delivery providers pending](evidence/WP-058.md) |
+| [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | active | [Local messages, rich drafts, attachments, recurring events and tasks persist with recovery and stale-writer rejection; delivery and sync providers remain](evidence/WP-058.md) |
 | [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | active | [SQLite provider and three controls integrated; design persistence and paginated export pending](evidence/WP-059.md) |
 | [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | active | [Host-acknowledged device panel integrated; real audio engine pending](evidence/WP-060.md) |
 | [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | active | [Control visuals, peak/RMS model and parameter taper integrated; engine binding pending](evidence/WP-061.md) |
@@ -106,13 +106,13 @@ as though a later fix had already passed the earlier run.
 | [WP-068 — Implement pitch analysis and correction editing](phase-05-audio.md#wp-068) | 05 | Sol | active | [PitchEditor integrated; analysis and correction DSP pending](evidence/WP-068.md) |
 | [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | active | [Monitor/bin controls and local frame decode integrated; playback and frame lifecycle pending](evidence/WP-070.md) |
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | active | [Trim, multicam and transition controls integrated; sequence edit backend pending](evidence/WP-071.md) |
-| [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [Caption controls, CPU VideoScopes and tagged color grade processor integrated; caption output and media integration pending](evidence/WP-072.md) |
-| [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | active | [Exact-tick motion evaluator and three controls integrated; pixel composition and frame output pending](evidence/WP-073.md) |
+| [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [Caption model, burned PNG sequence, scopes and grade edit history integrated; video encoding and fidelity work remain](evidence/WP-072.md) |
+| [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | active | [Exact-tick composition, persistence, ordered effects and rendered frame output integrated; external assets, cache and export coverage remain](evidence/WP-073.md) |
 | [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | planned | — |
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | planned | — |
 | [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | planned | — |
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | planned | — |
-| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | planned | — |
+| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Host snapshot render queue view integrated; durable execution lane underway](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
 | [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | planned | — |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | planned | — |

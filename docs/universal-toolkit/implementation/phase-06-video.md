@@ -181,7 +181,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-078"></a>
 ## WP-078 — Implement durable render queues
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-026](phase-02-controls-data.md#wp-026), [WP-070](phase-06-video.md#wp-070)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-026](phase-02-controls-data.md#wp-026), [WP-070](phase-06-video.md#wp-070)
 
 **Proposal scope:** [VID-25 RenderQueueView](../proposed/07-video-motion.md#vid-25)
 
