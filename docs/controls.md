@@ -840,7 +840,7 @@ multi-monitor X11; see the [monitor qualification note](universal-toolkit/implem
 
 ## SceneView3D
 
-`Tk.SceneView3D` renders a `Tk.SceneModel3D` through optional Qt Quick 3D. It supports mesh picking, camera-plane drag, snapped world translation, Escape cancellation and arrow-key movement. `scene`, `cameraPosition`, `cameraEulerDegrees`, `translationSnap`, `rendererAvailable`, `tooltip` and `entityPicked(id, worldPosition)` form the public surface. Internal objectNames: `sceneView3D`, `sceneRenderer3D`, `sceneEntity3D_<UUID>`. See [3D scene model and viewport](scene-3d.md) for hierarchy, persistence and renderer limits.
+`Tk.SceneView3D` renders a `Tk.SceneModel3D` through optional Qt Quick 3D. It supports primitive picking, camera-plane drag, snapped world translation, Escape cancellation and arrow-key movement. `meshDocument` optionally uploads a `Tk.MeshRigDocument` as posed, UV-textured triangles; `meshRay(x,y)` and `meshPicked(worldPosition)` support a host paint gesture. `scene`, `cameraPosition`, `cameraEulerDegrees`, `translationSnap`, `rendererAvailable`, `tooltip` and `entityPicked(id, worldPosition)` remain the primitive surface. Internal objectNames: `sceneView3D`, `sceneRenderer3D`, `sceneEntity3D_<UUID>`, `sceneMeshRig3D`. See [3D scene model and viewport](scene-3d.md) for hierarchy, persistence and renderer limits.
 
 ## Video tracking and masks
 
@@ -852,4 +852,4 @@ multi-monitor X11; see the [monitor qualification note](universal-toolkit/implem
 
 ## MeshRigDocument
 
-`Tk.MeshRigDocument` is a C++ QML document model for triangulated rest geometry, stable vertex/face/UV-corner/bone IDs, bounded hierarchical bone poses with linear blend skinning, explicit UV seams and islands, and ray-projected sRGB texture pixels. Read-only `vertices`, `faces`, `bones`, `uvIslands`, `textureDataUrl`, `textureWidth`, `textureHeight`, `canUndo`, `canRedo`, `lastError` expose state. Geometry/rig/UV commands, bracketed paint strokes, undo/redo, versioned save/reopen and OBJ/PNG export are described in [mesh-rig.md](mesh-rig.md). The current `SceneView3D` renderer accepts primitives only; host apps import the OBJ/PNG output or provide a mesh renderer.
+`Tk.MeshRigDocument` is a C++ QML document model for triangulated rest geometry, stable vertex/face/UV-corner/bone IDs, bounded hierarchical bone poses with linear blend skinning, explicit UV seams and islands, and ray-projected sRGB texture pixels. Read-only `vertices`, `faces`, `bones`, `uvIslands`, `textureDataUrl`, `textureWidth`, `textureHeight`, `canUndo`, `canRedo`, `lastError` expose state. Geometry/rig/UV commands, bracketed paint strokes, undo/redo, versioned save/reopen and OBJ/PNG export are described in [mesh-rig.md](mesh-rig.md). The optional `Tk.MeshRigGeometry` uploads its posed triangles to `SceneView3D`; host apps can also use the OBJ/PNG output with another renderer.

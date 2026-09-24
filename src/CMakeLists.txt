@@ -12,9 +12,13 @@ file(GLOB qindatk_qml_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEP
 # Scene data stays renderer-independent. SDKs without Quick3D still expose
 # SceneView3D, which reports its renderer unavailable through the lazy Loader.
 find_package(Qt6Quick3D 6.8 QUIET)
+set(qindatk_quick3d_sources)
 if(NOT TARGET Qt6::Quick3D)
     list(FILTER qindatk_qml_files EXCLUDE REGEX "SceneView3DRenderer\\.qml$")
     message(STATUS "QindaTK: optional SceneView3D renderer unavailable (Qt Quick 3D not installed)")
+else()
+    list(APPEND qindatk_quick3d_sources
+        core/mesh_rig_geometry.h core/mesh_rig_geometry.cpp)
 endif()
 file(GLOB qindatk_js_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.js")
 
@@ -44,6 +48,7 @@ qt_add_qml_module(qindatk
     PLUGIN_TARGET qindatkplugin
     DEPENDENCIES QtQuick QtQuick.Controls QtQuick.Templates
     SOURCES
+        ${qindatk_quick3d_sources}
         core/scene_model_3d.h core/scene_model_3d.cpp core/scene_model_3d_codec.cpp
         core/mesh_rig_document.h core/mesh_rig_document.cpp
         core/mesh_rig_document_persistence.cpp
@@ -284,6 +289,9 @@ target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
     PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2 SQLite3::SQLite3
     PUBLIC PkgConfig::VTERM)
+if(TARGET Qt6::Quick3D)
+    target_link_libraries(qindatk PRIVATE Qt6::Quick3D)
+endif()
 if(POPPLER_QT6_FOUND)
     target_link_libraries(qindatk PRIVATE PkgConfig::POPPLER_QT6)
     target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_POPPLER_QT6=1)

@@ -24340,6 +24340,14 @@
           "required": false
         },
         {
+          "name": "meshDocument",
+          "type": "Tk.MeshRigDocument",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"3D scene: drag objects to translate; arrows move selection; Escape cancels\")",
@@ -24384,6 +24392,10 @@
         {
           "name": "entityPicked",
           "parameters": "string entityId, vector3d worldPosition"
+        },
+        {
+          "name": "meshPicked",
+          "parameters": "vector3d worldPosition"
         }
       ],
       "methods": [
@@ -24393,6 +24405,10 @@
         },
         {
           "name": "pickEntity",
+          "parameters": "x, y"
+        },
+        {
+          "name": "meshRay",
           "parameters": "x, y"
         }
       ],
@@ -24438,6 +24454,7 @@
       "bridge": false,
       "objectNames": [
         "sceneEntity3D_",
+        "sceneMeshRig3D",
         "sceneRenderer3D"
       ]
     },
@@ -30896,7 +30913,7 @@
         {
           "name": "features",
           "type": "var",
-          "default": "track.previewPoints || track.points || []",
+          "default": "(track.previewPoints || []).length",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -42228,7 +42245,7 @@
       "name": "MeshRigDocument",
       "kind": "cpp",
       "base": "QObject",
-      "description": "A bounded triangle-mesh document. Vertex, face, UV-corner and bone IDs are stable across pose/UV edits, undo, OBJ export and native save/reopen. AGENT-CONTRACT: SceneView3D accepts primitives only; this model exports posed OBJ geometry and texture PNG until a host supplies an arbitrary-mesh renderer. See docs/mesh-rig.md and docs/scene-3d.md.",
+      "description": "A bounded triangle-mesh document. Vertex, face, UV-corner and bone IDs are stable across pose/UV edits, undo, OBJ export and native save/reopen. AGENT-CONTRACT: SceneView3D's optional Quick 3D adapter reads only the public posed/UV snapshots; this model owns the editable mesh and exports posed OBJ geometry plus texture PNG independently of the renderer. See docs/mesh-rig.md and docs/scene-3d.md.",
       "singleton": false,
       "attached": null,
       "file": "src/core/mesh_rig_document.h",
@@ -42451,6 +42468,58 @@
           "parameters": "const QString &path"
         }
       ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "MeshRigGeometry",
+      "kind": "cpp",
+      "base": "QQuick3DGeometry",
+      "description": "AGENT-CONTRACT: MeshRigDocument owns stable mesh/UV/pose state; this optional Quick 3D adapter only uploads its current posed triangle snapshot to the GPU.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/mesh_rig_geometry.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "MeshRigDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "triangleCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textureData",
+          "type": "QQuick3DTextureData *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "geometryUpdated",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,

@@ -53,6 +53,15 @@ loaded renderer component; module loading failure displays an explicit message.
 Graphics device initialization failures are reported by Qt. Qt owns render
 resource lifetime.
 
+Set `meshDocument` to a `Tk.MeshRigDocument` to upload its current posed
+triangle snapshot, UV coordinates and sRGB texture alongside primitive scene
+entities. The optional `Tk.MeshRigGeometry` adapter updates on document edits.
+The model still owns mesh data, history and OBJ/PNG output; the GPU resources
+belong to the view. `meshRay(x,y)` returns a world-space origin and direction
+for a host paint gesture, and `meshPicked(worldPosition)` reports a mesh hit.
+The mesh objectName is `sceneMeshRig3D`. This adapter is available only when
+the Qt Quick 3D module is built and the view has a GPU backend.
+
 The view exposes `cameraPosition`, `cameraEulerDegrees`, `translationSnap` and
 `entityPicked(entityId, worldPosition)`. `projectWorldPosition(position)` maps a
 world point to viewport pixels/depth; `pickEntity(x,y)` returns the nearest visible

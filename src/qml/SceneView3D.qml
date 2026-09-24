@@ -7,6 +7,7 @@ T.Control {
     id: control
     objectName: "sceneView3D"
     property Tk.SceneModel3D scene: null
+    property Tk.MeshRigDocument meshDocument: null
     property string tooltip: qsTr("3D scene: drag objects to translate; arrows move selection; Escape cancels")
     property vector3d cameraPosition: Qt.vector3d(0, 120, 650)
     property vector3d cameraEulerDegrees: Qt.vector3d(-10, 0, 0)
@@ -20,13 +21,20 @@ T.Control {
         const hit = renderer.item.pick(x, y)
         return hit.objectHit ? {entityId: hit.objectHit.entityId, worldPosition: hit.scenePosition, distance: hit.distance} : ({})
     }
+    function meshRay(x, y) {
+        if (!renderer.item || !meshDocument) return ({})
+        const nearPoint = renderer.item.mapTo3DScene(Qt.vector3d(x, y, 0))
+        const farPoint = renderer.item.mapTo3DScene(Qt.vector3d(x, y, 1))
+        return {origin: nearPoint, direction: farPoint.minus(nearPoint).normalized()}
+    }
     signal entityPicked(string entityId, vector3d worldPosition)
+    signal meshPicked(vector3d worldPosition)
     implicitWidth: Tk.Theme.size.panelMinWidth * 3
     implicitHeight: Tk.Theme.size.waveformHeight * 8
     focusPolicy: Qt.StrongFocus
     Accessible.role: Accessible.Graphic
     Accessible.name: tooltip
-    Accessible.description: rendererAvailable ? qsTr("Real 3D scene rendering") : qsTr("3D requires a Qt RHI graphics backend")
+    Accessible.description: rendererAvailable ? qsTr("Real 3D scene and mesh rendering") : qsTr("3D requires a Qt RHI graphics backend")
     background: Rectangle { color: Tk.Theme.color.canvas; border.color: Tk.Theme.color.border; border.width: Tk.Theme.size.border }
     contentItem: Item {
         Loader {

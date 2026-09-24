@@ -86,6 +86,9 @@ local frames, runs the toolkit's patch tracker, accepts its measured points and
 shows a generated mask translation over the moved frame. Editing and preview
 requests feed back into the real model; the fixture still leaves source media
 decoding and project composition to a host application.
+The [3D mesh and texture fixture](mesh-rig-3d/Main.qml) constructs two real
+triangles with UVs, paints two texture samples through mesh rays and displays
+the posed, textured result in `SceneView3D` when Qt Quick 3D is available.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
 The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows

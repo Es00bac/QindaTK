@@ -16,8 +16,9 @@ namespace QindaTK {
 
 // A bounded triangle-mesh document. Vertex, face, UV-corner and bone IDs are
 // stable across pose/UV edits, undo, OBJ export and native save/reopen.
-// AGENT-CONTRACT: SceneView3D accepts primitives only; this model exports posed
-// OBJ geometry and texture PNG until a host supplies an arbitrary-mesh renderer.
+// AGENT-CONTRACT: SceneView3D's optional Quick 3D adapter reads only the
+// public posed/UV snapshots; this model owns the editable mesh and exports
+// posed OBJ geometry plus texture PNG independently of the renderer.
 // See docs/mesh-rig.md and docs/scene-3d.md.
 class MeshRigDocument : public QObject {
     Q_OBJECT

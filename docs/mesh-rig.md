@@ -4,8 +4,9 @@
 `Tk.MeshRigDocument` is a bounded, host-owned triangle mesh editing model. It
 contains actual rest geometry, bones, weights, UV corners, seams and sRGB texture
 pixels. It evaluates posed positions and exports an OBJ mesh plus PNG texture.
-This output can be imported by an application renderer. `SceneModel3D` currently
-renders Qt Quick 3D primitives only, so `SceneView3D` does not display this mesh.
+This output can be imported by an application renderer. When Qt Quick 3D is
+available, `SceneView3D.meshDocument` also displays the posed triangles and
+current texture through the toolkit's optional GPU geometry adapter.
 
 ## Geometry and rig
 
@@ -52,7 +53,7 @@ issuing rays on each side; no stroke interpolation is claimed. A miss reports
 pixels. The model allows at most 8,192 samples and 16 million estimated stamp
 pixels per stroke; exceeding the bound cancels it. The texture is a single
 sRGB channel. Perspective camera ray creation and brush spacing are the host's
-responsibility; a future `TexturePaintView` will supply them.
+responsibility; `TexturePaintView` can request them through a host ray provider.
 
 ## Undo, persistence and output
 
@@ -68,10 +69,12 @@ output and texture, with a fresh document object history.
 `exportObj(path)` atomically writes posed vertices, per-corner UV coordinates
 and triangle faces; `exportTexturePng(path)` atomically writes the same pixels
 shown by `textureDataUrl`. OBJ does not carry bones, weights, seam marks or
-animation; the native JSON does. The OBJ/PNG pair is an actual reusable output
-path while the current scene viewport lacks arbitrary mesh rendering.
+animation; the native JSON does. The OBJ/PNG pair remains a reusable output
+path when Qt Quick 3D is unavailable or the host uses another renderer.
 
 Limits: 4,096 vertices, 8,192 triangles, 128 bones, four weights per vertex,
 1,024² texture pixels, 16 history states. This slice omits automatic unwrap,
 UV packing, arbitrary topology repair, inverse kinematics, procedural skin
-weighting, material channels, texture tiles and GPU mesh display.
+weighting, material channels and texture tiles. The GPU adapter currently
+uploads posed triangles and one texture; it does not provide mesh selection,
+topology handles or full material editing.

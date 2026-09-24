@@ -40,6 +40,24 @@ Q3D.View3D {
             }
         }
     }
+    Q3D.Model {
+        id: meshEntity
+        objectName: "sceneMeshRig3D"
+        readonly property string entityId: "__mesh_document__"
+        geometry: Tk.MeshRigGeometry {
+            id: meshGeometry
+            document: viewport.control ? viewport.control.meshDocument : null
+        }
+        visible: meshGeometry.triangleCount > 0
+        pickable: true
+        materials: Q3D.PrincipledMaterial {
+            roughness: 0.8
+            cullMode: Q3D.Material.NoCulling
+            baseColorMap: Q3D.Texture {
+                textureData: meshGeometry.textureData
+            }
+        }
+    }
     // AGENT-CONTRACT: the viewport owns a camera-plane gesture. SceneModel3D
     // owns the single edit transaction and converts world deltas through parents.
     MouseArea {
@@ -61,12 +79,17 @@ Q3D.View3D {
         property real depth: 0
         property vector3d start: Qt.vector3d(0, 0, 0)
         onPressed: function(mouse) {
-            if (!viewport.control || !viewport.control.scene) return
+            if (!viewport.control || (!viewport.control.scene && !viewport.control.meshDocument)) return
             const scene = viewport.control.scene
             gestureScene = scene
             viewport.control.forceActiveFocus()
             const hit = viewport.pick(mouse.x, mouse.y)
             const id = hit.objectHit ? hit.objectHit.entityId : ""
+            if (id === meshEntity.entityId) {
+                viewport.control.meshPicked(hit.scenePosition)
+                return
+            }
+            if (!scene) return
             scene.select(id)
             if (!id.length) return
             viewport.control.entityPicked(id, hit.scenePosition)
