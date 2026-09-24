@@ -16,13 +16,16 @@ include(CTest)
 
 option(QINDATK_BUILD_EXAMPLES "Build the gallery and studio-shell examples" ON)
 option(QINDATK_BUILD_TOOLS "Build qtk-preview (headless render/dump tool)" ON)
+option(QINDATK_ENABLE_POPPLER_QT6 "Enable the optional Poppler Qt 6 PDF backend" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg Concurrent)
 find_package(SQLite3 REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2>=2.14)
 pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
-pkg_check_modules(POPPLER_QT6 QUIET IMPORTED_TARGET poppler-qt6)
+if(QINDATK_ENABLE_POPPLER_QT6)
+    pkg_check_modules(POPPLER_QT6 QUIET IMPORTED_TARGET poppler-qt6)
+endif()
 # Native QFileDialog is an optional adapter; base qindatk stays QtQuick-only.
 find_package(Qt6 6.8 QUIET COMPONENTS Widgets)
 # AGENT-NOTE: QuickPrivate serves layout_info.cpp (anchor/explicit size

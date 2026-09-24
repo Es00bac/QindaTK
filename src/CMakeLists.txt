@@ -296,7 +296,7 @@ target_link_libraries(qindatk
 if(TARGET Qt6::Quick3D)
     target_link_libraries(qindatk PRIVATE Qt6::Quick3D)
 endif()
-if(POPPLER_QT6_FOUND)
+if(QINDATK_ENABLE_POPPLER_QT6 AND POPPLER_QT6_FOUND)
     target_link_libraries(qindatk PRIVATE PkgConfig::POPPLER_QT6)
     target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_POPPLER_QT6=1)
 endif()

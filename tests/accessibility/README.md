@@ -31,3 +31,23 @@ accessible snapshot, and prints `ACTION_HANDLER_CALLED value=2 undo=1`.
 The offscreen Verse clip is included to check model-backed virtual items.
 Without `--invoke-press`, the probe is read-only. This is an AT-SPI client
 probe, separate from the `QAccessible` in-process test.
+
+The same client can invoke the workbench's actual semantic rename button. In
+one terminal, start the staged workbench in the graphical session with Qt's
+Linux accessibility bridge enabled:
+
+```sh
+QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 \
+  build/workbench-qt68/qindatk_workbench
+```
+
+In another terminal in that session, run:
+
+```sh
+python3 tests/accessibility/atspi_probe.py --invoke-workbench-rename
+```
+
+The probe locates the accessible `Apply name` button, invokes its desktop
+`press` action over AT-SPI, and exits nonzero unless the external action
+client reports success. This exercises the workbench `CommandButton` and
+`workbench.rename` command route in the application process.
