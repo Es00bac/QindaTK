@@ -59,7 +59,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-052"></a>
 ## WP-052 — Add equations, references and document review
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-025](phase-02-controls-data.md#wp-025), [WP-051](phase-04-office.md#wp-051)
+**Implementation lead:** Sol. **Status:** active (three request controls integrated; document semantics pending). **Depends on:** [WP-025](phase-02-controls-data.md#wp-025), [WP-051](phase-04-office.md#wp-051)
 
 **Proposal scope:** [OFF-09 EquationEditor](../proposed/05-documents-office.md#off-09), [OFF-10 ReferenceManager](../proposed/05-documents-office.md#off-10), [OFF-11 ReviewPane](../proposed/05-documents-office.md#off-11)
 

@@ -17,6 +17,10 @@ The [publishing workbench](document-publishing/Main.qml) exercises
 host-owned sample records; it is also an `example_document-publishing` smoke
 test. Production document transactions belong to the host backend.
 
+The [document review workbench](document-review/Main.qml) exercises
+`EquationEditor`, `ReferenceManager`, and `ReviewPane` with host-owned sample
+records, including a broken reference and orphaned comment.
+
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real
 device engine must supply enumeration and apply the settings.
