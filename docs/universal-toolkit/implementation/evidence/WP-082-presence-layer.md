@@ -29,3 +29,7 @@ Focused proof:
 Remaining WP-082 scope: the overlay does not rebase anchors after edits or
 merge domain text. Host views supply and validate stable anchors; transport
 level idle expiry and remote network sessions remain separate work.
+
+After cherry-pick into the shared integration tree, the focused
+`tst_presence_layer` check passed **1/1**. Sol reopened the compact capture.
+WP-081 remains a declared dependency, so WP-082 stays active.

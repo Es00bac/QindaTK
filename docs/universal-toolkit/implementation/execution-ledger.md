@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 37 packages accepted, 38 active, none in review, and 9 planned.**
+**Execution state: 37 packages accepted, 39 active, none in review, and 8 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -115,12 +115,12 @@ as though a later fix had already passed the earlier run.
 | [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and real PNG/PDF/WAV providers integrated; acceptance gate remains](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
 | [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | active | [PTY terminal, code editor, script runtime and extension registry/manager merged; language services and broader host integration open](evidence/WP-081.md) |
-| [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | active | [Two-client sync, authenticated IPC, cross-process presence and named versions with synchronized restore merged; presence display in progress](evidence/WP-082-versions.md) |
-| [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | active | [Persistent diagram, routing, auto layout and quantitative flow merged; CAD in progress](evidence/WP-083.md) |
-| [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | active | [GeoJSON editing, raster providers, antimeridian handling and composed export merged; projection/index work underway](evidence/WP-084.md) |
+| [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | active | [Two-client sync, authenticated IPC, mapped remote presence and synchronized version restore merged; WP-081 dependency open](evidence/WP-082-presence-layer.md) |
+| [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | active | [Diagram graph/flow and constrained CAD sketch merged; additional CAD output in progress](evidence/WP-083-cad.md) |
+| [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | active | [GeoJSON editing, raster providers, antimeridian, composed export and indexed projection switching merged; WP-043 dependency open](evidence/WP-084.md) |
 | [WP-085 — Implement scientific plotting](phase-07-integrations.md#wp-085) | 07 | Sol | active | [Numeric, uncertainty and export implementation lane underway](evidence/WP-085.md) |
 | [WP-086 — Implement image slices, volumes and transfer functions](phase-07-integrations.md#wp-086) | 07 | Sol | planned | — |
-| [WP-087 — Implement dependency and trace exploration](phase-07-integrations.md#wp-087) | 07 | Sol | planned | — |
+| [WP-087 — Implement dependency and trace exploration](phase-07-integrations.md#wp-087) | 07 | Sol | active | Asset dependency index and view lane underway; trace scope follows |
 | [WP-088 — Qualify platform and backend integration boundaries](phase-07-integrations.md#wp-088) | 07 | Sol | planned | — |
 | [WP-089 — Qualify format, device and output fidelity](phase-07-integrations.md#wp-089) | 07 | Sol | planned | — |
 | [WP-090 — Finish representative applications and domain acceptance](phase-08-qualification.md#wp-090) | 08 | Sol | planned | — |

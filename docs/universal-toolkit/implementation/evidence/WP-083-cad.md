@@ -56,3 +56,8 @@ multi-selection, DXF/SVG export, large-sketch solver qualification and 3D
 solid/topology work remain. The diagram slice has its own remaining routing,
 flow conservation and true Sankey placement gaps. This first CAD slice does
 not satisfy the package acceptance gate by itself.
+
+The shared integration tree built the CAD, map and QML targets, then passed
+`tst_cad_document`, `tst_geographic_map` and `tst_geographic_tiles` **3/3**;
+the focused CAD QML case passed **3/3**. Sol opened the merged CAD capture.
+The follow-on CAD output and constraint slice remains in progress.

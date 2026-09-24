@@ -59,7 +59,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-082"></a>
 ## WP-082 — Implement collaboration, presence and version history
 
-**Implementation lead:** Sol. **Status:** active (two-client property sync, authenticated IPC, cross-process presence, named versions and synchronized restore merged; presence display in progress; WP-081 remains active). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-016](phase-01-services.md#wp-016), [WP-032](phase-02-controls-data.md#wp-032), [WP-081](phase-07-integrations.md#wp-081)
+**Implementation lead:** Sol. **Status:** active (two-client property sync, authenticated IPC, remote presence display, named versions and synchronized restore merged; WP-081 dependency remains active). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-016](phase-01-services.md#wp-016), [WP-032](phase-02-controls-data.md#wp-032), [WP-081](phase-07-integrations.md#wp-081)
 
 **Proposal scope:** [PLT-14 CollaborationAdapter](../proposed/08-platform-integrations.md#plt-14), [PLT-15 PresenceLayer](../proposed/08-platform-integrations.md#plt-15), [PLT-16 VersionBrowser](../proposed/08-platform-integrations.md#plt-16)
 
@@ -82,7 +82,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-083"></a>
 ## WP-083 — Implement diagramming and CAD surfaces
 
-**Implementation lead:** Sol. **Status:** active (persistent diagram, orthogonal routing, auto layout and quantitative flow merged; CAD geometry and constraints in progress). **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-074](phase-06-video.md#wp-074), [WP-076](phase-06-video.md#wp-076)
+**Implementation lead:** Sol. **Status:** active (diagram graph/flow and constrained 2D CAD sketch merged; additional CAD output in progress). **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-074](phase-06-video.md#wp-074), [WP-076](phase-06-video.md#wp-076)
 
 **Proposal scope:** [EXT-03 DiagramCanvas](../proposed/09-specialized-domains.md#ext-03), [EXT-04 CadViewport](../proposed/09-specialized-domains.md#ext-04)
 
@@ -105,7 +105,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-084"></a>
 ## WP-084 — Implement geographic mapping
 
-**Implementation lead:** Sol. **Status:** active (GeoJSON editing, offline/network raster tiles, antimeridian handling and composed export merged; projection switching and spatial indexing in progress; WP-040 accepted and WP-043 active). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-029](phase-02-controls-data.md#wp-029), [WP-040](phase-03-authoring.md#wp-040), [WP-043](phase-03-authoring.md#wp-043)
+**Implementation lead:** Sol. **Status:** active (GeoJSON editing, offline/network tiles, antimeridian, composed export, projection switching and indexed picking merged; WP-043 dependency remains active). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-029](phase-02-controls-data.md#wp-029), [WP-040](phase-03-authoring.md#wp-040), [WP-043](phase-03-authoring.md#wp-043)
 
 **Proposal scope:** [EXT-05 MapView](../proposed/09-specialized-domains.md#ext-05)
 
@@ -168,7 +168,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-087"></a>
 ## WP-087 — Implement dependency and trace exploration
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-032](phase-02-controls-data.md#wp-032), [WP-048](phase-03-authoring.md#wp-048), [WP-074](phase-06-video.md#wp-074), [WP-083](phase-07-integrations.md#wp-083)
+**Implementation lead:** Sol. **Status:** active (asset dependency extraction/index and view lane underway; trace scope follows). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-032](phase-02-controls-data.md#wp-032), [WP-048](phase-03-authoring.md#wp-048), [WP-074](phase-06-video.md#wp-074), [WP-083](phase-07-integrations.md#wp-083)
 
 **Proposal scope:** [EXT-10 AssetDependencyView](../proposed/09-specialized-domains.md#ext-10), [EXT-11 TraceView](../proposed/09-specialized-domains.md#ext-11)
 
