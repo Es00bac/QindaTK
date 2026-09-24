@@ -39,3 +39,10 @@ The direct Ninja limits match `portageq envvar MAKEOPTS` on this machine:
 full WP-082 acceptance criteria still require the remaining work above.
 
 Result on 2026-09-24: all three tests passed under Qt 6.11.1 (3/3).
+
+The lane was cherry-picked into the integration tree as `9cc552e`. The merged
+library built with the configured `-j24 -l24` limits, and
+`tst_local_property_sync` passed 1/1 alongside the merged geographic-map
+checks. Interprocess transport, actor permissions and a durable client-side
+offline queue remain under active implementation; this local slice is not
+package acceptance.
