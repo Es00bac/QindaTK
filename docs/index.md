@@ -21,6 +21,7 @@ pages below are the reference.
 | [control-interaction.md](control-interaction.md) | Owner state, user signals, editing states, focus and assistive action baseline |
 | [application-contracts.md](application-contracts.md) | Strong IDs, revisions, exact QML values, snapshots, cancellation and capability discovery |
 | [extension-registry.md](extension-registry.md) | Explicit local extension discovery, descriptor and dependency diagnostics, trusted native load/unload, capability publication and preserved state |
+| [volume-imaging.md](volume-imaging.md) | Typed voxel chunks, calibrated principal slices, linked cursor and editable transfer functions |
 | [commands.md](commands.md) | Scoped command contexts, registry and bindings, shortcut routing, focus restoration, and menu/toolbar/palette adapters |
 | [editing.md](editing.md) | Reference document, reversible transactions, per-document undo, stable selection, property projection and validation |
 | [editable-grid.md](editable-grid.md) | Sparse 2D model, stable IDs, bounded visible ranges, frozen geometry and range transactions |

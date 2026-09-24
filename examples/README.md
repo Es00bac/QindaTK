@@ -1,6 +1,10 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Examples
 
+The [volume imaging phantom](volume-imaging/Main.qml) renders one typed 33³
+source in three linked, calibrated principal planes. It includes an editable
+measured-value transfer function and a shared voxel/world cursor.
+
 The [CAD sketch](cad-sketch/Main.qml) renders a constrained mounting plate
 with four circular bores. `CadViewport` can select, drag, snap, and create
 points, segments, circles and arcs against the persistent `CadDocument`

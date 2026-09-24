@@ -15420,6 +15420,150 @@
       "objectNames": []
     },
     {
+      "name": "ImageSliceView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one VolumeCursor in voxel coordinates; the provider owns physical transforms.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ImageSliceView.qml",
+      "properties": [
+        {
+          "name": "volume",
+          "type": "alias",
+          "default": "slice.volume",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cursor",
+          "type": "alias",
+          "default": "slice.cursor",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "transfer",
+          "type": "alias",
+          "default": "slice.transfer",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "plane",
+          "type": "alias",
+          "default": "slice.plane",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channel",
+          "type": "alias",
+          "default": "slice.channel",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frame",
+          "type": "alias",
+          "default": "slice.frame",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "interpolation",
+          "type": "alias",
+          "default": "slice.interpolation",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "windowCenter",
+          "type": "alias",
+          "default": "slice.windowCenter",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "windowWidth",
+          "type": "alias",
+          "default": "slice.windowWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Image slice\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sliceCount",
+          "type": "int",
+          "default": "!volume ? 0 : plane === Tk.ImageSliceItem.Axial ? volume.sizeZ",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sliceIndex",
+          "type": "int",
+          "default": "!cursor ? 0 : Math.round(plane === Tk.ImageSliceItem.Axial ? cursor.z",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSample",
+          "type": "var",
+          "default": "volume && cursor",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pointSelected",
+          "parameters": "var voxelPoint"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setSliceIndex",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "imageSliceCoordinate",
+        "imageSliceImage",
+        "imageSliceIndex",
+        "imageSliceNext",
+        "imageSlicePrevious",
+        "imageSliceView",
+        "imageSliceViewport"
+      ]
+    },
+    {
       "name": "ImportDialog",
       "kind": "qml",
       "base": "Tk.Dialog",
@@ -34918,6 +35062,71 @@
       ]
     },
     {
+      "name": "TransferFunctionEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer settings model. Voxel source data and its revision are never changed here.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TransferFunctionEditor.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.TransferFunctionModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedPointId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Transfer function\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedPoint",
+          "type": "var",
+          "default": "model ? model.point(selectedPointId) : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "customColorRequested",
+          "parameters": "string pointId"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "transferFunctionEditor",
+        "transferGradient",
+        "transferPointColor",
+        "transferPointOpacity",
+        "transferPointValue"
+      ]
+    },
+    {
       "name": "TransformEditor",
       "kind": "qml",
       "base": "Item",
@@ -47346,6 +47555,116 @@
       "bridge": false
     },
     {
+      "name": "ImageSliceItem",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/image_slice_item.h",
+      "properties": [
+        {
+          "name": "volume",
+          "type": "VoxelVolume *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "cursor",
+          "type": "VolumeCursor *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "transfer",
+          "type": "TransferFunctionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "plane",
+          "type": "Plane",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "channel",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "frame",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "interpolation",
+          "type": "VoxelVolume::Interpolation",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "windowCenter",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "windowWidth",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "crosshairColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "voxelAt",
+          "returns": "QVariantList",
+          "parameters": "double px, double py"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "JobModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
@@ -57793,6 +58112,140 @@
       "bridge": false
     },
     {
+      "name": "TransferFunctionModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/transfer_function_model.h",
+      "properties": [
+        {
+          "name": "domainMin",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "domainMax",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "unit",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "points",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "quint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "configure",
+          "returns": "bool",
+          "parameters": "double minimum, double maximum, const QString &unit = {}"
+        },
+        {
+          "name": "replacePoints",
+          "returns": "bool",
+          "parameters": "const QVariantList &points"
+        },
+        {
+          "name": "addPoint",
+          "returns": "QString",
+          "parameters": "double value, const QColor &color, double opacity"
+        },
+        {
+          "name": "movePoint",
+          "returns": "bool",
+          "parameters": "const QString &id, double value"
+        },
+        {
+          "name": "setPointColor",
+          "returns": "bool",
+          "parameters": "const QString &id, const QColor &color"
+        },
+        {
+          "name": "setPointOpacity",
+          "returns": "bool",
+          "parameters": "const QString &id, double opacity"
+        },
+        {
+          "name": "removePoint",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "point",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "previewColors",
+          "returns": "QVariantList",
+          "parameters": "int count = 64"
+        },
+        {
+          "name": "saveSettings",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "restoreSettings",
+          "returns": "bool",
+          "parameters": "const QVariantMap &settings"
+        },
+        {
+          "name": "colorAt",
+          "returns": "QColor",
+          "parameters": "double value"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "TransportModel",
       "kind": "cpp",
       "base": "QObject",
@@ -58988,6 +59441,246 @@
           "name": "setExpanded",
           "returns": "bool",
           "parameters": "const QString &id, bool expanded"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "VolumeCursor",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "One cursor shared by axial, coronal and sagittal ImageSliceView instances.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/volume_cursor.h",
+      "properties": [
+        {
+          "name": "volume",
+          "type": "VoxelVolume *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "x",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "y",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "z",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "worldPoint",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "setVoxelPoint",
+          "returns": "bool",
+          "parameters": "double x, double y, double z"
+        },
+        {
+          "name": "setWorldPoint",
+          "returns": "bool",
+          "parameters": "double x, double y, double z"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "VoxelVolume",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/voxel_volume.h",
+      "properties": [
+        {
+          "name": "sizeX",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sizeY",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sizeZ",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "channels",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frames",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "voxelType",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "unit",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "valueUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "spacing",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "origin",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "orientation",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "quint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "residentBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maximumResidentBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "configure",
+          "returns": "bool",
+          "parameters": "const QVariantMap &description"
+        },
+        {
+          "name": "setVoxel",
+          "returns": "bool",
+          "parameters": "int x, int y, int z, double value, int channel = 0, int frame = 0"
+        },
+        {
+          "name": "fillSpherePhantom",
+          "returns": "bool",
+          "parameters": "double radiusFraction = 0.32"
+        },
+        {
+          "name": "sample",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y, double z, int channel = 0, int frame = 0, Interpolation interpolation = Nearest"
+        },
+        {
+          "name": "worldFromVoxel",
+          "returns": "QVariantList",
+          "parameters": "double x, double y, double z"
+        },
+        {
+          "name": "voxelFromWorld",
+          "returns": "QVariantList",
+          "parameters": "double x, double y, double z"
         }
       ],
       "enums": {},
