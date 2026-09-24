@@ -20222,6 +20222,55 @@
       "bridge": false
     },
     {
+      "name": "CanvasAlignmentModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Applies AlignDistributePanel requests to a document in one CanvasEdit. All coordinates are document units; IDs arrive as decimal strings to keep 64-bit object identity exact across QML's Number representation.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_alignment_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "applied",
+          "parameters": "const QString &operation, int changedObjects"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CanvasDocument",
       "kind": "cpp",
       "base": "CanvasDocumentAdapter",

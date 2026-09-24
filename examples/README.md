@@ -100,6 +100,7 @@ Each view has its own `ToolController`; selecting in either view updates the
 other while document edits prune removed or hidden objects.
 
 - Run: `qtk-preview examples/spatial-canvas/Main.qml --check --size 1280x800`
+- Alignment demo: `qtk-preview examples/spatial-canvas/AlignWorkingScene.qml --check --size 900x520`
 
 ## docking
 

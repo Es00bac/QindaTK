@@ -416,6 +416,22 @@ the overlay only paints frames. The view does not own geometry, apply previews, 
 content, persist, export or provide undo; those remain domain responsibilities.
 
 <a id="spatial-snapping"></a>
+<a id="alignment-commands"></a>
+## Alignment commands
+
+`Tk.CanvasAlignmentModel` takes an `AlignDistributePanel.operationRequested`
+request through `apply(operation, selectedIds, referenceMode, keyObjectId,
+spacing)`. IDs are decimal strings so QML does not round 64-bit object IDs.
+The model reads transformed document bounds and commits one `CanvasEdit`;
+undo restores every moved object together. Hidden, locked, missing or invalid
+objects reject the whole command. A selected key object stays fixed.
+
+Alignment uses the selection union, page or key-object bounds. With a zero
+gap, distribution places centers at equal intervals; selection mode preserves
+the two outer centers. With a positive gap, objects receive that exact edge
+gap, starting at the first selected object (or the page/key reference edge).
+The working fixture is `examples/spatial-canvas/AlignWorkingScene.qml`.
+
 ## Spatial snapping
 
 `Tk.SnapModel` is a stateless spatial query over a `CanvasDocumentAdapter` and

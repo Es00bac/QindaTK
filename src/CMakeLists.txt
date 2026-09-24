@@ -202,6 +202,7 @@ qt_add_qml_module(qindatk
         core/hit_test_service.cpp core/hit_test_service.h
         core/tool_controller.cpp core/tool_controller.h
         core/canvas_selection_model.cpp core/canvas_selection_model.h
+        core/canvas_alignment_model.cpp core/canvas_alignment_model.h
         core/canvas_tools.cpp
         core/canvas_render.h
         core/canvas_painter.cpp
