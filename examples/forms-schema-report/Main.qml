@@ -2,8 +2,8 @@
 import QtQuick
 import QindaTK as Tk
 
-// A real SQLite in-memory database backs this local workflow fixture.
-// Design values live in fixture memory; record edits use bound SQL values.
+// SQLite records are in-memory; form/report design and rendered output use
+// the local atomic design codec and the shared paginated document renderer.
 Tk.AppWindow {
     id: window
     title: qsTr("Forms, schema and reports · SQLite fixture")
@@ -19,6 +19,10 @@ Tk.AppWindow {
             { fieldName: "department_id", label: "Department" }
         ]
     })
+    property string workflowStatus: qsTr("Design not saved · local SQLite sample")
+
+    Tk.LocalDataDesignStore { id: designStore }
+    Tk.LocalReportDocumentModel { id: reportOutput }
 
     Tk.LocalDatabaseProvider {
         id: database
@@ -30,6 +34,9 @@ Tk.AppWindow {
             execute("INSERT INTO departments(name) VALUES(?)", ["Studio"])
             execute("INSERT INTO contacts(display_name, active, department_id) VALUES(?, ?, ?)", ["Mira Chen", true, 1])
             execute("INSERT INTO contacts(display_name, active, department_id) VALUES(?, ?, ?)", ["Lee Park", false, 2])
+            for (let i = 2; i < 102; ++i)
+                execute("INSERT INTO contacts(display_name, active, department_id) VALUES(?, ?, ?)",
+                        ["Contributor " + String(i).padStart(3, "0"), i % 2 === 0, i % 2 + 1])
             reloadRecord()
         }
     }
@@ -39,12 +46,52 @@ Tk.AppWindow {
         if (result.ok && result.rows.length) currentRecord = result.rows[0]
     }
     function quoted(name) { return '"' + String(name).replace(/"/g, '""') + '"' }
+    function reportSnapshot() {
+        return { tableName: report.tableName, headerText: report.headerText,
+                 footerText: report.footerText, filterField: report.filterField,
+                 filterValue: report.filterValue, groupField: report.groupField }
+    }
+    function designSnapshot() {
+        return {
+            format: "qindatk.local-data-design", version: 1, designId: "contacts-workbench",
+            binding: { provider: "sqlite", schema: "main", table: "contacts",
+                       fields: ["id", "display_name", "active", "department_id"] },
+            form: formDesign,
+            report: reportSnapshot()
+        }
+    }
+    function saveDesign() {
+        const result = designStore.saveToFile(designStore.defaultPath, designSnapshot(), database)
+        workflowStatus = result.ok ? qsTr("Design saved · %1").arg(result.path) : result.error
+    }
+    function reopenDesign() {
+        const result = designStore.loadFromFile(designStore.defaultPath, database)
+        if (!result.ok) { workflowStatus = result.error; return }
+        const data = result.design
+        formDesign = data.form
+        report.tableName = data.report.tableName
+        report.headerText = data.report.headerText
+        report.footerText = data.report.footerText
+        report.filterField = data.report.filterField
+        report.filterValue = data.report.filterValue
+        report.groupField = data.report.groupField
+        workflowStatus = qsTr("Design reopened and schema binding verified · %1").arg(data.designId)
+        report.runPreview()
+    }
 
-    Component.onCompleted: Qt.callLater(report.runPreview)
+    Component.onCompleted: Qt.callLater(function() {
+        report.runPreview()
+        reportOutput.build(database, reportSnapshot())
+    })
 
     Tk.Flex {
         direction: Tk.Flex.Column; gap: Tk.Theme.space.md; padding: Tk.Theme.space.md
-        Tk.Overline { title: qsTr("LOCAL SQLITE · PARAMETERIZED READS · HOST-OWNED DESIGNS"); wide: true }
+        Tk.Flex {
+            direction: Tk.Flex.Row; align: Tk.Flex.Center; gap: Tk.Theme.space.sm
+            Tk.Overline { title: qsTr("LOCAL SQLITE · STABLE BINDINGS · PAGINATED OUTPUT"); wide: true; Tk.Flex.grow: 1 }
+            Tk.Button { text: qsTr("Save design"); tooltip: qsTr("Atomically save form and report design"); onClicked: window.saveDesign() }
+            Tk.Button { text: qsTr("Reopen design"); tooltip: qsTr("Load saved design and validate its SQLite fields"); onClicked: window.reopenDesign() }
+        }
         Tk.Flex {
             direction: Tk.Flex.Row; gap: Tk.Theme.space.md
             Tk.FormDesigner {
@@ -79,12 +126,37 @@ Tk.AppWindow {
         }
         Tk.ReportDesigner {
             id: report; width: parent.width; provider: database; tableName: "contacts"
-            headerText: qsTr("Contacts by department"); footerText: qsTr("Internal directory · local fixture")
-            groupField: "department_id"; pageSize: 20
+            headerText: qsTr("Contact directory"); footerText: qsTr("Internal directory · local fixture")
+            pageSize: 20
+            onExportRequested: function(requestId, reportDesign) {
+                const built = reportOutput.build(database, reportDesign)
+                if (!built.ok) { workflowStatus = built.error; return }
+                const exported = reportOutput.exportPdf(reportOutput.defaultPdfPath)
+                workflowStatus = exported.ok
+                    ? qsTr("PDF exported · %1 rows · %2").arg(exported.rowCount).arg(exported.path)
+                    : exported.error
+            }
+        }
+        Tk.Flex {
+            direction: Tk.Flex.Row; gap: Tk.Theme.space.sm
+            Tk.PageNavigator { view: reportDocument; Tk.Flex.shrink: 0 }
+            Item {
+                height: Tk.Theme.size.waveformHeight * 9
+                Tk.Flex.grow: 1; Tk.Flex.basis: 0; Tk.Flex.minHeight: 0
+                Tk.RichDocumentView {
+                    id: reportDocument
+                    anchors.fill: parent
+                    document: reportOutput.document
+                    zoom: 0.55
+                    tooltip: qsTr("Paginated report document")
+                    readOnly: true
+                }
+            }
         }
         Tk.Notice {
             variant: "info"; title: qsTr("Fixture boundary")
-            text: qsTr("Database data is in memory for this run. Form values update through bound SQL parameters; form design is held in memory; schema changes need Preview, then an explicit Request apply.")
+            text: qsTr("SQLite sample records are in memory. Design JSON is versioned and atomically saved to a local file with table/field names; reopen rechecks the live schema. Request export builds a paginated RichTextDocument and writes PDF using its document renderer.")
         }
+        Tk.Caption { text: window.workflowStatus; wrapMode: Text.Wrap }
     }
 }

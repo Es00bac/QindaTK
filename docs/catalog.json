@@ -39363,6 +39363,51 @@
       "bridge": false
     },
     {
+      "name": "LocalDataDesignStore",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Atomic, versioned local codec for form/report layout and stable SQL names.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_data_design_store.h",
+      "properties": [
+        {
+          "name": "defaultPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "saveToFile",
+          "returns": "QVariantMap",
+          "parameters": "const QString &path, const QVariantMap &design, LocalDatabaseProvider *provider = nullptr"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "QVariantMap",
+          "parameters": "const QString &path, LocalDatabaseProvider *provider = nullptr"
+        },
+        {
+          "name": "validate",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &design, LocalDatabaseProvider *provider = nullptr"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "LocalDatabaseProvider",
       "kind": "cpp",
       "base": "QObject",
@@ -39645,6 +39690,72 @@
           "name": "exportSnapshot",
           "returns": "QVariantMap",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "LocalReportDocumentModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Turns a saved report binding into a paginated RichTextDocument and PDF.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_report_document_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "RichTextDocument *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rowCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "status",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "defaultPdfPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "build",
+          "returns": "QVariantMap",
+          "parameters": "LocalDatabaseProvider *provider, const QVariantMap &report"
+        },
+        {
+          "name": "exportPdf",
+          "returns": "QVariantMap",
+          "parameters": "const QString &path"
         }
       ],
       "enums": {},
