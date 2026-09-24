@@ -73,3 +73,21 @@ draft record: the host persists its returned stable ID and metadata using
 
 `examples/local-attachment-store` imports a small sample file, attaches the
 returned metadata to a local draft snapshot, and rereads the payload by ID.
+
+## Calendar range projection
+
+`Tk.LocalCalendarProjectionModel` connects `LocalProductivityStore` and
+`RecurrenceService`. Call `project(rangeStartUtc, rangeEndUtc, limit)` with ISO
+UTC boundaries. Each returned row retains the source event map and adds a
+stable `eventId`, stable `occurrenceId` (the event ID plus the exact local
+occurrence wall time), local `startLocal`/`endLocal`, the original IANA `zone`
+and UTC start/end values. One-off events are range filtered directly;
+recurring events pass their stored `recurrenceRule` and `exceptions` to
+`RecurrenceService`. A store `dataChanged` signal reprojects the current
+range. Invalid event times/zones, invalid recurrence and an exceeded result
+limit set `error` and reject that projection.
+
+`examples/local-calendar-projection` navigates seven-day UTC windows over a
+saved local event snapshot, including a skipped weekly occurrence. The
+projection displays wall times and zone in `CalendarView`; navigation is
+handled by the fixture host.

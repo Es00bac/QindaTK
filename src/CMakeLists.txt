@@ -61,6 +61,7 @@ qt_add_qml_module(qindatk
         core/settings_model.cpp core/settings_model.h
         core/local_productivity_store.cpp core/local_productivity_store.h
         core/local_attachment_store.cpp core/local_attachment_store.h
+        core/local_calendar_projection_model.cpp core/local_calendar_projection_model.h
         core/state_store.cpp core/state_store.h
         core/settings_persistence.cpp core/settings_persistence.h
         core/workspace_session.cpp core/workspace_session.h

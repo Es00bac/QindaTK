@@ -39952,6 +39952,93 @@
       "bridge": false
     },
     {
+      "name": "LocalCalendarProjectionModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Projects stored local calendar records into a UTC-bounded CalendarView agenda.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_calendar_projection_model.h",
+      "properties": [
+        {
+          "name": "store",
+          "type": "LocalProductivityStore *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "recurrenceService",
+          "type": "RecurrenceService *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "occurrences",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rangeStartUtc",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rangeEndUtc",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "inputsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "occurrencesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "rangeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "project",
+          "returns": "bool",
+          "parameters": "const QString &rangeStartUtc, const QString &rangeEndUtc, int limit = 500"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "LocalDataDesignStore",
       "kind": "cpp",
       "base": "QObject",
