@@ -113,7 +113,7 @@ qt_add_qml_module(qindatk
         core/audio_graph.cpp core/audio_graph.h
         core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp
         core/audio_engine.h core/audio_engine_p.h
-        core/audio_session.cpp core/audio_session.h
+        core/audio_session.cpp core/audio_session_transport.cpp core/audio_session.h
         core/uri_validator.cpp core/uri_validator.h
         core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h
@@ -296,7 +296,10 @@ qt_add_qml_module(qindatk
         core/icon_data.cpp core/icon_data.h
         core/meter.cpp core/meter.h
         core/audio_meter_model.cpp core/audio_meter_model.h
+        core/audio_meter_tap.cpp core/audio_meter_tap.h
+        core/audio_loudness_model.cpp core/audio_loudness_model.h
         core/audio_parameter_map.cpp core/audio_parameter_map.h
+        core/audio_parameter_binding.cpp core/audio_parameter_binding.h
         core/layout_attached.cpp core/layout_attached.h
         core/layout_info.cpp core/layout_info.h
         core/screen_work_area.cpp core/screen_work_area.h

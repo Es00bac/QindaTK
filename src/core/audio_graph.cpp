@@ -51,6 +51,12 @@ QString AudioRenderGraph::gainParameterId(const QString &trackId)
     return QStringLiteral("track:%1/gain").arg(trackId);
 }
 
+bool AudioRenderGraph::hasSilenceFloor(const AutomationParameter &parameter)
+{
+    return parameter.range.dimension == UnitDimension::Gain
+        && parameter.range.unitId.compare(QLatin1String("dB"), Qt::CaseInsensitive) == 0;
+}
+
 int AudioRenderGraph::clipCount() const
 {
     int count = 0;
@@ -101,10 +107,13 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
         if (gain) {
             track.gainParameter = gain->parameter;
             track.decibels = gain->parameter.range.unitId.compare(QLatin1String("dB"), Qt::CaseInsensitive) == 0;
-            const auto linear = [&](double value) { return track.decibels ? std::pow(10.0, value / 20.0) : value; };
+            if (track.decibels && hasSilenceFloor(gain->parameter)) track.silenceFloor = gain->parameter.range.minimum;
+            const auto linear = [&](double value) {
+                return !track.decibels ? value : value <= track.silenceFloor ? 0.0 : std::pow(10.0, value / 20.0);
+            };
             if (gain->overriding) {
                 track.constantGain = linear(gain->liveValue);
-            } else if (gain->points.isEmpty()) {
+            } else if (gain->points.isEmpty() || gain->mode == AutomationMode::Off) {
                 track.constantGain = linear(gain->parameter.defaultValue);
             } else {
                 track.gainPoints = flattened(gain->parameter, gain->points);
@@ -127,7 +136,7 @@ void AudioRenderGraph::render(qint64 start, int frames, float *out, int channels
                 const auto ticks = TimelineTime::rescale(start + i, rate, m_timebase, TimeMap::NearestAway);
                 const double value = ticks ? AutomationCurve::valueAt(track.gainParameter, track.gainPoints, *ticks)
                                            : track.gainParameter.defaultValue;
-                scratch[i] = track.decibels ? std::pow(10.0, value / 20.0) : value;
+                scratch[i] = !track.decibels ? value : value <= track.silenceFloor ? 0.0 : std::pow(10.0, value / 20.0);
             }
         }
         for (const Clip &clip : track.clips) {

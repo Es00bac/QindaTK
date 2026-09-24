@@ -250,6 +250,22 @@ OperationError AutomationModel::endGesture(const QString &parameterId, qint64 ti
     return {};
 }
 
+OperationError AutomationModel::discardPass(const QString &parameterId)
+{
+    if (!m_lanes.contains(parameterId))
+        return fail({ErrorCode::InvalidArgument, tr("Unknown parameter"), {}, QStringLiteral("automation")});
+    Lane &lane = m_lanes[parameterId];
+    const bool wasWriting = lane.writing;
+    lane.touched = false;
+    lane.latched = false;
+    lane.writing = false;
+    lane.pass.clear();
+    lane.lastValue = AutomationCurve::valueAt(lane.parameter, lane.points, m_transportTicks);
+    if (wasWriting) emit pointsChanged(parameterId);
+    emit writeStateChanged(parameterId);
+    return {};
+}
+
 // ---- QML wrappers ----
 
 QVariantMap AutomationModel::setModeName(const QString &parameterId, const QString &mode)

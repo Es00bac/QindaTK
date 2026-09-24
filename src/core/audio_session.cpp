@@ -75,16 +75,20 @@ void AudioSession::setEngine(AudioEngine *engine)
     for (const auto &connection : std::as_const(m_engineConnections)) disconnect(connection);
     m_engineConnections.clear();
     if (m_engine) m_engine->setGraph({});
+    // A detached engine no longer runs this session's automation clock.
+    if (m_automation->transportRunning()) m_automation->transportStopped(m_forwardedTicks);
     m_engine = engine;
     if (engine) {
         m_engineConnections << connect(engine, &AudioEngine::formatChanged, this, &AudioSession::engineFormatChanged)
-                            << connect(engine, &AudioEngine::recordingFinished, this, &AudioSession::addRecordedTake);
+                            << connect(engine, &AudioEngine::recordingFinished, this, &AudioSession::addRecordedTake)
+                            << connect(engine->transport(), &TransportModel::changed, this, &AudioSession::forwardTransport);
         engine->transport()->setTimeMap(m_timeMap);
         if (!m_mediaDirectory.isEmpty()) engine->setRecordDirectory(m_mediaDirectory);
     }
     emit engineChanged();
     updateRecordTarget();
     engineFormatChanged();
+    forwardTransport();
 }
 
 void AudioSession::setMediaDirectory(const QString &directory)

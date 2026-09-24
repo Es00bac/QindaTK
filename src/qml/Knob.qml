@@ -3,8 +3,13 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// Host owns the parameter and its transaction. Preview updates are transient;
-// only gestureCommitted should enter the host's undo/automation history.
+// AGENT-CONTRACT (docs/controls.md, docs/audio-measurement.md): the host owns
+// the parameter. Every input (drag, wheel burst, held key, numeric entry,
+// reset) is ONE gesture: gestureStarted -> valuePreview* -> gestureCommitted |
+// gestureCanceled. With `binding` (Tk.AudioParameterBinding) the knob shows
+// the engine parameter and each gesture is one engine transaction; the knob
+// never assigns `value` itself then. objectNames: "knobDial", "knobField",
+// "knobValue".
 T.Control {
     id: control
     property string parameterId: ""
@@ -12,6 +17,7 @@ T.Control {
     property real value: 0
     property bool silent: false
     property var mapper: null
+    property var binding: null
     property real from: 0
     property real to: 1
     property real defaultValue: 0
@@ -24,19 +30,25 @@ T.Control {
     property bool showValue: true
     property bool numericEntry: true
     property real fineFactor: 0.1
+    readonly property bool gestureOpen: _source.length > 0
+    property string _source: ""
     property real _startValue: 0
     property bool _startSilent: false
-    property real _lastY: 0
-    property bool _dragging: false
+    property real _anchorY: 0
+    property real _anchorPosition: 0
+    property real _dragFactor: 1
+    readonly property bool _dragging: _source === "pointer"
     signal gestureStarted(real value, bool silent)
     signal valuePreview(real value, bool silent)
     signal gestureCommitted(real value, bool silent)
     signal gestureCanceled(real value, bool silent)
 
+    readonly property var activeMapper: binding ? binding.mapper : mapper
     readonly property real clampedValue: Math.max(from, Math.min(to, value))
-    readonly property real normalizedValue: mapper ? mapper.positionFor(clampedValue, silent)
+    readonly property real normalizedValue: activeMapper ? activeMapper.positionFor(clampedValue, silent)
         : (to > from ? (clampedValue - from) / (to - from) : 0)
-    readonly property string valueText: silent ? "−∞" + unit : Number(clampedValue).toFixed(decimals) + unit
+    readonly property string valueText: binding ? binding.valueText
+        : silent ? "−∞" + unit : Number(clampedValue).toFixed(decimals) + unit
     implicitWidth: Math.max(Tk.Theme.size.controlLg, numericEntry ? Tk.Theme.size.fieldWidth : 0)
     implicitHeight: Tk.Theme.size.controlLg + (numericEntry ? Tk.Theme.size.control : showValue ? Tk.Theme.size.controlSm : 0)
     focusPolicy: Qt.StrongFocus
@@ -46,48 +58,119 @@ T.Control {
     Accessible.description: qsTr("%1, %2, %3").arg(valueText).arg(taper).arg(automationState)
     Accessible.onIncreaseAction: control.step(1, Qt.NoModifier)
     Accessible.onDecreaseAction: control.step(-1, Qt.NoModifier)
+
+    // Engine binding: the parameter's own range, units and state.
+    Binding { target: control; property: "value"; when: control.binding !== null; value: control.binding ? control.binding.value : 0 }
+    Binding { target: control; property: "silent"; when: control.binding !== null; value: control.binding ? control.binding.silent : false }
+    Binding { target: control; property: "from"; when: control.binding !== null; value: control.binding ? control.binding.minimum : 0 }
+    Binding { target: control; property: "to"; when: control.binding !== null; value: control.binding ? control.binding.maximum : 1 }
+    Binding { target: control; property: "defaultValue"; when: control.binding !== null; value: control.binding ? control.binding.resetValue : 0 }
+    Binding { target: control; property: "unit"; when: control.binding !== null; value: control.binding && control.binding.unit.length ? " " + control.binding.unit : "" }
+    Binding { target: control; property: "taper"; when: control.binding !== null; value: control.binding ? control.binding.taper : "linear" }
+    Binding { target: control; property: "automationState"; when: control.binding !== null; value: control.binding ? control.binding.automationState : "" }
+    Binding { target: control; property: "parameterId"; when: control.binding !== null; value: control.binding ? control.binding.parameterId : "" }
+
     function clamp(v) { return Math.max(from, Math.min(to, v)) }
+    function beginGesture(source) {
+        if (_source === "wheel" && source !== "wheel") commitGesture() // another input ends a wheel burst
+        if (_source.length) return false
+        _source = source
+        _startValue = value; _startSilent = silent
+        if (binding) binding.begin(value, silent)
+        gestureStarted(value, silent)
+        return true
+    }
     function updateUser(v, isSilent) {
         const next = clamp(v)
         if (next === value && isSilent === silent) return
-        value = next; silent = isSilent
-        valuePreview(next, isSilent)
+        if (binding) binding.preview(next, isSilent)
+        else { value = next; silent = isSilent }
+        valuePreview(value, silent)
+    }
+    function commitGesture() {
+        if (!_source.length) return
+        _source = ""
+        wheelIdle.stop()
+        if (binding) binding.commit(value, silent)
+        gestureCommitted(value, silent)
+    }
+    function cancelGesture() {
+        if (!_source.length) return
+        _source = ""
+        wheelIdle.stop()
+        if (binding) binding.cancel()
+        else { value = _startValue; silent = _startSilent }
+        gestureCanceled(value, silent)
     }
     function updatePosition(position) {
         const p = Math.max(0, Math.min(1, position))
-        if (mapper) {
-            const mapped = mapper.valueAt(p)
+        if (activeMapper) {
+            const mapped = activeMapper.valueAt(p)
             updateUser(mapped.value, mapped.silent)
         } else updateUser(from + p * (to - from), false)
     }
-    function step(direction, modifiers) {
+    function stepBy(direction, modifiers) {
         const scale = (modifiers & Qt.ShiftModifier) ? 10
                     : (modifiers & Qt.AltModifier) ? fineFactor : 1
-        gestureStarted(value, silent)
-        if (mapper) updatePosition(normalizedValue + direction * 0.01 * scale)
+        if (activeMapper) updatePosition(normalizedValue + direction * 0.01 * scale)
         else updateUser(value + direction * stepSize * scale, false)
-        gestureCommitted(value, silent)
     }
-    function reset() { gestureStarted(value, silent); updateUser(defaultValue, false); gestureCommitted(value, false) }
-    Keys.onLeftPressed: (event) => { step(-1, event.modifiers); event.accepted = true }
-    Keys.onDownPressed: (event) => { step(-1, event.modifiers); event.accepted = true }
-    Keys.onRightPressed: (event) => { step(1, event.modifiers); event.accepted = true }
-    Keys.onUpPressed: (event) => { step(1, event.modifiers); event.accepted = true }
+    // A step outside any open gesture is a gesture of its own.
+    function step(direction, modifiers) {
+        const own = beginGesture("step")
+        stepBy(direction, modifiers)
+        if (own) commitGesture()
+    }
+    function reset() {
+        // Inside a pointer gesture (double-click) the reset joins it: the
+        // release commits once, so a reset is one transaction.
+        if (_source === "pointer") { updateUser(defaultValue, false); return }
+        const own = beginGesture("reset")
+        updateUser(defaultValue, false)
+        if (own) commitGesture()
+    }
+    // Arrow keys: a held key (auto-repeat) is one gesture until release.
+    function keyStep(direction, event) {
+        if (_source !== "key") beginGesture("key")
+        if (_source === "key") stepBy(direction, event.modifiers)
+        event.accepted = true
+    }
+    Keys.onLeftPressed: (event) => keyStep(-1, event)
+    Keys.onDownPressed: (event) => keyStep(-1, event)
+    Keys.onRightPressed: (event) => keyStep(1, event)
+    Keys.onUpPressed: (event) => keyStep(1, event)
+    Keys.onReleased: (event) => {
+        if (event.isAutoRepeat || _source !== "key") return
+        if (event.key === Qt.Key_Left || event.key === Qt.Key_Right
+                || event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
+            commitGesture()
+            event.accepted = true
+        }
+    }
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Home || event.key === Qt.Key_End) {
-            gestureStarted(value, silent)
+            const own = beginGesture("key-jump")
             updatePosition(event.key === Qt.Key_Home ? 0 : 1)
-            gestureCommitted(value, silent)
+            if (own) commitGesture()
             event.accepted = true
         }
     }
     Keys.onEscapePressed: (event) => {
-        if (_dragging) { _dragging = false; value = _startValue; silent = false; gestureCanceled(value, silent); event.accepted = true }
+        if (_source.length) cancelGesture()
+        else event.accepted = false // nothing to cancel: Escape belongs to the window
     }
     Keys.onReturnPressed: (event) => { reset(); event.accepted = true }
+    onActiveFocusChanged: if (!activeFocus && (_source === "key" || _source === "wheel")) commitGesture()
+
+    Timer {
+        id: wheelIdle
+        interval: Tk.Theme.motion.gestureIdle
+        onTriggered: control.commitGesture()
+    }
 
     Item {
         id: dial
+        objectName: "knobDial"
         width: Tk.Theme.size.controlLg
         height: width
         anchors.horizontalCenter: parent.horizontalCenter
@@ -123,46 +206,59 @@ T.Control {
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.LeftButton
+            // Relative vertical drag, 200 px per full travel; Shift and Alt
+            // are finer. The anchor moves when the modifier changes, so the
+            // value never jumps.
+            function factorFor(modifiers) {
+                return modifiers & Qt.ShiftModifier ? 0.1 : modifiers & Qt.AltModifier ? 0.01 : 1
+            }
             onPressed: (mouse) => {
-                control.forceActiveFocus(); control._dragging = true
-                control._startValue = control.value; control._startSilent = control.silent
-                control._lastY = mouse.y
-                control.gestureStarted(control.value, control.silent)
+                control.forceActiveFocus()
+                if (!control.beginGesture("pointer")) return
+                control._anchorY = mouse.y
+                control._anchorPosition = control.normalizedValue
+                control._dragFactor = factorFor(mouse.modifiers)
             }
             onPositionChanged: (mouse) => {
-                if (!pressed) return
-                const multiplier = mouse.modifiers & Qt.ShiftModifier ? 0.1
-                                 : mouse.modifiers & Qt.AltModifier ? 0.01 : 1
-                control.updatePosition(control.normalizedValue + (control._lastY - mouse.y) * 0.005 * multiplier)
-                control._lastY = mouse.y
+                if (!pressed || !control._dragging) return
+                const factor = factorFor(mouse.modifiers)
+                if (factor !== control._dragFactor) {
+                    control._anchorY = mouse.y
+                    control._anchorPosition = control.normalizedValue
+                    control._dragFactor = factor
+                }
+                control.updatePosition(control._anchorPosition + (control._anchorY - mouse.y) * 0.005 * factor)
             }
-            onReleased: { control._dragging = false; control.gestureCommitted(control.value, control.silent) }
-            onCanceled: {
-                if (control._dragging) { control._dragging = false; control.value = control._startValue; control.silent = control._startSilent; control.gestureCanceled(control.value, control.silent) }
-            }
+            onReleased: if (control._dragging) control.commitGesture()
+            onCanceled: if (control._dragging) control.cancelGesture()
             onDoubleClicked: control.reset()
             onWheel: (wheel) => {
-                control.step(wheel.angleDelta.y > 0 ? 1 : -1, wheel.modifiers)
                 wheel.accepted = true
+                if (!control._source.length) control.beginGesture("wheel")
+                if (control._source !== "wheel") return
+                control.stepBy(wheel.angleDelta.y > 0 ? 1 : -1, wheel.modifiers)
+                wheelIdle.restart()
             }
         }
     }
     Tk.NumberField {
+        id: field
+        objectName: "knobField"
         visible: control.numericEntry && !control.silent
         anchors.top: dial.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         width: Tk.Theme.size.fieldWidth
-        value: control.value
         from: control.from; to: control.to; defaultValue: control.defaultValue
         stepSize: control.stepSize; decimals: control.decimals; suffix: control.unit
         tooltip: control.tooltip; Accessible.name: control.Accessible.name
         onValueModified: (v) => {
-            control.gestureStarted(control.value, control.silent)
+            const own = control.beginGesture("text")
             control.updateUser(v, false)
-            control.gestureCommitted(control.value, false)
+            if (own) control.commitGesture()
         }
     }
     Tk.Mono {
+        objectName: "knobValue"
         visible: control.showValue && (!control.numericEntry || control.silent)
         anchors.top: dial.bottom
         anchors.horizontalCenter: parent.horizontalCenter
@@ -170,6 +266,11 @@ T.Control {
         color: Tk.Theme.color.textMuted
         font.pixelSize: Tk.Theme.font.caption
     }
-    onValueChanged: dialCanvas.requestPaint()
+    // AGENT-GUARD: NumberField assigns its own `value` on a typed commit,
+    // which would break a plain binding; the Binding element re-asserts the
+    // knob's value after every change, so the field never goes stale.
+    Binding { target: field; property: "value"; value: control.value }
+    onNormalizedValueChanged: dialCanvas.requestPaint()
+    onEnabledChanged: dialCanvas.requestPaint()
     Tk.ToolTip { text: control.tooltip; visible: control.tooltip.length > 0 && control.hovered && !control._dragging }
 }

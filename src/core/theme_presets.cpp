@@ -328,7 +328,7 @@ void ThemePresets::installBaseMetrics(Theme &theme)
         {"timeRuler", 22}};
     static const Entry motion[] = {{"instant", 0}, {"fast", 80}, {"base", 140}, {"slow", 220},
                                    {"tooltipDelay", 600}, {"tooltipTimeout", 6000},
-                                   {"toastTimeout", 6000}};
+                                   {"toastTimeout", 6000}, {"gestureIdle", 500}};
     static const Entry opacity[] = {{"hidden", 0.0}, {"full", 1.0}, {"disabled", 0.45}, {"muted", 0.7}, {"island", 0.72},
                                     {"ghost", 0.55}, {"scrim", 0.65}};
     for (const Entry &e : space) theme.space()->setBase(QString::fromLatin1(e.name), e.value);
@@ -521,10 +521,11 @@ void ThemePresets::applyMotion(Theme &theme, bool reduced)
     motion->rescale(1.0);
     if (reduced) {
         for (const QString &name : motion->names()) {
-            // Dwell times are reading time, not animation. Keep them when
-            // reduced motion disables delays and animated transitions.
+            // Dwell times (reading time) and gestureIdle (wheel steps grouped
+            // into one edit) are not animation; reduced motion keeps them.
             if (name != QStringLiteral("tooltipTimeout")
-                && name != QStringLiteral("toastTimeout")) {
+                && name != QStringLiteral("toastTimeout")
+                && name != QStringLiteral("gestureIdle")) {
                 motion->insert(name, 0.0);
             }
         }
