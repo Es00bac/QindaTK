@@ -38,7 +38,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-061"></a>
 ## WP-061 — Implement calibrated audio controls and meters
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-022](phase-02-controls-data.md#wp-022), [WP-030](phase-02-controls-data.md#wp-030), [WP-060](phase-05-audio.md#wp-060)
+**Implementation lead:** Sol. **Status:** accepted (engine-bound controls, meters and loudness). **Depends on:** [WP-022](phase-02-controls-data.md#wp-022), [WP-030](phase-02-controls-data.md#wp-030), [WP-060](phase-05-audio.md#wp-060)
 
 **Proposal scope:** [AUD-10 Knob](../proposed/06-audio-music.md#aud-10), [AUD-11 Fader](../proposed/06-audio-music.md#aud-11), [AUD-12 AudioMeter](../proposed/06-audio-music.md#aud-12), [AUD-29 LoudnessHistory](../proposed/06-audio-music.md#aud-29)
 

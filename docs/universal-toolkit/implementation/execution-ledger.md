@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 51 packages accepted, 26 active, none in review, 1 planned and 6 deferred.**
+**Execution state: 54 packages accepted, 23 active, none in review, 1 planned and 6 deferred.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -36,7 +36,8 @@ WP-081 is accepted after its merged developer-surface checks; other terminal
 platforms remain in WP-088. WP-041, WP-076 and WP-078 are accepted after
 merged Qt 6.11 and Qt 6.8 checks; WP-045, WP-073 and WP-074 after the full
 suite passed on both (261/261). WP-042 and WP-060 are accepted from the first
-code-first round (`round/cf1`), after its two failures were fixed. Scope decision by the user (2026-09-24):
+code-first round (`round/cf1`), after its two failures were fixed; WP-051, WP-061
+and WP-070 from the same round's third build after their round fixes. Scope decision by the user (2026-09-24):
 qualification covers Linux only, each package's live examples stand in for
 separate demo applications, and WP-089 to WP-094 are deferred.
 WP-049 now has beat-locked clip timing, tempo and automation editing, and
@@ -94,7 +95,7 @@ as though a later fix had already passed the earlier run.
 | [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | accepted | [Exact edits, dual-Qt 101/101 suites, visuals and installed consumer](evidence/WP-048.md) |
 | [WP-049 — Implement tempo and automation editing](phase-03-authoring.md#wp-049) | 03 | Sol | accepted | [Tempo/automation models, clip anchoring, schedule snapshots and lanes accepted](evidence/WP-049.md) |
 | [WP-050 — Implement rich text and paginated document editing](phase-04-office.md#wp-050) | 04 | Sol | accepted | [Styled multi-page editing, cursor mapping and persistence; focused merged and dual-Qt checks passed](evidence/WP-050.md) |
-| [WP-051 — Add publishing structure, styles and tables](phase-04-office.md#wp-051) | 04 | Sol | active | [Four authoring controls and undoable table row/column editing integrated; merged cells, styles and frame flow pending](evidence/WP-051.md) |
+| [WP-051 — Add publishing structure, styles and tables](phase-04-office.md#wp-051) | 04 | Sol | accepted | [Styles, page columns, linked frames and merged cells on one document passed the round build](evidence/WP-051.md) |
 | [WP-052 — Add equations, references and document review](phase-04-office.md#wp-052) | 04 | Sol | active | [Equation, reference and review request controls integrated; semantic document backend pending](evidence/WP-052.md) |
 | [WP-053 — Implement printing and publishing preflight](phase-04-office.md#wp-053) | 04 | Sol | active | [Three-page PDF export and preview/preflight controls integrated; native print jobs and backend checks pending](evidence/WP-053.md) |
 | [WP-054 — Implement PDF viewing and annotation](phase-04-office.md#wp-054) | 04 | Sol | accepted | [Real page/text backend and native note/highlight save/reopen passed focused merged checks; unsupported PDF capabilities are explicit](evidence/WP-054.md) |
@@ -104,7 +105,7 @@ as though a later fix had already passed the earlier run.
 | [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | active | [Local messages, rich drafts, attachments, recurring events and tasks persist with recovery and stale-writer rejection; delivery and sync providers remain](evidence/WP-058.md) |
 | [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | active | [SQLite provider and three controls integrated; design persistence and paginated export pending](evidence/WP-059.md) |
 | [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | accepted | [Real engine with ALSA and silent devices, acknowledged device changes, sessions and offline render passed the round build](evidence/WP-060.md) |
-| [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | active | [Control visuals, peak/RMS model and parameter taper integrated; engine binding pending](evidence/WP-061.md) |
+| [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | accepted | [Engine-bound controls, audio-thread meters and BS.1770 loudness passed the round build](evidence/WP-061.md) |
 | [WP-062 — Implement mixing, panning and routing](phase-05-audio.md#wp-062) | 05 | Sol | active | [Four mixer/routing controls integrated; real DSP and graph operations pending](evidence/WP-062.md) |
 | [WP-063 — Implement waveform and spectral editing](phase-05-audio.md#wp-063) | 05 | Sol | active | [Waveform and spectrogram editor controls integrated; DSP and tile backend pending](evidence/WP-063.md) |
 | [WP-064 — Implement MIDI, patterns and clip launching](phase-05-audio.md#wp-064) | 05 | Sol | active | [Four MIDI editing/launch controls integrated; scheduling, persistence and interchange pending](evidence/WP-064.md) |
@@ -112,7 +113,7 @@ as though a later fix had already passed the earlier run.
 | [WP-066 — Integrate plugin hosting and plugin controls](phase-05-audio.md#wp-066) | 05 | Sol | active | [Plugin browser/rack integrated; ABI processing and editor host pending](evidence/WP-066.md) |
 | [WP-067 — Implement score and notation editing](phase-05-audio.md#wp-067) | 05 | Sol | active | [ScoreView integrated; notation layout, persistence and playback pending](evidence/WP-067.md) |
 | [WP-068 — Implement pitch analysis and correction editing](phase-05-audio.md#wp-068) | 05 | Sol | active | [PitchEditor integrated; analysis and correction DSP pending](evidence/WP-068.md) |
-| [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | active | [Monitor/bin controls and local frame decode integrated; playback and frame lifecycle pending](evidence/WP-070.md) |
+| [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | accepted | [FFmpeg decode/encode, player and playback engine, media catalog and frame feed passed the round build](evidence/WP-070.md) |
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | active | [Trim, multicam and transition controls integrated; sequence edit backend pending](evidence/WP-071.md) |
 | [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [Caption model, burned PNG sequence, scopes and grade edit history integrated; video encoding and fidelity work remain](evidence/WP-072.md) |
 | [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | accepted | [Layer timing, one-transaction path edits, bounded frame caches and exact-tick export passed merged checks](evidence/WP-073.md) |
