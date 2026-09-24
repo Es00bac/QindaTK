@@ -9,6 +9,9 @@
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
+// Measured scalar value → color and opacity for image and volume views. Stops
+// have stable IDs, strictly increasing values and endpoints pinned to the
+// domain; RGB and opacity interpolate linearly between neighbouring stops.
 class TransferFunctionModel : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -38,11 +41,14 @@ public:
     Q_INVOKABLE QVariantMap saveSettings() const;
     Q_INVOKABLE bool restoreSettings(const QVariantMap &settings);
     Q_INVOKABLE QColor colorAt(double value) const;
+    Q_INVOKABLE double opacityAt(double value) const;
 signals:
     void changed();
     void errorChanged();
 private:
     struct Point { QString id; double value; QColor color; double opacity; };
+    struct Segment { const Point *left; const Point *right; double t; };
+    Segment segmentAt(double value) const;
     void publish();
     void fail(const QString &message);
     int indexOf(const QString &id) const;

@@ -71,7 +71,7 @@ pages below are the reference.
 | [qindastudio-migration.md](qindastudio-migration.md) | Moving QindaStudio onto QindaTK: type map (StudioPanel, DockHost, StudioPill, StudioIcon, StudioTheme → QindaTK), build integration, migration order |
 | [css-cheatsheet.md](css-cheatsheet.md) | Tailwind/CSS idiom → QindaTK equivalent, one line each |
 | [agent-playbook.md](agent-playbook.md) | How an agent builds and verifies a screen with QindaTK, step by step |
-| [decisions.md](decisions.md), [decisions-application.md](decisions-application.md), [decisions-services.md](decisions-services.md) | ADR-lite logs of durable choices |
+| [decisions.md](decisions.md), [decisions-application.md](decisions-application.md), [decisions-services.md](decisions-services.md), [decisions-domains.md](decisions-domains.md) | ADR-lite logs of durable choices |
 | [verification.md](verification.md) | Build/test gates, headless verification, manual checklist |
 | [platform-support.md](platform-support.md) | Tested Qt/platform/backend matrix, open qualification gates and upgrade procedure |
 | [overflow-diagnostics-20260919.md](overflow-diagnostics-20260919.md) | Source diagnosis and scope of the menu/dialog overflow repair |

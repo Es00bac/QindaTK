@@ -3,6 +3,11 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
+// One calibrated principal plane of a Tk.VoxelVolume: a header (plane, slice
+// n / N, previous/next), the slice fitted by physical spacing with the shared
+// crosshair, and a voxel/value readout. Click moves the shared cursor; wheel,
+// Page Up/Down, Home/End and the chevrons change slice; arrow keys move the
+// crosshair one voxel within the plane.
 // AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one
 // VolumeCursor in voxel coordinates; the provider owns physical transforms.
 T.Control {
@@ -18,16 +23,21 @@ T.Control {
     property alias windowCenter: slice.windowCenter
     property alias windowWidth: slice.windowWidth
     property string tooltip: qsTr("Image slice")
+    readonly property string planeName: plane === Tk.ImageSliceItem.Axial ? qsTr("Axial")
+        : plane === Tk.ImageSliceItem.Coronal ? qsTr("Coronal") : qsTr("Sagittal")
     readonly property int sliceCount: !volume ? 0 : plane === Tk.ImageSliceItem.Axial ? volume.sizeZ
         : plane === Tk.ImageSliceItem.Coronal ? volume.sizeY : volume.sizeX
-    readonly property int sliceIndex: !cursor ? 0 : Math.round(plane === Tk.ImageSliceItem.Axial ? cursor.z
-        : plane === Tk.ImageSliceItem.Coronal ? cursor.y : cursor.x)
+    readonly property int sliceIndex: !cursor ? Math.max(0, Math.round((sliceCount - 1) / 2))
+        : Math.round(plane === Tk.ImageSliceItem.Axial ? cursor.z
+                     : plane === Tk.ImageSliceItem.Coronal ? cursor.y : cursor.x)
     readonly property var selectedSample: {
         if (!volume || !cursor) return ({valid: false})
         return volume.revision >= 0
             ? volume.sample(cursor.x, cursor.y, cursor.z, channel, frame, interpolation) : ({valid: false})
     }
     signal pointSelected(var voxelPoint)
+
+    property real _wheelDelta: 0
 
     function setSliceIndex(index) {
         if (!cursor || !volume || sliceCount < 1) return false
@@ -36,6 +46,26 @@ T.Control {
         if (plane === Tk.ImageSliceItem.Coronal) return cursor.setVoxelPoint(cursor.x, next, cursor.z)
         return cursor.setVoxelPoint(next, cursor.y, cursor.z)
     }
+    // Moves the crosshair by whole voxels along this plane's horizontal (dh)
+    // and downward vertical (dv) axes, snapping the point to voxel centres.
+    function moveCrosshair(dh, dv) {
+        if (!cursor || !volume) return false
+        const x = Math.round(cursor.x), y = Math.round(cursor.y), z = Math.round(cursor.z)
+        if (plane === Tk.ImageSliceItem.Axial) return cursor.setVoxelPoint(x + dh, y + dv, z)
+        if (plane === Tk.ImageSliceItem.Coronal) return cursor.setVoxelPoint(x + dh, y, z + dv)
+        return cursor.setVoxelPoint(x, y + dh, z + dv)
+    }
+    function _formatValue(sample) {
+        return sample.valid ? String(+Number(sample.value).toFixed(3)) : qsTr("missing")
+    }
+    // AGENT-NOTE: a cursor without a volume adopts this view's, so a
+    // declarative `cursor: shared` works without also wiring cursor.volume.
+    function _adoptVolume() {
+        if (cursor && volume && !cursor.volume) cursor.volume = volume
+    }
+    onCursorChanged: _adoptVolume()
+    onVolumeChanged: _adoptVolume()
+    Component.onCompleted: _adoptVolume()
 
     implicitWidth: Tk.Theme.size.panelMinWidth
     implicitHeight: Tk.Theme.size.panelMinHeight
@@ -43,15 +73,32 @@ T.Control {
     focusPolicy: Qt.StrongFocus
     Accessible.role: Accessible.Grouping
     Accessible.name: tooltip
-    Accessible.description: volume
-        ? qsTr("%1 slice %2 of %3; spacing %4 %5; value %6 %7")
-            .arg(plane === Tk.ImageSliceItem.Axial ? qsTr("Axial")
-                 : plane === Tk.ImageSliceItem.Coronal ? qsTr("Coronal") : qsTr("Sagittal"))
-            .arg(sliceIndex + 1).arg(sliceCount).arg(volume.spacing.join(", ")).arg(volume.unit)
-            .arg(selectedSample.valid ? selectedSample.value : qsTr("missing")).arg(volume.valueUnit)
+    Accessible.focusable: true
+    Accessible.focused: activeFocus
+    Accessible.description: volume && cursor
+        ? qsTr("%1 slice %2 of %3; spacing %4 %5; cursor %6 %5; value %7 %8. Arrow keys move the crosshair; Page Up and Page Down change slice.")
+            .arg(planeName).arg(sliceIndex + 1).arg(sliceCount).arg(volume.spacing.join(", ")).arg(volume.unit)
+            .arg(cursor.worldPoint.map(function(v) { return Number(v).toFixed(2) }).join(", "))
+            .arg(_formatValue(selectedSample)).arg(volume.valueUnit)
+        : volume ? qsTr("%1 slice %2 of %3").arg(planeName).arg(sliceIndex + 1).arg(sliceCount)
         : qsTr("No volume")
     Tk.ToolTip { text: control.tooltip; visible: hover.hovered }
     HoverHandler { id: hover }
+
+    Keys.onPressed: function(event) {
+        let handled = false
+        switch (event.key) {
+        case Qt.Key_PageUp: handled = control.setSliceIndex(control.sliceIndex + 1); break
+        case Qt.Key_PageDown: handled = control.setSliceIndex(control.sliceIndex - 1); break
+        case Qt.Key_Home: handled = control.setSliceIndex(0); break
+        case Qt.Key_End: handled = control.setSliceIndex(control.sliceCount - 1); break
+        case Qt.Key_Left: handled = control.moveCrosshair(-1, 0); break
+        case Qt.Key_Right: handled = control.moveCrosshair(1, 0); break
+        case Qt.Key_Up: handled = control.moveCrosshair(0, -1); break
+        case Qt.Key_Down: handled = control.moveCrosshair(0, 1); break
+        }
+        event.accepted = handled
+    }
 
     background: Rectangle {
         color: Tk.Theme.color.surface
@@ -67,14 +114,10 @@ T.Control {
             direction: Tk.Flex.Row
             align: Tk.Flex.Center
             gap: Tk.Theme.space.xs
-            Tk.Label {
-                text: control.plane === Tk.ImageSliceItem.Axial ? qsTr("Axial")
-                    : control.plane === Tk.ImageSliceItem.Coronal ? qsTr("Coronal") : qsTr("Sagittal")
-                Tk.Flex.grow: 1
-            }
+            Tk.Label { text: control.planeName; Tk.Flex.grow: 1 }
             Tk.Mono { objectName: "imageSliceIndex"; text: control.sliceCount ? (control.sliceIndex + 1) + " / " + control.sliceCount : "—" }
-            Tk.IconButton { objectName: "imageSlicePrevious"; iconName: "chevron-left"; tooltip: qsTr("Previous slice"); enabled: control.sliceIndex > 0; onClicked: control.setSliceIndex(control.sliceIndex - 1) }
-            Tk.IconButton { objectName: "imageSliceNext"; iconName: "chevron-right"; tooltip: qsTr("Next slice"); enabled: control.sliceIndex + 1 < control.sliceCount; onClicked: control.setSliceIndex(control.sliceIndex + 1) }
+            Tk.IconButton { objectName: "imageSlicePrevious"; iconName: "chevron-left"; tooltip: qsTr("Previous slice"); enabled: !!control.cursor && control.sliceIndex > 0; onClicked: control.setSliceIndex(control.sliceIndex - 1) }
+            Tk.IconButton { objectName: "imageSliceNext"; iconName: "chevron-right"; tooltip: qsTr("Next slice"); enabled: !!control.cursor && control.sliceIndex + 1 < control.sliceCount; onClicked: control.setSliceIndex(control.sliceIndex + 1) }
         }
         Item {
             id: viewport
@@ -98,15 +141,27 @@ T.Control {
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton
                 onClicked: function(mouse) {
+                    control.forceActiveFocus()
                     if (!control.cursor) return
                     const point = slice.voxelAt(mouse.x, mouse.y)
                     if (point.length === 3 && control.cursor.setVoxelPoint(point[0], point[1], point[2]))
-                        control.pointSelected(point)
-                    control.forceActiveFocus()
+                        control.pointSelected([control.cursor.x, control.cursor.y, control.cursor.z])
                 }
                 onWheel: function(wheel) {
-                    if (!control.volume || !control.cursor) return
-                    control.setSliceIndex(control.sliceIndex + (wheel.angleDelta.y > 0 ? 1 : -1))
+                    // AGENT-NOTE: one slice per 120 angle units. Touchpad deltas
+                    // accumulate; a purely horizontal scroll must not step
+                    // backwards, so it passes to the parent instead.
+                    if (!control.volume || !control.cursor || wheel.angleDelta.y === 0) {
+                        wheel.accepted = false
+                        return
+                    }
+                    control._wheelDelta += wheel.angleDelta.y
+                    const steps = control._wheelDelta > 0 ? Math.floor(control._wheelDelta / 120)
+                                                          : Math.ceil(control._wheelDelta / 120)
+                    if (steps !== 0) {
+                        control._wheelDelta -= steps * 120
+                        control.setSliceIndex(control.sliceIndex + steps)
+                    }
                     wheel.accepted = true
                 }
             }
@@ -117,7 +172,7 @@ T.Control {
                 ? qsTr("Voxel %1, %2, %3  ·  %4 %5")
                     .arg(control.cursor.x.toFixed(1)).arg(control.cursor.y.toFixed(1))
                     .arg(control.cursor.z.toFixed(1))
-                    .arg(control.selectedSample.valid ? control.selectedSample.value.toFixed(2) : qsTr("missing"))
+                    .arg(control._formatValue(control.selectedSample))
                     .arg(control.volume.valueUnit)
                 : qsTr("No coordinate")
         }

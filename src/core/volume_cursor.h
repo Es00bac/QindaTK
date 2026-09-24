@@ -9,10 +9,12 @@
 
 namespace QindaTK {
 // One cursor shared by axial, coronal and sagittal ImageSliceView instances.
+// The point is in continuous voxel indices of `volume`, clamped to the outer
+// voxel centres; worldPoint applies the volume's spacing/origin/orientation.
 class VolumeCursor : public QObject {
     Q_OBJECT
     QML_ELEMENT
-    Q_PROPERTY(VoxelVolume *volume READ volume WRITE setVolume NOTIFY changed)
+    Q_PROPERTY(QindaTK::VoxelVolume *volume READ volume WRITE setVolume NOTIFY changed)
     Q_PROPERTY(double x READ x NOTIFY changed)
     Q_PROPERTY(double y READ y NOTIFY changed)
     Q_PROPERTY(double z READ z NOTIFY changed)
@@ -30,7 +32,12 @@ public:
 signals:
     void changed();
 private:
+    void volumeChanged();
+    void recenter();
+    void publish();
     QPointer<VoxelVolume> m_volume;
     double m_point[3] = {0, 0, 0};
+    int m_shape[3] = {0, 0, 0};
+    QVariantList m_world;
 };
 } // namespace QindaTK

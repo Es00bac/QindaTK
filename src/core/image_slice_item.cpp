@@ -27,7 +27,9 @@ void ImageSliceItem::setCursor(VolumeCursor *cursor)
     if (m_cursor == cursor) return;
     if (m_cursor) disconnect(m_cursor, nullptr, this, nullptr);
     m_cursor = cursor;
-    if (cursor) connect(cursor, &VolumeCursor::changed, this, &ImageSliceItem::invalidate);
+    // A cursor move always repaints the crosshair; paint() regenerates the
+    // slice image only when this plane's slice coordinate changed.
+    if (cursor) connect(cursor, &VolumeCursor::changed, this, [this] { update(); });
     invalidate(); emit changed();
 }
 void ImageSliceItem::setTransfer(TransferFunctionModel *transfer)
@@ -95,17 +97,21 @@ int ImageSliceItem::verticalSize() const
 }
 double ImageSliceItem::horizontalSpacing() const
 {
-    if (!m_volume) return 1;
-    return m_volume->spacing()[m_plane == Sagittal ? 1 : 0].toDouble();
+    return m_volume ? m_volume->spacingAt(m_plane == Sagittal ? 1 : 0) : 1;
 }
 double ImageSliceItem::verticalSpacing() const
 {
-    if (!m_volume) return 1;
-    return m_volume->spacing()[m_plane == Axial ? 1 : 2].toDouble();
+    return m_volume ? m_volume->spacingAt(m_plane == Axial ? 1 : 2) : 1;
 }
 double ImageSliceItem::currentSlice() const
 {
-    if (!m_cursor || !m_volume) return 0;
+    if (!m_volume) return 0;
+    if (!m_cursor) {
+        // Without a cursor the view shows the middle slice.
+        const int count = m_plane == Axial ? m_volume->sizeZ()
+            : m_plane == Coronal ? m_volume->sizeY() : m_volume->sizeX();
+        return std::max(0, count - 1) / 2.0;
+    }
     return m_plane == Axial ? m_cursor->z() : m_plane == Coronal ? m_cursor->y() : m_cursor->x();
 }
 QRectF ImageSliceItem::targetRect() const
@@ -120,39 +126,53 @@ QRectF ImageSliceItem::targetRect() const
 QVariantList ImageSliceItem::voxelAt(double px, double py) const
 {
     const QRectF rect = targetRect();
-    if (!m_volume || !rect.contains(QPointF(px, py))) return {};
-    const double h = horizontalSize() == 1 ? 0 : (px - rect.left()) / rect.width() * (horizontalSize() - 1);
-    const double v = verticalSize() == 1 ? 0 : (py - rect.top()) / rect.height() * (verticalSize() - 1);
+    if (!m_volume || rect.isEmpty() || !rect.contains(QPointF(px, py))) return {};
+    const double h = (px - rect.left()) / rect.width() * horizontalSize() - 0.5;
+    const double v = (py - rect.top()) / rect.height() * verticalSize() - 0.5;
     const double slice = currentSlice();
     if (m_plane == Axial) return {h, v, slice};
     if (m_plane == Coronal) return {h, slice, v};
     return {slice, h, v};
 }
+QVariantList ImageSliceItem::positionForVoxel(double x, double y, double z) const
+{
+    const QRectF rect = targetRect();
+    if (!m_volume || rect.isEmpty() || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
+        return {};
+    const double h = m_plane == Sagittal ? y : x;
+    const double v = m_plane == Axial ? y : z;
+    return {rect.left() + (h + 0.5) / horizontalSize() * rect.width(),
+            rect.top() + (v + 0.5) / verticalSize() * rect.height()};
+}
+QRgb ImageSliceItem::colorFor(double value) const
+{
+    if (!std::isfinite(value)) return qRgba(0, 0, 0, 0);
+    if (m_transfer) return m_transfer->colorAt(value).rgba();
+    const double level = std::clamp((value - m_windowCenter) / m_windowWidth + 0.5, 0.0, 1.0);
+    const int gray = int(std::lround(level * 255));
+    return qRgb(gray, gray, gray);
+}
 QImage ImageSliceItem::sliceImage(int columns, int rows) const
 {
     if (!m_volume || horizontalSize() < 1 || verticalSize() < 1) return {};
-    columns = std::clamp(columns, 1, 2048);
-    rows = std::clamp(rows, 1, 2048);
+    columns = std::clamp(columns, 1, MaximumImageSide);
+    rows = std::clamp(rows, 1, MaximumImageSide);
     QImage image(columns, rows, QImage::Format_ARGB32_Premultiplied);
     if (image.isNull()) return {};
     const double slice = currentSlice();
+    // Pixel centres map to continuous voxel indices across whole cells.
+    const double columnScale = double(horizontalSize()) / columns;
+    const double rowScale = double(verticalSize()) / rows;
     for (int row = 0; row < rows; ++row) {
         QRgb *line = reinterpret_cast<QRgb *>(image.scanLine(row));
-        const double v = rows == 1 ? 0 : double(row) * (verticalSize() - 1) / (rows - 1);
+        const double v = (row + 0.5) * rowScale - 0.5;
         for (int column = 0; column < columns; ++column) {
-            const double h = columns == 1 ? 0 : double(column) * (horizontalSize() - 1) / (columns - 1);
+            const double h = (column + 0.5) * columnScale - 0.5;
             const double x = m_plane == Sagittal ? slice : h;
             const double y = m_plane == Sagittal ? h : m_plane == Coronal ? slice : v;
             const double z = m_plane == Axial ? slice : v;
-            const double value = m_volume->sampleValue(x, y, z, m_channel, m_frame, m_interpolation);
-            QColor color;
-            if (!std::isfinite(value)) color = Qt::transparent;
-            else if (m_transfer) color = m_transfer->colorAt(value);
-            else {
-                const double normalized = std::clamp((value - m_windowCenter) / m_windowWidth + 0.5, 0.0, 1.0);
-                color = QColor::fromRgbF(normalized, normalized, normalized);
-            }
-            line[column] = qPremultiply(color.rgba());
+            line[column] = qPremultiply(colorFor(
+                m_volume->sampleValue(x, y, z, m_channel, m_frame, m_interpolation)));
         }
     }
     return image;
@@ -162,20 +182,31 @@ void ImageSliceItem::paint(QPainter *painter)
     painter->fillRect(boundingRect(), m_background);
     const QRectF rect = targetRect();
     if (rect.isEmpty()) return;
-    const int columns = std::clamp(int(std::ceil(rect.width())), 1, 2048);
-    const int rows = std::clamp(int(std::ceil(rect.height())), 1, 2048);
-    if (m_dirty || m_image.size() != QSize(columns, rows)) {
+    // AGENT-NOTE: Nearest needs at most one sample per voxel along each axis;
+    // the painter's nearest scaling of that image matches sampling every item
+    // pixel (cell edges may round to the neighbouring pixel), so a magnified
+    // repaint costs voxels, not view pixels. Linear
+    // interpolates values before the transfer or window mapping (a painter
+    // blend would interpolate colors instead), so it samples per item pixel.
+    const bool nearest = m_interpolation == VoxelVolume::Nearest;
+    const int pixelColumns = int(std::ceil(rect.width())), pixelRows = int(std::ceil(rect.height()));
+    const int columns = std::clamp(nearest ? std::min(pixelColumns, horizontalSize()) : pixelColumns,
+                                   1, MaximumImageSide);
+    const int rows = std::clamp(nearest ? std::min(pixelRows, verticalSize()) : pixelRows,
+                                1, MaximumImageSide);
+    const double slice = currentSlice();
+    if (m_dirty || slice != m_imageSlice || m_image.size() != QSize(columns, rows)) {
         m_image = sliceImage(columns, rows);
+        m_imageSlice = slice;
         m_dirty = false;
     }
     if (m_image.isNull()) return;
     painter->setRenderHint(QPainter::SmoothPixmapTransform, m_interpolation == VoxelVolume::Linear);
     painter->drawImage(rect, m_image);
     if (!m_cursor || m_crosshairWidth <= 0 || m_crosshair.alpha() == 0) return;
-    const double h = m_plane == Sagittal ? m_cursor->y() : m_cursor->x();
-    const double v = m_plane == Axial ? m_cursor->y() : m_cursor->z();
-    const double px = rect.left() + (horizontalSize() == 1 ? 0.5 : h / (horizontalSize() - 1)) * rect.width();
-    const double py = rect.top() + (verticalSize() == 1 ? 0.5 : v / (verticalSize() - 1)) * rect.height();
+    const QVariantList point = positionForVoxel(m_cursor->x(), m_cursor->y(), m_cursor->z());
+    if (point.size() != 2) return;
+    const double px = point[0].toDouble(), py = point[1].toDouble();
     QPen pen(m_crosshair);
     pen.setWidthF(m_crosshairWidth);
     painter->setPen(pen);

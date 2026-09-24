@@ -15423,7 +15423,7 @@
       "name": "ImageSliceView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one VolumeCursor in voxel coordinates; the provider owns physical transforms.",
+      "description": "One calibrated principal plane of a Tk.VoxelVolume: a header (plane, slice n / N, previous/next), the slice fitted by physical spacing with the shared crosshair, and a voxel/value readout. Click moves the shared cursor; wheel, Page Up/Down, Home/End and the chevrons change slice; arrow keys move the crosshair one voxel within the plane. AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one VolumeCursor in voxel coordinates; the provider owns physical transforms.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ImageSliceView.qml",
@@ -15509,6 +15509,14 @@
           "required": false
         },
         {
+          "name": "planeName",
+          "type": "string",
+          "default": "plane === Tk.ImageSliceItem.Axial ? qsTr(\"Axial\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "sliceCount",
           "type": "int",
           "default": "!volume ? 0 : plane === Tk.ImageSliceItem.Axial ? volume.sizeZ",
@@ -15519,7 +15527,7 @@
         {
           "name": "sliceIndex",
           "type": "int",
-          "default": "!cursor ? 0 : Math.round(plane === Tk.ImageSliceItem.Axial ? cursor.z",
+          "default": "!cursor ? Math.max(0, Math.round((sliceCount - 1) / 2))",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -15527,7 +15535,7 @@
         {
           "name": "selectedSample",
           "type": "var",
-          "default": "volume && cursor",
+          "default": "{",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -15543,6 +15551,10 @@
         {
           "name": "setSliceIndex",
           "parameters": "index"
+        },
+        {
+          "name": "moveCrosshair",
+          "parameters": "dh, dv"
         }
       ],
       "enums": {},
@@ -35065,7 +35077,7 @@
       "name": "TransferFunctionEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer settings model. Voxel source data and its revision are never changed here.",
+      "description": "Edits a Tk.TransferFunctionModel: measured-value stops on a gradient over the model's domain (click the track to add at the current mapping, drag or arrow-key a stop to move it, Delete or right-click to remove) plus the selected stop's exact value, opacity and color. Sized to its content. AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer settings model. Voxel source data and its revision are never changed here.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TransferFunctionEditor.qml",
@@ -35097,7 +35109,7 @@
         {
           "name": "selectedPoint",
           "type": "var",
-          "default": "model ? model.point(selectedPointId) : ({})",
+          "default": "{",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -47558,28 +47570,28 @@
       "name": "ImageSliceItem",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
-      "description": "",
+      "description": "Paints one principal voxel-index plane of a VoxelVolume, fitted by physical spacing, with the shared VolumeCursor crosshair. AGENT-CONTRACT (docs/volume-imaging.md, D-086): the target rectangle spans whole voxel cells (size × spacing), so its edges are continuous indices −0.5 and size−0.5. sliceImage, voxelAt, positionForVoxel and the crosshair share that one mapping; change them together.",
       "singleton": false,
       "attached": null,
       "file": "src/core/image_slice_item.h",
       "properties": [
         {
           "name": "volume",
-          "type": "VoxelVolume *",
+          "type": "QindaTK::VoxelVolume *",
           "default": "",
           "readonly": false,
           "constant": false
         },
         {
           "name": "cursor",
-          "type": "VolumeCursor *",
+          "type": "QindaTK::VolumeCursor *",
           "default": "",
           "readonly": false,
           "constant": false
         },
         {
           "name": "transfer",
-          "type": "TransferFunctionModel *",
+          "type": "QindaTK::TransferFunctionModel *",
           "default": "",
           "readonly": false,
           "constant": false
@@ -47607,7 +47619,7 @@
         },
         {
           "name": "interpolation",
-          "type": "VoxelVolume::Interpolation",
+          "type": "QindaTK::VoxelVolume::Interpolation",
           "default": "",
           "readonly": false,
           "constant": false
@@ -47639,6 +47651,13 @@
           "default": "",
           "readonly": false,
           "constant": false
+        },
+        {
+          "name": "crosshairWidth",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
         }
       ],
       "signals": [
@@ -47652,6 +47671,11 @@
           "name": "voxelAt",
           "returns": "QVariantList",
           "parameters": "double px, double py"
+        },
+        {
+          "name": "positionForVoxel",
+          "returns": "QVariantList",
+          "parameters": "double x, double y, double z"
         }
       ],
       "enums": {},
@@ -58115,7 +58139,7 @@
       "name": "TransferFunctionModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "",
+      "description": "Measured scalar value → color and opacity for image and volume views. Stops have stable IDs, strictly increasing values and endpoints pinned to the domain; RGB and opacity interpolate linearly between neighbouring stops.",
       "singleton": false,
       "attached": null,
       "file": "src/core/transfer_function_model.h",
@@ -58232,6 +58256,11 @@
         {
           "name": "colorAt",
           "returns": "QColor",
+          "parameters": "double value"
+        },
+        {
+          "name": "opacityAt",
+          "returns": "double",
           "parameters": "double value"
         }
       ],
@@ -59457,14 +59486,14 @@
       "name": "VolumeCursor",
       "kind": "cpp",
       "base": "QObject",
-      "description": "One cursor shared by axial, coronal and sagittal ImageSliceView instances.",
+      "description": "One cursor shared by axial, coronal and sagittal ImageSliceView instances. The point is in continuous voxel indices of `volume`, clamped to the outer voxel centres; worldPoint applies the volume's spacing/origin/orientation.",
       "singleton": false,
       "attached": null,
       "file": "src/core/volume_cursor.h",
       "properties": [
         {
           "name": "volume",
-          "type": "VoxelVolume *",
+          "type": "QindaTK::VoxelVolume *",
           "default": "",
           "readonly": false,
           "constant": false
@@ -59530,7 +59559,7 @@
       "name": "VoxelVolume",
       "kind": "cpp",
       "base": "QObject",
-      "description": "",
+      "description": "Typed, spatially calibrated voxel data in 32³ chunks. A voxel index is the centre of a cell one spacing wide (docs/decisions-domains.md, D-086).",
       "singleton": false,
       "attached": null,
       "file": "src/core/voxel_volume.h",

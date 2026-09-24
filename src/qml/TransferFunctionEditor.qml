@@ -3,6 +3,10 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
+// Edits a Tk.TransferFunctionModel: measured-value stops on a gradient over
+// the model's domain (click the track to add at the current mapping, drag or
+// arrow-key a stop to move it, Delete or right-click to remove) plus the
+// selected stop's exact value, opacity and color. Sized to its content.
 // AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer
 // settings model. Voxel source data and its revision are never changed here.
 T.Control {
@@ -16,15 +20,24 @@ T.Control {
         const revision = model.revision
         return revision >= 0 ? model.point(selectedPointId) : ({})
     }
-    onSelectedPointChanged: {
+    signal customColorRequested(string pointId)
+
+    readonly property real _span: model ? model.domainMax - model.domainMin : 1
+    readonly property int _magnitude: Math.floor(Math.log10(_span))
+    readonly property bool _innerSelected: !!model && !!selectedPoint.id
+        && selectedPoint.value > model.domainMin && selectedPoint.value < model.domainMax
+    // AGENT-NOTE: field values are pushed from the model rather than bound. A
+    // user edit breaks a binding, and an edit the model rejects must snap back
+    // to the stored point instead of showing a value that was never applied.
+    function _syncFields() {
         if (pointValue) pointValue.value = selectedPoint.value || 0
         if (pointOpacity) pointOpacity.value = selectedPoint.opacity || 0
         if (pointColor) pointColor.color = selectedPoint.color || Tk.Theme.color.text
     }
-    signal customColorRequested(string pointId)
+    onSelectedPointChanged: _syncFields()
 
-    implicitWidth: Tk.Theme.size.panelMinWidth
-    implicitHeight: Tk.Theme.size.waveformHeight + Tk.Theme.size.controlLg + Tk.Theme.space.lg
+    implicitWidth: Math.max(Tk.Theme.size.panelMinWidth, implicitContentWidth + leftPadding + rightPadding)
+    implicitHeight: implicitContentHeight + topPadding + bottomPadding
     padding: Tk.Theme.space.md
     focusPolicy: Qt.StrongFocus
     Accessible.role: Accessible.Grouping
@@ -46,6 +59,7 @@ T.Control {
         gap: Tk.Theme.space.sm
         Tk.Flex {
             direction: Tk.Flex.Row
+            align: Tk.Flex.Center
             Tk.Label { text: qsTr("Transfer function"); Tk.Flex.grow: 1 }
             Tk.Mono { text: control.model ? control.model.unit : "" }
         }
@@ -68,7 +82,10 @@ T.Control {
             onAddStopRequested: function(position) {
                 if (!control.model) return
                 const value = control.model.domainMin + position * (control.model.domainMax - control.model.domainMin)
-                control.selectedPointId = control.model.addPoint(value, control.model.colorAt(value), 0.5)
+                // A new stop takes the current mapping, so adding one never
+                // changes the rendered result until it is edited.
+                const id = control.model.addPoint(value, control.model.colorAt(value), control.model.opacityAt(value))
+                if (id.length > 0) control.selectedPointId = id
             }
             onMoveFinished: function(id, position) {
                 if (!control.model) return
@@ -88,14 +105,17 @@ T.Control {
                 id: pointValue
                 objectName: "transferPointValue"
                 Tk.Flex.grow: 1
-                enabled: !!control.selectedPoint.id && control.selectedPoint.value > control.model.domainMin
-                    && control.selectedPoint.value < control.model.domainMax
+                enabled: control._innerSelected
                 value: control.selectedPoint.value || 0
                 from: control.model ? control.model.domainMin : 0
                 to: control.model ? control.model.domainMax : 1
-                decimals: 2
+                decimals: Math.max(0, 3 - control._magnitude)
+                stepSize: Math.pow(10, control._magnitude - 2)
                 tooltip: qsTr("Selected transfer value")
-                onValueModified: function(value) { if (control.model) control.model.movePoint(control.selectedPointId, value) }
+                onValueModified: function(value) {
+                    if (control.model && !control.model.movePoint(control.selectedPointId, value))
+                        control._syncFields()
+                }
             }
             Tk.Caption { text: qsTr("Opacity") }
             Tk.Slider {
@@ -106,7 +126,10 @@ T.Control {
                 from: 0; to: 1; decimals: 2; showValue: true
                 value: control.selectedPoint.opacity || 0
                 tooltip: qsTr("Selected transfer opacity")
-                onValueModified: function(value) { if (control.model) control.model.setPointOpacity(control.selectedPointId, value) }
+                onValueModified: function(value) {
+                    if (control.model && !control.model.setPointOpacity(control.selectedPointId, value))
+                        control._syncFields()
+                }
             }
             Tk.ColorButton {
                 id: pointColor
@@ -114,9 +137,17 @@ T.Control {
                 enabled: !!control.selectedPoint.id
                 tooltip: qsTr("Selected transfer color")
                 color: control.selectedPoint.color || Tk.Theme.color.text
-                colors: [Tk.Theme.color.text, Tk.Theme.color.accent, Tk.Theme.color.warning,
-                         Tk.Theme.color.danger, Tk.Theme.color.success]
-                onColorSelected: function(color) { if (control.model) control.model.setPointColor(control.selectedPointId, color) }
+                // ColorSwatches reads strings or {name, color}; a bare color
+                // value has no .color and would paint an undefined swatch.
+                colors: [{name: qsTr("Text"), color: Tk.Theme.color.text},
+                         {name: qsTr("Accent"), color: Tk.Theme.color.accent},
+                         {name: qsTr("Warning"), color: Tk.Theme.color.warning},
+                         {name: qsTr("Danger"), color: Tk.Theme.color.danger},
+                         {name: qsTr("Success"), color: Tk.Theme.color.success}]
+                onColorSelected: function(color) {
+                    if (control.model && !control.model.setPointColor(control.selectedPointId, color))
+                        control._syncFields()
+                }
                 onCustomRequested: control.customColorRequested(control.selectedPointId)
             }
         }

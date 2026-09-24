@@ -7,18 +7,24 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
+#include <list>
 #include <memory>
 
 namespace QindaTK {
 
 // Host source chunks are little-endian, tightly packed X-fastest 32³ blocks.
 // A failed read returns an empty block, which the volume treats as missing.
+// AGENT-CONTRACT (docs/volume-imaging.md): readChunk is synchronous and may
+// run on the scene-graph render thread while the GUI thread is blocked (an
+// ImageSliceItem paint). It must not call back into the VoxelVolume.
 class VoxelChunkSource {
 public:
     virtual ~VoxelChunkSource() = default;
     virtual QByteArray readChunk(int cx, int cy, int cz, int channel, int frame) = 0;
 };
 
+// Typed, spatially calibrated voxel data in 32³ chunks. A voxel index is the
+// centre of a cell one spacing wide (docs/decisions-domains.md, D-086).
 class VoxelVolume : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -52,7 +58,12 @@ public:
     QVariantList spacing() const;
     QVariantList origin() const;
     QVariantList orientation() const;
+    double spacingAt(int axis) const { return axis >= 0 && axis < 3 ? m_spacing[axis] : 1.0; }
     quint64 revision() const { return m_revision; }
+    // AGENT-NOTE: provider chunks are cached during const reads (often inside a
+    // paint on the render thread), where no signal may be emitted, so
+    // residentBytes is a snapshot that changed() does not announce for cache
+    // fills. It never exceeds maximumResidentBytes.
     qint64 residentBytes() const { return m_residentBytes; }
     qint64 maximumResidentBytes() const { return m_maxResidentBytes; }
     void setMaximumResidentBytes(qint64 bytes);
@@ -73,24 +84,35 @@ signals:
     void changed();
     void errorChanged();
 private:
+    enum class Kind : quint8 { UInt8, UInt16, Float32 };
+    struct CachedChunk { QByteArray bytes; std::list<quint64>::iterator order; };
     static constexpr int Chunk = 32;
+    static qsizetype chunkBytesFor(Kind kind);
+    int chunkCount(int axis) const { return (m_shape[axis] + Chunk - 1) / Chunk; }
     bool validIndex(int x, int y, int z, int channel, int frame) const;
-    int bytesPerVoxel() const;
-    qsizetype chunkBytes() const;
+    qsizetype chunkBytes() const { return chunkBytesFor(m_kind); }
+    qsizetype voxelOffset(int x, int y, int z) const;
     quint64 key(int cx, int cy, int cz, int channel, int frame) const;
     const QByteArray *chunkForRead(int cx, int cy, int cz, int channel, int frame) const;
-    bool writeVoxel(int x, int y, int z, double value, int channel, int frame);
+    bool makeRoom() const;
+    void dropCached(quint64 address) const;
+    void clearStorage();
+    QString writeVoxel(int x, int y, int z, double value, int channel, int frame);
     void fail(const QString &message);
     int m_shape[3] = {0, 0, 0};
     int m_channels = 1, m_frames = 1;
+    Kind m_kind = Kind::UInt8;
     QString m_type = QStringLiteral("uint8");
     QString m_unit = QStringLiteral("mm"), m_valueUnit;
     double m_spacing[3] = {1, 1, 1};
     double m_origin[3] = {0, 0, 0};
     double m_orientation[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
     QHash<quint64, QByteArray> m_blocks;
-    mutable QHash<quint64, QByteArray> m_cache;
-    mutable QList<quint64> m_cacheOrder;
+    // AGENT-GUARD: m_cacheOrder lists exactly the keys of m_cache, least
+    // recently used first; every insert/erase must update both, or eviction
+    // frees the wrong chunk and residentBytes drifts from the real footprint.
+    mutable QHash<quint64, CachedChunk> m_cache;
+    mutable std::list<quint64> m_cacheOrder;
     std::shared_ptr<VoxelChunkSource> m_source;
     mutable qint64 m_residentBytes = 0;
     qint64 m_maxResidentBytes = 64 * 1024 * 1024;
