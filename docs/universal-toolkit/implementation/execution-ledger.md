@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, eight active, three in review, and 40 planned.**
+**Execution state: 33 packages accepted, nine active, three in review, and 39 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -104,7 +104,7 @@ as though a later fix had already passed the earlier run.
 | [WP-066 — Integrate plugin hosting and plugin controls](phase-05-audio.md#wp-066) | 05 | Sol | planned | — |
 | [WP-067 — Implement score and notation editing](phase-05-audio.md#wp-067) | 05 | Sol | planned | — |
 | [WP-068 — Implement pitch analysis and correction editing](phase-05-audio.md#wp-068) | 05 | Sol | planned | — |
-| [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | planned | — |
+| [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | active | [Monitor and media-bin controls integrated; decoder and frame lifecycle pending](evidence/WP-070.md) |
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | planned | — |
 | [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | planned | — |
 | [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | planned | — |
