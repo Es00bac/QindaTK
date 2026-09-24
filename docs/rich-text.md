@@ -120,6 +120,11 @@ model's point units. Section/page scopes, multiple columns, gutter and bleed
 return `Unsupported` until the paginator and codec represent them; the
 document stays unchanged on rejection.
 
+`RichTextDocument.exportPdf(path)` paints every paginated page to a local PDF
+file using the same `RichTextLayout::paintPage` path as the on-screen view.
+The file is committed atomically. This is file output; printer discovery,
+job cancellation, preflight and advanced page geometry remain WP-053 work.
+
 Each view owns a `RichTextLayout`, while the document stays authoritative,
 so two views with different widths or modes never share line state.
 Paragraphs are shaped with a standalone `QTextLayout` each (HarfBuzz

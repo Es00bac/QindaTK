@@ -2,8 +2,10 @@
 #include "rich_text_fixtures.h"
 #include "rich_text_graphemes.h"
 #include "rich_text_layout.h"
+#include <QFile>
 #include <QGlyphRun>
 #include <QRawFont>
+#include <QTemporaryDir>
 #include <QtTest>
 
 using namespace QindaTK;
@@ -249,6 +251,22 @@ private slots:
         QCOMPARE(layout.flowHeight(), 45 * LinePx);
         const Position hit = layout.hitTest(0, QPointF(1, 44 * LinePx + 2));
         QCOMPARE(hit.paragraph, doc.paragraphsInOrder().last()->id);
+    }
+
+    void pdfExportUsesPaginatedDocument()
+    {
+        RichTextDocument doc;
+        buildLines(doc, 45);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath(QStringLiteral("pages.pdf"));
+        const quint64 revision = doc.revision();
+        QVERIFY2(doc.exportPdf(path), qPrintable(doc.lastError()));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QVERIFY(file.read(8).startsWith("%PDF-"));
+        QVERIFY(file.size() > 1024);
+        QCOMPARE(doc.revision(), revision);
     }
 };
 

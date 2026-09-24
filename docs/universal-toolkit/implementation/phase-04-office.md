@@ -78,7 +78,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-053"></a>
 ## WP-053 — Implement printing and publishing preflight
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-051](phase-04-office.md#wp-051)
+**Implementation lead:** Sol. **Status:** active (paginated PDF file output implemented; printer and preflight work pending). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-051](phase-04-office.md#wp-051)
 
 **Proposal scope:** [OFF-12 PrintPreview](../proposed/05-documents-office.md#off-12), [OFF-13 PreflightPanel](../proposed/05-documents-office.md#off-13), [PLT-04 PrintAdapter](../proposed/08-platform-integrations.md#plt-04)
 

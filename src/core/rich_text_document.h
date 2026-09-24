@@ -276,6 +276,7 @@ public:
     Q_INVOKABLE bool loadJson(const QString &json);
     Q_INVOKABLE bool saveToFile(const QString &path);
     Q_INVOKABLE bool loadFromFile(const QString &path);
+    Q_INVOKABLE bool exportPdf(const QString &path);
     Q_INVOKABLE QString text() const;
     Q_INVOKABLE QStringList paragraphIds() const;
     Q_INVOKABLE QString paragraphText(const QString &paragraphId) const;

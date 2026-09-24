@@ -15352,6 +15352,10 @@
           "parameters": "id"
         },
         {
+          "name": "syncDraftFromSelection",
+          "parameters": ""
+        },
+        {
           "name": "selectReference",
           "parameters": "id"
         },
@@ -33275,6 +33279,11 @@
         },
         {
           "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "exportPdf",
           "returns": "bool",
           "parameters": "const QString &path"
         },
