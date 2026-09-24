@@ -124,6 +124,165 @@
       ]
     },
     {
+      "name": "AnimationPane",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The host evaluates effects and commits every accepted field edit.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AnimationPane.qml",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "slideId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "effects",
+          "type": "var",
+          "default": "[] // [{id,targetId,label,trigger,delay,duration,easing,status}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEffectId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetChoices",
+          "type": "var",
+          "default": "[] // [{id,label}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ canEdit: true, canPreview: true })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Order and edit slide animations\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEffect",
+          "type": "var",
+          "default": "findEffect(selectedEffectId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "effectSelectionRequested",
+          "parameters": "string effectId"
+        },
+        {
+          "name": "effectMoveRequested",
+          "parameters": "string effectId, int targetIndex"
+        },
+        {
+          "name": "effectAddRequested",
+          "parameters": "string targetId, string kind, string requestId"
+        },
+        {
+          "name": "effectDeleteRequested",
+          "parameters": "string effectId"
+        },
+        {
+          "name": "effectEditRequested",
+          "parameters": "string effectId, var patch, string requestId"
+        },
+        {
+          "name": "previewRequested",
+          "parameters": "string effectId"
+        },
+        {
+          "name": "previewCancelRequested",
+          "parameters": "string effectId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "findEffect",
+          "parameters": "id"
+        },
+        {
+          "name": "effectIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "editField",
+          "parameters": "effect, field, value"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "animationAddEffect",
+        "animationDelay_",
+        "animationDelete_",
+        "animationDuration_",
+        "animationEarlier_",
+        "animationEasing_",
+        "animationEffectList",
+        "animationEffect_",
+        "animationError",
+        "animationLater_",
+        "animationPreview",
+        "animationSelect_",
+        "animationTargetPicker",
+        "animationTrigger_"
+      ]
+    },
+    {
       "name": "AppWindow",
       "kind": "qml",
       "base": "T.ApplicationWindow",
@@ -16757,6 +16916,216 @@
       ]
     },
     {
+      "name": "PresenterView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The presenter UI and audience surface are distinct: notes and controls only appear in the presenter pane; audienceContent is a separate slot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PresenterView.qml",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentSlideId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previousSlideId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nextSlideId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "slideCount",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentTitle",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nextTitle",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "speakerNotes",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "elapsedText",
+          "type": "string",
+          "default": "\"00:00\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "timerState",
+          "type": "string",
+          "default": "\"stopped\" // stopped, running, paused",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "audienceStatus",
+          "type": "string",
+          "default": "\"connected\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedDisplayId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displays",
+          "type": "var",
+          "default": "[] // [{id,label,connected,role}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blackedOut",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ canNavigate: true, canControlTimer: true, canBlank: true, canSelectDisplay: true })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Control a live presentation\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "audienceContent",
+          "type": "alias",
+          "default": "audienceSlot.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "slideNavigationRequested",
+          "parameters": "string slideId, int index"
+        },
+        {
+          "name": "timerActionRequested",
+          "parameters": "string action"
+        },
+        {
+          "name": "blankingRequested",
+          "parameters": "bool blanked"
+        },
+        {
+          "name": "displaySelectionRequested",
+          "parameters": "string displayId"
+        },
+        {
+          "name": "annotationRequested",
+          "parameters": "string slideId, string tool"
+        },
+        {
+          "name": "reconnectRequested",
+          "parameters": "string displayId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "navigate",
+          "parameters": "nextIndex, id"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "presenterAnnotationTool",
+        "presenterAudienceOutput",
+        "presenterAudienceStatus",
+        "presenterBlank",
+        "presenterDisplayPicker",
+        "presenterNext",
+        "presenterNextSlide",
+        "presenterNotes",
+        "presenterPrevious",
+        "presenterPrivatePanel",
+        "presenterReconnect",
+        "presenterTimer",
+        "presenterTimerAction"
+      ]
+    },
+    {
       "name": "PrintPreview",
       "kind": "qml",
       "base": "Item",
@@ -20081,6 +20450,469 @@
         "shortcutRow_",
         "shortcutSearch",
         "shortcutValidation"
+      ]
+    },
+    {
+      "name": "SlideCanvas",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Host snapshots own geometry and text. Gestures preview locally, then report one request; the surface resumes from the host snapshot until it is acked.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SlideCanvas.qml",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "slideId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "masterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "slideSize",
+          "type": "var",
+          "default": "({ width: 960, height: 540 })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "objects",
+          "type": "var",
+          "default": "[] // [{id,kind,text,bounds,fill,locked,visible}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedObjectIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "masterChoices",
+          "type": "var",
+          "default": "[] // [{id,label}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ canEdit: true, canInsertText: true, canInsertShape: true, canApplyMaster: true })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit the selected slide objects\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedText",
+          "type": "string",
+          "default": "selectedTextObject ? String(selectedTextObject.text || \"\") : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedTextObject",
+          "type": "var",
+          "default": "findObject(selectedObjectIds.length ? selectedObjectIds[0] : \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageScale",
+          "type": "real",
+          "default": "Math.max(0.1, Math.min((width - Tk.Theme.space.xl * 2) / Math.max(1, slideSize.width),",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectionRequested",
+          "parameters": "string objectId"
+        },
+        {
+          "name": "objectMoveRequested",
+          "parameters": "string objectId, var bounds"
+        },
+        {
+          "name": "objectTextEditRequested",
+          "parameters": "string objectId, string text"
+        },
+        {
+          "name": "objectInsertRequested",
+          "parameters": "string kind, var bounds, string requestId"
+        },
+        {
+          "name": "masterApplyRequested",
+          "parameters": "string masterId, string slideId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "findObject",
+          "parameters": "id"
+        },
+        {
+          "name": "requestInsert",
+          "parameters": "kind"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "slideApplyMaster",
+        "slideCanvasSurface",
+        "slideCanvasToolbar",
+        "slideCommitText",
+        "slideInsertShape",
+        "slideInsertText",
+        "slideMasterPicker",
+        "slideObject_",
+        "slideTextDraft",
+        "slideTextEditRow",
+        "slideZoom"
+      ]
+    },
+    {
+      "name": "SlideMasterEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Master and per-slide override snapshots stay owned by the slide model.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SlideMasterEditor.qml",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "masterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layoutId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSlideId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "masters",
+          "type": "var",
+          "default": "[] // [{id,title,layouts:[{id,title}],themeId,placeholders:[{role,label,value,overrideCount}]}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholderOverrides",
+          "type": "var",
+          "default": "[] // [{slideId,role,value}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSlideIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ canEdit: true, canApply: true, canResetOverrides: true })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit slide masters and placeholder defaults\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentMaster",
+          "type": "var",
+          "default": "findMaster(masterId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentLayout",
+          "type": "var",
+          "default": "findLayout(layoutId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholders",
+          "type": "var",
+          "default": "currentMaster ? currentMaster.placeholders || [] : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "masterSelectionRequested",
+          "parameters": "string masterId"
+        },
+        {
+          "name": "layoutSelectionRequested",
+          "parameters": "string layoutId"
+        },
+        {
+          "name": "placeholderEditRequested",
+          "parameters": "string masterId, string layoutId, string role, string value, string requestId"
+        },
+        {
+          "name": "applyMasterRequested",
+          "parameters": "string masterId, var slideIds, string requestId"
+        },
+        {
+          "name": "overrideResetRequested",
+          "parameters": "string slideId, string role"
+        }
+      ],
+      "methods": [
+        {
+          "name": "findMaster",
+          "parameters": "id"
+        },
+        {
+          "name": "findLayout",
+          "parameters": "id"
+        },
+        {
+          "name": "overrideFor",
+          "parameters": "role"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "slideApplyMasterSelection",
+        "slideLayoutChoice",
+        "slideMasterChoice",
+        "slideMasterSummary",
+        "slidePlaceholderApply_",
+        "slidePlaceholderList",
+        "slidePlaceholderReset_",
+        "slidePlaceholderValue_",
+        "slidePlaceholder_"
+      ]
+    },
+    {
+      "name": "SlideSorter",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Slide identity, ordering, selection and preview resources belong to the host.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SlideSorter.qml",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "slides",
+          "type": "var",
+          "default": "[] // [{id,title,previewUrl,section,hidden,status}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSlideIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentSlideId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filterText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ canReorder: true, canDuplicate: true, canDelete: true, canHide: true })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Arrange and navigate slides\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filteredSlides",
+          "type": "var",
+          "default": "slides.filter(function(slide) {",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectionRequested",
+          "parameters": "string slideId, bool additive"
+        },
+        {
+          "name": "reorderRequested",
+          "parameters": "string slideId, int targetIndex"
+        },
+        {
+          "name": "duplicateRequested",
+          "parameters": "string slideId"
+        },
+        {
+          "name": "deleteRequested",
+          "parameters": "string slideId"
+        },
+        {
+          "name": "hiddenChangeRequested",
+          "parameters": "string slideId, bool hidden"
+        },
+        {
+          "name": "insertRequested",
+          "parameters": "string afterSlideId, string requestId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "indexOf",
+          "parameters": "id"
+        },
+        {
+          "name": "move",
+          "parameters": "id, delta"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "slideDelete_",
+        "slideDuplicate_",
+        "slideMoveDown_",
+        "slideMoveUp_",
+        "slideMultiSelect_",
+        "slidePreview_",
+        "slideSorterFilter",
+        "slideSorterInsert",
+        "slideSorterList",
+        "slideSorterRow_",
+        "slideSorterSelect_",
+        "slideVisibility_"
       ]
     },
     {
