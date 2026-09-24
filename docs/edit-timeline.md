@@ -66,7 +66,7 @@ identity. Limits: 10,000 tracks, 2,000,000 clips, 200,000 markers.
 | Record | Fields |
 | --- | --- |
 | Track | `id`, `name`, `kind` (`audio`, `video`, `midi`, …; empty accepts any clip), `height` (logical px, 0 = view default, ≤ 4096), `muted`, `solo`, `armed`, `locked`, `hidden`, `routing` (host summary), `color` |
-| Clip | `id`, `trackId`, `start`, `duration` (≥ 1 tick), `sourceOffset`, `sourceDuration` (−1 unbounded), `resourceId` (media key), `label`, `color`, `kind`, `locked` |
+| Clip | `id`, `trackId`, `start`, `duration` (≥ 1 tick), `sourceOffset`, `sourceDuration` (−1 unbounded), `resourceId` (media key), `label`, `color`, `kind`, `locked`, `anchor` (`time` or `musical`), `musicalTick` and `musicalOffset` (musical only) |
 | Marker | `id`, `position`, `duration` (0 point, > 0 region), `anchor` (`time` or `musical`), `musicalTick`, `label`, `color`, `kind`, `locked` |
 
 A **musical** marker's canonical value is its `musicalTick`; its position is
@@ -75,6 +75,15 @@ one advances the revision). A derived position saturates so that position +
 duration stays representable. A **time** marker keeps its tick position
 through tempo and frame-rate changes. Both anchors survive save and reopen.
 Document colours are data and are drawn as given.
+
+A **beat-locked** clip (`anchor: "musical"`, WP-049) stores its start as a
+TimeMap beat anchor (`musicalTick`) plus an exact tick offset
+(`musicalOffset`); its start is re-derived on every time-map change, so it
+follows tempo edits while its duration stays absolute. The planner
+re-anchors it whenever its start or anchor changes; `setClipTiming` with
+`anchor` switches a clip. History compares it by the canonical fields, so an
+undo stays valid after a tempo edit moved it. See
+[tempo-automation.md](tempo-automation.md#beat-locked-and-time-locked-clips).
 
 The model indexes clips per track, sorted by `(start, id)` with the longest
 duration, so an interval query is a binary search plus the hits; clip and
@@ -96,7 +105,7 @@ Ticks in these maps are decimal strings; a JS Number is rejected.
 | `trimStart`, `trimEnd` | `clipIds`, `anchorClipId`, `grabTicks`, `ripple`; input `pointerTicks` | trim |
 | `split` | `clipIds`; input `pointerTicks` is the split point | split |
 | `delete` | `clipIds`, `ripple` | delete |
-| `setClipTiming` | one clip; absolute `start`, `duration`, `sourceOffset` | move/trim |
+| `setClipTiming` | one clip; absolute `start`, `duration`, `sourceOffset`; `anchor` (`time`/`musical`) | move/trim |
 | `insertClips` | `trackId`, `clips` (start relative to the point, `trackOffset`); input `pointerTicks` | insert |
 | `addMarker`, `moveMarker`, `editMarker`, `removeMarker` | `marker` map, `markerId`, `grabTicks` | markers |
 | `trackProperty`, `resizeTrack`, `reorderTrack`, `addTrack`, `removeTrack` | `trackId`, `property`/`value`, input `trackHeight` or `beforeTrackId`, `track` | tracks |
@@ -222,7 +231,7 @@ clips `key, clipId, trackId, trackIndex, clipX, laneY, clipWidth, laneHeight,
 label, clipColor, kind, resourceId, locked, startTicks, durationTicks,
 endTicks, sourceOffsetTicks, sourceDurationTicks, visibleSourceStartTicks,
 visibleSourceEndTicks, clippedStart, clippedEnd, preview, ghost, invalid,
-summary, summaryCount, stackOrder`; tracks `key, trackId, trackIndex,
+summary, summaryCount, stackOrder, anchorMode`; tracks `key, trackId, trackIndex,
 orderIndex, trackY, trackHeight, name, kind, muted, solo, armed, locked,
 hidden, routing, trackColor, clipCount, preview`; markers `key, markerId,
 markerX, markerWidth, positionTicks, durationTicks, endTicks, label,
@@ -304,7 +313,8 @@ Ctrl+Y undo and redo (local history only), Ctrl+Plus/Minus/0 zoom and fit.
   rectangle). Reconcile both when WP-041 lands.
 - Real media: a host backend for peaks/frames, and an audio/video engine
   behind `TransportAdapter` (WP-060/070); the reference backend is synthetic.
-- Overwrite/insert edit modes, crossfades, slip/slide, beat-locked clips
-  (WP-049), linked audio/video clips and multi-view selection sync.
+- Overwrite/insert edit modes, crossfades, slip/slide, linked audio/video
+  clips and multi-view selection sync. Beat-locked clips landed in WP-049;
+  beat-length clips and a bar/beat snap grid for clips remain.
 - Native screen-reader delivery of the virtual clip items (WP-092) and Touch
   density gesture qualification.

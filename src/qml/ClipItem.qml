@@ -21,6 +21,8 @@ Item {
     property string kind: ""
     property string resourceId: ""
     property bool locked: false
+    // "musical": the start is beat-locked and follows tempo edits (WP-049).
+    property string anchorMode: "time"
     property bool selected: false
     property bool current: false
     property bool preview: false
@@ -97,6 +99,7 @@ Item {
     Accessible.role: Accessible.ListItem
     Accessible.name: clipItem.tooltip
     Accessible.description: [clipItem.timeText, clipItem.locked ? qsTr("Locked") : "",
+                             clipItem.anchorMode === "musical" ? qsTr("Beat-locked") : "",
                              clipItem.invalid ? qsTr("This edit is not allowed here") : ""]
                             .filter(function(part) { return part.length > 0 }).join(". ")
     Accessible.selectable: !clipItem.summary && !clipItem.ghost
@@ -173,11 +176,24 @@ Item {
         y: clipItem.height - height - Tk.Theme.space.xs
     }
 
+    Tk.Icon {
+        id: anchorIcon
+        objectName: "clipAnchorIcon"
+        visible: clipItem.anchorMode === "musical" && !clipItem.summary
+                 && clipItem.width > Tk.Theme.size.icon * 3 && clipItem.height >= Tk.Theme.size.controlSm
+        name: "music"
+        size: Tk.Theme.size.iconSm
+        color: clipItem.documentColor ? Tk.Theme.onColor(clipItem.fillColor) : Tk.Theme.color.textMuted
+        x: Tk.Theme.space.xs + (clipItem.clippedStart ? 0 : Tk.Theme.size.seam)
+        y: Tk.Theme.size.border + Tk.Theme.space.xs
+    }
+
     Tk.Label {
         id: clipLabel
         objectName: "clipLabel"
         visible: clipItem.width > Tk.Theme.size.icon * 2 && clipItem.height >= Tk.Theme.size.controlSm
         x: Tk.Theme.space.xs + (clipItem.clippedStart ? 0 : Tk.Theme.size.seam)
+           + (anchorIcon.visible ? anchorIcon.width + Tk.Theme.space.xs : 0)
         y: Tk.Theme.size.border
         width: Math.max(0, clipItem.width - x - Tk.Theme.space.xs - (lockIcon.visible ? lockIcon.width : 0))
         text: clipItem.summary ? clipItem.tooltip : clipItem.label

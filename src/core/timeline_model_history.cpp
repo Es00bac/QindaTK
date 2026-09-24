@@ -26,6 +26,17 @@ bool sameMarker(const TimelineMarker &current, const TimelineMarker &expected)
     return current == expected;
 }
 
+// Likewise a beat-locked clip's start is derived from its musical anchor.
+bool sameClip(const TimelineClip &current, const TimelineClip &expected)
+{
+    if (current.anchor == TimelineClip::Anchor::Musical && expected.anchor == current.anchor) {
+        TimelineClip a = current, b = expected;
+        a.start = b.start = 0;
+        return a == b;
+    }
+    return current == expected;
+}
+
 quint64 textCost(const QString &text)
 {
     return quint64(text.size()) * sizeof(QChar);
@@ -87,7 +98,7 @@ OperationError TimelineModel::preflight(const TimelineChangeSet &changes, bool r
             if (seenClips.contains(change.id)) return diverged(tr("A clip appears twice in one edit"));
             seenClips.insert(change.id);
             const auto *current = clipRecord(change.id);
-            if (bool(current) != expected.has_value() || (current && !(*current == *expected)))
+            if (bool(current) != expected.has_value() || (current && !sameClip(*current, *expected)))
                 return diverged(tr("A clip no longer matches this edit"));
             if (!expected && (trackRecord(change.id) || markerRecord(change.id)))
                 return diverged(tr("A new clip would reuse an existing ID"));
@@ -162,7 +173,7 @@ OperationError TimelineModel::applyChangeSet(const TimelineChangeSet &changes, b
             if (previous) touchedTracks.insert(previous->trackId);
             if (next) {
                 touchedTracks.insert(next->trackId);
-                m_clips.insert(change.id, *next);
+                m_clips.insert(change.id, withDerivedStart(*next));
             } else {
                 m_clips.remove(change.id);
                 removed.push_back(change.id.toString(QUuid::WithoutBraces));

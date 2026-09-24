@@ -28,7 +28,7 @@ TimelineModel::TimelineModel(QObject *parent)
       m_defaultPolicy(new TimelineEditPolicy(this))
 {
     m_timeMapConnection = connect(m_defaultTimeMap, &TimeMap::changed, this,
-                                  &TimelineModel::resolveMusicalMarkers);
+                                  &TimelineModel::resolveMusicalAnchors);
     connect(m_defaultPolicy, &TimelineEditPolicy::changed, this, [this] {
         if (!m_policy) invalidateSession(tr("The edit policy changed"));
     });
@@ -55,19 +55,19 @@ void TimelineModel::setTimeMap(TimeMap *map)
     disconnect(m_timeMapConnection);
     m_timeMap = map;
     m_timeMapConnection = connect(timeMap(), &TimeMap::changed, this,
-                                  &TimelineModel::resolveMusicalMarkers);
+                                  &TimelineModel::resolveMusicalAnchors);
     if (map) {
         connect(map, &QObject::destroyed, this, [this] {
             if (m_timeMap) return; // a later map replaced the destroyed one
             disconnect(m_timeMapConnection);
             m_timeMapConnection = connect(m_defaultTimeMap, &TimeMap::changed, this,
-                                          &TimelineModel::resolveMusicalMarkers);
+                                          &TimelineModel::resolveMusicalAnchors);
             emit timeMapChanged();
-            resolveMusicalMarkers();
+            resolveMusicalAnchors();
         });
     }
     emit timeMapChanged();
-    resolveMusicalMarkers();
+    resolveMusicalAnchors();
 }
 
 TimelineEditPolicy *TimelineModel::policy() const
@@ -427,39 +427,6 @@ bool TimelineModel::gridStep(TimelineSnapGrid grid, quint64 &numerator, quint64 
 // AGENT-GUARD: a derived position saturates so position + duration stays
 // representable (TimelineMarker::end() must never overflow). A negative
 // duration is not clamped here; checkMarker refuses it before storage.
-TimelineMarker TimelineModel::withDerivedPosition(TimelineMarker marker) const
-{
-    if (marker.anchor != TimelineMarker::Anchor::Musical) return marker;
-    const qint64 latest = std::numeric_limits<qint64>::max() - std::max<qint64>(0, marker.duration);
-    if (const auto position = ticksForMusicalTick(marker.musicalTick)) marker.position = std::min(*position, latest);
-    return marker;
-}
-
-void TimelineModel::resolveMusicalMarkers()
-{
-    // Any time-map change (tempo, meter, frame or sample rate, origin) retires
-    // an active edit: its preview snapped and derived musical ticks under the
-    // old map, and committing it would store what was never shown.
-    invalidateSession(tr("The time map changed"));
-    bool changed = false;
-    for (auto it = m_markers.begin(); it != m_markers.end(); ++it) {
-        if (it->anchor != TimelineMarker::Anchor::Musical) continue;
-        const TimelineMarker derived = withDerivedPosition(*it);
-        if (derived.position == it->position) continue;
-        it->position = derived.position;
-        changed = true;
-    }
-    if (!changed) return;
-    // AGENT-NOTE: a tempo change moves musically anchored markers without a
-    // history step; their canonical musicalTick is unchanged. The revision
-    // still advances so requests based on old positions go stale.
-    ++m_revision;
-    m_markerEdgesDirty = true;
-    recomputeContentEnd();
-    emit markersChanged();
-    emit revisionChanged();
-}
-
 bool TimelineModel::fail(const QString &message)
 {
     m_lastError = message;

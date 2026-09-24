@@ -68,7 +68,7 @@ bool TimelineModel::setContent(TimelineRate timebase, const QVector<TimelineTrac
         m_tracks.insert(track.id, track);
     }
     m_clips.reserve(clips.size());
-    for (const auto &clip : clips) m_clips.insert(clip.id, clip);
+    for (const auto &clip : clips) m_clips.insert(clip.id, withDerivedStart(clip));
     for (const auto &marker : markers) m_markers.insert(marker.id, withDerivedPosition(marker));
     if (!documentId.isNull()) m_documentId = DocumentId{documentId};
     m_hasRange = false;
@@ -114,9 +114,13 @@ QVariantMap TimelineModel::loadContent(const QVariantMap &content)
     QVector<TimelineClip> clips;
     const QVariantList clipList = content.value(QStringLiteral("clips")).toList();
     clips.reserve(clipList.size());
+    QVector<qsizetype> unanchored; // beat-locked clips saved without a musical anchor
     for (const auto &value : clipList) {
-        const auto clip = TimelineCodec::clipFromMap(value.toMap(), &error);
+        const QVariantMap map = value.toMap();
+        const auto clip = TimelineCodec::clipFromMap(map, &error);
         if (!clip) return failure(tr("Clip: %1").arg(error));
+        if (clip->anchor == TimelineClip::Anchor::Musical && !map.contains(QStringLiteral("musicalTick")))
+            unanchored.push_back(clips.size());
         clips.push_back(*clip);
     }
     // Musical anchors are resolved with this model's timebase, so a saved
@@ -141,6 +145,7 @@ QVariantMap TimelineModel::loadContent(const QVariantMap &content)
         }
         markers.push_back(*marker);
     }
+    for (const qsizetype index : unanchored) clips[index] = anchoredClip(clips[index]);
     m_timebase = previous;
     QUuid documentId;
     if (content.contains(QStringLiteral("documentId"))) {

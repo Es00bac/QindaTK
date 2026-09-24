@@ -31,6 +31,12 @@ struct TimelineTrack {
 };
 
 struct TimelineClip {
+    // AGENT-CONTRACT: a Musical (beat-locked) clip's canonical start is its
+    // musicalTick beat anchor plus an exact musicalOffset in timeline ticks;
+    // `start` is derived from the TimeMap and follows tempo edits. Duration
+    // stays absolute (no time-stretch). Time clips keep `start` (WP-049,
+    // docs/tempo-automation.md).
+    enum class Anchor { Time, Musical };
     QUuid id;
     QUuid trackId;
     qint64 start = 0;           // timeline ticks
@@ -42,6 +48,9 @@ struct TimelineClip {
     QString color;
     QString kind;               // must match a non-empty track kind when required
     bool locked = false;
+    Anchor anchor = Anchor::Time;
+    qint64 musicalTick = 0;     // TimeMap PPQ tick of the start's beat anchor (Musical)
+    qint64 musicalOffset = 0;   // exact timeline ticks from that anchor to start (Musical)
     qint64 end() const { return start + duration; }
     friend bool operator==(const TimelineClip &, const TimelineClip &) = default;
 };
@@ -108,8 +117,9 @@ struct TimelineEditRequest {
     QString label;               // history text; a per-kind default when empty
     qint64 grabTicks = 0;        // pointer time at gesture start
     std::optional<SnapshotHeader> expected;
-    // SetClipTiming absolute values
+    // SetClipTiming absolute values; anchor switches beat-locked/time-locked
     std::optional<qint64> start, duration, sourceOffset;
+    std::optional<TimelineClip::Anchor> clipAnchor;
     // AddMarker template / EditMarker replacement fields
     std::optional<TimelineMarker> marker;
     // TrackProperty / AddTrack

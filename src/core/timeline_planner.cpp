@@ -395,6 +395,7 @@ void TimelinePlanner::planClipTiming(Context &context)
     if (context.request.start) clip.start = *context.request.start;
     if (context.request.duration) clip.duration = *context.request.duration;
     if (context.request.sourceOffset) clip.sourceOffset = *context.request.sourceOffset;
+    if (context.request.clipAnchor) clip.anchor = *context.request.clipAnchor;
     if (clip.start != before.start) {
         if (auto failure = policy.requireOperation(QStringLiteral("move"))) return setError(context, failure);
     }

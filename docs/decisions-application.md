@@ -419,3 +419,26 @@ Recovery frames written by this version cannot be read by older builds.
 Full-document snapshots remain the unit of save and recovery. Canvas tiles
 are stored uncompressed until a bounded inflater exists, because
 `qUncompress` does not bound its output. See [document-models.md](document-models.md).
+## D-054 — One tempo authority, a derived time map and engine snapshots
+
+**Context.** Tempo edits must move beat-locked content exactly and
+reversibly, previews should show their downstream effect, and an audio engine
+must read tempo and automation without GUI-thread timing. TimeMap already
+converted musical ticks, and musical markers already derived positions from
+it.
+
+**Decision.** `TempoMapModel` owns tempo/meter events and publishes the
+merged segments to `TimeMap` (previews included; cancel republishes). A
+beat-locked clip stores a PPQ beat anchor plus an exact tick offset, and its
+start is re-derived on every time-map change, so an unchanged map round-trips
+exactly and tempo undo restores clips bit-exactly without timeline history
+steps. `AutomationModel` stores exact-tick points in canonical units and
+reuses `CurveEvaluator` per segment. `EngineSchedule` publishes immutable
+snapshots of committed data behind an atomic `shared_ptr`, with a TimeMap copy
+detached from every thread.
+
+**Consequences.** One place writes tempo segments, and views stay
+presentation. Tempo is constant per segment (no ramps). Beat-locked clip
+lengths and automation stay absolute. The three models keep separate
+histories. Realtime reclamation and a real engine are WP-060. See
+[tempo-automation.md](tempo-automation.md).

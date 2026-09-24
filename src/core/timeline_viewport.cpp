@@ -16,7 +16,7 @@ QList<QByteArray> clipRoles()
             "label", "clipColor", "kind", "resourceId", "locked", "startTicks", "durationTicks",
             "endTicks", "sourceOffsetTicks", "sourceDurationTicks", "visibleSourceStartTicks",
             "visibleSourceEndTicks", "clippedStart", "clippedEnd", "preview", "ghost", "invalid",
-            "summary", "summaryCount", "stackOrder"};
+            "summary", "summaryCount", "stackOrder", "anchorMode"};
 }
 
 QList<QByteArray> trackRoles()

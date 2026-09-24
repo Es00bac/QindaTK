@@ -123,6 +123,15 @@ public:
     std::optional<qint64> frameStartTicks(qint64 frame) const;
     std::optional<qint64> musicalTickFor(qint64 ticks) const;
     std::optional<qint64> ticksForMusicalTick(qint64 musicalTick) const;
+    // Beat-locked clips (timeline_model_musical.cpp): anchoredClip() fixes
+    // musicalTick/musicalOffset from `start` under the current map (exact
+    // round trip); withDerivedStart() derives `start` from them.
+    TimelineClip anchoredClip(TimelineClip clip) const;
+    TimelineClip withDerivedStart(TimelineClip clip) const;
+    TimelineMarker withDerivedPosition(TimelineMarker marker) const;
+    // Committed placement after a time-map change: a beat-locked clip that now
+    // overlaps (RejectOverlap) or starts before zero is reported, not repaired.
+    OperationError musicalPlacementError() const;
     // Rational grid step in ticks and the tick where line zero lies.
     bool gridStep(TimelineSnapGrid grid, quint64 &numerator, quint64 &denominator,
                   qint64 &origin) const;
@@ -194,6 +203,9 @@ public:
     Q_INVOKABLE QString formatDuration(const QString &ticks, const QString &mode = QStringLiteral("timecode")) const;
     Q_INVOKABLE QVariantMap parseDuration(const QString &text, const QString &mode = QStringLiteral("timecode")) const;
     Q_INVOKABLE QString stepTicks(const QString &fromTicks, const QString &grid, int steps) const;
+    // TimeMap musical (PPQ) tick <-> timeline tick, rounded NearestAway; "" on failure.
+    Q_INVOKABLE QString musicalTickAt(const QString &ticks) const;
+    Q_INVOKABLE QString ticksAtMusicalTick(const QString &musicalTick) const;
     // Snaps one exact position. options: toleranceTicks, grid, playheadTicks,
     // editRange (bool), excludeMarkerId. Returns {ticks, snapped, kind, targetId}.
     Q_INVOKABLE QVariantMap snapTicks(const QString &ticks, const QVariantMap &options) const;
@@ -288,8 +300,7 @@ private:
     void recordHistory(const TimelineChangeSet &changes, quint64 bytes);
     static quint64 cost(const TimelineChangeSet &changes);
     OperationError preflight(const TimelineChangeSet &changes, bool reverse) const;
-    void resolveMusicalMarkers();
-    TimelineMarker withDerivedPosition(TimelineMarker marker) const;
+    void resolveMusicalAnchors();
     void emitAfterApply(bool structure, bool clips, bool markers, const QStringList &removed);
 
     DocumentId m_documentId;
