@@ -127,7 +127,9 @@ never changes its time. `setPoint` (numeric entry) refuses a time outside its
 neighbours or a value outside the range. `setHandle` makes the segment cubic
 and keeps its controls ordered in x. `editParameter` changes the range and
 clamps only out-of-range values, in the same undo step. Every commit is one
-history step; `toJson`/`loadJson` use schema `qindatk.automation/1`, values
+history step; the C++ `applyBatch` plans several edits (each parameter at most
+once) against the committed curves and records them as one step or changes
+nothing, which MotionComposition path and tangent gestures use for x and y; `toJson`/`loadJson` use schema `qindatk.automation/1`, values
 as JSON numbers (Qt writes the shortest exact representation, so values
 survive save/reopen bit-exactly).
 

@@ -16,16 +16,85 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <optional>
 #include <utility>
 
 namespace QindaTK {
 namespace {
+
+std::optional<qint64> decimalTicks(const QVariant &value)
+{
+    return value.metaType().id() == QMetaType::QString ? TimelineTime::parseDecimal(value.toString())
+                                                       : std::optional<qint64>();
+}
+
+// AGENT-NOTE: layer time = timeRemap(composition time - timeOffsetTicks).
+// The remap is exact piecewise-linear over decimal tick pairs, floor-rounded
+// once through TimelineTime::mulDiv, and holds outside its first/last pair,
+// so freezes, reversals and speed ramps stay integer-exact at any tick.
+std::optional<qint64> layerTicks(const QVariantMap &layer, qint64 ticks, QString *error)
+{
+    const QString id = layer.value(QStringLiteral("layerId")).toString();
+    qint64 offset = 0;
+    if (layer.contains(QStringLiteral("timeOffsetTicks"))) {
+        const auto parsed = decimalTicks(layer.value(QStringLiteral("timeOffsetTicks")));
+        if (!parsed) {
+            *error = QStringLiteral("Layer %1 timeOffsetTicks must be an exact decimal tick string").arg(id);
+            return std::nullopt;
+        }
+        offset = *parsed;
+    }
+    const auto shifted = TimelineTime::subtract(ticks, offset);
+    if (!shifted) {
+        *error = QStringLiteral("Layer %1 time offset overflows the tick range").arg(id);
+        return std::nullopt;
+    }
+    if (!layer.contains(QStringLiteral("timeRemap"))) return shifted;
+    const QVariant remap = layer.value(QStringLiteral("timeRemap"));
+    const QVariantList rows = remap.toList();
+    if (remap.metaType().id() != QMetaType::QVariantList || rows.isEmpty()
+        || rows.size() > MotionComposition::kMaxRemapPairs) {
+        *error = QStringLiteral("Layer %1 timeRemap needs 1 to %2 {compTicks, layerTicks} pairs")
+                     .arg(id).arg(MotionComposition::kMaxRemapPairs);
+        return std::nullopt;
+    }
+    QVector<std::pair<qint64, qint64>> pairs;
+    pairs.reserve(rows.size());
+    for (const QVariant &row : rows) {
+        const QVariantMap pair = row.toMap();
+        const auto from = decimalTicks(pair.value(QStringLiteral("compTicks")));
+        const auto to = decimalTicks(pair.value(QStringLiteral("layerTicks")));
+        if (!from || !to || (!pairs.isEmpty() && *from <= pairs.last().first)) {
+            *error = QStringLiteral("Layer %1 timeRemap pairs need exact decimal ticks in strictly "
+                                    "increasing compTicks order").arg(id);
+            return std::nullopt;
+        }
+        pairs.push_back({*from, *to});
+    }
+    const qint64 t = *shifted;
+    if (t <= pairs.first().first) return pairs.first().second;
+    if (t >= pairs.last().first) return pairs.last().second;
+    const auto right = std::upper_bound(pairs.cbegin(), pairs.cend(), t,
+        [](qint64 value, const std::pair<qint64, qint64> &pair) { return value < pair.first; });
+    const auto &a = *(right - 1);
+    const auto &b = *right;
+    const auto elapsed = TimelineTime::subtract(t, a.first);
+    const auto span = TimelineTime::subtract(b.first, a.first);
+    const auto delta = TimelineTime::subtract(b.second, a.second);
+    const auto scaled = elapsed && span && delta
+        ? TimelineTime::mulDiv(*delta, quint64(*elapsed), quint64(*span), TimeMap::Floor)
+        : std::nullopt;
+    const auto result = scaled ? TimelineTime::add(a.second, *scaled) : std::nullopt;
+    if (!result) *error = QStringLiteral("Layer %1 timeRemap overflows the tick range").arg(id);
+    return result;
+}
 
 struct LayerState {
     QVariantMap source;
     QString id;
     QString parentId;
     qint64 z = 0;
+    qint64 localTicks = 0;
     QTransform matrix;
     double opacity = 1.0;
     bool visible = true;
@@ -75,7 +144,19 @@ void MotionComposition::setAnimationModel(AutomationModel *model)
 void MotionComposition::setLayers(const QVariantList &layers)
 {
     if (m_layers == layers) return;
+    if (!m_history.isEmpty()) {
+        m_history.clear();
+        m_cursor = 0;
+        emit historyChanged();
+    }
+    replaceLayers(layers);
+}
+
+void MotionComposition::replaceLayers(const QVariantList &layers)
+{
+    if (m_layers == layers) return;
     m_layers = layers;
+    ++m_revision;
     emit layersChanged();
     emit evaluationChanged();
 }
@@ -103,6 +184,61 @@ QVariantMap MotionComposition::contentMap() const
             {QStringLiteral("layers"), m_layers}};
 }
 
+QString MotionComposition::layerRecordError(const QVariantList &layerRecords)
+{
+    QSet<QString> layerIds;
+    qsizetype effectCount = 0;
+    for (const QVariant &entry : layerRecords) {
+        const QVariantMap layer = entry.toMap();
+        if (!layer.contains(QStringLiteral("layerId"))
+            || layer.value(QStringLiteral("layerId")).metaType().id() != QMetaType::QString)
+            return tr("Layer IDs must be stable strings");
+        const QString id = layer.value(QStringLiteral("layerId")).toString();
+        if (id.isEmpty() || layerIds.contains(id))
+            return tr("Layers need unique non-empty stable IDs");
+        layerIds.insert(id);
+        if (layer.contains(QStringLiteral("parentLayerId"))
+            && layer.value(QStringLiteral("parentLayerId")).metaType().id() != QMetaType::QString)
+            return tr("Layer parent IDs must be stable strings");
+        if (layer.contains(QStringLiteral("sourceId"))
+            && layer.value(QStringLiteral("sourceId")).metaType().id() != QMetaType::QString)
+            return tr("Layer sourceId values must be stable strings");
+        if (layer.contains(QStringLiteral("maskId"))
+            && layer.value(QStringLiteral("maskId")).metaType().id() != QMetaType::QString)
+            return tr("Layer maskId values must be stable strings");
+        if (layer.contains(QStringLiteral("animatedProperties"))) {
+            const QVariantMap animated = layer.value(QStringLiteral("animatedProperties")).toMap();
+            static const QSet<QString> fields{QStringLiteral("x"), QStringLiteral("y"), QStringLiteral("rotation"),
+                QStringLiteral("scaleX"), QStringLiteral("scaleY"), QStringLiteral("opacity")};
+            for (auto it = animated.cbegin(); it != animated.cend(); ++it) {
+                if (!fields.contains(it.key()) || it.value().metaType().id() != QMetaType::QString || it.value().toString().isEmpty())
+                    return tr("Animated property mappings need supported transform names and stable curve IDs");
+            }
+        }
+        if (layer.contains(QStringLiteral("effects"))) {
+            if (layer.value(QStringLiteral("effects")).metaType().id() != QMetaType::QVariantList)
+                return tr("Layer effects must be an array of effect records");
+            QSet<QString> effectIds;
+            for (const QVariant &value : layer.value(QStringLiteral("effects")).toList()) {
+                const QVariantMap effect = value.toMap();
+                if (!effect.contains(QStringLiteral("effectId"))
+                    || effect.value(QStringLiteral("effectId")).metaType().id() != QMetaType::QString)
+                    return tr("Effect IDs must be stable strings");
+                const QString effectId = effect.value(QStringLiteral("effectId")).toString();
+                if (effectId.isEmpty() || effectIds.contains(effectId))
+                    return tr("Effect records need unique non-empty effectId values per layer");
+                if (effect.contains(QStringLiteral("parameters"))
+                    && effect.value(QStringLiteral("parameters")).metaType().id() != QMetaType::QVariantMap)
+                    return tr("Effect parameters must be an object");
+                effectIds.insert(effectId);
+                if (++effectCount > 100000)
+                    return tr("A motion composition may contain at most 100000 effect records");
+            }
+        }
+    }
+    return {};
+}
+
 QVariantMap MotionComposition::loadContent(const QVariantMap &content)
 {
     if (content.value(QStringLiteral("schema")).toString() != schemaId())
@@ -124,56 +260,7 @@ QVariantMap MotionComposition::loadContent(const QVariantMap &content)
     if (!animationResult.value(QStringLiteral("ok")).toBool())
         return reject(animationResult.value(QStringLiteral("error")).toString());
 
-    QSet<QString> layerIds;
-    qsizetype effectCount = 0;
-    for (const QVariant &entry : layerRecords) {
-        const QVariantMap layer = entry.toMap();
-        if (!layer.contains(QStringLiteral("layerId"))
-            || layer.value(QStringLiteral("layerId")).metaType().id() != QMetaType::QString)
-            return reject(tr("Layer IDs must be stable strings"));
-        const QString id = layer.value(QStringLiteral("layerId")).toString();
-        if (id.isEmpty() || layerIds.contains(id))
-            return reject(tr("Layers need unique non-empty stable IDs"));
-        layerIds.insert(id);
-        if (layer.contains(QStringLiteral("parentLayerId"))
-            && layer.value(QStringLiteral("parentLayerId")).metaType().id() != QMetaType::QString)
-            return reject(tr("Layer parent IDs must be stable strings"));
-        if (layer.contains(QStringLiteral("sourceId"))
-            && layer.value(QStringLiteral("sourceId")).metaType().id() != QMetaType::QString)
-            return reject(tr("Layer sourceId values must be stable strings"));
-        if (layer.contains(QStringLiteral("maskId"))
-            && layer.value(QStringLiteral("maskId")).metaType().id() != QMetaType::QString)
-            return reject(tr("Layer maskId values must be stable strings"));
-        if (layer.contains(QStringLiteral("animatedProperties"))) {
-            const QVariantMap animated = layer.value(QStringLiteral("animatedProperties")).toMap();
-            static const QSet<QString> fields{QStringLiteral("x"), QStringLiteral("y"), QStringLiteral("rotation"),
-                QStringLiteral("scaleX"), QStringLiteral("scaleY"), QStringLiteral("opacity")};
-            for (auto it = animated.cbegin(); it != animated.cend(); ++it) {
-                if (!fields.contains(it.key()) || it.value().metaType().id() != QMetaType::QString || it.value().toString().isEmpty())
-                    return reject(tr("Animated property mappings need supported transform names and stable curve IDs"));
-            }
-        }
-        if (layer.contains(QStringLiteral("effects"))) {
-            if (layer.value(QStringLiteral("effects")).metaType().id() != QMetaType::QVariantList)
-                return reject(tr("Layer effects must be an array of effect records"));
-            QSet<QString> effectIds;
-            for (const QVariant &value : layer.value(QStringLiteral("effects")).toList()) {
-                const QVariantMap effect = value.toMap();
-                if (!effect.contains(QStringLiteral("effectId"))
-                    || effect.value(QStringLiteral("effectId")).metaType().id() != QMetaType::QString)
-                    return reject(tr("Effect IDs must be stable strings"));
-                const QString effectId = effect.value(QStringLiteral("effectId")).toString();
-                if (effectId.isEmpty() || effectIds.contains(effectId))
-                    return reject(tr("Effect records need unique non-empty effectId values per layer"));
-                if (effect.contains(QStringLiteral("parameters"))
-                    && effect.value(QStringLiteral("parameters")).metaType().id() != QMetaType::QVariantMap)
-                    return reject(tr("Effect parameters must be an object"));
-                effectIds.insert(effectId);
-                if (++effectCount > 100000)
-                    return reject(tr("A motion composition may contain at most 100000 effect records"));
-            }
-        }
-    }
+    if (const QString error = layerRecordError(layerRecords); !error.isEmpty()) return reject(error);
 
     // Validate hierarchy, transform maps and every animated property against a
     // detached candidate before replacing either host-owned part of the scene.
@@ -296,6 +383,10 @@ QVariantMap MotionComposition::evaluate(const QString &timeTicks)
         }
         visiting.insert(state.id);
 
+        const auto layerTime = layerTicks(state.source, *exactTicks, &failure);
+        if (!layerTime) return false;
+        state.localTicks = *layerTime;
+        const QString localText = TimelineTime::toDecimal(*layerTime);
         const QVariantMap transform = state.source.value(QStringLiteral("transform")).toMap();
         if (!finiteMap(transform, &failure)) return false;
         double values[6] = {transform.value(QStringLiteral("x"), 0.0).toDouble(),
@@ -314,7 +405,7 @@ QVariantMap MotionComposition::evaluate(const QString &timeTicks)
                 failure = QStringLiteral("Layer %1 animates %2 without an AnimationModel").arg(state.id, fields.at(i));
                 return false;
             }
-            const double sample = m_animationModel->valueAt(propertyId, timeTicks);
+            const double sample = m_animationModel->valueAt(propertyId, localText);
             if (!std::isfinite(sample)) {
                 failure = QStringLiteral("Animation property %1 is unavailable").arg(propertyId);
                 return false;
@@ -362,6 +453,7 @@ QVariantMap MotionComposition::evaluate(const QString &timeTicks)
             {QStringLiteral("sourceId"), state.source.value(QStringLiteral("sourceId"))},
             {QStringLiteral("maskId"), state.source.value(QStringLiteral("maskId"))},
             {QStringLiteral("zIndex"), state.z},
+            {QStringLiteral("localTicks"), TimelineTime::toDecimal(state.localTicks)},
             {QStringLiteral("visible"), state.visible},
             {QStringLiteral("opacity"), state.opacity},
             {QStringLiteral("effects"), state.source.value(QStringLiteral("effects"), QVariantList{})},

@@ -315,6 +315,49 @@ void AutomationModel::cancel(const QString &operationId)
     emit pointsChanged(parameterId);
 }
 
+OperationError AutomationModel::applyBatch(const QVector<AutomationBatchEdit> &edits, const QString &label,
+                                           QString *transactionId, QStringList *createdIds)
+{
+    if (transactionId) transactionId->clear();
+    if (createdIds) createdIds->clear();
+    if (m_session) return fail({ErrorCode::Conflict, tr("Another automation edit is in progress"), {}, {}});
+    if (edits.isEmpty()) return fail(argument(tr("An automation batch needs at least one edit")));
+    AutomationChangeSet changes;
+    QStringList created;
+    QSet<QString> touched;
+    for (const auto &edit : edits) {
+        const AutomationEditRequest &request = edit.request;
+        if (touched.contains(request.parameterId))
+            return fail(argument(tr("An automation batch edits each parameter at most once")));
+        touched.insert(request.parameterId);
+        if (request.expectedRevision && *request.expectedRevision != m_revision)
+            return fail({ErrorCode::StaleRevision, tr("The automation changed before the edit began"), {}, {}});
+        const Lane *found = lane(request.parameterId);
+        if (!found) return fail(argument(tr("Unknown parameter")));
+        if (found->writing) return fail({ErrorCode::Conflict, tr("The parameter is being recorded"), {}, {}});
+        if (needsAnchor(request.kind) && indexOf(found->points, request.anchorPointId) < 0)
+            return fail(argument(tr("Unknown automation point")));
+        for (const auto &id : request.pointIds)
+            if (indexOf(found->points, id) < 0) return fail(argument(tr("Unknown automation point")));
+        Session session;
+        session.request = request;
+        session.baseRevision = m_revision;
+        if (request.kind == AutomationEditKind::AddPoint) session.createdId = QUuid::createUuid();
+        if (auto error = plan(session, edit.input)) return fail(error);
+        if (session.parameter && !(*session.parameter == found->parameter))
+            changes.changes.push_back({request.parameterId, {}, {}, {}, found->parameter, session.parameter});
+        changes.changes += diff(request.parameterId, found->points, session.preview).changes;
+        if (!session.createdId.isNull()) created.push_back(session.createdId.toString(QUuid::WithoutBraces));
+    }
+    if (changes.changes.isEmpty()) return {};
+    changes.transactionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    changes.label = label.isEmpty() ? tr("Edit automation") : label;
+    if (auto error = record(changes)) return error;
+    if (transactionId) *transactionId = changes.transactionId;
+    if (createdIds) *createdIds = created;
+    return {};
+}
+
 void AutomationModel::invalidateSessionFor(const QString &parameterId, const QString &reason)
 {
     if (!m_session || m_session->request.parameterId != parameterId) return;

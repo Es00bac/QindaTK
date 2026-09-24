@@ -4,6 +4,7 @@ import QtQuick.Templates as T
 import QindaTK as Tk
 
 // AGENT-CONTRACT: host supplies exact adjacent/current times; renderer owns evaluated pixels and this view retains tinted display snapshots only.
+// Edits and retiming mark the snapshots stale and queue one refresh; they are never serialized or exported.
 T.Control {
     id: control
     objectName: "onionSkinView"
@@ -16,6 +17,7 @@ T.Control {
     property real neighborOpacity: 0.32
     property string tooltip: qsTr("Adjacent rendered frames over current frame")
     readonly property string lastError: onion.lastError
+    readonly property bool stale: onion.stale
     function refresh() { return onion.refresh() }
     implicitWidth: Tk.Theme.size.panelMinWidth * 2
     implicitHeight: Tk.Theme.size.waveformHeight * 4

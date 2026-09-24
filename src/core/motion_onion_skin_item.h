@@ -13,6 +13,8 @@ class MotionFrameRenderer;
 
 // AGENT-CONTRACT: MotionFrameRenderer owns exact-tick layer evaluation and
 // source-over composition; this item only retains/tints adjacent display frames.
+// Retained frames go stale when the request or renderer content changes; a
+// queued refresh replaces all three together or keeps the previous set.
 class MotionOnionSkinItem : public QQuickPaintedItem {
     Q_OBJECT
     QML_ELEMENT
@@ -26,6 +28,7 @@ class MotionOnionSkinItem : public QQuickPaintedItem {
     Q_PROPERTY(QColor nextTint READ nextTint WRITE setNextTint NOTIFY styleChanged)
     Q_PROPERTY(qreal neighborOpacity READ neighborOpacity WRITE setNeighborOpacity NOTIFY styleChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY refreshed)
+    Q_PROPERTY(bool stale READ stale NOTIFY staleChanged)
 public:
     explicit MotionOnionSkinItem(QQuickItem *parent = nullptr);
     MotionFrameRenderer *renderer() const { return m_renderer; }
@@ -39,6 +42,7 @@ public:
     QColor nextTint() const { return m_nextTint; }
     qreal neighborOpacity() const { return m_opacity; }
     QString lastError() const { return m_error; }
+    bool stale() const { return m_stale; }
     void setCurrentTicks(const QString &value);
     void setPreviousTicks(const QString &value);
     void setNextTicks(const QString &value);
@@ -54,7 +58,9 @@ signals:
     void requestChanged();
     void styleChanged();
     void refreshed();
+    void staleChanged();
 private:
+    void markStale();
     QImage tinted(const QImage &image, const QColor &color) const;
     void updateTints();
     QPointer<MotionFrameRenderer> m_renderer;
@@ -63,5 +69,8 @@ private:
     QColor m_previousTint = QColor(255, 96, 128), m_nextTint = QColor(80, 210, 255);
     qreal m_opacity = 0.32;
     QImage m_previous, m_next, m_current, m_tintedPrevious, m_tintedNext;
+    QMetaObject::Connection m_rendererLink;
+    bool m_stale = true;
+    bool m_refreshQueued = false;
 };
 } // namespace QindaTK

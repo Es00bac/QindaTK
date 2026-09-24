@@ -32,6 +32,7 @@ Item {
         addCurve("ball/y", "Ball · Y", 150, [{ticks: "0", value: 150}, {ticks: "141120000", value: 90}, {ticks: "282240000", value: 210}])
         motionKeys = animation.points("ball/x")
         setupStatus = qsTr("%1 X keys · %2 Y keys").arg(motionKeys.length).arg(animation.points("ball/y").length)
+        if (pathControl && motionKeys.length > 1) pathControl.selectedKeyId = String(motionKeys[1].id)
         renderer.loadSource("ball-art", Qt.resolvedUrl("box.svg"))
         renderAt(ticks)
     }
@@ -93,9 +94,13 @@ Item {
                         layerId: "ball"
                         sampleTicks: ["0", "35280000", "70560000", "105840000", "141120000", "176400000", "211680000", "246960000", "282240000"]
                         keyPoints: root.motionKeys
+                        frameWidth: 640
+                        frameHeight: 360
                         onKeySelectionRequested: function(layer, key, time) { status.text = qsTr("Selection request · %1 · %2 · %3 ticks").arg(layer).arg(key).arg(time) }
+                        onPathEditCommitted: function(transaction) { status.text = qsTr("Path edit committed · undo steps %1").arg(animation.historyCount) }
+                        onPathEditRejected: function(reason) { status.text = reason }
                     }
-                    Tk.Caption { text: qsTr("Canvas samples the host composition at supplied ticks; key selection is a request."); color: Tk.Theme.color.textMuted; wrapMode: Text.WordWrap }
+                    Tk.Caption { text: qsTr("Drag a key or a tangent handle of the selected key: each gesture is one AutomationModel transaction."); color: Tk.Theme.color.textMuted; wrapMode: Text.WordWrap }
                     Tk.Caption { objectName: "motionFixtureState"; text: root.setupStatus + qsTr(" · %1 samples").arg(pathControl ? pathControl.pathPoints.length : 0); color: Tk.Theme.color.accent }
                 }
             }

@@ -4,6 +4,7 @@
 #include "../../src/core/motion_frame_renderer.h"
 #include "../../src/core/motion_onion_skin_item.h"
 #include <QPainter>
+#include <QSignalSpy>
 #include <QtTest>
 
 using namespace QindaTK;
@@ -60,6 +61,28 @@ private slots:
         QVERIFY(previous.red() > 200 && previous.blue() < 80);
         const QColor next = output.pixelColor(5, 1);
         QVERIFY(next.blue() > 200 && next.red() < 80);
+
+        // An edit invalidates the renderer: the retained frames go stale and
+        // one queued refresh replaces them with the edited composites.
+        QSignalSpy staleSpy(&item, &MotionOnionSkinItem::staleChanged);
+        QVERIFY(!item.stale());
+        const QString currentKey = model.points(QStringLiteral("x")).at(2).toMap().value(QStringLiteral("id")).toString();
+        QVERIFY(model.applyEdit({{QStringLiteral("kind"), QStringLiteral("setPoint")}, {QStringLiteral("parameterId"), QStringLiteral("x")},
+            {QStringLiteral("pointId"), currentKey}}, {{QStringLiteral("value"), 6.0}}).value(QStringLiteral("ok")).toBool());
+        QVERIFY(item.stale());
+        QTRY_VERIFY(!item.stale());
+        QCOMPARE(staleSpy.count(), 2);
+        output.fill(Qt::transparent);
+        QPainter repaint(&output);
+        item.paint(&repaint);
+        repaint.end();
+        QCOMPARE(output.pixelColor(6, 1), QColor(Qt::white));
+        QCOMPARE(output.pixelColor(3, 1).alpha(), 0);
+        // Retiming the request also marks the snapshots stale.
+        item.setCurrentTicks(QStringLiteral("10"));
+        QVERIFY(item.stale());
+        QTRY_VERIFY(!item.stale());
+        QVERIFY(item.lastError().isEmpty());
     }
 };
 
