@@ -3090,10 +3090,10 @@
         {
           "name": "color",
           "type": "color",
-          "default": "\"#ff4b9a\"",
+          "default": "",
           "readonly": false,
           "defaultProperty": false,
-          "required": false
+          "required": true
         },
         {
           "name": "tooltip",
@@ -3122,7 +3122,7 @@
         {
           "name": "hue",
           "type": "real",
-          "default": "Math.max(0, previewColor.hsvHue < 0 ? 0 : previewColor.hsvHue / 360)",
+          "default": "normalizedHue(previewColor)",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -3180,6 +3180,10 @@
           "parameters": "h, s, v, a"
         },
         {
+          "name": "normalizedHue",
+          "parameters": "value"
+        },
+        {
           "name": "begin",
           "parameters": "part"
         },
@@ -3219,6 +3223,7 @@
       "objectNames": [
         "colorPickerAlpha",
         "colorPickerHue",
+        "colorPickerHueMarker",
         "colorPickerSaturationValue",
         "colorPickerSvMarker"
       ]

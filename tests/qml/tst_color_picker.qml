@@ -99,4 +99,39 @@ TestCase {
         verify(!alpha.visible)
         compare(finish.count, 0)
     }
+
+    function test_normalized_green_blue_hue_marker_and_channel_requests() {
+        const picker = createTemporaryObject(pickerComponent, this, { color: "#00ff00" })
+        const sv = findChild(picker, "colorPickerSaturationValue")
+        const hue = findChild(picker, "colorPickerHue")
+        const hueMarker = findChild(hue, "colorPickerHueMarker")
+        const alpha = findChild(picker, "colorPickerAlpha")
+        const preview = createTemporaryObject(spyComponent, this,
+            { target: picker, signalName: "previewRequested" })
+        const finish = createTemporaryObject(spyComponent, this,
+            { target: picker, signalName: "editFinished" })
+        verify(sv !== null && hueMarker !== null && alpha !== null)
+
+        fuzzyCompare(picker.hue, 1 / 3, 0.001)
+        fuzzyCompare(hueMarker.x, hue.width / 3 - hueMarker.width / 2, 0.02)
+
+        picker.begin("sv")
+        picker.updateSv(sv.width / 2, sv.height / 2, sv.width, sv.height)
+        fuzzyCompare(preview.signalArguments[0][0].hsvHue, 1 / 3, 0.001)
+        picker.cancel()
+
+        picker.color = "#0000ff"
+        fuzzyCompare(picker.hue, 2 / 3, 0.001)
+        fuzzyCompare(hueMarker.x, hue.width * 2 / 3 - hueMarker.width / 2, 0.02)
+        picker.begin("alpha")
+        picker.updateAlpha(alpha.width / 2, alpha.width)
+        fuzzyCompare(preview.signalArguments[1][0].hsvHue, 2 / 3, 0.001)
+        fuzzyCompare(preview.signalArguments[1][0].a, 0.5, 0.01)
+        picker.cancel()
+
+        hue.forceActiveFocus()
+        keyClick(Qt.Key_Right)
+        compare(finish.count, 1)
+        fuzzyCompare(preview.signalArguments[2][0].hsvHue, 2 / 3 + 0.01, 0.001)
+    }
 }

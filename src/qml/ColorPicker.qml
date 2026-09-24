@@ -8,11 +8,11 @@ import QindaTK as Tk
 Item {
     id: picker
 
-    property color color: "#ff4b9a"
+    required property color color
     property string tooltip: qsTr("Choose an sRGB colour")
     property bool alphaEnabled: true
     readonly property color previewColor: _gestureActive ? _workingColor : color
-    readonly property real hue: Math.max(0, previewColor.hsvHue < 0 ? 0 : previewColor.hsvHue / 360)
+    readonly property real hue: normalizedHue(previewColor)
     readonly property real saturation: previewColor.hsvSaturation
     readonly property real brightness: previewColor.hsvValue
     readonly property real alpha: previewColor.a
@@ -52,6 +52,11 @@ Item {
         case 5: r = v; g = p; b = q; break
         }
         return Qt.rgba(r, g, b, a)
+    }
+
+    // Qt's QML color hsvHue is normalized to 0..1 (or -1 if achromatic).
+    function normalizedHue(value) {
+        return Math.max(0, Math.min(1, value.hsvHue))
     }
 
     function begin(part) {
@@ -95,7 +100,7 @@ Item {
         const s = Math.max(0, Math.min(1, x / Math.max(1, w)))
         const v = 1 - Math.max(0, Math.min(1, y / Math.max(1, h)))
         const source = _gestureStartColor
-        preview(hsv(source.hsvHue < 0 ? 0 : source.hsvHue / 360,
+        preview(hsv(normalizedHue(source),
                     s, v, source.a))
     }
 
@@ -107,7 +112,7 @@ Item {
 
     function updateAlpha(x, w) {
         const a = Math.max(0, Math.min(1, x / Math.max(1, w)))
-        preview(hsv(_gestureStartColor.hsvHue < 0 ? 0 : _gestureStartColor.hsvHue / 360,
+        preview(hsv(normalizedHue(_gestureStartColor),
                     _gestureStartColor.hsvSaturation,
                     _gestureStartColor.hsvValue, a))
     }
@@ -152,7 +157,7 @@ Item {
                 onPaint: {
                     const ctx = getContext("2d")
                     ctx.clearRect(0, 0, width, height)
-                    const hue = picker.previewColor.hsvHue < 0 ? 0 : picker.previewColor.hsvHue / 360
+                    const hue = picker.normalizedHue(picker.previewColor)
                     ctx.fillStyle = picker.hsv(hue, 1, 1, 1).toString()
                     ctx.fillRect(0, 0, width, height)
                     let gradient = ctx.createLinearGradient(0, 0, width, 0)
@@ -220,11 +225,11 @@ Item {
             activeFocusOnTab: picker.enabled
             Accessible.role: Accessible.Slider
             Accessible.name: qsTr("Hue")
-            Accessible.description: qsTr("%1 degrees").arg(Math.round(picker.previewColor.hsvHue))
+            Accessible.description: qsTr("%1 degrees").arg(Math.round(picker.hue * 360))
             Accessible.focusable: picker.enabled
             Accessible.focused: activeFocus
-            Accessible.onIncreaseAction: { picker.begin("hue"); picker.updateHue((picker.previewColor.hsvHue/360+0.01)*width,width); picker.finish() }
-            Accessible.onDecreaseAction: { picker.begin("hue"); picker.updateHue((picker.previewColor.hsvHue/360-0.01)*width,width); picker.finish() }
+            Accessible.onIncreaseAction: { picker.begin("hue"); picker.updateHue((picker.hue+0.01)*width,width); picker.finish() }
+            Accessible.onDecreaseAction: { picker.begin("hue"); picker.updateHue((picker.hue-0.01)*width,width); picker.finish() }
             Rectangle {
                 anchors.fill: parent
                 radius: Tk.Theme.radius.sm
@@ -270,6 +275,7 @@ Item {
                 visible: hueRail.activeFocus
             }
             Rectangle {
+                objectName: "colorPickerHueMarker"
                 x: Math.max(0, Math.min(parent.width - width, picker.hue * parent.width - width / 2))
                 y: -Tk.Theme.space.xs
                 width: Tk.Theme.size.iconSm
@@ -289,8 +295,8 @@ Item {
                 onReleased: picker.finish()
                 onCanceled: picker.cancel()
             }
-            Keys.onLeftPressed: function(event) { picker.begin("hue"); picker.updateHue((picker.previewColor.hsvHue/360-0.01)*width,width); picker.finish(); event.accepted=true }
-            Keys.onRightPressed: function(event) { picker.begin("hue"); picker.updateHue((picker.previewColor.hsvHue/360+0.01)*width,width); picker.finish(); event.accepted=true }
+            Keys.onLeftPressed: function(event) { picker.begin("hue"); picker.updateHue((picker.hue-0.01)*width,width); picker.finish(); event.accepted=true }
+            Keys.onRightPressed: function(event) { picker.begin("hue"); picker.updateHue((picker.hue+0.01)*width,width); picker.finish(); event.accepted=true }
             Keys.onEscapePressed: function(event) { picker.cancel(); event.accepted = true }
         }
 
@@ -396,6 +402,6 @@ Item {
     Tk.ToolTip {
         text: picker.tooltip
         visible: picker.tooltip.length > 0 && pickerHover.hovered
-        delay: 600
+        delay: Tk.Theme.motion.tooltipDelay
     }
 }
