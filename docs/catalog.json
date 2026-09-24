@@ -7830,6 +7830,114 @@
       ]
     },
     {
+      "name": "EquationEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "This is a semantic source editor surface, not an equation parser or layout engine. The host validates source and returns explicit capability/errors.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/EquationEditor.qml",
+      "properties": [
+        {
+          "name": "equation",
+          "type": "var",
+          "default": "null // {id,source,linearText,status,error,location,supportedSymbols:[symbol ids]}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "symbols",
+          "type": "var",
+          "default": "[] // [{id,label,source,tooltip}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sourceDraft",
+          "type": "string",
+          "default": "equation ? equation.source || \"\" : \"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit equation source and insert supported symbols\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "available",
+          "type": "bool",
+          "default": "equation !== null && equation.id !== undefined && !!equation.id",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canCommit",
+          "type": "bool",
+          "default": "available && equation.supported !== false && errorText.length === 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sourceChangeRequested",
+          "parameters": "string equationId, string source"
+        },
+        {
+          "name": "symbolInsertRequested",
+          "parameters": "string equationId, string symbolId, string source, int cursorPosition"
+        },
+        {
+          "name": "navigateRequested",
+          "parameters": "string equationId, var location"
+        }
+      ],
+      "methods": [
+        {
+          "name": "submitSource",
+          "parameters": ""
+        },
+        {
+          "name": "insertSymbol",
+          "parameters": "symbol"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "equationApply",
+        "equationError",
+        "equationLinearAlternative",
+        "equationNavigate",
+        "equationSource",
+        "equationSymbol_",
+        "equationUnsupportedSymbols"
+      ]
+    },
+    {
       "name": "EventLogView",
       "kind": "qml",
       "base": "T.Control",
@@ -15119,6 +15227,170 @@
       ]
     },
     {
+      "name": "ReferenceManager",
+      "kind": "qml",
+      "base": "Item",
+      "description": "References are document fields owned by the host. This panel only emits stable-ID requests; resolution and formatting stay in the field engine.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ReferenceManager.qml",
+      "properties": [
+        {
+          "name": "references",
+          "type": "var",
+          "default": "[] // [{id,label,type,targetId,status,formattedText,error,location}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targets",
+          "type": "var",
+          "default": "[] // [{id,label,type}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "supportedTypes",
+          "type": "var",
+          "default": "[\"citation\", \"footnote\", \"caption\", \"cross-reference\"]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedReferenceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftLabel",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftType",
+          "type": "string",
+          "default": "\"citation\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftTargetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Manage citations, notes, captions and cross-references\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedReference",
+          "type": "var",
+          "default": "referenceById(selectedReferenceId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canAdd",
+          "type": "bool",
+          "default": "supportedTypes.indexOf(draftType) >= 0 && draftTargetId.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "addReferenceRequested",
+          "parameters": "string type, string targetId"
+        },
+        {
+          "name": "editReferenceRequested",
+          "parameters": "string referenceId, var patch"
+        },
+        {
+          "name": "removeReferenceRequested",
+          "parameters": "string referenceId"
+        },
+        {
+          "name": "navigateRequested",
+          "parameters": "string referenceId, string targetId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "referenceById",
+          "parameters": "id"
+        },
+        {
+          "name": "targetById",
+          "parameters": "id"
+        },
+        {
+          "name": "selectReference",
+          "parameters": "id"
+        },
+        {
+          "name": "addReference",
+          "parameters": ""
+        },
+        {
+          "name": "saveEdit",
+          "parameters": ""
+        },
+        {
+          "name": "navigate",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "referenceAdd",
+        "referenceError",
+        "referenceLabel",
+        "referenceListScroll",
+        "referenceNavigate",
+        "referenceRemove",
+        "referenceSave",
+        "referenceStatus",
+        "referenceTarget",
+        "referenceType",
+        "reference_"
+      ]
+    },
+    {
       "name": "ResourceTable",
       "kind": "qml",
       "base": "T.Control",
@@ -15416,6 +15688,134 @@
         "resourceRowHeaders",
         "resourceTable",
         "resourceTableWheel"
+      ]
+    },
+    {
+      "name": "ReviewPane",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Comments and tracked changes are anchored by the review model. Buttons emit stable IDs and never mutate an anchor or revision locally.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ReviewPane.qml",
+      "properties": [
+        {
+          "name": "items",
+          "type": "var",
+          "default": "[] // [{id,kind,author,time,summary,body,status,location,threadId,replies,canAccept,canReject,error}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedItemId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "replyDraft",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Review comments and tracked changes\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedItem",
+          "type": "var",
+          "default": "itemById(selectedItemId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedIsChange",
+          "type": "bool",
+          "default": "selectedItem !== null && selectedItem.kind === \"change\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "navigateRequested",
+          "parameters": "string itemId, var location"
+        },
+        {
+          "name": "acceptChangeRequested",
+          "parameters": "string changeId"
+        },
+        {
+          "name": "rejectChangeRequested",
+          "parameters": "string changeId"
+        },
+        {
+          "name": "replyRequested",
+          "parameters": "string threadId, string text"
+        },
+        {
+          "name": "resolveThreadRequested",
+          "parameters": "string threadId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "itemById",
+          "parameters": "id"
+        },
+        {
+          "name": "selectItem",
+          "parameters": "id"
+        },
+        {
+          "name": "navigate",
+          "parameters": ""
+        },
+        {
+          "name": "sendReply",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "reviewAccept",
+        "reviewAnchorStatus",
+        "reviewError",
+        "reviewItemDetail",
+        "reviewItem_",
+        "reviewListScroll",
+        "reviewNavigate",
+        "reviewReject",
+        "reviewReply",
+        "reviewResolve",
+        "reviewSendReply"
       ]
     },
     {
