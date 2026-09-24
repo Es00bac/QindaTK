@@ -29,16 +29,33 @@ Item {
             gap: Tk.Theme.space.sm
             Tk.Button { text: qsTr("Undo"); enabled: sceneModel.canUndo; onClicked: sceneModel.undo() }
             Tk.Button { text: qsTr("Redo"); enabled: sceneModel.canRedo; onClicked: sceneModel.redo() }
+            Tk.CheckBox { id: keepWorld; text: qsTr("Keep world transform on drop"); checked: true }
             Tk.Spacer { Tk.Flex.grow: 1 }
             Tk.Badge { text: viewport.rendererAvailable ? qsTr("Qt RHI renderer") : qsTr("Renderer unavailable") }
         }
-        Tk.SceneView3D {
-            id: viewport
+        Tk.Flex {
+            direction: Tk.Flex.Row
+            gap: Tk.Theme.space.sm
             Tk.Flex.grow: 1
-            scene: sceneModel
-            translationSnap: 10
-            rotationSnap: 15
+            Tk.SceneOutliner {
+                id: outliner
+                Tk.Flex.basis: 270
+                Tk.Flex.shrink: 0
+                listHeight: 560
+                scene: sceneModel
+                keepWorldOnDrop: keepWorld.checked
+                onReparentRequested: function(entityId, parentId, keepWorldTransform) {
+                    sceneModel.reparent(entityId, parentId, keepWorldTransform)
+                }
+            }
+            Tk.SceneView3D {
+                id: viewport
+                Tk.Flex.grow: 1
+                scene: sceneModel
+                translationSnap: 10
+                rotationSnap: 15
+            }
         }
-        Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Choose mode and axis above, then drag an object · World/Local toggles axes · Escape cancels") }
+        Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Select in the outliner or viewport · Drag a row to reparent · Choose transform mode and axis, then drag an object · Escape cancels") }
     }
 }

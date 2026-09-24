@@ -101,6 +101,9 @@ decoding and project composition to a host application.
 The [3D mesh and texture fixture](mesh-rig-3d/Main.qml) constructs two real
 triangles with UVs, paints two texture samples through mesh rays and displays
 the posed, textured result in `SceneView3D` when Qt Quick 3D is available.
+The [3D scene fixture](scene-3d/Main.qml) connects `SceneOutliner` to the
+persistent `SceneModel3D` hierarchy and routes stable-ID reparent requests with
+an explicit keep-world/local transform choice.
 The [live mesh workbench](mesh-rig-live/Main.qml) wires `RigEditor`, `UVEditor`
 and `TexturePaintView` to one `MeshRigDocument`. The GPU viewport displays the
 same posed, painted triangles and supplies camera rays for paint gestures.

@@ -58,7 +58,7 @@ QVariantList SceneModel3D::entities() const {
             {"eulerDegrees", QVariant::fromValue(e.rotation.toEulerAngles())}, {"scale", e.scale},
             {"worldPosition", QVariant::fromValue(t.position)},
             {"worldRotation", QVariant::fromValue(t.rotation)}, {"worldScale", t.scale},
-            {"color", e.color}, {"visible", effectivelyVisible(i)}});
+            {"color", e.color}, {"visible", effectivelyVisible(i)}, {"localVisible", e.visible}});
     }
     return out;
 }

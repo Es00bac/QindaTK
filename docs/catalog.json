@@ -24696,6 +24696,119 @@
       ]
     },
     {
+      "name": "SceneOutliner",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SceneOutliner.qml",
+      "properties": [
+        {
+          "name": "scene",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keepWorldOnDrop",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.panelMinHeight",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "expandedIds",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"3D scene hierarchy\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "reparentRequested",
+          "parameters": "string entityId, string parentId, bool keepWorld"
+        }
+      ],
+      "methods": [
+        {
+          "name": "entityFor",
+          "parameters": "id"
+        },
+        {
+          "name": "rebuildRows",
+          "parameters": ""
+        },
+        {
+          "name": "restoreSelection",
+          "parameters": ""
+        },
+        {
+          "name": "rowsModelIndexForId",
+          "parameters": "id"
+        },
+        {
+          "name": "selectEntity",
+          "parameters": "id"
+        },
+        {
+          "name": "toggleExpanded",
+          "parameters": "id"
+        },
+        {
+          "name": "toggleVisibility",
+          "parameters": "id"
+        },
+        {
+          "name": "reparentEntity",
+          "parameters": "id, parentId"
+        },
+        {
+          "name": "entityIsAncestor",
+          "parameters": "id, candidateParentId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "sceneOutliner",
+        "sceneOutlinerDrop_",
+        "sceneOutlinerExpand_",
+        "sceneOutlinerName_",
+        "sceneOutlinerRow_",
+        "sceneOutlinerRows",
+        "sceneOutlinerSelect_",
+        "sceneOutlinerVisibility_"
+      ]
+    },
+    {
       "name": "SceneView3D",
       "kind": "qml",
       "base": "T.Control",

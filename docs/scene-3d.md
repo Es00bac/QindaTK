@@ -13,7 +13,9 @@ Supported primitives are `cube`, `sphere`, and `cylinder`, using Qt Quick 3D's
 built-in meshes (nominal size 100 world units). The return value is a stable UUID.
 `entities` is a read-only snapshot list with `entityId`, `parentId`, `name`,
 `primitive`, local `position`, `eulerDegrees`, `scale`, resolved `worldPosition`,
-`worldRotation`, `worldScale`, `color`, and inherited `visible` fields.
+`worldRotation`, `worldScale`, `color`, inherited `visible`, and `localVisible`
+fields. `localVisible` reports the entity's own visibility setting; `visible`
+remains the effective value after parent visibility is inherited.
 
 Transforms use right-handed coordinates, degrees and positive **uniform** scale.
 `setTransform(id, position, eulerDegrees, scale)` edits local coordinates.
@@ -116,9 +118,15 @@ actual renderer. `tst_scene_model_3d` covers rotated/scaled parent reparenting,
 world snapping, cancel/undo, saving during a preview, reload and inherited
 visibility in one focused scenario.
 
+`Tk.SceneOutliner { scene: sceneModel }` shows the entity hierarchy with
+stable IDs, keyboard selection/traversal, expand/collapse, per-entity visibility,
+and drag-to-parent reparent requests. `keepWorldOnDrop` explicitly chooses
+whether a drop preserves the world transform or keeps local coordinates. The
+outliner does not rename entities because the scene model has no rename command.
+
 ## Remaining WP-076 scope
 
-SceneOutliner, on-object 3D gizmo handles and constrained scale;
+On-object 3D gizmo handles, constrained scale and per-axis scale;
 instance and imported mesh/resource providers; material property editing and
 asynchronous material preview; camera orbit/pan controls; application document
 session/shared undo integration; device loss and multiple-view qualification;
