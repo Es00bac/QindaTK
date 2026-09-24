@@ -95,7 +95,7 @@ public:
     Q_INVOKABLE bool loadContent(const QVariantMap &content);
     // Writes a bars, frame-code and sync-pop test signal (docs/media-playback.md
     // "Test signal"); options: width, height, frameRateNumerator/Denominator
-    // (decimal strings), frames, sampleRate, channels, popInterval.
+    // (decimal strings), frames, sampleRate, channels, popInterval, popPhase.
     Q_INVOKABLE QString generateTestSignal(const QString &uri, const QVariantMap &options = {});
 
     // The local proxy path to decode instead of `resourceId`, when that

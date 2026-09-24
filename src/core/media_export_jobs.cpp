@@ -52,12 +52,13 @@ bool validSettings(const MediaTestSignalSettings &settings)
         && settings.frameRate.isValid() && settings.frameRate.numerator <= 240 * settings.frameRate.denominator
         && settings.frames >= 1 && settings.frames <= kMaxTestFrames && settings.channels >= 0
         && settings.channels <= 8 && settings.sampleRate >= 8000 && settings.sampleRate <= 192000
-        && settings.popInterval >= 0;
+        && settings.popInterval >= 0 && settings.popPhase >= 0;
 }
 
 bool isPop(qint64 frame, const MediaTestSignalSettings &settings)
 {
-    return settings.popInterval > 0 && frame % settings.popInterval == 0;
+    return settings.popInterval > 0 && frame >= settings.popPhase
+        && (frame - settings.popPhase) % settings.popInterval == 0;
 }
 } // namespace
 

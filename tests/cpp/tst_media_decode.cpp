@@ -113,6 +113,29 @@ private slots:
         QCOMPARE(policy, QStringLiteral("wide-gamut-bt2020"));
     }
 
+    void testSignalPopPhaseMovesTheFlash()
+    {
+        // A phase keeps frame 0, which monitors and thumbnails show first, on bars.
+        MediaTestSignalSettings settings;
+        settings.frameSize = QSize(128, 72);
+        settings.popInterval = 25;
+        settings.popPhase = 12;
+        const QColor bars(191, 191, 191);
+        const QColor flash(255, 255, 255);
+        QCOMPARE(MediaExport::testSignalFrame(0, settings).pixelColor(5, 5), bars);
+        QCOMPARE(MediaExport::testSignalFrame(11, settings).pixelColor(5, 5), bars);
+        QCOMPARE(MediaExport::testSignalFrame(12, settings).pixelColor(5, 5), flash);
+        QCOMPARE(MediaExport::testSignalFrame(25, settings).pixelColor(5, 5), bars);
+        QCOMPARE(MediaExport::testSignalFrame(37, settings).pixelColor(5, 5), flash);
+        for (const qint64 frame : {0, 12, 37, 4095})
+            QCOMPARE(MediaExport::readTestSignalCode(MediaExport::testSignalFrame(frame, settings)), frame);
+        settings.popPhase = 0;
+        QCOMPARE(MediaExport::testSignalFrame(0, settings).pixelColor(5, 5), flash);
+        settings.popPhase = -1;
+        QCOMPARE(MediaExport::writeTestSignal(QStringLiteral("unused.mkv"), settings).error.code,
+                 ErrorCode::InvalidArgument);
+    }
+
     void testSignalFramesDecodeExactly()
     {
         if (!MediaDecoder::available()) QSKIP("Built without the FFmpeg media backend");

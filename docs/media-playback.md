@@ -221,7 +221,9 @@ source before encoding, so a changed or offline source fails the job.
 `MediaCatalog.generateTestSignal(uri, options)` (C++
 `MediaExport::writeTestSignal`) writes colour bars, a 16-cell binary frame code
 in the bottom strip (`readTestSignalCode`) and a white flash with a 1 kHz tone
-over the exact sample span of every `popInterval`-th frame. Tests and the
+over the exact sample span of every `popInterval`-th frame, starting at frame
+`popPhase` (default 0). A nonzero phase keeps frame 0, the frame monitors and
+bin thumbnails show first, on bars. Tests and the
 `examples/media-source-browser.qml` fixture use it as known-answer media.
 
 ## Limits and ownership
