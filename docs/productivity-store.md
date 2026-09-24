@@ -20,6 +20,19 @@ The versioned JSON envelope is `qindatk.productivity/1`; collections are
 `messages`, `drafts`, `events` and `tasks`. Unknown record fields survive a
 save/load round trip. Revisions are decimal strings at the QML boundary.
 
+## Rich draft bodies
+
+`RichMailComposer` edits its body with `RichTextEditor` and `FormatBar`. Its
+`snapshot()` keeps `body` as plain text for existing consumers and adds
+`richDocumentJson` containing the canonical `qindatk.richtext/1` document.
+Store that field on the same draft row with its existing stable `id` and
+`attachments` metadata. Reassigning the loaded row to `composer.draft` restores
+formatting and keeps the composer connected to the same draft. Old records
+without `richDocumentJson` remain readable: their plain `body` is imported as
+unformatted paragraphs and subsequent saves add the rich document field.
+The JSON remains an ordinary draft snapshot field, so the store's existing
+atomic save/recovery behavior applies without changing its envelope schema.
+
 ## Persistence and recovery
 
 `saveTo(path)` writes a complete snapshot through `QSaveFile` with direct
@@ -49,9 +62,10 @@ event collection. The caller saves and acknowledges the matching
 `CalendarView` request after persistence succeeds. Provider sync and edits to
 recurrence exceptions remain host responsibilities.
 
-`examples/local-productivity/Main.qml` shows message actions, draft autosave,
-calendar proposal rejection without a calendar provider, task move/undo and
-reload against the local store. The fixture never sends to a real recipient.
+`examples/local-productivity/Main.qml` shows message actions, formatted draft
+autosave/reopen, calendar proposal rejection without a calendar provider,
+task move/undo and reload against the local store. The fixture never sends to
+a real recipient.
 
 ## Attachment payloads
 

@@ -50,7 +50,10 @@ calendar, recurrence and task controls. Its recurrence preview uses
 `RecurrenceService`; message and task records remain sample snapshots.
 The [local productivity fixture](local-productivity/Main.qml) connects the
 same kinds of controls to `LocalProductivityStore` for persisted mail, drafts,
-events and task moves with local recovery and undo.
+events and task moves with local recovery and undo. `RichMailComposer` edits a
+`RichTextDocument`; autosaved draft rows keep both the compatibility plain
+body and canonical `richDocumentJson`, so formatting reopens with the stable
+draft ID and attachment metadata intact.
 The [attachment fixture](local-attachment-store/Main.qml) imports and rereads
 actual local payload bytes alongside a draft's stable attachment metadata.
 The [local calendar projection fixture](local-calendar-projection/Main.qml)

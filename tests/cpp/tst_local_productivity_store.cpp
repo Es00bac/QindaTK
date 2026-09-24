@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "../../src/core/local_productivity_store.h"
+#include "../../src/core/rich_text_document.h"
 
 #include <QFile>
 #include <QTemporaryDir>
@@ -36,6 +37,7 @@ private slots:
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         const QString path = directory.filePath(QStringLiteral("productivity.json"));
+        const QString richDocumentJson = QStringLiteral(R"({"schema":"qindatk.richtext","version":1,"documentId":"00000000-0000-4000-8000-000000000001","page":{"widthPt":612,"heightPt":792,"marginsPt":[72,72,72,72]},"defaults":{"family":"Sans Serif","sizePt":11},"formats":[{}],"lists":[],"objects":[],"blocks":[{"paragraph":{"id":"00000000-0000-4000-8000-000000000002","text":"Formatted body","spans":[[14,0]],"mark":0}}]})");
         QindaTK::LocalProductivityStore store;
         store.setFilePath(path);
         QVERIFY(store.upsert(QStringLiteral("messages"), {
@@ -45,6 +47,8 @@ private slots:
         QVERIFY(store.upsert(QStringLiteral("drafts"), {
             {QStringLiteral("id"), QStringLiteral("d-1")},
             {QStringLiteral("subject"), QStringLiteral("Draft")},
+            {QStringLiteral("body"), QStringLiteral("Legacy plain body")},
+            {QStringLiteral("richDocumentJson"), richDocumentJson},
             {QStringLiteral("attachments"), QVariantList{QVariantMap{{QStringLiteral("id"), QStringLiteral("a-1")}, {QStringLiteral("name"), QStringLiteral("map.pdf")}}}}}).value("ok").toBool());
         QVERIFY(store.upsert(QStringLiteral("events"), {
             {QStringLiteral("id"), QStringLiteral("e-1")},
@@ -75,6 +79,13 @@ private slots:
         QVERIFY(reopened.loadFrom(path));
         QCOMPARE(reopened.status(), QStringLiteral("recovered"));
         QCOMPARE(reopened.messages().size(), 1);
+        const QVariantMap reopenedDraft = reopened.drafts().first().toMap();
+        QCOMPARE(reopenedDraft.value(QStringLiteral("id")).toString(), QStringLiteral("d-1"));
+        QCOMPARE(reopenedDraft.value(QStringLiteral("body")).toString(), QStringLiteral("Legacy plain body"));
+        QVERIFY(reopenedDraft.value(QStringLiteral("richDocumentJson")).toString().contains(QStringLiteral("Formatted body")));
+        QindaTK::RichTextDocument restoredBody;
+        QVERIFY(restoredBody.loadJson(reopenedDraft.value(QStringLiteral("richDocumentJson")).toString()));
+        QCOMPARE(restoredBody.text(), QStringLiteral("Formatted body"));
         QCOMPARE(reopened.drafts().first().toMap().value(QStringLiteral("attachments")).toList().size(), 1);
         QCOMPARE(reopened.events().first().toMap().value(QStringLiteral("recurrenceRule")).toMap().value(QStringLiteral("frequency")).toString(), QStringLiteral("weekly"));
         QCOMPARE(reopened.tasks().first().toMap().value(QStringLiteral("status")).toString(), QStringLiteral("todo"));

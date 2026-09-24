@@ -20,7 +20,7 @@ Item {
     }
     function seedStore() {
         store.upsert("messages", {id: "message-welcome", messageId: "message-welcome", sender: "Local notebook", subject: "Offline welcome", snippet: "This message is stored on this device.", bodyPlain: "Your messages, drafts, calendar events, attachments metadata and task order are saved locally.", bodyTrustMode: "plain", unread: true})
-        store.upsert("drafts", {id: activeDraftId, to: "", cc: "", subject: "", body: "", attachments: [{id: "attachment-map", name: "route-map.pdf", mimeType: "application/pdf", size: 48200, state: "local"}]})
+        store.upsert("drafts", {id: activeDraftId, to: "", cc: "", subject: "Design review notes", body: "Hi team,\n\nHere are the notes from today's review. Format this body with the toolbar before saving.", attachments: [{id: "attachment-map", name: "route-map.pdf", mimeType: "application/pdf", size: 48200, state: "local"}]})
         store.upsert("events", {id: "event-review", eventId: "event-review", title: "Design review", startLocal: "2026-09-24 10:00", endLocal: "2026-09-24 10:45", zone: "America/Denver", allDay: false, calendarId: "personal", recurrenceRule: {frequency: "weekly", interval: 1, weekdays: [4], end: "never"}, exceptions: []})
         store.upsert("events", {id: "event-demo", eventId: "event-demo", title: "Local prototype demo", startLocal: "2026-09-25 14:00", endLocal: "2026-09-25 14:30", zone: "America/Denver", allDay: false, calendarId: "work", recurrenceRule: null, exceptions: []})
         store.upsert("tasks", {id: "task-inbox", title: "Review inbox model", assignee: "Ari", dueDate: "2026-09-25", priority: "High", status: "todo", order: 0})
@@ -66,7 +66,7 @@ Item {
 
     Tk.LocalProductivityStore {
         id: store
-        filePath: defaultPath
+        filePath: defaultPath + ".rich-drafts-fixture"
         Component.onCompleted: root.reloadStore()
     }
     Tk.Flex {

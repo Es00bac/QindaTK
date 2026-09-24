@@ -12,7 +12,7 @@ TestCase {
     height: 600
 
     Component { id: mailComponent; Tk.MailView { messages: [{ messageId: "m-1", sender: "A", subject: "Hello", bodyPlain: "test body" }]; selectedMessageId: "m-1"; offline: true } }
-    Component { id: composerComponent; Tk.RichMailComposer { draft: ({ to: "a@example.test", subject: "Review", body: "Body", attachments: [] }); online: true } }
+    Component { id: composerComponent; Tk.RichMailComposer { draft: ({ id: "draft-stable", to: "a@example.test", subject: "Review", body: "Body", attachments: [{id: "attachment-1", name: "notes.pdf", mimeType: "application/pdf", size: 120} ] }); online: true } }
     Component { id: calendarComponent; Tk.CalendarView { events: [{ eventId: "evt-9", title: "Review", startLocal: "2026-09-24 10:30", zone: "UTC" }] } }
     Component { id: recurrenceComponent; Tk.RecurrenceEditor { eventId: "evt-9"; rule: ({ frequency: "weekly", interval: 1, weekdays: [4], exceptions: [] }) } }
     Component { id: boardComponent; Tk.TaskBoard { columns: [{ status: "todo", label: "To do", tasks: [{ taskId: "task-50", title: "Review" }] }, { status: "done", label: "Done", tasks: [] }] } }
@@ -35,13 +35,30 @@ TestCase {
         composer.editDraft("body", "Edited body")
         compare(draftSpy.signalArguments[0][0], "body")
         compare(composer.snapshot().body, "Edited body")
+        verify(composer.snapshot().richDocumentJson.indexOf("qindatk.richtext") >= 0,
+               "plain draft bodies are promoted into the native rich-text document format")
+        const editor = findChild(composer, "composerBody")
+        verify(editor)
+        editor.area.cursorPosition = editor.document.text().length
+        editor.forceActiveFocus()
+        verify(editor.invokeCommand("text.bold"), "formatting command should reach the draft document")
+        for (const character of " Bold") keyClick(character)
+        compare(composer.snapshot().body, "Edited body Bold")
+        const storedDocument = JSON.parse(composer.snapshot().richDocumentJson)
+        verify(storedDocument.formats.some(function(format) { return format.weight === 700 }),
+               "the saved document must retain the formatting applied in the editor")
+        const reopened = createTemporaryObject(composerComponent, root, { draft: Object.assign({id: "draft-stable"}, composer.snapshot()) })
+        verify(reopened)
+        compare(reopened.richDocument.text(), "Edited body Bold")
+        compare(reopened.snapshot().attachments[0].id, "attachment-1")
+        compare(reopened.draft.id, "draft-stable")
         const sendSpy = createTemporaryObject(signalSpyComponent, root, { target: composer, signalName: "sendRequested" })
         verify(composer.requestSend())
         compare(sendSpy.count, 1)
         const sendId = sendSpy.signalArguments[0][0]
         verify(composer.acknowledge(sendId, "rejected", "delivery disabled"))
         compare(composer.status, "rejected")
-        compare(composer.snapshot().body, "Edited body")
+        compare(composer.snapshot().body, "Edited body Bold")
 
         const calendar = createTemporaryObject(calendarComponent, root)
         calendar.offline = true

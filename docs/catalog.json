@@ -5993,7 +5993,7 @@
       "name": "CompareView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: both sources use one image transform. The host supplies local images; encoded-sRGB difference is visual inspection, not proofing.",
+      "description": "AGENT-CONTRACT: both sources use one image transform. The host supplies local images or bounded PNG data URLs; encoded-sRGB difference is visual inspection, not proofing.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/CompareView.qml",
@@ -23002,6 +23002,14 @@
           "required": false
         },
         {
+          "name": "richDocument",
+          "type": "alias",
+          "default": "bodyDocument",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "online",
           "type": "bool",
           "default": "false",
@@ -23074,12 +23082,28 @@
       ],
       "methods": [
         {
+          "name": "uuid",
+          "parameters": ""
+        },
+        {
+          "name": "plainDocumentJson",
+          "parameters": "text"
+        },
+        {
           "name": "snapshot",
           "parameters": ""
         },
         {
+          "name": "loadDraft",
+          "parameters": "value"
+        },
+        {
           "name": "editDraft",
           "parameters": "field, value"
+        },
+        {
+          "name": "syncBodySnapshot",
+          "parameters": ""
         },
         {
           "name": "requestSave",
@@ -23106,6 +23130,7 @@
         "composerAttachments",
         "composerBody",
         "composerCc",
+        "composerFormatBar",
         "composerSave",
         "composerSend",
         "composerSubject",
