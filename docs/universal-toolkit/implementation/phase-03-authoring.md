@@ -205,7 +205,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-049"></a>
 ## WP-049 — Implement tempo and automation editing
 
-**Implementation lead:** Sol. **Status:** review. **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-048](phase-03-authoring.md#wp-048)
+**Implementation lead:** Sol. **Status:** accepted ([evidence](evidence/WP-049.md)). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-048](phase-03-authoring.md#wp-048)
 
 **Proposal scope:** [AUD-09 TempoLane](../proposed/06-audio-music.md#aud-09), [AUD-19 AutomationLane](../proposed/06-audio-music.md#aud-19)
 

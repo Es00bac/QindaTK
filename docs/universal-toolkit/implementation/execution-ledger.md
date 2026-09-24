@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, 36 active, three in review, and 12 planned.**
+**Execution state: 34 packages accepted, 36 active, two in review, and 12 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -84,7 +84,7 @@ as though a later fix had already passed the earlier run.
 | [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
 | [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | accepted | [Clock and transport-bar checks](evidence/WP-047.md) |
 | [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | accepted | [Exact edits, dual-Qt 101/101 suites, visuals and installed consumer](evidence/WP-048.md) |
-| [WP-049 — Implement tempo and automation editing](phase-03-authoring.md#wp-049) | 03 | Sol | review | [Tempo/automation models, clip anchoring, schedule snapshots, lanes and examples integrated; focused gates pending](evidence/WP-049.md) |
+| [WP-049 — Implement tempo and automation editing](phase-03-authoring.md#wp-049) | 03 | Sol | accepted | [Tempo/automation models, clip anchoring, schedule snapshots and lanes accepted](evidence/WP-049.md) |
 | [WP-050 — Implement rich text and paginated document editing](phase-04-office.md#wp-050) | 04 | Sol | review | [Rich-text model, layout, controls and codec integrated; focused dual-Qt checks passed](evidence/WP-050.md) |
 | [WP-051 — Add publishing structure, styles and tables](phase-04-office.md#wp-051) | 04 | Sol | active | [Four authoring controls integrated; production document operations pending](evidence/WP-051.md) |
 | [WP-052 — Add equations, references and document review](phase-04-office.md#wp-052) | 04 | Sol | active | [Equation, reference and review request controls integrated; semantic document backend pending](evidence/WP-052.md) |
