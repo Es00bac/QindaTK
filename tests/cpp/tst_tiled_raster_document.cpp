@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "../../src/core/tiled_raster_document.h"
 
+#include <QColorSpace>
 #include <QFile>
 #include <QImageReader>
 #include <QJsonDocument>
@@ -28,6 +29,7 @@ private slots:
         QVERIFY(document.endStroke());
         QVERIFY(document.canUndo());
         QImage composite = document.composite();
+        QCOMPARE(composite.colorSpace(), QColorSpace(QColorSpace::SRgb));
         QVERIFY(composite.pixelColor(255, 60).alpha() > 0);
         QVERIFY(composite.pixelColor(256, 60).alpha() > 0);
 
@@ -49,6 +51,7 @@ private slots:
         QImageReader reader(pngPath);
         const QImage reopened = reader.read();
         QVERIFY2(!reopened.isNull(), qPrintable(reader.errorString()));
+        QCOMPARE(reopened.colorSpace(), QColorSpace(QColorSpace::SRgb));
         QCOMPARE(reopened.size(), QSize(520, 120));
         QCOMPARE(reopened.pixelColor(256, 60).alpha(), 0);
         QVERIFY(reopened.pixelColor(244, 60).alpha() > 0);

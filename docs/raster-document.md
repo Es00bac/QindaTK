@@ -35,7 +35,9 @@ bound cancels the stroke atomically. Input points are clamped to a bounded
 512-pixel margin around the canvas. Undo retains at most 64 MiB of before/after
 tile snapshots, dropping oldest edits when necessary. `composite()` returns
 the actual image, `imageDataUrl` is a preview, and `exportPng(path)` writes the
-composite with `QSaveFile` atomic replacement.
+composite with `QSaveFile` atomic replacement. The preview and exported PNG
+are tagged sRGB; custom document/output profiles and linear-light compositing
+are not implemented.
 
 ## Local document file
 

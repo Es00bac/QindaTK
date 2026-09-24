@@ -2,6 +2,7 @@
 #include "tiled_raster_document.h"
 
 #include <QBuffer>
+#include <QColorSpace>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -357,6 +358,7 @@ bool TiledRasterDocument::redo()
 QImage TiledRasterDocument::composite() const
 {
     QImage output(m_size, QImage::Format_ARGB32_Premultiplied); output.fill(Qt::transparent);
+    output.setColorSpace(QColorSpace(QColorSpace::SRgb));
     QPainter painter(&output); painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
     for (const Layer &layer : m_layers) {
         if (!layer.visible) continue;
