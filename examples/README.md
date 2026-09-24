@@ -15,6 +15,8 @@ placeholders remain visible until an application provides real media data.
 The [color-grade fixture](color-grade/Main.qml) applies a tagged CPU image
 transform and compares before/after pixels and scopes. The host still supplies
 decoded frames and owns grade history.
+The [caption model fixture](caption-model/Main.qml) connects `CaptionEditor`
+to exact-millisecond cue edits, undo, local JSON and WebVTT/SRT sidecars.
 
 The [publishing workbench](document-publishing/Main.qml) exercises
 `StyleManager`, `PageSetupDialog`, `TextFrameEditor`, and `TableEditor` with
@@ -42,6 +44,9 @@ presenter/audience snapshots through five toolkit controls.
 The [productivity fixture](productivity-suite/Main.qml) exercises mail,
 calendar, recurrence and task controls. Its recurrence preview uses
 `RecurrenceService`; message and task records remain sample snapshots.
+The [local productivity fixture](local-productivity/Main.qml) connects the
+same kinds of controls to `LocalProductivityStore` for persisted mail, drafts,
+events and task moves with local recovery and undo.
 The [form/schema/report fixture](forms-schema-report/Main.qml) uses a local
 SQLite provider and parameter-bound fields. The [motion fixture](motion-authoring/Main.qml)
 evaluates exact-tick keyframes, composites local SVG artwork into source
