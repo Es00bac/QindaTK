@@ -19,6 +19,8 @@ class GeographicMapCanvas : public QQuickPaintedItem {
     Q_PROPERTY(double centerLatitude READ centerLatitude WRITE setCenterLatitude NOTIFY viewportChanged)
     Q_PROPERTY(double zoomLevel READ zoomLevel WRITE setZoomLevel NOTIFY viewportChanged)
     Q_PROPERTY(QString selectedFeatureId READ selectedFeatureId NOTIFY selectionChanged)
+    Q_PROPERTY(QVariantMap selectedFeature READ selectedFeature NOTIFY selectedFeatureChanged)
+    Q_PROPERTY(bool editMode READ editMode WRITE setEditMode NOTIFY editModeChanged)
     Q_PROPERTY(QColor backgroundColor MEMBER m_background NOTIFY styleChanged)
     Q_PROPERTY(QColor featureColor MEMBER m_feature NOTIFY styleChanged)
     Q_PROPERTY(QColor selectionColor MEMBER m_selection NOTIFY styleChanged)
@@ -42,6 +44,9 @@ public:
     double zoomLevel() const { return m_zoom; }
     void setZoomLevel(double value);
     QString selectedFeatureId() const { return m_selectedId; }
+    QVariantMap selectedFeature() const { return m_model ? m_model->featureById(m_selectedId) : QVariantMap{}; }
+    bool editMode() const { return m_editMode; }
+    void setEditMode(bool value) { if (m_editMode != value) { m_editMode = value; emit editModeChanged(); } }
     GeographicTileSource *tileSource() const { return m_tileSource; }
     void setTileSource(GeographicTileSource *source);
     QString tileStatus() const { return m_tileStatus; }
@@ -57,6 +62,8 @@ signals:
     void modelChanged();
     void viewportChanged();
     void selectionChanged();
+    void selectedFeatureChanged();
+    void editModeChanged();
     void featureSelected(const QString &id);
     void styleChanged();
     void tileSourceChanged();
@@ -85,7 +92,9 @@ private:
     double m_pointRadius = 0, m_lineWidth = 0, m_gridWidth = 0, m_hitRadius = 0;
     double m_fillOpacity = 1, m_selectedFillOpacity = 1;
     QString m_selectedId;
+    QString m_dragFeatureId;
     QPointF m_press, m_last;
     bool m_dragged = false;
+    bool m_editMode = false;
 };
 }

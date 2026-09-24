@@ -28,12 +28,17 @@ void GeographicMapCanvas::setModel(GeographicFeatureModel *value)
     if (m_model) disconnect(m_model, nullptr, this, nullptr);
     m_model = value;
     if (m_model) {
-        connect(m_model, &GeographicFeatureModel::changed, this, [this] { update(); });
+        connect(m_model, &GeographicFeatureModel::changed, this, [this] {
+            if (!m_selectedId.isEmpty() && m_model->featureById(m_selectedId).isEmpty()) selectFeature({});
+            emit selectedFeatureChanged(); update();
+        });
         connect(m_model, &GeographicFeatureModel::modelReset, this, [this] {
             if (!m_model || m_model->featureById(m_selectedId).isEmpty()) selectFeature({});
-            update();
+            emit selectedFeatureChanged(); update();
         });
-        connect(m_model, &QObject::destroyed, this, [this] { m_model = nullptr; update(); });
+        connect(m_model, &QObject::destroyed, this, [this] {
+            m_model = nullptr; selectFeature({}); emit selectedFeatureChanged(); update();
+        });
     }
     selectFeature({}); emit modelChanged(); update();
 }
@@ -148,7 +153,7 @@ bool GeographicMapCanvas::selectFeature(const QString &id)
 {
     if (!id.isEmpty() && (!m_model || m_model->featureById(id).isEmpty())) return false;
     if (m_selectedId == id) return true;
-    m_selectedId = id; emit selectionChanged(); emit featureSelected(id); update(); return true;
+    m_selectedId = id; emit selectionChanged(); emit selectedFeatureChanged(); emit featureSelected(id); update(); return true;
 }
 bool GeographicMapCanvas::selectAt(double x, double y)
 { const auto id = featureIdAt(x,y); selectFeature(id); return !id.isEmpty(); }
@@ -204,17 +209,30 @@ void GeographicMapCanvas::paint(QPainter *painter)
     }
 }
 void GeographicMapCanvas::mousePressEvent(QMouseEvent *event)
-{ m_press = m_last = event->position(); m_dragged = false; forceActiveFocus(); event->accept(); }
+{
+    m_press = m_last = event->position(); m_dragged = false;
+    m_dragFeatureId = m_editMode ? featureIdAt(m_press.x(), m_press.y()) : QString{};
+    if (!m_dragFeatureId.isEmpty()) selectFeature(m_dragFeatureId);
+    forceActiveFocus(); event->accept();
+}
 void GeographicMapCanvas::mouseMoveEvent(QMouseEvent *event)
 {
     if (!(event->buttons() & Qt::LeftButton)) return;
     const auto p = event->position();
     if (QLineF(m_press,p).length() > 3) m_dragged = true;
-    if (m_dragged) panPixels(p.x()-m_last.x(), p.y()-m_last.y());
+    if (m_dragged && !m_dragFeatureId.isEmpty() && m_model) {
+        const auto before = coordinateAt(m_last.x(), m_last.y());
+        const auto after = coordinateAt(p.x(), p.y());
+        double dx = after.value("longitude").toDouble() - before.value("longitude").toDouble();
+        if (dx > 180) dx -= 360;
+        if (dx < -180) dx += 360;
+        m_model->translateFeature(m_dragFeatureId, dx,
+            after.value("latitude").toDouble() - before.value("latitude").toDouble());
+    } else if (m_dragged) panPixels(p.x()-m_last.x(), p.y()-m_last.y());
     m_last = p; event->accept();
 }
 void GeographicMapCanvas::mouseReleaseEvent(QMouseEvent *event)
-{ if (!m_dragged) selectAt(event->position().x(), event->position().y()); event->accept(); }
+{ if (!m_dragged) selectAt(event->position().x(), event->position().y()); m_dragFeatureId.clear(); event->accept(); }
 void GeographicMapCanvas::wheelEvent(QWheelEvent *event)
 { zoomAt(std::pow(2.0, event->angleDelta().y()/480.0), event->position().x(), event->position().y()); event->accept(); }
 void GeographicMapCanvas::keyPressEvent(QKeyEvent *event)

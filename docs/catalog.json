@@ -15225,6 +15225,14 @@
           "required": false
         },
         {
+          "name": "editMode",
+          "type": "alias",
+          "default": "canvas.editMode",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "selectedFeatureId",
           "type": "string",
           "default": "canvas.selectedFeatureId",
@@ -15235,7 +15243,7 @@
         {
           "name": "selectedFeature",
           "type": "var",
-          "default": "model ? model.featureById(selectedFeatureId) : ({})",
+          "default": "canvas.selectedFeature",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -15275,6 +15283,38 @@
         {
           "name": "saveGeoJson",
           "parameters": "path"
+        },
+        {
+          "name": "exportGeoJson",
+          "parameters": "path"
+        },
+        {
+          "name": "addFeature",
+          "parameters": "type, coordinates, properties, id"
+        },
+        {
+          "name": "replaceGeometry",
+          "parameters": "id, coordinates"
+        },
+        {
+          "name": "movePoint",
+          "parameters": "id, longitude, latitude"
+        },
+        {
+          "name": "translateFeature",
+          "parameters": "id, dx, dy"
+        },
+        {
+          "name": "setFeatureProperties",
+          "parameters": "id, properties"
+        },
+        {
+          "name": "removeFeature",
+          "parameters": "id"
+        },
+        {
+          "name": "removeSelectedFeature",
+          "parameters": ""
         },
         {
           "name": "loadTileManifest",
@@ -41637,6 +41677,41 @@
           "parameters": "const QString &localPath"
         },
         {
+          "name": "exportGeoJson",
+          "returns": "bool",
+          "parameters": "const QString &localPath"
+        },
+        {
+          "name": "addFeature",
+          "returns": "QString",
+          "parameters": "const QString &type, const QVariant &coordinates, const QVariantMap &properties = {}, const QString &id = {}"
+        },
+        {
+          "name": "replaceGeometry",
+          "returns": "bool",
+          "parameters": "const QString &id, const QVariant &coordinates"
+        },
+        {
+          "name": "movePoint",
+          "returns": "bool",
+          "parameters": "const QString &id, double longitude, double latitude"
+        },
+        {
+          "name": "translateFeature",
+          "returns": "bool",
+          "parameters": "const QString &id, double deltaLongitude, double deltaLatitude"
+        },
+        {
+          "name": "setFeatureProperties",
+          "returns": "bool",
+          "parameters": "const QString &id, const QVariantMap &properties"
+        },
+        {
+          "name": "removeFeature",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
           "name": "featureById",
           "returns": "QVariantMap",
           "parameters": "const QString &id"
@@ -41709,6 +41784,20 @@
           "type": "QString",
           "default": "",
           "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedFeature",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editMode",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
           "constant": false
         },
         {
@@ -41807,6 +41896,14 @@
         },
         {
           "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectedFeatureChanged",
+          "parameters": ""
+        },
+        {
+          "name": "editModeChanged",
           "parameters": ""
         },
         {

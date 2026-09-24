@@ -38,6 +38,29 @@ saving is atomic and keeps IDs, attributes and the collection `attribution`
 string. Selecting a feature exposes its ID, type and properties in
 `selectedFeature`, and the overlay inspector prints those attributes.
 
+## Local vector editing and export
+
+`GeographicFeatureModel.addFeature(type, coordinates, properties, id)` accepts
+2D WGS84 `Point`, `LineString` (at least two coordinates) and `Polygon` (one or
+more closed rings of at least four coordinates). `id` may be empty; the model
+then assigns a UUID-based `geo-` ID. Existing IDs and properties survive
+`movePoint`, `translateFeature`, `replaceGeometry`, save and reopen.
+`replaceGeometry` lets an editor reshape a line or polygon with a complete
+validated coordinate list. Invalid coordinates leave the previous geometry
+untouched. `removeFeature` deletes by ID; `setFeatureProperties` updates the
+attribute map. `MapView` forwards these methods to its model.
+
+Set `MapView.editMode: true` to drag a hit feature across the map; dragging
+empty map space still pans. Editing is off by default. The selected feature
+updates as the model changes, and removing the selected feature clears the
+selection. Translation rejects coordinates that would leave the WGS84
+longitude/latitude range instead of silently wrapping the geometry.
+
+`saveGeoJson(path)` atomically writes the active document and updates
+`sourcePath`. `exportGeoJson(path)` writes an atomic copy without changing
+`sourcePath`. Both serialize stable IDs, attributes and attribution; reopening
+either file reconstructs the edited geometry.
+
 ## Offline XYZ raster source
 
 `MapView.loadTileManifest(path)` reads a local JSON manifest into its built-in
@@ -94,6 +117,6 @@ appear in `tileStatus` while vectors remain usable.
 
 The vector renderer still scans local features for painting and picking. Large
 spatial data needs a visible-region cache and spatial index. Multiple tile
-providers, layer ordering, projection switching, geometry edits, annotations
-and export of a composed map remain. The GeoJSON reader assumes
+providers, layer ordering, projection switching, vertex handles, annotations
+and export of a composed raster/vector image remain. The GeoJSON reader assumes
 WGS84; arbitrary CRS declarations are unsupported.

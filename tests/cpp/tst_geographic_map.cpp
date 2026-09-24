@@ -90,6 +90,71 @@ private slots:
         QVERIFY(restored.lastError().contains("CRS"));
         QCOMPARE(restored.count(), 2);
     }
+    void editSaveExportAndReopen()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString saved = dir.filePath("edited.geojson"), exported = dir.filePath("copy.geojson");
+        GeographicFeatureModel model;
+        model.setAttribution(QStringLiteral("Field survey"));
+        const QString point = model.addFeature("Point", QVariantList{-105.0, 40.0},
+                                               {{"name", "station"}});
+        QVERIFY(!point.isEmpty());
+        QVERIFY(model.movePoint(point, -104.8, 39.8));
+        const QVariantList line{QVariantList{-105.0,39.7}, QVariantList{-104.8,39.9}};
+        QCOMPARE(model.addFeature("LineString", line, {{"name", "route"}}, "route-1"),
+                 QStringLiteral("route-1"));
+        QVERIFY(model.translateFeature("route-1", 0.1, -0.1));
+        const QVariantList ring{QVariantList{-105.1,39.6}, QVariantList{-104.9,39.6},
+                                QVariantList{-104.9,39.8}, QVariantList{-105.1,39.6}};
+        QCOMPARE(model.addFeature("Polygon", QVariantList{ring}, {{"name", "area"}}, "area-1"),
+                 QStringLiteral("area-1"));
+        const auto polygonBefore = model.featureById("area-1").value("geometry").toMap();
+        QVERIFY(!model.replaceGeometry("area-1", QVariantList{QVariantList{QVariantList{181.0,0.0}}}));
+        QCOMPARE(model.featureById("area-1").value("geometry").toMap(), polygonBefore);
+        GeographicMapCanvas canvas;
+        canvas.setWidth(500); canvas.setHeight(400);
+        canvas.setModel(&model);
+        canvas.setProperty("pointRadius", 6);
+        canvas.setProperty("hitRadius", 6);
+        canvas.setCenterLongitude(-104.8);
+        canvas.setCenterLatitude(39.8);
+        canvas.setZoomLevel(9);
+        canvas.setEditMode(true);
+        const auto start = canvas.screenPosition(-104.8,39.8);
+        const QPointF a(start.value("x").toDouble(), start.value("y").toDouble());
+        const QPointF b = a + QPointF(25, 12);
+        QMouseEvent press(QEvent::MouseButtonPress,a,a,a,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+        QMouseEvent move(QEvent::MouseMove,b,b,b,Qt::NoButton,Qt::LeftButton,Qt::NoModifier);
+        QMouseEvent release(QEvent::MouseButtonRelease,b,b,b,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+        QCoreApplication::sendEvent(&canvas,&press);
+        QCoreApplication::sendEvent(&canvas,&move);
+        QCoreApplication::sendEvent(&canvas,&release);
+        QCOMPARE(canvas.selectedFeatureId(), point);
+        const auto moved = model.featureById(point).value("geometry").toMap()
+                               .value("coordinates").toList();
+        QVERIFY(moved[0].toDouble() > -104.8);
+        QCOMPARE(model.featureById(point).value("properties").toMap().value("name").toString(),
+                 QStringLiteral("station"));
+        QCOMPARE(canvas.selectedFeature().value("id").toString(), point);
+        QCOMPARE(model.addFeature("Point", QVariantList{-104.7,39.7}, {}, "temporary"),
+                 QStringLiteral("temporary"));
+        QVERIFY(canvas.selectFeature("temporary"));
+        QVERIFY(model.removeFeature("temporary"));
+        QCOMPARE(canvas.selectedFeatureId(), QString());
+        QVERIFY(model.saveGeoJson(saved));
+        QCOMPARE(model.sourcePath(), saved);
+        QVERIFY(model.exportGeoJson(exported));
+        QCOMPARE(model.sourcePath(), saved); // export is a copy, not the active document
+        GeographicFeatureModel reopened;
+        QVERIFY(reopened.loadGeoJson(exported));
+        QCOMPARE(reopened.count(), 3);
+        QCOMPARE(reopened.attribution(), QStringLiteral("Field survey"));
+        QCOMPARE(reopened.featureById(point).value("geometry").toMap().value("coordinates").toList(), moved);
+        QCOMPARE(reopened.featureById("route-1").value("properties").toMap().value("name").toString(),
+                 QStringLiteral("route"));
+        QCOMPARE(reopened.featureById("area-1").value("geometry").toMap(), polygonBefore);
+    }
 };
 QTEST_MAIN(TestGeographicMap)
 #include "tst_geographic_map.moc"

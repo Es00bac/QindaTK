@@ -20,7 +20,7 @@ class GeographicFeatureModel : public QAbstractListModel {
 public:
     struct Feature { QString id; QString type; QJsonObject geometry; QVariantMap properties; };
     explicit GeographicFeatureModel(QObject *parent = nullptr);
-    enum Roles { IdRole = Qt::UserRole + 1, TypeRole, PropertiesRole };
+    enum Roles { IdRole = Qt::UserRole + 1, TypeRole, PropertiesRole, GeometryRole };
     QString attribution() const { return m_attribution; }
     void setAttribution(const QString &value);
     QString sourcePath() const { return m_sourcePath; }
@@ -32,6 +32,14 @@ public:
     QHash<int, QByteArray> roleNames() const override;
     Q_INVOKABLE bool loadGeoJson(const QString &localPath);
     Q_INVOKABLE bool saveGeoJson(const QString &localPath);
+    Q_INVOKABLE bool exportGeoJson(const QString &localPath);
+    Q_INVOKABLE QString addFeature(const QString &type, const QVariant &coordinates,
+                                   const QVariantMap &properties = {}, const QString &id = {});
+    Q_INVOKABLE bool replaceGeometry(const QString &id, const QVariant &coordinates);
+    Q_INVOKABLE bool movePoint(const QString &id, double longitude, double latitude);
+    Q_INVOKABLE bool translateFeature(const QString &id, double deltaLongitude, double deltaLatitude);
+    Q_INVOKABLE bool setFeatureProperties(const QString &id, const QVariantMap &properties);
+    Q_INVOKABLE bool removeFeature(const QString &id);
     Q_INVOKABLE QVariantMap featureById(const QString &id) const;
     Q_INVOKABLE QVariantMap featureAt(int index) const;
     Q_INVOKABLE QVariantMap project(double longitude, double latitude) const;
@@ -44,6 +52,8 @@ signals:
     void changed();
     void errorChanged();
 private:
+    bool writeGeoJson(const QString &localPath, bool updateSourcePath);
+    int indexOf(const QString &id) const;
     void setError(const QString &value);
     static QString pathFromInput(const QString &input);
     QVector<Feature> m_features;

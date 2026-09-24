@@ -51,6 +51,7 @@ qt_add_qml_module(qindatk
         ${qindatk_quick3d_sources}
         core/code_document.cpp core/code_document.h
         core/geographic_feature_model.h core/geographic_feature_model.cpp
+        core/geographic_feature_edit.cpp
         core/geographic_map_canvas.h core/geographic_map_canvas.cpp
         core/geographic_map_tiles.cpp
         core/geographic_tile_source.h core/geographic_tile_source.cpp

@@ -10,8 +10,9 @@ Item {
     property alias centerLatitude: canvas.centerLatitude
     property alias zoomLevel: canvas.zoomLevel
     property alias tileSource: canvas.tileSource
+    property alias editMode: canvas.editMode
     readonly property string selectedFeatureId: canvas.selectedFeatureId
-    readonly property var selectedFeature: model ? model.featureById(selectedFeatureId) : ({})
+    readonly property var selectedFeature: canvas.selectedFeature
     readonly property string tileStatus: canvas.tileStatus
     property string tooltip: qsTr("Geographic map")
     signal featureSelected(string id)
@@ -21,6 +22,16 @@ Item {
     }
     function loadGeoJson(path) { return model.loadGeoJson(path) }
     function saveGeoJson(path) { return model.saveGeoJson(path) }
+    function exportGeoJson(path) { return model.exportGeoJson(path) }
+    function addFeature(type, coordinates, properties, id) {
+        return model.addFeature(type, coordinates, properties || {}, id || "")
+    }
+    function replaceGeometry(id, coordinates) { return model.replaceGeometry(id, coordinates) }
+    function movePoint(id, longitude, latitude) { return model.movePoint(id, longitude, latitude) }
+    function translateFeature(id, dx, dy) { return model.translateFeature(id, dx, dy) }
+    function setFeatureProperties(id, properties) { return model.setFeatureProperties(id, properties) }
+    function removeFeature(id) { return model.removeFeature(id) }
+    function removeSelectedFeature() { return selectedFeatureId ? model.removeFeature(selectedFeatureId) : false }
     function loadTileManifest(path) { return tileSource ? tileSource.loadManifest(path) : false }
     function useNetworkTiles(urlTemplate, attribution, minZoom, maxZoom, tileSize) {
         return tileSource ? tileSource.useNetworkTemplate(urlTemplate, attribution,

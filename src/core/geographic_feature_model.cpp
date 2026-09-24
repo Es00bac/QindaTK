@@ -63,10 +63,13 @@ QVariant GeographicFeatureModel::data(const QModelIndex &index, int role) const
     if (!index.isValid() || index.row() < 0 || index.row() >= count()) return {};
     const auto &f = m_features.at(index.row());
     switch (role) { case IdRole: return f.id; case TypeRole: return f.type;
-        case PropertiesRole: return f.properties; default: return {}; }
+        case PropertiesRole: return f.properties;
+        case GeometryRole: return f.geometry.toVariantMap();
+        default: return {}; }
 }
 QHash<int, QByteArray> GeographicFeatureModel::roleNames() const
-{ return {{IdRole, "featureId"}, {TypeRole, "geometryType"}, {PropertiesRole, "attributes"}}; }
+{ return {{IdRole, "featureId"}, {TypeRole, "geometryType"},
+          {PropertiesRole, "attributes"}, {GeometryRole, "geometry"}}; }
 QString GeographicFeatureModel::pathFromInput(const QString &input)
 {
     const QUrl url(input);
@@ -122,6 +125,10 @@ bool GeographicFeatureModel::loadGeoJson(const QString &localPath)
     return true;
 }
 bool GeographicFeatureModel::saveGeoJson(const QString &localPath)
+{ return writeGeoJson(localPath, true); }
+bool GeographicFeatureModel::exportGeoJson(const QString &localPath)
+{ return writeGeoJson(localPath, false); }
+bool GeographicFeatureModel::writeGeoJson(const QString &localPath, bool updateSourcePath)
 {
     const auto path = pathFromInput(localPath);
     if (path.isEmpty()) { setError(QStringLiteral("Only local GeoJSON files are supported")); return false; }
@@ -130,9 +137,11 @@ bool GeographicFeatureModel::saveGeoJson(const QString &localPath)
         {"geometry", f.geometry}, {"properties", QJsonObject::fromVariantMap(f.properties)}});
     QJsonObject root{{"type", "FeatureCollection"}, {"features", rows}};
     if (!m_attribution.isEmpty()) root.insert("attribution", m_attribution);
+    const QByteArray bytes = QJsonDocument(root).toJson(QJsonDocument::Indented);
     QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(root).toJson(QJsonDocument::Indented)) < 0
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size()
         || !file.commit()) { setError(file.errorString()); return false; }
+    if (updateSourcePath && m_sourcePath != path) { m_sourcePath = path; emit changed(); }
     setError({}); return true;
 }
 QVariantMap GeographicFeatureModel::featureById(const QString &id) const
