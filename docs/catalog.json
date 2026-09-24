@@ -33057,6 +33057,235 @@
       "bridge": false
     },
     {
+      "name": "CaptionTrackModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: CaptionEditor sends exact decimal millisecond strings and stable cue IDs to this host model. The model validates per-lane intervals, publishes normalized display geometry, and owns format/persistence state.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/caption_track_model.h",
+      "properties": [
+        {
+          "name": "sourceId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "trackId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "language",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "displayStartMs",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "displayEndMs",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editorCues",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "timeMarks",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "moveTargets",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "styles",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "selectedCueId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedCueInMs",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedCueOutMs",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedCueText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedCueStyleId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedCueLanguage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "acknowledgement",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "storagePath",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "setDisplayRange",
+          "returns": "bool",
+          "parameters": "const QString &startMilliseconds, const QString &endMilliseconds"
+        },
+        {
+          "name": "importWebVtt",
+          "returns": "bool",
+          "parameters": "const QString &text, const QString &language = QStringLiteral(\"und\""
+        },
+        {
+          "name": "importSrt",
+          "returns": "bool",
+          "parameters": "const QString &text, const QString &language = QStringLiteral(\"und\""
+        },
+        {
+          "name": "exportWebVtt",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "exportSrt",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QString &path = QString("
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path = QString("
+        },
+        {
+          "name": "addCue",
+          "returns": "bool",
+          "parameters": "const QString &inMs, const QString &outMs, const QString &text, const QString &language = QString("
+        },
+        {
+          "name": "selectCue",
+          "returns": "bool",
+          "parameters": "const QString &cueId"
+        },
+        {
+          "name": "previewCueEdit",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &cueId, const QString &operation, const QString &inMs, const QString &outMs, const QString &text, const QString &styleId"
+        },
+        {
+          "name": "commitCueEdit",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &cueId, const QString &operation, const QString &inMs, const QString &outMs, const QString &text, const QString &styleId"
+        },
+        {
+          "name": "cancelCueEdit",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &cueId"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ChartAnnotationModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
