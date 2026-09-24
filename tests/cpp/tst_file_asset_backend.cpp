@@ -8,6 +8,7 @@
 #include <QPageSize>
 #include <QPainter>
 #include <QPdfWriter>
+#include <QProcess>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -195,6 +196,46 @@ private slots:
         QVERIFY(result.metadata.value(QStringLiteral("text")).toString()
                     .contains(QStringLiteral("Searchable")));
         QVERIFY(!result.metadata.value(QStringLiteral("words")).toList().isEmpty());
+    }
+
+    void videoFrameAndThumbnailDecodeRealMedia()
+    {
+        const QString ffmpeg = QStandardPaths::findExecutable(QStringLiteral("ffmpeg"));
+        if (ffmpeg.isEmpty() || QStandardPaths::findExecutable(QStringLiteral("ffprobe")).isEmpty())
+            QSKIP("FFmpeg command-line tools are unavailable");
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("clip.mkv"));
+        QProcess encoder;
+        encoder.start(ffmpeg, {QStringLiteral("-hide_banner"), QStringLiteral("-loglevel"),
+            QStringLiteral("error"), QStringLiteral("-nostdin"), QStringLiteral("-f"),
+            QStringLiteral("lavfi"), QStringLiteral("-i"),
+            QStringLiteral("testsrc=size=32x16:rate=2"), QStringLiteral("-frames:v"),
+            QStringLiteral("2"), QStringLiteral("-c:v"), QStringLiteral("ffv1"), path});
+        QVERIFY(encoder.waitForFinished(5000));
+        QCOMPARE(encoder.exitCode(), 0);
+        FileAssetBackend backend;
+        AssetRequest request;
+        request.uri = path;
+        request.kind = QStringLiteral("metadata");
+        AssetResult result = backend.fetch(request, {}, {});
+        QVERIFY2(!result.error, qPrintable(result.error.message));
+        QCOMPARE(result.metadata.value(QStringLiteral("mediaType")).toString(), QStringLiteral("video"));
+        QCOMPARE(result.metadata.value(QStringLiteral("width")).toInt(), 32);
+        request.kind = QStringLiteral("frame");
+        request.size = QSize(32, 32);
+        request.frameId = QStringLiteral("1");
+        result = backend.fetch(request, {}, {});
+        QVERIFY2(!result.error, qPrintable(result.error.message));
+        QVERIFY(result.metadata.value(QStringLiteral("exactFrameIndex")).toBool());
+        QImage frame;
+        QVERIFY(frame.loadFromData(result.bytes, "PNG"));
+        QCOMPARE(frame.size(), QSize(32, 16));
+        request.kind = QStringLiteral("thumbnail");
+        request.frameId.clear();
+        result = backend.fetch(request, {}, {});
+        QVERIFY2(!result.error, qPrintable(result.error.message));
+        QVERIFY(!result.bytes.isEmpty());
     }
 };
 

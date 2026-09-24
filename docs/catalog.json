@@ -19746,6 +19746,10 @@
           "parameters": "x"
         },
         {
+          "name": "sampleEndAt",
+          "parameters": "x"
+        },
+        {
           "name": "frequencyAt",
           "parameters": "y"
         },

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "asset_provider.h"
 #include "pdf_asset_backend.h"
+#include "video_asset_backend.h"
 
 #include <QBuffer>
 #include <QFile>
@@ -249,20 +250,30 @@ AssetResult FileAssetBackend::fetch(const AssetRequest &request, const Cancellat
         result.error = error(ErrorCode::Unavailable, QStringLiteral("Asset is missing or unreadable"), QStringLiteral("uri"));
         return result;
     }
-    if (info.size() > MaxAssetBytes) {
+    const QString kind = request.kind.trimmed().toLower();
+    const bool videoFile = isVideoFileSuffix(info.suffix());
+    const bool streamed = kind == QStringLiteral("pdf-page") || kind == QStringLiteral("pdf-text")
+        || kind == QStringLiteral("frame") || kind == QStringLiteral("video")
+        || ((kind == QStringLiteral("thumbnail") || kind == QStringLiteral("metadata"))
+            && videoFile)
+        || (kind == QStringLiteral("metadata")
+            && info.suffix().compare(QStringLiteral("pdf"), Qt::CaseInsensitive) == 0);
+    if (info.size() > MaxAssetBytes && !streamed) {
         result.error = error(ErrorCode::Validation, QStringLiteral("Asset exceeds the 256 MiB read limit"), QStringLiteral("uri"));
         return result;
     }
-    const QString kind = request.kind.trimmed().toLower();
     if (kind == QStringLiteral("pdf-page") || kind == QStringLiteral("pdf-text")
         || (kind == QStringLiteral("metadata")
             && info.suffix().compare(QStringLiteral("pdf"), Qt::CaseInsensitive) == 0)) {
         return fetchPdfAsset(path, request, cancel, progress);
     }
-    if (kind == QStringLiteral("filmstrip") || kind == QStringLiteral("frame")
-        || kind == QStringLiteral("video")) {
+    if (kind == QStringLiteral("frame") || kind == QStringLiteral("video")
+        || (videoFile && (kind == QStringLiteral("thumbnail") || kind == QStringLiteral("metadata")))) {
+        return fetchVideoAsset(path, request, cancel, progress);
+    }
+    if (kind == QStringLiteral("filmstrip")) {
         result.error = error(ErrorCode::Unsupported,
-            QStringLiteral("Video decoding and filmstrip extraction are not available in the file backend"));
+            QStringLiteral("Filmstrip aggregation is not available in the file backend; request endpoint frames"));
         return result;
     }
     if (kind == QStringLiteral("waveform")) {

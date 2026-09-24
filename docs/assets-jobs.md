@@ -55,7 +55,8 @@ leak into the next session.
 
 `AssetProvider` accepts `AssetRequest` records by C++ or
 `requestAsset(resourceId,kind,options,document,viewId)` from QML. Kind,
-region, exact decimal-string time/rate, size, quality, PDF page index/rotation
+region, exact decimal-string time/rate, optional exact video `frameId`, size,
+quality, PDF page index/rotation
 and revision form a
 cache identity. It uses `ResourceResolver.lookup`, coalesces duplicate
 in-flight requests, runs a replaceable `AssetBackend` through its `JobModel`,
@@ -80,11 +81,17 @@ a rendered PNG for zero-based `pageIndex` and clockwise `rotation` (0, 90,
 page points for search and selection. PDF requests use Poppler's
 `pdfinfo`/`pdftoppm`/`pdftotext`
 executables in the worker process, with a 30-second timeout and 32 MiB encoded
-output limit; missing tools produce an explicit `Unsupported` result. The
+output limit; missing tools produce an explicit `Unsupported` result. Video
+`metadata`, `thumbnail`, and `frame` requests use installed FFmpeg command-line
+tools in the worker. A numeric `frameId` selects that exact zero-based decoded
+frame; otherwise `timeTicks * rateDenominator / rateNumerator` selects a seek
+time and the result reports `exactFrameIndex: false`. These subprocesses have
+the same 30-second and 32 MiB output bounds. Playback/frame caching, audio
+sync and sequence export remain WP-070 backend work. The
 reference adapter limits files to 256 MiB, source images to 100
 million pixels, and waveform output to 8192 columns. It reports video frame
-and filmstrip requests as unsupported; a domain backend supplies video
-decoding, remote files, larger media and domain-specific revision rules. No
+and filmstrip aggregation requests as unsupported; a domain backend supplies
+streaming playback, remote files and domain-specific revision rules. No
 partial or fabricated preview is shown for an unsupported operation.
 
 `JobModel` exposes inspectable failures and cancellation; applications can

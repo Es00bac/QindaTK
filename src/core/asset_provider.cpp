@@ -81,7 +81,8 @@ QString AssetProvider::keyFor(const AssetRequest &request)
         {QStringLiteral("rateNumerator"), QString::number(request.rateNumerator)},
         {QStringLiteral("rateDenominator"), QString::number(request.rateDenominator)},
         {QStringLiteral("quality"), request.quality}, {QStringLiteral("columns"), request.columns},
-        {QStringLiteral("pageIndex"), request.pageIndex}, {QStringLiteral("rotation"), request.rotation}};
+        {QStringLiteral("pageIndex"), request.pageIndex}, {QStringLiteral("rotation"), request.rotation},
+        {QStringLiteral("frameId"), request.frameId}};
     return QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(fields))
                                  .toJson(QJsonDocument::Compact));
 }
@@ -105,6 +106,7 @@ QString AssetProvider::request(AssetRequest request, PropertyDocument *document,
     if (request.resourceId.isEmpty() || request.kind.isEmpty() || !m_backend
         || m_subscriptions.size() >= 4096 || request.quality < 1 || request.quality > 100
         || request.columns < 0 || request.columns > 16384 || request.pageIndex < 0
+        || request.frameId.size() > 128
         || (request.rotation != 0 && request.rotation != 90
             && request.rotation != 180 && request.rotation != 270)
         || request.size.width() < 0 || request.size.height() < 0
@@ -215,6 +217,7 @@ QString AssetProvider::requestAsset(const QString &resourceId, const QString &ki
     bool pageOk = false, rotationOk = false;
     request.pageIndex = options.value(QStringLiteral("pageIndex"), 0).toInt(&pageOk);
     request.rotation = options.value(QStringLiteral("rotation"), 0).toInt(&rotationOk);
+    request.frameId = options.value(QStringLiteral("frameId")).toString();
     const QVariantMap size = options.value(QStringLiteral("size")).toMap();
     request.size = QSize(size.value(QStringLiteral("width")).toInt(),
                          size.value(QStringLiteral("height")).toInt());
@@ -241,7 +244,8 @@ QString AssetProvider::requestAsset(const QString &resourceId, const QString &ki
     request.rateNumerator = numerator.toLongLong(&numeratorOk);
     request.rateDenominator = denominator.toLongLong(&denominatorOk);
     if (!ticksOk || !numeratorOk || !denominatorOk || !pageOk || !rotationOk
-        || request.pageIndex < 0 || (request.rotation != 0 && request.rotation != 90
+        || request.pageIndex < 0 || request.frameId.size() > 128
+        || (request.rotation != 0 && request.rotation != 90
                                    && request.rotation != 180 && request.rotation != 270)
         || request.rateNumerator <= 0
         || request.rateDenominator <= 0 || request.quality < 1 || request.quality > 100

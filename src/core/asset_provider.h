@@ -24,6 +24,7 @@ struct AssetRequest {
     int columns = 0;
     int pageIndex = 0; // zero-based PDF page
     int rotation = 0;  // clockwise degrees: 0, 90, 180, 270
+    QString frameId;    // exact decimal source frame index when known
 };
 
 struct AssetResult {
