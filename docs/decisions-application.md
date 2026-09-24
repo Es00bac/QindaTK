@@ -424,7 +424,7 @@ Full-document snapshots remain the unit of save and recovery. Canvas tiles
 are stored uncompressed until a bounded inflater exists, because
 `qUncompress` does not bound its output. See [document-models.md](document-models.md).
 
-## D-055 — Keep workbook formulas positional and the Workbook the only history owner
+## D-055 — Keep workbook formulas positional and the Workbook the single revision owner
 
 **Context.** WP-055 needs spreadsheet references with relative and absolute
 anchors, structural row/column edits that keep formula targets, sheet renames
