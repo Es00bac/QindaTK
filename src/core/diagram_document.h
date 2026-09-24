@@ -3,8 +3,11 @@
 
 #include <QObject>
 #include <QByteArray>
+#include <QHash>
+#include <QPointF>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 #include <QVector>
 #include <QtQml/qqmlregistration.h>
 
@@ -39,12 +42,20 @@ public:
                                      const QString &toNodeId, const QString &toPortId);
     Q_INVOKABLE bool disconnectEdge(const QString &edgeId);
     Q_INVOKABLE bool removeNode(const QString &nodeId);
+    Q_INVOKABLE bool removeNodes(const QStringList &nodeIds);
     Q_INVOKABLE bool moveNode(const QString &nodeId, double x, double y);
     Q_INVOKABLE bool moveNodes(const QStringList &nodeIds, double dx, double dy);
     Q_INVOKABLE bool setNodeTitle(const QString &nodeId, const QString &title);
     Q_INVOKABLE bool setEdgeFlow(const QString &edgeId, double flow);
     Q_INVOKABLE bool autoLayout(double columnStep, double rowStep,
                                 double originX = 0, double originY = 0);
+    // Obstacle-aware orthogonal routes in document space (docs/diagram.md).
+    Q_INVOKABLE QVariantMap routeEdges(const QVariantMap &metrics = {}) const;
+    Q_INVOKABLE QVariantMap sankeyLayout(double width, double height,
+                                         double nodeWidth, double gap) const;
+    Q_INVOKABLE QVariantList flowImbalances(double tolerance = 1e-9) const;
+    Q_INVOKABLE bool exportSvg(const QString &path, const QVariantMap &metrics = {});
+    Q_INVOKABLE bool exportGraphMl(const QString &path);
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
     Q_INVOKABLE bool saveToFile(const QString &path);
@@ -74,6 +85,17 @@ private:
         double flow = 1.0;
     };
     struct State { QVector<Node> nodes; QVector<Edge> edges; };
+    // Column (depth) and row per node, in m_state.nodes order.
+    struct Ranking { QVector<int> depth; QVector<int> row; int columns = 0; };
+    struct Metrics {
+        double nodeWidth = 200;
+        double nodeHeight = 0; // 0: header + rows for the busiest side + 4
+        double headerHeight = 24;
+        double rowHeight = 22;
+        double stub = 14;
+        double clearance = 16;
+    };
+    struct Route { QVector<QPointF> points; bool clear = true; };
 
     int nodeIndex(const QString &id) const;
     int edgeIndex(const QString &id) const;
@@ -81,6 +103,9 @@ private:
     void rememberEdit();
     void setError(const QString &message);
     bool decode(const QByteArray &bytes, State *result);
+    Ranking rank() const;
+    bool metricsFrom(const QVariantMap &map, Metrics *metrics) const;
+    QHash<QString, Route> computeRoutes(const Metrics &metrics) const;
 
     State m_state;
     QVector<State> m_undo;

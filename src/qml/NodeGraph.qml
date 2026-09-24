@@ -27,6 +27,8 @@ Item {
     property string searchText: ""
     readonly property var searchMatches: GraphGeometry.searchNodes(nodes, searchText)
     property string wireRouting: "curved" // curved | orthogonal
+    // edgeId -> {points:[{x,y}]} in document space; overrides wireRouting (DiagramCanvas).
+    property var edgeRoutes: ({})
     property bool flowMode: false
     property real zoom: 1.0
     property real minZoom: 0.45
@@ -308,8 +310,12 @@ Item {
                 const a = root.edgePoint(edge.fromNodeId, edge.fromPortId, "output")
                 const b = root.edgePoint(edge.toNodeId, edge.toPortId, "input")
                 const port = root.portById(edge.fromNodeId, edge.fromPortId, "output")
+                const route = (root.edgeRoutes || {})[edge.edgeId]
                 ctx.beginPath()
-                GraphGeometry.paintEdge(ctx, a, b, root.wireRouting, Tk.Theme.size.icon, Tk.Theme.space.xl)
+                if (route && route.points && route.points.length > 1)
+                    GraphGeometry.paintRoute(ctx, route.points, root.zoom, root.panX, root.panY)
+                else
+                    GraphGeometry.paintEdge(ctx, a, b, root.wireRouting, Tk.Theme.size.icon, Tk.Theme.space.xl)
                 ctx.strokeStyle = String(edge.edgeId) === root.selectedEdgeId ? Tk.Theme.color.focus : root.portColor(port ? port.type : "")
                 ctx.lineWidth = (root.flowMode ? root.flowWidth(edge.flow) : Tk.Theme.size.border) + (String(edge.edgeId) === root.selectedEdgeId ? Tk.Theme.size.border : 0)
                 ctx.stroke()
@@ -323,6 +329,7 @@ Item {
             function onPanYChanged() { wireLayer.requestPaint() }
             function onZoomChanged() { wireLayer.requestPaint() }
             function onWireRoutingChanged() { wireLayer.requestPaint() }
+            function onEdgeRoutesChanged() { wireLayer.requestPaint() }
             function onFlowModeChanged() { wireLayer.requestPaint() }
             function onSelectedEdgeIdChanged() { wireLayer.requestPaint() }
         }
@@ -364,8 +371,10 @@ Item {
                                                        modelData.fromPortId, "output")
             readonly property var to: root.edgePoint(modelData.toNodeId,
                                                      modelData.toPortId, "input")
-            x: (from.x + to.x) / 2 - width / 2
-            y: (from.y + to.y) / 2 - height / 2
+            readonly property point middle: GraphGeometry.edgeMidpoint((root.edgeRoutes || {})[modelData.edgeId],
+                from, to, root.zoom, root.panX, root.panY)
+            x: middle.x - width / 2
+            y: middle.y - height / 2
             width: Tk.Theme.size.icon
             height: Tk.Theme.size.icon
             text: qsTr("×")

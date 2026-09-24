@@ -1152,3 +1152,53 @@ each cue's start; `MediaCaptions::readEmbedded` reads it back.
 **Consequences.** JSON, WebVTT and embedded round trips keep timing, text and
 language; WebVTT styling markup and SRT tags are literal text; bitmap and ASS
 subtitle streams are refused, not approximated.
+
+## D-122 — Diagram and CAD documents share a duck-typed canvas contract
+
+**Context.** WP-083 asks for separate diagram and CAD domain models behind
+common canvas contracts. A C++ base class would couple two unrelated data
+models and complicate `QML_ELEMENT` registration. **Decision.** Each domain
+document is its own `QObject` and exposes the same members: `revision`,
+`canUndo`, `canRedo`, `lastError`, `undo()`, `redo()`, `saveToFile(path)`,
+`loadFromFile(path)` (atomic, fresh history) and `exportSvg(path)`. Its view
+takes a `document` and owns only selection, snapping and viewport pose
+(`zoom`, `panX`, `panY`). `tst_diagram_document::sharedCanvasContract`
+calls both documents through the meta-object only. **Consequences.** Hosts
+can wire toolbars, undo and export generically; a new domain surface must
+pass the same test to join the contract.
+
+## D-123 — Diagram layout orders columns by predecessor barycenter
+
+**Context.** Rank layout placed nodes in saved order within a column, which
+crossed edges whenever saved order disagreed with the previous column.
+**Decision.** After cycle condensation and longest-path ranking, one
+downward sweep orders each column's components by the mean row of their
+predecessors; saved order breaks ties. `autoLayout` and `sankeyLayout`
+share this ranking. **Consequences.** Output stays deterministic and
+idempotent. It is a heuristic, not a crossing minimum; no up-sweeps or
+transposition passes are run.
+
+## D-124 — Diagram routes are computed by the document
+
+**Context.** The canvas drew wires in JavaScript while an SVG export also
+needs the same geometry; two routers would drift. **Decision.**
+`DiagramDocument.routeEdges(metrics)` computes obstacle-aware orthogonal
+routes in document space. The view passes its card metrics and draws the
+polylines through `NodeGraph.edgeRoutes`; `exportSvg` uses the same
+function. A route enters no card interior when one of its candidates
+(midpoint channel, channels beside cards, lanes above/below cards) allows it;
+otherwise it takes the outermost lane and reports `clear: false`.
+**Consequences.** Export matches the screen. The router checks every card
+per candidate, which suits interactive diagrams; large-graph performance is
+qualified with the deferred packages.
+
+## D-125 — CadDocument declares 2D sketch operations; 3D goes to the scene viewport
+
+**Context.** EXT-04 mentions 2D/3D engineering geometry, while the toolkit
+does not certify solid-modeling precision. **Decision.** The declared CAD
+operations are the 2D sketch set in `docs/cad.md` (points, segments,
+circles, arcs, six constraint kinds, dimensions, snapping, measurement,
+native reopen, SVG/DXF output). 3D presentation of engineering geometry
+uses the accepted WP-076 scene viewport; a solid-modeling kernel remains a
+host-provided extension. **Consequences.** WP-083's CAD qualification
+covers only the declared 2D operations.

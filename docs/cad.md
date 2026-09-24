@@ -84,9 +84,15 @@ test compares complete SVG and DXF files byte for byte; the native file has
 a separate exact save/reopen check. Older version-1 native files without an
 `arcs` array reopen with an empty arc collection.
 
-## Remaining CAD scope
+## Domain canvas contract and scope
 
-Spline/polygon entities, relative angle and curve tangency constraints,
-multi-selection, DXF/SVG import, precision qualification on large
-models, 3D solids and topology are not part of this first slice. See
+`CadDocument` shares the domain canvas contract with `DiagramDocument`
+(`revision`, `canUndo`, `canRedo`, `lastError`, `undo`, `redo`,
+`saveToFile`, `loadFromFile`, `exportSvg`; see
+[diagram.md](diagram.md#domain-canvas-contract) and D-122). The declared CAD
+operations are the 2D sketch set above (D-125). 3D presentation of
+engineering geometry uses the WP-076 scene viewport; a solid-modeling kernel,
+splines, relative-angle and curve-curve tangency constraints and DXF/SVG
+import are outside the declared set. Large-model precision and performance
+qualification belong to the deferred packages WP-088 to WP-094. See
 [WP-083](universal-toolkit/implementation/phase-07-integrations.md#wp-083).

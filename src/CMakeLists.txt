@@ -150,6 +150,7 @@ qt_add_qml_module(qindatk
         core/node_graph_model.cpp core/node_graph_types.cpp core/node_graph_groups.cpp
         core/node_graph_render.cpp core/node_graph_codec.cpp core/node_graph_model.h
         core/diagram_document.cpp core/diagram_document_io.cpp core/diagram_document_layout.cpp
+        core/diagram_document_flow.cpp core/diagram_document_route.cpp core/diagram_document_export.cpp
         core/diagram_document.h
         core/cad_document.cpp core/cad_document_solver.cpp core/cad_document_io.cpp
         core/cad_document_export.cpp
