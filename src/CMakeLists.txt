@@ -41,6 +41,8 @@ qt_add_qml_module(qindatk
         core/color_profile.cpp core/color_profile.h
         core/color_context.h core/color_engine.cpp core/color_engine.h
         core/color_lcms_p.h
+        core/curve_evaluator.cpp core/curve_evaluator.h
+        core/curve_validation.cpp core/curve_evaluator_p.h
         core/capability_registry.cpp core/capability_registry.h
         core/command_context.cpp core/command_context.h
         core/command_registry.cpp core/command_registry.h

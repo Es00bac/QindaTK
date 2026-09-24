@@ -30,6 +30,7 @@ pages below are the reference.
 | [accessibility-locale-input.md](accessibility-locale-input.md) | Virtual accessibility nodes, per-instance locale policy and gesture arbitration |
 | [time-map.md](time-map.md) | Exact sample/frame/tick conversions, tempo segments, timecode and precision-safe QML values |
 | [native-integration.md](native-integration.md) | Native window/view lifecycle, file dialogs and desktop capability boundaries |
+| [curve.md](curve.md) | Typed numerical curves, normalized knot/handle constraints, interpolation and edge semantics |
 | [color.md](color.md) | Numerical RGB ICC profiles, straight alpha, CPU transforms, precision and unsupported proof/display boundaries |
 | [canvas.md](canvas.md) | Spatial canvas: document/view/device transforms, object model, picking, tool gestures, synchronized views and the tile rendering boundary |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |

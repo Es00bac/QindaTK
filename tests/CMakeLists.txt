@@ -123,3 +123,13 @@ target_compile_definitions(tst_qml PRIVATE
 add_test(NAME tst_qml COMMAND tst_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/qml")
 set_tests_properties(tst_qml PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
+
+# Pure numerical sources are tested directly: no GUI/QML or document service
+# is needed to validate the stateless curve contract on each supported Qt.
+qt_add_executable(tst_curve_evaluator cpp/tst_curve_evaluator.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/curve_evaluator.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/curve_validation.cpp)
+qindatk_enable_warnings(tst_curve_evaluator)
+target_include_directories(tst_curve_evaluator PRIVATE ${PROJECT_SOURCE_DIR}/src/core)
+target_link_libraries(tst_curve_evaluator PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME tst_curve_evaluator COMMAND tst_curve_evaluator)

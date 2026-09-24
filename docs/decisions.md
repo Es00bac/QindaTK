@@ -563,3 +563,20 @@ Profile import and the transform cache are bounded; no native handles enter
 public headers. Gamut status remains unknown. Canvas/GPU display management,
 proofing and gradient interpolation require their own fixtures and integration;
 no Theme change modifies stored colors. See [color.md](color.md).
+
+
+## D-048 — Keep editable curve geometry normalized and its domains typed
+
+**Context.** Tangent handles, evaluator samples and editor gestures need one
+coordinate convention, while automation and color curves have different units.
+
+**Decision.** Curve knots carry stable string IDs; knots and handles use
+absolute normalized coordinates. Typed axis domains provide explicit affine unit
+projection. A stateless validator rejects invalid proposals; a double-precision
+evaluator defines step, linear, cubic and edge semantics without repairing or
+mutating host data. Ordered cubic controls permit a bounded monotone x solve.
+
+**Consequences.** The editor proposes handle coordinates and the host owns
+constraints and commits. Unit conversions, exact tick projection, mirrored
+tangents, adaptive sampling and undo remain explicit integration boundaries.
+See [curve.md](curve.md) for endpoints, repeat seams and numerical fixtures.
