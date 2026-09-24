@@ -16594,6 +16594,260 @@
       ]
     },
     {
+      "name": "NodeGraph",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Hosts validate and republish snapshots after each graph edit request.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/NodeGraph.qml",
+      "properties": [
+        {
+          "name": "nodes",
+          "type": "var",
+          "default": "[] // {nodeId,title,x,y,inputs:[{portId,label,type}],outputs:[...]}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edges",
+          "type": "var",
+          "default": "[] // {edgeId,fromNodeId,fromPortId,toNodeId,toPortId}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedNodeId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEdgeId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "real",
+          "default": "1.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minZoom",
+          "type": "real",
+          "default": "0.45",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxZoom",
+          "type": "real",
+          "default": "1.8",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panX",
+          "type": "real",
+          "default": "Tk.Theme.space.xl",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panY",
+          "type": "real",
+          "default": "Tk.Theme.space.xl",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Node graph\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "linkStatusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "linkStatusState",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nodeWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.panelMinWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nodeHeight",
+          "type": "int",
+          "default": "Tk.Theme.size.header",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingNode",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingPort",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestSerial",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "latestLinkRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyboardConnectSourceNodeId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyboardConnectSourcePortId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "nodeSelected",
+          "parameters": "string nodeId"
+        },
+        {
+          "name": "edgeSelected",
+          "parameters": "string edgeId"
+        },
+        {
+          "name": "nodeMoveRequested",
+          "parameters": "string nodeId, real x, real y"
+        },
+        {
+          "name": "linkConnectRequested",
+          "parameters": "string requestId, string fromNodeId, string fromPortId, string toNodeId, string toPortId"
+        },
+        {
+          "name": "linkDisconnectRequested",
+          "parameters": "string requestId, string edgeId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "nodeById",
+          "parameters": "nodeId"
+        },
+        {
+          "name": "portById",
+          "parameters": "nodeId, portId, side"
+        },
+        {
+          "name": "portColor",
+          "parameters": "type"
+        },
+        {
+          "name": "visibleNode",
+          "parameters": "record"
+        },
+        {
+          "name": "beginOrFinishLink",
+          "parameters": "nodeId, portId, side"
+        },
+        {
+          "name": "requestDisconnect",
+          "parameters": "edgeId"
+        },
+        {
+          "name": "acknowledgeLink",
+          "parameters": "requestId, state, message"
+        },
+        {
+          "name": "setZoom",
+          "parameters": "value"
+        },
+        {
+          "name": "zoomAt",
+          "parameters": "value, point"
+        },
+        {
+          "name": "edgePoint",
+          "parameters": "nodeId, portId, side"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "nodeGraph",
+        "nodeGraphFocusRing",
+        "nodeGraphStatus",
+        "nodeGraphStatusText",
+        "nodeGraphToolbar",
+        "nodeGraphWires",
+        "nodeHeader_",
+        "nodePort_",
+        "node_"
+      ]
+    },
+    {
       "name": "NotebookView",
       "kind": "qml",
       "base": "Item",

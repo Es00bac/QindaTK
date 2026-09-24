@@ -71,6 +71,11 @@ reopens a versioned composition with exact animation ticks and stable layer
 IDs; artwork remains an external asset.
 The [motion effects fixture](motion-effects/Main.qml) renders the same source
 before and after ordered brightness and grayscale effects.
+The [node graph fixture](node-graph/Main.qml) presents host-owned node and
+typed-edge snapshots, accepts compatible connections, and shows the host's
+rejection for incompatible port types. `NodeGraphModel` separately supplies
+typed image evaluation, cycle validation, undo and topology persistence for
+hosts that use the toolkit's initial processing nodes.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
 The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows
