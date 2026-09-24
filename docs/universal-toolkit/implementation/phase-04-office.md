@@ -204,7 +204,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-059"></a>
 ## WP-059 — Implement forms, schemas and report design
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-029](phase-02-controls-data.md#wp-029), [WP-051](phase-04-office.md#wp-051), [WP-053](phase-04-office.md#wp-053)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-029](phase-02-controls-data.md#wp-029), [WP-051](phase-04-office.md#wp-051), [WP-053](phase-04-office.md#wp-053)
 
 **Proposal scope:** [OFF-33 FormDesigner](../proposed/05-documents-office.md#off-33), [OFF-34 DatabaseSchemaView](../proposed/05-documents-office.md#off-34), [OFF-35 ReportDesigner](../proposed/05-documents-office.md#off-35)
 

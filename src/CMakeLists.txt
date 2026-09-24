@@ -160,6 +160,7 @@ qt_add_qml_module(qindatk
         core/query_grid_adapter.cpp core/query_grid_adapter.h
         core/query_controller.cpp core/query_controller.h
         core/local_database_provider.cpp core/local_database_provider.h
+        core/recurrence_service.cpp core/recurrence_service.h
         core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h
         core/density.cpp core/density.h
         core/focus_manager.cpp core/focus_manager.h

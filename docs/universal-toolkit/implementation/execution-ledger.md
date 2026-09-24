@@ -94,7 +94,7 @@ as though a later fix had already passed the earlier run.
 | [WP-056 — Implement slide authoring and presentation](phase-04-office.md#wp-056) | 04 | Sol | active | [Five slide/presenter controls integrated; persistent model and playback pending](evidence/WP-056.md) |
 | [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | active | [NotebookView and BlockEditor integrated; persistent block model and content providers pending](evidence/WP-057.md) |
 | [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | active | [Five host-backed controls integrated; persistence and delivery providers pending](evidence/WP-058.md) |
-| [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | planned | — |
+| [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | active | [SQLite provider and three controls integrated; design persistence and paginated export pending](evidence/WP-059.md) |
 | [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | active | [Host-acknowledged device panel integrated; real audio engine pending](evidence/WP-060.md) |
 | [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | active | [Control visuals, peak/RMS model and parameter taper integrated; engine binding pending](evidence/WP-061.md) |
 | [WP-062 — Implement mixing, panning and routing](phase-05-audio.md#wp-062) | 05 | Sol | active | [Four mixer/routing controls integrated; real DSP and graph operations pending](evidence/WP-062.md) |
@@ -106,8 +106,8 @@ as though a later fix had already passed the earlier run.
 | [WP-068 — Implement pitch analysis and correction editing](phase-05-audio.md#wp-068) | 05 | Sol | active | [PitchEditor integrated; analysis and correction DSP pending](evidence/WP-068.md) |
 | [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | active | [Monitor/bin controls and local frame decode integrated; playback and frame lifecycle pending](evidence/WP-070.md) |
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | active | [Trim, multicam and transition controls integrated; sequence edit backend pending](evidence/WP-071.md) |
-| [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [CaptionEditor and ColorWheels integrated; scopes and media backends pending](evidence/WP-072.md) |
-| [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | planned | — |
+| [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [CaptionEditor, ColorWheels and CPU VideoScopes integrated; caption and grading backends pending](evidence/WP-072.md) |
+| [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | active | [Exact-tick motion evaluator and three controls integrated; pixel composition and frame output pending](evidence/WP-073.md) |
 | [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | planned | — |
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | planned | — |
 | [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | planned | — |

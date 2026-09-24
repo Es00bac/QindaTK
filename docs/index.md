@@ -12,6 +12,7 @@ pages below are the reference.
 | [theming.md](theming.md) | Theme roles, ladders, density, presets, JSON themes, the QindaQt QST-1 bridge |
 | [controls.md](controls.md) | Every control: properties, signals, sizes, objectNames (the API contract) |
 | [gantt.md](gantt.md) | Task schema, working-calendar projection, schedule transactions, dependency and grid seams |
+| [productivity.md](productivity.md) | Local calendar recurrence expansion, event identity, DST policy and host persistence boundary |
 | [control-interaction.md](control-interaction.md) | Owner state, user signals, editing states, focus and assistive action baseline |
 | [application-contracts.md](application-contracts.md) | Strong IDs, revisions, exact QML values, snapshots, cancellation and capability discovery |
 | [commands.md](commands.md) | Scoped command contexts, registry and bindings, shortcut routing, focus restoration, and menu/toolbar/palette adapters |

@@ -31,6 +31,7 @@ IUSE="examples test"
 RESTRICT="!test? ( test )"
 
 RDEPEND="
+	dev-db/sqlite:3
 	>=dev-qt/qtbase-6.11:6=[gui]
 	>=dev-qt/qtdeclarative-6.11:6=
 	>=dev-qt/qtsvg-6.11:6=

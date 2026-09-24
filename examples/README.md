@@ -35,6 +35,14 @@ The [slide authoring fixture](slide-authoring/Main.qml) exercises slide
 sorting, object selection, master overrides, animation requests and separate
 presenter/audience snapshots through five toolkit controls.
 
+The [productivity fixture](productivity-suite/Main.qml) exercises mail,
+calendar, recurrence and task controls. Its recurrence preview uses
+`RecurrenceService`; message and task records remain sample snapshots.
+The [form/schema/report fixture](forms-schema-report/Main.qml) uses a local
+SQLite provider and parameter-bound fields. The [motion fixture](motion-authoring/Main.qml)
+evaluates exact-tick keyframes and shows effect compatibility. These are
+toolkit examples rather than complete productivity or motion applications.
+
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real
 device engine must supply enumeration and apply the settings.

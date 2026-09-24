@@ -2,8 +2,8 @@
 import QtQuick
 import QindaTK as Tk
 
-// Local presentation fixture. Mail delivery, recurrence expansion and storage
-// are host services; this page performs none of those operations.
+// Local presentation fixture. Recurrence uses the toolkit's local engine;
+// mail delivery and record persistence remain host services here.
 Tk.AppWindow {
     id: window
     title: qsTr("Productivity controls · local fixture")
@@ -18,6 +18,7 @@ Tk.AppWindow {
         { status: "doing", label: "In progress", tasks: [{ taskId: "task-12", title: "Review transcript", assignee: "Lee", dueDate: "2026-09-24", priority: "Normal" }] },
         { status: "done", label: "Done", tasks: [{ taskId: "task-09", title: "Book field room", assignee: "Mira", dueDate: "2026-09-22", priority: "Low" }] }
     ]
+    Component.onCompleted: recurrence.requestPreview()
 
     Tk.Flex {
         direction: Tk.Flex.Column; gap: Tk.Theme.space.md; padding: Tk.Theme.space.md
@@ -46,12 +47,18 @@ Tk.AppWindow {
             }
             Tk.TaskBoard { id: board; Tk.Flex.flex: 1; columns: window.taskColumns }
         }
+        Tk.RecurrenceService { id: recurrenceService }
         Tk.RecurrenceEditor {
             id: recurrence; eventId: "event-33"; zone: "America/Denver"
-            rule: ({ frequency: "weekly", interval: 1, weekdays: [4], endMode: "never", count: 0, until: "", exceptions: ["occurrence-2026-10-01"] })
+            rule: ({ frequency: "weekly", interval: 1, weekdays: [4], endMode: "never", count: 0, until: "", exceptions: ["event-33/2026-10-01T10:30:00"] })
             onRuleChangeRequested: function(requestId, eventId, proposed) { rule = proposed; acknowledge(requestId, "accepted", qsTr("Fixture accepted the rule proposal.")) }
-            onPreviewRequested: function(requestId, eventId, proposed) { preview = [{ localStart: "2026-09-24 10:30", zone: "America/Denver" }, { localStart: "2026-10-01 10:30", zone: "America/Denver" }]; previewState = "ready"; acknowledge(requestId, "accepted", "") }
+            onPreviewRequested: function(requestId, eventId, proposed) {
+                preview = recurrenceService.expand(eventId, "2026-09-24T10:30:00", 2700,
+                    recurrence.zone, proposed, "2026-09-21T00:00:00Z", "2026-11-01T00:00:00Z", 16)
+                previewState = recurrenceService.error.length ? "error" : "ready"
+                acknowledge(requestId, recurrenceService.error.length ? "rejected" : "accepted", recurrenceService.error)
+            }
         }
-        Tk.Notice { variant: "info"; title: qsTr("Fixture boundary"); text: qsTr("All records are local sample snapshots. Requests are displayed or acknowledged by this page; no mail is sent, no calendar is saved, and no remote sync occurs.") }
+        Tk.Notice { variant: "info"; title: qsTr("Fixture boundary"); text: qsTr("Recurrence rows are computed locally. Other records are sample snapshots: no mail is sent, no calendar is saved, and no remote sync occurs.") }
     }
 }
