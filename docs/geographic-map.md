@@ -68,13 +68,32 @@ when tiles are missing. The local fixture can be regenerated with
 The canvas draws tiles at the integer zoom level below the continuous camera
 zoom and scales them to match vector geometry. Longitude wraps and local tiles
 repeat across world copies. The manifest is deliberately sparse and offline;
-the API can be adapted to a network provider later without changing MapView's
-camera or vector contract.
+the network source below uses the same camera and vector contract.
+
+## Opt-in network XYZ source
+
+Call `MapView.useNetworkTiles(urlTemplate, attribution, minZoom, maxZoom,
+tileSize)` to replace the local source with an HTTP(S) tile template containing
+`{z}`, `{x}` and `{y}`. The attribution string is required and stays visible
+in the map. The default `MapView` still makes no network requests; only this
+method opts in. For example, a host app can pass its own tile service URL as a
+template without changing the map camera or vector model.
+
+The source requests only visible tiles. On pan, zoom or source replacement it
+aborts replies for tiles that left the viewport and rejects any late result by
+request generation. Decoded images use the same bounded memory cache as local
+tiles. Qt's `QNetworkDiskCache` stores cacheable HTTP responses in
+`diskCacheDirectory` (the application cache directory by default), bounded by
+`diskCacheLimitBytes` (64 MiB by default, configurable from 1 MiB to 1 GiB).
+`diskCacheBytes` reports its current size and `clearDiskCache()` explicitly
+removes saved responses. HTTP caching follows the tile server's cache headers;
+cacheable responses can be used while offline. Failed and missing responses
+appear in `tileStatus` while vectors remain usable.
 
 ## Remaining WP-084 scope
 
 The vector renderer still scans local features for painting and picking. Large
-spatial data needs a visible-region cache and spatial index. Network providers,
-source freshness, layer ordering, projection switching, geometry edits,
-annotations and export of a composed map remain. The GeoJSON reader assumes
+spatial data needs a visible-region cache and spatial index. Multiple tile
+providers, layer ordering, projection switching, geometry edits, annotations
+and export of a composed map remain. The GeoJSON reader assumes
 WGS84; arbitrary CRS declarations are unsupported.

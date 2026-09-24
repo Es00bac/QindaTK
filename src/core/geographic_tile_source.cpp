@@ -11,11 +11,9 @@
 #include <QPointer>
 #include <QThreadPool>
 #include <QUrl>
+#include <utility>
 
 namespace QindaTK {
-GeographicTileSource::GeographicTileSource(QObject *parent) : QObject(parent)
-{ m_cache.setMaxCost(m_cacheLimitBytes / 1024); }
-
 QString GeographicTileSource::key(int z, int x, int y)
 { return QString::number(z) + QLatin1Char('/') + QString::number(x) + QLatin1Char('/') + QString::number(y); }
 
@@ -30,6 +28,8 @@ void GeographicTileSource::setCacheLimitBytes(int bytes)
 
 void GeographicTileSource::clear()
 {
+    cancelNetworkRequests({});
+    m_urlTemplate.clear();
     m_paths.clear(); m_cache.clear(); m_visible.clear(); m_pending.clear(); m_failed.clear();
     m_attribution.clear(); m_lastError.clear();
     m_minZoom = 0; m_maxZoom = 18; m_tileSize = 256;
@@ -79,6 +79,8 @@ bool GeographicTileSource::loadManifest(const QString &path)
         paths.insert(id, base.filePath(relative));
     }
     // Failed replacement leaves the previous source and cache intact.
+    cancelNetworkRequests({});
+    m_urlTemplate.clear();
     m_paths = std::move(paths); m_cache.clear(); m_pending.clear(); m_failed.clear();
     m_attribution = manifest.value("attribution").toString();
     m_minZoom = min; m_maxZoom = max; m_tileSize = size; m_lastError.clear();
@@ -89,7 +91,7 @@ bool GeographicTileSource::loadManifest(const QString &path)
 
 int GeographicTileSource::tileState(const QString &id) const
 {
-    if (!m_paths.contains(id)) return 0;
+    if (!m_paths.contains(id) && m_urlTemplate.isEmpty()) return 0;
     if (m_cache.contains(id)) return 2;
     if (m_failed.contains(id)) return 3;
     return 1;
@@ -103,21 +105,27 @@ QImage GeographicTileSource::tileImage(const QString &id)
 
 void GeographicTileSource::setVisibleTiles(const QSet<QString> &keys)
 {
+    if (!m_urlTemplate.isEmpty())
+        for (const auto &id : std::as_const(m_visible))
+            if (!keys.contains(id)) m_failed.remove(id); // retry a failed network tile on return
     m_visible = keys;
+    cancelNetworkRequests(keys);
     for (auto it = m_pending.begin(); it != m_pending.end();) {
         if (!keys.contains(it.key())) it = m_pending.erase(it);
         else ++it;
     }
     for (const auto &id : keys)
-        if (m_paths.contains(id) && !m_cache.contains(id) && !m_failed.contains(id) && !m_pending.contains(id))
+        if ((m_paths.contains(id) || !m_urlTemplate.isEmpty()) &&
+            !m_cache.contains(id) && !m_failed.contains(id) && !m_pending.contains(id))
             request(id);
 }
 
 void GeographicTileSource::request(const QString &id)
 {
-    const auto path = m_paths.value(id);
     const quint64 serial = ++m_requestSerial;
     m_pending.insert(id, serial);
+    if (!m_urlTemplate.isEmpty()) { requestNetwork(id, serial); return; }
+    const auto path = m_paths.value(id);
     const QPointer<GeographicTileSource> guard(this);
     QThreadPool::globalInstance()->start([guard, id, path, serial, expectedSize = m_tileSize] {
         QImageReader reader(path);
@@ -126,16 +134,21 @@ void GeographicTileSource::request(const QString &id)
         if (!image.isNull() && image.size() != QSize(expectedSize, expectedSize)) image = {};
         QMetaObject::invokeMethod(QCoreApplication::instance(),
             [guard, id, serial, image = std::move(image)]() mutable {
-                if (!guard || guard->m_pending.value(id) != serial || !guard->m_visible.contains(id)) return;
-                guard->m_pending.remove(id);
-                if (image.isNull()) guard->m_failed.insert(id);
-                else {
-                    const int kib = static_cast<int>(qMax<qsizetype>(1, (image.sizeInBytes() + 1023) / 1024));
-                    guard->m_cache.insert(id, new QImage(std::move(image)), kib);
-                    emit guard->cacheChanged();
-                }
-                emit guard->tileReady(id);
+                if (guard) guard->finishTile(id, serial, std::move(image));
             }, Qt::QueuedConnection);
     });
+}
+
+void GeographicTileSource::finishTile(const QString &id, quint64 serial, QImage image)
+{
+    if (m_pending.value(id) != serial || !m_visible.contains(id)) return;
+    m_pending.remove(id);
+    if (image.isNull()) m_failed.insert(id);
+    else {
+        const int kib = static_cast<int>(qMax<qsizetype>(1, (image.sizeInBytes() + 1023) / 1024));
+        m_cache.insert(id, new QImage(std::move(image)), kib);
+        emit cacheChanged();
+    }
+    emit tileReady(id);
 }
 }

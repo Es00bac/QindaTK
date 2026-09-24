@@ -15192,6 +15192,10 @@
           "parameters": "path"
         },
         {
+          "name": "useNetworkTiles",
+          "parameters": "urlTemplate, attribution, minZoom, maxZoom, tileSize"
+        },
+        {
           "name": "coordinateAt",
           "parameters": "x, y"
         },
@@ -41642,7 +41646,7 @@
       "name": "GeographicTileSource",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: GeographicMapCanvas supplies visible XYZ keys; this source owns local decoding, stale-result rejection and the bounded image cache.",
+      "description": "AGENT-CONTRACT: GeographicMapCanvas supplies visible XYZ keys; this source owns local/network decoding, stale-result rejection and bounded caches.",
       "singleton": false,
       "attached": null,
       "file": "src/core/geographic_tile_source.h",
@@ -41709,6 +41713,34 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "networkTemplate",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "diskCacheDirectory",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "diskCacheLimitBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "diskCacheBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -41721,6 +41753,10 @@
           "parameters": ""
         },
         {
+          "name": "diskCacheChanged",
+          "parameters": ""
+        },
+        {
           "name": "tileReady",
           "parameters": "const QString &key"
         }
@@ -41730,6 +41766,16 @@
           "name": "loadManifest",
           "returns": "bool",
           "parameters": "const QString &path"
+        },
+        {
+          "name": "useNetworkTemplate",
+          "returns": "bool",
+          "parameters": "const QString &urlTemplate, const QString &attribution, int minZoom = 0, int maxZoom = 18, int tileSize = 256"
+        },
+        {
+          "name": "clearDiskCache",
+          "returns": "void",
+          "parameters": ""
         },
         {
           "name": "clear",

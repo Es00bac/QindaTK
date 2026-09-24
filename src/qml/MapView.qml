@@ -22,6 +22,12 @@ Item {
     function loadGeoJson(path) { return model.loadGeoJson(path) }
     function saveGeoJson(path) { return model.saveGeoJson(path) }
     function loadTileManifest(path) { return tileSource ? tileSource.loadManifest(path) : false }
+    function useNetworkTiles(urlTemplate, attribution, minZoom, maxZoom, tileSize) {
+        return tileSource ? tileSource.useNetworkTemplate(urlTemplate, attribution,
+            minZoom === undefined ? 0 : minZoom,
+            maxZoom === undefined ? 18 : maxZoom,
+            tileSize === undefined ? 256 : tileSize) : false
+    }
     function coordinateAt(x, y) { return canvas.coordinateAt(x, y) }
     function screenPosition(longitude, latitude) { return canvas.screenPosition(longitude, latitude) }
     function featureIdAt(x, y) { return canvas.featureIdAt(x, y) }
