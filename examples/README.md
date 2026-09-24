@@ -318,3 +318,21 @@ output manifest.
 - Exercises: `RenderQueueView`, immutable source/version and output snapshots,
   explicit host requests, diagnostics and manifest-gated output access
 - Screenshot: [render-queue.png](../docs/screenshots/render-queue.png)
+
+## render-queue-live
+
+This standalone host wires `RenderQueueView` to `RenderQueueModel`. It creates
+three fixed PNG source frames, hashes them into an immutable caption render
+snapshot, then writes a verified captioned PNG sequence and exact manifest.
+Validate and Submit are interactive; Cancel, Retry and Open output route back
+to the queue. Open output is offered only after verified publication. The
+state path records queued, running and succeeded transitions in one run.
+
+- Build: `cmake --build build/dev --target qtk-render-queue-live`
+- Run: `build/dev/examples/qtk-render-queue-live --output-root /tmp/qtk-render-demo`
+- Automated check and screenshot: `QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software build/dev/examples/qtk-render-queue-live --check --output-root /tmp/qtk-render-demo --grab /tmp/qtk-render-demo.png`
+- Output: `/tmp/qtk-render-demo/caption-output/frame-000000.png` through `frame-000002.png` and `render-manifest.json`
+- Screenshot: [render-queue-live.png](../docs/screenshots/render-queue-live.png)
+
+Use a new output root for a fresh render. Reopening a root displays its persisted
+job and verifies it before the automated check succeeds.

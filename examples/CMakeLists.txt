@@ -10,7 +10,7 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
             get_filename_component(name "${dir}" NAME)
             # The workbench QML requires its local C++ DocumentManager host;
             # its standalone --check is the smoke gate for that example.
-            if(name STREQUAL "workbench")
+            if(name STREQUAL "workbench" OR name STREQUAL "render-queue-live")
                 continue()
             endif()
             add_test(NAME example_${name}
@@ -48,5 +48,20 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
         COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/mixer-routing.qml"
                 --check --size 1280x740)
     set_tests_properties(example_mixer_routing PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+endif()
+
+# Live render queue needs a host to prepare hashed source frames and route UI requests.
+qt_add_executable(qtk-render-queue-live render-queue-live/main.cpp
+    render-queue-live/demo_host.cpp render-queue-live/demo_host.h)
+qindatk_enable_warnings(qtk-render-queue-live)
+target_link_libraries(qtk-render-queue-live PRIVATE qindatk Qt6::Quick)
+target_compile_definitions(qtk-render-queue-live PRIVATE
+    RENDER_QUEUE_LIVE_QML_FILE="${CMAKE_CURRENT_SOURCE_DIR}/render-queue-live/Main.qml"
+    QINDATK_BUILD_QML_DIR="${CMAKE_BINARY_DIR}/qml")
+if(BUILD_TESTING)
+    add_test(NAME example_render_queue_live
+        COMMAND qtk-render-queue-live --check --output-root "${CMAKE_BINARY_DIR}/render-queue-live-check")
+    set_tests_properties(example_render_queue_live PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()
