@@ -244,8 +244,31 @@ void MediaPlayer::finishProbe(const Resolved &original, const QString &playbackU
                  QStringLiteral("ready"), {});
 }
 
+void MediaPlayer::setFinishing(VideoFinishing *finishing)
+{
+    if (m_finishing == finishing) return;
+    disconnect(m_finishingLink);
+    m_finishing = finishing;
+    if (finishing) m_finishingLink = connect(finishing, &VideoFinishing::changed, this, &MediaPlayer::refinish);
+    emit sourceChanged();
+    refinish();
+}
+
+// Re-attaches the current finishing to the same unfinished program, so a
+// grade drag re-renders the presented frame without re-probing media.
+void MediaPlayer::refinish()
+{
+    if (m_unfinished) applyProgram(m_unfinished, m_state, m_lastError);
+}
+
 void MediaPlayer::applyProgram(MediaProgramPtr program, const QString &state, const QString &error)
 {
+    m_unfinished = program;
+    if (program && m_finishing) {
+        auto finished = std::make_shared<MediaProgram>(*program);
+        finished->finishing = m_finishing->value(true);
+        program = std::move(finished);
+    }
     m_program = std::move(program);
     if (m_timeline && m_timeline->timeMap()) {
         m_transport->setTimeMap(m_timeline->timeMap());
@@ -483,6 +506,7 @@ QVariantMap MediaPlayer::exportJob(const QString &outputPath, const QString &lab
     };
     QString error;
     const auto program = MediaProgram::fromTimeline(*m_timeline, original, m_frameSize, m_audioChannels, &error);
+    if (program && m_finishing) program->finishing = m_finishing->value(false);
     QHash<QString, QString> hashes;
     if (program && m_resolver) {
         for (const QVector<MediaClipSpan> *spans : {&program->video, &program->audio})

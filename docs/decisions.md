@@ -1006,3 +1006,53 @@ document-space path geometry. Enabled effects of an unknown kind refuse
 export explicitly. **Consequences.** Scaled strokes export at their canvas
 width (earlier output scaled them), browsers reproduce the appearance, and
 renderers without CSS compositing ignore the blend mode.
+
+## D-126 — Grade and captions are a finishing stage of the media program
+
+**Context.** VID-06/08 require a grade and burned-in captions that the
+monitor previews and the export writes identically, with the grade's undo
+history and the wheel gestures of WP-072's controls, and without a second
+render path. **Decision.** `MediaFinishing` (grade parameters, burned cues,
+embedded cues and language) is plain data on `MediaProgram`, applied last in
+`MediaProgram::render` for every consumer: the grade through
+`ColorGradeProcessor` in a fixed context (frame tag into linear sRGB, output
+encoded sRGB) on 32-bit float pixels, then `CaptionBurnIn` at the frame's
+floor program millisecond. It is part of the program's cache key and JSON.
+`VideoFinishing` builds it from a `ColorGradeEditSession` and a
+`CaptionTrackModel`; `MediaPlayer.finishing` shows the live value, exports use
+the committed grade. **Consequences.** Preview and export cannot drift; a
+neutral grade is an identity; a drag re-renders the presented frame without
+re-probing media; HDR sources are graded into SDR sRGB output, and an HDR or
+wide-gamut output grade is future work.
+
+## D-127 — Scopes measure the encoded signal under a stated matrix, range and space
+
+**Context.** VID-07 asks for scope values with explicit range, transfer and
+channel conventions and reference-bar verification, and for frame
+association while scrubbing without analyzing every repaint. **Decision.**
+`VideoScopeConvention` names the Y′CbCr matrix (709, 601, 2020 NCL), the 8-bit
+code mapping (full, or limited 16–235/16–240) and the analysis space (`srgb`
+converts tagged frames to encoded sRGB; `signal` measures delivered values and
+reports their transfer). Waveform, parade and histogram index 8-bit codes, and
+each snapshot carries exact per-column and frame-wide code extents and the
+convention's vectorscope targets. `VideoScopesModel` analyzes only on demand
+and, bound to a `MediaPlayer`, once per presented frame revision, naming the
+snapshot with the player's `presentedFrameKey`. **Consequences.** Known-answer
+bars give exact codes (Rec.709 limited 75% yellow Y′ 168, Cb 44, Cr 136);
+limited range describes the legal-range encoding of the decoded frame, not the
+file's original codes; linear-light and HDR nit scopes are not provided.
+
+## D-128 — Captions interchange as plain text with BCP 47 languages
+
+**Context.** VID-06's completion check round-trips a supported format with
+timing and language preserved; WebVTT and SRT carry language differently and
+the export needs an embedded path. **Decision.** Cue text is plain text. WebVTT
+writes the track language as a `Language:` header and wraps a cue in another
+language in one `<lang>` span; import takes an explicit language, else the
+header, and decodes/escapes only the entities that plain text needs. SRT
+carries no language (the host names it). Exports embed cues as a Matroska
+SubRip stream whose language is the track's BCP 47 tag, muxed as frames pass
+each cue's start; `MediaCaptions::readEmbedded` reads it back.
+**Consequences.** JSON, WebVTT and embedded round trips keep timing, text and
+language; WebVTT styling markup and SRT tags are literal text; bitmap and ASS
+subtitle streams are refused, not approximated.

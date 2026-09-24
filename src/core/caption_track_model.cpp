@@ -229,9 +229,13 @@ void CaptionTrackModel::applyImported(QVector<CaptionCueRecord> records, const Q
 
 bool CaptionTrackModel::importWebVtt(const QString &text, const QString &language)
 {
-    QVector<CaptionCueRecord> parsed; QString why;
-    if (!CaptionTrackCodec::parseWebVtt(text, language, &parsed, &why)) { m_error = why; setAck(QStringLiteral("rejected"), why); emit changed(); return false; }
-    applyImported(parsed, language); return true;
+    // An explicit language wins; otherwise the file's `Language:` header names
+    // the track. Cues in a `<lang>` span keep their own language.
+    QVector<CaptionCueRecord> parsed; QString why, header;
+    if (!CaptionTrackCodec::parseWebVtt(text, QString(), &parsed, &why, &header)) { m_error = why; setAck(QStringLiteral("rejected"), why); emit changed(); return false; }
+    const bool explicitLanguage = !language.isEmpty() && language != QLatin1String("und");
+    applyImported(parsed, explicitLanguage ? language : header.isEmpty() ? QStringLiteral("und") : header);
+    return true;
 }
 
 bool CaptionTrackModel::importSrt(const QString &text, const QString &language)
@@ -241,7 +245,7 @@ bool CaptionTrackModel::importSrt(const QString &text, const QString &language)
     applyImported(parsed, language); return true;
 }
 
-QString CaptionTrackModel::exportWebVtt() const { return CaptionTrackCodec::toWebVtt(m_cues); }
+QString CaptionTrackModel::exportWebVtt() const { return CaptionTrackCodec::toWebVtt(m_cues, m_language); }
 QString CaptionTrackModel::exportSrt() const { return CaptionTrackCodec::toSrt(m_cues); }
 
 QString CaptionTrackModel::toJson() const

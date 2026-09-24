@@ -13,8 +13,11 @@ T.Control {
     Accessible.name: "Video scopes"
     Accessible.description: statusLabel.text
     property var snapshot: ({})
-    property string scopeMode: "waveform" // waveform, histogram, vectorscope
-    property string tooltip: "CPU scopes: Rec.709 encoded-sRGB luma, full-range chroma"
+    property string scopeMode: "waveform" // waveform, parade, histogram, vectorscope
+    property bool showTargets: true // vectorscope 75%/100% graticule boxes from the snapshot
+    property string tooltip: "CPU scopes of the encoded signal; the status line states matrix, range and space"
+    // Canvas row of an 8-bit code; waveform and parade rows index codes (row 0 = 255).
+    function codeY(code, height) { return (255 - code) / 256 * height }
     implicitWidth: Tk.Theme.size.controlLg * 12
     implicitHeight: Tk.Theme.size.waveformHeight * 8
     padding: Tk.Theme.space.md
@@ -73,6 +76,14 @@ T.Control {
                         ctx.beginPath(); ctx.moveTo(width * i / 4, 0); ctx.lineTo(width * i / 4, height); ctx.stroke()
                         ctx.beginPath(); ctx.moveTo(0, height * i / 4); ctx.lineTo(width, height * i / 4); ctx.stroke()
                     }
+                    const scale = control.snapshot.codeScale || ({ black: 0, white: 255 })
+                    if (control.scopeMode === "waveform" || control.scopeMode === "parade") {
+                        ctx.strokeStyle = Tk.Theme.color.warning
+                        for (const code of [scale.black, scale.white]) {
+                            const ly = control.codeY(code, height)
+                            ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(width, ly); ctx.stroke()
+                        }
+                    }
                     ctx.fillStyle = accent
                     if (control.scopeMode === "histogram") {
                         const bins = control.snapshot.histogram || []
@@ -94,6 +105,38 @@ T.Control {
                                          Math.max(Tk.Theme.size.border, cellW), Math.max(Tk.Theme.size.border, cellH))
                         }
                         ctx.globalAlpha = 1
+                        const targets = control.showTargets ? (control.snapshot.vectorTargets || []) : []
+                        ctx.strokeStyle = Tk.Theme.color.textMuted
+                        ctx.fillStyle = Tk.Theme.color.textMuted
+                        ctx.font = Tk.Theme.font.caption + "px " + Tk.Theme.font.family
+                        for (let t = 0; t < targets.length; ++t) {
+                            const box = targets[t].level === 75 ? cellW * 2 : cellW * 3
+                            const tx = targets[t].x * width, ty = targets[t].y * height
+                            ctx.strokeRect(tx - box / 2, ty - box / 2, box, box)
+                            if (targets[t].level === 100) ctx.fillText(String(targets[t].label), tx + box, ty)
+                        }
+                    } else if (control.scopeMode === "parade") {
+                        const bins = control.snapshot.parade || []
+                        const columns = control.snapshot.waveformColumns || 128
+                        const rows = control.snapshot.waveformRows || 64
+                        const roles = [Tk.Theme.color.danger, Tk.Theme.color.success, Tk.Theme.color.info]
+                        let peak = 1
+                        for (let i = 0; i < bins.length; ++i) peak = Math.max(peak, bins[i])
+                        const panel = width / 3, cellW = panel / columns, cellH = height / rows
+                        for (let i = 0; i < bins.length; ++i) {
+                            if (!bins[i]) continue
+                            const channel = Math.floor(i / (columns * rows))
+                            const column = Math.floor(i / rows) % columns
+                            ctx.fillStyle = roles[channel]
+                            ctx.globalAlpha = 0.2 + 0.8 * bins[i] / peak
+                            ctx.fillRect(channel * panel + column * cellW, (i % rows) * cellH,
+                                         Math.max(Tk.Theme.size.border, cellW), Math.max(Tk.Theme.size.border, cellH))
+                        }
+                        ctx.globalAlpha = 1
+                        ctx.strokeStyle = Tk.Theme.color.textMuted
+                        for (let c = 1; c < 3; ++c) {
+                            ctx.beginPath(); ctx.moveTo(panel * c, 0); ctx.lineTo(panel * c, height); ctx.stroke()
+                        }
                     } else {
                         const bins = control.snapshot.waveform || []
                         const columns = control.snapshot.waveformColumns || 128
@@ -125,7 +168,9 @@ T.Control {
                 font.pixelSize: Tk.Theme.font.caption
                 elide: Text.ElideRight
                 text: control.snapshot.valid
-                      ? "Full-range sRGB • " + String(control.snapshot.sampleCount) + " pixels • " + String(control.snapshot.lumaConvention || "")
+                      ? String(control.snapshot.matrix || "bt709") + " • " + String(control.snapshot.signalRange || "full")
+                        + " range • " + String(control.snapshot.analysisSpace || "srgb") + " (" + String(control.snapshot.transfer || "srgb")
+                        + ") • " + String(control.snapshot.sampleCount) + " pixels"
                       : String(control.snapshot.error || "Waiting for a decoded frame")
             }
         }

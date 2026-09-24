@@ -57,6 +57,38 @@ QString drawText(QPainter &painter, const ActiveCaption &active, const QRectF &b
 }
 }
 
+QStringList CaptionBurnIn::burn(QImage *image, const QVector<CaptionCueRecord> &cues, qint64 timeMs)
+{
+    QVector<ActiveCaption> active;
+    for (const auto &cue : cues)
+        if (cue.inMs <= timeMs && timeMs < cue.outMs) active.append({cue});
+    if (!image || image->isNull() || active.isEmpty()) return {};
+    std::sort(active.begin(), active.end(), [](const ActiveCaption &a, const ActiveCaption &b) {
+        if (a.cue.lane != b.cue.lane) return a.cue.lane < b.cue.lane;
+        if (a.cue.inMs != b.cue.inMs) return a.cue.inMs < b.cue.inMs;
+        return a.cue.id < b.cue.id;
+    });
+    QPainter painter(image);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::TextAntialiasing);
+    const qreal width = image->width();
+    const qreal height = image->height();
+    const qreal top = height * 0.22;
+    const qreal bandHeight = height * 0.70;
+    const qreal slotHeight = bandHeight / active.size();
+    const qreal desiredFont = qMin(height * 0.05, slotHeight * 0.58);
+    const int fontSize = qMax(8, qMin(128, int(desiredFont)));
+    const qreal outline = qMax(1.0, fontSize * 0.09);
+    QStringList drawn;
+    for (qsizetype i = 0; i < active.size(); ++i) {
+        const QRectF slot(width * 0.055, top + i * slotHeight, width * 0.89, slotHeight);
+        drawText(painter, active.at(i), slot, fontSize, outline);
+        drawn.append(active.at(i).cue.id);
+    }
+    painter.end();
+    return drawn;
+}
+
 CaptionFrameRenderer::CaptionFrameRenderer(QObject *parent) : QObject(parent) {}
 
 QString CaptionFrameRenderer::defaultOutputPath() const
@@ -128,31 +160,10 @@ QVariantMap CaptionFrameRenderer::renderFrame(const QImage &source, CaptionTrack
         }
         active.append({cue});
     }
-    std::sort(active.begin(), active.end(), [](const ActiveCaption &a, const ActiveCaption &b) {
-        if (a.cue.lane != b.cue.lane) return a.cue.lane < b.cue.lane;
-        if (a.cue.inMs != b.cue.inMs) return a.cue.inMs < b.cue.inMs;
-        return a.cue.id < b.cue.id;
-    });
-
     m_rendered = source.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-    QPainter painter(&m_rendered);
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.setRenderHint(QPainter::TextAntialiasing);
-    const qreal width = m_rendered.width();
-    const qreal height = m_rendered.height();
-    const qreal top = height * 0.22;
-    const qreal bandHeight = height * 0.70;
-    const qreal slotHeight = active.isEmpty() ? bandHeight : bandHeight / active.size();
-    const qreal desiredFont = qMin(height * 0.05, slotHeight * 0.58);
-    const int fontSize = qMax(8, qMin(128, int(desiredFont)));
-    const qreal outline = qMax(1.0, fontSize * 0.09);
-    m_activeCueIds.clear();
-    for (qsizetype i = 0; i < active.size(); ++i) {
-        const QRectF slot(width * 0.055, top + i * slotHeight, width * 0.89, slotHeight);
-        drawText(painter, active.at(i), slot, fontSize, outline);
-        m_activeCueIds.append(active.at(i).cue.id);
-    }
-    painter.end();
+    QVector<CaptionCueRecord> activeCues;
+    for (const ActiveCaption &caption : std::as_const(active)) activeCues.append(caption.cue);
+    m_activeCueIds = CaptionBurnIn::burn(&m_rendered, activeCues, timeMs);
     m_imageDataUrl = pngDataUrl(m_rendered);
     m_lastTimeMs = timeMilliseconds;
     m_error = m_imageDataUrl.isEmpty() ? QStringLiteral("Could not encode rendered frame as PNG.") : QString();

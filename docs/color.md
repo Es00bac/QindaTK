@@ -98,13 +98,49 @@ moves blue against yellow in a zero-sum opponent basis:
 `(x/2-y/3, -x/2-y/3, 2y/3)`. Processing order is lift (add 0.25 times that
 vector), signed power gamma (exponent `2^(-wheelVector)` per channel), gain
 (multiply by `max(0, 1+wheelVector)`), then exposure (`2^EV`). Exposure is
-limited to `[-8,8]` EV. Signed power preserves negative lifted components
-until output encoding; the deterministic 8-bit output quantizer clamps each
-encoded channel to `[0,1]` and rounds to nearest byte. Alpha is copied without
+limited to `[-8,8]` EV. The grade runs on 32-bit float linear pixels
+(`Format_RGBA32FPx4`): an 8-bit linear buffer maps sRGB codes 0–12 onto three
+values and banded shadows even under a neutral grade. Graded linear values
+clamp to `[0,1]` (SDR output) and the conversion to the output profile rounds
+to the nearest byte. Alpha is copied without
 grading. Processing refuses untagged input, unresolved profiles, invalid
 parameters, unsupported working profiles/intents, and images above 16 MP.
 
-The [color-grade fixture](../examples/color-grade/Main.qml) binds wheel gestures to `ColorGradeEditSession` and shows before/after images and bounded scope snapshots. The session accepts a host supplied tagged `QImage` and immutable context through `setFrame(clipId, frameId, image, context)`; QML can also bind `sourceImage` when frame ownership is elsewhere. It routes transient parameter maps through `EditTransaction` and `UndoService`, so finish records one complete grade state, cancel restores the committed state, and undo/redo rerender the same frame. A frame or context change cancels an open gesture; switching clip/frame also clears its old single-target history so undo cannot affect a different frame. Context generations must change whenever a profile or transform policy changes. The fixture uses `ColorGradePreviewModel` only for deterministic source pixels; it demonstrates single-frame edit history, not video decoding, broadcast/legal-range processing, codec fidelity, calibrated display output, clip persistence or export integration.
+The [color-grade fixture](../examples/color-grade/Main.qml) binds wheel gestures to `ColorGradeEditSession` and shows before/after images and bounded scope snapshots. The session accepts a host supplied tagged `QImage` and immutable context through `setFrame(clipId, frameId, image, context)`; QML can also bind `sourceImage` when frame ownership is elsewhere. It routes transient parameter maps through `EditTransaction` and `UndoService`, so finish records one complete grade state, cancel restores the committed state, and undo/redo rerender the same frame. A frame or context change cancels an open gesture; switching clip/frame also clears its old single-target history so undo cannot affect a different frame. Context generations must change whenever a profile or transform policy changes. The fixture uses `ColorGradePreviewModel` only for deterministic source pixels.
+
+## Grade gestures
+
+`ColorGradeEditSession` publishes `wheels`, the `ColorWheels` descriptors for
+lift, gamma and gain (current x/y, ranges `[-1,1]`, step 0.01, enabled once a
+frame is set), `exposure` and `gradeSpace`, the declared space: linear sRGB
+working space, opponent wheel offsets that sum to zero over R, G and B (so a
+wheel changes chroma and never adds luma; exposure is the luma control). A
+pointer drag calls `previewWheel(gestureId, wheel, x, y)` for each move and
+`finishWheel(gestureId, wheel, x, y)` on release: one gesture, one undo step.
+Numeric entry calls `setWheelValue(wheel, x, y)`, `setExposure(ev)` or
+`resetWheel(wheel)`, each one undo step. Both paths build the parameter map
+with the same `withWheel` step, so equal x/y give equal parameters and equal
+pixels (`tst_color_grade_edit_session`). `ColorWheels.requestWheelValue`
+emits the same preview/finish signals as a drag, so a host cannot tell
+keyboard, numeric and pointer input apart. `committedParameters()` excludes an
+open gesture's preview.
+
+## Output grade (D-126)
+
+The grade is part of the video output pipeline, not a still-image preview.
+`MediaFinishing` is the last stage of a `MediaProgram`: `render()` applies it
+to every frame it returns, so the program monitor, the render queue and
+`MediaExport` get the same pixels. It grades with `ColorGradeProcessor` in
+`MediaFinishing::gradeContext()` (the frame's own tag into linear sRGB, output
+encoded sRGB, the SDR program policy of D-096) and then burns in captions. A
+neutral grade is skipped, so it is an exact identity. `VideoFinishing` builds
+the stage from a `ColorGradeEditSession` (and a `CaptionTrackModel`) and
+`MediaPlayer.finishing` attaches it: the monitor shows `value(true)`, which
+includes a drag in progress, while `exportJob` uses the committed grade. The
+program's cache key includes the finishing digest, so no ungraded cached frame
+is shown after a change. `tst_video_finishing` checks that a decoded frame
+graded by the program equals the session's preview pixel for pixel, and that
+the lossless export decodes to the same pixels.
 
 ## Picker model and edits
 

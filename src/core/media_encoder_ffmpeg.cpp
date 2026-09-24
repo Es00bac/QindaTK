@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 namespace QindaTK {
 using MediaFfmpeg::failure;
@@ -20,6 +21,9 @@ struct MediaEncoder::Private {
     AVCodecContext *audio = nullptr;
     AVStream *videoStream = nullptr;
     AVStream *audioStream = nullptr;
+    AVStream *subtitleStream = nullptr;
+    qsizetype nextSubtitle = 0;
+    qint64 subtitlesWritten = 0;
     AVPacket *packet = nullptr;
     AVFrame *frame = nullptr;
     qint64 videoFrames = 0;
@@ -32,6 +36,10 @@ struct MediaEncoder::Private {
     OperationError drain(AVCodecContext *codec, AVStream *stream, const AVFrame *input);
     OperationError openVideo();
     OperationError openAudio();
+    OperationError openSubtitles();
+    // Writes every pending cue whose start is at or before `frameIndex`'s
+    // start; `all` writes the rest that start before `endMs`.
+    OperationError writeSubtitles(qint64 frameIndex, bool all);
 };
 
 void MediaEncoder::Private::release(bool removePartial)
@@ -47,6 +55,7 @@ void MediaEncoder::Private::release(bool removePartial)
     av_frame_free(&frame);
     videoStream = nullptr;
     audioStream = nullptr;
+    subtitleStream = nullptr;
     headerWritten = false;
     if (removePartial && !finished && !path.isEmpty()) QFile::remove(path);
 }
@@ -123,6 +132,63 @@ OperationError MediaEncoder::Private::openAudio()
     return {};
 }
 
+OperationError MediaEncoder::Private::openSubtitles()
+{
+    subtitleStream = avformat_new_stream(format, nullptr);
+    if (!subtitleStream)
+        return failure(ErrorCode::BackendFailure, QStringLiteral("Cannot allocate the subtitle stream"));
+    subtitleStream->codecpar->codec_type = AVMEDIA_TYPE_SUBTITLE;
+    subtitleStream->codecpar->codec_id = AV_CODEC_ID_SUBRIP;
+    subtitleStream->time_base = AVRational{1, 1000};
+    const QString language = settings.subtitleLanguage.isEmpty() ? QStringLiteral("und") : settings.subtitleLanguage;
+    av_dict_set(&subtitleStream->metadata, "language", language.toUtf8().constData(), 0);
+    // AGENT-NOTE: a subtitle stream is sparse, and the interleaver holds the
+    // other streams' packets until every stream has one or the spread
+    // exceeds max_interleave_delta (10 s by default, which would buffer
+    // seconds of lossless frames). Cues are written in time order as frames
+    // pass their start, so a 1 s bound keeps the order and the memory small.
+    format->max_interleave_delta = 1000000;
+    return {};
+}
+
+OperationError MediaEncoder::Private::writeSubtitles(qint64 frameIndex, bool all)
+{
+    if (!subtitleStream) return {};
+    const TimelineRate rate = settings.frameRate;
+    using Wide = __int128; // start * numerator can exceed 64 bits for long files
+    while (nextSubtitle < settings.subtitles.size()) {
+        const MediaSubtitleCue &cue = settings.subtitles.at(nextSubtitle);
+        // Due once a frame starting at or after the cue's start is written:
+        // start * num <= index * 1000 * den. At finish, everything that
+        // starts before the end of the last frame is due; later cues drop.
+        const Wide start = Wide(cue.startMs) * rate.numerator;
+        const Wide frameStart = Wide(frameIndex) * 1000 * rate.denominator;
+        const bool due = !settings.video ? all : all ? start < frameStart : start <= frameStart;
+        if (!due) {
+            if (all) nextSubtitle = settings.subtitles.size();
+            break;
+        }
+        ++nextSubtitle;
+        const QByteArray text = cue.text.toUtf8();
+        av_packet_unref(packet);
+        if (av_new_packet(packet, int(text.size())) < 0)
+            return failure(ErrorCode::BackendFailure, QStringLiteral("Cannot allocate a subtitle packet"));
+        std::memcpy(packet->data, text.constData(), size_t(text.size()));
+        packet->pts = cue.startMs;
+        packet->dts = cue.startMs;
+        packet->duration = cue.endMs - cue.startMs;
+        packet->flags |= AV_PKT_FLAG_KEY;
+        av_packet_rescale_ts(packet, AVRational{1, 1000}, subtitleStream->time_base);
+        packet->stream_index = subtitleStream->index;
+        const int code = av_interleaved_write_frame(format, packet);
+        if (code < 0)
+            return failure(ErrorCode::BackendFailure, QStringLiteral("Cannot write a subtitle: %1")
+                                                          .arg(MediaFfmpeg::errorText(code)));
+        ++subtitlesWritten;
+    }
+    return {};
+}
+
 MediaEncoder::MediaEncoder() : d(std::make_unique<Private>()) {}
 MediaEncoder::~MediaEncoder() = default;
 
@@ -138,7 +204,18 @@ OperationError MediaEncoder::open(const QString &path, const MediaEncodeSettings
     d->finished = false;
     d->videoFrames = 0;
     d->audioSamples = 0;
+    d->nextSubtitle = 0;
+    d->subtitlesWritten = 0;
     d->path.clear();
+    bool subtitlesValid = settings.subtitles.size() <= 100000;
+    for (qsizetype i = 0; subtitlesValid && i < settings.subtitles.size(); ++i) {
+        const MediaSubtitleCue &cue = settings.subtitles.at(i);
+        subtitlesValid = cue.startMs >= 0 && cue.endMs > cue.startMs && cue.endMs <= (qint64(1) << 40)
+            && !cue.text.isEmpty() && (i == 0 || settings.subtitles.at(i - 1).startMs <= cue.startMs);
+    }
+    if (!subtitlesValid)
+        return failure(ErrorCode::InvalidArgument,
+                       QStringLiteral("Subtitles need non-empty text, start >= 0, end > start and ascending starts"));
     const QSize size = settings.frameSize;
     if (!settings.frameRate.isValid() || settings.gopSize < 1 || settings.gopSize > 600
         || settings.channels < 0 || settings.channels > 8 || (!settings.video && settings.channels == 0)
@@ -166,6 +243,9 @@ OperationError MediaEncoder::open(const QString &path, const MediaEncodeSettings
     }
     if (settings.channels > 0) {
         if (OperationError error = d->openAudio()) return fail(error);
+    }
+    if (!settings.subtitles.isEmpty()) {
+        if (OperationError error = d->openSubtitles()) return fail(error);
     }
     code = avio_open(&d->format->pb, encoded.constData(), AVIO_FLAG_WRITE);
     if (code >= 0) code = avformat_write_header(d->format, nullptr);
@@ -195,6 +275,7 @@ OperationError MediaEncoder::writeVideo(const QImage &input)
     for (int y = 0; y < image.height(); ++y)
         std::memcpy(d->frame->data[0] + qsizetype(y) * d->frame->linesize[0], image.constScanLine(y),
                     size_t(image.width()) * 4);
+    if (OperationError error = d->writeSubtitles(d->videoFrames, false)) return error;
     d->frame->pts = d->videoFrames;
     d->frame->duration = 1;
     const OperationError error = d->drain(d->video, d->videoStream, d->frame);
@@ -245,6 +326,7 @@ OperationError MediaEncoder::finish()
     OperationError error;
     if (d->video) error = d->drain(d->video, d->videoStream, nullptr);
     if (!error && d->audio) error = d->drain(d->audio, d->audioStream, nullptr);
+    if (!error) error = d->writeSubtitles(d->videoFrames, true);
     if (!error) {
         const int code = av_write_trailer(d->format);
         if (code < 0)
@@ -273,6 +355,11 @@ qint64 MediaEncoder::videoFramesWritten() const
 qint64 MediaEncoder::audioSamplesWritten() const
 {
     return d->audioSamples;
+}
+
+qint64 MediaEncoder::subtitlesWritten() const
+{
+    return d->subtitlesWritten;
 }
 
 } // namespace QindaTK

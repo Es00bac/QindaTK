@@ -34,6 +34,12 @@ class CaptionTrackModel : public QObject
     Q_PROPERTY(QVariantMap acknowledgement READ acknowledgement NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(QString storagePath READ storagePath WRITE setStoragePath NOTIFY changed)
+    // Reading and overlap warnings (docs/caption-rendering.md "Warnings"):
+    // [{cueId, kind, message}], and the selected cue's messages as one line.
+    Q_PROPERTY(QVariantList warnings READ warnings NOTIFY changed)
+    Q_PROPERTY(QString warningText READ warningText NOTIFY changed)
+    // Supported formats and what each carries (docs/caption-rendering.md "Formats").
+    Q_PROPERTY(QVariantList formats READ formats CONSTANT)
 
 public:
     explicit CaptionTrackModel(QObject *parent = nullptr);
@@ -59,6 +65,17 @@ public:
     QString error() const { return m_error; }
     QString storagePath() const { return m_storagePath; }
     void setStoragePath(const QString &value);
+    QVariantList warnings() const;
+    QString warningText() const;
+    QVariantList formats() const;
+    // The committed cues, sorted by in time then ID (C++ consumers such as
+    // VideoFinishing read these; previews never leak into output).
+    const QVector<CaptionCueRecord> &cues() const { return m_cues; }
+
+    // Reading guidelines behind `warnings`.
+    static constexpr qint64 kMinimumDurationMs = 833;
+    static constexpr int kMaximumCharactersPerSecond = 20;
+    static constexpr int kMaximumLineLength = 42;
 
     Q_INVOKABLE bool setDisplayRange(const QString &startMilliseconds, const QString &endMilliseconds);
     Q_INVOKABLE bool importWebVtt(const QString &text, const QString &language = QStringLiteral("und"));
@@ -81,6 +98,23 @@ public:
     Q_INVOKABLE bool cancelCueEdit(const QString &requestId, const QString &cueId);
     Q_INVOKABLE bool undo();
 
+    // caption_track_edits.cpp. Each is one undo step; a rejection changes
+    // nothing and explains itself in `error` and `acknowledgement`.
+    // Splits a cue at an exact time strictly inside it; the text splits at
+    // `textPosition` (-1: the whitespace nearest the time's proportion; a
+    // text without whitespace is kept whole on both parts).
+    Q_INVOKABLE bool splitCue(const QString &cueId, const QString &atMs, int textPosition = -1);
+    // Joins two cues of one language into the first ID: the union interval,
+    // texts joined by a line break in time order.
+    Q_INVOKABLE bool mergeCues(const QString &firstCueId, const QString &secondCueId);
+    // Moves the listed cues (all cues when empty) by a signed decimal
+    // millisecond delta; refused when a cue would start before zero or
+    // overlap an unmoved cue in its lane.
+    Q_INVOKABLE bool shiftCues(const QStringList &cueIds, const QString &deltaMs);
+    // Replaces the track with the first text subtitle stream of a media file
+    // (MediaCaptions::readEmbedded); the stream's language becomes the track's.
+    Q_INVOKABLE bool importEmbedded(const QString &mediaPath);
+
 signals:
     void changed();
 
@@ -92,6 +126,10 @@ private:
     void setAck(const QString &status, const QString &message);
     void applyImported(QVector<CaptionCueRecord> records, const QString &language);
     void refreshGeometry();
+    void pushUndo();
+    QString allocateId();
+    bool rejectEdit(const QString &message);
+    void acceptEdit(QVector<CaptionCueRecord> cues, const QString &selected, const QString &message);
 
     QString m_sourceId = QStringLiteral("source-video");
     QString m_trackId = QStringLiteral("captions-main");

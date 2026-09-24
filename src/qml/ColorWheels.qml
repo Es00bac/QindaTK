@@ -114,19 +114,30 @@ T.Control {
         wheelCanvas.requestPaint()
         return true
     }
+    // AGENT-CONTRACT (VID-08): numeric entry and keyboard nudges go through
+    // requestWheelValue, which emits the same selection/preview/finish
+    // signals as a pointer drag with the same x/y, so a host (for example
+    // ColorGradeEditSession.previewWheel/finishWheel) cannot tell them apart.
+    function requestWheelValue(wheelId, x, y) {
+        const wheel = root.wheelById(wheelId)
+        if (!root.enabled || !root.editingEnabled || root._gestureId.length || !wheel || wheel.enabled === false)
+            return false
+        if (![wheel.minimumX, wheel.maximumX, wheel.minimumY, wheel.maximumY, x, y].every(value => isFinite(Number(value))))
+            return false
+        root._serial += 1
+        const cx = Math.max(Number(wheel.minimumX), Math.min(Number(wheel.maximumX), Number(x)))
+        const cy = Math.max(Number(wheel.minimumY), Math.min(Number(wheel.maximumY), Number(y)))
+        const id = "grade-wheel-value-" + root._serial
+        root.wheelSelectionRequested(root.gradeId, String(wheelId))
+        root.wheelPreviewRequested(id, root.gradeId, String(wheelId), cx, cy)
+        root.wheelEditFinished(id, root.gradeId, String(wheelId), cx, cy)
+        return true
+    }
     function nudgeSelected(dx, dy) {
         const wheel = root.wheelById(root.selectedWheelId)
-        if (!wheel || !isFinite(Number(wheel.stepX)) || !isFinite(Number(wheel.stepY))
-                || !isFinite(Number(wheel.minimumX)) || !isFinite(Number(wheel.maximumX))
-                || !isFinite(Number(wheel.minimumY)) || !isFinite(Number(wheel.maximumY))) return false
-        root._serial += 1
-        const x = Math.max(Number(wheel.minimumX), Math.min(Number(wheel.maximumX), Number(wheel.x) + dx * Number(wheel.stepX)))
-        const y = Math.max(Number(wheel.minimumY), Math.min(Number(wheel.maximumY), Number(wheel.y) + dy * Number(wheel.stepY)))
-        const id = "grade-wheel-key-" + root._serial
-        root.wheelSelectionRequested(root.gradeId, root.selectedWheelId)
-        root.wheelPreviewRequested(id, root.gradeId, root.selectedWheelId, x, y)
-        root.wheelEditFinished(id, root.gradeId, root.selectedWheelId, x, y)
-        return true
+        if (!wheel || !isFinite(Number(wheel.stepX)) || !isFinite(Number(wheel.stepY))) return false
+        return root.requestWheelValue(root.selectedWheelId, Number(wheel.x) + dx * Number(wheel.stepX),
+                                      Number(wheel.y) + dy * Number(wheel.stepY))
     }
     function requestReset(wheelId) {
         const wheel = root.wheelById(wheelId)
@@ -181,6 +192,11 @@ T.Control {
                 ctx.fillStyle = root.css(Tk.Theme.color.text)
                 ctx.textAlign = "center"; ctx.textBaseline = "top"
                 ctx.fillText(String(wheel.label || wheel.id || ""), cx, cy + radius + Tk.Theme.space.xs)
+                if (isFinite(Number(wheel.x)) && isFinite(Number(wheel.y))) {
+                    ctx.fillStyle = root.css(Tk.Theme.color.textMuted)
+                    ctx.fillText(Number(wheel.x).toFixed(2) + ", " + Number(wheel.y).toFixed(2), cx,
+                                 cy + radius + Tk.Theme.space.xs + Tk.Theme.font.caption + Tk.Theme.space.xs)
+                }
             }
         }
     }
