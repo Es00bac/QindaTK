@@ -110,10 +110,14 @@ qt_add_qml_module(qindatk
         core/test_transport_clock.cpp core/test_transport_clock.h
         core/audio_ring.h core/audio_media.cpp core/audio_media.h
         core/audio_device.cpp core/audio_device.h
-        core/audio_graph.cpp core/audio_graph.h
-        core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp
+        core/audio_graph.cpp core/audio_graph_mix.cpp core/audio_graph.h
+        core/audio_channel_meters.cpp core/audio_channel_meters.h
+        core/audio_mixer_types.cpp core/audio_mixer_codec.cpp core/audio_mixer_types.h
+        core/audio_mixer_model.cpp core/audio_mixer_ops.cpp core/audio_mixer_model.h
+        core/audio_mixer_strip_model.cpp core/audio_mixer_strip_model.h
+        core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp core/audio_engine_meters.cpp
         core/audio_engine.h core/audio_engine_p.h
-        core/audio_session.cpp core/audio_session_transport.cpp core/audio_session.h
+        core/audio_session.cpp core/audio_session_transport.cpp core/audio_session_render.cpp core/audio_session.h
         core/uri_validator.cpp core/uri_validator.h
         core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h

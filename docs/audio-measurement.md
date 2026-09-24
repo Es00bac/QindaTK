@@ -183,6 +183,6 @@ accessible description lists peak, RMS, hold, max and clip for every channel.
 | `tst_audio_controls.qml` | bound Fader: keyboard step, Escape-canceled drag and double-click reset as engine transactions; bound Knob wheel burst as one transaction; AudioMeter and LoudnessHistory over real models |
 
 Not covered here: performance measurement, screen-reader runs, other platforms
-and output-fidelity comparison (WP-088…WP-094); per-track and bus meters and
-channel strips on a mixer graph (WP-062); true-peak, loudness range (LRA) and
-certified loudness compliance.
+and output-fidelity comparison (WP-088…WP-094); true-peak, loudness range
+(LRA) and certified loudness compliance. Per-track and bus meters and channel
+strips on the mixer graph are in [audio-mixer.md](audio-mixer.md) (WP-062).

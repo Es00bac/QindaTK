@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include "audio_channel_meters.h"
 #include "audio_device.h"
 #include "audio_engine.h"
 #include "audio_graph.h"
@@ -80,6 +81,8 @@ public:
     // ---- meter consumer (GUI thread) ----
     // Output measurement after each rendered period; null without output.
     AudioMeterTap *outputTap() { return m_outputTap.get(); }
+    // Post-fader levels of every mixer channel (WP-062); null without output.
+    AudioChannelMeterSink *channelMeters() { return m_channelMeters.get(); }
 
     // ---- take writer side ----
     AudioSpscRing<float> &capture() { return m_capture; }
@@ -106,6 +109,7 @@ private:
     AudioSpscRing<float> m_capture;
     std::unique_ptr<double[]> m_scratch;
     std::unique_ptr<AudioMeterTap> m_outputTap;
+    std::unique_ptr<AudioChannelMeterSink> m_channelMeters;
     std::atomic<const AudioRenderGraph *> m_pending{nullptr};
     std::atomic<quint64> m_adopted{0};
     const AudioRenderGraph *m_graph = nullptr;

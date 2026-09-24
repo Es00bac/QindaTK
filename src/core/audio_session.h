@@ -4,6 +4,7 @@
 #include "audio_engine.h"
 #include "audio_graph.h"
 #include "audio_media.h"
+#include "audio_mixer_model.h"
 #include "automation_model.h"
 #include "engine_schedule.h"
 #include "resource_resolver.h"
@@ -22,7 +23,8 @@ namespace QindaTK {
 // AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md).
 // It owns the accepted domain models — TimelineModel (clips, edits, undo),
 // TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver
-// (media identity, availability, relink) — and compiles them into an
+// (media identity, availability, relink) — and AudioMixerModel (buses,
+// routing, sends, groups; WP-062), and compiles them into an
 // AudioRenderGraph for its engine and for offline renders. It persists as
 // "qindatk.audio-session/1" JSON with media paths relative to the session.
 class AudioSession : public QObject {
@@ -34,6 +36,7 @@ class AudioSession : public QObject {
     Q_PROPERTY(QindaTK::AutomationModel *automation READ automation CONSTANT)
     Q_PROPERTY(QindaTK::EngineSchedule *schedule READ schedule CONSTANT)
     Q_PROPERTY(QindaTK::ResourceResolver *resources READ resources CONSTANT)
+    Q_PROPERTY(QindaTK::AudioMixerModel *mixer READ mixer CONSTANT)
     Q_PROPERTY(QindaTK::AudioEngine *engine READ engine WRITE setEngine NOTIFY engineChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
     Q_PROPERTY(QString mediaDirectory READ mediaDirectory WRITE setMediaDirectory NOTIFY mediaDirectoryChanged)
@@ -52,6 +55,7 @@ public:
     AutomationModel *automation() const { return m_automation; }
     EngineSchedule *schedule() const { return m_schedule; }
     ResourceResolver *resources() const { return m_resources; }
+    AudioMixerModel *mixer() const { return m_mixer; }
     AudioEngine *engine() const { return m_engine; }
     void setEngine(AudioEngine *engine);
     QString filePath() const { return m_filePath; }
@@ -62,8 +66,9 @@ public:
     int sampleRate() const;
     QString lastError() const { return m_lastError; }
 
-    // Graph at `sampleRate` from the committed timeline, media and schedule.
-    AudioRenderGraphPtr compileGraph(int sampleRate);
+    // Graph at `sampleRate` from the committed timeline, media, schedule and
+    // mix. `offline`: the master feeds "main" (the file), device ports are silent.
+    AudioRenderGraphPtr compileGraph(int sampleRate, bool offline = false);
     AudioBufferPtr mediaBuffer(const QString &resourceId, int sampleRate);
     // The engine clock in timeline ticks: the device thread's live transport
     // sample when an engine is attached, else the automation transport.
@@ -80,8 +85,10 @@ public:
     Q_INVOKABLE bool open(const QString &file);
     // Missing media stays referenced by ID; relink points the ID at a new file.
     Q_INVOKABLE bool relinkMedia(const QString &resourceId, const QString &file);
-    // Offline render through the same graph the device plays; float32 WAV.
-    // An empty endTicks renders to the end of the last clip.
+    // Offline render of the main output (the master mix) through the same
+    // graph code the device plays; float32 WAV, 1 or 2 channels (a mono file
+    // averages the stereo master). An empty endTicks renders to the end of
+    // the last clip.
     Q_INVOKABLE QVariantMap renderToFile(const QString &file, const QString &startTicks = QStringLiteral("0"),
                                          const QString &endTicks = {}, int sampleRate = 0, int channels = 2);
 
@@ -113,6 +120,7 @@ private:
     AutomationModel *m_automation = nullptr;
     EngineSchedule *m_schedule = nullptr;
     ResourceResolver *m_resources = nullptr;
+    AudioMixerModel *m_mixer = nullptr;
     QPointer<AudioEngine> m_engine;
     QList<QMetaObject::Connection> m_engineConnections;
     QHash<QString, AudioBufferPtr> m_decoded;

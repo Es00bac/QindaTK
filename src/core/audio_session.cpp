@@ -48,7 +48,8 @@ AudioSession::AudioSession(QObject *parent)
       m_tempo(new TempoMapModel(this)),
       m_automation(new AutomationModel(this)),
       m_schedule(new EngineSchedule(this)),
-      m_resources(new ResourceResolver(this))
+      m_resources(new ResourceResolver(this)),
+      m_mixer(new AudioMixerModel(this, m_timeline, m_automation))
 {
     m_timeline->setTimeMap(m_timeMap);
     m_tempo->setTimeMap(m_timeMap);
@@ -62,10 +63,15 @@ AudioSession::AudioSession(QObject *parent)
     connect(m_timeline, &TimelineModel::revisionChanged, this, changed);
     connect(m_timeline, &TimelineModel::contentReset, this, changed);
     connect(m_schedule, &EngineSchedule::published, this, &AudioSession::rebuild);
+    connect(m_mixer, &AudioMixerModel::contentChanged, this, &AudioSession::rebuild);
 }
 
 AudioSession::~AudioSession()
 {
+    // AGENT-GUARD: the mixer's shared bindings release open gestures through
+    // the automation model, so the mixer goes before the models it uses.
+    delete m_mixer;
+    m_mixer = nullptr;
     for (const auto &connection : std::as_const(m_engineConnections)) disconnect(connection);
 }
 
@@ -78,6 +84,7 @@ void AudioSession::setEngine(AudioEngine *engine)
     // A detached engine no longer runs this session's automation clock.
     if (m_automation->transportRunning()) m_automation->transportStopped(m_forwardedTicks);
     m_engine = engine;
+    m_mixer->setEngine(engine);
     if (engine) {
         m_engineConnections << connect(engine, &AudioEngine::formatChanged, this, &AudioSession::engineFormatChanged)
                             << connect(engine, &AudioEngine::recordingFinished, this, &AudioSession::addRecordedTake)
@@ -114,29 +121,9 @@ void AudioSession::engineFormatChanged()
     rebuild();
 }
 
-AudioBufferPtr AudioSession::mediaBuffer(const QString &resourceId, int sampleRate)
-{
-    const AudioBufferPtr decoded = m_decoded.value(resourceId);
-    if (!decoded || decoded->sampleRate == sampleRate) return decoded;
-    const QString key = QStringLiteral("%1/%2").arg(sampleRate).arg(resourceId);
-    if (const AudioBufferPtr cached = m_resampled.value(key)) return cached;
-    AudioBufferPtr converted = AudioFile::resample(*decoded, sampleRate);
-    m_resampled.insert(key, converted);
-    return converted;
-}
-
-AudioRenderGraphPtr AudioSession::compileGraph(int sampleRate)
-{
-    AudioRenderGraph::Sources sources;
-    sources.timeline = m_timeline;
-    sources.media = [this](const QString &id, int rate) { return mediaBuffer(id, rate); };
-    sources.schedule = m_schedule->acquire();
-    sources.sampleRate = sampleRate;
-    return AudioRenderGraph::compile(sources);
-}
-
 void AudioSession::rebuild()
 {
+    if (!m_mixer) return; // destruction
     const AudioRenderGraphPtr graph = compileGraph(sampleRate());
     if (m_engine) m_engine->setGraph(graph);
     emit graphCompiled(graph->clipCount(), graph->missingResources());
@@ -397,6 +384,7 @@ bool AudioSession::save(const QString &file)
                            {QStringLiteral("tempo"), QJsonObject::fromVariantMap(m_tempo->contentMap())},
                            {QStringLiteral("automation"), QJsonObject::fromVariantMap(m_automation->contentMap())},
                            {QStringLiteral("timeline"), QJsonObject::fromVariantMap(m_timeline->contentMap())},
+                           {QStringLiteral("mixer"), QJsonObject::fromVariantMap(m_mixer->contentMap())},
                            {QStringLiteral("media"), media}};
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly) || out.write(QJsonDocument(root).toJson()) < 0 || !out.commit())
@@ -424,13 +412,18 @@ bool AudioSession::open(const QString &file)
     // AGENT-GUARD: opening is all or nothing. Each model validates before it
     // replaces its content, so when a later part is rejected the parts already
     // replaced are restored; a bad file never leaves a half-loaded session.
-    static constexpr const char *kParts[] = {"tempo", "automation", "timeline"};
-    const QVariantMap before[] = {m_tempo->contentMap(), m_automation->contentMap(), m_timeline->contentMap()};
+    // The mixer part is last: its routes name buses it defines itself and
+    // tracks the timeline part just loaded. A session without one (saved
+    // before WP-062) opens with the default mix.
+    static constexpr const char *kParts[] = {"tempo", "automation", "timeline", "mixer"};
+    const QVariantMap before[] = {m_tempo->contentMap(), m_automation->contentMap(), m_timeline->contentMap(),
+                                  m_mixer->contentMap()};
     const auto loadPart = [this](int part, const QVariantMap &content) {
         return part == 0 ? m_tempo->loadContent(content)
-               : part == 1 ? m_automation->loadContent(content) : m_timeline->loadContent(content);
+               : part == 1 ? m_automation->loadContent(content)
+               : part == 2 ? m_timeline->loadContent(content) : m_mixer->loadContent(content);
     };
-    for (int part = 0; part < 3; ++part) {
+    for (int part = 0; part < 4; ++part) {
         const QString key = QString::fromLatin1(kParts[part]);
         const QVariantMap result = loadPart(part, root.value(key).toMap());
         if (!result.value(QStringLiteral("ok")).toBool()) {
@@ -464,52 +457,6 @@ bool AudioSession::open(const QString &file)
     updateRecordTarget();
     rebuild();
     return true;
-}
-
-QVariantMap AudioSession::renderToFile(const QString &file, const QString &startTicks, const QString &endTicks,
-                                       int sampleRate, int channels)
-{
-    clearError();
-    const int rate = sampleRate > 0 ? sampleRate : this->sampleRate();
-    const AudioRenderGraphPtr graph = compileGraph(rate);
-    const TimelineRate timebase = m_timeline->timebase();
-    const auto toSamples = [&](const QString &ticks) -> std::optional<qint64> {
-        const auto value = TimelineTime::parseDecimal(ticks);
-        return value ? TimelineTime::rescale(*value, timebase, {rate, 1}, TimeMap::NearestAway) : std::nullopt;
-    };
-    const auto start = toSamples(startTicks);
-    const auto end = endTicks.isEmpty() ? std::optional<qint64>(graph->length()) : toSamples(endTicks);
-    if (!start || !end || *start < 0 || *end < *start || channels < 1 || channels > 2) {
-        fail(tr("The render range or channel count is invalid"));
-        return failure(m_lastError);
-    }
-    const QString path = QFileInfo(localPath(file)).absoluteFilePath();
-    AudioWavWriter writer;
-    QString error;
-    if (!writer.open(path, rate, channels, &error)) {
-        fail(error);
-        return failure(error);
-    }
-    std::vector<float> block(size_t(AudioRenderGraph::kMaxBlock) * channels);
-    std::vector<double> scratch(AudioRenderGraph::kMaxBlock);
-    for (qint64 at = *start; at < *end;) {
-        const int count = int(std::min<qint64>(AudioRenderGraph::kMaxBlock, *end - at));
-        std::fill_n(block.begin(), size_t(count) * channels, 0.0f);
-        graph->render(at, count, block.data(), channels, scratch.data());
-        writer.write(block.data(), count);
-        at += count;
-    }
-    if (!writer.finish(&error)) {
-        fail(error);
-        return failure(error);
-    }
-    return {{QStringLiteral("ok"), true},
-            {QStringLiteral("path"), path},
-            {QStringLiteral("frames"), QString::number(*end - *start)},
-            {QStringLiteral("startSample"), QString::number(*start)},
-            {QStringLiteral("sampleRate"), rate},
-            {QStringLiteral("channels"), channels},
-            {QStringLiteral("missingMedia"), graph->missingResources()}};
 }
 
 bool AudioSession::fail(const QString &message)

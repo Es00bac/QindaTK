@@ -30,7 +30,9 @@ struct EngineEvent;
 // offered by its session, and reports finished takes; it never selects a
 // device by index and never replaces a lost device on its own. Its output is
 // measured on the device thread (AudioMeterTap) and drained each poll into
-// `outputMeter` (peak/RMS) and `outputLoudness` (BS.1770) on the GUI thread.
+// `outputMeter` (peak/RMS) and `outputLoudness` (BS.1770) on the GUI thread;
+// every mixer channel's post-fader level reaches channelMeter(id) the same
+// way (AudioChannelMeterSink, WP-062, D-113).
 class AudioEngine : public TransportAdapter {
     Q_OBJECT
     QML_ELEMENT
@@ -90,6 +92,10 @@ public:
     Q_INVOKABLE void stop();
     // Simulated hot-unplug/replug of a built-in reference device.
     Q_INVOKABLE bool setBuiltinDeviceConnected(const QString &deviceId, bool connected);
+    // Post-fader peak/RMS of one mixer channel ("track:<uuid>", "bus:<uuid>",
+    // "master"), created on first request and owned by the engine. It has no
+    // channels while the channel is not in the playing graph or no stream runs.
+    Q_INVOKABLE QindaTK::AudioMeterModel *channelMeter(const QString &channelId);
 
 signals:
     void devicesChanged();
@@ -115,6 +121,10 @@ private:
     QString startRun(AudioDeviceStreamPtr stream, const AudioDeviceConfig &config, int previousRate);
     void drain(Run &run);
     void drainMeters(Run &run);
+    void drainChannelMeters(Run &run);
+    void clearChannelMeters();
+    void registerMeterMap(const AudioRenderGraph &graph);
+    void switchMeterGeneration(quint64 generation);
     void poll();
     void handleEvent(Run &run, const EngineEvent &event);
     void takeWritten(const QString &key, const QString &path, qint64 frames, const QString &error);
@@ -159,6 +169,13 @@ private:
 
     AudioRenderGraphPtr m_graph;
     QList<AudioRenderGraphPtr> m_live; // offered to the running processor
+
+    // Channel meters (D-113): slot layouts of offered graphs by generation.
+    struct MeterMap { quint64 generation = 0; QStringList channels; QVector<int> lanes; };
+    QHash<QString, AudioMeterModel *> m_channelMeters;
+    QList<MeterMap> m_meterMaps;
+    quint64 m_meterGeneration = 0;
+    quint64 m_channelMetersDropped = 0;
 
     struct Idle { qint64 position = 0; bool loopEnabled = false; qint64 loopStart = 0; qint64 loopEnd = 0; };
     Idle m_idle;

@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// AGENT-CONTRACT: this strip is a view over host channel/parameter/meter
-// snapshots. Gain and mute/solo operations target stable channel/parameter IDs;
-// delegate state never owns routing, automation or engine values.
+// AGENT-CONTRACT (WP-062, docs/controls.md, docs/audio-mixer.md): one mixer
+// channel: meter, fader, pan, mute/solo/arm and (detail) routing. Bound
+// (`mixer` + `channelId`): the fader, pan and send levels are the mixer's
+// shared AudioParameterBinding transactions, the meter is the engine's
+// post-fader channel meter, and commands are AudioMixerModel operations whose
+// answer is shown here; the strip keeps no routing, automation or engine
+// state, so a recycled delegate cannot redirect an edit. Host mode (no mixer)
+// keeps the request protocol: gainEditRequested/panEditRequested phases and
+// channelCommandRequested by stable IDs, acknowledged by the host.
 T.Control {
     id: strip
     objectName: "channelStrip"
+    property var mixer: null // Tk.AudioMixerModel
     property string channelId: ""
     property string channelName: ""
-    property string channelKind: "audio"
+    property string channelKind: "audio" // bound: "track", "bus" or "master"
+    property string layout: "Stereo"
     property string gainParameterId: ""
     property real gainValue: 0
     property bool gainSilent: false
@@ -20,31 +29,42 @@ T.Control {
     property var gainMap: null
     property bool muted: false
     property bool soloed: false
+    property bool armed: false
+    property bool soloSafe: false
+    property bool implicitlyMuted: false
     property real panValue: 0
     property real stereoWidth: 1
-    property string speakerLayout: "Stereo"
     property bool selected: false
-    property var meterModel: null
+    property bool detail: true
+    property var meterModel: null // host: a shared Tk.AudioMeterModel, channel `meterChannel`
     property int meterChannel: 0
     property real peakDbfs: -120
     property real rmsDbfs: -120
     property string routeSummary: qsTr("No route details")
+    property string output: ""
+    property var sends: []
+    property var groupNames: []
     property string commandState: "idle"
     property string commandMessage: ""
     property string tooltip: qsTr("Channel strip")
     property alias panningControl: pan
+    property alias gainFader: fader
     property string _serial: "0"
     property string _gainGestureId: ""
     property string _lastGainRequestId: ""
     property string _lastCommandId: ""
-    readonly property var measuredLevel: meterModel && meterModel.levels
-            && meterChannel >= 0 && meterChannel < meterModel.levels.length
-            ? meterModel.levels[meterChannel] : null
-    readonly property real shownPeak: measuredLevel ? Number(measuredLevel.displayPeakDbfs) : peakDbfs
-    readonly property real shownRms: measuredLevel ? Number(measuredLevel.rmsDbfs) : rmsDbfs
-    readonly property real meterPosition: Math.max(0, Math.min(1, (shownPeak + 60) / 60))
-    readonly property real sliderValue: gainMap ? gainMap.positionFor(gainValue, gainSilent) : gainValue
-    readonly property string gainText: gainSilent ? "−∞ dB" : Number(gainValue).toFixed(1) + " dB"
+    readonly property bool bound: mixer !== null && channelId.length > 0
+    readonly property bool isMaster: channelKind === "master"
+    readonly property var gainBinding: bound ? mixer.parameterBinding(channelId, "gain") : null
+    readonly property var boundMeter: bound && mixer.engine ? mixer.meter(channelId) : null
+    readonly property var meterLevels: boundMeter ? boundMeter.levels
+        : meterModel && meterModel.levels && meterChannel >= 0 && meterChannel < meterModel.levels.length
+          ? [meterModel.levels[meterChannel]]
+          : [{channel: 0, name: "", peakDbfs: peakDbfs, rmsDbfs: rmsDbfs, displayPeakDbfs: peakDbfs,
+              clipped: peakDbfs >= 0, silent: peakDbfs <= -120}]
+    readonly property real shownPeak: meterLevels.length > 0
+        ? Number(meterLevels[0].displayPeakDbfs !== undefined ? meterLevels[0].displayPeakDbfs : meterLevels[0].peakDbfs)
+        : -120
 
     signal gainEditRequested(string channelId, string parameterId, string gestureId,
                              string phase, real value, bool silent)
@@ -54,50 +74,26 @@ T.Control {
     signal channelSelected(string channelId)
 
     implicitWidth: Tk.Theme.size.fieldWidth
-    implicitHeight: Tk.Theme.size.panelMinHeight * 2
+    implicitHeight: body.implicitHeight + topPadding + bottomPadding
     padding: Tk.Theme.space.sm
     hoverEnabled: true
     Accessible.role: Accessible.Grouping
     Accessible.name: channelName.length ? channelName : tooltip
-    Accessible.description: qsTr("%1, %2, peak %3 dBFS, %4")
-            .arg(channelKind).arg(gainText).arg(Number(shownPeak).toFixed(1)).arg(routeSummary)
+    Accessible.description: qsTr("%1, %2, gain %3, peak %4 dBFS%5")
+            .arg(channelKind).arg(layout).arg(fader.valueText).arg(Number(shownPeak).toFixed(1))
+            .arg(muted ? qsTr(", muted") : implicitlyMuted ? qsTr(", silent while another channel is soloed") : "")
 
-    function nextId(kind) {
-        _serial = String(Number(_serial) + 1)
-        return channelId + ":" + kind + ":" + _serial
-    }
-    function canonical(position) {
-        return gainMap ? gainMap.valueAt(position) : ({value: position, silent: false})
-    }
-    function sendGain(phase, position) {
-        let id = _gainGestureId
-        if (!id) id = channelId + ":" + gainParameterId + ":" + (Number(_serial) + 1)
-        if (!_gainGestureId) _serial = String(Number(_serial) + 1)
-        const result = canonical(position)
-        _lastGainRequestId = id
-        gainEditRequested(channelId, gainParameterId, id, phase, Number(result.value), !!result.silent)
-        return id
-    }
-    function startGain() {
-        if (_gainGestureId) return _gainGestureId
-        _gainGestureId = nextId(gainParameterId)
-        return sendGain("begin", fader.value)
-    }
-    function updateGain(position) {
-        if (!_gainGestureId) startGain()
-        return sendGain("preview", position)
-    }
-    function finishGain(position) {
-        if (!_gainGestureId) startGain()
+    // Host mode: one gesture ID per fader gesture, every phase by stable IDs.
+    function gainRequest(phase, value, isSilent) {
+        if (phase === "begin" || !_gainGestureId) {
+            _serial = String(Number(_serial) + 1)
+            _gainGestureId = channelId + ":" + gainParameterId + ":" + _serial
+        }
         const id = _gainGestureId
-        sendGain("commit", position)
-        _gainGestureId = ""
+        _lastGainRequestId = id
+        gainEditRequested(channelId, gainParameterId, id, phase, Number(value), !!isSilent)
+        if (phase === "commit" || phase === "cancel") _gainGestureId = ""
         return id
-    }
-    function cancelGain() {
-        if (!_gainGestureId) return
-        sendGain("cancel", fader.value)
-        _gainGestureId = ""
     }
     function acknowledgeGainEdit(requestId, state, message) {
         if (!requestId || requestId !== _lastGainRequestId || ["accepted", "rejected", "error"].indexOf(state) < 0) return false
@@ -105,10 +101,25 @@ T.Control {
         commandMessage = String(message || (state === "accepted" ? qsTr("Gain accepted") : qsTr("Gain %1").arg(state)))
         return true
     }
+    // mute, solo, arm, soloSafe (and hide, bound): a mixer operation when
+    // bound, answered at once; a host request otherwise.
     function requestCommand(command, value) {
-        const id = nextId(command)
+        _serial = String(Number(_serial) + 1)
+        const id = channelId + ":" + command + ":" + _serial
         _lastCommandId = id
-        channelCommandRequested(channelId, id, command, !!value)
+        if (!bound) {
+            channelCommandRequested(channelId, id, command, !!value)
+            return id
+        }
+        const on = !!value
+        const result = command === "mute" ? mixer.setMuted(channelId, on)
+                     : command === "solo" ? mixer.setSoloed(channelId, on)
+                     : command === "arm" ? mixer.setArmed(channelId, on)
+                     : command === "soloSafe" ? mixer.setSoloSafe(channelId, on)
+                     : command === "hide" ? mixer.setHidden(channelId, on)
+                     : ({ok: false, error: qsTr("Unknown command %1").arg(command)})
+        commandState = result.ok ? "accepted" : "rejected"
+        commandMessage = result.ok ? "" : String(result.error)
         return id
     }
     function acknowledgeCommand(requestId, state, message) {
@@ -117,100 +128,162 @@ T.Control {
         commandMessage = String(message || (state === "accepted" ? qsTr("Command accepted") : qsTr("Command %1").arg(state)))
         return true
     }
-    Keys.onEscapePressed: function(event) { strip.cancelGain(); event.accepted = true }
+    Keys.onEscapePressed: function(event) { fader.cancelGesture(); pan.cancel(); event.accepted = true }
 
     background: Rectangle {
         color: Tk.Theme.color.panel
+        opacity: strip.implicitlyMuted ? Tk.Theme.opacity.muted : Tk.Theme.opacity.full
         border.color: strip.selected ? Tk.Theme.color.accent : strip.activeFocus ? Tk.Theme.color.focus : Tk.Theme.color.border
         border.width: strip.selected || strip.activeFocus ? Tk.Theme.size.focusRing : Tk.Theme.size.border
         radius: Tk.Theme.radius.sm
     }
     contentItem: Tk.Flex {
+        id: body
         anchors.fill: parent
+        anchors.margins: strip.padding
         direction: Tk.Flex.Column
         gap: Tk.Theme.space.sm
         Tk.Flex {
             width: parent.width
-            Tk.Label { text: strip.channelName; elide: Text.ElideRight; font.pixelSize: Tk.Theme.font.body }
-            Tk.Spacer { }
-            Tk.Caption { text: strip.channelKind.toUpperCase(); color: Tk.Theme.color.textMuted }
+            gap: Tk.Theme.space.xs
+            Tk.Label {
+                objectName: "channelName"
+                text: strip.channelName
+                elide: Text.ElideRight
+                font.pixelSize: Tk.Theme.font.body
+                Tk.Flex.grow: 1
+                Tk.Flex.shrink: 1
+            }
+            Tk.Caption { text: strip.channelKind.toUpperCase() + " · " + strip.layout; color: Tk.Theme.color.textMuted }
         }
-        Tk.Flex {
-            width: parent.width
-            Tk.Caption { text: qsTr("Peak %1 dBFS").arg(Number(strip.shownPeak).toFixed(1)); color: Tk.Theme.color.textMuted }
-            Tk.Spacer { }
-            Tk.Caption { text: qsTr("RMS %1").arg(Number(strip.shownRms).toFixed(1)); color: Tk.Theme.color.textMuted }
-        }
-        Tk.ProgressBar {
+        Tk.AudioMeter {
             objectName: "channelPeakMeter"
             width: parent.width
-            value: strip.meterPosition
-            tooltip: qsTr("Measured channel peak")
-            Accessible.description: qsTr("Peak %1 dBFS; RMS %2 dBFS")
-                    .arg(Number(strip.shownPeak).toFixed(1)).arg(Number(strip.shownRms).toFixed(1))
+            meter: strip.boundMeter
+            levels: strip.meterLevels
+            showScale: strip.detail
+            tooltip: qsTr("%1 post-fader level").arg(strip.channelName)
         }
-        Tk.Flex {
-            width: parent.width
-            Tk.Caption { text: qsTr("Gain"); color: Tk.Theme.color.textMuted }
-            Tk.Spacer { }
-            Tk.Mono { text: strip.gainText }
-        }
-        Tk.Slider {
+        Tk.Fader {
             id: fader
             objectName: "channelGainFader"
             width: parent.width
-            from: strip.gainMap ? 0 : strip.gainMinimum
-            to: strip.gainMap ? 1 : strip.gainMaximum
-            value: strip.sliderValue
-            showValue: false
-            tooltip: strip.tooltip + qsTr(" · gain")
-            onPressedChanged: if (pressed) strip.startGain()
-                              else if (strip._gainGestureId) strip.finishGain(value)
-            onValueModified: if (pressed) strip.updateGain(value)
-                             else strip.finishGain(value)
+            Tk.Flex.grow: 1
+            Tk.Flex.shrink: 1
+            binding: strip.gainBinding
+            mapper: strip.bound ? null : strip.gainMap
+            from: strip.gainMinimum
+            to: strip.gainMaximum
+            tooltip: qsTr("%1 gain").arg(strip.channelName)
+            onGestureStarted: (value, silent) => { if (!strip.bound) strip.gainRequest("begin", value, silent) }
+            onValuePreview: (value, silent) => { if (!strip.bound) strip.gainRequest("preview", value, silent) }
+            onGestureCommitted: (value, silent) => { if (!strip.bound) strip.gainRequest("commit", value, silent) }
+            onGestureCanceled: (value, silent) => { if (!strip.bound) strip.gainRequest("cancel", value, silent) }
         }
         Tk.PanningControl {
             id: pan
             objectName: "channelPanning"
             width: parent.width
+            mixer: strip.bound ? strip.mixer : null
             channelId: strip.channelId
+            speakerLayout: strip.layout
+            pad: strip.detail
             panParameterId: strip.channelId + "/pan"
             widthParameterId: strip.channelId + "/width"
             panValue: strip.panValue
             stereoWidth: strip.stereoWidth
-            speakerLayout: strip.speakerLayout
-            tooltip: strip.channelName + qsTr(" panning")
-            onParameterEditRequested: strip.panEditRequested(channelId, parameterId, gestureId, phase, value)
+            tooltip: qsTr("%1 panning").arg(strip.channelName)
+            onParameterEditRequested: (channelId, parameterId, gestureId, phase, value) =>
+                strip.panEditRequested(channelId, parameterId, gestureId, phase, value)
         }
         Tk.Flex {
             width: parent.width
+            gap: Tk.Theme.space.xs
             Tk.IconButton {
                 objectName: "channelMute"
                 iconName: "volume-x"
                 checkable: false
                 checked: strip.muted
+                danger: strip.muted
                 tooltip: strip.muted ? qsTr("Unmute %1").arg(strip.channelName) : qsTr("Mute %1").arg(strip.channelName)
                 onClicked: strip.requestCommand("mute", !strip.muted)
             }
             Tk.IconButton {
                 objectName: "channelSolo"
-                iconName: "headphones"
+                visible: !strip.isMaster
+                iconName: "target"
                 checkable: false
                 checked: strip.soloed
                 tooltip: strip.soloed ? qsTr("Unsolo %1").arg(strip.channelName) : qsTr("Solo %1").arg(strip.channelName)
                 onClicked: strip.requestCommand("solo", !strip.soloed)
             }
+            Tk.IconButton {
+                objectName: "channelArm"
+                visible: strip.channelKind === "track"
+                iconName: "circle-dot"
+                checkable: false
+                checked: strip.armed
+                tooltip: strip.armed ? qsTr("Disarm %1").arg(strip.channelName) : qsTr("Arm %1 for recording").arg(strip.channelName)
+                onClicked: strip.requestCommand("arm", !strip.armed)
+            }
+            Tk.IconButton {
+                objectName: "channelSoloSafe"
+                visible: strip.detail && strip.bound && !strip.isMaster
+                iconName: "anchor"
+                checkable: false
+                checked: strip.soloSafe
+                tooltip: strip.soloSafe ? qsTr("%1 is solo safe: click to let a solo mute it").arg(strip.channelName)
+                                        : qsTr("Make %1 solo safe (never muted by another solo)").arg(strip.channelName)
+                onClicked: strip.requestCommand("soloSafe", !strip.soloSafe)
+            }
             Tk.Spacer { }
-            Tk.Caption { text: strip.routeSummary; elide: Text.ElideRight; color: Tk.Theme.color.textMuted }
+            Tk.IconButton {
+                objectName: "channelHide"
+                visible: strip.detail && strip.bound
+                iconName: "eye-off"
+                tooltip: qsTr("Hide %1 in the mixer").arg(strip.channelName)
+                onClicked: strip.requestCommand("hide", true)
+            }
+        }
+        Tk.Caption {
+            objectName: "channelGroups"
+            visible: strip.detail && strip.groupNames && strip.groupNames.length > 0
+            width: parent.width
+            elide: Text.ElideRight
+            text: qsTr("Groups: %1").arg((strip.groupNames || []).join(", "))
+            color: Tk.Theme.color.textMuted
+        }
+        Tk.ChannelRoutingPanel {
+            objectName: "channelRouting"
+            visible: strip.detail && strip.bound
+            width: parent.width
+            mixer: strip.bound ? strip.mixer : null
+            channelId: strip.channelId
+            output: strip.output
+            sends: strip.sends
+            tooltip: strip.channelName
+        }
+        Tk.Caption {
+            objectName: "channelRouteSummary"
+            visible: !strip.bound
+            width: parent.width
+            elide: Text.ElideRight
+            text: strip.routeSummary
+            color: Tk.Theme.color.textMuted
         }
         Tk.Caption {
             objectName: "channelCommandStatus"
             visible: strip.commandMessage.length > 0
+            width: parent.width
+            wrapMode: Text.Wrap
             text: strip.commandMessage
             color: strip.commandState === "rejected" || strip.commandState === "error"
                    ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
         }
     }
+    // Host mode: the fader shows the host's value whenever no gesture holds it.
+    Binding { target: fader; property: "value"; value: strip.gainValue; when: !strip.bound && !fader.gestureOpen }
+    Binding { target: fader; property: "silent"; value: strip.gainSilent; when: !strip.bound && !fader.gestureOpen }
     Tk.ToolTip { visible: strip.hovered && strip.tooltip.length > 0; text: strip.tooltip }
     TapHandler {
         objectName: "channelSelectionArea"

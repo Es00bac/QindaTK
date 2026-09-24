@@ -62,7 +62,11 @@ function, so device output and offline renders are identical samples.
   transactions ([audio-measurement.md](audio-measurement.md)).
 - Loops wrap inside a period at the exact loop end; seeks, play/stop and
   record start/stop take effect at the next period boundary.
-- Mute/solo come from `TimelineTrack`; overlapping clips on a track sum.
+- Overlapping clips on a track sum. Channels, buses, sends, pan laws,
+  mute/solo (track flags from `TimelineTrack`, solo in place), output ports
+  and per-channel meters are the mixer's ([audio-mixer.md](audio-mixer.md),
+  WP-062); with the default mix every track feeds the master and the master
+  feeds `main`, so a mono file still reaches the device bit-exactly.
 - Media are converted to the engine rate off the device thread (Blackman
   windowed sinc, 32 zero crossings; 1 kHz 48→44.1 kHz error < 2·10⁻³).
 
@@ -158,5 +162,6 @@ layout; see [audio-measurement.md](audio-measurement.md).
 Hardware/OS matrices (PipeWire native, JACK, WASAPI, CoreAudio, real
 interfaces, driver hot-plug notifications) are WP-088 platform qualification;
 formats beyond WAV belong to format adapters; resampling at playback time,
-fades/crossfades, per-clip gain, sends/buses, per-track and bus meters and
-plugins belong to WP-062/066.
+fades/crossfades and per-clip gain are not modelled; plugins belong to
+WP-066. Sends, buses and per-track and bus meters are in
+[audio-mixer.md](audio-mixer.md).
