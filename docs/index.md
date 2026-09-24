@@ -38,6 +38,7 @@ pages below are the reference.
 | [color.md](color.md) | Numerical RGB ICC profiles, straight alpha, CPU transforms, precision and unsupported proof/display boundaries |
 | [canvas.md](canvas.md) | Spatial canvas: document/view/device transforms, object model, picking, tool gestures, synchronized views and the tile rendering boundary |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
+| [caption-rendering.md](caption-rendering.md) | Burned-caption frame rendering, exact interval semantics, style limits and atomic PNG output |
 | [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |
 | [tempo-automation.md](tempo-automation.md) | Tempo/meter events, beat-locked clips, automation curves and modes, engine schedule snapshots |
 | [audio-measurement.md](audio-measurement.md) | Channel peak/RMS measurement, dBFS display, peak hold, fall and clip latch |

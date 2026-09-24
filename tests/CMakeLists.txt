@@ -50,6 +50,7 @@ target_compile_definitions(tst_color_engine PRIVATE
     QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
 qindatk_add_test(tst_color_picker_model)
 qindatk_add_test(tst_video_scopes)
+qindatk_add_test(tst_caption_frame_renderer)
 qindatk_add_test(tst_caption_track_model)
 qindatk_add_test(tst_capability_registry)
 qindatk_add_test(tst_command_context)

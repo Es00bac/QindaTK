@@ -3119,7 +3119,7 @@
       "name": "CaptionEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: caption host owns cue content, exact timing, style semantics, overlap rules, serialization, rendering/export and undo. This editor displays supplied interval geometry and submits text/style/timing requests only.",
+      "description": "AGENT-CONTRACT: caption host owns cue content, exact timing, style semantics, overlap rules, serialization, edit transactions and clip export. The CaptionFrameRenderer handles supported per-frame burn-in; this editor shows supplied interval geometry and submits text/style/timing requests only.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/CaptionEditor.qml",
@@ -33065,6 +33065,79 @@
           "name": "operations",
           "returns": "QStringList",
           "parameters": "const QString &featureId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CaptionFrameRenderer",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Burns committed CaptionTrackModel cues into one host-decoded video frame.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/caption_frame_renderer.h",
+      "properties": [
+        {
+          "name": "imageDataUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "defaultOutputPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "activeCueIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastTimeMs",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "renderFixture",
+          "returns": "QVariantMap",
+          "parameters": "CaptionTrackModel *track, const QString &timeMilliseconds"
+        },
+        {
+          "name": "saveRenderedFrame",
+          "returns": "bool",
+          "parameters": "const QString &path = QString("
         }
       ],
       "enums": {},

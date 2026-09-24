@@ -4,7 +4,8 @@ import QtQuick.Templates as T
 import QindaTK as Tk
 
 // AGENT-CONTRACT: caption host owns cue content, exact timing, style semantics,
-// overlap rules, serialization, rendering/export and undo. This editor displays
+// overlap rules, serialization, edit transactions and clip export. The
+// CaptionFrameRenderer handles supported per-frame burn-in; this editor shows
 // supplied interval geometry and submits text/style/timing requests only.
 T.Control {
     id: root
