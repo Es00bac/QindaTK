@@ -24,9 +24,11 @@ static_assert(sizeof(Vertex) == sizeof(float) * 8);
 
 Vertex packedVertex(const QVector3D &position, const QVector3D &normal, const QPointF &uv)
 {
+    // AGENT-NOTE: mesh UV v=0 is bottom-left; raw QImage texture rows start at
+    // the top. Flip v only for this Qt Quick 3D upload, never in document state.
     return {{position.x(), position.y(), position.z()},
             {normal.x(), normal.y(), normal.z()},
-            {float(uv.x()), float(uv.y())}};
+            {float(uv.x()), float(1.0 - uv.y())}};
 }
 }
 

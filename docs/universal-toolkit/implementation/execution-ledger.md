@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, 35 active, three in review, and 13 planned.**
+**Execution state: 33 packages accepted, 36 active, three in review, and 12 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -118,7 +118,7 @@ as though a later fix had already passed the earlier run.
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | planned | — |
 | [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | planned | — |
 | [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | planned | — |
-| [WP-085 — Implement scientific plotting](phase-07-integrations.md#wp-085) | 07 | Sol | planned | — |
+| [WP-085 — Implement scientific plotting](phase-07-integrations.md#wp-085) | 07 | Sol | active | [Numeric, uncertainty and export implementation lane underway](evidence/WP-085.md) |
 | [WP-086 — Implement image slices, volumes and transfer functions](phase-07-integrations.md#wp-086) | 07 | Sol | planned | — |
 | [WP-087 — Implement dependency and trace exploration](phase-07-integrations.md#wp-087) | 07 | Sol | planned | — |
 | [WP-088 — Qualify platform and backend integration boundaries](phase-07-integrations.md#wp-088) | 07 | Sol | planned | — |

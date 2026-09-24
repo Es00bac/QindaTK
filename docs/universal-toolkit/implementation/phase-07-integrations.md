@@ -126,7 +126,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-085"></a>
 ## WP-085 — Implement scientific plotting
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-030](phase-02-controls-data.md#wp-030), [WP-031](phase-02-controls-data.md#wp-031), [WP-076](phase-06-video.md#wp-076)
+**Implementation lead:** Sol. **Status:** active (2D numeric/uncertainty/export lane underway against the available scene boundary; WP-076 remains active). **Depends on:** [WP-030](phase-02-controls-data.md#wp-030), [WP-031](phase-02-controls-data.md#wp-031), [WP-076](phase-06-video.md#wp-076)
 
 **Proposal scope:** [EXT-06 ScientificPlot](../proposed/09-specialized-domains.md#ext-06)
 
