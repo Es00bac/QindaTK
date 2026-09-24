@@ -105,6 +105,10 @@ for the provider contract and object names.
 
 ## Command composition and typed inspectors
 
+Dialogs and command palettes inside content that moves between native windows
+can set `hostItem` to an item in that content. Their overlay then follows the
+host item; popovers follow `anchorItem` automatically.
+
 All command rows read enabled, checked, label and disabled-reason state from
 `CommandRegistry` when a registry and command ID are supplied. Menu choices
 use the same command invocation path. Editor controls receive an existing

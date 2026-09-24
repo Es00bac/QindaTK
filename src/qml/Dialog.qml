@@ -17,6 +17,8 @@ T.Dialog {
 
     default property alias content: body.content
     property string subtitle: ""
+    // Set for dialogs owned by a panel that can move between windows.
+    property Item hostItem: null
     property string primaryText: qsTr("OK")
     property string secondaryText: qsTr("Cancel")
     property bool destructive: false
@@ -28,7 +30,7 @@ T.Dialog {
 
     signal tertiary()
 
-    parent: T.Overlay.overlay
+    parent: hostItem ? hostItem.T.Overlay.overlay : T.Overlay.overlay
     anchors.centerIn: parent
     width: parent && parent.width > 0 ? Math.min(dialog.dialogWidth, parent.width - Tk.Theme.space.xl * 2)
                                       : dialog.dialogWidth

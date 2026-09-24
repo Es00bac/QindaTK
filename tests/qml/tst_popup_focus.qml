@@ -45,6 +45,16 @@ TestCase {
             anchorItem: movableAnchor
             Tk.Label { text: "Panel popover" }
         }
+        Tk.Menu {
+            id: movableMenu
+            Tk.MenuItem { text: "Panel menu action" }
+        }
+        Tk.Dialog { id: movableDialog; title: "Panel dialog"; hostItem: movableAnchor }
+        Tk.CommandPalette {
+            id: movablePalette
+            hostItem: movableAnchor
+            commands: [{ id: "panel.action", label: "Panel action" }]
+        }
     }
     Window { id: secondWindow; width: 280; height: 180; visible: false }
 
@@ -89,8 +99,23 @@ TestCase {
             tryVerify(function() { return movablePopover.opened })
             compare(movablePopover.parent.Window.window, secondWindow)
             movablePopover.close()
+            movableMenu.popup()
+            tryVerify(function() { return movableMenu.opened })
+            compare(movableMenu.parent.Window.window, secondWindow)
+            movableMenu.close()
+            movableDialog.open()
+            tryVerify(function() { return movableDialog.opened })
+            compare(movableDialog.parent.Window.window, secondWindow)
+            movableDialog.close()
+            movablePalette.open()
+            tryVerify(function() { return movablePalette.opened })
+            compare(movablePalette.parent.Window.window, secondWindow)
+            movablePalette.close()
         } finally {
             movablePopover.close()
+            movableMenu.close()
+            movableDialog.close()
+            movablePalette.close()
             movablePanel.parent = root
             secondWindow.hide()
             root.Window.window.requestActivate()

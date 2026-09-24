@@ -6449,6 +6449,14 @@
           "required": false
         },
         {
+          "name": "hostItem",
+          "type": "Item",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "registry",
           "type": "Tk.CommandRegistry",
           "default": "null",
@@ -8361,6 +8369,14 @@
           "name": "subtitle",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hostItem",
+          "type": "Item",
+          "default": "null",
           "readonly": false,
           "defaultProperty": false,
           "required": false

@@ -14,6 +14,8 @@ T.Popup {
     id: commandPalette
 
     property var commands: []
+    // Set for a palette owned by content that can move between windows.
+    property Item hostItem: null
     // When set, the registry is the live source of rows and the activation
     // path calls its single guarded trigger() entry point.
     property Tk.CommandRegistry registry: null
@@ -27,7 +29,7 @@ T.Popup {
 
     signal activated(string id)
 
-    parent: T.Overlay.overlay
+    parent: hostItem ? hostItem.T.Overlay.overlay : T.Overlay.overlay
     modal: true
     dim: true
     focus: true
