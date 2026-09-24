@@ -21765,6 +21765,166 @@
       ]
     },
     {
+      "name": "RasterStrokeInput",
+      "kind": "qml",
+      "base": "Item",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RasterStrokeInput.qml",
+      "properties": [
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layerId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paintMask",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "color",
+          "type": "color",
+          "default": "Tk.Theme.color.accent",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "brushPreset",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canvasTarget",
+          "type": "Item",
+          "default": "root",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mousePressure",
+          "type": "real",
+          "default": "0.6",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "strokeActive",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastError",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "strokeDocument",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "strokeLayerId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "strokeCommitted",
+          "parameters": ""
+        },
+        {
+          "name": "strokeCanceled",
+          "parameters": ""
+        },
+        {
+          "name": "strokeFailed",
+          "parameters": "string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "mappedPosition",
+          "parameters": "sample"
+        },
+        {
+          "name": "cancelStroke",
+          "parameters": ""
+        },
+        {
+          "name": "failStroke",
+          "parameters": "message"
+        },
+        {
+          "name": "begin",
+          "parameters": "sample"
+        },
+        {
+          "name": "addSample",
+          "parameters": "sample"
+        },
+        {
+          "name": "finish",
+          "parameters": "sample"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "rasterStrokeHover",
+        "rasterStrokeInput",
+        "rasterStylusHandler"
+      ]
+    },
+    {
       "name": "RecurrenceEditor",
       "kind": "qml",
       "base": "Tk.Box",

@@ -74,15 +74,29 @@ Item {
                 Item {
                     anchors.fill: parent
                     Rectangle { anchors.fill: parent; color: Tk.Theme.color.canvas; radius: Tk.Theme.radius.sm }
-                    Image {
+                    Item {
+                        id: canvasSurface
                         anchors.centerIn: parent
                         width: Math.min(parent.width - Tk.Theme.space.lg, 640)
                         height: Math.min(parent.height - Tk.Theme.space.lg, 320)
-                        fillMode: Image.PreserveAspectFit
-                        source: document.imageDataUrl
-                        cache: false
-                        Accessible.role: Accessible.Graphic
-                        Accessible.name: qsTr("Tiled raster image with a teal brush stroke and a transparent masked segment")
+                        Image {
+                            anchors.fill: parent
+                            fillMode: Image.Stretch
+                            source: document.imageDataUrl
+                            cache: false
+                            Accessible.role: Accessible.Graphic
+                            Accessible.name: qsTr("Tiled raster image with a teal brush stroke and a transparent masked segment")
+                        }
+                        Tk.RasterStrokeInput {
+                            anchors.fill: parent
+                            document: document
+                            layerId: "ink"
+                            color: "#44d9d0"
+                            brushPreset: root.brush
+                            onStrokeCommitted: root.statusText = qsTr("Canvas stroke committed · revision %1").arg(document.revision)
+                            onStrokeCanceled: root.statusText = qsTr("Canvas stroke canceled")
+                            onStrokeFailed: function(message) { root.statusText = message }
+                        }
                     }
                 }
             }

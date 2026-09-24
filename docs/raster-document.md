@@ -70,3 +70,25 @@ over a 256 px tile boundary, masks a segment, exposes undo and exports a PNG.
 It can also save and reopen the versioned raster file. This standalone raster
 model does not yet attach to `CanvasDocument` image objects, support
 color-managed export, or provide a brush preset store/UI.
+
+## QML pointer input
+
+`Tk.RasterStrokeInput` is a thin input surface over a host-owned raster model.
+Place it over the same displayed rectangle as the image and assign the model,
+stable layer ID, brush, color and optional mask target. It scales target-local
+coordinates to document pixels and forwards each sample's normalized pressure
+and tilt in degrees. Each pointer gesture is one document transaction; Escape,
+pointer cancellation or loss of the exclusive pointer grab cancels that edit.
+Changing its model, target, layer or stroke parameters, or disabling the surface,
+also cancels an active edit. The fixture includes mouse paint in addition to its
+deterministic demo stroke.
+
+The underlying `Tk.StylusHandler` accepts Qt tablet pen/eraser samples and reads
+`QTabletEvent` pressure plus x/y tilt, including devices whose `QEventPoint`
+pressure is reported as zero. Mouse is the fallback at `mousePressure` (default
+0.6); synthesized mouse events generated after tablet samples are filtered to
+avoid double painting. Touch is intentionally ignored for palm rejection. Actual
+pressure and tilt range/quality depend on the Qt platform plugin and tablet
+driver. Eraser pointer events currently paint with the configured color; there
+is no separate eraser mapping. This control does not add touch painting,
+barrel-button tool mapping, multi-point input, or tablet calibration.

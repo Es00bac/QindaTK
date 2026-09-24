@@ -29,6 +29,8 @@ target_compile_definitions(tst_layout PRIVATE
     QINDATK_GALLERY_FIXTURE="${PROJECT_SOURCE_DIR}/examples/gallery/Main.qml")
 qindatk_add_test(tst_icon)
 qindatk_add_test(tst_stylus_handler)
+qindatk_add_test(tst_raster_stroke_input)
+target_link_libraries(tst_raster_stroke_input PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)
 qindatk_add_test(tst_app_window)
 qindatk_add_test(tst_telemetry)
 qindatk_add_test(tst_chart_data)
