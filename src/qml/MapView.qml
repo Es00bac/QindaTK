@@ -14,6 +14,7 @@ Item {
     readonly property string selectedFeatureId: canvas.selectedFeatureId
     readonly property var selectedFeature: canvas.selectedFeature
     readonly property string tileStatus: canvas.tileStatus
+    readonly property string lastExportError: canvas.lastExportError
     property string tooltip: qsTr("Geographic map")
     signal featureSelected(string id)
     function attributesText() {
@@ -23,6 +24,9 @@ Item {
     function loadGeoJson(path) { return model.loadGeoJson(path) }
     function saveGeoJson(path) { return model.saveGeoJson(path) }
     function exportGeoJson(path) { return model.exportGeoJson(path) }
+    function exportPng(path, pixelWidth, pixelHeight, longitude, latitude, zoomLevel) {
+        return canvas.exportPng(path, pixelWidth, pixelHeight, longitude, latitude, zoomLevel)
+    }
     function addFeature(type, coordinates, properties, id) {
         return model.addFeature(type, coordinates, properties || {}, id || "")
     }

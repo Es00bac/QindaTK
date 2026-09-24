@@ -33,6 +33,7 @@ class GeographicMapCanvas : public QQuickPaintedItem {
     Q_PROPERTY(double selectedFillOpacity MEMBER m_selectedFillOpacity NOTIFY styleChanged)
     Q_PROPERTY(GeographicTileSource *tileSource READ tileSource WRITE setTileSource NOTIFY tileSourceChanged)
     Q_PROPERTY(QString tileStatus READ tileStatus NOTIFY tileStatusChanged)
+    Q_PROPERTY(QString lastExportError READ lastExportError NOTIFY exportErrorChanged)
 public:
     explicit GeographicMapCanvas(QQuickItem *parent = nullptr);
     GeographicFeatureModel *model() const { return m_model; }
@@ -50,6 +51,7 @@ public:
     GeographicTileSource *tileSource() const { return m_tileSource; }
     void setTileSource(GeographicTileSource *source);
     QString tileStatus() const { return m_tileStatus; }
+    QString lastExportError() const { return m_exportError; }
     Q_INVOKABLE QVariantMap coordinateAt(double x, double y) const;
     Q_INVOKABLE QVariantMap screenPosition(double longitude, double latitude) const;
     Q_INVOKABLE QString featureIdAt(double x, double y) const;
@@ -57,6 +59,8 @@ public:
     Q_INVOKABLE bool selectFeature(const QString &id);
     Q_INVOKABLE void panPixels(double dx, double dy);
     Q_INVOKABLE void zoomAt(double factor, double x, double y);
+    Q_INVOKABLE bool exportPng(const QString &path, int pixelWidth, int pixelHeight,
+                               double longitude, double latitude, double zoomLevel);
     void paint(QPainter *painter) override;
 signals:
     void modelChanged();
@@ -68,6 +72,7 @@ signals:
     void styleChanged();
     void tileSourceChanged();
     void tileStatusChanged();
+    void exportErrorChanged();
 protected:
     void geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) override;
     void mousePressEvent(QMouseEvent *event) override;
@@ -82,11 +87,13 @@ private:
     QPointF screen(double lon, double lat) const;
     QPainterPath featurePath(const GeographicFeatureModel::Feature &feature, int worldCopy) const;
     double scale() const;
+    int worldCopies() const;
     static double wrap(double x);
     QPointer<GeographicFeatureModel> m_model;
     QPointer<GeographicTileSource> m_tileSource;
     QVector<VisibleTile> m_visibleTiles;
     QString m_tileStatus = QStringLiteral("unavailable");
+    QString m_exportError;
     QColor m_background, m_feature, m_selection, m_grid;
     double m_centerX = 0.5, m_centerY = 0.5, m_zoom = 2;
     double m_pointRadius = 0, m_lineWidth = 0, m_gridWidth = 0, m_hitRadius = 0;

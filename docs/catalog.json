@@ -15270,6 +15270,14 @@
           "required": false
         },
         {
+          "name": "lastExportError",
+          "type": "string",
+          "default": "canvas.lastExportError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Geographic map\")",
@@ -15300,6 +15308,10 @@
         {
           "name": "exportGeoJson",
           "parameters": "path"
+        },
+        {
+          "name": "exportPng",
+          "parameters": "path, pixelWidth, pixelHeight, longitude, latitude, zoomLevel"
         },
         {
           "name": "addFeature",
@@ -42005,6 +42017,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "lastExportError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -42043,6 +42062,10 @@
         {
           "name": "tileStatusChanged",
           "parameters": ""
+        },
+        {
+          "name": "exportErrorChanged",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -42080,6 +42103,11 @@
           "name": "zoomAt",
           "returns": "void",
           "parameters": "double factor, double x, double y"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path, int pixelWidth, int pixelHeight, double longitude, double latitude, double zoomLevel"
         }
       ],
       "enums": {},

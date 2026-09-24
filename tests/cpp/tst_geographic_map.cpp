@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "../../src/core/geographic_feature_model.h"
 #include "../../src/core/geographic_map_canvas.h"
+#include "../../src/core/geographic_tile_source.h"
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QTemporaryDir>
@@ -26,6 +30,12 @@ private slots:
         QVERIFY(!model.project(181,0).value("valid").toBool());
         const auto reverse = model.unproject(1.0027777777777778, 0.5);
         QVERIFY(std::abs(reverse.value("longitude").toDouble()+179.0) < 1e-9);
+        GeographicMapCanvas canvas;
+        canvas.setWidth(400); canvas.setHeight(300);
+        canvas.setCenterLatitude(90);
+        QVERIFY(std::abs(canvas.centerLatitude()-GeographicFeatureModel::latitudeLimit) < 1e-8);
+        QVERIFY(canvas.screenPosition(0,90).value("latitudeClamped").toBool());
+        QVERIFY(canvas.coordinateAt(200,-100).value("latitudeClamped").toBool());
     }
     void localGeoJsonAndInteraction()
     {
@@ -71,6 +81,7 @@ private slots:
         QCOMPARE(canvas.selectedFeatureId(), QStringLiteral("marker"));
         const auto crossing = canvas.screenPosition(-179,1);
         QCOMPARE(canvas.featureIdAt(crossing.value("x").toDouble(), crossing.value("y").toDouble()), generatedId);
+        QCOMPARE(canvas.featureIdAt(200, crossing.value("y").toDouble()), generatedId);
         const auto before = canvas.coordinateAt(200,150);
         canvas.panPixels(50,0);
         const auto after = canvas.coordinateAt(200,150);
@@ -154,6 +165,54 @@ private slots:
         QCOMPARE(reopened.featureById("route-1").value("properties").toMap().value("name").toString(),
                  QStringLiteral("route"));
         QCOMPARE(reopened.featureById("area-1").value("geometry").toMap(), polygonBefore);
+    }
+    void antimeridianTilesAndComposedPng()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QJsonArray tiles;
+        for (int y = 0; y < 2; ++y)
+            for (int x = 0; x < 2; ++x) {
+                const QString name = QStringLiteral("%1-%2.png").arg(x).arg(y);
+                QImage tile(256, 256, QImage::Format_RGB32);
+                tile.fill(x == 0 ? QColor("#0000ff") : QColor("#ff0000"));
+                QVERIFY(tile.save(dir.filePath(name)));
+                tiles.append(QJsonObject{{"z",1},{"x",x},{"y",y},{"file",name}});
+            }
+        QFile manifest(dir.filePath("tiles.json"));
+        QVERIFY(manifest.open(QIODevice::WriteOnly));
+        manifest.write(QJsonDocument(QJsonObject{{"tileSize",256},{"minZoom",1},{"maxZoom",1},
+                                             {"attribution","Tile author"},{"tiles",tiles}}).toJson());
+        manifest.close();
+        GeographicTileSource source;
+        QVERIFY(source.loadManifest(manifest.fileName()));
+        GeographicFeatureModel model;
+        model.setAttribution(QStringLiteral("Vector author"));
+        QCOMPARE(model.addFeature("Point", QVariantList{-180.0,0.0}, {}, "seam"), QStringLiteral("seam"));
+        GeographicMapCanvas canvas;
+        canvas.setWidth(400); canvas.setHeight(300);
+        canvas.setModel(&model);
+        canvas.setTileSource(&source);
+        canvas.setProperty("backgroundColor", QColor("#202020"));
+        canvas.setProperty("featureColor", QColor("#00ffff"));
+        canvas.setProperty("gridColor", QColor("#000000"));
+        canvas.setProperty("pointRadius", 10);
+        canvas.setProperty("lineWidth", 2);
+        canvas.setProperty("fillOpacity", 1);
+        canvas.setCenterLongitude(0); // Export declares a different camera.
+        canvas.setZoomLevel(1);
+        const QString output = dir.filePath("composed.png");
+        QVERIFY2(canvas.exportPng(output,400,300,-180,0,1), qPrintable(canvas.lastExportError()));
+        QCOMPARE(canvas.centerLongitude(), 0.0);
+        const QImage composed(output);
+        QCOMPARE(composed.size(), QSize(400,300));
+        QCOMPARE(composed.pixelColor(50,100), QColor("#ff0000"));
+        QCOMPARE(composed.pixelColor(350,100), QColor("#0000ff"));
+        QCOMPARE(composed.pixelColor(200,150), QColor("#00ffff"));
+        QCOMPARE(composed.text("QindaTK/Attribution"), QStringLiteral("Vector author · Tile author"));
+        QVERIFY(composed.text("QindaTK/CRS").contains("EPSG:3857"));
+        QVERIFY(!canvas.exportPng(dir.filePath("bad.png"), 400,300,0,91,1));
+        QVERIFY(!canvas.lastExportError().isEmpty());
     }
 };
 QTEST_MAIN(TestGeographicMap)

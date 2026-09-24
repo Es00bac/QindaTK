@@ -5,6 +5,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QIODevice>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -57,6 +58,23 @@ void GeographicTileSource::setDiskCacheLimitBytes(qint64 bytes)
 
 qint64 GeographicTileSource::diskCacheBytes() const
 { return m_network ? m_network->diskCache->cacheSize() : 0; }
+
+QImage GeographicTileSource::cachedNetworkImage(const QString &id)
+{
+    if (!m_network) return {};
+    const auto parts = id.split(QLatin1Char('/'));
+    if (parts.size() != 3) return {};
+    QString url = m_urlTemplate;
+    url.replace(QStringLiteral("{z}"), parts[0])
+       .replace(QStringLiteral("{x}"), parts[1])
+       .replace(QStringLiteral("{y}"), parts[2]);
+    std::unique_ptr<QIODevice> data(m_network->diskCache->data(QUrl(url)));
+    if (!data) return {};
+    const auto bytes = data->readAll();
+    if (bytes.size() > 8 * 1024 * 1024) return {};
+    const QImage image = QImage::fromData(bytes);
+    return image.size() == QSize(m_tileSize, m_tileSize) ? image : QImage{};
+}
 
 void GeographicTileSource::clearDiskCache()
 {

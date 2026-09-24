@@ -45,6 +45,8 @@ void GeographicMapCanvas::setModel(GeographicFeatureModel *value)
 double GeographicMapCanvas::wrap(double x)
 { x = std::fmod(x, 1.0); return x < 0 ? x + 1.0 : x; }
 double GeographicMapCanvas::scale() const { return 256.0 * std::pow(2.0, m_zoom); }
+int GeographicMapCanvas::worldCopies() const
+{ return std::clamp(static_cast<int>(std::ceil(width() / scale() / 2.0)) + 1, 1, 64); }
 double GeographicMapCanvas::centerLongitude() const
 { return GeographicFeatureModel::geographic(m_centerX, m_centerY).x(); }
 void GeographicMapCanvas::setCenterLongitude(double value)
@@ -84,14 +86,16 @@ QVariantMap GeographicMapCanvas::screenPosition(double lon, double lat) const
     if (!std::isfinite(lon) || !std::isfinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90)
         return {{"valid", false}};
     const auto p = screen(lon, lat);
-    return {{"valid", true}, {"x", p.x()}, {"y", p.y()}};
+    return {{"valid", true}, {"x", p.x()}, {"y", p.y()},
+            {"latitudeClamped", std::abs(lat) > GeographicFeatureModel::latitudeLimit}};
 }
 QVariantMap GeographicMapCanvas::coordinateAt(double x, double y) const
 {
     if (!std::isfinite(x) || !std::isfinite(y)) return {{"valid", false}};
-    const auto p = GeographicFeatureModel::geographic(m_centerX + (x-width()/2)/scale(),
-                                                       m_centerY + (y-height()/2)/scale());
-    return {{"valid", true}, {"longitude", p.x()}, {"latitude", p.y()}, {"crs", "EPSG:4326"}};
+    const double worldY = m_centerY + (y-height()/2)/scale();
+    const auto p = GeographicFeatureModel::geographic(m_centerX + (x-width()/2)/scale(), worldY);
+    return {{"valid", true}, {"longitude", p.x()}, {"latitude", p.y()},
+            {"latitudeClamped", worldY < 0 || worldY > 1}, {"crs", "EPSG:4326"}};
 }
 QPainterPath GeographicMapCanvas::featurePath(const GeographicFeatureModel::Feature &feature, int worldCopy) const
 {
@@ -139,7 +143,7 @@ QString GeographicMapCanvas::featureIdAt(double x, double y) const
     const QPointF p(x,y);
     const auto &features = m_model->features();
     for (auto it = features.crbegin(); it != features.crend(); ++it) {
-        for (int copy = -1; copy <= 1; ++copy) {
+        for (int copy = -worldCopies(); copy <= worldCopies(); ++copy) {
             const auto path = featurePath(*it, copy);
             if (path.contains(p)) return it->id;
             QPainterPathStroker stroker;
@@ -186,9 +190,12 @@ void GeographicMapCanvas::paint(QPainter *painter)
     painter->setRenderHint(QPainter::Antialiasing);
     painter->setClipRect(boundingRect());
     painter->setPen(QPen(m_grid, m_gridWidth));
-    for (int lon = -180; lon <= 180; lon += 30) {
+    for (int lon = -180; lon < 180; lon += 30) {
         const auto p = screen(lon, 0); // local graticule; longitude wraps with camera
-        if (p.x() >= 0 && p.x() <= width()) painter->drawLine(QPointF(p.x(),0), QPointF(p.x(),height()));
+        for (int copy = -worldCopies(); copy <= worldCopies(); ++copy) {
+            const double x = p.x() + copy * scale();
+            if (x >= 0 && x <= width()) painter->drawLine(QPointF(x,0), QPointF(x,height()));
+        }
     }
     for (int lat = -60; lat <= 60; lat += 30) {
         const auto p = screen(0, lat);
@@ -202,7 +209,7 @@ void GeographicMapCanvas::paint(QPainter *painter)
         QColor fill = color;
         fill.setAlphaF(std::clamp(selected ? m_selectedFillOpacity : m_fillOpacity, 0.0, 1.0));
         painter->setBrush((f.type.contains("Polygon") || f.type.contains("Point")) ? QBrush(fill) : Qt::NoBrush);
-        for (int copy = -1; copy <= 1; ++copy) {
+        for (int copy = -worldCopies(); copy <= worldCopies(); ++copy) {
             const auto path = featurePath(f, copy);
             if (path.boundingRect().intersects(boundingRect())) painter->drawPath(path);
         }

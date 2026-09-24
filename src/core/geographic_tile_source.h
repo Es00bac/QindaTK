@@ -11,6 +11,7 @@
 namespace QindaTK {
 // AGENT-CONTRACT: GeographicMapCanvas supplies visible XYZ keys; this source
 // owns local/network decoding, stale-result rejection and bounded caches.
+// Image export reads local or cached tiles without replacing the live visible set.
 class GeographicTileSource : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -56,6 +57,7 @@ public:
     // 0 = absent, 1 = loading, 2 = cached, 3 = decode failed.
     int tileState(const QString &key) const;
     QImage tileImage(const QString &key);
+    QImage imageForExport(const QString &key);
 signals:
     void changed();
     void cacheChanged();
@@ -67,6 +69,7 @@ private:
     void requestNetwork(const QString &key, quint64 serial);
     void cancelNetworkRequests(const QSet<QString> &keep);
     void configureDiskCache();
+    QImage cachedNetworkImage(const QString &key);
     void finishTile(const QString &key, quint64 serial, QImage image);
     QHash<QString, QString> m_paths;
     QCache<QString, QImage> m_cache;

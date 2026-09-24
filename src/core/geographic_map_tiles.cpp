@@ -44,9 +44,9 @@ void GeographicMapCanvas::refreshTiles()
         const double left = m_centerX * worldPixels - width() / 2;
         const double top = m_centerY * worldPixels - height() / 2;
         const int firstX = static_cast<int>(std::floor(left / tilePixels));
-        const int lastX = static_cast<int>(std::floor((left + width()) / tilePixels));
+        const int lastX = static_cast<int>(std::ceil((left + width()) / tilePixels)) - 1;
         const int firstY = std::max(0, static_cast<int>(std::floor(top / tilePixels)));
-        const int lastY = std::min(count - 1, static_cast<int>(std::floor((top + height()) / tilePixels)));
+        const int lastY = std::min(count - 1, static_cast<int>(std::ceil((top + height()) / tilePixels)) - 1);
         const qint64 drawCount = qint64(lastX - firstX + 1) * qint64(lastY - firstY + 1);
         if (drawCount > 512) {
             m_tileSource->setVisibleTiles({});

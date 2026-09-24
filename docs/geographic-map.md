@@ -20,11 +20,15 @@ out-of-range coordinates return `{valid: false}`. `unproject()` wraps longitude
 into `[-180, 180)` and clamps normalized Y to `[0,1]`.
 
 `MapView.coordinateAt(screenX, screenY)` returns WGS84 longitude/latitude with a
-`crs` field. `screenPosition(lon, lat)` returns pixels in the view. Zoom is a
+`crs` field and `latitudeClamped` when the screen point falls past the
+Web Mercator poles. `screenPosition(lon, lat)` returns pixels in the view and
+reports `latitudeClamped` for WGS84 latitudes beyond the projection limit. Zoom is a
 continuous Web Mercator scale, 256 × 2^zoom pixels per world, limited to 0–18.
 Mouse drag pans, wheel zooms about the pointer, arrow keys pan, and +/- zoom.
 Longitude wraps. Each line segment takes its shortest crossing of the
-antimeridian; geometry is painted in adjacent world copies for seam continuity.
+antimeridian; geometry is painted and picked in every world copy intersecting
+the viewport for seam continuity. XYZ X coordinates wrap modulo the tile count;
+Y coordinates stop at the projection boundary.
 This is appropriate for local features, not routes intentionally spanning over
 180° in longitude.
 
@@ -113,10 +117,26 @@ removes saved responses. HTTP caching follows the tile server's cache headers;
 cacheable responses can be used while offline. Failed and missing responses
 appear in `tileStatus` while vectors remain usable.
 
+## Composed image export
+
+`MapView.exportPng(path, pixelWidth, pixelHeight, longitude, latitude,
+zoomLevel)` writes the current vector model, local or cached XYZ raster tiles,
+selected feature and source attribution to a PNG at the **declared** viewport.
+It does not change the live camera or its pending tile requests. The path is
+local, dimensions are 1–8192 pixels on each side, longitude/latitude are
+WGS84 degrees and zoom is 0–18. A viewport requiring more than 512 tile copies
+is rejected. `lastExportError` explains a failure. A loaded tile source must
+provide every visible tile; local tiles are read from the manifest, while
+network tiles must already be in the bounded memory or HTTP disk cache. If a
+tile is missing, export fails instead of silently writing an incomplete map.
+The PNG text metadata records the WGS84 input/Web Mercator display CRS,
+viewport and combined attribution. No general CRS transform is implied.
+The [composed export example](screenshots/geographic-map-export.png) shows
+the offline illustrated tiles, selected vector geometry and attribution.
+
 ## Remaining WP-084 scope
 
 The vector renderer still scans local features for painting and picking. Large
 spatial data needs a visible-region cache and spatial index. Multiple tile
-providers, layer ordering, projection switching, vertex handles, annotations
-and export of a composed raster/vector image remain. The GeoJSON reader assumes
-WGS84; arbitrary CRS declarations are unsupported.
+providers, layer ordering, projection switching, vertex handles and annotations
+remain. The GeoJSON reader assumes WGS84; arbitrary CRS declarations are unsupported.

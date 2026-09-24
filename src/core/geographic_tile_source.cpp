@@ -103,6 +103,17 @@ QImage GeographicTileSource::tileImage(const QString &id)
     return image ? *image : QImage();
 }
 
+QImage GeographicTileSource::imageForExport(const QString &id)
+{
+    if (auto *cached = m_cache.object(id)) return *cached;
+    if (!m_urlTemplate.isEmpty()) return cachedNetworkImage(id);
+    if (!m_paths.contains(id)) return {};
+    QImageReader reader(m_paths.value(id));
+    reader.setAutoTransform(true);
+    QImage image = reader.read();
+    return image.size() == QSize(m_tileSize, m_tileSize) ? image : QImage{};
+}
+
 void GeographicTileSource::setVisibleTiles(const QSet<QString> &keys)
 {
     if (!m_urlTemplate.isEmpty())
