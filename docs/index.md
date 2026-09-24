@@ -42,6 +42,7 @@ pages below are the reference.
 | [node-graph.md](node-graph.md) | Typed source/transform/blend/output graph, stable IDs, local history, incremental image evaluation and native topology storage |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
 | [caption-rendering.md](caption-rendering.md) | Burned-caption frame rendering, exact interval semantics, style limits, atomic PNG sequences and timing manifests |
+| [render-queue.md](render-queue.md) | Durable render snapshots, provider registration, ordered PNG output, manifests and restart policy |
 | [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |
 | [tempo-automation.md](tempo-automation.md) | Tempo/meter events, beat-locked clips, automation curves and modes, engine schedule snapshots |
 | [audio-measurement.md](audio-measurement.md) | Channel peak/RMS measurement, dBFS display, peak hold, fall and clip latch |

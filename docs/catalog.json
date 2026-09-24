@@ -43472,6 +43472,101 @@
       "bridge": false
     },
     {
+      "name": "RenderQueueModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "AGENT-CONTRACT: hosts register providers before opening a journal. Providers receive only immutable JSON and a private stage directory, never live QObjects.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/render_queue_model.h",
+      "properties": [
+        {
+          "name": "storagePath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "jobs",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maxResourceSlots",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "jobFinished",
+          "parameters": "const QString &id, const QString &state"
+        }
+      ],
+      "methods": [
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "enqueueJob",
+          "returns": "QString",
+          "parameters": "const QVariantMap &snapshot"
+        },
+        {
+          "name": "cancelJob",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "retryJob",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "job",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "verifyOutput",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "start",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "RenderSurfaceAdapter",
       "kind": "cpp",
       "base": "QObject",

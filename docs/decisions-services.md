@@ -136,3 +136,15 @@ instants and requires the user to choose; a nonexistent value cannot commit.
 identities. **Consequences.** Locale and display-calendar changes never
 silently rewrite document values, and date-only values never acquire a time
 or offset by accident.
+
+## D-040 — Render output is a verified directory receipt
+
+**Context.** `JobModel` schedules transient functions and cannot recover a
+render after process exit. **Decision.** `RenderQueueModel` journals immutable
+snapshots and attempts, stages provider files beside an absent target, then
+publishes one manifest-bearing directory. The manifest binds file hashes to
+the snapshot and provider version. Interrupted attempts require explicit
+retry; an already published and verified output is recovered as success.
+**Consequences.** A host can add engines through a provider callback while
+retaining its document and media ownership. Output paths are unique per job;
+a new revision uses a new snapshot and target.

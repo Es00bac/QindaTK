@@ -67,6 +67,7 @@ qt_add_qml_module(qindatk
         core/settings_persistence.cpp core/settings_persistence.h
         core/workspace_session.cpp core/workspace_session.h
         core/job_model.cpp core/job_model.h
+        core/render_queue_model.cpp core/render_queue_model.h core/render_queue_provider.cpp
         core/notification_model.cpp core/notification_model.h
         core/pdf_annotation_document.cpp core/pdf_annotation_document.h
         core/expression_evaluator.cpp core/expression_evaluator.h
