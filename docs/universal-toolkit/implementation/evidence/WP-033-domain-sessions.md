@@ -8,7 +8,7 @@ now work through a model/codec boundary. `CanvasDocument` is the first
 backend that is not a `PropertyDocument`. The contract is in
 [document-models.md](../../../document-models.md), the canvas side is in
 [canvas.md](../../../canvas.md#persistence), and the decision is
-[D-046](../../../decisions-application.md#d-046--compose-domain-documents-through-a-model-codec-and-one-history-engine)
+[D-053](../../../decisions-application.md#d-053--compose-domain-documents-through-a-model-a-codec-and-one-history-engine)
 (provisional number).
 
 Branch `work/wp033-domain-opus` in worktree `QindaTK-wp033-domain-opus`,
@@ -183,11 +183,20 @@ installed consumer.
 
 - Other lanes also touch these files: `src/CMakeLists.txt` and
   `tests/CMakeLists.txt` (appended sources and tests), `docs/index.md` (one
-  row), `docs/decisions-application.md` (D-046 is provisional; the timeline
-  lane also claims D-045, which collides with the chart D-045), and
+  row), `docs/decisions-application.md` (D-053 is provisional: it was
+  first written as D-046, which integration has since given to spatial snaps,
+  and D-047 to D-052 are also taken there; the timeline D-045 already collides
+  with the chart D-045), and
   `docs/controls.md` (the `CanvasDocument` row). Regenerate `docs/catalog.json`
   after merging; this branch changes only the entries for the types it
   touches.
+- **Trial merge.** `git merge-tree` against integration `15c177f` conflicts
+  only in `docs/canvas.md`, `docs/controls.md` and
+  `docs/decisions-application.md` (text next to newer sections; keep both).
+  Every code file merges automatically. The merged tree (`b86ad2f`,
+  exported with `git archive`) built with `--parallel 4` (1,026 steps,
+  11 min) and passed `ctest` **119/119** on Qt 6.11.1, including the newer
+  transform, snap, display and rich-text suites.
 - `WP-033.md`, `WP-040.md`, `plan.json` and the ledger were not edited.
   WP-040's "WP-033 dependency open" statement and the WP-033 acceptance
   status are yours to update after integration.

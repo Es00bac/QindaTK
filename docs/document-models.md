@@ -9,7 +9,7 @@ text or workbook engine joins the same way; see
 [adding a domain](#adding-a-domain). The public headers are
 `<qindatk/document_model.h>`, `<qindatk/document_codec.h>` and
 `<qindatk/recovery_journal.h>`. Decision:
-[D-046](decisions-application.md#d-046--compose-domain-documents-through-a-model-codec-and-one-history-engine).
+[D-053](decisions-application.md#d-053--compose-domain-documents-through-a-model-a-codec-and-one-history-engine).
 
 <a id="model"></a>
 | Type | Responsibility | Thread |

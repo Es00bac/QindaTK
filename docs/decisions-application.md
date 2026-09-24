@@ -226,9 +226,10 @@ teardown releases handles on the right thread, and context loss costs one
 re-upload from the CPU cache. The software adaptation cannot draw custom
 geometry, so the scene-graph provider falls back there and reports why.
 Picking tolerance is in logical pixels (`px / zoom`). Degenerate objects are
-kept but neither drawn nor picked. Until WP-033 proves a shared session for
-spatial documents, `CanvasDocument` keeps its own bounded history behind the
-adapter. Snapping, selection handles and guides (WP-041) and colour transforms
+kept but neither drawn nor picked. `CanvasDocument` records its edits in the
+shared history engine and persists through the document session boundary of
+[D-053](#d-053--compose-domain-documents-through-a-model-a-codec-and-one-history-engine).
+Snapping, selection handles and guides (WP-041) and colour transforms
 (WP-043) plug into the published contracts. See [canvas.md](canvas.md).
 
 ## D-045 — Keep timeline placement in an exact tick model and views delegate-free
@@ -384,7 +385,7 @@ logical rectangle to reachable bounds. Apps provide one DetachedPanelHost
 and WindowHost alongside DockHost. Content stays model-bound and is not
 duplicated when it crosses windows. See [docking.md](docking.md).
 
-## D-046 — Compose domain documents through a model, a codec and one history engine
+## D-053 — Compose domain documents through a model, a codec and one history engine
 
 **Context.** Sessions, undo, atomic save, recovery, workspace restore and
 format import/export were written around `PropertyDocument` and its JSON
@@ -417,6 +418,4 @@ model adapter, a codec and optional format providers declaring `schemas`.
 Recovery frames written by this version cannot be read by older builds.
 Full-document snapshots remain the unit of save and recovery. Canvas tiles
 are stored uncompressed until a bounded inflater exists, because
-`qUncompress` does not bound its output. This decision number is provisional
-until the integration owner merges the concurrent lanes. See
-[document-models.md](document-models.md).
+`qUncompress` does not bound its output. See [document-models.md](document-models.md).
