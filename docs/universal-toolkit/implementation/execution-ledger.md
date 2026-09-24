@@ -92,7 +92,7 @@ as though a later fix had already passed the earlier run.
 | [WP-054 — Implement PDF viewing and annotation](phase-04-office.md#wp-054) | 04 | Sol | active | [PDF controls, page/text backend and note/highlight save/reopen integrated; advanced operations pending](evidence/WP-054.md) |
 | [WP-055 — Implement a workbook and spreadsheet editing stack](phase-04-office.md#wp-055) | 04 | Sol | active | Isolated Opus lane; G-1–G-8 and full package scope remain under review |
 | [WP-056 — Implement slide authoring and presentation](phase-04-office.md#wp-056) | 04 | Sol | active | [Five slide/presenter controls integrated; persistent model and playback pending](evidence/WP-056.md) |
-| [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | planned | — |
+| [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | active | [NotebookView and BlockEditor integrated; persistent block model and content providers pending](evidence/WP-057.md) |
 | [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | planned | — |
 | [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | planned | — |
 | [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | active | [Host-acknowledged device panel integrated; real audio engine pending](evidence/WP-060.md) |
@@ -103,7 +103,7 @@ as though a later fix had already passed the earlier run.
 | [WP-065 — Implement take comping](phase-05-audio.md#wp-065) | 05 | Sol | active | [TakeCompView integrated; source interval, rendering and persistence pending](evidence/WP-065.md) |
 | [WP-066 — Integrate plugin hosting and plugin controls](phase-05-audio.md#wp-066) | 05 | Sol | active | [Plugin browser/rack integrated; ABI processing and editor host pending](evidence/WP-066.md) |
 | [WP-067 — Implement score and notation editing](phase-05-audio.md#wp-067) | 05 | Sol | active | [ScoreView integrated; notation layout, persistence and playback pending](evidence/WP-067.md) |
-| [WP-068 — Implement pitch analysis and correction editing](phase-05-audio.md#wp-068) | 05 | Sol | planned | — |
+| [WP-068 — Implement pitch analysis and correction editing](phase-05-audio.md#wp-068) | 05 | Sol | active | [PitchEditor integrated; analysis and correction DSP pending](evidence/WP-068.md) |
 | [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | active | [Monitor/bin controls and local frame decode integrated; playback and frame lifecycle pending](evidence/WP-070.md) |
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | planned | — |
 | [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | planned | — |

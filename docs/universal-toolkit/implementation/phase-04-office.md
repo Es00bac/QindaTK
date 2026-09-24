@@ -162,7 +162,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-057"></a>
 ## WP-057 — Implement notebooks and structured blocks
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** active (NotebookView and BlockEditor integrated; persistent block backend pending). **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-26 NotebookView](../proposed/05-documents-office.md#off-26), [OFF-27 BlockEditor](../proposed/05-documents-office.md#off-27)
 

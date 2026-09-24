@@ -1827,6 +1827,231 @@
       "objectNames": []
     },
     {
+      "name": "BlockEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The host owns block IDs, ordering, canonical data, undo and persistence. Editors submit snapshots; they never split, merge or reorder local copies.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BlockEditor.qml",
+      "properties": [
+        {
+          "name": "notebookId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blocks",
+          "type": "var",
+          "default": "[] // [{id,type,data,locked,error}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedBlockId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "focusedBlockId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockTypes",
+          "type": "var",
+          "default": "[",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ canEdit: true, canInsert: true, canMove: true, canSplit: true, canMerge: true, canDelete: true })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit ordered notebook content blocks\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedBlock",
+          "type": "var",
+          "default": "findBlock(selectedBlockId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "blockSelectionRequested",
+          "parameters": "string blockId"
+        },
+        {
+          "name": "blockFocusRequested",
+          "parameters": "string blockId"
+        },
+        {
+          "name": "blockNavigateRequested",
+          "parameters": "string blockId, string direction"
+        },
+        {
+          "name": "blockInsertRequested",
+          "parameters": "string afterBlockId, string type, var data, string requestId"
+        },
+        {
+          "name": "blockMoveRequested",
+          "parameters": "string blockId, int targetIndex, string requestId"
+        },
+        {
+          "name": "blockContentEditRequested",
+          "parameters": "string blockId, var data, string requestId"
+        },
+        {
+          "name": "blockSplitRequested",
+          "parameters": "string blockId, int cursorPosition, string requestId"
+        },
+        {
+          "name": "blockMergeRequested",
+          "parameters": "string firstBlockId, string secondBlockId, string requestId"
+        },
+        {
+          "name": "blockDeleteRequested",
+          "parameters": "string blockId"
+        },
+        {
+          "name": "blockActionRequested",
+          "parameters": "string blockId, string action, string requestId"
+        },
+        {
+          "name": "blockOpenRequested",
+          "parameters": "string blockId, string targetId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "findBlock",
+          "parameters": "id"
+        },
+        {
+          "name": "indexOf",
+          "parameters": "id"
+        },
+        {
+          "name": "makeDefaultData",
+          "parameters": "type"
+        },
+        {
+          "name": "insertBlock",
+          "parameters": "type"
+        },
+        {
+          "name": "moveBlock",
+          "parameters": "id, delta"
+        },
+        {
+          "name": "submitText",
+          "parameters": "block, text"
+        },
+        {
+          "name": "splitBlock",
+          "parameters": "block, cursorPosition"
+        },
+        {
+          "name": "mergeWithPrevious",
+          "parameters": "block"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "blockContent_",
+        "blockDelete_",
+        "blockEditorError",
+        "blockEditorList",
+        "blockEditorToolbar",
+        "blockEmbed_",
+        "blockError_",
+        "blockInsert",
+        "blockInsertType",
+        "blockMediaPreview_",
+        "blockMediaRelink_",
+        "blockMerge_",
+        "blockMoveDown_",
+        "blockMoveUp_",
+        "blockSelect_",
+        "blockSplit_",
+        "blockTableEdit_",
+        "blockText_",
+        "blockUnsupported_",
+        "notebookBlock_"
+      ]
+    },
+    {
       "name": "Box",
       "kind": "qml",
       "base": "Item",
@@ -13998,6 +14223,276 @@
       ]
     },
     {
+      "name": "NotebookView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Navigation and search results are host snapshots addressed by stable IDs.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/NotebookView.qml",
+      "properties": [
+        {
+          "name": "notebookId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "notebookTitle",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sections",
+          "type": "var",
+          "default": "[] // [{id,title,collapsed}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pages",
+          "type": "var",
+          "default": "[] // [{id,sectionId,title,tags,excerpt,status,updatedText}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentPageId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "focusedSectionId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchResultPageIds",
+          "type": "var",
+          "default": "[] // host search snapshot; empty means local metadata filter",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "historyBackPageIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "historyForwardPageIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ canEditStructure: true, canSearch: true, canNavigate: true })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Navigate notebook sections and pages\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageContent",
+          "type": "alias",
+          "default": "pageContentSlot.data",
+          "readonly": false,
+          "defaultProperty": true,
+          "required": false
+        },
+        {
+          "name": "currentPage",
+          "type": "var",
+          "default": "findPage(currentPageId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentIndex",
+          "type": "int",
+          "default": "pageIndex(currentPageId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visiblePages",
+          "type": "var",
+          "default": "filteredPages()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pageSelectedRequested",
+          "parameters": "string pageId"
+        },
+        {
+          "name": "sectionSelectionRequested",
+          "parameters": "string sectionId"
+        },
+        {
+          "name": "sectionCollapseRequested",
+          "parameters": "string sectionId, bool collapsed"
+        },
+        {
+          "name": "sectionInsertRequested",
+          "parameters": "string title, string requestId"
+        },
+        {
+          "name": "pageInsertRequested",
+          "parameters": "string sectionId, string afterPageId, string requestId"
+        },
+        {
+          "name": "pageMoveRequested",
+          "parameters": "string pageId, string targetSectionId, int targetIndex, string requestId"
+        },
+        {
+          "name": "pageDeleteRequested",
+          "parameters": "string pageId"
+        },
+        {
+          "name": "tagEditRequested",
+          "parameters": "string pageId, var tags, string requestId"
+        },
+        {
+          "name": "searchRequested",
+          "parameters": "string query, string requestId"
+        },
+        {
+          "name": "historyNavigationRequested",
+          "parameters": "string pageId"
+        },
+        {
+          "name": "pageOrderChangeRequested",
+          "parameters": "string pageId, int targetIndex, string requestId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "findPage",
+          "parameters": "id"
+        },
+        {
+          "name": "pageIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "findSection",
+          "parameters": "id"
+        },
+        {
+          "name": "pagesInSection",
+          "parameters": "sectionId"
+        },
+        {
+          "name": "filteredPages",
+          "parameters": ""
+        },
+        {
+          "name": "navigateTo",
+          "parameters": "id"
+        },
+        {
+          "name": "submitSearch",
+          "parameters": ""
+        },
+        {
+          "name": "moveCurrent",
+          "parameters": "delta"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "notebookBack",
+        "notebookForward",
+        "notebookInsertSection",
+        "notebookMoveSection",
+        "notebookNavigationPanel",
+        "notebookNoPage",
+        "notebookOutlineScroll",
+        "notebookPageAddAfter_",
+        "notebookPageAdd_",
+        "notebookPageContent",
+        "notebookPageDelete",
+        "notebookPageHeader",
+        "notebookPageMoveDown",
+        "notebookPageMoveUp",
+        "notebookPagePanel",
+        "notebookPageRow_",
+        "notebookPageSelect_",
+        "notebookPageTags",
+        "notebookSearch",
+        "notebookSearchSubmit",
+        "notebookSectionHeader_",
+        "notebookSectionTitle",
+        "notebookSection_",
+        "notebookStatus",
+        "notebookToolbar"
+      ]
+    },
+    {
       "name": "Notice",
       "kind": "qml",
       "base": "Tk.Box",
@@ -16012,6 +16507,234 @@
       "bridge": false,
       "objectNames": [
         "pillSwitcherFocus_"
+      ]
+    },
+    {
+      "name": "PitchEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: the pitch host owns analysis, pitch/time/formant constraints, parameter storage, DSP, rendered audio, cancellation and undo. This control draws the supplied analysis snapshot and emits preview/commit/cancel requests; it never detects pitch or applies an edit locally.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PitchEditor.qml",
+      "properties": [
+        {
+          "name": "sourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "analysisSnapshot",
+          "type": "var",
+          "default": "({ available: false, segments: [], sampleBoundaries: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapshotRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSegmentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedNoteId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "operation",
+          "type": "string",
+          "default": "\"pitch\" // pitch, time, formant",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editAcknowledgement",
+          "type": "var",
+          "default": "({ status: \"\", message: \"\" })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "analysisAvailable",
+          "type": "bool",
+          "default": "Boolean(root.analysisSnapshot && root.analysisSnapshot.available)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "effectiveStatus",
+          "type": "string",
+          "default": "root.statusText.length ? root.statusText",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pitchRangeAvailable",
+          "type": "bool",
+          "default": "isFinite(Number(root.analysisSnapshot.minimumPitchCents))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumPaintNotes",
+          "type": "int",
+          "default": "4096",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectionRequested",
+          "parameters": "string sourceId, string channelId, string segmentId, string noteId"
+        },
+        {
+          "name": "editPreviewRequested",
+          "parameters": "string gestureId, string sourceId, string channelId, string segmentId, string noteId, string operation, string anchorSample, string targetSample, real targetPitchCents, real targetFormantRatio"
+        },
+        {
+          "name": "editCommitRequested",
+          "parameters": "string gestureId, string sourceId, string channelId, string segmentId, string noteId, string operation, string anchorSample, string targetSample, real targetPitchCents, real targetFormantRatio"
+        },
+        {
+          "name": "gestureCanceled",
+          "parameters": "string gestureId, string sourceId, string segmentId, string noteId"
+        },
+        {
+          "name": "zoomRequested",
+          "parameters": "string anchorSample, real factor"
+        },
+        {
+          "name": "scrollRequested",
+          "parameters": "real fractionDelta"
+        }
+      ],
+      "methods": [
+        {
+          "name": "segments",
+          "parameters": ""
+        },
+        {
+          "name": "segmentById",
+          "parameters": "id"
+        },
+        {
+          "name": "noteById",
+          "parameters": "segment, id"
+        },
+        {
+          "name": "nearestBoundary",
+          "parameters": "x"
+        },
+        {
+          "name": "pitchAtY",
+          "parameters": "y"
+        },
+        {
+          "name": "formantAtY",
+          "parameters": "segment, note, y"
+        },
+        {
+          "name": "hitNote",
+          "parameters": "x, y"
+        },
+        {
+          "name": "select",
+          "parameters": "segmentId, noteId"
+        },
+        {
+          "name": "beginEdit",
+          "parameters": "segmentId, noteId, editOperation, x, y"
+        },
+        {
+          "name": "updateEdit",
+          "parameters": "x, y"
+        },
+        {
+          "name": "finishEdit",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "parameters": ""
+        },
+        {
+          "name": "beginSelectedEdit",
+          "parameters": "editOperation, x, y"
+        },
+        {
+          "name": "css",
+          "parameters": "color"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "pitchContourCanvas",
+        "pitchEditor",
+        "pitchEditorStatus"
       ]
     },
     {
@@ -38397,7 +39120,7 @@
       "name": "RichTextFindReplaceService",
       "kind": "cpp",
       "base": "QObject",
-      "description": "FindReplaceBar adapter for the structured RichTextDocument. Search offsets are UTF-16 positions in the document's visible plain-text projection; replacement uses paragraph identity and raw offsets so formatting survives.",
+      "description": "FindReplaceBar adapter for the structured RichTextDocument. Search offsets are UTF-16 positions in RichTextArea's accessible-text projection; replacement uses paragraph identity and offsets so formatting survives.",
       "singleton": false,
       "attached": null,
       "file": "src/core/rich_text_find_replace_service.h",

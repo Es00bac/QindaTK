@@ -185,7 +185,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-068"></a>
 ## WP-068 — Implement pitch analysis and correction editing
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-063](phase-05-audio.md#wp-063), [WP-064](phase-05-audio.md#wp-064)
+**Implementation lead:** Sol. **Status:** active (PitchEditor integrated; analysis and DSP pending). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-063](phase-05-audio.md#wp-063), [WP-064](phase-05-audio.md#wp-064)
 
 **Proposal scope:** [AUD-28 PitchEditor](../proposed/06-audio-music.md#aud-28)
 
