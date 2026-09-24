@@ -23776,6 +23776,149 @@
       ]
     },
     {
+      "name": "RigEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: consumes MeshRigDocument.bones/vertices snapshots and emits stable bone/vertex IDs; the host commits pose and weight edits.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RigEditor.qml",
+      "properties": [
+        {
+          "name": "bones",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "vertices",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedBoneId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedVertexId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"pose\" // \"pose\" or \"weights\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Rig editor: orthographic skeleton projection and pose controls\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedBone",
+          "type": "var",
+          "default": "boneById(selectedBoneId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedVertex",
+          "type": "var",
+          "default": "vertexById(selectedVertexId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "boneSelected",
+          "parameters": "string boneId"
+        },
+        {
+          "name": "vertexSelected",
+          "parameters": "string vertexId"
+        },
+        {
+          "name": "bonePoseRequested",
+          "parameters": "string boneId, vector3d eulerDegrees"
+        },
+        {
+          "name": "vertexWeightsRequested",
+          "parameters": "string vertexId, var weights"
+        },
+        {
+          "name": "resetPoseRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "boneById",
+          "parameters": "id"
+        },
+        {
+          "name": "vertexById",
+          "parameters": "id"
+        },
+        {
+          "name": "selectBone",
+          "parameters": "id"
+        },
+        {
+          "name": "axisValue",
+          "parameters": "axis"
+        },
+        {
+          "name": "axisLimit",
+          "parameters": "axis, side"
+        },
+        {
+          "name": "setPoseAxis",
+          "parameters": "axis, value"
+        },
+        {
+          "name": "requestBoneWeight",
+          "parameters": "value"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "rigBone_",
+        "rigEditMode",
+        "rigEditor",
+        "rigProjection",
+        "rigSelectedWeight",
+        "rigVertex_"
+      ]
+    },
+    {
       "name": "RotoscopeEditor",
       "kind": "qml",
       "base": "T.Control",
@@ -29411,6 +29554,114 @@
       ]
     },
     {
+      "name": "TexturePaintView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: the host supplies camera picking through rayProvider and routes one requested stroke to MeshRigDocument.beginPaint/paintRay/endPaint.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TexturePaintView.qml",
+      "properties": [
+        {
+          "name": "textureDataUrl",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "brushColor",
+          "type": "color",
+          "default": "Tk.Theme.color.accent",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "brushRadius",
+          "type": "int",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "brushOpacity",
+          "type": "real",
+          "default": "1.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rayProvider",
+          "type": "var",
+          "default": "null // function(normalizedPosition) -> {origin, direction}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Texture paint surface: drag to send camera rays to the host\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paintingAvailable",
+          "type": "bool",
+          "default": "typeof rayProvider === \"function\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "strokeBegan",
+          "parameters": ""
+        },
+        {
+          "name": "paintRayRequested",
+          "parameters": "vector3d origin, vector3d direction, color color, int radiusPixels, real opacity"
+        },
+        {
+          "name": "strokeFinished",
+          "parameters": ""
+        },
+        {
+          "name": "strokeCancelled",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "sendRay",
+          "parameters": "point"
+        },
+        {
+          "name": "beginAt",
+          "parameters": "point"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "texturePaintSurface",
+        "texturePaintView",
+        "texturePreview"
+      ]
+    },
+    {
       "name": "Thumbnail",
       "kind": "qml",
       "base": "Rectangle",
@@ -31678,6 +31929,158 @@
         "trimPreview",
         "trimStatus",
         "trimView"
+      ]
+    },
+    {
+      "name": "UVEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "UV snapshots use normalized [0,1] coordinates with v=0 at the bottom. AGENT-CONTRACT: this view emits stable face/corner/vertex IDs; the host applies UV edits and publishes the resulting snapshot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/UVEditor.qml",
+      "properties": [
+        {
+          "name": "faces",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "vertices",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "uvIslands",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedFaceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "seamMode",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"UV editor: drag a corner, or drag a face to move its island\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragFaceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragCorner",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragStart",
+          "type": "point",
+          "default": "Qt.point(0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragDelta",
+          "type": "point",
+          "default": "Qt.point(0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "faceSelected",
+          "parameters": "string faceId"
+        },
+        {
+          "name": "uvCornerMoveRequested",
+          "parameters": "string faceId, int corner, point normalizedUv"
+        },
+        {
+          "name": "uvIslandTranslateRequested",
+          "parameters": "string faceId, point delta"
+        },
+        {
+          "name": "seamToggleRequested",
+          "parameters": "string vertexA, string vertexB"
+        }
+      ],
+      "methods": [
+        {
+          "name": "uvToPoint",
+          "parameters": "uv"
+        },
+        {
+          "name": "pointToUv",
+          "parameters": "point"
+        },
+        {
+          "name": "faceAt",
+          "parameters": "point"
+        },
+        {
+          "name": "closestCorner",
+          "parameters": "face, point"
+        },
+        {
+          "name": "closestEdge",
+          "parameters": "face, point"
+        },
+        {
+          "name": "selectAt",
+          "parameters": "point"
+        },
+        {
+          "name": "visibleUv",
+          "parameters": "face, index"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "uvEditMode",
+        "uvEditor",
+        "uvSurface"
       ]
     },
     {

@@ -100,6 +100,9 @@ accepts tablet pressure/tilt and mouse strokes on the rendered canvas.
 The [raster workbench fixture](raster-workbench/Main.qml) connects those
 controls to the tiled document, paints with mouse gestures and compares live
 before/after PNG pixels without writing temporary source images.
+The [rig and UV fixture](rig-uv/Main.qml) presents stable-ID bone and triangle
+UV snapshots with host edit requests; its skeleton is a 2D projection, and
+texture painting stays in preview mode until a host supplies camera rays.
 
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real

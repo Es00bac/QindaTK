@@ -842,6 +842,24 @@ multi-monitor X11; see the [monitor qualification note](universal-toolkit/implem
 
 `Tk.SceneView3D` renders a `Tk.SceneModel3D` through optional Qt Quick 3D. It supports primitive picking, camera-plane drag, snapped world translation, Escape cancellation and arrow-key movement. `meshDocument` optionally uploads a `Tk.MeshRigDocument` as posed, UV-textured triangles; `meshRay(x,y)` and `meshPicked(worldPosition)` support a host paint gesture. `scene`, `cameraPosition`, `cameraEulerDegrees`, `translationSnap`, `rendererAvailable`, `tooltip` and `entityPicked(id, worldPosition)` remain the primitive surface. Internal objectNames: `sceneView3D`, `sceneRenderer3D`, `sceneEntity3D_<UUID>`, `sceneMeshRig3D`. See [3D scene model and viewport](scene-3d.md) for hierarchy, persistence and renderer limits.
 
+## Rig, UV and texture authoring
+
+`MeshRigDocument` is the host-owned source of mesh and rig snapshots. These
+controls consume stable IDs and emit edit requests; they do not keep a second
+authoritative copy of geometry. `SceneView3D` currently renders primitives
+only, so `RigEditor` draws a 2D orthographic skeleton projection and does not
+present arbitrary mesh geometry as a 3D render.
+
+| Type | Snapshot | Requests | Notes |
+| --- | --- | --- | --- |
+| `RigEditor` | `bones` (`boneId`, `name`, `parentId`, `head`, `tail`, `minimum`, `maximum`, `pose`), `vertices` (`vertexId`, `weights`), `selectedBoneId`, `selectedVertexId`, `mode` (`pose`, `weights`) | `boneSelected(boneId)`, `vertexSelected(vertexId)`, `bonePoseRequested(boneId, eulerDegrees)`, `vertexWeightsRequested(vertexId, weights)`, `resetPoseRequested()` | Draws an orthographic XY projection of rest bone segments with accessible bone/vertex lists. Axis sliders request host pose edits within the selected bone limits; Reset requests a pose reset. Weight mode edits one selected bone influence and proportionally redistributes the other influences before emitting a full stable-ID weight map. The host still validates and commits it. It does not deform/render a mesh. objectNames `rigEditor`, `rigEditMode`, `rigProjection`, `rigBone_<boneId>`, `rigVertex_<vertexId>`, `rigSelectedWeight`. |
+| `UVEditor` | `faces` (`faceId`, `vertexIds`, `uvIds`, `uv` corners, `seams`), `vertices`, `uvIslands`, `selectedFaceId`, `seamMode` | `faceSelected(faceId)`, `uvCornerMoveRequested(faceId, corner, normalizedUv)`, `uvIslandTranslateRequested(faceId, delta)`, `seamToggleRequested(vertexA, vertexB)` | Displays triangle UVs in normalized `[0,1]` space with `v=0` at the bottom. Drag a corner to request its new coordinate; drag elsewhere in a triangle to translate its island. The host applies each request and republishes a snapshot. Seam mode click requests a toggle for the nearest edge. No automatic unwrap, packing or topology edits. objectNames `uvEditor`, `uvEditMode`, `uvSurface`. |
+| `TexturePaintView` | `textureDataUrl`, brush color/radius/opacity, host `rayProvider(normalizedPosition)` | `strokeBegan()`, `paintRayRequested(origin, direction, color, radiusPixels, opacity)`, `strokeFinished()`, `strokeCancelled()` | Shows the current texture snapshot and uses host camera rays to paint on the posed mesh. The host routes a stroke to `MeshRigDocument.beginPaint/paintRay/endPaint` and republishes texture pixels. Without a ray provider it remains a preview and labels painting unavailable. Camera projection, brush spacing and arbitrary mesh rendering belong to the host. objectNames `texturePaintView`, `texturePaintSurface`, `texturePreview`. |
+
+The mock-snapshot fixture is `examples/rig-uv/Main.qml`. It shows the
+projection and request boundary without presenting mock data as evaluated
+mesh output.
+
 ## Video tracking and masks
 
 | Type | Base | Main properties and requests | Internal objectNames and behavior |
