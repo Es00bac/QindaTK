@@ -15648,6 +15648,105 @@
       "objectNames": []
     },
     {
+      "name": "MotionPathOverlay",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: host supplies the composition, sample times and stable key IDs; this control only displays positions and emits selection requests.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MotionPathOverlay.qml",
+      "properties": [
+        {
+          "name": "composition",
+          "type": "Tk.MotionComposition",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layerId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sampleTicks",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyPoints",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedKeyId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pathPoints",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Sampled motion path\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "keySelectionRequested",
+          "parameters": "string layerId, string keyId, string timeTicks"
+        }
+      ],
+      "methods": [
+        {
+          "name": "rebuild",
+          "parameters": ""
+        },
+        {
+          "name": "mapPoint",
+          "parameters": "point"
+        },
+        {
+          "name": "requestNearestKeyAt",
+          "parameters": "x, y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "motionPathCanvas",
+        "motionPathOverlay"
+      ]
+    },
+    {
       "name": "MulticamView",
       "kind": "qml",
       "base": "Item",
@@ -16706,6 +16805,108 @@
         "numberInput",
         "numberLabel",
         "numberMixedPlaceholder"
+      ]
+    },
+    {
+      "name": "OnionSkinView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: host supplies exact adjacent/current times; renderer owns evaluated pixels and this view retains tinted display snapshots only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/OnionSkinView.qml",
+      "properties": [
+        {
+          "name": "renderer",
+          "type": "Tk.MotionFrameRenderer",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previousTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nextTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameWidth",
+          "type": "int",
+          "default": "640",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameHeight",
+          "type": "int",
+          "default": "360",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "neighborOpacity",
+          "type": "real",
+          "default": "0.32",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Adjacent rendered frames over current frame\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastError",
+          "type": "string",
+          "default": "onion.lastError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "refresh",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "onionSkinComposite",
+        "onionSkinView"
       ]
     },
     {
@@ -40525,6 +40726,121 @@
           "name": "exportPng",
           "returns": "bool",
           "parameters": "const QUrl &url"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "MotionOnionSkinItem",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "AGENT-CONTRACT: MotionFrameRenderer owns exact-tick layer evaluation and source-over composition; this item only retains/tints adjacent display frames.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/motion_onion_skin_item.h",
+      "properties": [
+        {
+          "name": "renderer",
+          "type": "QindaTK::MotionFrameRenderer *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "currentTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "previousTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "nextTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "frameWidth",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "frameHeight",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "previousTint",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "nextTint",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "neighborOpacity",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "rendererChanged",
+          "parameters": ""
+        },
+        {
+          "name": "requestChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "refreshed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "refresh",
+          "returns": "bool",
+          "parameters": ""
         }
       ],
       "enums": {},
