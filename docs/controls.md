@@ -338,6 +338,16 @@ using stable IDs; a request or acknowledgment never invents scheduled output.
 | `StepSequencer` | T.Control | `patternId`, `rows` and steps with stable IDs, enabled/gate/velocity/probability; `stepEditRequested(requestId, patternId, rowId, stepId, field, value)`, `probabilityEditRequested`, `stepSelected`, `zoomRequested`, `scrollRequested` | `stepSequencer`, `stepSequencerCanvas`. Cells display host values and request discrete changes; the UI does not toggle its own source snapshot or run probability/playback logic. |
 | `ClipLauncher` | T.Control | `slots` (`id`, `sceneId`, label, host state/availability), `quantization`, `activeSlotId`; `launchRequested(requestId, slotId, quantization)`, `stopRequested`, `slotSelected`, `launchAcknowledged`; `acknowledgeLaunch(requestId, accepted/rejected/error/canceled, message)` | `clipLauncher`, `clipLauncherStatus`, `clipLauncherStopActive`, `clipLauncherSlot_<slotId>`. Queued, playing and recording labels come from host snapshots. Accepted acknowledgment reports only the request result; the active slot changes only when the host publishes it. |
 
+## Terminal
+
+`Tk.TerminalSession` owns the local PTY and parsed screen; `Tk.TerminalView`
+renders it and forwards keyboard input. See [terminal-session.md](terminal-session.md)
+for process lifecycle and platform limits.
+
+| Type | Base | Properties | Signals | Notes |
+| --- | --- | --- | --- | --- |
+| `TerminalView` | T.Control | `session` (`Tk.TerminalSession`), `tooltip`; derives terminal rows and columns from its viewport and monospace cell metrics | — | Renders styled libvterm screen spans, cursor and bounded scrollback; supports mouse text selection/copy, keyboard input and system clipboard paste, terminal key sequences, and scroll-follow at the live edge. It never starts a process; the host calls `session.start(program, arguments, workingDirectory)` after an explicit user action. objectNames `terminalView`, `terminalStatusBar`, `terminalViewport`, `terminalRows`, `terminalLine_<index>`, `terminalCursor`, `terminalInput`. |
+
 ## Telemetry
 
 Readings over time and against a limit. `Tk.Graph` draws on the scene graph;

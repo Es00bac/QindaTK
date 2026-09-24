@@ -11,7 +11,6 @@ pages below are the reference.
 | [layout.md](layout.md) | Flex, Grid, Stack, Box, Scroll: the CSS-equivalent layout model, with the exact algorithm rules |
 | [theming.md](theming.md) | Theme roles, ladders, density, presets, JSON themes, the QindaQt QST-1 bridge |
 | [controls.md](controls.md) | Every control: properties, signals, sizes, objectNames (the API contract) |
-| [terminal-session.md](terminal-session.md) | Explicit local PTY lifecycle, parsed screen spans, resize, input and bounded scrollback |
 | [gantt.md](gantt.md) | Task schema, working-calendar projection, schedule transactions, dependency and grid seams |
 | [productivity.md](productivity.md) | Local calendar recurrence expansion, event identity, DST policy and host persistence boundary |
 | [control-interaction.md](control-interaction.md) | Owner state, user signals, editing states, focus and assistive action baseline |
@@ -34,6 +33,7 @@ pages below are the reference.
 | [accessibility-locale-input.md](accessibility-locale-input.md) | Virtual accessibility nodes, per-instance locale policy and gesture arbitration |
 | [time-map.md](time-map.md) | Exact sample/frame/tick conversions, tempo segments, timecode and precision-safe QML values |
 | [native-integration.md](native-integration.md) | Native window/view lifecycle, file dialogs and desktop capability boundaries |
+| [terminal-session.md](terminal-session.md) | Explicit local PTY lifecycle, parsed screen spans, resize, input and bounded scrollback; pair with `Tk.TerminalView` |
 | [gradient.md](gradient.md) | Tagged RGB gradient stops, linear-light alpha interpolation, duplicate positions and numerical output |
 | [curve.md](curve.md) | Typed numerical curves, normalized knot/handle constraints, interpolation and edge semantics |
 | [color.md](color.md) | Numerical RGB ICC profiles, straight alpha, CPU transforms, precision and unsupported proof/display boundaries |

@@ -29207,6 +29207,67 @@
       ]
     },
     {
+      "name": "TerminalView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TerminalView.qml",
+      "properties": [
+        {
+          "name": "session",
+          "type": "Tk.TerminalSession",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Terminal screen and keyboard input\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "updateGrid",
+          "parameters": ""
+        },
+        {
+          "name": "escapeHtml",
+          "parameters": "value"
+        },
+        {
+          "name": "rowMarkup",
+          "parameters": "row"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "terminalCursor",
+        "terminalEmptyPrompt",
+        "terminalInput",
+        "terminalLine_",
+        "terminalProcessStatus",
+        "terminalRows",
+        "terminalStatusBar",
+        "terminalView",
+        "terminalViewport"
+      ]
+    },
+    {
       "name": "TextArea",
       "kind": "qml",
       "base": "T.TextArea",
