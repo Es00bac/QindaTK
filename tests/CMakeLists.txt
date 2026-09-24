@@ -51,6 +51,7 @@ target_compile_definitions(tst_color_engine PRIVATE
 qindatk_add_test(tst_color_picker_model)
 qindatk_add_test(tst_video_scopes)
 qindatk_add_test(tst_caption_frame_renderer)
+qindatk_add_test(tst_caption_sequence_exporter)
 qindatk_add_test(tst_caption_track_model)
 qindatk_add_test(tst_capability_registry)
 qindatk_add_test(tst_command_context)

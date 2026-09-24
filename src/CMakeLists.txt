@@ -129,6 +129,7 @@ qt_add_qml_module(qindatk
         core/caption_track_model.cpp core/caption_track_model.h
         core/caption_track_codec.cpp core/caption_track_codec.h
         core/caption_frame_renderer.cpp core/caption_frame_renderer.h
+        core/caption_sequence_exporter.cpp core/caption_sequence_exporter.h
         core/recovery_journal.cpp core/recovery_journal.h
         core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h

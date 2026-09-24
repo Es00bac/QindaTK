@@ -33465,6 +33465,79 @@
       "bridge": false
     },
     {
+      "name": "CaptionSequenceExporter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Publishes a bounded, timestamped sequence of caption-burned PNG frames.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/caption_sequence_exporter.h",
+      "properties": [
+        {
+          "name": "outputDirectory",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "manifestPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "framePaths",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frameCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "exportFrames",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantList &sourceFrames, CaptionTrackModel *track, const QStringList &timeMilliseconds, const QString &targetDirectory"
+        },
+        {
+          "name": "exportFixtureSequence",
+          "returns": "QVariantMap",
+          "parameters": "CaptionTrackModel *track, const QStringList &timeMilliseconds, const QString &targetDirectory"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CaptionTrackModel",
       "kind": "cpp",
       "base": "QObject",

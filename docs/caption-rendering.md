@@ -25,3 +25,22 @@ the runnable `examples/caption-render/Main.qml` demonstration. Production
 hosts provide decoded frames to `renderFrame`; subtitle sidecar export remains
 separate from burned pixels. Accessible cue text stays available in the
 CaptionEditor independently of the rendered image.
+
+## PNG sequence handoff
+
+`CaptionSequenceExporter.exportFrames(frames, track, times, targetDirectory)`
+accepts an ordered list of host-decoded `QImage` values and matching exact
+decimal millisecond strings. It validates each timestamp through the frame
+renderer and writes `frame-000000.png` onward plus `timing.json`. Each manifest
+row preserves the original time string, output filename and ordered active cue
+IDs, so an encoder or mux host can map frames without timestamp rounding.
+Frame count is capped at 10,000.
+
+Output is staged in a sibling directory. Each PNG and the manifest is written
+with `QSaveFile`; the completed directory is published with a directory rename
+only after every frame succeeds. An existing target directory is rejected.
+Failure removes staging output and reports an error. The synchronous exporter
+does not encode video, mux audio, or provide mid-export cancellation. The
+`exportFixtureSequence` helper and `examples/caption-sequence/Main.qml` use
+synthetic imagery only; production hosts call `exportFrames` with their decoded
+frames.
