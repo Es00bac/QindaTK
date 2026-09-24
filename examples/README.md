@@ -21,6 +21,10 @@ The [document review workbench](document-review/Main.qml) exercises
 `EquationEditor`, `ReferenceManager`, and `ReviewPane` with host-owned sample
 records, including a broken reference and orphaned comment.
 
+The [print and preflight workbench](print-preflight/Main.qml) exercises
+`PrintPreview` and `PreflightPanel` with a live rich-document preview and
+sample host-owned output issues.
+
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real
 device engine must supply enumeration and apply the settings.
