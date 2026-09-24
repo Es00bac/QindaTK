@@ -300,7 +300,16 @@ void RichTextDocument::resetContent(QVector<Block> blocks, QVector<CharFormat> f
     if (id.isValid()) m_documentId = id;
     m_paragraphs.clear();
     m_tables.clear();
-    for (const Block &block : std::as_const(m_blocks)) registerBlock(block);
+    for (const Block &block : std::as_const(m_blocks)) {
+        // The codec always supplies column IDs; hand-built tables get the
+        // identities an older native file would (tableSnapshot needs one per column).
+        if (block.table && block.table->columnIds.size() != block.table->columnWeights.size()) {
+            block.table->columnIds.clear();
+            for (int c = 0; c < block.table->columnWeights.size(); ++c)
+                block.table->columnIds.append(derivedColumnId(block.table->id, c));
+        }
+        registerBlock(block);
+    }
     for (Paragraph *p : std::as_const(m_paragraphs)) p->revision = ++m_contentCounter;
     for (Table *t : std::as_const(m_tables)) t->revision = ++m_contentCounter;
     m_orderDirty = true;

@@ -207,7 +207,7 @@ struct Reader {
     TablePtr table(const QJsonValue &v, const QString &path)
     {
         const QJsonObject o = v.toObject();
-        checkKeys(o, path, {"id", "columns", "rows", "headerRows", "borderPt", "paddingPt"});
+        checkKeys(o, path, {"id", "columns", "columnIds", "rows", "headerRows", "borderPt", "paddingPt"});
         auto t = std::make_shared<Table>();
         if (!uuid(o.value(QStringLiteral("id")), &t->id, path + QStringLiteral(".id"))) return nullptr;
         for (const QJsonValue &weight : o.value(QStringLiteral("columns")).toArray()) {
@@ -217,6 +217,25 @@ struct Reader {
         }
         if (t->columnWeights.isEmpty() || t->columnWeights.size() > 64)
             return fail(path + QStringLiteral(".columns"), QStringLiteral("Invalid column count")), nullptr;
+        if (o.contains(QStringLiteral("columnIds"))) {
+            const QJsonArray columnIds = o.value(QStringLiteral("columnIds")).toArray();
+            if (columnIds.size() != t->columnWeights.size())
+                return fail(path + QStringLiteral(".columnIds"), QStringLiteral("Invalid column identity count")), nullptr;
+            for (int c = 0; c < columnIds.size(); ++c) {
+                QUuid id;
+                if (!uuid(columnIds.at(c), &id, path + QStringLiteral(".columnIds[%1]").arg(c))) return nullptr;
+                t->columnIds.append(id);
+            }
+        } else {
+            // Native files written before columnIds existed: derive stable
+            // identities on load; the next save stores them.
+            for (int c = 0; c < t->columnWeights.size(); ++c) {
+                const QUuid id = derivedColumnId(t->id, c);
+                if (ids.contains(id)) return fail(path + QStringLiteral(".columnIds"), QStringLiteral("Derived column identity collision")), nullptr;
+                ids.insert(id);
+                t->columnIds.append(id);
+            }
+        }
         if (!integer(o, "headerRows", &t->headerRows, 0, 10000, path)
             || !number(o, "borderPt", &t->borderPt, 0, 72, path)
             || !number(o, "paddingPt", &t->cellPaddingPt, 0, 144, path))

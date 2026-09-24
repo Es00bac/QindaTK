@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "rich_text_document.h"
+#include "rich_text_codec.h"
 #include "rich_text_spans.h"
 #include <QSignalSpy>
 #include <QtTest>
@@ -263,6 +264,43 @@ private slots:
         QCOMPARE(doc.blocks().at(1).table->headerRows, 1);
         QVERIFY(!doc.insertTable(*cell, 1, 1));
         QVERIFY(!doc.insertPageBreak(*cell));
+    }
+
+    void tableEditorOperationsRoundTripAndUndo()
+    {
+        RichTextDocument doc;
+        QVERIFY(doc.insertTable(doc.startPosition(), 2, 2, 1));
+        const QString id = doc.blocks().first().table->id.toString(QUuid::WithoutBraces);
+        QVariantMap snapshot = doc.tableSnapshot(id);
+        const QString firstCell = snapshot.value(QStringLiteral("cells")).toList().first()
+                                      .toMap().value(QStringLiteral("id")).toString();
+        QVERIFY(doc.setTableCellText(id, firstCell, QStringLiteral("Heading")));
+        QVERIFY(doc.insertTableRow(id, 2));
+        QVERIFY(doc.insertTableColumn(id, 1));
+        snapshot = doc.tableSnapshot(id);
+        QCOMPARE(snapshot.value(QStringLiteral("rows")).toList().size(), 3);
+        QCOMPARE(snapshot.value(QStringLiteral("columns")).toList().size(), 3);
+        const QString columnId = snapshot.value(QStringLiteral("columns")).toList().at(1)
+                                     .toMap().value(QStringLiteral("id")).toString();
+        QVERIFY(doc.setTableColumnWidth(id, columnId, 3.5));
+        QCOMPARE(doc.table(QUuid(id))->columnWeights.at(1), 3.5);
+        const QByteArray saved = RichTextCodec::encode(doc);
+        RichTextDocument reopened;
+        QVERIFY(RichTextCodec::decode(saved, reopened));
+        QCOMPARE(RichTextCodec::encode(reopened), saved);
+        QCOMPARE(reopened.tableSnapshot(id).value(QStringLiteral("cells")).toList().first()
+                     .toMap().value(QStringLiteral("text")).toString(), QStringLiteral("Heading"));
+        QVERIFY(doc.removeTableColumn(id, columnId));
+        const QString rowId = doc.tableSnapshot(id).value(QStringLiteral("rows")).toList().last()
+                                  .toMap().value(QStringLiteral("id")).toString();
+        QVERIFY(doc.removeTableRow(id, rowId));
+        QCOMPARE(doc.table(QUuid(id))->rows.size(), 2);
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.table(QUuid(id))->rows.size(), 3);
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.table(QUuid(id))->columnWeights.size(), 3);
+        QVERIFY(doc.redo());
+        QCOMPARE(doc.table(QUuid(id))->columnWeights.size(), 2);
     }
 
     void sectionsMoveWithStableIdentity()

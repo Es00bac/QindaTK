@@ -138,6 +138,10 @@ QJsonObject RichTextSessionAdapter::liveJson()
         if (slot.first != t.revision || slot.second.isEmpty()) {
             QJsonArray columns;
             for (double weight : t.columnWeights) columns.append(weight);
+            // AGENT-GUARD: without columnIds a reopened session derives new
+            // column identities, so TableEditor IDs would change on reopen.
+            QJsonArray columnIds;
+            for (const QUuid &id : t.columnIds) columnIds.append(id.toString(QUuid::WithoutBraces));
             QJsonArray rows;
             for (const TableRow &row : t.rows) {
                 QJsonArray cells;
@@ -154,7 +158,8 @@ QJsonObject RichTextSessionAdapter::liveJson()
                 rows.append(r);
             }
             QJsonObject table{{QStringLiteral("id"), t.id.toString(QUuid::WithoutBraces)},
-                              {QStringLiteral("columns"), columns}, {QStringLiteral("rows"), rows},
+                              {QStringLiteral("columns"), columns}, {QStringLiteral("columnIds"), columnIds},
+                              {QStringLiteral("rows"), rows},
                               {QStringLiteral("headerRows"), t.headerRows}, {QStringLiteral("borderPt"), t.borderPt},
                               {QStringLiteral("paddingPt"), t.cellPaddingPt}};
             slot = {t.revision, QJsonObject{{QStringLiteral("table"), table}}};

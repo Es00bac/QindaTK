@@ -130,6 +130,8 @@ struct Writer {
     {
         QJsonArray columns;
         for (double weight : t.columnWeights) columns.append(weight);
+        QJsonArray columnIds;
+        for (const QUuid &id : t.columnIds) columnIds.append(id.toString(QUuid::WithoutBraces));
         QJsonArray rows;
         for (const TableRow &row : t.rows) {
             QJsonArray cells;
@@ -149,6 +151,7 @@ struct Writer {
         }
         QJsonObject o{{QStringLiteral("id"), t.id.toString(QUuid::WithoutBraces)},
                       {QStringLiteral("columns"), columns},
+                      {QStringLiteral("columnIds"), columnIds},
                       {QStringLiteral("rows"), rows}};
         if (t.headerRows > 0) o.insert(QStringLiteral("headerRows"), t.headerRows);
         if (t.borderPt != Table{}.borderPt) o.insert(QStringLiteral("borderPt"), t.borderPt);

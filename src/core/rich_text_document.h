@@ -75,8 +75,19 @@ struct StepDocument {
     DocumentDefaults defaultsBefore;
     DocumentDefaults defaultsAfter;
 };
+// Replaces one table's grid (rows, columns, widths, header rows) in place of
+// the registered one. AGENT-NOTE: `before` and `after` share the Paragraph
+// objects of unchanged cells, so those keep their IDs, revisions and
+// anchors. Later edits inside cells mutate the live grid; linear history
+// undoes them before this step, so swapping the pointers back is exact.
+struct StepTable {
+    QUuid tableId;
+    TablePtr before;
+    TablePtr after;
+    QVector<RichObject> removedObjects; // objects in removed rows/columns
+};
 using Step = std::variant<StepText, StepSpans, StepParagraphFormat, StepSplit, StepMerge,
-                          StepBlocks, StepMove, StepList, StepObject, StepDocument>;
+                          StepBlocks, StepMove, StepList, StepObject, StepDocument, StepTable>;
 
 struct Transaction {
     QUuid id;
@@ -144,6 +155,7 @@ class RichTextDocument : public QObject {
     Q_PROPERTY(QVariantMap pageSetupMm READ pageSetupMm NOTIFY changed)
     Q_PROPERTY(QString defaultFontFamily READ defaultFontFamily NOTIFY changed)
     Q_PROPERTY(double defaultFontSize READ defaultFontSize NOTIFY changed)
+    Q_PROPERTY(QVariantList tables READ tableSnapshots NOTIFY changed)
 public:
     static constexpr int MaximumHistory = 512;
     static constexpr quint64 MaximumHistoryBytes = 64ull * 1024 * 1024;
@@ -169,6 +181,8 @@ public:
     const QVector<RichText::Block> &blocks() const { return m_blocks; }
     RichText::Paragraph *paragraph(const QUuid &id) const { return m_paragraphs.value(id); }
     RichText::Table *table(const QUuid &id) const { return m_tables.value(id); }
+    QVariantList tableSnapshots() const;
+    Q_INVOKABLE QVariantMap tableSnapshot(const QString &tableId) const;
     const QVector<RichText::Paragraph *> &paragraphsInOrder() const;
     RichText::Paragraph *nextParagraph(const RichText::Paragraph *p) const;
     RichText::Paragraph *previousParagraph(const RichText::Paragraph *p) const;
@@ -224,6 +238,12 @@ public:
     bool setObject(const RichText::RichObject &object);
     std::optional<RichText::Position> insertTable(const RichText::Position &at, int rows,
                                                   int columns, int headerRows = 0);
+    Q_INVOKABLE bool insertTableRow(const QString &tableId, int index);
+    Q_INVOKABLE bool removeTableRow(const QString &tableId, const QString &rowId);
+    Q_INVOKABLE bool insertTableColumn(const QString &tableId, int index);
+    Q_INVOKABLE bool removeTableColumn(const QString &tableId, const QString &columnId);
+    Q_INVOKABLE bool setTableColumnWidth(const QString &tableId, const QString &columnId, double width);
+    Q_INVOKABLE bool setTableCellText(const QString &tableId, const QString &cellId, const QString &text);
     std::optional<RichText::Position> insertPageBreak(const RichText::Position &at);
     bool setPageSetup(const RichText::PageSetup &page);
     bool setDefaults(const RichText::DocumentDefaults &defaults);
@@ -304,6 +324,7 @@ private:
                               RichText::ChangeSet &change);
     OperationError applyBlocks(RichText::StepBlocks &step, bool insert, RichText::ChangeSet &change);
     OperationError applyMove(const RichText::StepMove &step, bool forward, RichText::ChangeSet &change);
+    OperationError applyTable(const RichText::StepTable &step, bool forward, RichText::ChangeSet &change);
     QVector<RichText::Block> *bodyOrNull(const RichText::ContainerSpec &spec);
     QVector<RichText::ParagraphPtr> *cellParagraphs(const RichText::ContainerSpec &spec);
     void registerBlock(const RichText::Block &block);

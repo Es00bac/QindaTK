@@ -26,6 +26,7 @@ std::optional<Position> RichTextDocument::insertTable(const Position &at, int ro
     auto table = std::make_shared<Table>();
     table->id = QUuid::createUuid();
     table->columnWeights = QVector<double>(columns, 1.0);
+    for (int c = 0; c < columns; ++c) table->columnIds.append(QUuid::createUuid());
     table->headerRows = qBound(0, headerRows, rows - 1);
     for (int r = 0; r < rows; ++r) {
         TableRow row{QUuid::createUuid(), {}, 0.0};

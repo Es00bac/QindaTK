@@ -142,6 +142,7 @@ struct TableRow {
 struct Table {
     QUuid id;
     QVector<double> columnWeights;    // relative widths, all > 0
+    QVector<QUuid> columnIds;         // one per weight; stable across insertion/deletion
     QVector<TableRow> rows;
     int headerRows = 0;               // repeated at the top of continuation pages
     double borderPt = 0.75;
@@ -150,6 +151,13 @@ struct Table {
     int blockIndex = -1;              // derived
 };
 using TablePtr = std::shared_ptr<Table>;
+
+// Column identity for a table that has none stored (native files written
+// before `columnIds`, hand-built content): deterministic per table and index.
+inline QUuid derivedColumnId(const QUuid &table, int column)
+{
+    return QUuid::createUuidV5(table, QByteArray::number(column));
+}
 
 struct Block {
     ParagraphPtr paragraph;
