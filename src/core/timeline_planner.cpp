@@ -42,10 +42,14 @@ std::optional<TimelineClip> editableClip(TimelinePlanner::Context &context, cons
     return *clip;
 }
 
+// A `linked` request also edits every clip sharing a link group with a
+// selected clip (D-119); a locked partner refuses the whole edit.
 bool collectTargets(TimelinePlanner::Context &context, QVector<TimelineClip> &targets)
 {
     QSet<QUuid> seen;
-    for (const auto &id : context.request.clipIds) {
+    const QVector<QUuid> ids = context.request.linked
+        ? TimelinePlanner::withLinked(context.model, context.request.clipIds) : context.request.clipIds;
+    for (const auto &id : ids) {
         if (seen.contains(id)) continue;
         seen.insert(id);
         const auto clip = editableClip(context, id);
@@ -70,19 +74,7 @@ const TimelineClip &anchorOf(const TimelinePlanner::Context &context,
 
 void emitClipChanges(TimelinePlanner::Context &context, const QHash<QUuid, TimelineClip> &after)
 {
-    QList<QUuid> ids = after.keys();
-    std::sort(ids.begin(), ids.end());
-    for (const auto &id : ids) {
-        const auto *before = context.model.clipRecord(id);
-        const TimelineClip &next = after.value(id);
-        if (before && *before == next) continue;
-        TimelineChange change;
-        change.kind = TimelineChange::Kind::Clip;
-        change.id = id;
-        if (before) change.clipBefore = *before;
-        change.clipAfter = next;
-        context.plan.changes.changes.push_back(change);
-    }
+    TimelinePlanner::emitClips(context, after);
 }
 
 std::optional<qint64> gestureDelta(TimelinePlanner::Context &context)
@@ -116,6 +108,23 @@ void snapDelta(TimelinePlanner::Context &context, const QVector<qint64> &edges,
 }
 } // namespace
 
+void TimelinePlanner::emitClips(Context &context, const QHash<QUuid, TimelineClip> &after)
+{
+    QList<QUuid> ids = after.keys();
+    std::sort(ids.begin(), ids.end());
+    for (const auto &id : ids) {
+        const auto *before = context.model.clipRecord(id);
+        const TimelineClip &next = after.value(id);
+        if (before && *before == next) continue;
+        TimelineChange change;
+        change.kind = TimelineChange::Kind::Clip;
+        change.id = id;
+        if (before) change.clipBefore = *before;
+        change.clipAfter = next;
+        context.plan.changes.changes.push_back(change);
+    }
+}
+
 void TimelinePlanner::planMove(Context &context)
 {
     const auto &policy = context.policy;
@@ -131,7 +140,10 @@ void TimelinePlanner::planMove(Context &context)
     QHash<QUuid, int> visibleIndex;
     for (int i = 0; i < order.size(); ++i) visibleIndex.insert(order.at(i), i);
     int lowest = int(order.size()), highest = -1;
+    // Linked partners keep their tracks when the selection changes track.
+    const QSet<QUuid> primary(context.request.clipIds.cbegin(), context.request.clipIds.cend());
     for (const auto &clip : targets) {
+        if (!primary.contains(clip.id)) continue;
         const int index = visibleIndex.value(clip.trackId, -1);
         if (index < 0) trackDelta = 0; // hidden tracks keep their clips
         lowest = std::min(lowest, index);
@@ -147,10 +159,10 @@ void TimelinePlanner::planMove(Context &context)
     for (const auto &clip : targets) {
         moving.insert(clip.id);
         sourceTracks.insert(clip.trackId);
-        const QUuid target = trackDelta == 0 ? clip.trackId
-                                             : order.at(visibleIndex.value(clip.trackId) + trackDelta);
+        const QUuid target = trackDelta == 0 || !primary.contains(clip.id)
+            ? clip.trackId : order.at(visibleIndex.value(clip.trackId) + trackDelta);
         destination.insert(clip.id, target);
-        if (trackDelta == 0 || destinationError) continue;
+        if (trackDelta == 0 || destinationError || target == clip.trackId) continue;
         const auto *track = context.model.trackRecord(target);
         if (track->locked)
             destinationError = error(ErrorCode::Validation, tr("Track “%1” is locked").arg(track->name));
@@ -257,10 +269,11 @@ void TimelinePlanner::planTrim(Context &context)
                 high = std::min(high, *room);
         }
     }
-    if (low > high)
+    const auto legal = legalDelta(context, head ? anchor.start : anchor.end(), *delta, low, high);
+    if (!legal)
         return setError(context, error(ErrorCode::Validation,
                                        tr("The clip cannot be trimmed within its source and minimum length")));
-    const qint64 clamped = std::clamp(*delta, low, high);
+    const qint64 clamped = *legal;
     if (clamped != *delta) context.plan.snap = {};
     *delta = clamped;
     const auto negated = TimelineTime::subtract(0, *delta);
@@ -326,6 +339,10 @@ void TimelinePlanner::planSplit(Context &context)
             return setError(context, error(ErrorCode::InvalidArgument,
                                            tr("The split source offset is out of range")));
         right.sourceOffset = *offsetTicks;
+        // The right part is a new clip: a new link group, and no transition
+        // (its start is not a cut the left part's transition described).
+        right.linkId = derivedLinkId(context.operationId, clip.linkId);
+        right.transition = {};
         after.insert(left.id, left);
         after.insert(right.id, right);
     }

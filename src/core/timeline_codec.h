@@ -17,6 +17,9 @@ QUuid uuid(const QVariant &value);
 QVariantMap toMap(const TimelineTrack &track);
 QVariantMap toMap(const TimelineClip &clip);
 QVariantMap toMap(const TimelineMarker &marker);
+// {type, beforeCut, afterCut, alignment, parameters}; ticks are decimal strings.
+QVariantMap toMap(const TimelineTransition &transition);
+std::optional<TimelineTransition> transitionFromMap(const QVariantMap &map, QString *error);
 std::optional<TimelineTrack> trackFromMap(const QVariantMap &map, QString *error,
                                           const TimelineTrack *base = nullptr);
 std::optional<TimelineClip> clipFromMap(const QVariantMap &map, QString *error,

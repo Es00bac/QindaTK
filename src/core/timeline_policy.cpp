@@ -69,7 +69,10 @@ QStringList TimelineEditPolicy::operations()
     return {QStringLiteral("move"), QStringLiteral("moveAcrossTracks"),
             QStringLiteral("trim"), QStringLiteral("split"), QStringLiteral("delete"),
             QStringLiteral("ripple"), QStringLiteral("markers"), QStringLiteral("tracks"),
-            QStringLiteral("range"), QStringLiteral("insert")};
+            QStringLiteral("range"), QStringLiteral("insert"),
+            // WP-071 sequence edits (docs/sequence-edits.md)
+            QStringLiteral("roll"), QStringLiteral("slip"), QStringLiteral("slide"),
+            QStringLiteral("transition"), QStringLiteral("switchSource"), QStringLiteral("link")};
 }
 
 bool TimelineEditPolicy::isAvailable(const QString &operation) const

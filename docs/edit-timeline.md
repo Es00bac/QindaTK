@@ -66,7 +66,7 @@ identity. Limits: 10,000 tracks, 2,000,000 clips, 200,000 markers.
 | Record | Fields |
 | --- | --- |
 | Track | `id`, `name`, `kind` (`audio`, `video`, `midi`, …; empty accepts any clip), `height` (logical px, 0 = view default, ≤ 4096), `muted`, `solo`, `armed`, `locked`, `hidden`, `routing` (host summary), `color` |
-| Clip | `id`, `trackId`, `start`, `duration` (≥ 1 tick), `sourceOffset`, `sourceDuration` (−1 unbounded), `resourceId` (media key), `label`, `color`, `kind`, `locked`, `anchor` (`time` or `musical`), `musicalTick` and `musicalOffset` (musical only) |
+| Clip | `id`, `trackId`, `start`, `duration` (≥ 1 tick), `sourceOffset`, `sourceDuration` (−1 unbounded), `resourceId` (media key), `label`, `color`, `kind`, `locked`, `anchor` (`time` or `musical`), `musicalTick` and `musicalOffset` (musical only), `linkId` (link group, optional), `transition` (into this clip, optional; see [sequence-edits.md](sequence-edits.md)) |
 | Marker | `id`, `position`, `duration` (0 point, > 0 region), `anchor` (`time` or `musical`), `musicalTick`, `label`, `color`, `kind`, `locked` |
 
 A **musical** marker's canonical value is its `musicalTick`; its position is
@@ -109,6 +109,14 @@ Ticks in these maps are decimal strings; a JS Number is rejected.
 | `insertClips` | `trackId`, `clips` (start relative to the point, `trackOffset`); input `pointerTicks` | insert |
 | `addMarker`, `moveMarker`, `editMarker`, `removeMarker` | `marker` map, `markerId`, `grabTicks` | markers |
 | `trackProperty`, `resizeTrack`, `reorderTrack`, `addTrack`, `removeTrack` | `trackId`, `property`/`value`, input `trackHeight` or `beforeTrackId`, `track` | tracks |
+| `roll`, `slip`, `slide` | `clipIds` (roll: outgoing and incoming), `grabTicks`; input `pointerTicks` | roll, slip, slide |
+| `setTransition` | one incoming clip, `transition` map (absent removes) | transition |
+| `switchSource` | `clipIds`, `resourceId`, `linkedResourceId`, `sourceOffset`, `sourceDuration`; input `pointerTicks` | switchSource |
+| `link`, `unlink` | `clipIds` | link |
+
+Any request may set `linked` (edit whole link groups) and `frameExact` (land
+moved edit points on frame starts). The WP-071 kinds, links and transitions
+are specified in [sequence-edits.md](sequence-edits.md).
 
 Input fields: `pointerTicks` (delta = pointer − `grabTicks`), `trackDelta`
 (visible tracks), `snap`, `snapToleranceTicks`, `grid`, `playheadTicks`,
@@ -173,7 +181,8 @@ tolerance. The tolerance comes from the view as pixels converted to ticks.
 `allowBeyondSource`, `requireMatchingTrackKind`, `maxChangesPerEdit`
 (100,000) and per-operation availability with reasons (`capabilities`,
 `setUnavailable(operation, reason)`; operations `move`, `moveAcrossTracks`,
-`trim`, `split`, `delete`, `ripple`, `markers`, `tracks`, `range`, `insert`).
+`trim`, `split`, `delete`, `ripple`, `markers`, `tracks`, `range`, `insert`,
+and for WP-071 `roll`, `slip`, `slide`, `transition`, `switchSource`, `link`).
 A C++ host subclasses it and overrides `validate(model, changeSet)` to veto
 complete change sets (overwrite rules, crossfades, engine limits).
 

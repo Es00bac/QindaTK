@@ -130,6 +130,7 @@ qt_add_qml_module(qindatk
         core/timeline_codec.cpp core/timeline_codec.h
         core/timeline_snap.cpp core/timeline_snap.h
         core/timeline_planner.cpp core/timeline_planner_misc.cpp core/timeline_planner_ripple.cpp
+        core/timeline_planner_nle.cpp core/timeline_planner_links.cpp
         core/timeline_planner.h
         core/timeline_model.cpp core/timeline_model_edit.cpp core/timeline_model_history.cpp
         core/timeline_model_io.cpp core/timeline_model_qml.cpp core/timeline_model.h
@@ -182,6 +183,7 @@ qt_add_qml_module(qindatk
         core/media_encoder.h core/media_encoder_ffmpeg.cpp
         core/media_backend_stub.cpp
         core/media_program.cpp core/media_program.h core/media_program_render.cpp
+        core/media_transition.cpp core/media_transition.h
         core/media_export.cpp core/media_export.h core/media_export_jobs.cpp
         core/media_decode_worker.cpp core/media_decode_worker.h
         core/media_playback_engine.cpp core/media_playback_engine.h
@@ -189,6 +191,8 @@ qt_add_qml_module(qindatk
         core/media_frame_view.cpp core/media_frame_view.h
         core/media_catalog.cpp core/media_catalog.h core/media_catalog_jobs.cpp
         core/media_frame_feed.cpp core/media_frame_feed.h
+        core/sequence_editor.cpp core/sequence_editor.h
+        core/multicam_model.cpp core/multicam_model.h
         core/video_scopes_model.cpp core/video_scopes_model.h
         core/caption_track_model.cpp core/caption_track_model.h
         core/caption_track_codec.cpp core/caption_track_codec.h

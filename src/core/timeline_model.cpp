@@ -155,6 +155,23 @@ QVector<QUuid> TimelineModel::clipsInRange(const QUuid &trackId, qint64 start, q
     return result;
 }
 
+QVector<QUuid> TimelineModel::linkedClips(const QUuid &linkId) const
+{
+    if (linkId.isNull()) return {};
+    // AGENT-NOTE: every committed clip change bumps the revision and every
+    // reload the generation, so the pair keys this lazy index.
+    if (!m_linksValid || m_linksRevision != m_revision || m_linksGeneration != m_generation) {
+        m_links.clear();
+        for (auto it = m_clips.cbegin(); it != m_clips.cend(); ++it)
+            if (!it->linkId.isNull()) m_links[it->linkId].push_back(it->id);
+        for (auto it = m_links.begin(); it != m_links.end(); ++it) std::sort(it->begin(), it->end());
+        m_linksRevision = m_revision;
+        m_linksGeneration = m_generation;
+        m_linksValid = true;
+    }
+    return m_links.value(linkId);
+}
+
 const std::vector<TimelineModel::EdgeEntry> &TimelineModel::clipEdges() const
 {
     if (m_clipEdgesDirty) {
