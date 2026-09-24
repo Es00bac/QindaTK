@@ -3,7 +3,9 @@
 
 The [CAD sketch](cad-sketch/Main.qml) renders a constrained mounting plate
 with four circular bores. `CadViewport` can select, drag, snap, and create
-points, segments and circles against the persistent `CadDocument` model.
+points, segments, circles and arcs against the persistent `CadDocument`
+model. A selected constrained length opens an inline numeric dimension
+editor; the model also exports millimeter SVG and DXF geometry.
 
 The [live diagram](diagram-live/Main.qml) binds `DiagramCanvas` to a native
 `DiagramDocument`. Moving cards and connecting ports edit persistent stable

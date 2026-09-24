@@ -45,6 +45,23 @@ TestCase {
         compare(viewport.selectedEntityId, segment)
         mouseDrag(viewport, 90, 90, 30, 0, Qt.LeftButton)
         verify(sketch.points[0].x > 30)
+        viewport.mode = "arc"
+        viewport.handleTap(Qt.point(300, 150))
+        viewport.handleTap(Qt.point(330, 150))
+        viewport.handleTap(Qt.point(300, 180))
+        compare(sketch.arcs.length, 1)
+        compare(sketch.arcs[0].sweepDegrees, 90)
+        const endpoints = sketch.segments[0]
+        const constraint = sketch.addConstraint("distance", endpoints.startPointId,
+                                                endpoints.endPointId, sketch.measure(segment).length)
+        verify(constraint.length > 0)
+        viewport.mode = "select"
+        viewport.selectedEntityId = segment
+        const editor = findChild(viewport, "cadDimensionEditor_" + segment)
+        verify(editor !== null)
+        verify(editor.visible)
+        editor.commit(60)
+        verify(Math.abs(sketch.measure(segment).length - 60) < 0.001)
         const before = viewport.screenX(sketch.points[1].x)
         verify(sketch.changeUnits("in"))
         compare(viewport.screenX(sketch.points[1].x), before)

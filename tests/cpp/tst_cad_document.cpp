@@ -12,6 +12,7 @@ class TstCadDocument : public QObject {
     Q_OBJECT
 private slots:
     void referenceSketchConstraintsAndPersistence();
+    void arcsDimensionsTangencyAndExports();
 };
 
 void TstCadDocument::referenceSketchConstraintsAndPersistence()
@@ -99,6 +100,102 @@ void TstCadDocument::referenceSketchConstraintsAndPersistence()
     QCOMPARE(reopened.segments().size(), 2);
     QVERIFY(reopened.undo());
     QCOMPARE(reopened.segments(), sketch.segments());
+}
+
+void TstCadDocument::arcsDimensionsTangencyAndExports()
+{
+    CadDocument angled;
+    const QString ap = angled.addPoint(0, 0), bp = angled.addPoint(10, 0);
+    const QString angledLine = angled.addSegment(ap, bp);
+    const QString angledDimension = angled.addConstraint(QStringLiteral("angle"), angledLine, {}, 45);
+    QVERIFY(!angledDimension.isEmpty());
+    QVERIFY(std::abs(angled.measure(angledLine).value(QStringLiteral("angleDegrees")).toDouble()
+                     - 45) < 1e-6);
+    QVERIFY(angled.setDimension(angledDimension, 30));
+    QVERIFY(std::abs(angled.measure(angledLine).value(QStringLiteral("angleDegrees")).toDouble()
+                     - 30) < 1e-6);
+
+    CadDocument sketch;
+    const QString a = sketch.addPoint(0, 0), b = sketch.addPoint(40, 0);
+    const QString line = sketch.addSegment(a, b);
+    const QString angle = sketch.addConstraint(QStringLiteral("angle"), line, {}, 0);
+    QVERIFY(!angle.isEmpty());
+    QVERIFY(!sketch.addConstraint(QStringLiteral("horizontal"), line).isEmpty());
+    const QString center = sketch.addPoint(20, 8);
+    const QString circle = sketch.addCircle(center, 5);
+    const QString tangent = sketch.addConstraint(QStringLiteral("tangent"), line, circle);
+    QVERIFY2(!tangent.isEmpty(), qPrintable(sketch.lastError()));
+    QVERIFY(std::abs(sketch.measure(center).value(QStringLiteral("y")).toDouble() - 5) < 1e-6);
+    QVERIFY(sketch.setCircleRadius(circle, 7));
+    QVERIFY(std::abs(sketch.measure(center).value(QStringLiteral("y")).toDouble() - 7) < 1e-6);
+    const QVariantList stablePoints = sketch.points();
+    QVERIFY(sketch.addConstraint(QStringLiteral("angle"), line, {}, 45).isEmpty());
+    QVERIFY(sketch.lastError().contains(QStringLiteral("Unsatisfiable")));
+    QCOMPARE(sketch.points(), stablePoints);
+
+    const QString distance = sketch.addConstraint(QStringLiteral("distance"), a, b, 40);
+    QVERIFY(!distance.isEmpty());
+    QVERIFY(sketch.setDimension(distance, 50));
+    QVERIFY(std::abs(sketch.measure(line).value(QStringLiteral("length")).toDouble() - 50) < 1e-5);
+    QVERIFY(sketch.undo());
+    QVERIFY(std::abs(sketch.measure(line).value(QStringLiteral("length")).toDouble() - 40) < 1e-5);
+    QVERIFY(sketch.redo());
+    QVERIFY(!sketch.setDimension(angle, 45));
+    QVERIFY(sketch.lastError().contains(QStringLiteral("Unsatisfiable")));
+
+    const QString arc = sketch.addArc(center, 10, 0, 90);
+    QVERIFY(!arc.isEmpty());
+    QVERIFY(std::abs(sketch.measure(arc).value(QStringLiteral("length")).toDouble()
+                     - 5 * 3.14159265358979323846) < 1e-9);
+    QVERIFY(sketch.setArc(arc, 12, 0, 180));
+    QCOMPARE(sketch.arcs().at(0).toMap().value(QStringLiteral("sweepDegrees")).toDouble(), 180.0);
+    QVERIFY(sketch.undo());
+    QCOMPARE(sketch.arcs().at(0).toMap().value(QStringLiteral("sweepDegrees")).toDouble(), 90.0);
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString native = directory.filePath(QStringLiteral("arc.qcad"));
+    QVERIFY(sketch.saveToFile(native));
+    CadDocument reopened;
+    QVERIFY(reopened.loadFromFile(native));
+    QCOMPARE(reopened.arcs(), sketch.arcs());
+    QCOMPARE(reopened.constraints(), sketch.constraints());
+
+    CadDocument fixture;
+    const QString p0 = fixture.addPoint(0, 0), p1 = fixture.addPoint(10, 0);
+    const QString pc = fixture.addPoint(5, 5);
+    fixture.addSegment(p0, p1);
+    fixture.addCircle(pc, 2);
+    fixture.addArc(pc, 3, 0, 90);
+    const QString svgPath = directory.filePath(QStringLiteral("known.svg"));
+    const QString dxfPath = directory.filePath(QStringLiteral("known.dxf"));
+    QVERIFY(fixture.exportSvg(svgPath));
+    QVERIFY(fixture.exportDxf(dxfPath));
+    QFile svg(svgPath), dxf(dxfPath);
+    QVERIFY(svg.open(QIODevice::ReadOnly));
+    QVERIFY(dxf.open(QIODevice::ReadOnly));
+    const QByteArray expectedSvg =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12mm\" height=\"10mm\" viewBox=\"-1 -1 12 10\">\n"
+        "<g fill=\"none\" stroke=\"black\" stroke-width=\"0.25\">\n"
+        "<line x1=\"0\" y1=\"0\" x2=\"10\" y2=\"0\"/>\n"
+        "<circle cx=\"5\" cy=\"5\" r=\"2\"/>\n"
+        "<path d=\"M 8 5 A 3 3 0 0 1 5 8\"/>\n"
+        "</g>\n<g fill=\"black\">\n"
+        "<circle cx=\"0\" cy=\"0\" r=\"0.5\"/>\n"
+        "<circle cx=\"10\" cy=\"0\" r=\"0.5\"/>\n"
+        "<circle cx=\"5\" cy=\"5\" r=\"0.5\"/>\n"
+        "</g>\n</svg>\n";
+    QCOMPARE(svg.readAll(), expectedSvg);
+    const QByteArray expectedDxf =
+        "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n"
+        "0\nSECTION\n2\nENTITIES\n"
+        "0\nPOINT\n10\n0\n20\n0\n30\n0\n"
+        "0\nPOINT\n10\n10\n20\n0\n30\n0\n"
+        "0\nPOINT\n10\n5\n20\n-5\n30\n0\n"
+        "0\nLINE\n10\n0\n20\n0\n30\n0\n11\n10\n21\n0\n31\n0\n"
+        "0\nCIRCLE\n10\n5\n20\n-5\n30\n0\n40\n2\n"
+        "0\nARC\n10\n5\n20\n-5\n30\n0\n40\n3\n50\n270\n51\n0\n"
+        "0\nENDSEC\n0\nEOF\n";
+    QCOMPARE(dxf.readAll(), expectedDxf);
 }
 
 QTEST_MAIN(TstCadDocument)

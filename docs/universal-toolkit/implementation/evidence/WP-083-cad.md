@@ -8,7 +8,7 @@ in [cad.md](../../../cad.md).
 
 ## Delivered
 
-- Stable typed point, line-segment and circle identities. Segment endpoints
+- Stable typed point, line-segment, circle and partial-arc identities. Segment endpoints
   and circle centers reference stable points. Coordinates, radii and
   constraints are canonical millimeters; input/display can use millimeters
   or inches without changing physical geometry.
@@ -20,10 +20,16 @@ in [cad.md](../../../cad.md).
   validation; the diagnostic names an unsatisfied kind, ID and residual.
 - Undo/redo, cascading entity deletion and validated atomic `qindatk.cad/1`
   save/reopen. Failed edits and loads leave the live sketch unchanged.
-- `Tk.CadViewport` with select, point, segment and circle tools; point drag,
+- `Tk.CadViewport` with select, point, segment, circle and arc tools; point drag,
   Delete, Escape, point/grid snapping, middle pan, wheel zoom and displayed
   segment measurements. A 120 × 80 mm four-bore mounting plate is the
   reference example; the gallery shows the reusable viewport.
+- Follow-on 2D output slice: stable partial arcs with measured radius/sweep/
+  length and native reopen; an absolute segment-angle constraint, a finite
+  segment/circle tangency constraint, and typed `setDimension` edits for
+  distance and angle constraints. Selected constrained segments offer an
+  inline numeric dimension editor. SVG and ASCII DXF export actual geometry
+  in canonical millimeters with documented Y-axis conversion.
 
 ## Focused evidence
 
@@ -49,10 +55,24 @@ software renderer. `qtk-preview --dump` reports
 `CadViewport#referenceCadViewport 12,67 1156x618` and four visible segment
 measurement labels. No visual overlap or clipping is evident at 1180×720.
 
+The follow-on `arcsDimensionsTangencyAndExports` case checks a 90-degree arc
+length and native save/reopen, a segment-angle relation, finite segment/circle
+tangency, radius and distance edits, and atomic rejection of conflicting
+angles. It compares complete SVG and DXF files against an exact, ID-free
+known-geometry fixture: one 10 mm line, one 2 mm radius circle, one 3 mm
+radius quarter arc, with a millimeter SVG viewBox and `$INSUNITS=4` DXF header.
+The viewport QML case creates an arc through three taps, selects a constrained
+segment and changes its dimension through the visible `NumberField`.
+
+The [arc screenshot](WP-083-cad-arc.png) shows the new central partial arc and
+Arc tool. The [selected-dimension screenshot](WP-083-cad-dimension-final.png)
+shows the inline 120.000 mm editor on the highlighted top segment, with the
+same unclipped plate geometry at 1180×720.
+
 ## Remaining WP-083 scope
 
-Arc/spline/polygon entities, tangency/angle constraints, dimension editing,
-multi-selection, DXF/SVG export, large-sketch solver qualification and 3D
+Spline/polygon entities, relative angles and curve tangency, multi-selection,
+DXF/SVG import, large-sketch solver qualification and 3D
 solid/topology work remain. The diagram slice has its own remaining routing,
 flow conservation and true Sankey placement gaps. This first CAD slice does
 not satisfy the package acceptance gate by itself.

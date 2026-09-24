@@ -13,9 +13,11 @@ Item {
     focus: true
     activeFocusOnTab: enabled
     property Tk.CadDocument document: null
-    property string mode: "select" // select | point | line | circle
+    property string mode: "select" // select | point | line | circle | arc
     property string selectedEntityId: ""
     property string pendingPointId: ""
+    property int arcStage: 0
+    property point arcStartWorld: Qt.point(0, 0)
     property string dragPointId: ""
     property point dragWorld: Qt.point(0, 0)
     property real zoom: 3 // screen pixels per millimeter
@@ -26,11 +28,14 @@ Item {
     readonly property real gridStep: document && document.units === "in" ? 0.5 : 10
     readonly property string statusText: document && document.lastError ? document.lastError
         : pendingPointId ? (mode === "line" ? qsTr("Choose line endpoint")
-                                           : qsTr("Choose circle radius"))
-        : qsTr("%1 points · %2 lines · %3 circles · %4 constraints")
+            : mode === "arc" ? (arcStage === 1 ? qsTr("Choose arc start")
+                                              : qsTr("Choose arc end"))
+            : qsTr("Choose circle radius"))
+        : qsTr("Points %1 · Lines %2 · Circles %3 · Arcs %4 · Constraints %5")
             .arg(document ? document.points.length : 0)
             .arg(document ? document.segments.length : 0)
             .arg(document ? document.circles.length : 0)
+            .arg(document ? document.arcs.length : 0)
             .arg(document ? document.constraints.length : 0)
     implicitWidth: Tk.Theme.size.fieldWidth * 3
     implicitHeight: Tk.Theme.size.fieldWidth * 2
@@ -92,6 +97,16 @@ Item {
                                           position.y - screenY(c.y)) - c.radius * unitFactor * zoom)
             if (d <= best) { best = d; result = String(c.entityId) }
         }
+        const arcs = document ? document.arcs : []
+        for (let i = 0; i < arcs.length; ++i) {
+            const arc = arcs[i]
+            const dx = position.x - screenX(arc.x), dy = position.y - screenY(arc.y)
+            const angle = ((Math.atan2(dy, dx) * 180 / Math.PI - arc.startDegrees) % 360 + 360) % 360
+            const d = Math.abs(Math.hypot(dx, dy) - arc.radius * unitFactor * zoom)
+            if (angle <= arc.sweepDegrees && d <= best) {
+                best = d; result = String(arc.entityId)
+            }
+        }
         return result
     }
     function ensurePoint(snap) {
@@ -118,6 +133,28 @@ Item {
                     Math.hypot(location.x - center.x, location.y - center.y))
                 pendingPointId = ""
             } else pendingPointId = ensurePoint(location)
+        } else if (mode === "arc") {
+            if (!pendingPointId) {
+                pendingPointId = ensurePoint(location)
+                arcStage = 1
+            } else if (arcStage === 1) {
+                arcStartWorld = Qt.point(location.x, location.y)
+                arcStage = 2
+            } else {
+                const center = pointById(pendingPointId)
+                if (center) {
+                    const start = Math.atan2(arcStartWorld.y - center.y,
+                                             arcStartWorld.x - center.x) * 180 / Math.PI
+                    const end = Math.atan2(location.y - center.y,
+                                           location.x - center.x) * 180 / Math.PI
+                    const sweep = ((end - start) % 360 + 360) % 360
+                    selectedEntityId = document.addArc(pendingPointId,
+                        Math.hypot(arcStartWorld.x - center.x, arcStartWorld.y - center.y),
+                        start, sweep)
+                }
+                pendingPointId = ""
+                arcStage = 0
+            }
         }
     }
     function zoomAt(value, position) {
@@ -127,10 +164,10 @@ Item {
         panY = position.y - oldY * unitFactor * zoom
     }
 
-    onModeChanged: pendingPointId = ""
+    onModeChanged: { pendingPointId = ""; arcStage = 0 }
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) {
-            pendingPointId = ""; dragPointId = ""; event.accepted = true
+            pendingPointId = ""; arcStage = 0; dragPointId = ""; event.accepted = true
         } else if ((event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace)
                    && selectedEntityId && document) {
             if (document.removeEntity(selectedEntityId)) selectedEntityId = ""
@@ -167,6 +204,19 @@ Item {
                 ctx.arc(root.screenX(p.x), root.screenY(p.y), c.radius * root.unitFactor * root.zoom,
                         0, Math.PI * 2)
                 ctx.strokeStyle = String(c.entityId) === root.selectedEntityId
+                    ? Tk.Theme.color.accent : Tk.Theme.color.textMuted
+                ctx.lineWidth = Tk.Theme.size.border * 2
+                ctx.stroke()
+            }
+            const arcs = root.document ? root.document.arcs : []
+            for (let i = 0; i < arcs.length; ++i) {
+                const arc = arcs[i]
+                const p = root.shownPoint(String(arc.centerPointId), arc.x, arc.y)
+                ctx.beginPath()
+                ctx.arc(root.screenX(p.x), root.screenY(p.y), arc.radius * root.unitFactor * root.zoom,
+                    arc.startDegrees * Math.PI / 180,
+                    (arc.startDegrees + arc.sweepDegrees) * Math.PI / 180)
+                ctx.strokeStyle = String(arc.entityId) === root.selectedEntityId
                     ? Tk.Theme.color.accent : Tk.Theme.color.textMuted
                 ctx.lineWidth = Tk.Theme.size.border * 2
                 ctx.stroke()
@@ -214,14 +264,45 @@ Item {
 
     Repeater {
         model: root.document ? root.document.segments : []
-        delegate: Tk.Label {
+        delegate: Item {
+            id: dimension
             required property var modelData
+            readonly property string constraintId: modelData.distanceConstraintId
+                || modelData.angleConstraintId || ""
+            readonly property bool editingDimension: root.mode === "select"
+                && root.selectedEntityId === String(modelData.entityId) && constraintId.length > 0
             visible: root.zoom * root.unitFactor > 1
             x: root.screenX((modelData.x1 + modelData.x2) / 2) + Tk.Theme.space.xs
             y: root.screenY((modelData.y1 + modelData.y2) / 2) + Tk.Theme.space.xs
-            text: Number(modelData.length).toFixed(2) + " " + root.document.units
-            color: Tk.Theme.color.accent
-            font.pixelSize: Tk.Theme.font.caption
+            width: editingDimension ? editor.implicitWidth : readout.implicitWidth
+            height: editingDimension ? editor.implicitHeight : readout.implicitHeight
+            Tk.Label {
+                id: readout
+                visible: !dimension.editingDimension
+                text: Number(dimension.modelData.length).toFixed(2) + " " + root.document.units
+                color: Tk.Theme.color.accent
+                font.pixelSize: Tk.Theme.font.caption
+            }
+            Tk.NumberField {
+                id: editor
+                objectName: "cadDimensionEditor_" + dimension.modelData.entityId
+                visible: dimension.editingDimension
+                small: true
+                stepButtons: false
+                scrub: false
+                decimals: 3
+                from: dimension.modelData.distanceConstraintId ? 0 : -180
+                to: dimension.modelData.distanceConstraintId ? 1000000 : 180
+                value: dimension.modelData.distanceConstraintId
+                    ? dimension.modelData.distanceValue : dimension.modelData.angleValue
+                suffix: dimension.modelData.distanceConstraintId ? root.document.units : "°"
+                tooltip: qsTr("Edit constrained dimension")
+                onValueModified: function(next) {
+                    if (!root.document.setDimension(dimension.constraintId, next))
+                        editor.value = dimension.modelData.distanceConstraintId
+                            ? dimension.modelData.distanceValue : dimension.modelData.angleValue
+                }
+            }
         }
     }
 

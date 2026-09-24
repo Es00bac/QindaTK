@@ -17,6 +17,7 @@ Section {
             addConstraint("horizontal", ab, "", 0)
             addConstraint("vertical", bc, "", 0)
             addCircle(addPoint(30, 20), 8)
+            addArc(addPoint(40, 25), 12, 20, 150)
         }
     }
     GalleryRow {

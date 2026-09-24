@@ -27,6 +27,8 @@ Item {
             const center = sketch.addPoint(xy[0], xy[1])
             sketch.addCircle(center, 6)
         }
+        sketch.addArc(sketch.addPoint(60, 40), 18, 20, 140)
+        viewport.selectedEntityId = top
     }
 
     Rectangle { anchors.fill: parent; color: Tk.Theme.color.canvas }
@@ -62,6 +64,11 @@ Item {
                 onClicked: viewport.mode = "circle"
             }
             Tk.Button {
+                text: qsTr("Arc")
+                tooltip: qsTr("Choose a center, start and end for an arc")
+                onClicked: viewport.mode = "arc"
+            }
+            Tk.Button {
                 text: sketch.units === "mm" ? qsTr("Millimeters") : qsTr("Inches")
                 tooltip: qsTr("Switch display and input units")
                 onClicked: sketch.changeUnits(sketch.units === "mm" ? "in" : "mm")
@@ -80,7 +87,7 @@ Item {
             }
         }
         Tk.Label {
-            text: qsTr("Mounting plate · 120 × 80 mm · four 12 mm bores. Drag a point: dimensions remain constrained. Use the tools to add geometry.")
+            text: qsTr("Mounting plate · 120 × 80 mm · four 12 mm bores and a clearance arc. Drag a point or select a dimension to edit the constrained sketch.")
             muted: true
             wrapMode: Text.Wrap
         }

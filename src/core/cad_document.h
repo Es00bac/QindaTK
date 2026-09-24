@@ -18,6 +18,7 @@ class CadDocument : public QObject {
     Q_PROPERTY(QVariantList points READ points NOTIFY changed)
     Q_PROPERTY(QVariantList segments READ segments NOTIFY changed)
     Q_PROPERTY(QVariantList circles READ circles NOTIFY changed)
+    Q_PROPERTY(QVariantList arcs READ arcs NOTIFY changed)
     Q_PROPERTY(QVariantList constraints READ constraints NOTIFY changed)
     Q_PROPERTY(QString units READ units NOTIFY changed)
     Q_PROPERTY(qulonglong revision READ revision NOTIFY changed)
@@ -30,6 +31,7 @@ public:
     QVariantList points() const;
     QVariantList segments() const;
     QVariantList circles() const;
+    QVariantList arcs() const;
     QVariantList constraints() const;
     QString units() const { return m_state.units; }
     qulonglong revision() const { return m_revision; }
@@ -40,10 +42,15 @@ public:
     Q_INVOKABLE QString addPoint(double x, double y);
     Q_INVOKABLE QString addSegment(const QString &startPointId, const QString &endPointId);
     Q_INVOKABLE QString addCircle(const QString &centerPointId, double radius);
+    Q_INVOKABLE QString addArc(const QString &centerPointId, double radius,
+                              double startDegrees, double sweepDegrees);
     Q_INVOKABLE QString addConstraint(const QString &kind, const QString &firstId,
                                       const QString &secondId = {}, double value = 0);
     Q_INVOKABLE bool movePoint(const QString &pointId, double x, double y);
     Q_INVOKABLE bool setCircleRadius(const QString &circleId, double radius);
+    Q_INVOKABLE bool setArc(const QString &arcId, double radius,
+                            double startDegrees, double sweepDegrees);
+    Q_INVOKABLE bool setDimension(const QString &constraintId, double value);
     Q_INVOKABLE bool removeEntity(const QString &entityId);
     Q_INVOKABLE bool changeUnits(const QString &units);
     Q_INVOKABLE QVariantMap measure(const QString &entityId) const;
@@ -53,6 +60,8 @@ public:
     Q_INVOKABLE bool redo();
     Q_INVOKABLE bool saveToFile(const QString &path);
     Q_INVOKABLE bool loadFromFile(const QString &path);
+    Q_INVOKABLE bool exportSvg(const QString &path);
+    Q_INVOKABLE bool exportDxf(const QString &path);
 
 signals:
     void changed();
@@ -62,11 +71,13 @@ private:
     struct Point { QString id; double x = 0; double y = 0; };
     struct Segment { QString id; QString start; QString end; };
     struct Circle { QString id; QString center; double radius = 0; };
+    struct Arc { QString id; QString center; double radius = 0; double start = 0; double sweep = 0; };
     struct Constraint { QString id; QString kind; QString first; QString second; double value = 0; };
     struct State {
         QVector<Point> points;
         QVector<Segment> segments;
         QVector<Circle> circles;
+        QVector<Arc> arcs;
         QVector<Constraint> constraints;
         QString units = QStringLiteral("mm");
     };
@@ -74,6 +85,8 @@ private:
     int pointIndex(const State &state, const QString &id) const;
     int segmentIndex(const State &state, const QString &id) const;
     int circleIndex(const State &state, const QString &id) const;
+    int arcIndex(const State &state, const QString &id) const;
+    int constraintIndex(const State &state, const QString &id) const;
     double unitScale() const;
     void rememberEdit();
     void setError(const QString &message);

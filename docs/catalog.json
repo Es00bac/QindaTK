@@ -3003,7 +3003,7 @@
         {
           "name": "mode",
           "type": "string",
-          "default": "\"select\" // select | point | line | circle",
+          "default": "\"select\" // select | point | line | circle | arc",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -3020,6 +3020,22 @@
           "name": "pendingPointId",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "arcStage",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "arcStartWorld",
+          "type": "point",
+          "default": "Qt.point(0, 0)",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -3157,6 +3173,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "cadDimensionEditor_",
         "cadViewport",
         "cadViewportDrawing"
       ]
@@ -35825,6 +35842,13 @@
           "constant": false
         },
         {
+          "name": "arcs",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "constraints",
           "type": "QVariantList",
           "default": "",
@@ -35894,6 +35918,11 @@
           "parameters": "const QString &centerPointId, double radius"
         },
         {
+          "name": "addArc",
+          "returns": "QString",
+          "parameters": "const QString &centerPointId, double radius, double startDegrees, double sweepDegrees"
+        },
+        {
           "name": "addConstraint",
           "returns": "QString",
           "parameters": "const QString &kind, const QString &firstId, const QString &secondId = {}, double value = 0"
@@ -35907,6 +35936,16 @@
           "name": "setCircleRadius",
           "returns": "bool",
           "parameters": "const QString &circleId, double radius"
+        },
+        {
+          "name": "setArc",
+          "returns": "bool",
+          "parameters": "const QString &arcId, double radius, double startDegrees, double sweepDegrees"
+        },
+        {
+          "name": "setDimension",
+          "returns": "bool",
+          "parameters": "const QString &constraintId, double value"
         },
         {
           "name": "removeEntity",
@@ -35945,6 +35984,16 @@
         },
         {
           "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "exportDxf",
           "returns": "bool",
           "parameters": "const QString &path"
         }

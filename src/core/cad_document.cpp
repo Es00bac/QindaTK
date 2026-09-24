@@ -54,6 +54,20 @@ int CadDocument::circleIndex(const State &state, const QString &id) const
     return -1;
 }
 
+int CadDocument::arcIndex(const State &state, const QString &id) const
+{
+    for (int i = 0; i < state.arcs.size(); ++i)
+        if (state.arcs.at(i).id == id) return i;
+    return -1;
+}
+
+int CadDocument::constraintIndex(const State &state, const QString &id) const
+{
+    for (int i = 0; i < state.constraints.size(); ++i)
+        if (state.constraints.at(i).id == id) return i;
+    return -1;
+}
+
 double CadDocument::unitScale() const { return m_state.units == QLatin1String("in") ? 25.4 : 1.0; }
 
 QVariantList CadDocument::points() const
@@ -73,11 +87,26 @@ QVariantList CadDocument::segments() const
     for (const Segment &s : m_state.segments) {
         const Point &a = m_state.points.at(pointIndex(m_state, s.start));
         const Point &b = m_state.points.at(pointIndex(m_state, s.end));
+        QString distanceId, angleId;
+        double distanceValue = 0, angleValue = 0;
+        for (const Constraint &c : m_state.constraints) {
+            if (c.kind == QLatin1String("distance")
+                && ((c.first == s.start && c.second == s.end)
+                    || (c.first == s.end && c.second == s.start))) {
+                distanceId = c.id; distanceValue = c.value / scale;
+            } else if (c.kind == QLatin1String("angle") && c.first == s.id) {
+                angleId = c.id; angleValue = c.value;
+            }
+        }
         result.append(QVariantMap{{QStringLiteral("entityId"), s.id},
             {QStringLiteral("startPointId"), s.start}, {QStringLiteral("endPointId"), s.end},
             {QStringLiteral("x1"), a.x / scale}, {QStringLiteral("y1"), a.y / scale},
             {QStringLiteral("x2"), b.x / scale}, {QStringLiteral("y2"), b.y / scale},
-            {QStringLiteral("length"), length(b.x - a.x, b.y - a.y) / scale}});
+            {QStringLiteral("length"), length(b.x - a.x, b.y - a.y) / scale},
+            {QStringLiteral("distanceConstraintId"), distanceId},
+            {QStringLiteral("distanceValue"), distanceValue},
+            {QStringLiteral("angleConstraintId"), angleId},
+            {QStringLiteral("angleValue"), angleValue}});
     }
     return result;
 }
@@ -91,6 +120,23 @@ QVariantList CadDocument::circles() const
         result.append(QVariantMap{{QStringLiteral("entityId"), c.id},
             {QStringLiteral("centerPointId"), c.center}, {QStringLiteral("x"), p.x / scale},
             {QStringLiteral("y"), p.y / scale}, {QStringLiteral("radius"), c.radius / scale}});
+    }
+    return result;
+}
+
+QVariantList CadDocument::arcs() const
+{
+    QVariantList result;
+    const double scale = unitScale();
+    for (const Arc &arc : m_state.arcs) {
+        const Point &p = m_state.points.at(pointIndex(m_state, arc.center));
+        result.append(QVariantMap{{QStringLiteral("entityId"), arc.id},
+            {QStringLiteral("centerPointId"), arc.center},
+            {QStringLiteral("x"), p.x / scale}, {QStringLiteral("y"), p.y / scale},
+            {QStringLiteral("radius"), arc.radius / scale},
+            {QStringLiteral("startDegrees"), arc.start},
+            {QStringLiteral("sweepDegrees"), arc.sweep},
+            {QStringLiteral("length"), arc.radius * arc.sweep * kPi / 180.0 / scale}});
     }
     return result;
 }
@@ -149,18 +195,41 @@ QString CadDocument::addCircle(const QString &centerPointId, double radius)
     return id;
 }
 
+QString CadDocument::addArc(const QString &centerPointId, double radius,
+                            double startDegrees, double sweepDegrees)
+{
+    radius *= unitScale();
+    if (pointIndex(m_state, centerPointId) < 0 || !validNumber(radius)
+        || radius <= kMinimumLength || !validNumber(startDegrees)
+        || !std::isfinite(sweepDegrees) || sweepDegrees <= 0 || sweepDegrees >= 360
+        || m_state.arcs.size() >= 1000) {
+        setError(QStringLiteral("Arc needs a center, positive radius and sweep below 360 degrees")); return {};
+    }
+    const QString id = freshId();
+    const double start = std::fmod(std::fmod(startDegrees, 360.0) + 360.0, 360.0);
+    rememberEdit(); m_state.arcs.append({id, centerPointId, radius, start, sweepDegrees});
+    setError({}); emit changed();
+    return id;
+}
+
 QString CadDocument::addConstraint(const QString &kind, const QString &firstId,
                                     const QString &secondId, double value)
 {
-    const bool lineKind = kind == QLatin1String("horizontal") || kind == QLatin1String("vertical");
+    const bool lineKind = kind == QLatin1String("horizontal") || kind == QLatin1String("vertical")
+        || kind == QLatin1String("angle");
     const bool pointKind = kind == QLatin1String("coincident") || kind == QLatin1String("distance");
-    const double canonical = kind == QLatin1String("distance") ? value * unitScale() : 0;
-    if ((!lineKind && !pointKind) || m_state.constraints.size() >= 1000
+    const bool tangentKind = kind == QLatin1String("tangent");
+    const double canonical = kind == QLatin1String("distance") ? value * unitScale()
+        : kind == QLatin1String("angle") ? std::remainder(value, 360.0) : 0;
+    if ((!lineKind && !pointKind && !tangentKind) || m_state.constraints.size() >= 1000
         || (lineKind && (segmentIndex(m_state, firstId) < 0 || !secondId.isEmpty()))
         || (pointKind && (pointIndex(m_state, firstId) < 0
                           || pointIndex(m_state, secondId) < 0 || firstId == secondId))
+        || (tangentKind && (segmentIndex(m_state, firstId) < 0
+                            || circleIndex(m_state, secondId) < 0))
         || (kind == QLatin1String("distance")
-            && (!validNumber(canonical) || canonical < 0))) {
+            && (!validNumber(canonical) || canonical < 0))
+        || (kind == QLatin1String("angle") && !validNumber(value))) {
         setError(QStringLiteral("Invalid CAD constraint or references")); return {};
     }
     State candidate = m_state;
@@ -198,7 +267,55 @@ bool CadDocument::setCircleRadius(const QString &circleId, double radius)
         setError(QStringLiteral("Invalid CAD circle radius")); return false;
     }
     if (m_state.circles.at(index).radius == radius) return true;
-    rememberEdit(); m_state.circles[index].radius = radius;
+    State candidate = m_state;
+    candidate.circles[index].radius = radius;
+    QString diagnostic;
+    if (!solve(&candidate, {}, &diagnostic)) { setError(diagnostic); return false; }
+    rememberEdit(); m_state = std::move(candidate);
+    setError({}); emit changed();
+    return true;
+}
+
+bool CadDocument::setArc(const QString &arcId, double radius,
+                          double startDegrees, double sweepDegrees)
+{
+    radius *= unitScale();
+    const int index = arcIndex(m_state, arcId);
+    if (index < 0 || !validNumber(radius) || radius <= kMinimumLength
+        || !validNumber(startDegrees) || !std::isfinite(sweepDegrees)
+        || sweepDegrees <= 0 || sweepDegrees >= 360) {
+        setError(QStringLiteral("Invalid CAD arc geometry")); return false;
+    }
+    const double start = std::fmod(std::fmod(startDegrees, 360.0) + 360.0, 360.0);
+    const Arc &current = m_state.arcs.at(index);
+    if (current.radius == radius && current.start == start && current.sweep == sweepDegrees) return true;
+    rememberEdit();
+    Arc &arc = m_state.arcs[index];
+    arc.radius = radius; arc.start = start; arc.sweep = sweepDegrees;
+    setError({}); emit changed();
+    return true;
+}
+
+bool CadDocument::setDimension(const QString &constraintId, double value)
+{
+    const int index = constraintIndex(m_state, constraintId);
+    if (index < 0) { setError(QStringLiteral("Unknown CAD dimension")); return false; }
+    const Constraint &constraint = m_state.constraints.at(index);
+    if (constraint.kind != QLatin1String("distance") && constraint.kind != QLatin1String("angle")) {
+        setError(QStringLiteral("Constraint is not an editable dimension")); return false;
+    }
+    const double canonical = constraint.kind == QLatin1String("distance") ? value * unitScale()
+        : std::remainder(value, 360.0);
+    if (!validNumber(value) || !validNumber(canonical)
+        || (constraint.kind == QLatin1String("distance") && canonical < 0)) {
+        setError(QStringLiteral("Invalid CAD dimension value")); return false;
+    }
+    if (constraint.value == canonical) return true;
+    State candidate = m_state;
+    candidate.constraints[index].value = canonical;
+    QString diagnostic;
+    if (!solve(&candidate, {}, &diagnostic)) { setError(diagnostic); return false; }
+    rememberEdit(); m_state = std::move(candidate);
     setError({}); emit changed();
     return true;
 }
@@ -208,7 +325,8 @@ bool CadDocument::removeEntity(const QString &entityId)
     const int p = pointIndex(m_state, entityId);
     const int s = segmentIndex(m_state, entityId);
     const int c = circleIndex(m_state, entityId);
-    if (p < 0 && s < 0 && c < 0) {
+    const int arcIndexValue = arcIndex(m_state, entityId);
+    if (p < 0 && s < 0 && c < 0 && arcIndexValue < 0) {
         setError(QStringLiteral("Unknown CAD entity")); return false;
     }
     State candidate = m_state;
@@ -220,10 +338,13 @@ bool CadDocument::removeEntity(const QString &entityId)
             removed.insert(segment.id); return true;
         });
         candidate.circles.removeIf([&](const Circle &circle) {
-            return circle.center == entityId;
+            if (circle.center != entityId) return false;
+            removed.insert(circle.id); return true;
         });
+        candidate.arcs.removeIf([&](const Arc &arc) { return arc.center == entityId; });
     } else if (s >= 0) candidate.segments.removeAt(s);
-    else candidate.circles.removeAt(c);
+    else if (c >= 0) candidate.circles.removeAt(c);
+    else candidate.arcs.removeAt(arcIndexValue);
     candidate.constraints.removeIf([&](const Constraint &constraint) {
         return removed.contains(constraint.first) || removed.contains(constraint.second);
     });
@@ -267,6 +388,15 @@ QVariantMap CadDocument::measure(const QString &entityId) const
         return {{QStringLiteral("kind"), QStringLiteral("circle")},
             {QStringLiteral("radius"), radius}, {QStringLiteral("diameter"), radius * 2},
             {QStringLiteral("area"), kPi * radius * radius},
+            {QStringLiteral("units"), m_state.units}};
+    }
+    const int arcIndexValue = arcIndex(m_state, entityId);
+    if (arcIndexValue >= 0) {
+        const Arc &arc = m_state.arcs.at(arcIndexValue);
+        return {{QStringLiteral("kind"), QStringLiteral("arc")},
+            {QStringLiteral("radius"), arc.radius / scale},
+            {QStringLiteral("sweepDegrees"), arc.sweep},
+            {QStringLiteral("length"), arc.radius * arc.sweep * kPi / 180.0 / scale},
             {QStringLiteral("units"), m_state.units}};
     }
     return {};
