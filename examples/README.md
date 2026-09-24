@@ -93,6 +93,14 @@ reports gestures to a host; snapping and commits belong to WP-041.
 - Run: `qtk-preview examples/selection_overlay/selection_overlay.qml --check --size 960x600`
 - Evidence: [WP-041 overlay proof](../docs/universal-toolkit/implementation/evidence/WP-041.md)
 
+## spatial-canvas
+
+Two canvas views share one document, navigation pose and `CanvasSelectionModel`.
+Each view has its own `ToolController`; selecting in either view updates the
+other while document edits prune removed or hidden objects.
+
+- Run: `qtk-preview examples/spatial-canvas/Main.qml --check --size 1280x800`
+
 ## docking
 
 `Tk.DockHost` with a source bin on the left, an inspector and a

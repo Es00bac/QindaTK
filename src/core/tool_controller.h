@@ -2,6 +2,7 @@
 #pragma once
 
 #include "canvas_document.h"
+#include "canvas_selection_model.h"
 
 #include <QColor>
 #include <QPointer>
@@ -95,6 +96,7 @@ class ToolController : public QObject {
     Q_PROPERTY(QString lastOutcome READ lastOutcome NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap preview READ previewMap NOTIFY previewChanged)
     Q_PROPERTY(QVariantList selection READ selectionList WRITE setSelectionList NOTIFY selectionChanged)
+    Q_PROPERTY(QindaTK::CanvasSelectionModel *selectionModel READ selectionModel WRITE setSelectionModel NOTIFY selectionModelChanged)
     Q_PROPERTY(QColor fillColor MEMBER m_fillColor NOTIFY configurationChanged)
     Q_PROPERTY(QColor strokeColor MEMBER m_strokeColor NOTIFY configurationChanged)
     Q_PROPERTY(qreal strokeWidth MEMBER m_strokeWidth NOTIFY configurationChanged)
@@ -120,6 +122,8 @@ public:
     CanvasToolPreview preview() const;
     QVariantMap previewMap() const;
     const QVector<CanvasObjectId> &selection() const { return m_selection; }
+    CanvasSelectionModel *selectionModel() const { return m_selectionModel; }
+    void setSelectionModel(CanvasSelectionModel *model);
     void setSelection(const QVector<CanvasObjectId> &ids);
     QVariantList selectionList() const;
     void setSelectionList(const QVariantList &ids);
@@ -155,6 +159,7 @@ signals:
     void stateChanged();
     void previewChanged();
     void selectionChanged();
+    void selectionModelChanged();
     void gestureCommitted(const QString &toolId, qulonglong revision);
     void gestureCanceled(const QString &toolId, const QString &reason);
 
@@ -164,6 +169,7 @@ private:
     void finishGesture(const QString &outcome);
     void onDocumentEdited(quint64 revision);
     void pruneSelection();
+    void publishSelection();
 
     std::vector<std::unique_ptr<CanvasTool>> m_tools;
     QPointer<CanvasDocumentAdapter> m_document;
@@ -175,6 +181,8 @@ private:
     QString m_owner;
     QString m_lastOutcome = QStringLiteral("idle");
     QVector<CanvasObjectId> m_selection;
+    QPointer<CanvasSelectionModel> m_selectionModel;
+    bool m_publishingSelection = false;
     quint64 m_baseRevision = 0;
     bool m_committing = false;
     QColor m_fillColor{QStringLiteral("#4fa3d9")};

@@ -15,6 +15,7 @@ and PLT-10 RenderSurfaceAdapter. Evidence:
 | `Tk.CanvasViewState` | C++ | Shareable navigation pose; views that share one are synchronized |
 | `Tk.SnapModel` | C++ | Pure spatial snapping query over guides, visible object geometry and grid |
 | `Tk.ToolController` | C++ | Active/temporary tools and the one-gesture state machine |
+| `Tk.CanvasSelectionModel` | C++ | Shared live-object selection across tool controllers/views |
 | `Tk.HitTestService` | C++ | Point and region picking with lock/visibility policy |
 | `RenderSurfaceAdapter` | C++ (`view.renderSurface`) | Tiles, damage, budgets, backends, resource generations |
 | `Tk.CanvasOverlay` | C++ painted item | Hover, selection outlines and tool preview (inside CanvasView) |
@@ -109,14 +110,15 @@ withImage)` loads a deterministic fixture without history.
   itself. The router's Edit intent needs a PropertyDocument
   `EditTransaction`, so bridging canvas edits into it is part of the same
   seam.
-- **WP-041.** `SnapModel` supplies one-point guide/object/grid queries, but
-  authoritative selection geometry, multi-object transform edits and guide
-  persistence still belong to WP-041. Its `SelectionOverlay` presentation
+- **WP-041.** `SnapModel` supplies one-point guide/object/grid queries, and
+  `CanvasSelectionModel` shares stable selected IDs between controllers for one
+  document. Group transform edits exist on the reference canvas; guide
+  persistence and shared-session history still belong to WP-041. Its `SelectionOverlay` presentation
   slice maps a host-supplied selection and reports handle gestures. The canvas
   exposes the contracts that the remaining work needs:
   `CanvasToolPreview`, `ToolController.selection`, `HitTestService`,
   `CanvasSurface::mapFromDocument` and the `canvasOverlaySlot` item. It
-  does not implement the authoritative selection or snap model.
+  does not itself store selection or calculate snaps.
 
 <a id="hit-testing"></a>
 ## Hit testing
@@ -397,8 +399,15 @@ changes cancel a gesture. A keyboard nudge maps view pixels through the bound
 `CanvasViewState` rotation and zoom before committing the same operation.
 
 This slice uses the reference canvas edit history. A shared session/undo
-adapter, a shared selection model, numeric inspector wiring, persisted pivot,
+adapter, numeric inspector wiring, persisted pivot,
 transformed group-bounds policy and richer constraint rules remain WP-041 work.
+
+`CanvasSelectionModel` is a QML-facing selection source. Set its `document`
+to the shared `CanvasDocumentAdapter`, then set each `ToolController`'s
+`selectionModel` to it. Controller gestures publish selected IDs into the
+model; all bound controllers receive the resulting selection. The model
+deduplicates IDs and removes deleted, hidden or locked objects on document
+edits/reset. Controllers without a selection model keep their local selection.
 
 `Tk.LayerTree` reads the current `CanvasDocument.layers` facade and sends
 active, visibility and lock requests back to it. The list is flat. Layer

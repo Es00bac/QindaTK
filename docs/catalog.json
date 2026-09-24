@@ -20527,6 +20527,57 @@
       "bridge": false
     },
     {
+      "name": "CanvasSelectionModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "One selection for all views of a document. Tools may propose IDs; the model retains only live, visible and unlocked objects and owns the final order.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_selection_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedIds",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CanvasSurface",
       "kind": "cpp",
       "base": "QQuickItem",
@@ -33354,6 +33405,13 @@
           "constant": false
         },
         {
+          "name": "selectionModel",
+          "type": "QindaTK::CanvasSelectionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "fillColor",
           "type": "QColor",
           "default": "",
@@ -33405,6 +33463,10 @@
         },
         {
           "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionModelChanged",
           "parameters": ""
         },
         {
