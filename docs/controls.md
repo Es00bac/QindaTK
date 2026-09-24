@@ -962,7 +962,7 @@ mesh output.
 
 | Type | Base | API | Internal objectNames and behavior |
 | --- | --- | --- | --- |
-| `ScriptRuntime` | C++ `QObject` | `commandRegistry`, `undoService`, `exposedCommandIds`, `documentSnapshot`, `running`, `status`, `output`, `errorString`, `lastResult`, `recordedCommands`, `maxRuntimeMs`; `execute(source)`, `cancel()`, `replay(commands)`, `replayRecorded()`, `clear()`; `finished(success)` | Runs bounded local JavaScript on a worker using plain JSON snapshots and an explicit command allowlist. Commands replay on the owner thread through `CommandRegistry`. Multi-command edit groups require active `UndoService` history. See [script runtime](script-runtime.md). |
+| `ScriptRuntime` | C++ `QObject` | `commandRegistry`, `undoService`, `exposedCommandIds`, `documentSnapshot`, `running`, `status`, `output`, `errorString`, `lastResult`, `recordedCommands`, `maxRuntimeMs`; `execute(source)`, `cancel()`, `replay(commands)`, `replayRecorded()`, `exportRecordedMacro()`, `importRecordedMacro(json)`, `clear()`; `finished(success)` | Runs bounded local JavaScript on a worker using plain JSON snapshots and an explicit command allowlist. Commands replay on the owner thread through `CommandRegistry`. Multi-command edit groups require active `UndoService` history. Versioned macro JSON lets the host persist recordings. See [script runtime](script-runtime.md). |
 | `ScriptConsole` | `Tk.Flex` | `runtime`, `sourceText`, `tooltip` | `scriptConsole`, `scriptSource`, `scriptRun`, `scriptCancel`, `scriptReplay`, `scriptStatus`, `scriptOutput`. Ctrl+Enter runs; status, output and errors bind to the runtime. |
 
 ## Extension manager

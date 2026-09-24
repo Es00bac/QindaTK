@@ -58,6 +58,8 @@ public:
     Q_INVOKABLE void cancel();
     Q_INVOKABLE bool replay(const QVariantList &commands);
     Q_INVOKABLE bool replayRecorded();
+    Q_INVOKABLE QString exportRecordedMacro() const;
+    Q_INVOKABLE bool importRecordedMacro(const QString &json);
     Q_INVOKABLE void clear();
 signals:
     void configurationChanged();

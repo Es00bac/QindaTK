@@ -5,8 +5,10 @@
 
 #include <QJSEngine>
 #include <QJSValue>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonParseError>
 #include <QTimer>
 
 namespace QindaTK {
@@ -194,8 +196,8 @@ void ScriptRuntime::finishEvaluation(quint64 generation, Evaluation evaluation)
     if (!m_cancelReason.isEmpty()) finishFailure(m_cancelReason);
     else if (!evaluation.error.isEmpty()) finishFailure(evaluation.error);
     else {
-        m_recordedCommands = evaluation.commands;
         if (runCommands(evaluation.commands)) {
+            m_recordedCommands = evaluation.commands;
             m_running = false;
             m_status = QStringLiteral("completed");
             emit changed();
@@ -282,11 +284,11 @@ bool ScriptRuntime::replay(const QVariantList &commands)
     if (m_running) return false;
     m_error.clear();
     m_cancelReason.clear();
-    m_recordedCommands = commands;
     m_running = true;
     m_status = QStringLiteral("running");
     emit changed();
     if (!runCommands(commands)) return false;
+    m_recordedCommands = commands;
     m_running = false;
     m_status = QStringLiteral("completed");
     emit changed();
@@ -295,6 +297,54 @@ bool ScriptRuntime::replay(const QVariantList &commands)
 }
 
 bool ScriptRuntime::replayRecorded() { return replay(m_recordedCommands); }
+
+QString ScriptRuntime::exportRecordedMacro() const
+{
+    const QJsonObject root{{QStringLiteral("format"), QStringLiteral("qindatk.command-macro")},
+                           {QStringLiteral("version"), 1},
+                           {QStringLiteral("commands"),
+                            QJsonArray::fromVariantList(m_recordedCommands)}};
+    return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
+bool ScriptRuntime::importRecordedMacro(const QString &json)
+{
+    if (m_running) return false;
+    auto reject = [this](const QString &reason) {
+        m_error = reason;
+        emit changed();
+        return false;
+    };
+    const QByteArray bytes = json.toUtf8();
+    if (bytes.size() > 1100000) return reject(QStringLiteral("Macro exceeds size limit"));
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(bytes, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject())
+        return reject(QStringLiteral("Invalid macro JSON"));
+    const QJsonObject root = document.object();
+    if (root.value(QStringLiteral("format")).toString() != QStringLiteral("qindatk.command-macro")
+        || root.value(QStringLiteral("version")).toInt(-1) != 1
+        || !root.value(QStringLiteral("commands")).isArray())
+        return reject(QStringLiteral("Unsupported macro format"));
+    const QJsonArray commands = root.value(QStringLiteral("commands")).toArray();
+    if (commands.size() > 64) return reject(QStringLiteral("Too many macro commands"));
+    QVariantList accepted;
+    for (const QJsonValue &value : commands) {
+        if (!value.isObject()) return reject(QStringLiteral("Invalid macro command"));
+        const QJsonObject row = value.toObject();
+        const QJsonValue id = row.value(QStringLiteral("id"));
+        const QJsonValue args = row.value(QStringLiteral("args"));
+        if (!id.isString() || id.toString().isEmpty() || !args.isObject()
+            || QJsonDocument(args.toObject()).toJson(QJsonDocument::Compact).size() > 16384)
+            return reject(QStringLiteral("Invalid macro command"));
+        accepted.append(QVariantMap{{QStringLiteral("id"), id.toString()},
+                                    {QStringLiteral("args"), args.toObject().toVariantMap()}});
+    }
+    m_recordedCommands = accepted;
+    m_error.clear();
+    emit changed();
+    return true;
+}
 
 void ScriptRuntime::clear()
 {

@@ -53319,6 +53319,16 @@
           "parameters": ""
         },
         {
+          "name": "exportRecordedMacro",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "importRecordedMacro",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        },
+        {
           "name": "clear",
           "returns": "void",
           "parameters": ""

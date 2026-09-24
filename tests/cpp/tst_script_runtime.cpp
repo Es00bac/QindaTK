@@ -46,6 +46,16 @@ private slots:
         QCOMPARE(runtime.recordedCommands().size(), 1);
         QVERIFY(runtime.replayRecorded());
         QCOMPARE(calls, 4);
+        const QString savedMacro = runtime.exportRecordedMacro();
+        ScriptRuntime reopened;
+        reopened.setCommandRegistry(&registry);
+        reopened.setExposedCommandIds({QStringLiteral("edit.mark")});
+        QVERIFY(reopened.importRecordedMacro(savedMacro));
+        QCOMPARE(reopened.recordedCommands(), runtime.recordedCommands());
+        QVERIFY(!reopened.importRecordedMacro(QStringLiteral("{\"format\":\"wrong\"}")));
+        QCOMPARE(reopened.recordedCommands(), runtime.recordedCommands());
+        QVERIFY(reopened.replayRecorded());
+        QCOMPARE(calls, 6);
     }
 
     void semanticMacroUndoAndFailureRollback()
