@@ -11915,7 +11915,7 @@
       "name": "PageNavigator",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): page thumbnails and a heading outline for a RichDocumentView (`view`, or a paged Tk.RichTextArea). Rows come from Tk.RichTextPageModel (stable page keys: section identity + ordinal); a recycling ListView keeps thumbnail delegates bounded to the visible rows, and each thumbnail paints the page from the view's layout, so no page image is loaded for pages out of view. Navigating moves the view's caret to the page; the text selection of the view is otherwise untouched. Sections (page-break groups) can be moved.",
+      "description": "AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): page thumbnails and a heading outline for a RichDocumentView (`view`, or a paged Tk.RichTextArea). Rows come from Tk.RichTextPageModel (stable page keys: section identity + ordinal); a recycling ListView keeps thumbnail delegates bounded to the visible rows, and each thumbnail paints the page from the view's layout, so no page image is loaded for pages out of view. Navigating scrolls the view to the page and keeps its logical selection (OFF-05); typing returns to the caret. Sections (page-break groups) can be moved as one undo step.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PageNavigator.qml",
@@ -28746,7 +28746,96 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "readOnlyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pagedChanged",
+          "parameters": ""
+        },
+        {
+          "name": "zoomChanged",
+          "parameters": ""
+        },
+        {
+          "name": "paddingChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pageGapChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pageSizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentSizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "viewportChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pagesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "caretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "currentPageChanged",
+          "parameters": ""
+        },
+        {
+          "name": "cursorRectangleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "preeditChanged",
+          "parameters": ""
+        },
+        {
+          "name": "caretBlinked",
+          "parameters": ""
+        },
+        {
+          "name": "colorsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "accessibleTextChanged",
+          "parameters": ""
+        },
+        {
+          "name": "repaintRequested",
+          "parameters": "int firstPage"
+        },
+        {
+          "name": "linkActivated",
+          "parameters": "const QString &href"
+        },
+        {
+          "name": "linkRequested",
+          "parameters": ""
+        },
+        {
+          "name": "editRejected",
+          "parameters": "const QString &message"
+        }
+      ],
       "methods": [
         {
           "name": "invokeCommand",
@@ -28934,7 +29023,32 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentChanged",
+          "parameters": "const QindaTK::RichText::ChangeSet &change"
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &transactionId, const QString &label"
+        },
+        {
+          "name": "historyNavigated",
+          "parameters": "const QindaTK::RichText::Selection &selection, bool undo"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &message"
+        }
+      ],
       "methods": [
         {
           "name": "undo",
@@ -29176,7 +29290,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -29219,7 +29338,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "areaChanged",
+          "parameters": ""
+        },
+        {
+          "name": "countChanged",
+          "parameters": ""
+        },
+        {
+          "name": "generationChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "outline",
@@ -29299,7 +29431,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "sessionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "extensionKeyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "reload",
@@ -29374,7 +29523,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "areaChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pageIndexChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sourceRectChanged",
+          "parameters": ""
+        },
+        {
+          "name": "decorationsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "painted",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -29403,7 +29573,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "countChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
