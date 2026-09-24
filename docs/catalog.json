@@ -8206,6 +8206,186 @@
       ]
     },
     {
+      "name": "DopeSheet",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Exposure snapshots stay host-owned. Buttons report exact range operations; the host edits art references and publishes the next snapshot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DopeSheet.qml",
+      "properties": [
+        {
+          "name": "layers",
+          "type": "var",
+          "default": "[] // {layerId,label,exposures:[{exposureId,startTicks,endTicks,artworkId,held}]}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameBoundaries",
+          "type": "var",
+          "default": "[] // ordered decimal strings, frame starts",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedLayerId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedExposureId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Exposure dope sheet\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layerCount",
+          "type": "int",
+          "default": "layers ? layers.length : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gridValid",
+          "type": "bool",
+          "default": "validateGrid()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedExposure",
+          "type": "var",
+          "default": "findExposure(selectedLayerId, selectedExposureId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectionRequested",
+          "parameters": "string layerId, string exposureId"
+        },
+        {
+          "name": "exposureEditRequested",
+          "parameters": "string requestId, string action, string layerId, var exposureIds, string startTicks, string endTicks"
+        }
+      ],
+      "methods": [
+        {
+          "name": "compare",
+          "parameters": "a, b"
+        },
+        {
+          "name": "validateGrid",
+          "parameters": ""
+        },
+        {
+          "name": "boundaryIndex",
+          "parameters": "ticks"
+        },
+        {
+          "name": "findExposure",
+          "parameters": "layerId, exposureId"
+        },
+        {
+          "name": "request",
+          "parameters": "action, layerId, ids, startTicks, endTicks"
+        },
+        {
+          "name": "insertHold",
+          "parameters": ""
+        },
+        {
+          "name": "deleteSelected",
+          "parameters": ""
+        },
+        {
+          "name": "retimeSelected",
+          "parameters": "direction"
+        },
+        {
+          "name": "select",
+          "parameters": "layerId, exposureId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "dopeSheet",
+        "dopeSheetDelete",
+        "dopeSheetExposure_",
+        "dopeSheetInsertHold",
+        "dopeSheetLayer_",
+        "dopeSheetRows",
+        "dopeSheetStatus"
+      ]
+    },
+    {
       "name": "EditTimeline",
       "kind": "qml",
       "base": "T.Control",
@@ -9307,6 +9487,211 @@
         "gridRangeOverlay",
         "gridRowHeaders",
         "gridWheel"
+      ]
+    },
+    {
+      "name": "EffectBrowser",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Registry snapshots describe compatibility/capability; preview and insert are explicit host requests over effect and target IDs.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/EffectBrowser.qml",
+      "properties": [
+        {
+          "name": "effects",
+          "type": "var",
+          "default": "[] // {effectId,label,category,description,compatible,reason,previewAssetId}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "categories",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "categoryId",
+          "type": "string",
+          "default": "\"all\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEffectId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetLayerId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "revision",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewStatus",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Browse effects for the selected layer\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filteredEffects",
+          "type": "var",
+          "default": "filterEffects()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEffect",
+          "type": "var",
+          "default": "findEffect(selectedEffectId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "compatibleCount",
+          "type": "int",
+          "default": "filteredEffects.filter(function(effect) { return effect.compatible !== false }).length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "effectSelectionRequested",
+          "parameters": "string effectId"
+        },
+        {
+          "name": "effectPreviewRequested",
+          "parameters": "string requestId, string effectId, string targetLayerId"
+        },
+        {
+          "name": "effectInsertRequested",
+          "parameters": "string requestId, string effectId, string targetLayerId, string expectedRevision"
+        },
+        {
+          "name": "previewCancelRequested",
+          "parameters": "string requestId, string pendingRequestId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "findEffect",
+          "parameters": "id"
+        },
+        {
+          "name": "filterEffects",
+          "parameters": ""
+        },
+        {
+          "name": "requestId",
+          "parameters": "kind"
+        },
+        {
+          "name": "select",
+          "parameters": "id"
+        },
+        {
+          "name": "preview",
+          "parameters": ""
+        },
+        {
+          "name": "insert",
+          "parameters": ""
+        },
+        {
+          "name": "cancelPreview",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "effectBrowser",
+        "effectCancelPreview",
+        "effectCategory",
+        "effectInsert",
+        "effectPreview",
+        "effectResult_",
+        "effectResults",
+        "effectSearch"
       ]
     },
     {
@@ -12817,6 +13202,176 @@
       "objectNames": [
         "keyLabel",
         "valueLabel"
+      ]
+    },
+    {
+      "name": "KeyframeTimeline",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "Exact-time key selection and edits over a host-provided visible boundary grid. AutomationModel owns key identity, validation, history and evaluation.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/KeyframeTimeline.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.AutomationModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "parameterIds",
+          "type": "var",
+          "default": "model ? model.parameterIds : []",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "timeBoundaries",
+          "type": "var",
+          "default": "[] // strictly increasing signed decimal tick strings",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedParameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedPointId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Keyframe timeline\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectionRequested",
+          "parameters": "string parameterId, string pointId"
+        },
+        {
+          "name": "editRejected",
+          "parameters": "string reason"
+        },
+        {
+          "name": "editCommitted",
+          "parameters": "string transactionId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "decimalCompare",
+          "parameters": "a, b"
+        },
+        {
+          "name": "gridValid",
+          "parameters": ""
+        },
+        {
+          "name": "boundaryIndex",
+          "parameters": "ticks"
+        },
+        {
+          "name": "pointIndex",
+          "parameters": "parameterId, pointId"
+        },
+        {
+          "name": "pointData",
+          "parameters": "parameterId, pointId"
+        },
+        {
+          "name": "fractionForTicks",
+          "parameters": "ticks"
+        },
+        {
+          "name": "choose",
+          "parameters": "parameterId, pointId"
+        },
+        {
+          "name": "applyEdit",
+          "parameters": "request, input"
+        },
+        {
+          "name": "moveSelectedKey",
+          "parameters": "direction"
+        },
+        {
+          "name": "addKey",
+          "parameters": "parameterId, ticks, value"
+        },
+        {
+          "name": "addAtPlayhead",
+          "parameters": ""
+        },
+        {
+          "name": "deleteSelectedKey",
+          "parameters": ""
+        },
+        {
+          "name": "setSelectedInterpolation",
+          "parameters": "interpolation"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "keyframeAddAtPlayhead",
+        "keyframeAxis_",
+        "keyframeDelete",
+        "keyframeKey_",
+        "keyframeLane_",
+        "keyframeParameterPicker",
+        "keyframeStatus",
+        "keyframeTimeline",
+        "keyframeTracks"
       ]
     },
     {
@@ -38365,6 +38920,68 @@
           "name": "release",
           "returns": "QVariantMap",
           "parameters": "const QString &parameterId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "MotionComposition",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Deterministic transform evaluator for a host-owned 2D layer hierarchy. Source pixels, effect rendering and persistence remain outside this type.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/motion_composition.h",
+      "properties": [
+        {
+          "name": "animationModel",
+          "type": "AutomationModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "layers",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "animationModelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "layersChanged",
+          "parameters": ""
+        },
+        {
+          "name": "evaluationChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "evaluate",
+          "returns": "QVariantMap",
+          "parameters": "const QString &timeTicks"
         }
       ],
       "enums": {},

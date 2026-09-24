@@ -707,6 +707,29 @@ The host acknowledgment fixture is `examples/video-edit-surfaces/Main.qml`.
 Its request handler demonstrates the seam with offline media and a stub
 preview; it is not a sequence edit engine or transition renderer.
 
+## Motion and keyframe surfaces
+
+`AutomationModel` remains the typed curve/key store and transaction owner.
+`MotionComposition` resolves a host layer hierarchy at one exact tick time by
+sampling animated properties through that model. It composes 2D affine
+transforms, visibility and opacity in stable z/ID order; source pixel decoding,
+effects, raster composition, persistence and render caches remain host work.
+Malformed IDs, missing parent links, hierarchy cycles, invalid exact ticks and
+missing animated curves return `{ok:false,error}` rather than partial output.
+
+| Type | Snapshot and actions | Requests | Behavior and limits |
+| --- | --- | --- | --- |
+| `MotionComposition` | `animationModel` (`Tk.AutomationModel`), `layers` (`layerId`, optional `parentLayerId`, `sourceId`, integer `zIndex`, visibility, static `transform` and `animatedProperties` mapping transform fields to stable curve IDs); `evaluate(timeTicks)` | Returns `{ok,timeTicks,layers}`; each layer row has stable IDs, inherited visibility/opacity, deterministic z order and affine `matrix` `[m11,m12,m21,m22,dx,dy]` | Exact time is a signed decimal tick string parsed through `TimelineTime`; values come from `AutomationModel.valueAt`, which uses WP-049 step/linear/cubic evaluation and WP-043 `CurveEvaluator`. This is a transform evaluator, not a pixel renderer. objectNames are owned by fixture callers. |
+| `KeyframeTimeline` | `model`, ordered exact-string `timeBoundaries`, `playheadTicks`, `parameterIds`, selected property/key IDs, `editingEnabled`; `moveSelectedKey(direction)`, `addKey(parameterId,ticks,value)`, `addAtPlayhead()`, `deleteSelectedKey()`, `setSelectedInterpolation(mode)` | `selectionRequested(parameterId, pointId)`, `editRejected(reason)`, `editCommitted(transactionId)` | Displays host-provided exact-time grid positions and stable AutomationModel point IDs. Add/move/delete/interpolation changes use one `AutomationModel.applyEdit` transaction each; keyboard Left/Right moves to the adjacent supplied tick and Delete removes the selected key. It does not compute pixels-to-ticks or keep a shadow key list. objectNames `keyframeTimeline`, `keyframeAddAtPlayhead`, `keyframeParameterPicker`, `keyframeDelete`, `keyframeTracks`, `keyframeLane_<parameterId>`, `keyframeAxis_<parameterId>`, `keyframeKey_<pointId>`, `keyframeStatus`. |
+| `DopeSheet` | Host `layers` with stable exposure IDs, exact start/end ticks and artwork IDs; ordered `frameBoundaries`, selected layer/exposure IDs, playhead, pending request and status/error | `selectionRequested(layerId, exposureId)`, `exposureEditRequested(requestId, action, layerId, exposureIds, startTicks, endTicks)` with actions `insertHold`, `retime`, `delete` | Frame-aligned cells are a view of existing artwork references; edits are requests and wait for the next host snapshot. Retime shifts the selected exposure by one boundary while preserving its frame count. It never duplicates, moves or discards artwork itself. objectNames `dopeSheet`, `dopeSheetInsertHold`, `dopeSheetDelete`, `dopeSheetRows`, `dopeSheetLayer_<layerId>`, `dopeSheetExposure_<exposureId>`, `dopeSheetStatus`. |
+| `EffectBrowser` | Effect registry descriptors (`effectId`, label, category, description, compatibility and reason), target layer, document/revision IDs, selected effect, pending preview and status/error; search/category filters | `effectSelectionRequested(effectId)`, `effectPreviewRequested(requestId, effectId, targetLayerId)`, `effectInsertRequested(requestId, effectId, targetLayerId, expectedRevision)`, `previewCancelRequested(requestId, pendingRequestId)` | Compatible effects can request preview or insert against the captured host revision. Incompatible rows remain visible with reasons and reject preview/insertion. The host owns registry capabilities, jobs, graph insertion, parameter UI and undo. objectNames `effectBrowser`, `effectSearch`, `effectCategory`, `effectResults`, `effectResult_<effectId>`, `effectPreview`, `effectCancelPreview`, `effectInsert`. |
+
+The host/model fixture is `examples/motion-authoring/Main.qml`; its transform
+preview is produced from evaluator matrices, its curves are real undoable
+`AutomationModel` records, and its effect preview requests do not claim a
+renderer. The `MotionSection` gallery demonstrates the keyframe, exposure and
+effect request surfaces separately.
+
 ## Notation and score
 
 | Type | Base | Properties | Signals | Notes |

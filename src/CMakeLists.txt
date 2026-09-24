@@ -92,6 +92,7 @@ qt_add_qml_module(qindatk
         core/automation_types.h core/automation_curve.cpp
         core/automation_model.cpp core/automation_model_edit.cpp core/automation_model_qml.cpp
         core/automation_record.cpp core/automation_model.h
+        core/motion_composition.cpp core/motion_composition.h
         core/engine_schedule.cpp core/engine_schedule.h
         core/mock_automation_engine.cpp core/mock_automation_engine.h
         core/timeline_visible_list.cpp core/timeline_visible_list.h
