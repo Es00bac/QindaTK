@@ -504,3 +504,23 @@ snapshot operation that updates winning property values in a single document
 revision. Collaborative reversal requires a fresh operation;
 generic domain merge, version restore, credential lifecycle and remote-network
 transport remain WP-082 work. See [collaboration.md](collaboration.md).
+
+## D-087 — Keep dependency edges keyed by stable asset identity
+
+**Context.** Source paths and resource availability can change while a build
+or editor analysis is running. A stale result must not replace dependencies
+from a newer scan, and a missing file must remain visible as a broken edge.
+
+**Decision.** `AssetDependencyIndex` stores directed edges by stable asset ID.
+The bundled QML adapter assigns project-relative path IDs and replaces only
+one source's outgoing edges per bounded scan. Generic providers use
+`beginScan`/`commitScan` generation tokens; obsolete tokens are rejected.
+Missing targets remain graph nodes. The index computes strongly connected
+cycles and transitive reverse impact; it does not own URI relinking or build
+scheduling.
+
+**Consequences.** A host can show what depends on a missing or replaced
+resource without losing identity. Other formats supply their own extraction
+adapters and submit IDs through the same ingestion API. The host validates
+rebuild eligibility and maps IDs to document transactions or
+`ResourceResolver` relinks. See [asset-dependencies.md](asset-dependencies.md).

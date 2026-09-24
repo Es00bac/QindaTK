@@ -180,6 +180,7 @@ Rectangle {
                 DiffSection { filter: search.text }
                 VersionSection { filter: search.text }
                 PresenceSection { filter: search.text }
+                AssetDependencySection { filter: search.text }
                 HeatmapSection { filter: search.text }
                 DistributionSection { filter: search.text }
                 FinancialSection { filter: search.text }

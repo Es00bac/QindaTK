@@ -33,6 +33,7 @@ pages below are the reference.
 | [format-registry.md](format-registry.md) | Operation-specific import/export providers, preflight receipts, loss acknowledgement and job lifecycle |
 | [settings-workspace.md](settings-workspace.md) | Scoped settings, independent workspace schema, view restore, monitor recovery and shade policy |
 | [assets-jobs.md](assets-jobs.md) | Bounded job queue, asset subscriptions/cache, resource relinking and local media backend |
+| [asset-dependencies.md](asset-dependencies.md) | Stable asset graph, local QML extraction, missing/cycle diagnostics, stale-scan rejection, impact and view requests |
 | [history-feedback.md](history-feedback.md) | Stable edit-history navigation, bounded notifications and task status contracts |
 | [find-replace.md](find-replace.md) | Revision-tagged text search, cancellation and atomic replace transactions |
 | [transfers.md](transfers.md) | Versioned clipboard and drag/drop payloads, destination validation and undoable reference transfers |

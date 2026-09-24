@@ -627,6 +627,144 @@
       ]
     },
     {
+      "name": "AssetDependencyView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (WP-087): the index owns stable asset IDs and graph state. Hosts resolve navigation, relink and rebuild requests; this view is read-only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AssetDependencyView.qml",
+      "properties": [
+        {
+          "name": "index",
+          "type": "Tk.AssetDependencyIndex",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Asset dependencies\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "graphRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleAssets",
+          "type": "var",
+          "default": "index ? index.assets.filter(row =>",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedAsset",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedDependencies",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedDependents",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedImpact",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedDiagnostics",
+          "type": "var",
+          "default": "index ? index.diagnostics.filter(row =>",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "navigateRequested",
+          "parameters": "string assetId"
+        },
+        {
+          "name": "relinkRequested",
+          "parameters": "string assetId"
+        },
+        {
+          "name": "rebuildRequested",
+          "parameters": "string assetId"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "assetDependencyRow_",
+        "assetDependencyView",
+        "dependencyAssetList",
+        "dependencyDetailScroll",
+        "dependencyDiagnostic",
+        "dependencyImpact",
+        "dependencyInput_",
+        "dependencyNavigate",
+        "dependencyRebuild",
+        "dependencyRelink",
+        "dependencySearch",
+        "dependencySelectedTitle",
+        "dependencySelectedUri",
+        "dependencyStatus"
+      ]
+    },
+    {
       "name": "AssetFilmstrip",
       "kind": "qml",
       "base": "Item",
@@ -34885,6 +35023,125 @@
           "name": "announce",
           "returns": "void",
           "parameters": "const QString &message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AssetDependencyIndex",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Stable-ID asset graph. Sources own their outgoing edges; a rescan replaces only that source's edges. Analysis tokens stop older workers overwriting a newer result. The host owns rebuilds and URI relinks.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/asset_dependency_index.h",
+      "properties": [
+        {
+          "name": "projectRoot",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "assets",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "diagnostics",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "assetCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "edgeCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "scanRejected",
+          "parameters": "const QString &sourceId, const QString &reason"
+        }
+      ],
+      "methods": [
+        {
+          "name": "upsertAsset",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &label, const QString &uri, bool available, const QString &kind = QStringLiteral(\"asset\""
+        },
+        {
+          "name": "setAvailable",
+          "returns": "bool",
+          "parameters": "const QString &id, bool available"
+        },
+        {
+          "name": "beginScan",
+          "returns": "QString",
+          "parameters": "const QString &sourceId"
+        },
+        {
+          "name": "commitScan",
+          "returns": "bool",
+          "parameters": "const QString &sourceId, const QString &token, const QStringList &dependencies"
+        },
+        {
+          "name": "scanQmlFile",
+          "returns": "bool",
+          "parameters": "const QString &sourceId"
+        },
+        {
+          "name": "asset",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "dependencies",
+          "returns": "QStringList",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "dependents",
+          "returns": "QStringList",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "affectedBy",
+          "returns": "QStringList",
+          "parameters": "const QString &id"
         }
       ],
       "enums": {},
