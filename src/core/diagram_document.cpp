@@ -194,6 +194,22 @@ bool DiagramDocument::removeNode(const QString &nodeId)
     return true;
 }
 
+bool DiagramDocument::removeNodes(const QStringList &nodeIds)
+{
+    const QSet<QString> unique(nodeIds.cbegin(), nodeIds.cend());
+    if (unique.isEmpty()) { setError(QStringLiteral("Unknown diagram node")); return false; }
+    for (const QString &id : unique)
+        if (nodeIndex(id) < 0) { setError(QStringLiteral("Unknown diagram node")); return false; }
+    rememberEdit();
+    m_state.nodes.removeIf([&](const Node &node) { return unique.contains(node.id); });
+    m_state.edges.removeIf([&](const Edge &edge) {
+        return unique.contains(edge.fromNode) || unique.contains(edge.toNode);
+    });
+    setError({});
+    emit changed();
+    return true;
+}
+
 bool DiagramDocument::moveNode(const QString &nodeId, double x, double y)
 {
     const int index = nodeIndex(nodeId);

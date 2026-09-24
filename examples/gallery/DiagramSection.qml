@@ -4,7 +4,7 @@ import QindaTK as Tk
 
 Section {
     title: "Diagram"
-    note: "DiagramCanvas · DiagramDocument (docs/diagram.md)"
+    note: "DiagramCanvas · SankeyDiagram · DiagramDocument (docs/diagram.md)"
 
     Tk.DiagramDocument {
         id: diagram
@@ -13,7 +13,17 @@ Section {
             const b = addNode(qsTr("Review"), 320, 55)
             const out = addPort(a, qsTr("Work"), "output")
             const input = addPort(b, qsTr("Work"), "input")
-            connectPorts(a, out, b, input)
+            setEdgeFlow(connectPorts(a, out, b, input), 4)
+        }
+    }
+    GalleryRow {
+        label: "SankeyDiagram"
+        Tk.SankeyDiagram {
+            objectName: "gallerySankeyDiagram"
+            implicitWidth: 660
+            implicitHeight: 140
+            document: diagram
+            tooltip: qsTr("Flow bands")
         }
     }
     GalleryRow {
