@@ -2781,6 +2781,133 @@
       ]
     },
     {
+      "name": "CalendarView",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Render host-projected agenda data; event edits and navigation are requests.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CalendarView.qml",
+      "properties": [
+        {
+          "name": "events",
+          "type": "var",
+          "default": "[] // {eventId,title,startLocal,endLocal,zone,allDay,calendarId}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rangeLabel",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEventId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "default": "\"UTC\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "offline",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Calendar agenda\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "navigateRequested",
+          "parameters": "string requestId, string direction"
+        },
+        {
+          "name": "eventSelected",
+          "parameters": "string eventId"
+        },
+        {
+          "name": "eventChangeRequested",
+          "parameters": "string requestId, string eventId, var proposedChange"
+        }
+      ],
+      "methods": [
+        {
+          "name": "navigate",
+          "parameters": "direction"
+        },
+        {
+          "name": "proposeChange",
+          "parameters": "eventId, proposed"
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "id, state"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "calendarAgenda",
+        "calendarEvent_",
+        "calendarNext",
+        "calendarPrevious",
+        "calendarRequestState",
+        "calendarView"
+      ]
+    },
+    {
       "name": "CandlestickView",
       "kind": "qml",
       "base": "Item",
@@ -13313,6 +13440,145 @@
       "objectNames": []
     },
     {
+      "name": "MailView",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Host owns message data and applies each explicit operation request.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/MailView.qml",
+      "properties": [
+        {
+          "name": "messages",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedMessageId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedMessage",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "syncState",
+          "type": "string",
+          "default": "\"idle\" // idle, syncing, offline, error",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "offline",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Mail messages\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "messageSelected",
+          "parameters": "string messageId"
+        },
+        {
+          "name": "refreshRequested",
+          "parameters": "string requestId"
+        },
+        {
+          "name": "actionRequested",
+          "parameters": "string requestId, string messageId, string action"
+        }
+      ],
+      "methods": [
+        {
+          "name": "requestRefresh",
+          "parameters": ""
+        },
+        {
+          "name": "requestAction",
+          "parameters": "messageId, action"
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "requestId, state, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "mailArchive",
+        "mailDelete",
+        "mailError",
+        "mailMessageList",
+        "mailMessage_",
+        "mailReader",
+        "mailReaderBody",
+        "mailRefresh",
+        "mailRequestState",
+        "mailView"
+      ]
+    },
+    {
       "name": "MarkerLane",
       "kind": "qml",
       "base": "Item",
@@ -19720,6 +19986,152 @@
       ]
     },
     {
+      "name": "RecurrenceEditor",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "The host owns recurrence interpretation and preview expansion.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RecurrenceEditor.qml",
+      "properties": [
+        {
+          "name": "rule",
+          "type": "var",
+          "default": "({ frequency: \"weekly\", interval: 1, weekdays: [], endMode: \"never\", count: 0, until: \"\", exceptions: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "eventId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "default": "\"UTC\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Recurrence rule\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "weekdays",
+          "type": "var",
+          "default": "[qsTr(\"Mon\"), qsTr(\"Tue\"), qsTr(\"Wed\"), qsTr(\"Thu\"), qsTr(\"Fri\"), qsTr(\"Sat\"), qsTr(\"Sun\")]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "ruleChangeRequested",
+          "parameters": "string requestId, string eventId, var proposedRule"
+        },
+        {
+          "name": "previewRequested",
+          "parameters": "string requestId, string eventId, var rule"
+        },
+        {
+          "name": "occurrenceExceptionRequested",
+          "parameters": "string requestId, string eventId, string occurrenceId, bool excluded"
+        }
+      ],
+      "methods": [
+        {
+          "name": "propose",
+          "parameters": "field, value"
+        },
+        {
+          "name": "requestPreview",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "id, state, message"
+        },
+        {
+          "name": "requestException",
+          "parameters": "occurrenceId, excluded"
+        },
+        {
+          "name": "toggleWeekday",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "recurrenceCount",
+        "recurrenceEditor",
+        "recurrenceEndMode",
+        "recurrenceFrequency",
+        "recurrenceInterval",
+        "recurrencePreview",
+        "recurrencePreviewState",
+        "recurrenceUntil",
+        "recurrenceWeekday_"
+      ]
+    },
+    {
       "name": "ReferenceManager",
       "kind": "qml",
       "base": "Item",
@@ -20571,6 +20983,143 @@
         "richDocumentPagination",
         "richDocumentTile_",
         "richDocumentVerticalScrollBar"
+      ]
+    },
+    {
+      "name": "RichMailComposer",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Draft fields are host snapshots. Sending is only a request; this view never sends.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RichMailComposer.qml",
+      "properties": [
+        {
+          "name": "draft",
+          "type": "var",
+          "default": "({ to: \"\", cc: \"\", subject: \"\", body: \"\", attachments: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "workingDraft",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "online",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "default": "\"draft\" // draft, pending, accepted, rejected, offline",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Compose message\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasRecipient",
+          "type": "bool",
+          "default": "String(workingDraft.to || \"\").trim().length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validDraft",
+          "type": "bool",
+          "default": "hasRecipient && String(workingDraft.subject || \"\").trim().length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "draftChangeRequested",
+          "parameters": "string field, var value"
+        },
+        {
+          "name": "saveDraftRequested",
+          "parameters": "string requestId, var draft"
+        },
+        {
+          "name": "sendRequested",
+          "parameters": "string requestId, var draft"
+        }
+      ],
+      "methods": [
+        {
+          "name": "snapshot",
+          "parameters": ""
+        },
+        {
+          "name": "editDraft",
+          "parameters": "field, value"
+        },
+        {
+          "name": "requestSave",
+          "parameters": ""
+        },
+        {
+          "name": "requestSend",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "id, state, message"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "composerAttachments",
+        "composerBody",
+        "composerCc",
+        "composerSave",
+        "composerSend",
+        "composerSubject",
+        "composerTo",
+        "richMailComposer"
       ]
     },
     {
@@ -25067,6 +25616,124 @@
         "targetError",
         "targetLegend",
         "targetToolbar"
+      ]
+    },
+    {
+      "name": "TaskBoard",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Host snapshots are authoritative; movement and editing are proposals.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TaskBoard.qml",
+      "properties": [
+        {
+          "name": "columns",
+          "type": "var",
+          "default": "[] // [{status,label,tasks:[{taskId,title,assignee,dueDate,priority}]}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "offline",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filterText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Task board\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "moveRequested",
+          "parameters": "string requestId, string taskId, string fromStatus, string toStatus"
+        },
+        {
+          "name": "editRequested",
+          "parameters": "string requestId, string taskId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "move",
+          "parameters": "taskId, from, to"
+        },
+        {
+          "name": "edit",
+          "parameters": "taskId"
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "id, state, message"
+        },
+        {
+          "name": "includes",
+          "parameters": "task"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "taskBoard",
+        "taskCard_",
+        "taskColumn_",
+        "taskFilter",
+        "taskRequestState"
       ]
     },
     {

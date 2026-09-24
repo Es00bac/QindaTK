@@ -160,6 +160,7 @@ Rectangle {
                 StructureSection { filter: search.text }
                 PopupsSection { filter: search.text }
                 OfficeSection { filter: search.text }
+                ProductivitySection { filter: search.text }
                 RichTextSection { filter: search.text }
                 TelemetrySection { filter: search.text }
                 TimelineSection { filter: search.text }

@@ -214,6 +214,27 @@ receipts, job states and the difference between export and Save.
 | `EmptyState` | Item | `text`, `title`, `iconName`, `maxTextWidth` (320); default: actions | — | centred muted icon + overline title + wrapping caption, lg padding; for empty lists/panels. objectNames `emptyTitle`, `emptyText`. |
 | `Card` | Box | `padding` (`space.md`), `selected`, `interactive`, `tooltip` (from Box) | `clicked` (from Box) | `panelAlt` background, 1px border, radius md; `selected` → accent border; interactive hover lifts the border to `controlHoverBorder` and tints the fill. Interactive cards inherit Box activation, naming and focus-ring behavior; passive cards have no role or tab stop. |
 
+## Productivity workflows
+
+These controls present host-owned snapshots and emit explicit request signals.
+They do not store mail, interpret recurrence rules, mutate event/task snapshots,
+or contact a provider. A host should correlate each request ID, apply or reject
+the proposal, then republish accepted state. Error/offline status is shown next
+to cached data so stale snapshots remain usable.
+
+| Type | Host snapshot | Request signals and acknowledgment | Notes |
+| --- | --- | --- | --- |
+| `MailView` | `messages` (`messageId`, `sender`, `subject`, `snippet`, `bodyPlain`, `bodyTrustMode`, `unread`), `selectedMessageId`, `syncState`, `offline`, `errorText`; read-only `selectedMessage` | `messageSelected(messageId)`, `refreshRequested(requestId)`, `actionRequested(requestId, messageId, action)`; `acknowledge(requestId, state, message)` | Stable message IDs are retained in row objectNames. Reader shows host-provided plain text and trust metadata; it does not render untrusted HTML. Cached messages remain readable offline; archive/delete are rejected offline. `lastRequestId`, `requestState`, and `requestMessage` expose the latest acknowledgment. objectNames `mailMessageList`, `mailMessage_<id>`, `mailReader`, `mailReaderBody`, `mailRefresh`, `mailArchive`, `mailDelete`. |
+| `RichMailComposer` | Host snapshot `draft` (`to`, `cc`, `subject`, `body`, `attachments`), editor buffer `workingDraft`, `online`, `status`, `statusMessage` | `draftChangeRequested(field, value)`, `saveDraftRequested(requestId, draft)`, `sendRequested(requestId, draft)`; `acknowledge(requestId, state, message)` | Edits update a local working buffer and emit host change requests; host republishes `draft` to acknowledge/persist them. Send requires a recipient, subject, and online host. Button text explicitly says “Request send”; fixture and control do not claim delivery. `snapshot()` returns the current typed field map. objectNames `composerTo`, `composerCc`, `composerSubject`, `composerBody`, `composerAttachments`, `composerSave`, `composerSend`. |
+| `CalendarView` | `events` (`eventId`, `title`, `startLocal`, `endLocal`, `zone`, `allDay`, `calendarId`), `rangeLabel`, `selectedEventId`, `zone`, `offline`, `errorText` | `navigateRequested(requestId, direction)`, `eventSelected(eventId)`, `eventChangeRequested(requestId, eventId, proposedChange)`; `acknowledge(requestId, state)` | Agenda-style event list with local wall time and zone shown as supplied. A “Propose move” sends a host proposal; it does not calculate DST or alter an event. objectNames `calendarAgenda`, `calendarEvent_<id>`, `calendarPrevious`, `calendarNext`. |
+| `RecurrenceEditor` | `rule` (`frequency`, `interval`, `weekdays` 1–7, `endMode`, `count`, `until`, `exceptions`), `eventId`, `zone`, `preview`, `previewState`, `requestState`, `requestMessage` | `ruleChangeRequested(requestId, eventId, proposedRule)`, `previewRequested(requestId, eventId, rule)`, `occurrenceExceptionRequested(requestId, eventId, occurrenceId, excluded)`; `acknowledge(requestId, state, message)` | `toggleWeekday(index)` proposes a copied rule; the count/until fields propose an explicit end condition; `requestPreview()` asks the host recurrence service. “Skip once” requests exclusion for a host-supplied occurrence ID. Only host-supplied preview rows are rendered; the view never expands rules. objectNames `recurrenceFrequency`, `recurrenceInterval`, `recurrenceWeekday_<index>`, `recurrenceCount`, `recurrenceUntil`, `recurrencePreview`. |
+| `TaskBoard` | `columns` (`status`, `label`, `tasks`: `taskId`, `title`, `assignee`, `dueDate`, `priority`), `offline`, `errorText`, `filterText` | `moveRequested(requestId, taskId, fromStatus, toStatus)`, `editRequested(requestId, taskId)`; `acknowledge(requestId, state, message)` | Host owns ordering and commits. Each card offers keyboard-accessible edit and labeled move actions to other status columns. `filterText` filters title/assignee. Offline proposals are rejected locally. objectNames `taskFilter`, `taskColumn_<status>`, `taskCard_<id>`. |
+
+The `examples/productivity-suite` fixture uses sample records only. It keeps
+mail offline, acknowledges draft requests without disk writes, blocks delivery,
+and displays a host-provided recurrence preview. It is not a provider or local
+store implementation.
+
 ## Asset-backed media adapters
 
 These controls own one `Tk.AssetProvider` subscription each. They request only

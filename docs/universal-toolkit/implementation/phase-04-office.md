@@ -181,7 +181,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-058"></a>
 ## WP-058 — Implement mail, calendars and task workflows
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-027](phase-02-controls-data.md#wp-027), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-027](phase-02-controls-data.md#wp-027), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-28 MailView](../proposed/05-documents-office.md#off-28), [OFF-29 RichMailComposer](../proposed/05-documents-office.md#off-29), [OFF-30 CalendarView](../proposed/05-documents-office.md#off-30), [OFF-31 RecurrenceEditor](../proposed/05-documents-office.md#off-31), [OFF-32 TaskBoard](../proposed/05-documents-office.md#off-32)
 
