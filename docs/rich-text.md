@@ -112,6 +112,14 @@ comparison. It is valid `qindatk.richtext/1` but not canonical. Measured on
 
 ## Layout
 
+`RichTextDocument.pageSetupMm` supplies canonical millimetre values for
+`PageSetupDialog`. `applyPageSetupMm(settings)` commits document-wide page
+size and margins through the rich-text history in one undo step. Landscape
+and portrait choices orient the physical dimensions before conversion to the
+model's point units. Section/page scopes, multiple columns, gutter and bleed
+return `Unsupported` until the paginator and codec represent them; the
+document stays unchanged on rejection.
+
 Each view owns a `RichTextLayout`, while the document stays authoritative,
 so two views with different widths or modes never share line state.
 Paragraphs are shaped with a standalone `QTextLayout` each (HarfBuzz
@@ -297,4 +305,4 @@ seams are typed; nothing here is a stand-in contract.
 | WP-033 shared framework | Not available; the controls have not been verified against it. |
 | WP-040 canvas / WP-017 assets | Object renderer seam above. `asset:` sources show a placeholder. |
 | UndoService | `PropertyDocument`-only; use `externalUndo` (D-050). |
-| WP-051 | Named styles (`styleId`), merged cells, table editing UI and a page-setup UI. |
+| WP-051 | Style, table, text-frame and page-setup controls are integrated. Document-wide page size and margins connect to rich-text history; named style resolution, merged/table structural edits, linked frames and advanced page geometry remain. |

@@ -32790,6 +32790,13 @@
           "constant": false
         },
         {
+          "name": "pageSetupMm",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "defaultFontFamily",
           "type": "QString",
           "default": "",
@@ -32895,6 +32902,11 @@
           "name": "missingFontFamilies",
           "returns": "QStringList",
           "parameters": ""
+        },
+        {
+          "name": "applyPageSetupMm",
+          "returns": "bool",
+          "parameters": "const QVariantMap &settings"
         }
       ],
       "enums": {},

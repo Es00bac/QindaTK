@@ -121,6 +121,7 @@ qt_add_qml_module(qindatk
         core/rich_text_edit.cpp core/rich_text_history.cpp
         core/rich_text_ops.cpp core/rich_text_ops_p.h
         core/rich_text_structure.cpp core/rich_text_fragment.cpp
+        core/rich_text_page_setup_mm.cpp
         core/rich_text_codec.cpp core/rich_text_codec_read.cpp
         core/rich_text_codec.h core/rich_text_codec_p.h
         core/rich_text_layout.h core/rich_text_layout_p.h core/rich_text_shaping_p.h

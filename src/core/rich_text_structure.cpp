@@ -2,6 +2,7 @@
 // Tables, page breaks, page setup and section moves of RichTextDocument.
 #include "rich_text_document.h"
 #include "rich_text_ops_p.h"
+#include <cmath>
 
 namespace QindaTK {
 using namespace RichText;
@@ -88,7 +89,10 @@ std::optional<Position> RichTextDocument::insertPageBreak(const Position &at)
 
 bool RichTextDocument::setPageSetup(const PageSetup &page)
 {
-    const bool valid = page.widthPt >= 72 && page.heightPt >= 72 && page.widthPt <= 14400
+    const bool valid = std::isfinite(page.widthPt) && std::isfinite(page.heightPt)
+        && std::isfinite(page.marginTopPt) && std::isfinite(page.marginRightPt)
+        && std::isfinite(page.marginBottomPt) && std::isfinite(page.marginLeftPt)
+        && page.widthPt >= 72 && page.heightPt >= 72 && page.widthPt <= 14400
         && page.heightPt <= 14400 && page.marginTopPt >= 0 && page.marginRightPt >= 0
         && page.marginBottomPt >= 0 && page.marginLeftPt >= 0 && page.contentWidthPt() >= 36
         && page.contentHeightPt() >= 36;

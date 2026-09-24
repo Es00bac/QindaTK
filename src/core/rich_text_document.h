@@ -141,6 +141,7 @@ class RichTextDocument : public QObject {
     Q_PROPERTY(QString redoText READ redoText NOTIFY historyChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
     Q_PROPERTY(QVariantMap pageSetup READ pageSetupMap NOTIFY changed)
+    Q_PROPERTY(QVariantMap pageSetupMm READ pageSetupMm NOTIFY changed)
     Q_PROPERTY(QString defaultFontFamily READ defaultFontFamily NOTIFY changed)
     Q_PROPERTY(double defaultFontSize READ defaultFontSize NOTIFY changed)
 public:
@@ -192,6 +193,7 @@ public:
     RichText::PageSetup pageSetupValue() const { return m_page; }
     RichText::DocumentDefaults defaults() const { return m_defaults; }
     QVariantMap pageSetupMap() const;
+    QVariantMap pageSetupMm() const;
     QString defaultFontFamily() const { return m_defaults.family; }
     double defaultFontSize() const { return m_defaults.sizePt; }
 
@@ -279,6 +281,7 @@ public:
     Q_INVOKABLE QString paragraphText(const QString &paragraphId) const;
     Q_INVOKABLE QVariantMap paragraphFormatMap(const QString &paragraphId) const;
     Q_INVOKABLE QStringList missingFontFamilies() const;
+    Q_INVOKABLE bool applyPageSetupMm(const QVariantMap &settings);
 
 signals:
     void changed();

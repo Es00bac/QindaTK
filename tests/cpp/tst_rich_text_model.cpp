@@ -381,6 +381,27 @@ private slots:
         QCOMPARE(doc.paragraphsInOrder().at(1)->text, QStringLiteral("bcd e"));
         QVERIFY(doc.objects().isEmpty());
     }
+
+    void pageSetupDialogValuesCommitAndUndo()
+    {
+        RichTextDocument doc;
+        const PageSetup before = doc.pageSetupValue();
+        QVariantMap settings = doc.pageSetupMm();
+        settings.insert(QStringLiteral("orientation"), QStringLiteral("landscape"));
+        settings.insert(QStringLiteral("marginsMm"), QVariantMap{
+            {QStringLiteral("top"), 16.0}, {QStringLiteral("right"), 18.0},
+            {QStringLiteral("bottom"), 20.0}, {QStringLiteral("left"), 22.0}});
+        QVERIFY(doc.applyPageSetupMm(settings));
+        QVERIFY(doc.pageSetupValue().widthPt > doc.pageSetupValue().heightPt);
+        QVERIFY(qAbs(doc.pageSetupValue().marginLeftPt - 22.0 * 72.0 / 25.4) < 1e-6);
+        QVERIFY(doc.undo());
+        QVERIFY(doc.pageSetupValue() == before);
+
+        settings.insert(QStringLiteral("columns"), 2);
+        QVERIFY(!doc.applyPageSetupMm(settings));
+        QVERIFY(doc.pageSetupValue() == before);
+        QVERIFY(doc.lastError().contains(QStringLiteral("columns")));
+    }
 };
 
 QTEST_GUILESS_MAIN(RichTextModelTest)
