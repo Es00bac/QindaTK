@@ -1,6 +1,11 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Examples
 
+The [live code editor fixture](code-editor-live/Main.qml) connects
+`CodeEditor` to a native `CodeDocument` buffer and revision-tagged sample
+syntax/diagnostic provider. Text remains editable with Qt's IME, selection,
+undo and local save/reopen APIs.
+
 Most examples are plain QML files run by `qtk-preview` and each standalone
 `examples/<name>/Main.qml` is a ctest smoke test (`example_<name>`). The
 `workbench` example has a C++ host and its own `--check` gate, so its QML

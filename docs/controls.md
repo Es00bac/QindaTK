@@ -31,6 +31,11 @@ in [layout.md](layout.md); theming in [theming.md](theming.md); docking in
 
 ## Text
 
+`CodeEditor` and `CodeDocument` provide source editing, local UTF-8
+save/reopen, revision-tagged syntax and diagnostics, line-number gutter,
+find/navigation and native Qt undo/IME behavior. See [code-editor.md](code-editor.md)
+for the provider contract and object names.
+
 | Type | Base | Properties | Notes |
 | --- | --- | --- | --- |
 | `Label` | Text | `muted`, `disabled`, `accent`, `mono`, `selectable` | body 12px, `elide: ElideRight`, `NativeRendering`. `selectable: true` enables mouse/keyboard text selection and copy with Ctrl+C; Ctrl+A selects all. Default false; ordinary text sizing and rendering are unchanged. Its internal selectable overlay is `selectableText`. Constrained no-wrap labels copy the displayed elided string. |
@@ -38,6 +43,13 @@ in [layout.md](layout.md); theming in [theming.md](theming.md); docking in
 | `Overline` | Label | `title`, `wide` | uppercase 10px semibold tracked; the section-header signature. |
 | `Mono` | Label | — | mono family, 11px. |
 | `Heading` | Label | `level` (1 display, 2 title, 3 large) | semibold. |
+
+### Code editing
+
+| Type | Base | Properties and commands | Notes |
+| --- | --- | --- | --- |
+| `CodeDocument` | QObject (C++) | `text`, `revision`, `lineCount`, `modified`, `filePath`, `errorString`, `syntaxTokens`, `diagnostics`, `tokenColors`; `replace`, `undo`, `redo`, `findNext`, `lineColumn`, `load`, `save`, `publishSyntaxTokens`, `publishDiagnostics` | Native `QTextDocument` buffer. Provider results carry a revision and stale results are rejected. UTF-16 offsets; atomic local UTF-8 save. See [code-editor.md](code-editor.md). |
+| `CodeEditor` | T.Control | `document`, `tooltip`, `readOnly`, `showLineNumbers`, `showFindBar`; `editor`, `cursorPosition`, `selectionStart`, `selectionEnd`, `findNext`, `goToLine` | Source text view with syntax colors, diagnostics gutter, search and cursor status. Internal objectNames: `codeFindField`, `codeFindNext`, `codeViewport`, `codeLineGutter`, `codeLineNumber`, `codeScroll`, `codeSourceEdit`, `codeStatus`. |
 
 ## Passive structure
 

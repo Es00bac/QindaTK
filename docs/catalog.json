@@ -4911,6 +4911,164 @@
       ]
     },
     {
+      "name": "CodeEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md): the TextEdit's own QTextDocument is the edit buffer. CodeDocument attaches to it, so IME, cursor, selection, undo, diagnostics, syntax highlighting, and file I/O observe the same text.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CodeEditor.qml",
+      "properties": [
+        {
+          "name": "document",
+          "type": "Tk.CodeDocument",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Code editor\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showLineNumbers",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showFindBar",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ready",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "attachedDocument",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editor",
+          "type": "alias",
+          "default": "sourceEdit",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cursorPosition",
+          "type": "int",
+          "default": "sourceEdit.cursorPosition",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionStart",
+          "type": "int",
+          "default": "sourceEdit.selectionStart",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionEnd",
+          "type": "int",
+          "default": "sourceEdit.selectionEnd",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "firstVisibleLine",
+          "type": "int",
+          "default": "Math.max(0, Math.floor(sourceScroll.contentY / Math.max(1, lineMetrics.height)))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleLineCount",
+          "type": "int",
+          "default": "Math.min(150, Math.ceil(sourceScroll.height / Math.max(1, lineMetrics.height)) + 3)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentAttached",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "syncDocument",
+          "parameters": ""
+        },
+        {
+          "name": "findNext",
+          "parameters": "query, caseSensitive"
+        },
+        {
+          "name": "goToLine",
+          "parameters": "line"
+        },
+        {
+          "name": "hasDiagnostic",
+          "parameters": "line"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "codeEditor",
+        "codeFindField",
+        "codeFindNext",
+        "codeLineGutter",
+        "codeLineNumber",
+        "codeScroll",
+        "codeSourceEdit",
+        "codeStatus",
+        "codeViewport"
+      ]
+    },
+    {
       "name": "ColorButton",
       "kind": "qml",
       "base": "T.AbstractButton",
@@ -36586,6 +36744,172 @@
           "name": "copyImage",
           "returns": "bool",
           "parameters": "const QByteArray &png, const QString &documentId, const QString &entityId, const QString &revision"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CodeDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: CodeEditor attaches its native TextEdit document here. All mutations then pass through that same QTextDocument, retaining Qt's IME, selection, and undo behavior. Provider results carry this model's revision.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/code_document.h",
+      "properties": [
+        {
+          "name": "text",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lineCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "modified",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "filePath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorString",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "syntaxTokens",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "diagnostics",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tokenColors",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "textChanged",
+          "parameters": ""
+        },
+        {
+          "name": "filePathChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "syntaxTokensChanged",
+          "parameters": ""
+        },
+        {
+          "name": "diagnosticsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tokenColorsChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "attach",
+          "returns": "void",
+          "parameters": "QQuickTextDocument *quickDocument"
+        },
+        {
+          "name": "detach",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "replace",
+          "returns": "bool",
+          "parameters": "int start, int length, const QString &value"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "findNext",
+          "returns": "QVariantMap",
+          "parameters": "const QString &needle, int from, bool caseSensitive = false"
+        },
+        {
+          "name": "lineColumn",
+          "returns": "QVariantMap",
+          "parameters": "int position"
+        },
+        {
+          "name": "load",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "save",
+          "returns": "bool",
+          "parameters": "const QString &path = {}"
+        },
+        {
+          "name": "publishSyntaxTokens",
+          "returns": "bool",
+          "parameters": "int sourceRevision, const QVariantList &tokens"
+        },
+        {
+          "name": "publishDiagnostics",
+          "returns": "bool",
+          "parameters": "int sourceRevision, const QVariantList &diagnostics"
         }
       ],
       "enums": {},
