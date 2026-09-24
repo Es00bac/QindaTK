@@ -36,4 +36,43 @@ TestCase {
         compare(source.revision, revision)
         compare(source.syntaxTokens.length, 1)
     }
+
+    function test_multi_cursor_and_completion() {
+        source.text = "a\nb"
+        editor.editor.cursorPosition = 1
+        editor.editor.forceActiveFocus()
+        verify(editor.addCursorBelow())
+        compare(editor.additionalCursors.length, 1)
+        keyClick(Qt.Key_X)
+        compare(source.text, "ax\nbx")
+        verify(source.undo())
+        compare(source.text, "a\nb")
+        editor.clearAdditionalCursors()
+        const revision = source.revision
+        verify(source.publishCompletions(revision, 2, 3,
+                                         [{label: "bee", insertText: "bee"}]))
+        editor.editor.cursorPosition = 3
+        tryCompare(editor, "cursorPosition", 3)
+        verify(editor.acceptCompletion(0))
+        compare(source.text, "a\nbee")
+        verify(!source.publishCompletions(revision, 2, 3, []))
+        editor.editor.cursorPosition = 0
+        mouseClick(editor.editor, 20, 22, Qt.LeftButton, Qt.AltModifier)
+        compare(editor.additionalCursors.length, 1)
+    }
+
+    function test_fold_collapses_native_view_without_changing_source() {
+        source.text = "one\ntwo\nthree\nfour\nfive\nsix\n"
+        const original = source.text
+        wait(50)
+        const expandedHeight = editor.editor.contentHeight
+        verify(source.foldLines(1, 5))
+        tryCompare(source, "visualLineCount", 3)
+        tryVerify(function() { return editor.editor.contentHeight < expandedHeight })
+        compare(source.text, original)
+        compare(source.lineForVisualRow(1), 6)
+        verify(source.unfoldLines(1))
+        tryVerify(function() { return editor.editor.contentHeight >= expandedHeight })
+        compare(source.text, original)
+    }
 }

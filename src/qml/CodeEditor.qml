@@ -18,6 +18,10 @@ T.Control {
     property bool showFindBar: true
     property bool ready: false
     property var attachedDocument: null
+    property var additionalCursors: []
+    property int completionIndex: 0
+    property int foldRefreshOffset: 0
+    property bool editingMultiple: false
     readonly property alias editor: sourceEdit
     readonly property int cursorPosition: sourceEdit.cursorPosition
     readonly property int selectionStart: sourceEdit.selectionStart
@@ -43,6 +47,7 @@ T.Control {
         if (attachedDocument === document) return
         if (attachedDocument) attachedDocument.detach()
         attachedDocument = document
+        additionalCursors = []
         sourceEdit.text = ""
         if (document) {
             document.attach(sourceEdit.textDocument)
@@ -82,6 +87,78 @@ T.Control {
         for (let i = 0; i < items.length; ++i)
             if (items[i].line === line) return true
         return false
+    }
+
+    function addCursorBelow() {
+        if (!document || readOnly) return false
+        const positions = [sourceEdit.cursorPosition].concat(additionalCursors)
+        const last = positions[positions.length - 1]
+        const place = document.lineColumn(last)
+        const next = document.positionForLineColumn(place.line + 1, place.column)
+        if (next < 0 || positions.indexOf(next) >= 0) return false
+        additionalCursors = additionalCursors.concat([next])
+        return true
+    }
+
+    function clearAdditionalCursors() { additionalCursors = [] }
+
+    function editAllCursors(value, operation) {
+        if (!document || readOnly || additionalCursors.length === 0) return false
+        editingMultiple = true
+        const result = document.editCursors([sourceEdit.cursorPosition].concat(additionalCursors),
+                                            value, operation)
+        editingMultiple = false
+        if (result.length !== additionalCursors.length + 1) return false
+        sourceEdit.cursorPosition = result[0]
+        additionalCursors = result.slice(1)
+        return true
+    }
+
+    function acceptCompletion(index) {
+        if (!document || readOnly || !document.applyCompletion(index, sourceEdit.cursorPosition)) return false
+        sourceEdit.forceActiveFocus()
+        return true
+    }
+
+    function foldSelection() {
+        if (!document) return false
+        const anchorPosition = sourceEdit.selectionStart
+        const first = document.lineColumn(anchorPosition).line
+        const end = document.lineColumn(sourceEdit.selectionEnd)
+        const last = end.column === 1 && sourceEdit.selectionEnd > anchorPosition
+                     ? end.line - 1 : end.line
+        if (last <= first) return false
+        const folded = document.foldLines(first, last)
+        if (folded) sourceEdit.cursorPosition = anchorPosition
+        return folded
+    }
+
+    function unfoldAtCursor() {
+        if (!document) return false
+        return document.unfoldLines(document.lineColumn(sourceEdit.cursorPosition).line)
+    }
+
+    Connections {
+        target: control.document
+        function onTextChanged() {
+            if (!control.editingMultiple) control.additionalCursors = []
+        }
+        function onCompletionsChanged() { control.completionIndex = 0 }
+        function onFoldsChanged() {
+            if (control.document) {
+                const line = control.document.lineColumn(sourceEdit.cursorPosition).line
+                for (const fold of control.document.folds) {
+                    if (line > fold.start && line <= fold.end) {
+                        sourceEdit.cursorPosition = control.document.positionForLineColumn(fold.start, 1)
+                        break
+                    }
+                }
+            }
+            // A public font geometry change asks QtQuick TextEdit to recalculate
+            // contentHeight after QTextDocument block visibility changes.
+            control.foldRefreshOffset = 1
+            Qt.callLater(() => { control.foldRefreshOffset = 0 })
+        }
     }
 
     Accessible.role: Accessible.Grouping
@@ -153,19 +230,23 @@ T.Control {
                     model: control.visibleLineCount
                     delegate: Tk.Label {
                         required property int index
-                        readonly property int lineNumber: control.firstVisibleLine + index + 1
+                        readonly property int lineNumber: control.document
+                            ? control.document.lineForVisualRow(control.firstVisibleLine + index) : -1
                         objectName: "codeLineNumber"
                         x: Tk.Theme.space.xs
-                        y: (lineNumber - 1) * lineMetrics.height - sourceScroll.contentY
+                        y: (control.firstVisibleLine + index) * lineMetrics.height - sourceScroll.contentY
                         width: gutter.width - Tk.Theme.space.sm
                         height: lineMetrics.height
                         horizontalAlignment: Text.AlignRight
-                        text: control.document && lineNumber <= control.document.lineCount
+                        text: control.document && lineNumber > 0
                               ? (control.hasDiagnostic(lineNumber) ? "● " : "") + lineNumber : ""
                         color: control.hasDiagnostic(lineNumber)
                                ? Tk.Theme.color.danger : Tk.Theme.color.textMuted
                         font.family: Tk.Theme.font.monoFamily
                         font.pixelSize: Tk.Theme.font.body
+                        TapHandler {
+                            onTapped: if (control.document) control.document.unfoldLines(parent.lineNumber)
+                        }
                     }
                 }
             }
@@ -197,7 +278,7 @@ T.Control {
                     selectionColor: Tk.Theme.color.selection
                     selectedTextColor: Tk.Theme.color.text
                     font.family: Tk.Theme.font.monoFamily
-                    font.pixelSize: Tk.Theme.font.body
+                    font.pixelSize: Tk.Theme.font.body + control.foldRefreshOffset
                     wrapMode: TextEdit.NoWrap
                     textFormat: TextEdit.PlainText
                     renderType: Text.NativeRendering
@@ -211,6 +292,54 @@ T.Control {
                     onCursorRectangleChanged: sourceScroll.ensureVisible(cursorRectangle.x, cursorRectangle.y,
                                                                          cursorRectangle.width, cursorRectangle.height)
                     Keys.onPressed: event => {
+                        if (event.key === Qt.Key_Down
+                            && event.modifiers === (Qt.ControlModifier | Qt.AltModifier)) {
+                            event.accepted = control.addCursorBelow()
+                            return
+                        }
+                        if (event.key === Qt.Key_BracketLeft
+                            && event.modifiers === (Qt.ControlModifier | Qt.ShiftModifier)) {
+                            event.accepted = control.foldSelection()
+                            return
+                        }
+                        if (event.key === Qt.Key_BracketRight
+                            && event.modifiers === (Qt.ControlModifier | Qt.ShiftModifier)) {
+                            event.accepted = control.unfoldAtCursor()
+                            return
+                        }
+                        if (event.key === Qt.Key_Escape && control.additionalCursors.length) {
+                            control.clearAdditionalCursors()
+                            event.accepted = true
+                            return
+                        }
+                        if (completionPanel.visible && (event.key === Qt.Key_Tab || event.key === Qt.Key_Return)) {
+                            event.accepted = control.acceptCompletion(control.completionIndex)
+                            return
+                        }
+                        if (completionPanel.visible && event.key === Qt.Key_Down) {
+                            control.completionIndex = Math.min(control.document.completions.length - 1,
+                                                               control.completionIndex + 1)
+                            event.accepted = true
+                            return
+                        }
+                        if (completionPanel.visible && event.key === Qt.Key_Up) {
+                            control.completionIndex = Math.max(0, control.completionIndex - 1)
+                            event.accepted = true
+                            return
+                        }
+                        if (!sourceEdit.inputMethodComposing && control.additionalCursors.length) {
+                            let action = ""
+                            if (event.key === Qt.Key_Backspace) action = "backspace"
+                            else if (event.key === Qt.Key_Delete) action = "delete"
+                            else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) action = "insert"
+                            else if (event.text.length && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)))
+                                action = "insert"
+                            if (action.length) {
+                                event.accepted = control.editAllCursors(event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                                                                        ? "\n" : event.text, action)
+                                return
+                            }
+                        }
                         if (event.key === Qt.Key_F && event.modifiers === Qt.ControlModifier && control.showFindBar) {
                             findField.forceActiveFocus()
                             findField.selectAll()
@@ -221,6 +350,73 @@ T.Control {
                     Accessible.name: control.tooltip
                     Accessible.multiLine: true
                     Accessible.editable: !control.readOnly
+
+                    TapHandler {
+                        id: addCaretTap
+                        acceptedModifiers: Qt.AltModifier
+                        property int primaryBefore: -1
+                        onPressedChanged: if (pressed) primaryBefore = sourceEdit.cursorPosition
+                        onTapped: eventPoint => {
+                            const position = sourceEdit.positionAt(eventPoint.position.x, eventPoint.position.y)
+                            if (primaryBefore >= 0) sourceEdit.cursorPosition = primaryBefore
+                            if (position >= 0 && control.additionalCursors.indexOf(position) < 0
+                                && position !== primaryBefore)
+                                control.additionalCursors = control.additionalCursors.concat([position])
+                        }
+                    }
+                }
+
+                Repeater {
+                    model: control.additionalCursors
+                    delegate: Rectangle {
+                        required property int modelData
+                        readonly property rect caret: sourceEdit.positionToRectangle(modelData)
+                        x: caret.x
+                        y: caret.y
+                        width: Tk.Theme.size.border
+                        height: caret.height
+                        color: Tk.Theme.color.accent
+                    }
+                }
+
+                Rectangle {
+                    id: completionPanel
+                    objectName: "codeCompletionPanel"
+                    visible: !!control.document && control.document.completions.length > 0
+                             && sourceEdit.cursorPosition === control.document.completionEnd
+                    x: Math.max(sourceScroll.contentX,
+                                Math.min(sourceScroll.contentX + sourceScroll.width - width,
+                                         sourceEdit.cursorRectangle.x))
+                    y: sourceEdit.cursorRectangle.y + sourceEdit.cursorRectangle.height + height
+                       <= sourceScroll.contentY + sourceScroll.height
+                       ? sourceEdit.cursorRectangle.y + sourceEdit.cursorRectangle.height
+                       : sourceEdit.cursorRectangle.y - height
+                    z: 2
+                    width: Tk.Theme.size.fieldWidth
+                    height: completionList.implicitHeight + Tk.Theme.space.xs * 2
+                    color: Tk.Theme.color.panel
+                    border.width: Tk.Theme.size.border
+                    border.color: Tk.Theme.color.inputBorder
+                    radius: Tk.Theme.radius.sm
+                    Tk.Flex {
+                        id: completionList
+                        anchors.fill: parent
+                        anchors.margins: Tk.Theme.space.xs
+                        direction: Tk.Flex.Column
+                        Repeater {
+                            model: control.document ? control.document.completions : []
+                            delegate: Tk.Label {
+                                required property var modelData
+                                required property int index
+                                objectName: "codeCompletionItem"
+                                width: completionList.width
+                                text: modelData.label
+                                color: index === control.completionIndex
+                                       ? Tk.Theme.color.accentText : Tk.Theme.color.text
+                                TapHandler { onTapped: control.acceptCompletion(index) }
+                            }
+                        }
+                    }
                 }
             }
         }

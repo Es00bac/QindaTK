@@ -29,6 +29,10 @@ class CodeDocument : public QObject {
     Q_PROPERTY(QString errorString READ errorString NOTIFY errorChanged)
     Q_PROPERTY(QVariantList syntaxTokens READ syntaxTokens NOTIFY syntaxTokensChanged)
     Q_PROPERTY(QVariantList diagnostics READ diagnostics NOTIFY diagnosticsChanged)
+    Q_PROPERTY(QVariantList completions READ completions NOTIFY completionsChanged)
+    Q_PROPERTY(int completionEnd READ completionEnd NOTIFY completionsChanged)
+    Q_PROPERTY(QVariantList folds READ folds NOTIFY foldsChanged)
+    Q_PROPERTY(int visualLineCount READ visualLineCount NOTIFY foldsChanged)
     Q_PROPERTY(QVariantMap tokenColors READ tokenColors WRITE setTokenColors NOTIFY tokenColorsChanged)
 public:
     struct HighlightSpan { int start; int length; QString kind; };
@@ -44,6 +48,10 @@ public:
     QString errorString() const { return m_error; }
     QVariantList syntaxTokens() const { return m_tokens; }
     QVariantList diagnostics() const { return m_diagnostics; }
+    QVariantList completions() const { return m_completions; }
+    int completionEnd() const { return m_completionEnd; }
+    QVariantList folds() const { return m_folds; }
+    int visualLineCount() const;
     QVariantMap tokenColors() const { return m_tokenColors; }
     void setTokenColors(const QVariantMap &colors);
     const QVector<HighlightSpan> &spansForBlock(int blockNumber) const;
@@ -56,10 +64,19 @@ public:
     Q_INVOKABLE bool redo();
     Q_INVOKABLE QVariantMap findNext(const QString &needle, int from, bool caseSensitive = false) const;
     Q_INVOKABLE QVariantMap lineColumn(int position) const;
+    Q_INVOKABLE int positionForLineColumn(int line, int column) const;
     Q_INVOKABLE bool load(const QString &path);
     Q_INVOKABLE bool save(const QString &path = {});
     Q_INVOKABLE bool publishSyntaxTokens(int sourceRevision, const QVariantList &tokens);
     Q_INVOKABLE bool publishDiagnostics(int sourceRevision, const QVariantList &diagnostics);
+    Q_INVOKABLE bool publishCompletions(int sourceRevision, int start, int end,
+                                        const QVariantList &candidates);
+    Q_INVOKABLE bool applyCompletion(int index, int cursorPosition);
+    Q_INVOKABLE QVariantList editCursors(const QVariantList &positions, const QString &value,
+                                         const QString &operation = QStringLiteral("insert"));
+    Q_INVOKABLE bool foldLines(int firstLine, int lastLine);
+    Q_INVOKABLE bool unfoldLines(int firstLine);
+    Q_INVOKABLE int lineForVisualRow(int row) const;
 
 signals:
     void textChanged();
@@ -67,6 +84,8 @@ signals:
     void errorChanged();
     void syntaxTokensChanged();
     void diagnosticsChanged();
+    void completionsChanged();
+    void foldsChanged();
     void tokenColorsChanged();
 
 private:
@@ -87,6 +106,11 @@ private:
     QVariantList m_tokens;
     QHash<int, QVector<HighlightSpan>> m_spansByBlock;
     QVariantList m_diagnostics;
+    QVariantList m_completions;
+    int m_completionRevision = -1;
+    int m_completionStart = -1;
+    int m_completionEnd = -1;
+    QVariantList m_folds;
     QVariantMap m_tokenColors;
     QString m_lastText;
     bool m_rehighlighting = false;

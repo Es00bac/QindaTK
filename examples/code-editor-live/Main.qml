@@ -42,6 +42,18 @@ Item {
         ])
     }
 
+    function showAuthoringFeatures() {
+        source.foldLines(2, 4)
+        const start = source.text.indexOf("undefinedSymbol")
+        const end = start + "undefinedSymbol".length
+        editor.editor.cursorPosition = end
+        editor.additionalCursors = [source.positionForLineColumn(7, 7)]
+        source.publishCompletions(source.revision, start, end, [
+            { label: "definedSymbol()", insertText: "definedSymbol" },
+            { label: "documentSymbol()", insertText: "documentSymbol" }
+        ])
+    }
+
     Timer {
         id: providerTimer
         interval: 90
@@ -75,7 +87,10 @@ Item {
                 Tk.Flex.flex: 1
                 document: source
                 tooltip: qsTr("Editable source code")
-                onDocumentAttached: fixture.publishProviderResults()
+                onDocumentAttached: {
+                    fixture.publishProviderResults()
+                    Qt.callLater(fixture.showAuthoringFeatures)
+                }
             }
             Tk.Flex {
                 direction: Tk.Flex.Column
@@ -97,7 +112,7 @@ Item {
                     wrapMode: Text.Wrap
                 }
                 Tk.Label {
-                    text: qsTr("Edit the code, search with Ctrl+F, or press Next. The sample provider republishes after each edit.")
+                    text: qsTr("The function body starts folded. Click its line number to expand it. Ctrl+Alt+Down adds a caret; Alt+click places one. Suggestions are revision-tagged and Tab applies one.")
                     muted: true
                     wrapMode: Text.Wrap
                 }

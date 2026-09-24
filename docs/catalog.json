@@ -5309,6 +5309,38 @@
           "required": false
         },
         {
+          "name": "additionalCursors",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "completionIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "foldRefreshOffset",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingMultiple",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "editor",
           "type": "alias",
           "default": "sourceEdit",
@@ -5379,6 +5411,30 @@
         {
           "name": "hasDiagnostic",
           "parameters": "line"
+        },
+        {
+          "name": "addCursorBelow",
+          "parameters": ""
+        },
+        {
+          "name": "clearAdditionalCursors",
+          "parameters": ""
+        },
+        {
+          "name": "editAllCursors",
+          "parameters": "value, operation"
+        },
+        {
+          "name": "acceptCompletion",
+          "parameters": "index"
+        },
+        {
+          "name": "foldSelection",
+          "parameters": ""
+        },
+        {
+          "name": "unfoldAtCursor",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -5390,6 +5446,8 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "codeCompletionItem",
+        "codeCompletionPanel",
         "codeEditor",
         "codeFindField",
         "codeFindNext",
@@ -38591,6 +38649,34 @@
           "constant": false
         },
         {
+          "name": "completions",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "completionEnd",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "folds",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "visualLineCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "tokenColors",
           "type": "QVariantMap",
           "default": "",
@@ -38617,6 +38703,14 @@
         },
         {
           "name": "diagnosticsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "completionsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "foldsChanged",
           "parameters": ""
         },
         {
@@ -38661,6 +38755,11 @@
           "parameters": "int position"
         },
         {
+          "name": "positionForLineColumn",
+          "returns": "int",
+          "parameters": "int line, int column"
+        },
+        {
           "name": "load",
           "returns": "bool",
           "parameters": "const QString &path"
@@ -38679,6 +38778,36 @@
           "name": "publishDiagnostics",
           "returns": "bool",
           "parameters": "int sourceRevision, const QVariantList &diagnostics"
+        },
+        {
+          "name": "publishCompletions",
+          "returns": "bool",
+          "parameters": "int sourceRevision, int start, int end, const QVariantList &candidates"
+        },
+        {
+          "name": "applyCompletion",
+          "returns": "bool",
+          "parameters": "int index, int cursorPosition"
+        },
+        {
+          "name": "editCursors",
+          "returns": "QVariantList",
+          "parameters": "const QVariantList &positions, const QString &value, const QString &operation = QStringLiteral(\"insert\""
+        },
+        {
+          "name": "foldLines",
+          "returns": "bool",
+          "parameters": "int firstLine, int lastLine"
+        },
+        {
+          "name": "unfoldLines",
+          "returns": "bool",
+          "parameters": "int firstLine"
+        },
+        {
+          "name": "lineForVisualRow",
+          "returns": "int",
+          "parameters": "int row"
         }
       ],
       "enums": {},

@@ -19,8 +19,9 @@ explicit descriptor and Load actions.
 
 The [live code editor fixture](code-editor-live/Main.qml) connects
 `CodeEditor` to a native `CodeDocument` buffer and revision-tagged sample
-syntax/diagnostic provider. Text remains editable with Qt's IME, selection,
-undo and local save/reopen APIs.
+syntax/diagnostic provider. It opens with a folded function, an extra caret,
+and revision-tagged completion choices. Text remains editable with Qt's IME,
+selection, undo and local save/reopen APIs.
 
 Most examples are plain QML files run by `qtk-preview` and each standalone
 `examples/<name>/Main.qml` is a ctest smoke test (`example_<name>`). The

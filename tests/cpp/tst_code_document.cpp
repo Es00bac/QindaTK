@@ -13,6 +13,7 @@ private slots:
     void unicodeEditHistoryAndFind();
     void rejectsStaleProviderResults();
     void utf8SaveReopen();
+    void multiCursorAndCompletions();
 };
 
 void CodeDocumentTest::unicodeEditHistoryAndFind()
@@ -73,6 +74,29 @@ void CodeDocumentTest::utf8SaveReopen()
     QFile file(path);
     QVERIFY(file.open(QIODevice::ReadOnly));
     QCOMPARE(QString::fromUtf8(file.readAll()), document.text());
+}
+
+void CodeDocumentTest::multiCursorAndCompletions()
+{
+    CodeDocument document;
+    document.setText(QStringLiteral("a\nb"));
+    const QVariantList positions = document.editCursors({1, 3}, QStringLiteral("🦊"));
+    QCOMPARE(positions.size(), 2);
+    QCOMPARE(document.text(), QStringLiteral("a🦊\nb🦊"));
+    QCOMPARE(positions.at(0).toInt(), 3);
+    QCOMPARE(positions.at(1).toInt(), 7);
+    QVERIFY(document.editCursors({2}, QStringLiteral("x")).isEmpty());
+    QVERIFY(document.undo());
+    QCOMPARE(document.text(), QStringLiteral("a\nb"));
+    const int revision = document.revision();
+    const QVariantMap suggestion {{QStringLiteral("label"), QStringLiteral("bee")},
+                                  {QStringLiteral("insertText"), QStringLiteral("bee")}};
+    QVERIFY(document.publishCompletions(revision, 2, 3, {suggestion}));
+    QVERIFY(!document.applyCompletion(0, 2));
+    QVERIFY(document.applyCompletion(0, 3));
+    QCOMPARE(document.text(), QStringLiteral("a\nbee"));
+    QVERIFY(document.completions().isEmpty());
+    QVERIFY(!document.publishCompletions(revision, 2, 3, {}));
 }
 
 QTEST_MAIN(CodeDocumentTest)
