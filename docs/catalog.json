@@ -2989,6 +2989,266 @@
       "objectNames": []
     },
     {
+      "name": "CaptionEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: caption host owns cue content, exact timing, style semantics, overlap rules, serialization, rendering/export and undo. This editor displays supplied interval geometry and submits text/style/timing requests only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CaptionEditor.qml",
+      "properties": [
+        {
+          "name": "sourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trackId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cues",
+          "type": "var",
+          "default": "[] // {id, inTime, outTime, x0, x1, lane, text, language, styleId}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "timeMarks",
+          "type": "var",
+          "default": "[] // host supplied {x, time, label}; exact time strings",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "moveTargets",
+          "type": "var",
+          "default": "[] // host supplied {x, inTime, outTime} pairs for exact shifts",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "styles",
+          "type": "var",
+          "default": "[] // host supplied {id, label, supported, reason}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedCueId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedCueText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedCueStyleId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedCueLanguage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editAcknowledgement",
+          "type": "var",
+          "default": "({ status: \"\", message: \"\" })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "warningText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "effectiveStatus",
+          "type": "string",
+          "default": "root.statusText.length ? root.statusText",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "cueSelectionRequested",
+          "parameters": "string sourceId, string trackId, string cueId"
+        },
+        {
+          "name": "cueEditPreviewRequested",
+          "parameters": "string requestId, string sourceId, string trackId, string cueId, string operation, string inTime, string outTime, string text, string styleId"
+        },
+        {
+          "name": "cueEditCommitRequested",
+          "parameters": "string requestId, string sourceId, string trackId, string cueId, string operation, string inTime, string outTime, string text, string styleId"
+        },
+        {
+          "name": "cueEditCanceled",
+          "parameters": "string requestId, string sourceId, string trackId, string cueId"
+        },
+        {
+          "name": "navigationRequested",
+          "parameters": "string sourceId, string cueId, string direction"
+        },
+        {
+          "name": "exportRequested",
+          "parameters": "string sourceId, string trackId, string formatId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "cueById",
+          "parameters": "id"
+        },
+        {
+          "name": "styleIndex",
+          "parameters": "id"
+        },
+        {
+          "name": "requestId",
+          "parameters": "prefix"
+        },
+        {
+          "name": "requestCueSelection",
+          "parameters": "id"
+        },
+        {
+          "name": "requestExport",
+          "parameters": "formatId"
+        },
+        {
+          "name": "syncDraftFromHost",
+          "parameters": ""
+        },
+        {
+          "name": "currentCueTimes",
+          "parameters": ""
+        },
+        {
+          "name": "previewText",
+          "parameters": "text"
+        },
+        {
+          "name": "previewStyle",
+          "parameters": "styleId"
+        },
+        {
+          "name": "commitTextAndStyle",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTextAndStyle",
+          "parameters": ""
+        },
+        {
+          "name": "nearestTimeMark",
+          "parameters": "x"
+        },
+        {
+          "name": "nearestMoveTarget",
+          "parameters": "x"
+        },
+        {
+          "name": "hitCue",
+          "parameters": "x, y"
+        },
+        {
+          "name": "beginCueGesture",
+          "parameters": "cueId, operation, x"
+        },
+        {
+          "name": "updateCueGesture",
+          "parameters": "x"
+        },
+        {
+          "name": "finishCueGesture",
+          "parameters": ""
+        },
+        {
+          "name": "cancelCueGesture",
+          "parameters": ""
+        },
+        {
+          "name": "css",
+          "parameters": "c"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "captionApply",
+        "captionCancel",
+        "captionEditor",
+        "captionEditorStatus",
+        "captionStyleChoice",
+        "captionTextEditor",
+        "captionTimelineCanvas"
+      ]
+    },
+    {
       "name": "Card",
       "kind": "qml",
       "base": "Tk.Box",
@@ -4756,6 +5016,174 @@
         "swatchCustom",
         "swatchGrid",
         "swatch_"
+      ]
+    },
+    {
+      "name": "ColorWheels",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: the grade host defines parameter spaces, ranges, linkage, reset semantics, transactions and color math. Each wheel descriptor supplies current x/y values and numeric bounds; this view only previews and requests.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ColorWheels.qml",
+      "properties": [
+        {
+          "name": "gradeId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "parameterRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "wheels",
+          "type": "var",
+          "default": "[] // {id,label,x,y,minimumX,maximumX,minimumY,maximumY,stepX,stepY,enabled}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedWheelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editAcknowledgement",
+          "type": "var",
+          "default": "({ status: \"\", message: \"\" })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "effectiveStatus",
+          "type": "string",
+          "default": "root.statusText.length ? root.statusText",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumWheels",
+          "type": "int",
+          "default": "8",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "wheelSelectionRequested",
+          "parameters": "string gradeId, string wheelId"
+        },
+        {
+          "name": "wheelPreviewRequested",
+          "parameters": "string gestureId, string gradeId, string wheelId, real x, real y"
+        },
+        {
+          "name": "wheelEditFinished",
+          "parameters": "string gestureId, string gradeId, string wheelId, real x, real y"
+        },
+        {
+          "name": "wheelEditCanceled",
+          "parameters": "string gestureId, string gradeId, string wheelId"
+        },
+        {
+          "name": "resetRequested",
+          "parameters": "string gradeId, string wheelId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "wheelAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "wheelById",
+          "parameters": "id"
+        },
+        {
+          "name": "beginWheelEdit",
+          "parameters": "wheelId, x, y"
+        },
+        {
+          "name": "updateWheelAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "finishWheelEdit",
+          "parameters": ""
+        },
+        {
+          "name": "cancelWheelEdit",
+          "parameters": ""
+        },
+        {
+          "name": "nudgeSelected",
+          "parameters": "dx, dy"
+        },
+        {
+          "name": "requestReset",
+          "parameters": "wheelId"
+        },
+        {
+          "name": "css",
+          "parameters": "c"
+        },
+        {
+          "name": "repaint",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "colorWheelCanvas",
+        "colorWheels",
+        "colorWheelsStatus"
       ]
     },
     {

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, 23 active, three in review, and 25 planned.**
+**Execution state: 33 packages accepted, 24 active, three in review, and 24 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -106,7 +106,7 @@ as though a later fix had already passed the earlier run.
 | [WP-068 — Implement pitch analysis and correction editing](phase-05-audio.md#wp-068) | 05 | Sol | active | [PitchEditor integrated; analysis and correction DSP pending](evidence/WP-068.md) |
 | [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | active | [Monitor/bin controls and local frame decode integrated; playback and frame lifecycle pending](evidence/WP-070.md) |
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | planned | — |
-| [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | planned | — |
+| [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [CaptionEditor and ColorWheels integrated; scopes and media backends pending](evidence/WP-072.md) |
 | [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | planned | — |
 | [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | planned | — |
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | planned | — |

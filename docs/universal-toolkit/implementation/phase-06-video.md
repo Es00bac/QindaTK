@@ -57,7 +57,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-072"></a>
 ## WP-072 — Implement captions, scopes and grading controls
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-050](phase-04-office.md#wp-050), [WP-070](phase-06-video.md#wp-070)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-050](phase-04-office.md#wp-050), [WP-070](phase-06-video.md#wp-070)
 
 **Proposal scope:** [VID-06 CaptionEditor](../proposed/07-video-motion.md#vid-06), [VID-07 VideoScopes](../proposed/07-video-motion.md#vid-07), [VID-08 ColorWheels](../proposed/07-video-motion.md#vid-08)
 

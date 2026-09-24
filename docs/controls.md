@@ -657,6 +657,13 @@ on `gestureStarted`, apply previews on `valuePreview`, commit on
 The live fixture is `examples/audio-controls/Main.qml`; its synthetic snapshots
 are explicitly demonstration data, not measured audio.
 
+## Video controls
+
+| Type | Base | Properties | Signals | Notes |
+| --- | --- | --- | --- | --- |
+| `CaptionEditor` | T.Control | `sourceId`, `trackId`, host `cues` (stable ID, exact `inTime`/`outTime`, normalized display geometry, text, language, style ID), `timeMarks`, exact paired `moveTargets`, host `styles`, selected cue/text/style/language, `warningText`, `editAcknowledgement` (`status`, `message`), `editingEnabled`, `tooltip` | `cueSelectionRequested`, `cueEditPreviewRequested`, `cueEditCommitRequested`, `cueEditCanceled`, `navigationRequested`, `exportRequested` | Cue text/style requests remain host-owned; timing drags map to exact host time marks or paired move targets without time arithmetic. Text is exposed to assistive technology separately from video pixels. The host owns overlap policy, sidecar/embedded support, rendering/export, persistence and undo. objectNames `captionEditor`, `captionTimelineCanvas`, `captionTextEditor`, `captionStyleChoice`, `captionEditorStatus`. |
+| `ColorWheels` | T.Control | `gradeId`, `parameterRevision`, host `wheels` (stable ID, label, current x/y, declared numeric ranges and steps), `selectedWheelId`, `editAcknowledgement`, `editingEnabled`, `statusText`, `tooltip` | `wheelSelectionRequested`, `wheelPreviewRequested`, `wheelEditFinished`, `wheelEditCanceled`, `resetRequested` | Neutral parameter pads visualize host values and ranges. Drag sends preview then finish; Escape cancels; arrow keys request a bounded nudge using host step/range descriptors and Home requests reset. The host defines grade math, linkage, reset semantics, transaction, processing and preview/export. Wheel colors are themed affordances, not a rendered grade. objectNames `colorWheels`, `colorWheelCanvas`, `colorWheelsStatus`. |
+
 ## Notation and score
 
 | Type | Base | Properties | Signals | Notes |
