@@ -36,6 +36,10 @@ The audio graph and DSP remain a host/backend integration task.
 The [calibrated audio controls fixture](audio-controls/Main.qml) exercises
 `Knob`, `Fader`, `AudioMeter`, and `LoudnessHistory` with provider snapshots.
 
+The [waveform and spectrogram fixture](waveform-spectrogram/Main.qml)
+exercises `WaveformEditor` and `SpectrogramView` with exact sample selection
+requests and host-owned spectral snapshots.
+
 ```
 P=build/dev/tools/preview/qtk-preview
 $P examples/gallery/Main.qml                       # on screen

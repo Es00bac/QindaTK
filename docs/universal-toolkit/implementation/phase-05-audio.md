@@ -76,7 +76,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-063"></a>
 ## WP-063 — Implement waveform and spectral editing
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-048](phase-03-authoring.md#wp-048), [WP-060](phase-05-audio.md#wp-060)
+**Implementation lead:** Sol. **Status:** active (host-backed editor controls integrated; signal/DSP backend pending). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-048](phase-03-authoring.md#wp-048), [WP-060](phase-05-audio.md#wp-060)
 
 **Proposal scope:** [AUD-20 WaveformEditor](../proposed/06-audio-music.md#aud-20), [AUD-21 SpectrogramView](../proposed/06-audio-music.md#aud-21)
 
