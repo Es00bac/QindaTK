@@ -1025,3 +1025,63 @@ binding it began on and cancel it if a recycled delegate changes the binding.
 thread, and a frame never mixes two slot layouts. A gesture survives a track
 reorder and a bank or visibility change, and a delegate can never commit into
 another channel.
+
+## D-118 — Plan NLE edits in the timeline from clip records, on frame starts
+
+**Context.** VID-03 needs roll, ripple, slip and slide that stay inside legal
+media and land on frames, including when media is offline, and must share
+the timeline's transactions and history. **Decision.** Roll, slip and slide
+are `TimelineModel` edit kinds beside WP-048's ripple trims, planned by the
+same pure planner. Every bound comes from the clip records (`sourceOffset`,
+`sourceDuration`, neighbours, minimum length), never from decoded media;
+with `frameExact` the moved edit point lands on the nearest program frame
+start inside the legal range (or does not move). `SequenceEditor` runs the
+views' previews as ordinary revision-guarded sessions. **Consequences.** An
+offline clip trims exactly like an online one and keeps its exact source
+offsets; previews, commits and undo behave like every other timeline edit;
+a clip whose recorded length is unknown has an unbounded tail.
+
+## D-119 — Link picture and sound by a shared link ID
+
+**Context.** Audio-linked selections must move, trim, split and switch
+together without a second placement store. **Decision.** Clips carry an
+optional `linkId`; a request with `linked` expands its selection to every
+clip in the selected clips' groups and applies the same edit to each (a
+roll's partners follow the side they belong to; vertical moves keep partners
+on their tracks). Split, paste and source switches give the new parts a
+group derived from the operation (UUIDv5), so new left and right parts stay
+paired. **Consequences.** Linking is document data that persists and undoes
+with the clips; a locked partner refuses a linked edit instead of letting
+picture and sound drift apart.
+
+## D-120 — Store a transition on its incoming clip and evaluate it once for playback and export
+
+**Context.** VID-05 needs transitions with explicit handle rules that
+preview and export the same frames. **Decision.** A transition is a field of
+the incoming clip: type, exact ticks before and after the cut, alignment and
+string parameters; its window moves with the cut. Setting one requires an
+outgoing clip ending at the incoming clip's start and enough head and tail
+handle. After any other edit the planner drops a transition whose cut no
+longer exists (in the same change set) and refuses an edit that leaves too
+little handle. `MediaProgram` extends both spans over the window and
+`MediaTransition` evaluates it: the weight at each frame's midpoint rounded
+once to 1/65536, an integer channel blend, and per-sample linear or
+equal-power gains for sound. **Consequences.** Transitions need no new
+record kind, history or persistence path; a 4-frame dissolve is 1/8, 3/8,
+5/8, 7/8 in the monitor, the queued export and the file; paste and split
+parts start without transitions.
+
+## D-121 — Make a multicam cut a source switch positioned by the sync map
+
+**Context.** VID-04 needs angle switching during playback with stable sync
+after reopen, and an explicit audio policy. **Decision.** `MulticamModel`
+holds the angle table (resource, sync offset, available length) over one
+program track of ordinary clips. A switch is one frame-exact `switchSource`
+transaction: the program clip is cut at the switch time and the part after
+it shows the new angle at `(T − syncStart) + syncOffset`, computed from the
+sync map rather than from the clip being cut; `audioFollowsVideo` decides
+whether the linked sound is cut and switched too. **Consequences.** Switches
+never accumulate drift, undo removes one cut at a time, the saved timeline
+plus the angle table reopens the same cuts (the angle is recovered from each
+clip's resource), and program playback and export need no multicam-specific
+rendering.

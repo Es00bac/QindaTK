@@ -126,6 +126,14 @@ per side, 10,000,000 indexed frames, 60 seconds of audio per read.
   source time outside the media is reported in `outOfRangeClipIds`, never
   drawn from a neighbouring frame.
 
+### Transitions in programs (WP-071)
+
+A clip's transition extends the outgoing and incoming spans over its window
+and marks them with it (`MediaClipSpan::fadeIn`/`fadeOut`, carried in the
+program JSON). `render` blends the two sides and `mixAudio` crossfades them
+with `MediaTransition`, the one evaluator playback and export share. See
+[sequence-edits.md](sequence-edits.md#evaluation).
+
 ## Playback engine (D-098)
 
 `MediaPlaybackEngine` implements `TransportAdapter`; `TransportModel` is its

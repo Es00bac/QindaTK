@@ -136,6 +136,11 @@ qindatk_add_test(tst_media_decode)
 qindatk_add_test(tst_media_program)
 qindatk_add_test(tst_media_playback)
 qindatk_add_test(tst_media_catalog)
+# WP-071 sequence edits: planner (no media), editor/multicam backends (no
+# media) and rendered/exported output (QSKIPs without FFmpeg).
+qindatk_add_test(tst_sequence_edits)
+qindatk_add_test(tst_sequence_editor)
+qindatk_add_test(tst_sequence_render)
 qindatk_add_test(tst_pdf_annotation_document)
 qindatk_add_test(tst_asset_provider)
 qindatk_add_test(tst_resource_async)

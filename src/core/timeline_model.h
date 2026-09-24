@@ -93,6 +93,8 @@ public:
     qint64 trackMaxDuration(const QUuid &trackId) const;
     QVector<QUuid> clipsInRange(const QUuid &trackId, qint64 start, qint64 end,
                                 int limit = std::numeric_limits<int>::max()) const;
+    // Committed clips whose linkId is `linkId`, sorted by ID; empty for a null ID.
+    QVector<QUuid> linkedClips(const QUuid &linkId) const;
     const std::vector<EdgeEntry> &clipEdges() const;    // lazy, committed
     const std::vector<EdgeEntry> &markerEdges() const;  // lazy, committed
     // Committed markers whose [position, position + duration] meets
@@ -316,6 +318,10 @@ private:
     mutable qint64 m_markerMaxDuration = 0;
     mutable bool m_clipEdgesDirty = true;
     mutable bool m_markerEdgesDirty = true;
+    mutable QHash<QUuid, QVector<QUuid>> m_links;   // linkId -> clips, rebuilt per revision
+    mutable quint64 m_linksRevision = 0;
+    mutable quint64 m_linksGeneration = 0;
+    mutable bool m_linksValid = false;
     qint64 m_contentEnd = 0;
     bool m_hasRange = false;
     qint64 m_rangeStart = 0;

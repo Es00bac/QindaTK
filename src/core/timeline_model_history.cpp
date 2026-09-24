@@ -51,7 +51,9 @@ quint64 TimelineModel::cost(const TimelineChangeSet &changes)
         for (const auto *clip : {change.clipBefore ? &*change.clipBefore : nullptr,
                                  change.clipAfter ? &*change.clipAfter : nullptr})
             if (clip) bytes += textCost(clip->label) + textCost(clip->resourceId)
-                             + textCost(clip->color) + textCost(clip->kind);
+                             + textCost(clip->color) + textCost(clip->kind)
+                             + textCost(clip->transition.type)
+                             + quint64(clip->transition.parameters.size()) * 64;
         for (const auto *marker : {change.markerBefore ? &*change.markerBefore : nullptr,
                                    change.markerAfter ? &*change.markerAfter : nullptr})
             if (marker) bytes += textCost(marker->label) + textCost(marker->color) + textCost(marker->kind);

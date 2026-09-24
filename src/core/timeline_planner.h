@@ -40,6 +40,32 @@ public:
     static void planTrack(Context &context);
     static void planInsert(Context &context);
     static void finish(Context &context);
+    // Emits one change per clip in `after` that differs from its committed state.
+    static void emitClips(Context &context, const QHash<QUuid, TimelineClip> &after);
+
+    // Sequence edits (timeline_planner_nle.cpp, docs/sequence-edits.md).
+    static void planRoll(Context &context);
+    static void planSlip(Context &context);
+    static void planSlide(Context &context);
+    static void planTransition(Context &context);
+    // Drops transitions whose cut an edit removed and reports ones whose
+    // handles it made insufficient (a soft error); called from finish().
+    static void reconcileTransitions(Context &context);
+    // The frame start nearest `ticks` (TimeMap frame rate, program origin).
+    static std::optional<qint64> framePoint(const TimelineModel &model, qint64 ticks);
+    // `delta` for an edit point at `point` clamped into [low, high]; with
+    // request.frameExact the moved point lands on a frame start in range.
+    // std::nullopt when no legal value exists.
+    static std::optional<qint64> legalDelta(const Context &context, qint64 point, qint64 delta,
+                                            qint64 low, qint64 high);
+    // Tail handle of a clip in source ticks (the int64 maximum when unbounded).
+    static qint64 tailRoom(const Context &context, const TimelineClip &clip);
+
+    // Links and source switches (timeline_planner_links.cpp).
+    static QVector<QUuid> withLinked(const TimelineModel &model, const QVector<QUuid> &ids);
+    static QUuid derivedLinkId(const QString &operationId, const QUuid &linkId);
+    static void planLink(Context &context);
+    static void planSwitchSource(Context &context);
     static OperationError error(ErrorCode code, const QString &message,
                                 const QString &field = {});
     static QString clipName(const TimelineClip &clip);

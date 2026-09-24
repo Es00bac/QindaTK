@@ -3,11 +3,16 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// Synchronized angle snapshot and explicit switch requests. Playback, source
-// offsets and cut creation belong to the sequence host.
+// AGENT-CONTRACT: two modes (docs/controls.md "MulticamView",
+// docs/sequence-edits.md "Multicam"). Host mode: a synchronized angle snapshot
+// and explicit switch requests; playback, source offsets and cuts belong to
+// the host. Multicam mode (`multicam` set): a Tk.MulticamModel supplies the
+// angles, playhead and program angle, and a click is a frame-exact
+// SwitchSource transaction on its timeline, acknowledged at once.
 Item {
     id: root
     property var angles: [] // {angleId,label,resourceId,syncOffsetTicks,frameId,available,active}
+    property Tk.MulticamModel multicam: null
     property var assetProvider: null
     property var document: null
     property string viewId: ""
@@ -25,7 +30,14 @@ Item {
     signal seekAngleRequested(string angleId, string frameId, string atTicks)
     signal switchAcknowledged(string requestId, bool accepted, string activeAngleId, string message)
 
-    readonly property int angleCount: angles ? angles.length : 0
+    readonly property bool multicamMode: root.multicam !== null
+    readonly property var effectiveAngles: root.multicamMode ? root.multicam.angles : root.angles
+    readonly property string effectivePlayheadTicks: root.multicamMode ? root.multicam.playheadTicks : root.playheadTicks
+    readonly property string effectiveActiveAngleId: root.multicamMode ? root.multicam.activeAngleId : root.activeAngleId
+    readonly property string effectiveRateNumerator: root.multicamMode ? root.multicam.frameRateNumerator : root.rateNumerator
+    readonly property string effectiveRateDenominator: root.multicamMode ? root.multicam.frameRateDenominator : root.rateDenominator
+    readonly property string effectiveError: root.multicamMode && root.multicam.lastError.length ? root.multicam.lastError : root.errorText
+    readonly property int angleCount: effectiveAngles ? effectiveAngles.length : 0
     readonly property bool snapshotValid: root.validateAngles()
 
     objectName: "multicamView"
@@ -34,24 +46,26 @@ Item {
         + Tk.Theme.size.controlLg * 2 + Tk.Theme.space.lg * 3
     Accessible.role: Accessible.Pane
     Accessible.name: root.tooltip
-    Accessible.description: root.errorText.length ? root.errorText
+    Accessible.description: root.effectiveError.length ? root.effectiveError
         : !snapshotValid ? qsTr("Angle snapshot has invalid IDs, sync offsets, or playhead time.")
-        : qsTr("%1 angles. Active angle %2 at %3 ticks.").arg(angleCount).arg(activeAngleId).arg(playheadTicks)
+        : qsTr("%1 angles. Active angle %2 at %3 ticks.").arg(angleCount).arg(effectiveActiveAngleId).arg(effectivePlayheadTicks)
 
     function isTicks(value) { return typeof value === "string" && /^-?[0-9]+$/.test(value) }
     function validateAngles() {
-        if (!root.angles || root.angles.length === 0 || !isTicks(String(root.playheadTicks))) return false
+        const list = root.effectiveAngles
+        if (!list || list.length === 0 || !isTicks(String(root.effectivePlayheadTicks))) return false
         const ids = Object.create(null)
-        for (let i = 0; i < root.angles.length; ++i) {
-            const item = root.angles[i], id = String(item.angleId || "")
+        for (let i = 0; i < list.length; ++i) {
+            const item = list[i], id = String(item.angleId || "")
             if (!id.length || ids[id] || !isTicks(String(item.syncOffsetTicks))) return false
             ids[id] = true
         }
-        return ids[root.activeAngleId] === true
+        // A gap in the program has no active angle; switching needs a clip there.
+        return root.multicamMode || ids[root.effectiveActiveAngleId] === true
     }
     function angleById(id) {
         for (let i = 0; i < angleCount; ++i)
-            if (String(angles[i].angleId) === String(id)) return angles[i]
+            if (String(effectiveAngles[i].angleId) === String(id)) return effectiveAngles[i]
         return null
     }
     function requestId() {
@@ -61,16 +75,22 @@ Item {
     function switchTo(id) {
         const angle = angleById(id)
         if (!enabled || !snapshotValid || !angle || angle.available === false
-            || String(id) === activeAngleId || pendingRequestId.length > 0) return false
+            || String(id) === effectiveActiveAngleId || pendingRequestId.length > 0) return false
         const request = requestId()
+        if (root.multicamMode) {
+            const result = root.multicam.switchAngle(String(angle.angleId), String(root.effectivePlayheadTicks))
+            switchAcknowledged(request, result.ok === true, root.multicam.activeAngleId,
+                               String(result.ok === true ? "" : result.error || ""))
+            return result.ok === true
+        }
         angleSwitchRequested(request, String(angle.angleId), String(playheadTicks))
         return true
     }
     function requestSeek(id) {
         const angle = angleById(id)
-        if (!enabled || !snapshotValid || !angle || angle.available === false
-            || !isTicks(String(angle.frameTimeTicks || playheadTicks))) return false
-        seekAngleRequested(String(angle.angleId), String(angle.frameId || ""), String(angle.frameTimeTicks || playheadTicks))
+        const at = String(angle ? angle.frameTimeTicks || effectivePlayheadTicks : "")
+        if (!enabled || !snapshotValid || !angle || angle.available === false || !isTicks(at)) return false
+        seekAngleRequested(String(angle.angleId), String(angle.frameId || ""), at)
         return true
     }
     function acknowledgeSwitch(requestId, accepted, confirmedAngleId, message) {
@@ -88,11 +108,13 @@ Item {
             width: parent.width
             Tk.Overline { text: qsTr("MULTICAM") }
             Tk.Spacer { Tk.Flex.grow: 1 }
-            Tk.Caption { text: qsTr("PROGRAM · %1").arg(root.activeAngleId); color: Tk.Theme.color.accent }
+            Tk.Caption { text: qsTr("PROGRAM · %1").arg(root.effectiveActiveAngleId); color: Tk.Theme.color.accent }
         }
         Tk.Caption {
             objectName: "multicamSyncReadout"
-            text: qsTr("Playhead %1 ticks · switch requests are cut at the acknowledged time").arg(root.playheadTicks)
+            text: root.multicamMode
+                  ? qsTr("Playhead %1 ticks · a switch cuts the program at this frame").arg(root.effectivePlayheadTicks)
+                  : qsTr("Playhead %1 ticks · switch requests are cut at the acknowledged time").arg(root.playheadTicks)
             color: Tk.Theme.color.textMuted
         }
         Tk.Grid {
@@ -105,12 +127,12 @@ Item {
             columnGap: Tk.Theme.space.sm
             rowGap: Tk.Theme.space.sm
             Repeater {
-                model: root.angles || []
+                model: root.effectiveAngles || []
                 delegate: T.AbstractButton {
                     id: card
                     required property var modelData
                     readonly property string angleId: String(modelData.angleId)
-                    readonly property bool isProgram: angleId === root.activeAngleId
+                    readonly property bool isProgram: angleId === root.effectiveActiveAngleId
                     objectName: "multicamAngle_" + angleId
                     enabled: root.snapshotValid && modelData.available !== false && !isProgram
                     implicitHeight: Tk.Theme.size.thumbnailHeight + Tk.Theme.size.controlLg * 2
@@ -139,8 +161,8 @@ Item {
                             resourceId: String(modelData.resourceId || "")
                             requestKind: "frame"
                             requestOptions: ({frameId: String(modelData.frameId || ""),
-                                timeTicks: String(modelData.frameTimeTicks || root.playheadTicks),
-                                rateNumerator: root.rateNumerator, rateDenominator: root.rateDenominator,
+                                timeTicks: String(modelData.frameTimeTicks || root.effectivePlayheadTicks),
+                                rateNumerator: root.effectiveRateNumerator, rateDenominator: root.effectiveRateDenominator,
                                 size: ({width: Math.max(1, card.width), height: Tk.Theme.size.thumbnailHeight})})
                             document: root.document
                             viewId: root.viewId + ":angle:" + card.angleId
@@ -180,15 +202,15 @@ Item {
             width: parent.width
             Tk.Caption {
                 objectName: "multicamStatus"
-                text: root.errorText.length ? root.errorText : root.statusText
-                color: root.errorText.length ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
+                text: root.effectiveError.length ? root.effectiveError : root.statusText
+                color: root.effectiveError.length ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
                 wrapMode: Text.WordWrap
                 Tk.Flex.grow: 1
                 Tk.Flex.basis: 0
             }
             Tk.Button {
                 objectName: "multicamSwitchActive"
-                text: qsTr("Program: %1").arg(root.activeAngleId || qsTr("none"))
+                text: qsTr("Program: %1").arg(root.effectiveActiveAngleId || qsTr("none"))
                 enabled: false
                 tooltip: qsTr("The program angle changes only after host acknowledgment")
             }

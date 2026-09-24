@@ -34,7 +34,14 @@ std::optional<TimelineEditKind> kindFromText(const QString &text)
         {QStringLiteral("resizeTrack"), TimelineEditKind::ResizeTrack},
         {QStringLiteral("addTrack"), TimelineEditKind::AddTrack},
         {QStringLiteral("removeTrack"), TimelineEditKind::RemoveTrack},
-        {QStringLiteral("insertClips"), TimelineEditKind::InsertClips}};
+        {QStringLiteral("insertClips"), TimelineEditKind::InsertClips},
+        {QStringLiteral("roll"), TimelineEditKind::Roll},
+        {QStringLiteral("slip"), TimelineEditKind::Slip},
+        {QStringLiteral("slide"), TimelineEditKind::Slide},
+        {QStringLiteral("setTransition"), TimelineEditKind::SetTransition},
+        {QStringLiteral("switchSource"), TimelineEditKind::SwitchSource},
+        {QStringLiteral("link"), TimelineEditKind::Link},
+        {QStringLiteral("unlink"), TimelineEditKind::Unlink}};
     const auto it = kinds.constFind(text);
     return it == kinds.cend() ? std::nullopt : std::optional<TimelineEditKind>(*it);
 }
@@ -262,14 +269,24 @@ QVariantMap TimelineModel::beginEdit(const QVariantMap &map)
     request.trackId = TimelineCodec::uuid(map.value(QStringLiteral("trackId")));
     request.beforeTrackId = TimelineCodec::uuid(map.value(QStringLiteral("beforeTrackId")));
     request.ripple = map.value(QStringLiteral("ripple")).toBool();
+    request.linked = map.value(QStringLiteral("linked")).toBool();
+    request.frameExact = map.value(QStringLiteral("frameExact")).toBool();
     request.label = map.value(QStringLiteral("label")).toString();
+    request.resourceId = map.value(QStringLiteral("resourceId")).toString();
+    request.linkedResourceId = map.value(QStringLiteral("linkedResourceId")).toString();
     QString error;
     std::optional<qint64> grab;
     if (!optionalTicks(map, QStringLiteral("grabTicks"), grab, error)
         || !optionalTicks(map, QStringLiteral("start"), request.start, error)
         || !optionalTicks(map, QStringLiteral("duration"), request.duration, error)
-        || !optionalTicks(map, QStringLiteral("sourceOffset"), request.sourceOffset, error))
+        || !optionalTicks(map, QStringLiteral("sourceOffset"), request.sourceOffset, error)
+        || !optionalTicks(map, QStringLiteral("sourceDuration"), request.sourceDuration, error))
         return failure(error);
+    if (map.contains(QStringLiteral("transition")) && !map.value(QStringLiteral("transition")).isNull()) {
+        const auto transition = TimelineCodec::transitionFromMap(map.value(QStringLiteral("transition")).toMap(), &error);
+        if (!transition) return failure(error);
+        request.transition = transition;
+    }
     request.grabTicks = grab.value_or(0);
     if (map.contains(QStringLiteral("anchor"))) {
         const QString anchor = map.value(QStringLiteral("anchor")).toString();

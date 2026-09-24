@@ -30,6 +30,22 @@ struct TimelineTrack {
     friend bool operator==(const TimelineTrack &, const TimelineTrack &) = default;
 };
 
+// A transition into a clip from the clip that ends where it starts on the
+// same track (WP-071, docs/sequence-edits.md "Transitions", D-120). The
+// region is [cut - beforeCut, cut + afterCut) in timeline ticks, fixed
+// relative to the cut; the incoming clip lends beforeCut ticks of head handle
+// and the outgoing clip afterCut ticks of tail handle. An empty type is none.
+struct TimelineTransition {
+    QString type;            // "dissolve", "wipe", "dip"; empty = no transition
+    qint64 beforeCut = 0;    // ticks
+    qint64 afterCut = 0;     // ticks
+    QString alignment;       // "start", "center", "end" (how the length was placed)
+    QVariantMap parameters;  // type parameters (wipe direction, dip colour, audio curve)
+    bool isNull() const { return type.isEmpty(); }
+    qint64 duration() const { return beforeCut + afterCut; }
+    friend bool operator==(const TimelineTransition &, const TimelineTransition &) = default;
+};
+
 struct TimelineClip {
     // AGENT-CONTRACT: a Musical (beat-locked) clip's canonical start is its
     // musicalTick beat anchor plus an exact musicalOffset in timeline ticks;
@@ -51,6 +67,11 @@ struct TimelineClip {
     Anchor anchor = Anchor::Time;
     qint64 musicalTick = 0;     // TimeMap PPQ tick of the start's beat anchor (Musical)
     qint64 musicalOffset = 0;   // exact timeline ticks from that anchor to start (Musical)
+    // AGENT-CONTRACT: clips sharing a non-null linkId (a picture and its
+    // sound) move, trim, split and switch together when a request sets
+    // `linked` (D-119). Split and paste give the new parts a new group.
+    QUuid linkId;
+    TimelineTransition transition; // into this clip at its start (D-120)
     qint64 end() const { return start + duration; }
     friend bool operator==(const TimelineClip &, const TimelineClip &) = default;
 };
@@ -92,7 +113,9 @@ struct TimelineChangeSet {
 enum class TimelineEditKind {
     Move, TrimStart, TrimEnd, Split, Delete, SetClipTiming,
     AddMarker, MoveMarker, EditMarker, RemoveMarker,
-    TrackProperty, ReorderTrack, ResizeTrack, AddTrack, RemoveTrack, InsertClips
+    TrackProperty, ReorderTrack, ResizeTrack, AddTrack, RemoveTrack, InsertClips,
+    // WP-071 sequence edits (docs/sequence-edits.md)
+    Roll, Slip, Slide, SetTransition, SwitchSource, Link, Unlink
 };
 
 // A clip to insert: clip.start is relative to the insertion point and
@@ -114,6 +137,11 @@ struct TimelineEditRequest {
     QUuid trackId;
     QUuid beforeTrackId;         // ReorderTrack/AddTrack destination; null = last
     bool ripple = false;
+    // Include every clip that shares a linkId with a selected clip (D-119).
+    bool linked = false;
+    // Round the moved edit point, slip distance or switch time to a program
+    // frame start of the TimeMap frame rate (D-118).
+    bool frameExact = false;
     QString label;               // history text; a per-kind default when empty
     qint64 grabTicks = 0;        // pointer time at gesture start
     std::optional<SnapshotHeader> expected;
@@ -128,6 +156,17 @@ struct TimelineEditRequest {
     std::optional<TimelineTrack> track;
     // InsertClips: new clips placed at input.pointerTicks on trackId and below
     QVector<TimelineClipTemplate> templates;
+    // SetTransition: the transition into clipIds[0]; std::nullopt or an empty
+    // type removes it. beforeCut + afterCut is the requested length and
+    // alignment places it ("start": after the cut, "end": before it).
+    std::optional<TimelineTransition> transition;
+    // SwitchSource at input.pointerTicks: the part from there on shows
+    // resourceId from source ticks `sourceOffset` (at the switch time) with
+    // `sourceDuration` available; linked clips of another kind take
+    // linkedResourceId (resourceId when empty).
+    QString resourceId;
+    QString linkedResourceId;
+    std::optional<qint64> sourceDuration;
 };
 
 struct TimelineEditInput {
