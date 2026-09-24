@@ -20,6 +20,7 @@ class UncertaintyModel : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY changed)
     Q_PROPERTY(int missingCount READ missingCount NOTIFY changed)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
+    Q_PROPERTY(QVariantMap figureMetadata READ figureMetadata WRITE setFigureMetadata NOTIFY changed)
 public:
     enum Meaning { Confidence, Credible, Domain };
     Q_ENUM(Meaning)
@@ -44,6 +45,8 @@ public:
     int count() const { return m_rows.size(); }
     int missingCount() const { return m_missingCount; }
     QString lastError() const { return m_lastError; }
+    QVariantMap figureMetadata() const { return m_figureMetadata; }
+    void setFigureMetadata(const QVariantMap &value);
     QString meaningName() const;
     Q_INVOKABLE QString meaningLabel() const;
     Q_INVOKABLE bool replaceIntervals(const QVariantList &rows);
@@ -72,6 +75,7 @@ private:
     Meaning m_meaning=Confidence;
     double m_coverage=0.95;
     QString m_meaningDetail,m_sourceDatasetId,m_xUnit,m_yUnit,m_lastError;
+    QVariantMap m_figureMetadata;
     int m_missingCount=0;
 };
 } // namespace QindaTK

@@ -39,6 +39,8 @@ void UncertaintyModel::setXUnit(const QString &value)
 { if (m_xUnit==value) return; m_xUnit=value; notifyMetadata(); }
 void UncertaintyModel::setYUnit(const QString &value)
 { if (m_yUnit==value) return; m_yUnit=value; notifyMetadata(); }
+void UncertaintyModel::setFigureMetadata(const QVariantMap &value)
+{ if (m_figureMetadata==value) return; m_figureMetadata=value; notifyMetadata(); }
 QString UncertaintyModel::meaningName() const
 {
     switch (m_meaning) {
@@ -152,6 +154,8 @@ QString UncertaintyModel::metadataJson() const
         {"high",v.missing ? QJsonValue(QJsonValue::Null) : QJsonValue(v.high)},
         {"missing",v.missing}});
     metadata.insert("intervals",intervals);
+    if (!m_figureMetadata.isEmpty())
+        metadata.insert("figure", QJsonObject::fromVariantMap(m_figureMetadata));
     return QString::fromUtf8(QJsonDocument(metadata).toJson(QJsonDocument::Compact));
 }
 } // namespace QindaTK

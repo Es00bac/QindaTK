@@ -371,3 +371,10 @@ Use a new output root for a fresh render. Reopening a root displays its persiste
 job and verifies it before the automated check succeeds.
 
 - `scene-3d/Main.qml` — actual Qt Quick 3D primitive scene, parented transforms, picking, snapped translation and undo. Use `qtk-preview --gpu` for rendered pixels; the software adaptation reports unavailable.
+
+## scientific-plot
+
+`scientific-plot/Main.qml` plots a known exponential response with host-supplied
+one-sigma measurements. It uses `ScientificDataset`, `ScientificPlot`, shared
+`ChartAxis` calibration and the uncertainty renderer's PNG/SVG export path.
+Run `qtk-preview examples/scientific-plot/Main.qml --grab figure.png --size 1080x680`.

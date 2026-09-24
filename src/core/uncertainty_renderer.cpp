@@ -2,6 +2,8 @@
 #include "uncertainty_renderer.h"
 #include <QBuffer>
 #include <QFontMetricsF>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -67,6 +69,8 @@ SET_COLOR(SelectionColor,selection)
 #undef SET_COLOR
 void UncertaintyRenderer::setMetrics(const QVariantMap &value)
 { m_metrics=value; emit styleChanged(); update(); }
+void UncertaintyRenderer::setTitle(const QString &value)
+{ if (m_title==value) return; m_title=value; emit styleChanged(); update(); }
 void UncertaintyRenderer::setPaintPointLimit(int value)
 { value=qBound(32,value,4096); if (m_paintPointLimit==value) return; m_paintPointLimit=value; emit styleChanged(); update(); }
 QVariantMap UncertaintyRenderer::selectedInterval() const
@@ -191,6 +195,17 @@ QVariantMap UncertaintyRenderer::projected(const QString &id) const
     }
     return result;
 }
+QVariantMap UncertaintyRenderer::dataAt(double pixelX,double pixelY) const
+{
+    if (!canDraw() || !std::isfinite(pixelX) || !std::isfinite(pixelY)) return {};
+    const QRectF plot=plotRect({width(),height()});
+    if (plot.isEmpty() || !plot.contains(pixelX,pixelY)) return {};
+    const double xf=m_xStart+viewX()*(pixelX-plot.left())/plot.width();
+    const double yf=m_yStart+viewY()*(plot.bottom()-pixelY)/plot.height();
+    const double x=m_xAxis->unmap(xf),y=m_yAxis->unmap(yf);
+    if (!std::isfinite(x) || !std::isfinite(y)) return {};
+    return {{"x",x},{"y",y},{"xUnit",m_xAxis->unit()},{"yUnit",m_yAxis->unit()}};
+}
 int UncertaintyRenderer::visiblePaintCount() const
 {
     const auto [first,last]=visibleRange();
@@ -231,6 +246,10 @@ void UncertaintyRenderer::draw(QPainter *p,const QSizeF &size) const
     if (plot.isEmpty()) return;
     QFont font=p->font(); font.setFamily(m_metrics.value("fontFamily").toString());
     font.setPixelSize(m_metrics.value("fontSize").toInt()); p->setFont(font);
+    if (!m_title.isEmpty()) {
+        p->setPen(m_text);
+        p->drawText(QRectF(plot.left(),0,plot.width(),plot.top()),Qt::AlignCenter,m_title);
+    }
     const qreal lineWidth=m_metrics.value("lineWidth").toDouble();
     p->setPen(QPen(m_grid,lineWidth)); p->drawRect(plot);
     if (!canDraw()) {
@@ -339,12 +358,28 @@ void UncertaintyRenderer::draw(QPainter *p,const QSizeF &size) const
     p->drawText(QRectF(plot.left(),footerTop,plot.width(),size.height()-footerTop),Qt::AlignCenter,footer);
 }
 void UncertaintyRenderer::paint(QPainter *p) { draw(p,{width(),height()}); }
+QString UncertaintyRenderer::exportMetadata(const QSize &size) const
+{
+    QJsonObject metadata=m_model
+        ? QJsonDocument::fromJson(m_model->metadataJson().toUtf8()).object() : QJsonObject();
+    auto axis=[](const ChartAxis *value) {
+        if (!value) return QJsonObject();
+        return QJsonObject{{"kind",int(value->kind())},{"minimum",value->minimum()},
+            {"maximum",value->maximum()},{"unit",value->unit()},{"reversed",value->reversed()}};
+    };
+    metadata.insert("render",QJsonObject{{"title",m_title},{"mode",int(m_mode)},
+        {"width",size.width()},{"height",size.height()},
+        {"xAxis",axis(m_xAxis)},{"yAxis",axis(m_yAxis)},
+        {"xViewportStart",m_xStart},{"xViewportEnd",m_xEnd},
+        {"yViewportStart",m_yStart},{"yViewportEnd",m_yEnd}});
+    return QString::fromUtf8(QJsonDocument(metadata).toJson(QJsonDocument::Compact));
+}
 QImage UncertaintyRenderer::renderImage(const QSize &size) const
 {
     if (size.width()<1 || size.height()<1 || size.width()>8192 || size.height()>8192) return {};
     QImage image(size,QImage::Format_ARGB32_Premultiplied); image.fill(Qt::transparent);
     QPainter painter(&image); draw(&painter,size); painter.end();
-    if (m_model) image.setText(QStringLiteral("QindaTK.IntervalData"),m_model->metadataJson());
+    image.setText(QStringLiteral("QindaTK.IntervalData"),exportMetadata(size));
     return image;
 }
 bool UncertaintyRenderer::exportPng(const QString &path,const QSize &size) const
@@ -360,7 +395,7 @@ bool UncertaintyRenderer::exportSvg(const QString &path,const QSize &size) const
     QSvgGenerator svg; svg.setOutputDevice(&buffer); svg.setSize(size); svg.setViewBox(QRect(QPoint(),size));
     QPainter painter(&svg); draw(&painter,size); painter.end(); buffer.close();
     const qsizetype end=bytes.lastIndexOf("</svg>"); if (end<0) return false;
-    const QByteArray metadata=m_model ? m_model->metadataJson().toUtf8().toBase64() : QByteArray();
+    const QByteArray metadata=exportMetadata(size).toUtf8().toBase64();
     bytes.insert(end,"<metadata id=\"qindatk-intervals\" data-encoding=\"base64-json\">"+metadata+"</metadata>");
     QSaveFile file(path); if (!file.open(QIODevice::WriteOnly) || file.write(bytes)!=bytes.size()) return false;
     return file.commit();

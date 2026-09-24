@@ -9,6 +9,7 @@ Item {
     property alias yAxis: verticalAxis
     property int mode: Tk.UncertaintyRenderer.ErrorBars
     property string tooltip: qsTr("Uncertainty intervals")
+    property string title: ""
     property bool showDataTable: false
     readonly property string selectedId: renderer.selectedId
     readonly property var selectedInterval: renderer.selectedInterval
@@ -22,6 +23,7 @@ Item {
     function zoom(factor, xAnchor, yAnchor) { renderer.zoom(factor, xAnchor, yAnchor) }
     function hitAt(x, y) { return renderer.hitAt(x, y) }
     function projected(id) { return renderer.projected(id) }
+    function dataAt(x, y) { return renderer.dataAt(x, y) }
     function csvData() { return renderer.csvData() }
     function renderImage(size) { return renderer.renderImage(size) }
     function exportPng(path, size) { return renderer.exportPng(path, size) }
@@ -53,6 +55,7 @@ Item {
         xAxis: horizontalAxis
         yAxis: verticalAxis
         mode: view.mode
+        title: view.title
         backgroundColor: Tk.Theme.color.canvas
         gridColor: Tk.Theme.color.border
         lineColor: Tk.Theme.color.accent
@@ -62,7 +65,7 @@ Item {
         selectionColor: Tk.Theme.color.focus
         metrics: ({ leftMargin: Tk.Theme.size.labelWidth / 2,
                     rightMargin: Tk.Theme.space.sm,
-                    topMargin: Tk.Theme.space.sm,
+                    topMargin: view.title ? Tk.Theme.font.body + Tk.Theme.space.md : Tk.Theme.space.sm,
                     bottomMargin: Tk.Theme.font.body * 2 + Tk.Theme.space.md,
                     fontFamily: Tk.Theme.font.family,
                     fontSize: Tk.Theme.font.caption,

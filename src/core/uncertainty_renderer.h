@@ -25,6 +25,7 @@ class UncertaintyRenderer : public QQuickPaintedItem {
     Q_PROPERTY(QColor missingColor READ missingColor WRITE setMissingColor NOTIFY styleChanged)
     Q_PROPERTY(QColor selectionColor READ selectionColor WRITE setSelectionColor NOTIFY styleChanged)
     Q_PROPERTY(QVariantMap metrics READ metrics WRITE setMetrics NOTIFY styleChanged)
+    Q_PROPERTY(QString title READ title WRITE setTitle NOTIFY styleChanged)
     Q_PROPERTY(int paintPointLimit READ paintPointLimit WRITE setPaintPointLimit NOTIFY styleChanged)
     Q_PROPERTY(QString selectedId READ selectedId NOTIFY selectionChanged)
     Q_PROPERTY(QVariantMap selectedInterval READ selectedInterval NOTIFY selectionChanged)
@@ -53,6 +54,8 @@ public:
 #undef COLOR_ACCESS
     QVariantMap metrics() const { return m_metrics; }
     void setMetrics(const QVariantMap &value);
+    QString title() const { return m_title; }
+    void setTitle(const QString &value);
     int paintPointLimit() const { return m_paintPointLimit; }
     void setPaintPointLimit(int value);
     QString selectedId() const { return m_selectedId; }
@@ -66,6 +69,7 @@ public:
     Q_INVOKABLE bool navigateSelection(int key);
     Q_INVOKABLE QString hitAt(double x,double y) const;
     Q_INVOKABLE QVariantMap projected(const QString &id) const;
+    Q_INVOKABLE QVariantMap dataAt(double pixelX,double pixelY) const;
     Q_INVOKABLE int visiblePaintCount() const;
     Q_INVOKABLE QString csvData() const;
     Q_INVOKABLE QImage renderImage(const QSize &size) const;
@@ -90,11 +94,13 @@ private:
     QPair<int,int> visibleRange() const;
     QVector<int> sampledIndices(int first,int last) const;
     void draw(QPainter *painter,const QSizeF &size) const;
+    QString exportMetadata(const QSize &size) const;
     QPointer<UncertaintyModel> m_model;
     QPointer<ChartAxis> m_xAxis,m_yAxis;
     Mode m_mode=ErrorBars;
     QColor m_background,m_grid,m_line,m_band,m_text,m_missing,m_selection;
     QVariantMap m_metrics;
+    QString m_title;
     int m_paintPointLimit=2048;
     QString m_selectedId;
     double m_xStart=0,m_xEnd=1,m_yStart=0,m_yEnd=1;

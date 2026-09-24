@@ -24876,6 +24876,134 @@
       ]
     },
     {
+      "name": "ScientificPlot",
+      "kind": "qml",
+      "base": "Item",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ScientificPlot.qml",
+      "properties": [
+        {
+          "name": "dataset",
+          "type": "Tk.ScientificDataset",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "xAxis",
+          "type": "alias",
+          "default": "plot.xAxis",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "yAxis",
+          "type": "alias",
+          "default": "plot.yAxis",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "qsTr(\"Scientific plot\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "title",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "int",
+          "default": "Tk.UncertaintyRenderer.ErrorBars",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSampleId",
+          "type": "string",
+          "default": "plot.selectedId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSample",
+          "type": "var",
+          "default": "dataset && selectedSampleId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sampleSelected",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "dataAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "projected",
+          "parameters": "id"
+        },
+        {
+          "name": "selectId",
+          "parameters": "id"
+        },
+        {
+          "name": "csvData",
+          "parameters": ""
+        },
+        {
+          "name": "exportPng",
+          "parameters": "path, size"
+        },
+        {
+          "name": "exportSvg",
+          "parameters": "path, size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "scientificPlot",
+        "scientificPlotCanvas",
+        "scientificPlotDataTable"
+      ]
+    },
+    {
       "name": "ScoreView",
       "kind": "qml",
       "base": "T.Control",
@@ -32522,6 +32650,14 @@
           "required": false
         },
         {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "showDataTable",
           "type": "bool",
           "default": "false",
@@ -32596,6 +32732,10 @@
         {
           "name": "projected",
           "parameters": "id"
+        },
+        {
+          "name": "dataAt",
+          "parameters": "x, y"
         },
         {
           "name": "csvData",
@@ -47690,6 +47830,133 @@
       "bridge": false
     },
     {
+      "name": "ScientificDataset",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "A bounded, one-dimensional float64 series. The host owns measurement and uncertainty semantics; this adapter preserves values and makes a drawable interval projection without estimating statistics.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/scientific_dataset.h",
+      "properties": [
+        {
+          "name": "sourceId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "parameters",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "missingCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "precision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "shape",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "intervals",
+          "type": "UncertaintyModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "replaceSamples",
+          "returns": "bool",
+          "parameters": "const QVariantList &rows"
+        },
+        {
+          "name": "sample",
+          "returns": "QVariantMap",
+          "parameters": "int index"
+        },
+        {
+          "name": "sampleById",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "csvData",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "metadataJson",
+          "returns": "QString",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ScreenWorkArea",
       "kind": "cpp",
       "base": "QObject",
@@ -52625,6 +52892,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "figureMetadata",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
         }
       ],
       "signals": [
@@ -52773,6 +53047,13 @@
           "constant": false
         },
         {
+          "name": "title",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "paintPointLimit",
           "type": "int",
           "default": "",
@@ -52873,6 +53154,11 @@
           "name": "projected",
           "returns": "QVariantMap",
           "parameters": "const QString &id"
+        },
+        {
+          "name": "dataAt",
+          "returns": "QVariantMap",
+          "parameters": "double pixelX,double pixelY"
         },
         {
           "name": "visiblePaintCount",
