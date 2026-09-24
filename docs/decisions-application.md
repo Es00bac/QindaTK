@@ -459,3 +459,21 @@ or fragile matrix decomposition. Qt owns mesh picking and graphics resources.
 The software adaptation reports unavailable. Mesh providers, nonuniform scale,
 materials, shared document history and full gizmos remain separate WP-076 scope.
 See [scene-3d.md](scene-3d.md).
+
+## D-081 — Script capabilities are copied values and semantic commands
+
+**Context.** A developer console needs useful automation without handing a
+script every live QML delegate, QObject and document implementation detail.
+
+**Decision.** `ScriptRuntime` evaluates JavaScript off the UI thread with only
+JSON document and command-metadata copies. The host explicitly allowlists
+command IDs. Scripts queue actions; the runtime rechecks them and invokes
+`CommandRegistry` on its owner thread. A multi-action replay requires an active
+`UndoService` model and uses a semantic macro that rolls back on a handler
+failure. Evaluation has source, output, command-count, argument and time limits.
+
+**Consequences.** Scripts cannot directly traverse application objects, and a
+host defines the API through snapshots and command handlers. The runtime is
+local automation, not an untrusted-code sandbox; process and memory isolation,
+extension packaging and durable macro storage remain separate work. See
+[script-runtime.md](script-runtime.md).

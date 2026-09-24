@@ -893,3 +893,10 @@ mesh output.
 ## MeshRigDocument
 
 `Tk.MeshRigDocument` is a C++ QML document model for triangulated rest geometry, stable vertex/face/UV-corner/bone IDs, bounded hierarchical bone poses with linear blend skinning, explicit UV seams and islands, and ray-projected sRGB texture pixels. Read-only `vertices`, `faces`, `bones`, `uvIslands`, `textureDataUrl`, `textureWidth`, `textureHeight`, `canUndo`, `canRedo`, `lastError` expose state. Geometry/rig/UV commands, bracketed paint strokes, undo/redo, versioned save/reopen and OBJ/PNG export are described in [mesh-rig.md](mesh-rig.md). The optional `Tk.MeshRigGeometry` uploads its posed triangles to `SceneView3D`; host apps can also use the OBJ/PNG output with another renderer.
+
+## Script console
+
+| Type | Base | API | Internal objectNames and behavior |
+| --- | --- | --- | --- |
+| `ScriptRuntime` | C++ `QObject` | `commandRegistry`, `undoService`, `exposedCommandIds`, `documentSnapshot`, `running`, `status`, `output`, `errorString`, `lastResult`, `recordedCommands`, `maxRuntimeMs`; `execute(source)`, `cancel()`, `replay(commands)`, `replayRecorded()`, `clear()`; `finished(success)` | Runs bounded local JavaScript on a worker using plain JSON snapshots and an explicit command allowlist. Commands replay on the owner thread through `CommandRegistry`. Multi-command edit groups require active `UndoService` history. See [script runtime](script-runtime.md). |
+| `ScriptConsole` | `Tk.Flex` | `runtime`, `sourceText`, `tooltip` | `scriptConsole`, `scriptSource`, `scriptRun`, `scriptCancel`, `scriptReplay`, `scriptStatus`, `scriptOutput`. Ctrl+Enter runs; status, output and errors bind to the runtime. |

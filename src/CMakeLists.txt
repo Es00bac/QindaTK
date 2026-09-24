@@ -83,6 +83,7 @@ qt_add_qml_module(qindatk
         core/settings_persistence.cpp core/settings_persistence.h
         core/workspace_session.cpp core/workspace_session.h
         core/job_model.cpp core/job_model.h
+        core/script_runtime.cpp core/script_runtime.h
         core/terminal_session.cpp core/terminal_session.h
         core/render_queue_model.cpp core/render_queue_model.h core/render_queue_provider.cpp
         core/notification_model.cpp core/notification_model.h

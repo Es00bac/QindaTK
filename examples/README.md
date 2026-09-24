@@ -100,6 +100,10 @@ the posed, textured result in `SceneView3D` when Qt Quick 3D is available.
 The [live mesh workbench](mesh-rig-live/Main.qml) wires `RigEditor`, `UVEditor`
 and `TexturePaintView` to one `MeshRigDocument`. The GPU viewport displays the
 same posed, painted triangles and supplies camera rays for paint gestures.
+The [live script console](script-console-live/Main.qml) runs local JavaScript
+against a JSON document snapshot and shows output in `ScriptConsole`.
+Applications explicitly expose command IDs and attach semantic undo history
+before scripts can automate edits.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
 The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows

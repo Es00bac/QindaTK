@@ -25036,6 +25036,60 @@
       ]
     },
     {
+      "name": "ScriptConsole",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ScriptConsole.qml",
+      "properties": [
+        {
+          "name": "runtime",
+          "type": "Tk.ScriptRuntime",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Script console\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sourceText",
+          "type": "alias",
+          "default": "sourceEditor.text",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "scriptCancel",
+        "scriptConsole",
+        "scriptOutput",
+        "scriptReplay",
+        "scriptRun",
+        "scriptSource",
+        "scriptStatus"
+      ]
+    },
+    {
       "name": "Scroll",
       "kind": "qml",
       "base": "Item",
@@ -47477,6 +47531,144 @@
       "methods": [
         {
           "name": "refresh",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScriptRuntime",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Scripts inspect JSON copies and enqueue semantic CommandRegistry actions. No application QObject, delegate, document pointer, or engine is injected.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/script_runtime.h",
+      "properties": [
+        {
+          "name": "commandRegistry",
+          "type": "QindaTK::CommandRegistry *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "exposedCommandIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "documentSnapshot",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "running",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "status",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "output",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorString",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastResult",
+          "type": "QVariant",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "recordedCommands",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maxRuntimeMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "finished",
+          "parameters": "bool success"
+        }
+      ],
+      "methods": [
+        {
+          "name": "execute",
+          "returns": "bool",
+          "parameters": "const QString &source"
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "replay",
+          "returns": "bool",
+          "parameters": "const QVariantList &commands"
+        },
+        {
+          "name": "replayRecorded",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clear",
           "returns": "void",
           "parameters": ""
         }
