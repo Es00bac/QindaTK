@@ -15,7 +15,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-060"></a>
 ## WP-060 — Integrate a real audio engine and device settings
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-019](phase-01-services.md#wp-019), [WP-047](phase-03-authoring.md#wp-047), [WP-048](phase-03-authoring.md#wp-048), [WP-049](phase-03-authoring.md#wp-049)
+**Implementation lead:** Sol. **Status:** accepted (real engine, device settings, audio sessions and offline render). **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-019](phase-01-services.md#wp-019), [WP-047](phase-03-authoring.md#wp-047), [WP-048](phase-03-authoring.md#wp-048), [WP-049](phase-03-authoring.md#wp-049)
 
 **Proposal scope:** [PLT-19 DeviceSettingsPanel](../proposed/08-platform-integrations.md#plt-19)
 

@@ -153,7 +153,6 @@ needed the private include path. D-015 subsequently moved that dependency
 behind the public facade. `examples/office-shell` is the smoke test for the
 whole set.
 
-
 ## D-014 — Telemetry draws twice, and a ramp is a theme role
 
 **Context.** QindaTK had no way to plot a value over time, which is the one
@@ -565,7 +564,6 @@ view. Hosts that need only X synchronization share only X. The annotation
 model and histogram selection do not infer analysis or color context; the
 host supplies those source semantics.
 
-
 ## D-047 — Own ICC encodings and keep numeric color independent of Theme
 
 **Context.** QColor and canvas metadata cannot represent a validated document
@@ -584,7 +582,6 @@ public headers. Gamut status remains unknown. Canvas/GPU display management,
 proofing and gradient interpolation require their own fixtures and integration;
 no Theme change modifies stored colors. See [color.md](color.md).
 
-
 ## D-048 — Keep editable curve geometry normalized and its domains typed
 
 **Context.** Tangent handles, evaluator samples and editor gestures need one
@@ -600,7 +597,6 @@ mutating host data. Ordered cubic controls permit a bounded monotone x solve.
 constraints and commits. Unit conversions, exact tick projection, mirrored
 tangents, adaptive sampling and undo remain explicit integration boundaries.
 See [curve.md](curve.md) for endpoints, repeat seams and numerical fixtures.
-
 
 ## D-049 — Interpolate tagged gradient stops in linear light with coverage alpha
 
@@ -756,6 +752,74 @@ is given. Alignment to a board uses the board rectangle, like the page.
 **Consequences.** Other domains can add references without panel changes;
 the panel's default list keeps existing hosts working.
 
+## D-096 — Decode and encode media with the FFmpeg libraries as an optional private backend
+
+**Context.** WP-070 needs exact frame identity, cancellable seeks, audio
+samples and a real encoded export. The existing asset path ran the FFmpeg
+command-line tools per request (`select=eq(n,N)` decodes from the start every
+time, cannot be cancelled inside a packet and knows nothing of B-frame
+presentation order), and Qt Multimedia exposes neither presentation indices
+nor frame-accurate seeking. **Decision.** Link `libavformat`, `libavcodec`,
+`libavutil`, `libswscale` and `libswresample` (found by `pkg-config`,
+`QINDATK_ENABLE_FFMPEG` default ON) privately into `qindatk`; their headers
+stay in `media_ffmpeg_p.h` and `.cpp` files. `MediaDecoder` indexes packets
+once and seeks by key frame with an interrupt-callback cancellation;
+`MediaEncoder` writes lossless FFV1 (8-bit RGB) and PCM s16le in Matroska, the
+codecs every FFmpeg build ships. A build without the libraries keeps every
+type and reports `ErrorCode::Unsupported`; the asset backend falls back to the
+command-line tools. No Qt Multimedia dependency is added.
+**Consequences.** Consumers never need FFmpeg headers and lightweight builds
+still link. Distributors of FFmpeg-enabled builds inherit FFmpeg's licence
+terms for the configuration they ship (qualified in WP-088/WP-093).
+
+## D-097 — Identify a source frame by presentation index and derive its time from one rate policy
+
+**Context.** Monitors, trims, exports and caches must agree on which frame a
+time means, including 1000/1001 rates stored with rounded container
+timestamps, variable-rate files and B-frame streams. **Decision.** A frame is
+(resource, content revision, zero-based presentation index) over an index
+sorted by presentation timestamp. When every timestamp is within one time-base
+unit of `i / rate` for a declared rate, the stream is constant-rate and frame
+*i* starts at exactly `i / rate`; otherwise it starts at its own timestamp
+relative to the first frame. Frame starts round up to the next tick; a tick
+holds the last frame that has started; media time zero is the first video
+frame and audio positions carry the stream's offset from it.
+**Consequences.** `frameAtTicks(frameStartTicks(i)) == i` in every timebase;
+23.976 fps sources conform to a 25 fps program by holding, and exports write
+each frame's exact sample span. Duplicate timestamps and truncation are
+reported as damage instead of being guessed around.
+
+## D-098 — Make the playback engine the transport authority and present only the current target
+
+**Context.** `TransportModel` already projected acknowledged engine state, but
+no media engine existed; rapid seeks with asynchronous decoding can otherwise
+display a frame that belongs to an earlier request. **Decision.**
+`MediaPlaybackEngine` implements `TransportAdapter`: it owns the position (in
+program samples), acknowledges every command with its snapshot on the next
+event-loop turn and advances playback from a `MediaPlaybackClock`. One decode
+thread per engine renders program frames; only the result for the current
+target frame and program revision is presented, and superseded work is
+cancelled through its token. Failed targets are presented as failures and an
+empty program clears the display. `MediaFrameView` uploads each new presented
+frame once into a texture owned by its scene-graph node. Audible device output
+and a device-driven clock belong to the audio engine (WP-060).
+**Consequences.** Monitors may show a pending seek but never a superseded or
+stale frame; frame identity, playback position and audio positions share one
+clock and one sample domain.
+
+## D-099 — Keep media bins virtual over resolver resources and proxies preview-only
+
+**Context.** VID-02 requires organizing and relinking media without changing
+sequence references, with proxy/original status inspectable per clip.
+**Decision.** `MediaCatalog` assets wrap `ResourceResolver` resource IDs.
+Bins, labels and tags are catalog records; relinking changes only the
+resolver's location (only exact content-hash matches relink from a folder).
+Proxies are separate resolver resources with the original's frame count and
+rate; a player decodes pictures from an active proxy while frame identity,
+audio and exports use the original. **Consequences.** Timelines, compositions
+and graphs keep their resource IDs through any reorganization or relink, and
+a proxy can never shift a cut or change an export.
+
 ## D-100 — A held control is heard in every mode; static values are the parameter default
 
 **Context.** WP-061 controls must change real engine parameters, and one
@@ -820,6 +884,69 @@ sums; the relative threshold uses the exact mean. The model names its metric
 0.005 LU of the relative threshold are classified at bin resolution. True
 peak, LRA and conformance certification are separate work.
 
+## D-106 — Object appearance lives in each canvas object record
+
+**Context.** WP-044 needs stroke alignment, a miter limit, opacity, blend
+modes, pattern fills and an ordered effect stack that survive undo, save,
+clipboard and export, while a richer host may carry effects the reference
+renderer cannot draw. **Decision.** `CanvasObject::appearance` holds them.
+Effects have stable token ids, an enabled flag and parameters stored as
+canonical compact JSON, so an unknown kind round-trips byte for byte and is
+reported unsupported instead of dropped. One rule set
+(`CanvasAppearanceRules`) validates commits, the decoder and both models.
+Native version 6 appends a length-prefixed appearance block to every object
+record (empty for the default appearance) rather than using the extensions
+JSON, because commit-time size accounting covers records but not that block,
+and a committed canvas must always save. **Consequences.** Plain objects grow
+by four bytes and versions 1–5 still load; appearance edits are ordinary
+object deltas, so undo, sessions and the clipboard carry them unchanged.
+
+## D-107 — Appearance renders through an offscreen layer; paint bounds index it
+
+**Context.** Group opacity, blend modes, drop shadows, blurs and one-sided
+strokes cannot be drawn primitive by primitive, and tiles would show seams
+if an effect only saw its own tile. **Decision.** The software painter paints
+such an object into an offscreen layer covering the tile plus the effect
+stack's input reach, applies the effects in stack order (the blur is the SVG
+three-box approximation, in document units scaled to device pixels), then
+composites the layer with the object's opacity and blend mode. Aligned
+strokes are twice as wide and masked by the fill area. The RHI provider
+rasterizes tiles holding non-default appearance through the same painter.
+`CanvasGeometry::paintBounds` (document bounds plus effect reach) feeds the
+spatial index and damage; selection, alignment and snapping keep
+`documentBounds`. **Consequences.** Both backends agree and shadows reach
+neighbouring tiles; layers are bounded at 4096 px, beyond which very large
+blurs render at lower resolution. Host adapters must index by paint bounds.
+
+## D-108 — Path booleans flatten operands and replace the backmost operand
+
+**Context.** Union, intersection, subtraction and exclusion need robust
+handling of fill rules and self-intersections; exact curve-curve booleans
+are a large, risky engine. **Decision.** Operands are flattened to straight
+segments within 1e-4 of their combined extent and combined with Qt's path
+clipper, which honours each operand's fill rule; `combine` merges contours
+unchanged instead. The result replaces the backmost operand (its id, layer,
+paint order, style, appearance and transform) and removes the others in one
+undoable edit. **Consequences.** Results are exact for straight input and
+within a stated tolerance for curves, and become straight-segment paths;
+selection and paint order survive through the backmost id.
+Curve-preserving booleans remain future work.
+
+## D-109 — SVG export writes appearance with SVG 1.1 constructs in document units
+
+**Context.** Canvas strokes, shadow offsets and blurs are document units,
+while SVG strokes and filters scale with element transforms, and SVG 1.1 has
+no stroke alignment or blend modes. **Decision.** Patterns become `<pattern>`
+cells in local units; aligned strokes become the fill plus a doubled stroke
+under a document-space `<mask>`; effects become filter primitives chained in
+stack order on a document-space `<g>` with `color-interpolation-filters`
+sRGB; opacity becomes `opacity` and blend the CSS `mix-blend-mode` on that
+group. A similarity transform stays an attribute with stroke widths and
+dashes divided by its scale; any other transform is written into
+document-space path geometry. Enabled effects of an unknown kind refuse
+export explicitly. **Consequences.** Scaled strokes export at their canvas
+width (earlier output scaled them), browsers reproduce the appearance, and
+renderers without CSS compositing ignore the blend mode.
 ## D-110 — Mixer state lives in AudioMixerModel; channel values are automation parameters
 
 **Context.** WP-062 mixer and routing controls held host snapshots, so no

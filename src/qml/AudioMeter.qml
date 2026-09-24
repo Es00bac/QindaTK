@@ -2,6 +2,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QindaTK as Tk
+import "ScaleLabels.js" as ScaleLabels
 
 // AGENT-CONTRACT (docs/controls.md, docs/audio-measurement.md): the
 // measurement provider owns channel layout, dBFS calculation, hold/decay and
@@ -9,7 +10,7 @@ import QindaTK as Tk
 // `meter` to a Tk.AudioMeterModel (for example AudioEngine.outputMeter) or
 // pass provider `levels` rows directly. objectNames: "meterRow",
 // "channelTrack", "levelValue", "meterScale", "meterScaleLabel",
-// "meterClipReset".
+// "meterScaleUnit", "meterClipReset".
 Item {
     id: root
     property var meter: null // Tk.AudioMeterModel
@@ -33,8 +34,14 @@ Item {
 
     readonly property int channelCount: levels ? levels.length : 0
     readonly property bool hasClip: levels ? levels.some(function(c) { return c.clipped }) : false
+    // AGENT-GUARD: every row gives its name and value columns these exact
+    // widths (Tk.Flex.basis; a child's `width` is ignored by Flex), so the
+    // bars span [trackX, trackX + trackWidth] and the scale row lines up.
     readonly property real trackX: Tk.Theme.size.control + Tk.Theme.space.sm
     readonly property real trackWidth: Math.max(0, width - Tk.Theme.size.control - Tk.Theme.size.controlLg - 2 * Tk.Theme.space.sm)
+    // Labels kept after thinning: {"<mark value>": true}.
+    readonly property var _labelled: labelledMarks(scaleMarks, minimumDbfs, maximumDbfs, trackX, trackWidth,
+                                                   scaleProbe.implicitWidth)
     readonly property string summary: channelCount === 0 ? qsTr("No measurement snapshot")
         : levels.map(function(c) { return channelName(c) + ": peak " + fmt(c.peakDbfs) + " " + unit
             + (showRms ? ", RMS " + fmt(c.rmsDbfs) + " " + unit : "")
@@ -42,10 +49,7 @@ Item {
             + (c.maxPeakDbfs !== undefined ? ", max " + fmt(c.maxPeakDbfs) + " " + unit : "")
             + (c.clipped ? ", clipped" : "") }).join("; ")
     implicitWidth: Tk.Theme.size.fieldWidth
-    implicitHeight: Math.max(Tk.Theme.size.controlLg,
-        channelCount * (Tk.Theme.size.controlSm + Tk.Theme.space.xs)
-        + (showScale ? Tk.Theme.size.controlSm : 0)
-        + (clipResetEnabled && hasClip ? Tk.Theme.size.control + Tk.Theme.space.xs : 0))
+    implicitHeight: Math.max(Tk.Theme.size.controlLg, column.implicitHeight)
     Accessible.role: Accessible.Indicator
     Accessible.name: tooltip.length ? tooltip : qsTr("Audio level meter")
     Accessible.description: summary + qsTr(". Metric: %1; window: %2").arg(metric).arg(integrationWindow)
@@ -57,6 +61,24 @@ Item {
         if (!isFinite(n)) return 0
         return Math.max(0, Math.min(1, (n - minimumDbfs) / (maximumDbfs - minimumDbfs)))
     }
+    function markText(db) { return Number(db).toFixed(0) }
+    // Left edge of a scale label of `labelWidth`: centred on its tick, except
+    // the end labels, which align inward so they stay over the track and clear
+    // the unit label.
+    function labelX(db, labelWidth) {
+        const tick = trackX + trackWidth * position(db)
+        if (db <= minimumDbfs) return tick
+        if (db >= maximumDbfs) return tick - labelWidth
+        return tick - labelWidth / 2
+    }
+    // The range ends first, then the other marks keep a label only where it
+    // clears the labels already placed (ticks stay on the bars).
+    function labelledMarks(marks, low, high, _trackX, _trackWidth, advance) {
+        const inRange = (marks || []).filter(function(v) { return v >= low && v <= high })
+        const widthOf = function(v) { return root.markText(v).length * advance }
+        return ScaleLabels.thin(inRange, function(v) { return root.labelX(v, widthOf(v)) + widthOf(v) / 2 },
+                                widthOf, [high, low], Tk.Theme.space.sm, [])
+    }
     // The readout holds the peak (falls after the provider's hold time).
     function readout(c) { return c.heldPeakDbfs !== undefined ? c.heldPeakDbfs : c.peakDbfs }
     function resetClip() {
@@ -65,7 +87,15 @@ Item {
         clipResetRequested()
     }
 
+    // Measures one mono caption character for label thinning; never shown.
+    Tk.Mono {
+        id: scaleProbe
+        visible: false
+        text: "0"
+        font.pixelSize: Tk.Theme.font.caption
+    }
     Tk.Flex {
+        id: column
         anchors.fill: parent
         direction: Tk.Flex.Column
         gap: Tk.Theme.space.xs
@@ -75,16 +105,16 @@ Item {
                 id: row
                 required property var modelData
                 objectName: "meterRow"
-                width: root.width
-                height: Tk.Theme.size.controlSm
                 direction: Tk.Flex.Row
+                align: Tk.Flex.Center
                 gap: Tk.Theme.space.sm
                 Tk.Label {
-                    width: Tk.Theme.size.control
-                    anchors.verticalCenter: parent.verticalCenter
+                    Tk.Flex.basis: Tk.Theme.size.control
+                    Tk.Flex.shrink: 0
                     text: root.channelName(row.modelData)
                     color: Tk.Theme.color.textMuted
                     font.pixelSize: Tk.Theme.font.caption
+                    elide: Text.ElideRight
                     Accessible.ignored: true
                 }
                 Item {
@@ -92,8 +122,7 @@ Item {
                     objectName: "channelTrack"
                     Tk.Flex.grow: 1
                     Tk.Flex.basis: 0
-                    width: root.trackWidth
-                    height: Tk.Theme.size.controlSm
+                    implicitHeight: Tk.Theme.size.controlSm
                     Rectangle { anchors.fill: parent; radius: Tk.Theme.radius.sm; color: Tk.Theme.color.divider }
                     Rectangle {
                         anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom
@@ -134,8 +163,8 @@ Item {
                 }
                 Tk.Mono {
                     objectName: "levelValue"
-                    width: Tk.Theme.size.controlLg
-                    anchors.verticalCenter: parent.verticalCenter
+                    Tk.Flex.basis: Tk.Theme.size.controlLg
+                    Tk.Flex.shrink: 0
                     text: root.fmt(root.readout(row.modelData))
                     color: row.modelData.clipped ? Tk.Theme.color.danger : Tk.Theme.color.textMuted
                     font.pixelSize: Tk.Theme.font.caption
@@ -143,12 +172,14 @@ Item {
                 }
             }
         }
+        // AGENT-GUARD: Flex sizes this row from its implicit size (a `height`
+        // would be ignored and the labels would spill onto the next row).
         Item {
             id: scaleRow
             objectName: "meterScale"
             visible: root.showScale && root.channelCount > 0
-            width: root.width
-            height: Tk.Theme.size.controlSm
+            implicitWidth: root.width
+            implicitHeight: Math.max(Tk.Theme.size.controlSm, scaleProbe.implicitHeight)
             Repeater {
                 model: root.scaleMarks
                 delegate: Tk.Mono {
@@ -156,19 +187,19 @@ Item {
                     required property real modelData
                     objectName: "meterScaleLabel"
                     // AGENT-GUARD: never name the row `scale`; Item.scale shadows it here.
-                    x: Math.max(0, Math.min(scaleRow.width - scaleLabel.implicitWidth,
-                                            root.trackX + root.trackWidth * root.position(scaleLabel.modelData)
-                                            - scaleLabel.implicitWidth / 2))
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: Number(scaleLabel.modelData).toFixed(0)
+                    visible: root._labelled[String(scaleLabel.modelData)] === true
+                    x: root.labelX(scaleLabel.modelData, scaleLabel.implicitWidth)
+                    y: (scaleRow.height - scaleLabel.implicitHeight) / 2
+                    text: root.markText(scaleLabel.modelData)
                     color: Tk.Theme.color.textMuted
                     font.pixelSize: Tk.Theme.font.caption
                     Accessible.ignored: true
                 }
             }
             Tk.Mono {
-                x: Math.max(0, root.trackX + root.trackWidth + Tk.Theme.space.sm)
-                anchors.verticalCenter: parent.verticalCenter
+                objectName: "meterScaleUnit"
+                x: Math.max(root.trackX + root.trackWidth + Tk.Theme.space.sm, scaleRow.width - implicitWidth)
+                y: (scaleRow.height - implicitHeight) / 2
                 text: root.unit
                 color: Tk.Theme.color.textMuted
                 font.pixelSize: Tk.Theme.font.caption

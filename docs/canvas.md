@@ -177,13 +177,17 @@ layout and version stay unchanged and an older reader keeps them as opaque
 data. The decoder moves each record out of the host extensions and validates
 it against the decoded layers and objects (unique ids, finite geometry, group
 parents, no cycles, depth, no objects on a group). A flat document without
-guides or boards writes none of them, so its bytes are unchanged. Host
+guides or boards writes none of them, so its bytes are unchanged. Qt's JSON
+drops U+FEFF and cannot carry an unpaired surrogate, so an artboard name that
+JSON would change is also written as base64 UTF-16LE code units in
+`nameUtf16`, which the decoder prefers; artboard names round-trip exactly,
+like binary layer and object names. Host
 extensions and these records share `maximumExtensionBytes`; a save that would
 exceed it fails explicitly.
 
 <a id="native-format"></a>
-The file is big-endian binary: the signature `QTKCANVS`, version 5 (the reader
-also accepts versions 1 through 4), the
+The file is big-endian binary: the signature `QTKCANVS`, version 6 (the reader
+also accepts versions 1 through 5), the
 document UUID, revision and reset generation, then the exact 64-bit
 `nextObject`/`nextLayer`/`nextImage` counters and `nextZ`, the page rectangle
 and colour, an owned output RGB ICC profile (or empty for sRGB), the session
@@ -204,8 +208,12 @@ typed stop definition and stop ICC bytes. Version 3 adds path nodes, closure,
 fill rule, cap, join and dash pattern to each object. Version 4 adds
 bounded extra path contours, each with its own closure. Version 5 adds
 polygon, star and rounded-rectangle definitions beside generated path nodes.
+Version 6 ends every object record with a length-prefixed appearance block
+(stroke alignment, miter limit, opacity, blend, pattern and effect stack;
+empty for the default appearance, D-106), so the commit-time size accounting
+covers it like the rest of the record.
 The `qindatk.canvas-document.v1` session schema ID remains stable while the
-native file reader handles all five binary versions.
+native file reader handles all six binary versions.
 `setOutputProfileIcc(bytes)` changes the document's output
 reference and is persisted; it is currently a document-setting change outside
 object undo history.
@@ -387,7 +395,13 @@ composited `QImage` tile converted by Qt after painting. The scene graph then
 uploads that same encoded raster as a texture. A document's output ICC is the
 default display/output reference; an explicit `setColorContext` call overrides
 it. Managed solid and gradient fills also take this composited tile path on
-the scene graph, so they blend before output conversion. Their typed ICC
+the scene graph, so they blend before output conversion, and so does any
+object with a non-default [appearance](vector-authoring.md#appearance)
+(aligned strokes, patterns, effects, opacity, blend), which the painter draws
+through a per-object offscreen layer (D-107). The document indexes objects by
+`CanvasGeometry::paintBounds`, which includes effect reach, so a shadow
+reaches every tile it touches; an adapter with its own index must do the
+same. Their typed ICC
 values are converted to sRGB for composition; gradients are sampled at 65
 positions across each object's document-space bounding box. The raw sRGB
 scene-graph path keeps geometry runs for other objects. The supported output

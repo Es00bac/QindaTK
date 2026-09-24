@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
+import "ScaleLabels.js" as ScaleLabels
 
 // AGENT-CONTRACT (docs/controls.md, docs/audio-measurement.md): the owner
 // stores the canonical parameter. `silent` is an explicit domain state (for
@@ -11,7 +12,8 @@ import QindaTK as Tk
 // gesture is one engine transaction and the fader never assigns `value`.
 // Pointer drags are relative: pressing never jumps the level. Scale marks and
 // the unity mark sit where the mapper puts those values under the thumb
-// centre. objectNames: "faderTrack", "faderThumb", "faderScaleLabel",
+// centre; a label that would collide with another is dropped (its tick
+// stays). objectNames: "faderTrack", "faderThumb", "faderScaleLabel",
 // "faderUnityMark", "faderField", "faderValue".
 T.Control {
     id: control
@@ -53,7 +55,16 @@ T.Control {
     signal gestureCanceled(real value, bool silent)
 
     readonly property var activeMapper: binding ? binding.mapper : mapper
-    readonly property real normalizedValue: markPosition(value, silent)
+    // AGENT-GUARD: positions come from the mapper's invokables, which QML
+    // cannot track. Every binding that maps passes `_mappingRevision`, which
+    // moves on each mapping change (a binding's parameter often arrives after
+    // the fader was built); a bare dependency read is not captured.
+    property int _mappingRevision: 0
+    readonly property real normalizedValue: markPosition(_mappingRevision, value, silent)
+    // Labels kept after thinning: {"<mark value>": true}.
+    readonly property var _labelled: labelledMarks(_mappingRevision, scaleMarks, from, to, unityValue,
+                                                   labelProbe.implicitWidth, labelProbe.implicitHeight,
+                                                   travel, vertical)
     readonly property string valueText: binding ? binding.valueText
         : silent ? "−∞ " + unit : Number(value).toFixed(1) + " " + unit
     readonly property real travel: Math.max(1, vertical ? track.height - thumb.height : track.width - thumb.width)
@@ -83,7 +94,7 @@ T.Control {
     function clamp(v) { return Math.max(from, Math.min(to, v)) }
     // Travel position (0..1) of a canonical value: the mapper's when one is
     // supplied, so marks, the unity line and the thumb share one calibration.
-    function markPosition(v, isSilent) {
+    function markPosition(_revision, v, isSilent) {
         if (activeMapper) return activeMapper.positionFor(v, !!isSilent)
         if (isSilent) return 0
         return Math.max(0, Math.min(1, (v - from) / Math.max(0.000001, to - from)))
@@ -92,6 +103,16 @@ T.Control {
     function travelCentre(position) {
         return vertical ? track.y + thumb.height / 2 + (1 - position) * travel
                         : track.x + thumb.width / 2 + position * travel
+    }
+    // Unity first, then the range ends, then the other marks keep a label
+    // only where it clears the labels already placed.
+    function labelledMarks(_revision, marks, low, high, unity, labelWidth, labelHeight, _travel, _vertical) {
+        const inRange = (marks || []).filter(function(v) { return v >= low && v <= high })
+        if (inRange.length === 0) return ({})
+        return ScaleLabels.thin(inRange,
+            function(v) { return control.travelCentre(control.markPosition(_revision, v, false)) },
+            function() { return control.vertical ? labelHeight : labelWidth },
+            [unity, Math.min.apply(null, inRange), Math.max.apply(null, inRange)], Tk.Theme.space.xs, [])
     }
     function beginGesture(source) {
         if (_source === "wheel" && source !== "wheel") commitGesture() // another input ends a wheel burst
@@ -193,6 +214,18 @@ T.Control {
         interval: Tk.Theme.motion.gestureIdle
         onTriggered: control.commitGesture()
     }
+    Connections {
+        target: control.activeMapper
+        ignoreUnknownSignals: true
+        function onChanged() { control._mappingRevision++ }
+    }
+    // Measures one scale label for thinning; never shown.
+    Tk.Mono {
+        id: labelProbe
+        visible: false
+        text: "−60"
+        font.pixelSize: Tk.Theme.font.caption
+    }
 
     Item {
         id: trackBox
@@ -221,7 +254,7 @@ T.Control {
             delegate: Item {
                 id: mark
                 required property real modelData
-                readonly property real centre: control.travelCentre(control.markPosition(modelData, false))
+                readonly property real centre: control.travelCentre(control.markPosition(control._mappingRevision, modelData, false))
                 readonly property bool unity: modelData === control.unityValue
                 visible: modelData >= control.from && modelData <= control.to
                 x: control.vertical ? track.x + track.width + Tk.Theme.space.sm : mark.centre
@@ -235,6 +268,7 @@ T.Control {
                 }
                 Tk.Mono {
                     objectName: "faderScaleLabel"
+                    visible: control._labelled[String(mark.modelData)] === true
                     x: control.vertical ? Tk.Theme.space.md : -implicitWidth / 2
                     y: control.vertical ? -implicitHeight / 2 : Tk.Theme.space.sm
                     text: control.silenceMark && mark.modelData <= control.from ? "−∞"
@@ -248,7 +282,8 @@ T.Control {
         Rectangle {
             id: unityMark
             objectName: "faderUnityMark"
-            readonly property real centre: control.travelCentre(control.markPosition(control.unityValue, false))
+            readonly property real centre: control.travelCentre(control.markPosition(control._mappingRevision,
+                                                                                     control.unityValue, false))
             visible: control.unityValue >= control.from && control.unityValue <= control.to
             x: control.vertical ? track.x - Tk.Theme.space.xs : unityMark.centre - width / 2
             y: control.vertical ? unityMark.centre - height / 2 : track.y - Tk.Theme.space.xs

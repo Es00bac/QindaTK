@@ -38,7 +38,8 @@ QString inlineHtml(const Fragment &fragment, const Paragraph &p)
     QString html;
     int start = 0;
     for (const Span &span : p.spans) {
-        const CharFormat &f = fragment.formats.value(span.format);
+        // Styles are resolved: other applications see the look, not the style.
+        const CharFormat f = effectiveCharFormat(fragment.styles, fragment.formats.value(span.format), p.format);
         QString piece;
         for (const QChar c : p.text.mid(start, span.length)) {
             if (c == QChar(LineBreakChar)) piece += QStringLiteral("<br>");
@@ -98,7 +99,11 @@ QString fromFragment(const Fragment &fragment, const QString &title)
                 html += QStringLiteral("<tr>");
                 const QString cellTag = r < block.table->headerRows ? QStringLiteral("th") : QStringLiteral("td");
                 for (const TableCell &cell : block.table->rows.at(r).cells) {
-                    html += QStringLiteral("<%1>").arg(cellTag);
+                    if (cell.paragraphs.isEmpty()) continue; // covered by a merged cell
+                    QString spans;
+                    if (cell.rowSpan > 1) spans += QStringLiteral(" rowspan=\"%1\"").arg(cell.rowSpan);
+                    if (cell.columnSpan > 1) spans += QStringLiteral(" colspan=\"%1\"").arg(cell.columnSpan);
+                    html += QStringLiteral("<%1%2>").arg(cellTag, spans);
                     for (const ParagraphPtr &p : cell.paragraphs) html += paragraphHtml(fragment, *p);
                     html += QStringLiteral("</%1>").arg(cellTag);
                 }
@@ -247,26 +252,32 @@ struct Importer {
         for (int r = 0; r < source->rows(); ++r) {
             TableRow row{QUuid::createUuid(), {}, 0};
             for (int c = 0; c < source->columns(); ++c) {
-                TableCell cell{QUuid::createUuid(), {}, {}};
+                TableCell cell{QUuid::createUuid(), {}, {}, 1, 1};
                 const QTextTableCell sourceCell = source->cellAt(r, c);
-                // Merged cells (WP-051) are flattened: content stays in the anchor cell.
+                // A merged cell keeps its spans; the slots it covers stay empty.
                 if (sourceCell.row() == r && sourceCell.column() == c) {
+                    cell.rowSpan = qMax(1, sourceCell.rowSpan());
+                    cell.columnSpan = qMax(1, sourceCell.columnSpan());
+                    if (r < t->headerRows && r + cell.rowSpan > t->headerRows) t->headerRows = 0;
                     QVector<Block> blocks;
                     for (auto it = sourceCell.begin(); !it.atEnd(); ++it) {
                         if (QTextFrame *nested = it.currentFrame()) frame(nested, blocks, true);
                         else if (it.currentBlock().isValid()) blocks.append(Block{paragraph(it.currentBlock(), true), {}});
                     }
                     for (const Block &block : std::as_const(blocks)) cell.paragraphs.append(block.paragraph);
-                }
-                if (cell.paragraphs.isEmpty()) {
-                    auto empty = std::make_shared<Paragraph>();
-                    empty->id = QUuid::createUuid();
-                    cell.paragraphs.append(empty);
+                    if (cell.paragraphs.isEmpty()) {
+                        auto empty = std::make_shared<Paragraph>();
+                        empty->id = QUuid::createUuid();
+                        cell.paragraphs.append(empty);
+                    }
                 }
                 row.cells.append(cell);
             }
             t->rows.append(row);
         }
+        // A merged cell that crosses the header rows makes them plain rows.
+        TableGridMap map;
+        if (!mapTableGrid(*t, &map).isEmpty()) t->headerRows = 0;
         return t;
     }
 };

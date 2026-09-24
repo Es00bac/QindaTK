@@ -73,7 +73,8 @@ private slots:
         const QVariantMap snapshot = doc.tableSnapshot(sid(id));
         QCOMPARE(snapshot.value(QStringLiteral("id")).toString(), sid(id));
         QCOMPARE(snapshot.value(QStringLiteral("headerRows")).toInt(), 1);
-        QCOMPARE(snapshot.value(QStringLiteral("canMerge")).toBool(), false);
+        QCOMPARE(snapshot.value(QStringLiteral("canMerge")).toBool(), true); // tst_rich_text_merged_cells
+        QCOMPARE(snapshot.value(QStringLiteral("styleId")).toString(), QString());
         const QVariantList rows = snapshot.value(QStringLiteral("rows")).toList();
         const QVariantList columns = snapshot.value(QStringLiteral("columns")).toList();
         const QVariantList cells = snapshot.value(QStringLiteral("cells")).toList();

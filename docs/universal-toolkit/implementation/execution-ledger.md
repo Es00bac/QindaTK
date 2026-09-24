@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 49 packages accepted, 28 active, none in review, 1 planned and 6 deferred.**
+**Execution state: 51 packages accepted, 26 active, none in review, 1 planned and 6 deferred.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -35,7 +35,8 @@ implementation accepted; mixed-scale display qualification remains in WP-088.
 WP-081 is accepted after its merged developer-surface checks; other terminal
 platforms remain in WP-088. WP-041, WP-076 and WP-078 are accepted after
 merged Qt 6.11 and Qt 6.8 checks; WP-045, WP-073 and WP-074 after the full
-suite passed on both (261/261). Scope decision by the user (2026-09-24):
+suite passed on both (261/261). WP-042 and WP-060 are accepted from the first
+code-first round (`round/cf1`), after its two failures were fixed. Scope decision by the user (2026-09-24):
 qualification covers Linux only, each package's live examples stand in for
 separate demo applications, and WP-089 to WP-094 are deferred.
 WP-049 now has beat-locked clip timing, tempo and automation editing, and
@@ -84,7 +85,7 @@ as though a later fix had already passed the earlier run.
 | [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | accepted | [Native collection transfer, dual-Qt workbench lifecycle and external AT-SPI action passed](evidence/WP-033.md) |
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | accepted | [Integrated renderer, installed consumer, dual-Qt 102/102 and focused resource lifecycle checks](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | accepted | [Lasso, snapping, persistent guides, shared selection, group and numeric transforms passed merged checks](evidence/WP-041.md) |
-| [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
+| [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | accepted | [Nested groups, artboards, one-step layer edits, shared selection and loop-free navigator passed the round build](evidence/WP-042.md) |
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | accepted | [Typed curve/gradient/picker editing, managed ICC canvas output and matched software/RHI pixels](evidence/WP-043.md) |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | active | [Editable multi-contour paths, holes, native persistence, SVG output, undoable clipboard and parametric polygon, star and rounded-rectangle paths merged; booleans, stroke alignment, patterns and appearance effects open](evidence/WP-044.md) |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | accepted | [Raster on the canvas, bounded history, brush previews, masks, tablet input and tracked comparison passed merged checks](evidence/WP-045.md) |
@@ -102,7 +103,7 @@ as though a later fix had already passed the earlier run.
 | [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | active | [NotebookView and BlockEditor integrated; persistent block model and content providers pending](evidence/WP-057.md) |
 | [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | active | [Local messages, rich drafts, attachments, recurring events and tasks persist with recovery and stale-writer rejection; delivery and sync providers remain](evidence/WP-058.md) |
 | [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | active | [SQLite provider and three controls integrated; design persistence and paginated export pending](evidence/WP-059.md) |
-| [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | active | [Host-acknowledged device panel integrated; real audio engine pending](evidence/WP-060.md) |
+| [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | accepted | [Real engine with ALSA and silent devices, acknowledged device changes, sessions and offline render passed the round build](evidence/WP-060.md) |
 | [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | active | [Control visuals, peak/RMS model and parameter taper integrated; engine binding pending](evidence/WP-061.md) |
 | [WP-062 — Implement mixing, panning and routing](phase-05-audio.md#wp-062) | 05 | Sol | active | [Four mixer/routing controls integrated; real DSP and graph operations pending](evidence/WP-062.md) |
 | [WP-063 — Implement waveform and spectral editing](phase-05-audio.md#wp-063) | 05 | Sol | active | [Waveform and spectrogram editor controls integrated; DSP and tile backend pending](evidence/WP-063.md) |

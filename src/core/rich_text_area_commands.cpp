@@ -51,6 +51,10 @@ const CommandInfo Commands[] = {
     {"edit.copy", "Copy", "copy", "Ctrl+C", false, false},
     {"edit.paste", "Paste", "clipboard-paste", "Ctrl+V", false, true},
     {"edit.selectAll", "Select all", "text-cursor-input", "Ctrl+A", false, false},
+    {"paragraph.style", "Paragraph style", "pilcrow", "", false, true},
+    {"text.style", "Character style", "case-sensitive", "", false, true},
+    {"navigate.nextFrame", "Next text frame", "arrow-down", "Ctrl+Alt+PgDown", false, false},
+    {"navigate.previousFrame", "Previous text frame", "arrow-up", "Ctrl+Alt+PgUp", false, false},
 };
 
 const CommandInfo *findCommand(const QString &id)
@@ -99,6 +103,15 @@ QVariantMap RichTextArea::commandState(const QString &commandId) const
     else if (commandId == u"insert.pageBreak" || commandId == u"insert.table") {
         const Paragraph *p = m_document ? m_document->paragraph(m_focus.position.paragraph) : nullptr;
         enabled = enabled && p && !p->table;
+    } else if (commandId == u"paragraph.style" || commandId == u"text.style") {
+        const Paragraph *p = m_document ? m_document->paragraph(m_focus.position.paragraph) : nullptr;
+        if (p) value = commandId == u"paragraph.style" ? p->format.styleId
+                                                      : m_document->charFormat(m_document->formatIndexAt(m_focus.position)).styleId;
+    } else if (commandId == u"navigate.nextFrame" || commandId == u"navigate.previousFrame") {
+        const QStringList story = m_document ? m_document->frameSet().storyChain() : QStringList{};
+        const qsizetype at = story.indexOf(caretFrameId());
+        enabled = enabled && paged() && !story.isEmpty()
+            && (commandId == u"navigate.nextFrame" ? at + 1 < story.size() : at != 0);
     }
     return {{QStringLiteral("enabled"), enabled},
             {QStringLiteral("checked"), check == 2},
@@ -131,6 +144,12 @@ bool RichTextArea::invokeCommand(const QString &id, const QVariantMap &args)
     else if (id == u"text.color") patch.color = value.toString().isEmpty() ? QColor() : QColor::fromString(value.toString());
     else if (id == u"text.highlight") patch.background = value.toString().isEmpty() ? QColor() : QColor::fromString(value.toString());
     else if (id == u"text.link") patch.href = args.value(QStringLiteral("href"), value).toString();
+    else if (id == u"text.style") {
+        // Only a character style of this document (or none) can be applied.
+        const NamedStyle *style = m_document->style(value.toString());
+        if (!value.toString().isEmpty() && (!style || style->kind != StyleKind::Character)) return false;
+        patch.styleId = value.toString();
+    }
     else if (id == u"text.clearFormatting") {
         patch.family = QString(); patch.sizePt = 0.0; patch.weight = 0; patch.italic = patch.underline = patch.strike = qint8(-1);
         patch.color = QColor(); patch.background = QColor(); patch.verticalAlign = VerticalAlign::Normal;
@@ -165,6 +184,15 @@ bool RichTextArea::invokeCommand(const QString &id, const QVariantMap &args)
     }
     if (id == u"paragraph.indent" || id == u"paragraph.outdent")
         return keep([&](RichTextDocument &doc) { return doc.changeListLevel(kept.anchor, kept.focus, id == u"paragraph.indent" ? 1 : -1); });
+    if (id == u"paragraph.style")
+        return keep([&](RichTextDocument &doc) { return doc.applyParagraphStyle(kept.anchor, kept.focus, value.toString()); });
+    if (id == u"navigate.nextFrame" || id == u"navigate.previousFrame") {
+        // The story's frames in thread order; without a caret frame, the first one.
+        const QStringList story = m_document->frameSet().storyChain();
+        const qsizetype at = story.indexOf(caretFrameId());
+        const qsizetype target = at < 0 ? 0 : at + (id == u"navigate.nextFrame" ? 1 : -1);
+        return target >= 0 && target < story.size() && goToFrame(story.at(target));
+    }
     if (id == u"insert.table")
         return edit(tr(info->label), {}, [&](RichTextDocument &doc) {
             return doc.insertTable(m_focus.position, qMax(1, args.value(QStringLiteral("rows"), 2).toInt()),

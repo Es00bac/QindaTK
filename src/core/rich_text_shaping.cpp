@@ -62,8 +62,10 @@ bool paragraphIsRightToLeft(const Paragraph &p)
     return false;
 }
 
-QFont resolvedFont(const RichTextDocument &doc, const CharFormat &f, const ParagraphFormat &pf)
+QFont resolvedFont(const RichTextDocument &doc, const CharFormat &direct, const ParagraphFormat &pf)
 {
+    // Named styles first (docs/publishing.md#styles), then heading and document defaults.
+    const CharFormat f = doc.effectiveCharFormat(direct, pf);
     const DocumentDefaults defaults = doc.defaults();
     const HeadingStyle heading = headingStyle(pf.headingLevel);
     QFont font(QFont(), layoutDevice());
@@ -78,10 +80,11 @@ QFont resolvedFont(const RichTextDocument &doc, const CharFormat &f, const Parag
     return font;
 }
 
-QTextCharFormat resolvedFormat(const RichTextDocument &doc, const CharFormat &f, const ParagraphFormat &pf)
+QTextCharFormat resolvedFormat(const RichTextDocument &doc, const CharFormat &direct, const ParagraphFormat &pf)
 {
+    const CharFormat f = doc.effectiveCharFormat(direct, pf);
     QTextCharFormat format;
-    format.setFont(resolvedFont(doc, f, pf), QTextCharFormat::FontPropertiesAll);
+    format.setFont(resolvedFont(doc, direct, pf), QTextCharFormat::FontPropertiesAll);
     if (f.color.isValid()) format.setForeground(f.color);
     else if (doc.defaults().color.isValid()) format.setForeground(doc.defaults().color);
     if (f.background.isValid()) format.setBackground(f.background);
@@ -179,31 +182,36 @@ int RichTextLayout::modelOffset(const ParagraphMetrics &metrics, int layoutOffse
 }
 
 static QString contextKey(const QUuid &id, qreal width, const QVector<Exclusion> &exclusions,
-                          int preeditOffset, const QString &preedit)
+                          int preeditOffset, const QString &preedit, const QVector<WidthBreak> &widths)
 {
+    // AGENT-GUARD: the key starts with the paragraph ID (38 characters);
+    // onContentChanged drops a paragraph's contexts by that prefix.
     QString key = id.toString() + u'/' + QString::number(width, 'g', 10);
     for (const Exclusion &e : exclusions)
         key += QStringLiteral("|%1,%2,%3,%4").arg(e.top).arg(e.bottom).arg(e.left).arg(e.right);
+    for (const WidthBreak &w : widths) key += QStringLiteral("|w%1:%2").arg(w.line).arg(w.width, 0, 'g', 10);
     if (preeditOffset >= 0) key += QStringLiteral("|ime%1:").arg(preeditOffset) + preedit;
     return key;
 }
 
 ParagraphMetrics &RichTextLayout::ensureParagraph(const Paragraph &p, qreal width,
-                                                  const QVector<Exclusion> &exclusions, bool needShape)
+                                                  const QVector<Exclusion> &exclusions, bool needShape,
+                                                  const QVector<WidthBreak> &widths)
 {
     const bool preedit = !m_preeditText.isEmpty() && m_preeditAt.paragraph == p.id;
-    const bool special = preedit || !exclusions.isEmpty();
+    const bool special = preedit || !exclusions.isEmpty() || !widths.isEmpty();
     const int preeditOffset = preedit ? m_preeditAt.offset : -1;
     ParagraphMetrics &metrics = special
-        ? m_contextMetrics[contextKey(p.id, width, exclusions, preeditOffset, m_preeditText)]
+        ? m_contextMetrics[contextKey(p.id, width, exclusions, preeditOffset, m_preeditText, widths)]
         : m_metrics[p.id];
     const bool valid = metrics.revision == p.revision && qFuzzyCompare(metrics.width + 1, width + 1)
-        && metrics.exclusions == exclusions && metrics.preeditOffset == preeditOffset
+        && metrics.exclusions == exclusions && metrics.widths == widths && metrics.preeditOffset == preeditOffset
         && (!preedit || metrics.preeditLength == m_preeditText.size()) && !metrics.lines.isEmpty();
     if (!valid) {
         metrics = ParagraphMetrics{};
         metrics.revision = p.revision;
         metrics.width = width;
+        metrics.widths = widths;
         metrics.exclusions = exclusions;
         metrics.preeditOffset = preeditOffset;
         metrics.preeditLength = preedit ? int(m_preeditText.size()) : 0;
@@ -215,6 +223,13 @@ ParagraphMetrics &RichTextLayout::ensureParagraph(const Paragraph &p, qreal widt
     }
     touchLru(metrics);
     return metrics;
+}
+
+ParagraphMetrics &RichTextLayout::itemMetrics(const Paragraph &p, const PageItem &item)
+{
+    // A continued paragraph is keyed by its first region's width (placeParagraph).
+    return ensureParagraph(p, item.widths.isEmpty() ? item.width : item.widths.first().width,
+                           item.exclusions, false, item.widths);
 }
 
 QTextLayout *RichTextLayout::shaped(const Paragraph &p, ParagraphMetrics &metrics)
@@ -321,7 +336,13 @@ QTextLayout *RichTextLayout::buildLayout(const Paragraph &p, ParagraphMetrics &m
         start += span.length;
     }
 
-    const qreal fullWidth = m.width;
+    // The full width of line `index`: its width break, else the paragraph width.
+    auto widthOf = [&m](int index) {
+        qreal width = m.width;
+        for (const WidthBreak &w : m.widths)
+            if (w.line <= index) width = w.width;
+        return width;
+    };
     m.lines.clear();
     qreal y = 0;
     qreal estimate = QFontMetricsF(markFont).height();
@@ -329,6 +350,7 @@ QTextLayout *RichTextLayout::buildLayout(const Paragraph &p, ParagraphMetrics &m
     for (int index = 0;; ++index) {
         QTextLine line = layout->createLine();
         if (!line.isValid()) break;
+        const qreal fullWidth = widthOf(index);
         const qreal startIndent = m.indentStart + (index == 0 ? pf.firstLineIndentPt * PxPerPt : 0);
         qreal left = m.rightToLeft ? indentEnd : startIndent;
         qreal right = m.rightToLeft ? startIndent : indentEnd;

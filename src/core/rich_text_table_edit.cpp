@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Stable-identity table grid edits (StepTable) and the TableEditor snapshot.
+// Stable-identity table grid edits (StepTable), aware of merged cells.
+// Snapshots, merge, split and table styles: rich_text_table_spans.cpp.
 #include "rich_text_document.h"
 #include "rich_text_ops_p.h"
 #include <cmath>
@@ -10,23 +11,19 @@ using namespace RichText::Detail;
 
 namespace {
 
-// The limits insertTable() and the codec apply.
-constexpr int MaximumRows = 10000;
-constexpr int MaximumColumns = 64;
 constexpr double MaximumColumnWeight = 1e6;
 
-// Collects a grid's paragraph IDs. False when a cell is empty or a paragraph
-// appears twice: versions of one grid share paragraphs, one grid never does.
+// Collects a grid's paragraph IDs. False when a paragraph appears twice:
+// versions of one grid share paragraphs, one grid never does. Covered
+// slots hold no paragraphs; mapTableGrid checks that visible cells do.
 bool collectParagraphIds(const Table &table, QSet<QUuid> *ids)
 {
     for (const TableRow &row : table.rows)
-        for (const TableCell &cell : row.cells) {
-            if (cell.paragraphs.isEmpty()) return false;
+        for (const TableCell &cell : row.cells)
             for (const ParagraphPtr &p : cell.paragraphs) {
                 if (!p || ids->contains(p->id)) return false;
                 ids->insert(p->id);
             }
-        }
     return true;
 }
 
@@ -34,8 +31,8 @@ bool collectParagraphIds(const Table &table, QSet<QUuid> *ids)
 QString gridProblem(const Table &t, const QUuid &tableId)
 {
     const qsizetype columns = t.columnWeights.size();
-    if (t.id != tableId || t.rows.isEmpty() || t.rows.size() > MaximumRows || columns == 0
-        || columns > MaximumColumns || t.columnIds.size() != columns || t.headerRows < 0
+    if (t.id != tableId || t.rows.isEmpty() || t.rows.size() > MaximumTableRows || columns == 0
+        || columns > MaximumTableColumns || t.columnIds.size() != columns || t.headerRows < 0
         || t.headerRows >= t.rows.size())
         return QStringLiteral("Invalid table grid");
     for (double weight : t.columnWeights)
@@ -47,7 +44,8 @@ QString gridProblem(const Table &t, const QUuid &tableId)
     }
     if (ids.size() != columns + t.rows.size() || ids.contains(QUuid()))
         return QStringLiteral("Duplicate table row or column identity");
-    return {};
+    TableGridMap map;
+    return mapTableGrid(t, &map);
 }
 
 int rowIndex(const Table &table, const QUuid &id)
@@ -60,22 +58,6 @@ int rowIndex(const Table &table, const QUuid &id)
 int columnIndex(const Table &table, const QUuid &id)
 {
     return int(table.columnIds.indexOf(id));
-}
-
-// A new empty cell shaped like `model`: its background plus the typing
-// format and paragraph format of its first paragraph (without list
-// membership), so an inserted row or column looks like its neighbour.
-TableCell cellLike(const RichTextDocument &doc, const TableCell &model)
-{
-    const Paragraph &source = *model.paragraphs.first();
-    auto paragraph = std::make_shared<Paragraph>();
-    paragraph->id = QUuid::createUuid();
-    paragraph->markFormat = doc.charFormat(source.markFormat).href.isEmpty() ? source.markFormat : 0;
-    paragraph->format = source.format;
-    paragraph->format.listId.clear();
-    paragraph->format.listLevel = 0;
-    paragraph->format.pageBreakBefore = false;
-    return {QUuid::createUuid(), {paragraph}, model.background};
 }
 
 // Objects anchored in paragraphs of `from` that `to` no longer holds.
@@ -103,10 +85,11 @@ int survivingIndex(int index, int count, IdAt idAt, const QHash<QUuid, int> &tar
     return -1;
 }
 
-// Where an anchor in a removed cell of `from` goes in `to`: the cell at its
-// row and column when both survive, otherwise the next surviving row or
-// column (the previous one at the end), so a caret stays beside the edit.
-Position nearestCell(const Table &from, const Table &to, const QUuid &paragraph)
+// Where an anchor in a removed paragraph of `from` goes in `to`: the cell
+// at its row and column when both survive, otherwise the next surviving row
+// or column (the previous one at the end), so a caret stays beside the edit.
+// A slot a merged cell covers resolves to that merged cell.
+Position nearestCell(const Table &from, const Table &to, const TableGridMap &toMap, const QUuid &paragraph)
 {
     QHash<QUuid, int> rows, columns;
     for (int r = 0; r < to.rows.size(); ++r) rows.insert(to.rows.at(r).id, r);
@@ -119,25 +102,57 @@ Position nearestCell(const Table &from, const Table &to, const QUuid &paragraph)
                                                [&from](int i) { return from.rows.at(i).id; }, rows);
                 const int column = survivingIndex(c, int(from.columnIds.size()),
                                                   [&from](int i) { return from.columnIds.at(i); }, columns);
-                return {to.rows.at(qMax(0, row)).cells.at(qMax(0, column)).paragraphs.first()->id, 0};
+                return {anchorCell(to, toMap, qMax(0, row), qMax(0, column)).paragraphs.first()->id, 0};
             }
-    return {to.rows.first().cells.first().paragraphs.first()->id, 0};
+    return {anchorCell(to, toMap, 0, 0).paragraphs.first()->id, 0};
 }
 
-// The shared pointer that owns a registered table, or null. Rebuilds the
-// document order first: Table::blockIndex is stale after a paragraph merge.
+} // namespace
+
+namespace RichText::Detail {
+
+TableCell cellLike(const RichTextDocument &doc, const TableCell &model)
+{
+    // The model's background plus the typing format and paragraph format of
+    // its first paragraph (without list membership), so an inserted row or
+    // column looks like its neighbour.
+    const Paragraph &source = *model.paragraphs.first();
+    auto paragraph = std::make_shared<Paragraph>();
+    paragraph->id = QUuid::createUuid();
+    paragraph->markFormat = doc.charFormat(source.markFormat).href.isEmpty() ? source.markFormat : 0;
+    paragraph->format = source.format;
+    paragraph->format.listId.clear();
+    paragraph->format.listLevel = 0;
+    paragraph->format.pageBreakBefore = false;
+    return {QUuid::createUuid(), {paragraph}, model.background, 1, 1};
+}
+
+const TableCell &anchorCell(const Table &table, const TableGridMap &map, int row, int column)
+{
+    const int slot = map.anchorOf(row, column);
+    return table.rows.at(slot / map.columns).cells.at(slot % map.columns);
+}
+
+int slotOfCell(const Table &table, const QUuid &id)
+{
+    const int columns = int(table.columnWeights.size());
+    for (int r = 0; r < table.rows.size(); ++r)
+        for (int c = 0; c < table.rows.at(r).cells.size(); ++c)
+            if (table.rows.at(r).cells.at(c).id == id) return r * columns + c;
+    return -1;
+}
+
 TablePtr livePointer(const RichTextDocument &doc, const Table *t)
 {
+    // Rebuilds the document order first: Table::blockIndex is stale after a
+    // paragraph merge.
     if (!t) return {};
     doc.paragraphsInOrder();
     const Block block = doc.blocks().value(t->blockIndex);
     return block.table.get() == t ? block.table : TablePtr{};
 }
 
-// Applies one StepTable replacing `current` with `next`, as its own undo
-// step unless a transaction is already open.
-bool commitGrid(RichTextDocument &doc, const QString &label, const TablePtr &current,
-                const TablePtr &next)
+bool commitGrid(RichTextDocument &doc, const QString &label, const TablePtr &current, const TablePtr &next)
 {
     AutoTransaction transaction(&doc, label);
     if (!transaction.valid) return false;
@@ -145,7 +160,7 @@ bool commitGrid(RichTextDocument &doc, const QString &label, const TablePtr &cur
     return transaction.finish(!doc.apply(std::move(step)), {});
 }
 
-} // namespace
+} // namespace RichText::Detail
 
 OperationError RichTextDocument::applyTable(const StepTable &step, bool forward, ChangeSet &change)
 {
@@ -159,6 +174,9 @@ OperationError RichTextDocument::applyTable(const StepTable &step, bool forward,
         return reject(ErrorCode::Conflict, QStringLiteral("Table changed since the edit"));
     if (const QString problem = gridProblem(*to, step.tableId); !problem.isEmpty())
         return reject(ErrorCode::Validation, problem);
+    if (const NamedStyle *named = style(to->styleId);
+        !to->styleId.isEmpty() && (!named || named->kind != StyleKind::Table))
+        return reject(ErrorCode::Validation, QStringLiteral("Unknown table style"));
     QSet<QUuid> oldIds, newIds;
     if (!collectParagraphIds(*from, &oldIds) || !collectParagraphIds(*to, &newIds))
         return reject(ErrorCode::Validation, QStringLiteral("Invalid table cell"));
@@ -171,9 +189,11 @@ OperationError RichTextDocument::applyTable(const StepTable &step, bool forward,
         if (!forward && m_objects.contains(object.id))
             return reject(ErrorCode::Conflict, QStringLiteral("Table object already exists"));
     }
+    TableGridMap toMap;
+    mapTableGrid(*to, &toMap);
     for (PositionAnchor *anchor : std::as_const(m_anchors)) {
         const QUuid id = anchor->position.paragraph;
-        if (oldIds.contains(id) && !newIds.contains(id)) anchor->position = nearestCell(*from, *to, id);
+        if (oldIds.contains(id) && !newIds.contains(id)) anchor->position = nearestCell(*from, *to, toMap, id);
     }
     const int index = from->blockIndex;
     unregisterBlock(m_blocks.at(index));
@@ -200,64 +220,32 @@ OperationError RichTextDocument::applyTable(const StepTable &step, bool forward,
     return {};
 }
 
-QVariantList RichTextDocument::tableSnapshots() const
-{
-    QVariantList result;
-    for (const Block &block : m_blocks)
-        if (block.table) result.append(tableSnapshot(block.table->id.toString(QUuid::WithoutBraces)));
-    return result;
-}
-
-QVariantMap RichTextDocument::tableSnapshot(const QString &tableId) const
-{
-    const Table *t = table(QUuid(tableId));
-    if (!t) return {};
-    QVariantList rows, columns, cells;
-    for (int c = 0; c < t->columnWeights.size(); ++c)
-        columns.append(QVariantMap{{QStringLiteral("id"), t->columnIds.value(c).toString(QUuid::WithoutBraces)},
-                                   {QStringLiteral("label"), QString::number(c + 1)},
-                                   {QStringLiteral("width"), t->columnWeights.at(c)}});
-    for (int r = 0; r < t->rows.size(); ++r) {
-        const TableRow &row = t->rows.at(r);
-        const QString rowId = row.id.toString(QUuid::WithoutBraces);
-        rows.append(QVariantMap{{QStringLiteral("id"), rowId}, {QStringLiteral("label"), QString::number(r + 1)},
-                                {QStringLiteral("header"), r < t->headerRows}});
-        for (int c = 0; c < row.cells.size(); ++c) {
-            const TableCell &cell = row.cells.at(c);
-            QStringList lines, paragraphIds;
-            for (const ParagraphPtr &p : cell.paragraphs) {
-                lines.append(p->text);
-                paragraphIds.append(p->id.toString(QUuid::WithoutBraces));
-            }
-            cells.append(QVariantMap{{QStringLiteral("id"), cell.id.toString(QUuid::WithoutBraces)},
-                                     {QStringLiteral("rowId"), rowId},
-                                     {QStringLiteral("columnId"), t->columnIds.value(c).toString(QUuid::WithoutBraces)},
-                                     {QStringLiteral("rowIndex"), r}, {QStringLiteral("columnIndex"), c},
-                                     {QStringLiteral("rowSpan"), 1}, {QStringLiteral("columnSpan"), 1},
-                                     {QStringLiteral("text"), lines.join(u'\n')},
-                                     {QStringLiteral("paragraphIds"), paragraphIds}});
-        }
-    }
-    return {{QStringLiteral("id"), t->id.toString(QUuid::WithoutBraces)},
-            {QStringLiteral("rows"), rows}, {QStringLiteral("columns"), columns},
-            {QStringLiteral("cells"), cells}, {QStringLiteral("headerRows"), t->headerRows},
-            {QStringLiteral("canMerge"), false},
-            {QStringLiteral("maxRows"), MaximumRows}, {QStringLiteral("maxColumns"), MaximumColumns}};
-}
-
 bool RichTextDocument::insertTableRow(const QString &tableId, int index)
 {
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
-    if (!current || index < 0 || index > current->rows.size() || current->rows.size() >= MaximumRows)
+    if (!current || index < 0 || index > current->rows.size() || current->rows.size() >= MaximumTableRows)
         return !reject(ErrorCode::InvalidArgument, QStringLiteral("Invalid table row insertion"));
+    TableGridMap map;
+    mapTableGrid(*current, &map);
+    const int rows = map.rows;
+    const int columns = map.columns;
     // The new row copies the look of the row it joins: a header row inside
-    // the header block, otherwise the neighbouring body row.
+    // the header block, otherwise the neighbouring body row. Inside a merged
+    // cell it becomes covered and the merged cell grows by one row.
     const int header = current->headerRows;
-    const int model = index < header ? index
-        : index > header ? index - 1 : qMin(index, int(current->rows.size()) - 1);
-    TableRow row{QUuid::createUuid(), {}, 0.0};
-    for (const TableCell &cell : current->rows.at(model).cells) row.cells.append(cellLike(*this, cell));
+    const int model = index < header ? index : index > header ? index - 1 : qMin(index, rows - 1);
     auto next = std::make_shared<Table>(*current);
+    TableRow row{QUuid::createUuid(), {}, 0.0};
+    QSet<int> grown;
+    for (int c = 0; c < columns; ++c) {
+        if (index > 0 && index < rows && map.anchorOf(index - 1, c) == map.anchorOf(index, c)) {
+            grown.insert(map.anchorOf(index, c));
+            row.cells.append(TableCell{QUuid::createUuid(), {}, {}, 1, 1});
+        } else {
+            row.cells.append(cellLike(*this, anchorCell(*current, map, model, c)));
+        }
+    }
+    for (int slot : std::as_const(grown)) ++next->rows[slot / columns].cells[slot % columns].rowSpan;
     next->rows.insert(index, row);
     if (index < header) ++next->headerRows;
     return commitGrid(*this, tr("Insert table row"), current, next);
@@ -269,7 +257,30 @@ bool RichTextDocument::removeTableRow(const QString &tableId, const QString &row
     const int index = current ? rowIndex(*current, QUuid(rowId)) : -1;
     if (index < 0 || current->rows.size() <= 1)
         return !reject(ErrorCode::InvalidArgument, QStringLiteral("Invalid table row deletion"));
+    TableGridMap map;
+    mapTableGrid(*current, &map);
+    const int columns = map.columns;
     auto next = std::make_shared<Table>(*current);
+    // A merged cell loses the row; one anchored in it moves to the slot
+    // below with its content and identity (that covered slot's ID goes with
+    // the deleted row).
+    for (int c = 0; c < columns; ++c) {
+        const int slot = map.anchorOf(index, c);
+        const int anchorRow = slot / columns;
+        if (slot % columns != c) continue;
+        const TableCell &anchor = current->rows.at(anchorRow).cells.at(c);
+        if (anchor.rowSpan == 1) continue;
+        if (anchorRow < index) {
+            --next->rows[anchorRow].cells[c].rowSpan;
+            continue;
+        }
+        TableCell &below = next->rows[index + 1].cells[c];
+        below.id = anchor.id;
+        below.paragraphs = anchor.paragraphs;
+        below.background = anchor.background;
+        below.rowSpan = anchor.rowSpan - 1;
+        below.columnSpan = anchor.columnSpan;
+    }
     next->rows.removeAt(index);
     if (index < next->headerRows) --next->headerRows;
     next->headerRows = qMin(next->headerRows, int(next->rows.size()) - 1);
@@ -280,15 +291,29 @@ bool RichTextDocument::insertTableColumn(const QString &tableId, int index)
 {
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     if (!current || index < 0 || index > current->columnWeights.size()
-        || current->columnWeights.size() >= MaximumColumns)
+        || current->columnWeights.size() >= MaximumTableColumns)
         return !reject(ErrorCode::InvalidArgument, QStringLiteral("Invalid table column insertion"));
+    TableGridMap map;
+    mapTableGrid(*current, &map);
+    const int columns = map.columns;
     // Like the column to its left (the first column when inserted first):
     // same relative width, and each row's cell styled like its neighbour.
+    // Inside a merged cell the slot is covered and the merged cell widens.
     const int model = qMax(0, index - 1);
     auto next = std::make_shared<Table>(*current);
     next->columnIds.insert(index, QUuid::createUuid());
     next->columnWeights.insert(index, current->columnWeights.at(model));
-    for (TableRow &row : next->rows) row.cells.insert(index, cellLike(*this, row.cells.at(model)));
+    QSet<int> grown;
+    for (int r = 0; r < map.rows; ++r) {
+        if (index > 0 && index < columns && map.anchorOf(r, index - 1) == map.anchorOf(r, index)) {
+            grown.insert(map.anchorOf(r, index));
+            next->rows[r].cells.insert(index, TableCell{QUuid::createUuid(), {}, {}, 1, 1});
+        } else {
+            next->rows[r].cells.insert(index, cellLike(*this, anchorCell(*current, map, r, model)));
+        }
+    }
+    // Anchors of widened cells sit left of `index`, so insertion did not move them.
+    for (int slot : std::as_const(grown)) ++next->rows[slot / columns].cells[slot % columns].columnSpan;
     return commitGrid(*this, tr("Insert table column"), current, next);
 }
 
@@ -298,7 +323,29 @@ bool RichTextDocument::removeTableColumn(const QString &tableId, const QString &
     const int index = current ? columnIndex(*current, QUuid(columnId)) : -1;
     if (index < 0 || current->columnWeights.size() <= 1)
         return !reject(ErrorCode::InvalidArgument, QStringLiteral("Invalid table column deletion"));
+    TableGridMap map;
+    mapTableGrid(*current, &map);
+    const int columns = map.columns;
     auto next = std::make_shared<Table>(*current);
+    // A merged cell loses the column; one anchored in it moves to the slot
+    // on its right with its content and identity.
+    for (int r = 0; r < map.rows; ++r) {
+        const int slot = map.anchorOf(r, index);
+        const int anchorColumn = slot % columns;
+        if (slot / columns != r) continue;
+        const TableCell &anchor = current->rows.at(r).cells.at(anchorColumn);
+        if (anchor.columnSpan == 1) continue;
+        if (anchorColumn < index) {
+            --next->rows[r].cells[anchorColumn].columnSpan;
+            continue;
+        }
+        TableCell &right = next->rows[r].cells[index + 1];
+        right.id = anchor.id;
+        right.paragraphs = anchor.paragraphs;
+        right.background = anchor.background;
+        right.rowSpan = anchor.rowSpan;
+        right.columnSpan = anchor.columnSpan - 1;
+    }
     next->columnIds.removeAt(index);
     next->columnWeights.removeAt(index);
     for (TableRow &row : next->rows) row.cells.removeAt(index);

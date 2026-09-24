@@ -17,7 +17,7 @@ QList<QTextLayout::FormatRange> RichTextLayout::decorations(const Paragraph &p, 
     QList<QTextLayout::FormatRange> ranges;
     int start = 0;
     for (const Span &span : p.spans) {
-        const CharFormat &format = m_document->charFormat(span.format);
+        const CharFormat format = m_document->effectiveCharFormat(m_document->charFormat(span.format), p.format);
         if (!format.href.isEmpty() && !format.color.isValid()) {
             QTextCharFormat link;
             link.setForeground(context.link);
@@ -110,54 +110,74 @@ void RichTextLayout::paintLines(QPainter *painter, const PageItem &item, const P
 {
     const Paragraph *p = m_document->paragraph(item.block);
     if (!p) return;
-    ParagraphMetrics &m = ensureParagraph(*p, itemWidth(), item.exclusions);
+    ParagraphMetrics &m = itemMetrics(*p, item);
+    if (item.first + item.count > m.lines.size()) return; // pages not yet rebuilt
     const QPointF content = contentRect().topLeft();
-    const QPointF origin = content + QPointF(0, item.y - m.lines.at(item.first).y);
-    // A strict vertical clip keeps lines that belong to another page out.
-    const QRectF clip(content.x() - 4096, content.y() + item.y + 0.25, itemWidth() + 8192, item.height - 0.5);
+    const QPointF origin = content + QPointF(item.x, item.y - m.lines.at(item.first).y);
+    // A strict vertical clip keeps lines that belong to another page or region out.
+    const QRectF clip(content.x() + item.x - 4096, content.y() + item.y + 0.25, item.width + 8192, item.height - 0.5);
+    // AGENT-NOTE: QTextLayout::draw's clip argument only skips lines, and it
+    // still draws the line just above the rectangle, so a paragraph continued
+    // in the next column or frame repeated the last line shown before it. The
+    // painter clips the item's band as well (tst_rich_text_frames, grabs).
+    painter->save();
+    painter->setClipRect(clip, Qt::IntersectClip);
     paintParagraph(painter, *p, m, origin, clip, item.first, item.count, context);
+    painter->restore();
 }
 
 void RichTextLayout::paintTable(QPainter *painter, const PageItem &item, const PaintContext &context)
 {
     const Table *table = m_document->table(item.block);
     if (!table) return;
-    const auto &g = tableGeometry(*table);
+    const auto geometry = tableGeometry(*table, item.width);
+    const TableGeometry &g = *geometry;
+    if (item.first + item.count > g.rows) return; // pages not yet rebuilt
     const QPointF content = contentRect().topLeft();
     const qreal b = g.border;
-    const qreal left = content.x();
-    const qreal right = content.x() + g.width;
-    const bool split = !item.cellFirstLine.isEmpty() || item.rowClip > 0;
-    qreal rowTop = content.y() + item.y;
-    for (int r = item.first; r < item.first + item.count; ++r) {
-        const qreal rowHeight = split ? item.height - b : g.rowHeight.at(r);
-        for (int c = 0; c < g.cells.at(r).size(); ++c) {
-            const auto &cell = g.cells.at(r).at(c);
-            const QColor background = table->rows.at(r).cells.at(c).background;
-            const QRectF box(left + g.columnX.at(c) + b, rowTop + b, g.columnWidth.at(c) - b, rowHeight - b);
-            if (background.isValid()) painter->fillRect(box, background);
-            const int firstLine = item.cellFirstLine.value(c, 0);
-            const qreal shift = firstLine < cell.lines.size() ? cell.lines.at(firstLine).top : 0;
-            const qreal contentTop = rowTop + b + g.padding;
-            const qreal visible = item.rowClip > 0 ? item.rowClip : cell.contentHeight - shift;
-            const QRectF clip(left + cell.contentX - 2, contentTop + 0.25, cell.contentWidth + 4, visible - 0.5);
-            const auto &paragraphs = table->rows.at(r).cells.at(c).paragraphs;
-            for (int i = 0; i < paragraphs.size(); ++i) {
-                ParagraphMetrics &m = ensureParagraph(*paragraphs.at(i), cell.contentWidth);
-                const QPointF origin(left + cell.contentX, contentTop + cell.paragraphTop.at(i) - shift);
-                if (origin.y() + m.height < clip.top() || origin.y() > clip.bottom()) continue;
-                paintParagraph(painter, *paragraphs.at(i), m, origin, clip, 0, int(m.lines.size()), context);
+    const qreal left = content.x() + item.x;
+    const qreal top = content.y() + item.y;
+    qreal rows = 0;
+    for (qreal height : item.rowHeights) rows += height;
+    // AGENT-NOTE: borders are collapsed per cell box (top and start edges;
+    // the table draws its end and bottom edges), so a merged cell has no
+    // inner grid lines (docs/publishing.md#merged-cells).
+    for (const TableGeometry::VisibleCell &visible : g.visibleCells(item)) {
+        const TableGeometry::Cell &cell = *visible.cell;
+        const qreal x0 = left + g.columnX.at(cell.column);
+        const qreal x1 = left + g.columnRight(cell.column + cell.columnSpan);
+        const qreal y0 = top + visible.top;
+        if (cell.background.isValid())
+            painter->fillRect(QRectF(x0 + b, y0 + b, x1 - x0 - b, visible.height - b), cell.background);
+        if (visible.end > visible.start) {
+            const qreal shift = cell.origin(visible.start);
+            const qreal contentTop = y0 + b + g.padding;
+            const qreal shown = cell.lines.at(visible.end - 1).bottom - shift;
+            const QRectF clip(left + cell.contentX - 2, contentTop + 0.25, cell.contentWidth + 4, shown - 0.5);
+            painter->save();
+            painter->setClipRect(clip, Qt::IntersectClip); // see paintLines
+            // Each paragraph paints only its lines in this box (list markers too).
+            for (int l = visible.start; l < visible.end;) {
+                const int index = cell.lines.at(l).paragraph;
+                int count = 0;
+                while (l + count < visible.end && cell.lines.at(l + count).paragraph == index) ++count;
+                const Paragraph *p = m_document->paragraph(cell.paragraphs.at(index));
+                ParagraphMetrics &m = ensureParagraph(*p, cell.contentWidth);
+                const QPointF origin(left + cell.contentX, contentTop + cell.paragraphTop.at(index) - shift);
+                paintParagraph(painter, *p, m, origin, clip, cell.lines.at(l).line, count, context);
+                l += count;
             }
+            painter->restore();
         }
         if (b > 0) {
-            painter->fillRect(QRectF(left, rowTop, right - left, b), context.border);
-            for (int c = 0; c < g.columnX.size(); ++c)
-                painter->fillRect(QRectF(left + g.columnX.at(c), rowTop, b, rowHeight), context.border);
-            painter->fillRect(QRectF(right - b, rowTop, b, rowHeight), context.border);
+            painter->fillRect(QRectF(x0, y0, x1 - x0, b), context.border);
+            painter->fillRect(QRectF(x0, y0, b, visible.height), context.border);
         }
-        rowTop += rowHeight;
     }
-    if (b > 0 && !item.headerRepeat) painter->fillRect(QRectF(left, rowTop, right - left, b), context.border);
+    if (b > 0) {
+        painter->fillRect(QRectF(left + g.inner, top, b, rows), context.border);
+        if (!item.headerRepeat) painter->fillRect(QRectF(left, top + rows, g.width, b), context.border);
+    }
 }
 
 void RichTextLayout::paintPage(QPainter *painter, int pageIndex, const PaintContext &context, const QRectF &clip)
@@ -167,6 +187,7 @@ void RichTextLayout::paintPage(QPainter *painter, int pageIndex, const PaintCont
     const QPointF content = contentRect().topLeft();
     painter->save();
     painter->setPen(context.ink);
+    paintFrames(painter, pageIndex, context);
     for (const PageItem &item : page.items) {
         const QRectF itemRect(content.x() + item.x, content.y() + item.y, item.width, item.height);
         if (!clip.isNull() && !clip.intersects(itemRect.adjusted(-64, -2, 64, 2))) continue;

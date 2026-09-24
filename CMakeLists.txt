@@ -18,6 +18,7 @@ option(QINDATK_BUILD_EXAMPLES "Build the gallery and studio-shell examples" ON)
 option(QINDATK_BUILD_TOOLS "Build qtk-preview (headless render/dump tool)" ON)
 option(QINDATK_ENABLE_POPPLER_QT6 "Enable the optional Poppler Qt 6 PDF backend" ON)
 option(QINDATK_ENABLE_ALSA "Enable the optional ALSA audio device backend" ON)
+option(QINDATK_ENABLE_FFMPEG "Enable the optional FFmpeg media decode/encode backend" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg Concurrent Network)
 find_package(SQLite3 REQUIRED)
@@ -63,6 +64,18 @@ if(QINDATK_ENABLE_ALSA)
     endif()
     if(NOT QINDATK_ALSA_FOUND)
         message(STATUS "QindaTK: ALSA not found or not linkable; the audio engine offers built-in devices only")
+    endif()
+endif()
+# AGENT-NOTE (D-096): the FFmpeg libraries are a private, optional media
+# backend (decode, composite input, encode). Without them the media types
+# still build and report an explicit "built without FFmpeg" capability error.
+if(QINDATK_ENABLE_FFMPEG)
+    pkg_check_modules(FFMPEG QUIET IMPORTED_TARGET
+        libavformat>=60 libavcodec>=60 libavutil>=58 libswscale>=7 libswresample>=4.10)
+    if(FFMPEG_FOUND)
+        message(STATUS "QindaTK: FFmpeg media backend enabled (libavformat ${FFMPEG_libavformat_VERSION}, libavcodec ${FFMPEG_libavcodec_VERSION})")
+    else()
+        message(STATUS "QindaTK: FFmpeg libraries not found; the media backend reports unsupported")
     endif()
 endif()
 # Native QFileDialog is an optional adapter; base qindatk stays QtQuick-only.

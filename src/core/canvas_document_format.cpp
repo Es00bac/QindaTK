@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_document_format.h"
+#include "canvas_appearance.h"
 #include "canvas_transform.h"
 #include "color_profile.h"
 #include <QCryptographicHash>
@@ -25,7 +26,8 @@ constexpr qsizetype minimumObjectRecordV1 = 8 + 8 + 1 + 32 + 4 + 72 + 2 * colorB
 constexpr qsizetype minimumObjectRecordV2 = minimumObjectRecordV1 + 4;
 constexpr qsizetype minimumObjectRecordV3 = minimumObjectRecordV2 + 12;
 constexpr qsizetype minimumObjectRecordV4 = minimumObjectRecordV3 + 4;
-constexpr qsizetype minimumObjectRecord = minimumObjectRecordV4 + 21;
+constexpr qsizetype minimumObjectRecordV5 = minimumObjectRecordV4 + 21;
+constexpr qsizetype minimumObjectRecord = minimumObjectRecordV5 + 4; // v6 appearance length
 // Keeps (order << 40) in CanvasDocumentAdapter::paintKey inside 63 bits.
 constexpr quint64 idCeiling = IdCeiling;
 
@@ -151,32 +153,6 @@ private:
 };
 } // namespace
 
-std::optional<SnapshotHeader> inspect(const QByteArray &bytes, OperationError *error)
-{
-    if (error) *error = {};
-    const auto fail = [error](const OperationError &e) -> std::optional<SnapshotHeader> {
-        if (error) *error = e;
-        return std::nullopt;
-    };
-    if (bytes.size() < headerBytes + digestBytes || !recognizes(bytes))
-        return fail(problem(ErrorCode::InvalidArgument, QStringLiteral("Not a canvas document")));
-    Reader in(bytes.first(headerBytes));
-    char signature[SignatureBytes] = {};
-    quint32 version = 0;
-    char uuid[16] = {};
-    quint64 revision = 0, generation = 0;
-    if (!in.raw(signature, SignatureBytes) || !in.read(version))
-        return fail(problem(ErrorCode::InvalidArgument, QStringLiteral("Truncated canvas header")));
-    if (version < 1 || version > Version)
-        return fail(problem(ErrorCode::Unsupported, QStringLiteral("Unsupported canvas format version"), QStringLiteral("version")));
-    if (!in.raw(uuid, 16) || !in.read(revision) || !in.read(generation))
-        return fail(problem(ErrorCode::InvalidArgument, QStringLiteral("Truncated canvas header")));
-    const QUuid id = QUuid::fromRfc4122(QByteArrayView(uuid, 16));
-    if (id.isNull())
-        return fail(problem(ErrorCode::InvalidArgument, QStringLiteral("Invalid canvas document identity"), QStringLiteral("documentId")));
-    return SnapshotHeader{QString::fromLatin1(SchemaId), DocumentId{id}, {revision}, generation};
-}
-
 QByteArray encode(const CanvasDocumentState &state, OperationError *error)
 {
     if (error) *error = {};
@@ -248,6 +224,7 @@ QByteArray encode(const CanvasDocumentState &state, OperationError *error)
         }
         w.out() << quint8(o.parametricKind) << quint32(o.parametricPoints)
                 << double(o.parametricInnerRatio) << double(o.parametricCornerRadius);
+        w.bytes(CanvasAppearanceCodec::encode(o.appearance)); // v6 (D-106)
     }
     if (!w.ok()) {
         if (error) *error = problem(ErrorCode::BackendFailure, QStringLiteral("Canvas encoding failed"));
@@ -389,7 +366,8 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
 
     quint32 objectCount = 0;
     if (!in.read(objectCount) || qint64(objectCount)
-        * (version >= 5 ? minimumObjectRecord : version == 4 ? minimumObjectRecordV4
+        * (version >= 6 ? minimumObjectRecord : version == 5 ? minimumObjectRecordV5
+                        : version == 4 ? minimumObjectRecordV4
                         : version == 3 ? minimumObjectRecordV3
                         : version == 2 ? minimumObjectRecordV2
                         : minimumObjectRecordV1) > in.remaining()) return truncated();
@@ -479,6 +457,11 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
             if (!in.read(kind) || !in.read(points) || !in.read(inner) || !in.read(corner)) return truncated();
             o.parametricKind = CanvasParametricKind(kind); o.parametricPoints = points;
             o.parametricInnerRatio = inner; o.parametricCornerRadius = corner;
+        }
+        if (version >= 6) {
+            QByteArray appearance;
+            if (!in.bytes(appearance, CanvasAppearanceCodec::MaximumBytes)) return truncated();
+            if (const auto e = CanvasAppearanceCodec::decode(appearance, &o.appearance)) return fail(e);
         }
         o.id = id;
         o.layer = layer;
