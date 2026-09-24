@@ -13,8 +13,8 @@ fixture for `SourceProgramMonitor` and `MediaBin`. Run it with
 placeholders remain visible until an application provides real media data.
 
 The [color-grade fixture](color-grade/Main.qml) applies a tagged CPU image
-transform and compares before/after pixels and scopes. The host still supplies
-decoded frames and owns grade history.
+transform and compares before/after pixels and scopes. Its edit session groups
+each wheel gesture into one undo step; the host still supplies decoded frames.
 The [caption model fixture](caption-model/Main.qml) connects `CaptionEditor`
 to exact-millisecond cue edits, undo, local JSON and WebVTT/SRT sidecars.
 The [caption render fixture](caption-render/Main.qml) burns active cues into
@@ -74,7 +74,8 @@ for split, blink and encoded-sRGB difference inspection.
 The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows
 stable channel/preset snapshots and explicit host acknowledgments for brush
 dynamics requests. The [tiled raster fixture](tiled-raster/Main.qml) paints
-actual masked RGBA tiles, undoes a stroke and exports a composite PNG.
+actual masked RGBA tiles, undoes a stroke, saves and reopens its native state,
+and exports a tagged sRGB composite PNG.
 The [raster workbench fixture](raster-workbench/Main.qml) connects those
 controls to the tiled document, paints with mouse gestures and compares live
 before/after PNG pixels without writing temporary source images.
