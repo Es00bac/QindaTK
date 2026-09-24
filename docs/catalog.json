@@ -3079,6 +3079,151 @@
       ]
     },
     {
+      "name": "ColorPicker",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Host-owned colour editor. `color` is the host's current sRGB preview. User input requests previews during a pointer/key gesture, followed by one finish or cancel request. This control does not persist or transform colour.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ColorPicker.qml",
+      "properties": [
+        {
+          "name": "color",
+          "type": "color",
+          "default": "\"#ff4b9a\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Choose an sRGB colour\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "alphaEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewColor",
+          "type": "color",
+          "default": "_gestureActive ? _workingColor : color",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hue",
+          "type": "real",
+          "default": "Math.max(0, previewColor.hsvHue < 0 ? 0 : previewColor.hsvHue / 360)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "saturation",
+          "type": "real",
+          "default": "previewColor.hsvSaturation",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "brightness",
+          "type": "real",
+          "default": "previewColor.hsvValue",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "alpha",
+          "type": "real",
+          "default": "previewColor.a",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gesturePart",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "previewRequested",
+          "parameters": "color color"
+        },
+        {
+          "name": "editFinished",
+          "parameters": "color color"
+        },
+        {
+          "name": "editCanceled",
+          "parameters": "color restoredColor"
+        }
+      ],
+      "methods": [
+        {
+          "name": "hsv",
+          "parameters": "h, s, v, a"
+        },
+        {
+          "name": "begin",
+          "parameters": "part"
+        },
+        {
+          "name": "preview",
+          "parameters": "next"
+        },
+        {
+          "name": "finish",
+          "parameters": ""
+        },
+        {
+          "name": "cancel",
+          "parameters": ""
+        },
+        {
+          "name": "updateSv",
+          "parameters": "x, y, w, h"
+        },
+        {
+          "name": "updateHue",
+          "parameters": "x, w"
+        },
+        {
+          "name": "updateAlpha",
+          "parameters": "x, w"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "colorPickerAlpha",
+        "colorPickerHue",
+        "colorPickerSaturationValue",
+        "colorPickerSvMarker"
+      ]
+    },
+    {
       "name": "ColorSwatches",
       "kind": "qml",
       "base": "Item",

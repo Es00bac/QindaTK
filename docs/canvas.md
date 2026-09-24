@@ -404,6 +404,23 @@ host computes canonical bounds and lock policy, then commits one scene edit.
 The [panel fixture](../examples/spatial-canvas/AlignPanelScene.qml) is only a
 visual proof of the reusable controls.
 
+## Color presentation
+
+`Tk.ColorPicker` presents host-provided sRGB preview values with a
+saturation/brightness square, hue rail and optional alpha rail. Pointer
+interaction emits `previewRequested(color)` repeatedly, then one
+`editFinished(color)` on release; Escape requests `editCanceled(color)` with
+the starting preview restored. Keyboard arrows and accessible slider actions
+make single-step edits through the same preview/finish requests. The control
+never owns canonical document colour, profiles, conversion, transactions,
+undo or persistence; the host decides how requests affect its model.
+
+This presentation does not imply colour-managed display output. The current
+canvas renderer implements sRGB-to-sRGB only. Profile-aware conversion,
+out-of-gamut handling, proofing and agreement between managed GPU and software
+compositing remain WP-043 backend work. The [picker scene](../examples/spatial-canvas/ColorPickerScene.qml)
+demonstrates a host-maintained sRGB preview and committed value.
+
 <a id="curve-presentation"></a>
 ## Curve presentation
 
