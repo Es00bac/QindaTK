@@ -19,14 +19,19 @@ QVector<PageLine> RichTextLayout::pageLines(int pageIndex)
     // that PageLines collected earlier still point to (a table continued in a
     // frame of another width on the same page).
     QVector<std::shared_ptr<const TableGeometry>> tables;
-    for (const PageItem &item : page.items)
-        tables.append(item.kind == PageItem::TableRows && !item.headerRepeat
-                          ? tableGeometry(*m_document->table(item.block), item.width) : nullptr);
+    for (const PageItem &item : page.items) {
+        const Table *table = item.kind == PageItem::TableRows && !item.headerRepeat ? m_document->table(item.block) : nullptr;
+        tables.append(table ? tableGeometry(*table, item.width) : nullptr);
+    }
     for (int j = 0; j < page.items.size(); ++j) {
         const PageItem &item = page.items.at(j);
         if (item.kind == PageItem::Lines) {
             const Paragraph *p = m_document->paragraph(item.block);
+            if (!p) continue;
             ParagraphMetrics &m = itemMetrics(*p, item);
+            // AGENT-GUARD: pages are rebuilt when the document reports a change;
+            // a query that runs earlier must not index lines the item no longer has.
+            if (item.first + item.count > m.lines.size()) continue;
             const QPointF origin = content + QPointF(item.x, item.y - m.lines.at(item.first).y);
             for (int l = item.first; l < item.first + item.count; ++l) {
                 const LineBox &box = m.lines.at(l);
@@ -35,7 +40,7 @@ QVector<PageLine> RichTextLayout::pageLines(int pageIndex)
             }
             continue;
         }
-        if (!tables.at(j)) continue;
+        if (!tables.at(j) || item.first + item.count > tables.at(j)->rows) continue;
         const TableGeometry &g = *tables.at(j);
         for (const TableGeometry::VisibleCell &visible : g.visibleCells(item)) {
             const TableGeometry::Cell &cell = *visible.cell;

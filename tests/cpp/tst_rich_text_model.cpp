@@ -435,10 +435,28 @@ private slots:
         QVERIFY(doc.undo());
         QVERIFY(doc.pageSetupValue() == before);
 
+        // Text columns and their gap apply in the same undo step (WP-051).
         settings.insert(QStringLiteral("columns"), 2);
+        settings.insert(QStringLiteral("gutterMm"), 6.0);
+        QVERIFY(doc.applyPageSetupMm(settings));
+        QCOMPARE(doc.pageSetupValue().columns, 2);
+        QVERIFY(qAbs(doc.pageSetupValue().columnGapPt - 6.0 * 72.0 / 25.4) < 1e-6);
+        QCOMPARE(doc.pageSetupMm().value(QStringLiteral("columns")).toInt(), 2);
+        QVERIFY(doc.undo());
+        QVERIFY(doc.pageSetupValue() == before);
+        // Invalid column counts, section scope and bleed change nothing.
+        for (const QVariant &columns : {QVariant(0), QVariant(25), QVariant(1.5)}) {
+            settings.insert(QStringLiteral("columns"), columns);
+            QVERIFY(!doc.applyPageSetupMm(settings));
+            QVERIFY(doc.lastError().contains(QStringLiteral("columns")));
+        }
+        settings.insert(QStringLiteral("columns"), 2);
+        settings.insert(QStringLiteral("scope"), QStringLiteral("section"));
+        QVERIFY(!doc.applyPageSetupMm(settings));
+        settings.insert(QStringLiteral("scope"), QStringLiteral("document"));
+        settings.insert(QStringLiteral("bleedMm"), 3.0);
         QVERIFY(!doc.applyPageSetupMm(settings));
         QVERIFY(doc.pageSetupValue() == before);
-        QVERIFY(doc.lastError().contains(QStringLiteral("columns")));
     }
 };
 

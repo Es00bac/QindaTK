@@ -194,10 +194,13 @@ Item {
             Tk.NumberField {
                 objectName: "tableColumnWidth"
                 label: qsTr("W")
-                value: {
+                // NumberField clamps by assigning `value`, which would drop a binding.
+                readonly property real shown: {
                     const index = control.columnIndex(control.selectedColumnId)
                     return index >= 0 ? Number(control.table.columns[index].width || 1) : 1
                 }
+                onShownChanged: value = shown
+                Component.onCompleted: value = shown
                 from: 1
                 to: 100000
                 stepSize: 1
