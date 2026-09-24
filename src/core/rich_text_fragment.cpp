@@ -4,6 +4,8 @@
 #include "rich_text_ops_p.h"
 #include "rich_text_spans.h"
 
+#include <algorithm>
+
 namespace QindaTK {
 using namespace RichText;
 using namespace RichText::Detail;
@@ -15,12 +17,20 @@ struct FragmentBuilder {
     Fragment fragment;
     QHash<int, int> formats;
 
+    // A copied style travels with its parents.
+    void addStyle(const QString &id)
+    {
+        for (const QString &style : styleChain(doc.styleSheet(), id))
+            fragment.styles.insert(style, doc.styleSheet().value(style));
+    }
+
     int mapFormat(int index)
     {
         const auto found = formats.constFind(index);
         if (found != formats.constEnd()) return found.value();
         const int mapped = int(fragment.formats.size());
         fragment.formats.append(doc.charFormat(index));
+        addStyle(doc.charFormat(index).styleId);
         formats.insert(index, mapped);
         return mapped;
     }
@@ -34,6 +44,7 @@ struct FragmentBuilder {
                                  [this](int f) { return mapFormat(f); });
         p->markFormat = mapFormat(source.markFormat);
         p->format = source.format;
+        addStyle(source.format.styleId);
         for (const RichObject &object : doc.objectsIn(source, from, to))
             fragment.objects.insert(object.id, object);
         if (const ListDefinition *list = doc.list(source.format.listId))
@@ -43,6 +54,7 @@ struct FragmentBuilder {
 
     TablePtr copy(const Table &source)
     {
+        addStyle(source.styleId);
         auto table = std::make_shared<Table>(source);
         for (TableRow &row : table->rows)
             for (TableCell &cell : row.cells)
@@ -97,9 +109,54 @@ struct FragmentImporter {
     QVector<int> formats;
     QHash<QString, QString> objectIds;
     QHash<QString, QString> listIds;
+    QHash<QString, QString> styleIds;
+
+    bool nameTaken(const QString &name) const
+    {
+        const QString folded = name.trimmed().toCaseFolded();
+        for (const NamedStyle &style : doc.styleSheet())
+            if (style.name.trimmed().toCaseFolded() == folded) return true;
+        return false;
+    }
+
+    // Pasted styles: an existing style with the same ID, or else the same
+    // name, and kind is used as it is (the destination's definition wins);
+    // any other is created, parents first, under a free name.
+    bool importStyles()
+    {
+        QStringList order = fragment.styles.keys();
+        std::sort(order.begin(), order.end(), [this](const QString &a, const QString &b) {
+            const qsizetype da = styleChain(fragment.styles, a).size();
+            const qsizetype db = styleChain(fragment.styles, b).size();
+            return da != db ? da < db : a < b;
+        });
+        for (const QString &id : std::as_const(order)) {
+            const NamedStyle &source = fragment.styles[id];
+            if (const NamedStyle *same = doc.style(id); same && same->kind == source.kind) {
+                styleIds.insert(id, id);
+                continue;
+            }
+            QString reuse;
+            for (const NamedStyle &style : doc.styleSheet())
+                if (style.kind == source.kind && style.name.trimmed().toCaseFolded() == source.name.trimmed().toCaseFolded())
+                    reuse = style.id;
+            if (!reuse.isEmpty()) {
+                styleIds.insert(id, reuse);
+                continue;
+            }
+            NamedStyle copy = source;
+            copy.id = doc.style(id) ? QUuid::createUuid().toString(QUuid::WithoutBraces) : id;
+            copy.parentId = styleIds.value(source.parentId);
+            for (int n = 2; nameTaken(copy.name); ++n) copy.name = QStringLiteral("%1 %2").arg(source.name.trimmed()).arg(n);
+            if (doc.apply(StepStyle{copy.id, std::nullopt, copy})) return false;
+            styleIds.insert(id, copy.id);
+        }
+        return true;
+    }
 
     bool prepare()
     {
+        if (!importStyles()) return false;
         for (const RichObject &object : fragment.objects)
             objectIds.insert(object.id, QUuid::createUuid().toString(QUuid::WithoutBraces));
         for (const ListDefinition &def : fragment.lists) {
@@ -115,6 +172,7 @@ struct FragmentImporter {
         }
         for (CharFormat format : fragment.formats) {
             if (!format.objectId.isEmpty()) format.objectId = objectIds.value(format.objectId);
+            format.styleId = styleIds.value(format.styleId);
             formats.append(doc.internFormat(format));
         }
         return true;
@@ -145,6 +203,9 @@ struct FragmentImporter {
         p->markFormat = format(source.markFormat);
         p->format = source.format;
         p->format.listId = listIds.value(source.format.listId, source.format.listId);
+        p->format.styleId = styleIds.value(source.format.styleId);
+        if (p->format.styleId.isEmpty()) p->format.overrides = 0;
+        p->format = materializedFormat(doc.styleSheet(), p->format);
         if (inCell) p->format.pageBreakBefore = false;
         return p;
     }
@@ -153,6 +214,7 @@ struct FragmentImporter {
     {
         auto t = std::make_shared<Table>(source);
         t->id = QUuid::createUuid();
+        t->styleId = styleIds.value(source.styleId);
         // One fresh identity per column, whatever the source carried.
         t->columnIds.clear();
         for (int c = 0; c < t->columnWeights.size(); ++c) t->columnIds.append(QUuid::createUuid());
@@ -178,7 +240,7 @@ std::optional<Position> RichTextDocument::insertFragment(const Position &at, con
     if (fragment.blocks.isEmpty()) return at;
     AutoTransaction transaction(this, tr("Paste"));
     if (!transaction.valid) return std::nullopt;
-    FragmentImporter importer{*this, fragment, {}, {}, {}};
+    FragmentImporter importer{*this, fragment, {}, {}, {}, {}};
     if (!importer.prepare()) return transaction.finish(false, at), std::nullopt;
     const bool inCell = paragraph(at.paragraph)->table;
     const Block &single = fragment.blocks.first();

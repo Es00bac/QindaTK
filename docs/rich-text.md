@@ -29,8 +29,9 @@ paragraph) and a revision that every change bumps.
 
 | Concept | Representation |
 | --- | --- |
-| Character attributes | `CharFormat`: family, size (pt), CSS weight, tri-state italic/underline/strike, colour, background, link `href`, super/subscript, `objectId`. Empty values inherit from heading defaults, then document defaults. |
-| Paragraph attributes | `ParagraphFormat`: alignment (start/end/left/right/center/justify), direction (auto/ltr/rtl), start/end/first-line indents, space before/after, line height (multiple or exact pt), heading level 0–6, list ID and level 0–8, keep-with-next, keep-together, page-break-before, opaque `styleId` (WP-051). |
+| Character attributes | `CharFormat`: family, size (pt), CSS weight, tri-state italic/underline/strike, colour, background, link `href`, super/subscript, `objectId`, character `styleId`. Empty values inherit from the character style, the paragraph style, heading defaults, then document defaults ([styles](publishing.md#styles)). |
+| Paragraph attributes | `ParagraphFormat`: alignment (start/end/left/right/center/justify), direction (auto/ltr/rtl), start/end/first-line indents, space before/after, line height (multiple or exact pt), heading level 0–6, list ID and level 0–8, keep-with-next, keep-together, page-break-before, paragraph `styleId` and its direct `overrides`. |
+| Publishing structure | Named styles, merged cells (`TableCell.rowSpan`/`columnSpan`), table styles, text frames and page columns: [publishing.md](publishing.md). |
 | Lists | `ListDefinition` with 1–9 levels (disc, circle, square, decimal, lower/upper alpha, lower/upper roman; start; indent). Numbering follows document order per list and level. |
 | Objects | U+FFFC in the text whose format carries `objectId`; `RichObject` holds kind, placement, size, offsets, gap, source URI and alt text. See [Objects](#objects). |
 | Soft line break | U+2028 inside a paragraph (Shift+Enter). |
@@ -39,7 +40,8 @@ paragraph) and a revision that every change bumps.
 
 Every edit is a transaction of invertible, precondition-checked steps
 (`StepText`, `StepSpans`, `StepParagraphFormat`, `StepSplit`, `StepMerge`,
-`StepBlocks`, `StepMove`, `StepList`, `StepObject`, `StepDocument`, `StepTable`).
+`StepBlocks`, `StepMove`, `StepList`, `StepObject`, `StepDocument`, `StepTable`,
+`StepStyle`, `StepFrames`).
 A step whose precondition fails, such as a stale paragraph or a changed
 format, rejects the whole transaction. The document then keeps its previous
 state. Registered `PositionAnchor`s are mapped forward by every applied
@@ -53,14 +55,17 @@ set.
 `tableSnapshot(id)` return the snapshot `Tk.TableEditor` consumes:
 `{id, rows:[{id,label,header}], columns:[{id,label,width}], cells:[{id,rowId,
 columnId,rowIndex,columnIndex,rowSpan,columnSpan,text,paragraphIds}],
-headerRows, canMerge, maxRows, maxColumns}`. Table, row, column and cell IDs
+headerRows, canMerge, styleId, styles, maxRows, maxColumns}`; `cells` lists
+visible cells only ([merged cells](publishing.md#merged-cells)). Table, row, column and cell IDs
 are stable across edits and persistence; `paragraphIds` lets a host move a
 text caret into a cell (`RichTextArea.goToParagraph`). The editor's requests
 map onto `insertTableRow(tableId, index)`, `removeTableRow(tableId, rowId)`,
 `insertTableColumn(tableId, index)`, `removeTableColumn(tableId, columnId)`,
-`setTableColumnWidth(tableId, columnId, width)` and
-`setTableCellText(tableId, cellId, text)`. Each returns false and sets
-`lastError` without changing the document when the request is invalid.
+`setTableColumnWidth(tableId, columnId, width)`,
+`setTableCellText(tableId, cellId, text)`, `mergeTableCells(tableId,
+cellIds)`, `splitTableCell(tableId, cellId)` and `setTableStyle(tableId,
+styleId)`. Each returns false and sets `lastError` without changing the
+document when the request is invalid.
 
 - Every grid edit is one `StepTable` undo step that swaps the whole grid.
   Unchanged cells keep their paragraph objects, so their IDs, revisions and
@@ -80,9 +85,9 @@ map onto `insertTableRow(tableId, index)`, `removeTableRow(tableId, rowId)`,
   and inline objects remain editable in the rich-text views.
 - The change set names the table and its added and removed paragraphs, so
   views re-lay the table at its new column widths and repaginate from it.
-- Merge and split are not available: the table model and codec hold one cell
-  per column and no spans, so snapshots report `canMerge: false` and every
-  span is 1.
+- Merged cells keep one slot per row and column; a row or column inserted
+  inside a merged cell joins it, and deleting a merged cell's first row or
+  column moves it on with its ID ([merged cells](publishing.md#merged-cells)).
 
 History is local by default: at most 512 transactions or 64 MiB, with
 typing coalesced while the merge key and caret continue. With
@@ -94,8 +99,11 @@ of D-040, because `UndoService` records `PropertyDocument` properties only.
 
 ## Persistence
 
-The native format is JSON with schema `qindatk.richtext`, version 1 (the
-extension `.qtkrich` is used by the example). `RichTextCodec::encode` is
+The native format is JSON with schema `qindatk.richtext`, versions 1 and 2
+(the extension `.qtkrich` is used by the example). Version 2 adds styles,
+merged cells, table styles, text frames and page columns
+([publishing.md](publishing.md#persistence)); a document without them is
+still written as version 1. `RichTextCodec::encode` is
 canonical. Formats are re-interned in document order, lists and objects are
 sorted by ID, and keys are sorted. Save → reopen → save is therefore
 byte-identical. `tst_rich_text_codec` checks canonical encoding on a document that has a
@@ -164,11 +172,12 @@ comparison. It is valid `qindatk.richtext/1` but not canonical. Measured on
 
 `RichTextDocument.pageSetupMm` supplies canonical millimetre values for
 `PageSetupDialog`. `applyPageSetupMm(settings)` commits document-wide page
-size and margins through the rich-text history in one undo step. Landscape
-and portrait choices orient the physical dimensions before conversion to the
-model's point units. Section/page scopes, multiple columns, gutter and bleed
-return `Unsupported` until the paginator and codec represent them; the
-document stays unchanged on rejection.
+size, margins, text columns and column gap through the rich-text history in
+one undo step. Landscape and portrait choices orient the physical dimensions
+before conversion to the model's point units. Section/page scopes and bleed
+return `Unsupported` (WP-053); the document stays unchanged on rejection.
+Columns and linked text frames place the flow in page regions
+([publishing.md](publishing.md#text-frames)).
 
 `RichTextDocument.exportPdf(path)` paints every paginated page to a local PDF
 file using the same `RichTextLayout::paintPage` path as the on-screen view.
@@ -270,8 +279,13 @@ two tiles for a 900×700 view on 500 pages.
   offsets: paragraphs are joined by `\n` and objects count as U+FFFC.
   `QAccessibleQuickItem` reads these properties by name, and
   `setCursorPosition` maps an offset back to a position.
+- **Publishing structure.** `selectedParagraphIds` (style targets),
+  `caretFrameId`, `caretContext` (frame, table cell and style at the caret,
+  also in `RichDocumentView`'s accessible description), `frameLayout`,
+  `oversetCharacters`, `frameAt(x, y)` and `goToFrame(id)`
+  ([publishing.md](publishing.md)).
 - **Colours** are plain properties (`inkColor`, `pageColor`, `linkColor`,
-  `selectionColor`, `caretColor`, …). The QML controls bind them to
+  `selectionColor`, `caretColor`, `frameGuideColor`, `oversetColor`, …). The QML controls bind them to
   `Tk.Theme.color.*` roles. Text with an explicit colour in the document
   (run colour or document default) keeps that colour.
 
@@ -300,6 +314,8 @@ use. The IDs are public API.
 | `insert.pageBreak` | — | Ctrl+Enter. |
 | `insert.object` | `source`, `kind`, `widthPt`, `heightPt`, `alt`, `placement` | |
 | `edit.undo`, `edit.redo`, `edit.cut`, `edit.copy`, `edit.paste`, `edit.selectAll` | — | |
+| `paragraph.style`, `text.style` | `value` (style ID; empty removes) | Paragraph or character style on the selection ([styles](publishing.md#styles)). |
+| `navigate.nextFrame`, `navigate.previousFrame` | — | Ctrl+Alt+Page Down/Up: next or previous text frame of the story. |
 
 `formatState` (`RichTextFormatState`) resolves the selection:
 `fontFamily`, `fontSize`, `color`, `link`, `alignment` and `heading`, each
@@ -361,4 +377,4 @@ seams are typed; nothing here is a stand-in contract.
 | WP-033 shared framework | Not available; the controls have not been verified against it. |
 | WP-040 canvas / WP-017 assets | `asset:` images resolve through `assetProvider` on either rich-text view. Canvas geometry editing remains a host adapter. |
 | UndoService | `PropertyDocument`-only; use `externalUndo` (D-050). |
-| WP-051 | Style, table, text-frame and page-setup controls are integrated. Document-wide page size and margins, and table row/column/width/cell-text edits, connect to rich-text history. Named style resolution, table and cell styles, merged cells, linked frames and advanced page geometry remain. |
+| WP-051 | Named styles, merged cells, table styles, linked text frames and page columns are document operations ([publishing.md](publishing.md)). Section and page scopes and bleed belong to WP-053. |

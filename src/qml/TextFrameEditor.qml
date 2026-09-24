@@ -13,8 +13,12 @@ Item {
     property var newFrameGeometryMm: null
     property string tooltip: qsTr("Edit text frame geometry and story flow")
     readonly property var currentFrame: frameById(selectedFrameId)
+    // A frame's own `connectTargets` (RichTextDocument.frames) lists the
+    // frames a thread may continue into; otherwise frames of the same story.
     readonly property var connectionTargets: frames.filter(function(frame) {
-        return frame.id !== selectedFrameId && frame.storyId === (currentFrame ? currentFrame.storyId : "")
+        if (!currentFrame || frame.id === currentFrame.id) return false
+        if (currentFrame.connectTargets !== undefined) return currentFrame.connectTargets.indexOf(frame.id) >= 0
+        return frame.storyId === currentFrame.storyId
     })
     property string targetFrameId: ""
 

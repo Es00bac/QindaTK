@@ -29,19 +29,27 @@ QVariantMap RichTextDocument::pageSetupMm() const
                  {QStringLiteral("right"), mm(m_page.marginRightPt)},
                  {QStringLiteral("bottom"), mm(m_page.marginBottomPt)},
                  {QStringLiteral("left"), mm(m_page.marginLeftPt)}}},
-            {QStringLiteral("gutterMm"), 0.0},
-            {QStringLiteral("columns"), 1},
+            {QStringLiteral("gutterMm"), mm(m_page.columnGapPt)},
+            {QStringLiteral("columns"), m_page.columns},
             {QStringLiteral("bleedMm"), 0.0}};
 }
 
 bool RichTextDocument::applyPageSetupMm(const QVariantMap &settings)
 {
+    // AGENT-NOTE: WP-051 pages carry text columns; per-section or per-page
+    // geometry and print bleed are refused (docs/publishing.md#page-setup-and-columns).
     const QString scope = settings.value(QStringLiteral("scope"), QStringLiteral("document")).toString();
-    double gutter = 0, bleed = 0;
-    if (scope != QStringLiteral("document") || settings.value(QStringLiteral("columns"), 1).toInt() != 1
-        || !finiteNumber(settings.value(QStringLiteral("gutterMm"), 0), &gutter) || gutter != 0
-        || !finiteNumber(settings.value(QStringLiteral("bleedMm"), 0), &bleed) || bleed != 0) {
-        reject(ErrorCode::Unsupported, QStringLiteral("Sections, columns, gutters and bleed are not yet supported by the rich-text paginator"));
+    double bleed = 0;
+    if (scope != QStringLiteral("document") || !finiteNumber(settings.value(QStringLiteral("bleedMm"), 0), &bleed)
+        || bleed != 0) {
+        reject(ErrorCode::Unsupported, QStringLiteral("Section and page scopes and print bleed are not supported by the rich-text paginator"));
+        return false;
+    }
+    double columns = 1, gutter = m_page.columnGapPt / pointsPerMillimetre;
+    if (!finiteNumber(settings.value(QStringLiteral("columns"), 1), &columns) || columns != std::floor(columns)
+        || columns < 1 || columns > 24 || !finiteNumber(settings.value(QStringLiteral("gutterMm"), gutter), &gutter)
+        || gutter < 0) {
+        reject(ErrorCode::Validation, QStringLiteral("Choose 1 to 24 columns and a non-negative column gap"));
         return false;
     }
     const QVariantMap margins = settings.value(QStringLiteral("marginsMm")).toMap();
@@ -68,6 +76,8 @@ bool RichTextDocument::applyPageSetupMm(const QVariantMap &settings)
     page.marginRightPt = right * pointsPerMillimetre;
     page.marginBottomPt = bottom * pointsPerMillimetre;
     page.marginLeftPt = left * pointsPerMillimetre;
+    page.columns = int(columns);
+    page.columnGapPt = gutter * pointsPerMillimetre;
     return setPageSetup(page);
 }
 

@@ -62,17 +62,21 @@ Position RichTextLayout::lineMove(const Position &position, int direction, qreal
     const CaretBox caret = caretBox(position);
     if (goalX && *goalX < 0) *goalX = caret.rect.x();
     const qreal x = goalX ? *goalX : caret.rect.x();
-    // Nearest line box strictly above/below on this page, then the nearest
-    // edge line of the neighbouring page; ties go to the closest column.
+    // Nearest line box strictly above/below in the same column of this page
+    // (boxes sharing x), then the next line in reading order (the next page
+    // column or text frame), then the nearest edge line of the neighbouring
+    // page; ties go to the closest column.
     auto pick = [&](const QVector<PageLine> &lines, bool sameLineBand) -> const PageLine * {
         const PageLine *best = nullptr;
         qreal bestEdge = 0;
         qreal bestDx = 0;
         for (const PageLine &line : lines) {
-            if (line.paragraph == current->paragraph && line.line == current->line) continue;
+            if (line.paragraph == current->paragraph && line.line == current->line && line.metrics == current->metrics)
+                continue;
             if (sameLineBand) {
                 if (direction > 0 && line.box.top() < current->box.bottom() - 0.5) continue;
                 if (direction < 0 && line.box.bottom() > current->box.top() + 0.5) continue;
+                if (line.box.right() <= current->box.left() || line.box.left() >= current->box.right()) continue;
             }
             const qreal edge = direction > 0 ? line.box.top() : -line.box.bottom();
             const qreal dx = x < line.box.left() ? line.box.left() - x
@@ -87,6 +91,13 @@ Position RichTextLayout::lineMove(const Position &position, int direction, qreal
     };
     const QVector<PageLine> here = pageLines(current->page);
     if (const PageLine *target = pick(here, true)) return positionInLine(*target, x);
+    for (int i = 0; i < here.size(); ++i) {
+        const PageLine &line = here.at(i);
+        if (line.paragraph != current->paragraph || line.line != current->line || line.metrics != current->metrics)
+            continue;
+        if (i + direction >= 0 && i + direction < here.size()) return positionInLine(here.at(i + direction), x);
+        break;
+    }
     int page = current->page + direction;
     while (page >= 0) {
         if (direction > 0) ensurePaginated(page);

@@ -71,12 +71,16 @@ T.Control {
             objectFillColor: Tk.Theme.color.panelAlt
             objectTextColor: Tk.Theme.color.textMuted
             markerColor: Tk.Theme.color.textMuted
+            frameGuideColor: Tk.Theme.color.accent
+            oversetColor: Tk.Theme.color.danger
             caretWidth: Tk.Theme.size.border
             onLinkActivated: href => control.linkActivated(href)
 
             Accessible.role: Accessible.EditableText
             Accessible.name: control.tooltip.length > 0 ? control.tooltip : qsTr("Document")
-            Accessible.description: qsTr("Page %1 of %2").arg(area.currentPage + 1).arg(area.pageCount)
+            Accessible.description: area.caretContext.length > 0
+                                    ? qsTr("Page %1 of %2, %3").arg(area.currentPage + 1).arg(area.pageCount).arg(area.caretContext)
+                                    : qsTr("Page %1 of %2").arg(area.currentPage + 1).arg(area.pageCount)
             Accessible.multiLine: true
             Accessible.editable: !control.readOnly
             Accessible.focusable: true

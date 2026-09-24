@@ -40,9 +40,19 @@ struct Exclusion {
     friend bool operator==(const Exclusion &, const Exclusion &) = default;
 };
 
+// A paragraph continued into a region of another width (a page column or a
+// text frame) keeps the line breaks it had; lines from `line` on use `width`.
+// A list of breaks starts with {0, width of the first region}.
+struct WidthBreak {
+    int line = 0;
+    qreal width = 0;
+    friend bool operator==(const WidthBreak &, const WidthBreak &) = default;
+};
+
 struct ParagraphMetrics {
     quint64 revision = 0;
     qreal width = 0;
+    QVector<WidthBreak> widths;  // per-line widths; empty: every line at `width`
     QVector<Exclusion> exclusions;
     QVector<LineBox> lines;
     qreal height = 0;           // sum of line boxes
@@ -58,6 +68,8 @@ struct ParagraphMetrics {
 };
 
 // A piece of flow content placed on a page, in page content-box coordinates.
+// `x` and `width` are those of the region (page column or frame column) the
+// item was laid out in; lines and tables are shaped at that width.
 struct PageItem {
     enum Kind : quint8 { Lines, TableRows, Float, PageObject };
     Kind kind = Lines;
@@ -69,10 +81,23 @@ struct PageItem {
     qreal width = 0;
     qreal height = 0;
     bool headerRepeat = false;  // TableRows: repeated header rows
-    QVector<int> cellFirstLine; // TableRows: a split row's per-cell first line
-    qreal rowClip = 0;          // TableRows: visible height of a split row (0 = whole)
+    // TableRows: the first line of each cell that covers row `first`, by the
+    // cell's first column (empty: every cell from its first line), and the
+    // height of each row on this page. A cell shows the lines that fit in
+    // its rows here (docs/publishing.md#merged-cells).
+    QVector<int> cellFirstLine;
+    QVector<qreal> rowHeights;
     QString objectId;
     QVector<Exclusion> exclusions; // Lines: context the paragraph was laid out in
+    QVector<WidthBreak> widths;    // Lines: per-line widths of a paragraph continued across regions
+    QString frameId;               // text frame the item flows in (frame layouts)
+};
+
+// Where flow content goes on a page, in content-box coordinates: one page
+// column, or one column of a text frame (`frameId`).
+struct Region {
+    QRectF rect;
+    QString frameId;
 };
 
 struct FlowState {
@@ -82,6 +107,7 @@ struct FlowState {
     int row = 0;                // next row of a table
     QVector<int> cellLine;      // continuation of a split row
     QVector<Exclusion> exclusions; // a continued paragraph keeps its first page's context
+    QVector<WidthBreak> widths;    // and the widths its lines were laid out at
     friend bool operator==(const FlowState &, const FlowState &) = default;
 };
 
@@ -130,6 +156,9 @@ struct PaintContext {
     QColor objectText;
     QColor marker;
     qreal caretWidth = 1.0;
+    bool guides = false;        // editing guides (text frame outlines); off for output
+    QColor frameGuide;          // outline of a text frame in the story
+    QColor overset;             // marker of story text that no frame holds
     RichTextObjectRenderer *objects = nullptr;
 };
 
@@ -175,7 +204,16 @@ public:
 
     // Geometry (px at 96 dpi; one page is one "flow" in continuous mode).
     QSizeF pageSize() const;
-    QRectF contentRect() const;       // content box inside a page
+    QRectF contentRect() const;       // content box inside a page (the whole page with frames)
+    // Text frames (WP-051): a paged layout of a document with frames flows
+    // the story through the thread starting at FrameSet::storyStart instead
+    // of the page content boxes; it has FrameSet::pageCount() pages.
+    bool frameMode() const;
+    QVector<RichText::Region> regions(int page) const;
+    bool overset() const;             // story text left after the last frame (pagination complete)
+    int oversetCharacters();          // UTF-16 units of that text (whole cells for a table)
+    QString frameAt(int page, const QPointF &point) const;       // frame under a page point
+    std::optional<RichText::Position> framePosition(const QString &frameId); // first position shown in a frame
     int pageCount() const { return int(m_pages.size()); }
     bool paginationComplete() const { return m_complete; }
     int estimatedPageCount() const;
@@ -210,9 +248,17 @@ public:
     QStringList missingFontFamilies() const;
 
     // Paragraph shaping; public for tests and table/cell layout helpers.
+    // `widths` (see WidthBreak) overrides `width` line by line.
     RichText::ParagraphMetrics &ensureParagraph(const RichText::Paragraph &p, qreal width,
                                                 const QVector<RichText::Exclusion> &exclusions = {},
-                                                bool needShape = false);
+                                                bool needShape = false,
+                                                const QVector<RichText::WidthBreak> &widths = {});
+    // The metrics a Lines item was laid out with.
+    RichText::ParagraphMetrics &itemMetrics(const RichText::Paragraph &p, const RichText::PageItem &item);
+    // Every laid-out line of a page in item order (body and table cells);
+    // public for tests and structure queries. Metrics pointers stay valid
+    // until the next layout call.
+    QVector<RichText::PageLine> pageLines(int page);
     QTextLayout *shaped(const RichText::Paragraph &p, RichText::ParagraphMetrics &metrics);
     int layoutOffset(const RichText::ParagraphMetrics &metrics, int modelOffset) const;
     int modelOffset(const RichText::ParagraphMetrics &metrics, int layoutOffset) const;
@@ -229,6 +275,10 @@ private:
     void repaginateFrom(int blockIndex, int lastDirtyBlock);
     void continuePagination(qint64 budgetNs, int stopPage);
     void finalizePages(int firstChanged, int reusedFrom = -1);
+    // Lays out page `index` from `start` through its regions; false when no
+    // page follows (end of the story, or the last frame page).
+    bool buildPage(int index, const RichText::FlowState &start, RichText::Page *page, RichText::FlowState *next);
+    void paintFrames(QPainter *painter, int page, const RichText::PaintContext &context);
     bool rebuildMarkers() const;
     void pageRange(RichText::Page &page);
     QVector<int> pagesContaining(const RichText::Paragraph *p) const;
@@ -241,9 +291,7 @@ private:
                                                 const RichText::PaintContext &context) const;
     void touchLru(RichText::ParagraphMetrics &metrics);
     QTextLayout *buildLayout(const RichText::Paragraph &p, RichText::ParagraphMetrics &metrics);
-    const TableGeometry &tableGeometry(const RichText::Table &table);
-    qreal itemWidth() const;
-    QVector<RichText::PageLine> pageLines(int page);
+    std::shared_ptr<const TableGeometry> tableGeometry(const RichText::Table &table, qreal width);
     std::optional<RichText::PageLine> lineOf(const RichText::Position &position, int *layoutOffset = nullptr);
     RichText::Position positionInLine(const RichText::PageLine &line, qreal x);
     QVector<QUuid> blockIds() const;
@@ -257,11 +305,12 @@ private:
     // while the flow shapes further paragraphs; a QHash could rehash under it.
     std::unordered_map<QUuid, RichText::ParagraphMetrics, UuidHash> m_metrics;          // default context
     std::unordered_map<QString, RichText::ParagraphMetrics, StringHash> m_contextMetrics; // exclusions/preedit
-    QHash<QUuid, std::shared_ptr<TableGeometry>> m_tables;
+    // A few widths per table: a table split across regions of different widths.
+    QHash<QUuid, QVector<std::shared_ptr<TableGeometry>>> m_tables;
     QVector<RichText::Page> m_pages;
     QHash<QUuid, QPair<size_t, quint64>> m_revisions; // page key -> (content hash, revision)
     qreal m_flowHeight = 0;
-    RichText::FlowState m_frontier;   // where progressive pagination resumes
+    RichText::FlowState m_frontier;   // where progressive pagination resumes (with frames: the overset start)
     bool m_complete = false;
     QVector<QUuid> m_paginatedBlocks; // block IDs the current pages were built from
     // Markers derive from the document alone, so a query rebuilds them

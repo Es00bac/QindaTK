@@ -46,10 +46,13 @@ bool RichTextDocument::commitTransaction(const Selection &after)
     if (!m_open) return false;
     ensureOrder();
     const bool bodyValid = !m_blocks.isEmpty() && m_blocks.last().paragraph;
+    // Only tables this transaction touched can have changed; a table's
+    // merged-cell grid must stay valid (every visible cell keeps a paragraph).
     bool cellsValid = true;
-    for (const Table *t : std::as_const(m_tables))
-        for (const TableRow &row : t->rows)
-            for (const TableCell &cell : row.cells) cellsValid = cellsValid && !cell.paragraphs.isEmpty();
+    for (const QUuid &id : std::as_const(m_openChange.tables)) {
+        TableGridMap map;
+        if (const Table *t = table(id); t && !mapTableGrid(*t, &map).isEmpty()) cellsValid = false;
+    }
     if (!bodyValid || !cellsValid) {
         cancelTransaction();
         reject(ErrorCode::Validation, QStringLiteral("Edit would leave an invalid document"));
@@ -97,6 +100,10 @@ quint64 RichTextDocument::cost(const Transaction &transaction)
             bytes += quint64(a.rows.size() + b.rows.size()) * 48 + columns * 48;
             if (a.columnIds != b.columnIds) bytes += rows * (columns * 64 + 160);
             bytes += quint64(qAbs(a.rows.size() - b.rows.size())) * columns * 160;
+        } else if (std::holds_alternative<StepStyle>(step)) {
+            bytes += 512;
+        } else if (const auto *frames = std::get_if<StepFrames>(&step)) {
+            bytes += quint64(frames->before.frames.size() + frames->after.frames.size()) * 160;
         }
     }
     return bytes;
