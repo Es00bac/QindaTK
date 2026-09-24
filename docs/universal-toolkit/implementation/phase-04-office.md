@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 04 — Documents and Office workflows
 
-**Execution underway.** WP-050 is integrated and in review; WP-051 has
-publishing controls in the integration branch, and WP-055 remains active in
-an isolated Opus worktree. Backend and acceptance gates remain open.
+**Execution underway.** WP-050 and WP-055 are accepted. WP-051 has
+publishing controls in the integration branch; its backend and acceptance
+gates remain open.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -118,7 +118,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-055"></a>
 ## WP-055 — Implement a workbook and spreadsheet editing stack
 
-**Implementation lead:** Sol. **Status:** active (isolated Opus lane; full scope unfinished and not integrated). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Sol. **Status:** accepted ([merged evidence](evidence/WP-055.md)). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** [OFF-14 SheetView](../proposed/05-documents-office.md#off-14), [OFF-15 FormulaBar](../proposed/05-documents-office.md#off-15), [OFF-16 WorkbookTabs](../proposed/05-documents-office.md#off-16), [OFF-17 ConditionalFormatEditor](../proposed/05-documents-office.md#off-17), [OFF-18 DataValidationEditor](../proposed/05-documents-office.md#off-18)
 

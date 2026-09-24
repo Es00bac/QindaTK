@@ -147,7 +147,7 @@ qt_add_qml_module(qindatk
         core/timeline_viewport.cpp core/timeline_viewport_rows.cpp core/timeline_viewport.h
         core/timeline_media_provider.cpp core/timeline_media_provider.h
         core/timeline_transfer.cpp core/timeline_transfer.h
-        core/clipboard_service.cpp core/clipboard_service.h
+        core/clipboard_service.cpp core/clipboard_service.h core/clipboard_ranges.cpp
         core/drag_drop_service.cpp core/drag_drop_service.h
         core/property_collection_drop_target.cpp
         core/locale_service.cpp core/locale_service.h
@@ -209,8 +209,26 @@ qt_add_qml_module(qindatk
         core/selection_model.cpp core/selection_model.h
         core/editable_grid_model.cpp core/editable_grid_model.h
         core/editable_grid_structure.cpp
+        core/editable_grid_source.cpp
+        core/grid_axis_ids.cpp core/grid_axis_ids.h
         core/resource_plan_model.cpp core/resource_plan_model.h
         core/editable_grid_mode.cpp
+        core/workbook_value.cpp core/workbook_value.h core/workbook_formula.h
+        core/workbook_parser.cpp core/workbook_refs.cpp core/workbook_eval.cpp
+        core/workbook_lexer.cpp core/workbook_lexer_p.h core/workbook_functions.cpp
+        core/workbook_numfmt.cpp core/workbook_numfmt.h
+        core/workbook_features.cpp core/workbook_features_p.h
+        core/workbook_rules.cpp core/workbook_rules_p.h
+        core/workbook_styles.cpp core/workbook_validation.cpp
+        core/workbook_sheetops.cpp core/workbook_ruleops.cpp
+        core/workbook_codec_features.cpp core/workbook_transfer.cpp
+        core/workbook_delimited.cpp core/workbook_delimited.h
+        core/workbook_history.cpp core/workbook_document_codec.cpp
+        core/workbook.cpp core/workbook.h core/workbook_p.h
+        core/workbook_recalc.cpp core/workbook_mutations.cpp core/workbook_ops.cpp
+        core/workbook_codec.cpp core/workbook_codec_p.h
+        core/workbook_persistence.cpp core/workbook_format.h
+        core/workbook_sheet_adapter.cpp core/workbook_sheet_adapter.h
         core/query_spec.cpp core/query_eval.cpp core/query_pivot.cpp core/query_core.h
         core/query_detail.cpp core/query_join.cpp core/query_persistence.cpp
         core/query_grid_adapter.cpp core/query_grid_adapter.h

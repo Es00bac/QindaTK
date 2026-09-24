@@ -128,6 +128,7 @@ std::shared_ptr<DocumentCodecRegistry> DocumentCodecRegistry::withBuiltins()
     auto registry = std::make_shared<DocumentCodecRegistry>();
     registry->registerCodec(referenceDocumentCodec());
     registry->registerCodec(canvasDocumentCodec());
+    registry->registerCodec(workbookDocumentCodec());
     return registry;
 }
 

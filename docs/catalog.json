@@ -6693,6 +6693,350 @@
       ]
     },
     {
+      "name": "ConditionalFormatEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md#conditionalformateditor, OFF-17): edits the conditional formats of one sheet of a Tk.Workbook. The rule list is in priority order (the first rule applies first); the form edits one draft rule map, checked by Workbook.checkConditionalFormat and previewed by Workbook.previewConditionalFormat over the first cells of its first range through the sheet's own cell renderer; apply() commits it as one undoable step. The Workbook evaluates rules; themes style this editor, the rule's document colors style cells.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ConditionalFormatEditor.qml",
+      "properties": [
+        {
+          "name": "workbook",
+          "type": "Tk.Workbook",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Conditional formats\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "documentColors",
+          "type": "var",
+          "default": "[",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ruleId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ranges",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "default": "\"cellValue\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "operator",
+          "type": "string",
+          "default": "\"greater\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value1",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value2",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "style",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minColor",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "midColor",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxColor",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stopIfTrue",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "epoch",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rules",
+          "type": "var",
+          "default": "epoch >= 0 && workbook && sheetId ? workbook.conditionalFormats(sheetId) : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "compares",
+          "type": "bool",
+          "default": "type === \"cellValue\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "twoValues",
+          "type": "bool",
+          "default": "compares && (operator === \"between\" || operator === \"notBetween\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "styled",
+          "type": "bool",
+          "default": "[\"colorScale\", \"dataBar\", \"iconSet\"].indexOf(type) < 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draft",
+          "type": "var",
+          "default": "buildDraft()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "check",
+          "type": "var",
+          "default": "epoch >= 0 && workbook && sheetId ? workbook.checkConditionalFormat(sheetId, draft)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "window",
+          "type": "var",
+          "default": "previewWindow()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "preview",
+          "type": "var",
+          "default": "check.ok && window ? workbook.previewConditionalFormat(sheetId, draft,",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "typeModel",
+          "type": "var",
+          "default": "[",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "operatorModel",
+          "type": "var",
+          "default": "[",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "applied",
+          "parameters": "string ruleId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "opaque",
+          "parameters": "color"
+        },
+        {
+          "name": "indexOfValue",
+          "parameters": "model, value"
+        },
+        {
+          "name": "nameOf",
+          "parameters": "model, value"
+        },
+        {
+          "name": "summary",
+          "parameters": "rule"
+        },
+        {
+          "name": "buildDraft",
+          "parameters": ""
+        },
+        {
+          "name": "previewWindow",
+          "parameters": ""
+        },
+        {
+          "name": "setStyle",
+          "parameters": "key, value"
+        },
+        {
+          "name": "newRule",
+          "parameters": "target"
+        },
+        {
+          "name": "load",
+          "parameters": "id"
+        },
+        {
+          "name": "apply",
+          "parameters": ""
+        },
+        {
+          "name": "remove",
+          "parameters": "id"
+        },
+        {
+          "name": "move",
+          "parameters": "id, priority"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "cfApply",
+        "cfError",
+        "cfNew",
+        "cfPreview",
+        "cfRuleList"
+      ]
+    },
+    {
+      "name": "ConditionalRuleForm",
+      "kind": "qml",
+      "base": "Tk.Grid",
+      "description": "AGENT-CONTRACT (docs/controls.md#conditionalformateditor): the draft-rule form of Tk.ConditionalFormatEditor. Every field reads and writes the editor's draft properties; it keeps no state of its own. Field objectNames (cfRanges, cfType, cfOperator, cfValue1, cfValue2, cfText, cfBold, cfItalic, cfUnderline, cfStrikeout, cfTextColor, cfFillColor, cfClearColors, cfMinColor, cfMidColor, cfMaxColor, cfThreeColor, cfStopIfTrue) are part of the editor contract.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ConditionalRuleForm.qml",
+      "properties": [
+        {
+          "name": "editor",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "cf",
+        "cfClearColors",
+        "cfFillColor",
+        "cfMaxColor",
+        "cfMidColor",
+        "cfMinColor",
+        "cfOperator",
+        "cfRanges",
+        "cfStopIfTrue",
+        "cfText",
+        "cfTextColor",
+        "cfThreeColor",
+        "cfType",
+        "cfValue1",
+        "cfValue2"
+      ]
+    },
+    {
       "name": "CurveEditor",
       "kind": "qml",
       "base": "Item",
@@ -7066,6 +7410,304 @@
         "tableBody",
         "tableHeader",
         "tableRow"
+      ]
+    },
+    {
+      "name": "DataValidationEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md#datavalidationeditor, OFF-18): edits the data-validation rules of one sheet of a Tk.Workbook: ranges, a typed constraint (whole number, decimal, list items or a source range, text length, custom formula), the blank policy, the input message and the invalid-value style (stop refuses; warning/information ask). apply() commits one rule as one undoable step; a new rule takes its cells from older ones (Workbook.setValidation). `pastePolicy` is the host's paste policy (bind it to SheetView.pastePolicy): \"allOrNothing\" or \"skipInvalid\".",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/DataValidationEditor.qml",
+      "properties": [
+        {
+          "name": "workbook",
+          "type": "Tk.Workbook",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Data validation\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pastePolicy",
+          "type": "string",
+          "default": "\"allOrNothing\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ruleId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ranges",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "default": "\"wholeNumber\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "operator",
+          "type": "string",
+          "default": "\"between\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value1",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value2",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "items",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "allowBlank",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputTitle",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorStyle",
+          "type": "string",
+          "default": "\"stop\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorTitle",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "epoch",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rules",
+          "type": "var",
+          "default": "epoch >= 0 && workbook && sheetId ? workbook.validations(sheetId) : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bounded",
+          "type": "bool",
+          "default": "type === \"wholeNumber\" || type === \"decimal\" || type === \"textLength\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "twoValues",
+          "type": "bool",
+          "default": "bounded && (operator === \"between\" || operator === \"notBetween\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "itemList",
+          "type": "var",
+          "default": "items.split(/[\\n,]/).map(function(item) { return item.trim() })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draft",
+          "type": "var",
+          "default": "buildDraft()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "check",
+          "type": "var",
+          "default": "epoch >= 0 && workbook && sheetId ? workbook.checkValidation(sheetId, draft)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "typeModel",
+          "type": "var",
+          "default": "[",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "operatorModel",
+          "type": "var",
+          "default": "[",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "styleModel",
+          "type": "var",
+          "default": "[{ text: qsTr(\"Stop\"), value: \"stop\" }, { text: qsTr(\"Warning\"), value: \"warning\" },",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "policyModel",
+          "type": "var",
+          "default": "[{ text: qsTr(\"All or nothing\"), value: \"allOrNothing\" },",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "applied",
+          "parameters": "string ruleId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "indexOfValue",
+          "parameters": "model, value"
+        },
+        {
+          "name": "summary",
+          "parameters": "rule"
+        },
+        {
+          "name": "buildDraft",
+          "parameters": ""
+        },
+        {
+          "name": "newRule",
+          "parameters": "target"
+        },
+        {
+          "name": "load",
+          "parameters": "id"
+        },
+        {
+          "name": "apply",
+          "parameters": ""
+        },
+        {
+          "name": "remove",
+          "parameters": "id"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "dvAllowBlank",
+        "dvApply",
+        "dvError",
+        "dvErrorMessage",
+        "dvErrorStyle",
+        "dvErrorTitle",
+        "dvInputMessage",
+        "dvInputTitle",
+        "dvItems",
+        "dvNew",
+        "dvOperator",
+        "dvPastePolicy",
+        "dvRanges",
+        "dvRuleList",
+        "dvType",
+        "dvValue1",
+        "dvValue2"
       ]
     },
     {
@@ -10353,7 +10995,7 @@
       "name": "EditableGrid",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: EditableGridModel owns cell data, transactions, section geometry/order, frozen counts and range identity. This view owns only the active cell/editor and the two viewport offsets.",
+      "description": "AGENT-CONTRACT: EditableGridModel owns cell data, transactions, section geometry/order, frozen counts and range identity. This view owns only the active cell/editor, the fill-handle preview and the two viewport offsets. Merged areas come from the model's source (docs/editable-grid.md).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/EditableGrid.qml",
@@ -10551,6 +11193,14 @@
           "required": false
         },
         {
+          "name": "fillHandleEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "bodyWidth",
           "type": "real",
           "default": "Math.max(0, width - (showHeaders ? rowHeaderWidth : 0))",
@@ -10589,6 +11239,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "editorRect",
+          "type": "rect",
+          "default": "areaRect(editingRowId, editingColumnId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -10619,12 +11277,20 @@
           "parameters": ""
         },
         {
+          "name": "areaRect",
+          "parameters": "rowId, columnId"
+        },
+        {
           "name": "moveCurrent",
           "parameters": "rowDelta, columnDelta, extend"
         },
         {
           "name": "setCurrent",
           "parameters": "row, column, extend"
+        },
+        {
+          "name": "selectBounds",
+          "parameters": "anchorRow, anchorColumn, row, column"
         },
         {
           "name": "reconcileSelection",
@@ -10645,6 +11311,14 @@
         {
           "name": "commitCellEdit",
           "parameters": "value"
+        },
+        {
+          "name": "setEditorText",
+          "parameters": "text"
+        },
+        {
+          "name": "focusCellEditor",
+          "parameters": ""
         },
         {
           "name": "cancelCellEdit",
@@ -10674,9 +11348,9 @@
       "objectNames": [
         "gridCellEditor",
         "gridCellViewport",
-        "gridCell_",
         "gridColumnHeaders",
         "gridCornerHeader",
+        "gridEditorPane",
         "gridRangeOverlay",
         "gridRowHeaders",
         "gridWheel"
@@ -13381,6 +14055,263 @@
       ]
     },
     {
+      "name": "FormulaBar",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md, docs/workbook.md): edits the active cell of a Tk.SheetView. The name box shows (and jumps to) an address; the editor shows the cell's source input, never its computed value, which appears in `formulaResult`. An edit remembers its target cell until Enter commits it through the Workbook or Escape restores the prior input. While a formula is edited, selecting cells in the sheet inserts their reference at the caret (point mode); a rejected commit selects the offending source span.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FormulaBar.qml",
+      "properties": [
+        {
+          "name": "sheetView",
+          "type": "Tk.SheetView",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Formula bar\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "originalText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetRow",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetColumn",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceStart",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceEnd",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorStart",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorEnd",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pointing",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "workbook",
+          "type": "Tk.Workbook",
+          "default": "sheetView ? sheetView.workbook : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "text",
+          "type": "alias",
+          "default": "editor.text",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetAddress",
+          "type": "string",
+          "default": "workbook && targetRow >= 0 ? workbook.address(targetRow, targetColumn) : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "default": "editing ? targetAddress : (sheetView ? sheetView.activeAddress : \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "result",
+          "type": "string",
+          "default": "sheetView ? sheetView.activeDisplay : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pointMode",
+          "type": "bool",
+          "default": "editing && editor.text.startsWith(\"=\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputCheck",
+          "type": "var",
+          "default": "editing && sheetView ? sheetView.adapter.checkInput(editor.text) : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceSpans",
+          "type": "var",
+          "default": "inputCheck && inputCheck.ok && inputCheck.references",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "functionHint",
+          "type": "string",
+          "default": "pointMode && workbook",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "committed",
+          "parameters": "string address, string input"
+        },
+        {
+          "name": "cancelled",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "beginEdit",
+          "parameters": ""
+        },
+        {
+          "name": "finishEditing",
+          "parameters": "restoreSelection"
+        },
+        {
+          "name": "commit",
+          "parameters": "restoreSelection"
+        },
+        {
+          "name": "cancel",
+          "parameters": ""
+        },
+        {
+          "name": "clearError",
+          "parameters": ""
+        },
+        {
+          "name": "showError",
+          "parameters": "message, detail"
+        },
+        {
+          "name": "insertReference",
+          "parameters": "reference"
+        },
+        {
+          "name": "pointAt",
+          "parameters": "range"
+        },
+        {
+          "name": "currentFunction",
+          "parameters": "input, caret"
+        },
+        {
+          "name": "jumpTo",
+          "parameters": "text"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "formulaCancel",
+        "formulaCommit",
+        "formulaEditor",
+        "formulaError",
+        "formulaFunctionLabel",
+        "formulaHint",
+        "formulaNameBox",
+        "formulaResult"
+      ]
+    },
+    {
       "name": "GanttView",
       "kind": "qml",
       "base": "T.Control",
@@ -13696,6 +14627,206 @@
         "gradientPreview",
         "gradientStop_",
         "gradientTrack"
+      ]
+    },
+    {
+      "name": "GridCellDelegate",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/editable-grid.md, docs/controls.md): one visible cell of Tk.EditableGrid. It renders the record the grid collected from its model — value, optional source `style` and merged-area span — and stores no cell state. objectName gridCell_<rowId>_<columnId> is part of the grid contract. Style keys: horizontalAlignment, bold, italic, underline, strikeout, textColor/fillColor (document colors), dataBar (0-1) + dataBarColor, icon + iconTone (positive|neutral|negative -> theme roles), error, numeric.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GridCellDelegate.qml",
+      "properties": [
+        {
+          "name": "modelData",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "index",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "grid",
+          "type": "var",
+          "default": "null // the Tk.EditableGrid, if any (var: see ConditionalRuleForm)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editorActive",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cellStyle",
+          "type": "var",
+          "default": "modelData.style || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayText",
+          "type": "string",
+          "default": "modelData.value === undefined || modelData.value === null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "merged",
+          "type": "bool",
+          "default": "(modelData.rowSpan || 1) > 1 || (modelData.columnSpan || 1) > 1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasIcon",
+          "type": "bool",
+          "default": "String(cellStyle.icon || \"\").length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fill",
+          "type": "color",
+          "default": "cellStyle.fillColor ? cellStyle.fillColor : \"transparent\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hashed",
+          "type": "bool",
+          "default": "cellStyle.numeric === true && cellText.implicitWidth > cellText.width",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "contrastOn",
+          "parameters": "color"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "gridCellBackground",
+        "gridCellDataBar",
+        "gridCellHashes",
+        "gridCellIcon",
+        "gridCellText",
+        "gridCell_"
+      ]
+    },
+    {
+      "name": "GridFillHandle",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/editable-grid.md#fill-handle): the fill handle of Tk.EditableGrid, a child of its cell viewport. It sits on the bottom-right corner of the grid model's last range; dragging previews a target that extends the range along one axis, and releasing calls EditableGridModel.fillRange (a domain source performs a formula-aware fill) and selects source plus target. It keeps only the transient drag target. Keyboard users fill through host commands (SheetView: Ctrl+D / Ctrl+R).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/GridFillHandle.qml",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "var",
+          "default": "null // the Tk.EditableGrid (var: see ConditionalRuleForm)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "target",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "corner",
+          "type": "var",
+          "default": "selectionCorner()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "drag.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "lastRange",
+          "parameters": ""
+        },
+        {
+          "name": "selectionCorner",
+          "parameters": ""
+        },
+        {
+          "name": "previewTo",
+          "parameters": "x, y"
+        },
+        {
+          "name": "commit",
+          "parameters": ""
+        },
+        {
+          "name": "areaOf",
+          "parameters": "box"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "gridFillHandle",
+        "gridFillPreview"
       ]
     },
     {
@@ -22965,6 +24096,8 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "gridRangeBorder_",
+        "gridRangePane_",
         "gridRangeSelection_"
       ]
     },
@@ -25329,6 +26462,86 @@
       ]
     },
     {
+      "name": "RulePreview",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md#conditionalformateditor): a small cell grid drawing Workbook.previewConditionalFormat records ({row, column, display, ...presentation}) with Tk.GridCellDelegate — the sheet's own cell renderer — so the preview is what the committed rule draws.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RulePreview.qml",
+      "properties": [
+        {
+          "name": "cells",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Preview\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "firstRow",
+          "type": "int",
+          "default": "cells.length > 0 ? cells[0].row : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "firstColumn",
+          "type": "int",
+          "default": "cells.length > 0 ? cells[0].column : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "int",
+          "default": "Math.ceil(cells.length / columns)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "records",
+          "type": "var",
+          "default": "cells.map(function(cell) {",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "rulePreview"
+      ]
+    },
+    {
       "name": "Ruler",
       "kind": "qml",
       "base": "Item",
@@ -26995,6 +28208,592 @@
         "shapeGrid",
         "shapeSearch",
         "shape_"
+      ]
+    },
+    {
+      "name": "SheetCellAssist",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md#sheetview): Tk.SheetView's data-validation assistance, drawn over the sheet. It shows the active cell's input message, a list button that enters one of a list rule's values, and the prompt for an entry that breaks a warning/information rule (Yes / No / Cancel, or OK / Cancel). The Workbook decides validity (Workbook.validateInput); this item keeps only the pending prompt.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SheetCellAssist.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "var",
+          "default": "null // the Tk.SheetView (var: see ConditionalRuleForm)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pending",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validation",
+          "type": "var",
+          "default": "view ? view.activeValidation : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listRule",
+          "type": "bool",
+          "default": "validation.type === \"list\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listItems",
+          "type": "var",
+          "default": "view && view.epoch >= 0 && listRule",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cell",
+          "type": "rect",
+          "default": "activeCellRect()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cellShown",
+          "type": "bool",
+          "default": "cell.width > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasMessage",
+          "type": "bool",
+          "default": "String(validation.inputMessage || \"\").length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "activeCellRect",
+          "parameters": ""
+        },
+        {
+          "name": "prompt",
+          "parameters": "row, column, input, check, source"
+        },
+        {
+          "name": "resolve",
+          "parameters": "action"
+        },
+        {
+          "name": "openList",
+          "parameters": ""
+        },
+        {
+          "name": "choose",
+          "parameters": "value"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "sheetCellAssist",
+        "sheetInputMessage",
+        "sheetInputMessageText",
+        "sheetInputMessageTitle",
+        "sheetListButton",
+        "sheetListMenu",
+        "sheetValidationPrompt"
+      ]
+    },
+    {
+      "name": "SheetRuleList",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md#conditionalformateditor): the rule list of Tk.ConditionalFormatEditor and Tk.DataValidationEditor. It shows `rules` (Workbook rule maps, in order) by id and reports choices; the editors call the Workbook. Rows are objectName \"sheetRule_<id>\"; `movable` adds priority buttons (conditional formats apply first-to-last).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SheetRuleList.qml",
+      "properties": [
+        {
+          "name": "rules",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "movable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Rules\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "summary",
+          "type": "var",
+          "default": "function(rule) { return rule.id }",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selected",
+          "parameters": "string ruleId"
+        },
+        {
+          "name": "moveRequested",
+          "parameters": "string ruleId, int priority"
+        },
+        {
+          "name": "removeRequested",
+          "parameters": "string ruleId"
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "sheetRuleDown",
+        "sheetRuleListEmpty",
+        "sheetRuleRemove",
+        "sheetRuleUp",
+        "sheetRule_"
+      ]
+    },
+    {
+      "name": "SheetView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md, docs/workbook.md): one sheet of a Tk.Workbook shown through Tk.EditableGrid via Tk.WorkbookSheetAdapter. The Workbook owns inputs, formulas, values, formats, rules, sheet properties and history; the grid (sourceCommits) owns only geometry and stable-ID selection, and its edits, pastes and fill-handle drags become Workbook transactions; this view keeps the active cell and a pending validation prompt. Cell editing shows the formula source, never the computed display value.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SheetView.qml",
+      "properties": [
+        {
+          "name": "workbook",
+          "type": "Tk.Workbook",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Spreadsheet\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pastePolicy",
+          "type": "string",
+          "default": "\"allOrNothing\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipboard",
+          "type": "Tk.ClipboardService",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "epoch",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "adapter",
+          "type": "alias",
+          "default": "sheetAdapter",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "grid",
+          "type": "alias",
+          "default": "sheetGrid",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentSheetId",
+          "type": "string",
+          "default": "sheetAdapter.sheetId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheetName",
+          "type": "string",
+          "default": "sheetAdapter.sheetName",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeRow",
+          "type": "int",
+          "default": "sheetGrid.activeRow",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeColumn",
+          "type": "int",
+          "default": "sheetGrid.activeColumn",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasActiveCell",
+          "type": "bool",
+          "default": "activeRow >= 0 && activeColumn >= 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeAddress",
+          "type": "string",
+          "default": "hasActiveCell ? sheetAdapter.address(activeRow, activeColumn) : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeInput",
+          "type": "string",
+          "default": "control.epoch >= 0 && hasActiveCell",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeDisplay",
+          "type": "string",
+          "default": "control.epoch >= 0 && hasActiveCell",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeFormat",
+          "type": "var",
+          "default": "control.epoch >= 0 && hasActiveCell && workbook",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeValidation",
+          "type": "var",
+          "default": "control.epoch >= 0 && hasActiveCell",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeMerge",
+          "type": "var",
+          "default": "control.epoch >= 0 && hasActiveCell && workbook",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheetProperties",
+          "type": "var",
+          "default": "control.epoch >= 0 && workbook ? workbook.sheetProperties(currentSheetId) : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "sheetProperties.protected === true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validationPending",
+          "type": "bool",
+          "default": "assist.pending !== null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selection",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionAddress",
+          "type": "string",
+          "default": "selection && workbook",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "sheetAdapter.lastError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorDetail",
+          "type": "var",
+          "default": "sheetAdapter.lastErrorDetail",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rememberedCells",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shownSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "apiSelection",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tableFocused",
+          "type": "bool",
+          "default": "sheetGrid.activeFocus && !sheetGrid.cellEditing",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "currentCellChanged",
+          "parameters": "int row, int column, string address"
+        },
+        {
+          "name": "selectionEdited",
+          "parameters": ""
+        },
+        {
+          "name": "sheetShown",
+          "parameters": "string sheetId"
+        },
+        {
+          "name": "inputCommitted",
+          "parameters": "int row, int column, string input"
+        },
+        {
+          "name": "inputRejected",
+          "parameters": "string message, var detail"
+        },
+        {
+          "name": "validationResolved",
+          "parameters": "int row, int column, string action"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setCurrent",
+          "parameters": "row, column, extend"
+        },
+        {
+          "name": "selectRange",
+          "parameters": "firstRow, firstColumn, lastRow, lastColumn"
+        },
+        {
+          "name": "focusGrid",
+          "parameters": ""
+        },
+        {
+          "name": "beginEdit",
+          "parameters": ""
+        },
+        {
+          "name": "commitInputAt",
+          "parameters": "row, column, text, confirmed"
+        },
+        {
+          "name": "commitInput",
+          "parameters": "text"
+        },
+        {
+          "name": "selectionOrActive",
+          "parameters": ""
+        },
+        {
+          "name": "onSelection",
+          "parameters": "operation"
+        },
+        {
+          "name": "fillDown",
+          "parameters": ""
+        },
+        {
+          "name": "fillRight",
+          "parameters": ""
+        },
+        {
+          "name": "copySelection",
+          "parameters": ""
+        },
+        {
+          "name": "pasteCopied",
+          "parameters": ""
+        },
+        {
+          "name": "pasteText",
+          "parameters": "text"
+        },
+        {
+          "name": "clearSelection",
+          "parameters": ""
+        },
+        {
+          "name": "applyStyle",
+          "parameters": "patch"
+        },
+        {
+          "name": "toggleStyle",
+          "parameters": "key"
+        },
+        {
+          "name": "clearFormats",
+          "parameters": ""
+        },
+        {
+          "name": "mergeSelection",
+          "parameters": ""
+        },
+        {
+          "name": "unmergeSelection",
+          "parameters": ""
+        },
+        {
+          "name": "freezePanes",
+          "parameters": ""
+        },
+        {
+          "name": "unfreezePanes",
+          "parameters": ""
+        },
+        {
+          "name": "openValidationList",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "parameters": ""
+        },
+        {
+          "name": "restoreCell",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "sheetGrid"
       ]
     },
     {
@@ -35066,6 +36865,209 @@
       ]
     },
     {
+      "name": "WorkbookTabs",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md, docs/workbook.md): sheet tabs projected from Tk.Workbook.sheets by stable sheet ID. Add, rename, move, tab color, hide/show and protect call the Workbook (each one undoable step; formulas follow IDs, so references keep their targets). Hidden sheets leave the strip and are listed by the \"hidden sheets\" button. Removal is only requested: the host confirms, then calls Workbook.removeSheet. The current sheet is owned by the host. A tab's menu opens on right-click, the Menu key or Shift+F10.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/WorkbookTabs.qml",
+      "properties": [
+        {
+          "name": "workbook",
+          "type": "Tk.Workbook",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Sheets\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "renamingSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tabPalette",
+          "type": "var",
+          "default": "[{ name: qsTr(\"Danger\"), color: Tk.Theme.color.danger },",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "menuSheetId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "menuAnchor",
+          "type": "Item",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sheets",
+          "type": "var",
+          "default": "workbook ? workbook.sheets : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleSheets",
+          "type": "var",
+          "default": "sheets.filter(function(sheet) { return !sheet.hidden })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hiddenSheets",
+          "type": "var",
+          "default": "sheets.filter(function(sheet) { return sheet.hidden })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "menuSheet",
+          "type": "var",
+          "default": "sheets[indexOfSheet(menuSheetId)] || null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sheetActivated",
+          "parameters": "string sheetId"
+        },
+        {
+          "name": "removeRequested",
+          "parameters": "string sheetId, string name"
+        }
+      ],
+      "methods": [
+        {
+          "name": "indexOfSheet",
+          "parameters": "sheetId"
+        },
+        {
+          "name": "report",
+          "parameters": "ok"
+        },
+        {
+          "name": "activate",
+          "parameters": "sheetId"
+        },
+        {
+          "name": "addSheet",
+          "parameters": ""
+        },
+        {
+          "name": "beginRename",
+          "parameters": "sheetId"
+        },
+        {
+          "name": "commitRename",
+          "parameters": "name"
+        },
+        {
+          "name": "cancelRename",
+          "parameters": ""
+        },
+        {
+          "name": "moveBy",
+          "parameters": "sheetId, delta"
+        },
+        {
+          "name": "requestRemove",
+          "parameters": "sheetId"
+        },
+        {
+          "name": "setTabColor",
+          "parameters": "sheetId, color"
+        },
+        {
+          "name": "setHidden",
+          "parameters": "sheetId, hidden"
+        },
+        {
+          "name": "setProtected",
+          "parameters": "sheetId, locked"
+        },
+        {
+          "name": "openMenu",
+          "parameters": "sheetId, anchor"
+        },
+        {
+          "name": "openColorPicker",
+          "parameters": "sheetId, anchor"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "workbookHiddenMenu",
+        "workbookTabAdd",
+        "workbookTabColor",
+        "workbookTabColorNone",
+        "workbookTabColorPopover",
+        "workbookTabEditor",
+        "workbookTabError",
+        "workbookTabHidden",
+        "workbookTabLock",
+        "workbookTabMenu",
+        "workbookTabMenuColor",
+        "workbookTabMenuHide",
+        "workbookTabMenuProtect",
+        "workbookTabMenuRemove",
+        "workbookTabMenuRename",
+        "workbookTabSlot_",
+        "workbookTabSwatches",
+        "workbookTab_"
+      ]
+    },
+    {
       "name": "ZoomControl",
       "kind": "qml",
       "base": "Item",
@@ -38571,6 +40573,16 @@
           "name": "copyImage",
           "returns": "bool",
           "parameters": "const QByteArray &png, const QString &documentId, const QString &entityId, const QString &revision"
+        },
+        {
+          "name": "copyRange",
+          "returns": "bool",
+          "parameters": "const QString &documentId, const QString &revision, const QVariantMap &range, const QString &text"
+        },
+        {
+          "name": "rangePasteData",
+          "returns": "QVariantMap",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -41263,6 +43275,13 @@
           "constant": false
         },
         {
+          "name": "sourceCommits",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "readOnly",
           "type": "bool",
           "default": "",
@@ -41343,6 +43362,10 @@
           "parameters": "const QString &id, qreal size"
         },
         {
+          "name": "resizeFinished",
+          "parameters": "const QString &id, bool rowAxis, qreal size"
+        },
+        {
           "name": "rowMoved",
           "parameters": "const QString &id, int newIndex"
         },
@@ -41396,6 +43419,16 @@
           "parameters": "int index, int count"
         },
         {
+          "name": "insertGeneratedRowsAt",
+          "returns": "bool",
+          "parameters": "int index, int count"
+        },
+        {
+          "name": "insertGeneratedColumnsAt",
+          "returns": "bool",
+          "parameters": "int index, int count"
+        },
+        {
           "name": "rowIdAt",
           "returns": "QString",
           "parameters": "int index"
@@ -41421,6 +43454,36 @@
           "parameters": "const QString &rowId, const QString &columnId"
         },
         {
+          "name": "editValue",
+          "returns": "QVariant",
+          "parameters": "const QString &rowId, const QString &columnId"
+        },
+        {
+          "name": "notifySourceChanged",
+          "returns": "void",
+          "parameters": "int firstRow, int rowCount, int firstColumn, int columnCount"
+        },
+        {
+          "name": "mergedRegions",
+          "returns": "QVariantList",
+          "parameters": "int firstRow, int rowCount, int firstColumn, int columnCount"
+        },
+        {
+          "name": "mergeAt",
+          "returns": "QVariantMap",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "mergeBounds",
+          "returns": "QVariantMap",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "layoutCells",
+          "returns": "QVariantList",
+          "parameters": "qreal viewportWidth, qreal viewportHeight, qreal scrollX, qreal scrollY"
+        },
+        {
           "name": "visibleCells",
           "returns": "QVariantList",
           "parameters": "int firstRow, int rows, int firstColumn, int columns"
@@ -41436,6 +43499,11 @@
           "parameters": "int row, int column, qreal scrollX, qreal scrollY"
         },
         {
+          "name": "frozenExtent",
+          "returns": "QSizeF",
+          "parameters": ""
+        },
+        {
           "name": "hitTest",
           "returns": "QVariantMap",
           "parameters": "qreal x, qreal y, qreal scrollX, qreal scrollY"
@@ -41449,6 +43517,21 @@
           "name": "requestColumnResize",
           "returns": "bool",
           "parameters": "const QString &id, qreal size"
+        },
+        {
+          "name": "finishResize",
+          "returns": "void",
+          "parameters": "const QString &id, bool rowAxis"
+        },
+        {
+          "name": "resetRowSize",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "resetColumnSize",
+          "returns": "bool",
+          "parameters": "const QString &id"
         },
         {
           "name": "requestRowMove",
@@ -41489,6 +43572,11 @@
           "name": "fill",
           "returns": "bool",
           "parameters": "int firstRow, int firstColumn, int rowCount, int columnCount, int targetRow, int targetColumn"
+        },
+        {
+          "name": "fillRange",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int rowCount, int columnCount, int targetRow, int targetColumn, int targetRowCount, int targetColumnCount"
         },
         {
           "name": "commitEdit",
@@ -42508,6 +44596,16 @@
           "name": "adoptImport",
           "returns": "DocumentSession *",
           "parameters": "DocumentManager *manager, const QString &jobId"
+        },
+        {
+          "name": "preflightExportSource",
+          "returns": "QVariantMap",
+          "parameters": "QObject *source, const QUrl &destination, const QString &formatId, const QVariantMap &options = {}"
+        },
+        {
+          "name": "startExportSource",
+          "returns": "QString",
+          "parameters": "QObject *source, const QUrl &destination, const QString &formatId, const QVariantMap &options = {}"
         }
       ],
       "enums": {},
@@ -56541,6 +58639,858 @@
         {
           "name": "capabilities",
           "returns": "QVariantMap",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "Workbook",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: Workbook is the single authoritative spreadsheet model for its cells, sheets and formulas. Views (WorkbookSheetAdapter/SheetView, FormulaBar, WorkbookTabs) read it and route every change through these operations; none keeps cell state. It is a DocumentModel (docs/document-models.md): every operation or transaction is one WorkbookCommand recorded by the UndoService that holds its single live history. That is a private service while the workbook stands alone, and the shared one once a DocumentSession adopts it. docs/workbook.md defines the grammar, functions, reference rules, transactions and file format.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/workbook.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resetGeneration",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheets",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheetCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "modified",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "transactionActive",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastErrorDetail",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "statistics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "functionNames",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "fileUrl",
+          "type": "QUrl",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "names",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastPasteReport",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "revisionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sheetsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "transactionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "resetOccurred",
+          "parameters": ""
+        },
+        {
+          "name": "fileChanged",
+          "parameters": ""
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &reason"
+        },
+        {
+          "name": "cellsChanged",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "rowsInserted",
+          "parameters": "const QString &sheetId, int row, int count"
+        },
+        {
+          "name": "rowsRemoved",
+          "parameters": "const QString &sheetId, int row, int count"
+        },
+        {
+          "name": "columnsInserted",
+          "parameters": "const QString &sheetId, int column, int count"
+        },
+        {
+          "name": "columnsRemoved",
+          "parameters": "const QString &sheetId, int column, int count"
+        },
+        {
+          "name": "sheetPropertiesChanged",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "namesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pasteReported",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "addSheet",
+          "returns": "QString",
+          "parameters": "const QString &name = {}, int index = -1, int rows = DefaultRows, int columns = DefaultColumns"
+        },
+        {
+          "name": "removeSheet",
+          "returns": "bool",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "renameSheet",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, const QString &name"
+        },
+        {
+          "name": "moveSheet",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int index"
+        },
+        {
+          "name": "sheetIdAt",
+          "returns": "QString",
+          "parameters": "int index"
+        },
+        {
+          "name": "sheetIndex",
+          "returns": "int",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "sheetName",
+          "returns": "QString",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "sheetIdForName",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "rowCount",
+          "returns": "int",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "columnCount",
+          "returns": "int",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "setCellInput",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int column, const QString &input"
+        },
+        {
+          "name": "cellInput",
+          "returns": "QString",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellDisplay",
+          "returns": "QString",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellValue",
+          "returns": "QVariant",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellType",
+          "returns": "QString",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellInfo",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "usedRange",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "visibleCells",
+          "returns": "QVariantList",
+          "parameters": "const QString &sheetId, int firstRow, int rowCount, int firstColumn, int columnCount"
+        },
+        {
+          "name": "checkInput",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, const QString &input"
+        },
+        {
+          "name": "pasteInputs",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int column, const QVariantList &rows, const QString &policy = QStringLiteral(\"allOrNothing\""
+        },
+        {
+          "name": "rangeTransfer",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "pasteTransfer",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int column, const QVariantMap &range, const QString &policy = QStringLiteral(\"allOrNothing\""
+        },
+        {
+          "name": "copyCells",
+          "returns": "bool",
+          "parameters": "const QString &sourceSheetId, int firstRow, int firstColumn, int rowCount, int columnCount, const QString &targetSheetId, int targetRow, int targetColumn"
+        },
+        {
+          "name": "fill",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int rowCount, int columnCount, int targetRow, int targetColumn, int targetRowCount, int targetColumnCount"
+        },
+        {
+          "name": "clearCells",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int rowCount, int columnCount"
+        },
+        {
+          "name": "insertRows",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int count = 1"
+        },
+        {
+          "name": "removeRows",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, int count = 1"
+        },
+        {
+          "name": "insertColumns",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int column, int count = 1"
+        },
+        {
+          "name": "removeColumns",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int column, int count = 1"
+        },
+        {
+          "name": "applyStyle",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn, const QVariantMap &patch"
+        },
+        {
+          "name": "clearFormats",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "cellFormat",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "cellPresentation",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "numberFormatProblem",
+          "returns": "QString",
+          "parameters": "const QString &format"
+        },
+        {
+          "name": "mergeCells",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "unmergeCells",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "mergedAreas",
+          "returns": "QVariantList",
+          "parameters": "const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "mergeAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "sheetProperties",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "setSheetProperties",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, const QVariantMap &changes"
+        },
+        {
+          "name": "setColumnWidth",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int column, double width"
+        },
+        {
+          "name": "setRowHeight",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, int row, double height"
+        },
+        {
+          "name": "columnWidths",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "rowHeights",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "defineName",
+          "returns": "bool",
+          "parameters": "const QString &name, const QString &sheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "removeName",
+          "returns": "bool",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "nameProblem",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "conditionalFormats",
+          "returns": "QVariantList",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "checkConditionalFormat",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, const QVariantMap &rule"
+        },
+        {
+          "name": "setConditionalFormat",
+          "returns": "QString",
+          "parameters": "const QString &sheetId, const QVariantMap &rule, int priority = -1"
+        },
+        {
+          "name": "removeConditionalFormat",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, const QString &ruleId"
+        },
+        {
+          "name": "moveConditionalFormat",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, const QString &ruleId, int priority"
+        },
+        {
+          "name": "previewConditionalFormat",
+          "returns": "QVariantList",
+          "parameters": "const QString &sheetId, const QVariantMap &rule, int firstRow, int firstColumn, int rowCount, int columnCount"
+        },
+        {
+          "name": "validations",
+          "returns": "QVariantList",
+          "parameters": "const QString &sheetId"
+        },
+        {
+          "name": "checkValidation",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, const QVariantMap &rule"
+        },
+        {
+          "name": "setValidation",
+          "returns": "QString",
+          "parameters": "const QString &sheetId, const QVariantMap &rule"
+        },
+        {
+          "name": "removeValidation",
+          "returns": "bool",
+          "parameters": "const QString &sheetId, const QString &ruleId"
+        },
+        {
+          "name": "validationAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "validationItems",
+          "returns": "QStringList",
+          "parameters": "const QString &sheetId, int row, int column"
+        },
+        {
+          "name": "validateInput",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sheetId, int row, int column, const QString &input"
+        },
+        {
+          "name": "beginTransaction",
+          "returns": "bool",
+          "parameters": "const QString &label"
+        },
+        {
+          "name": "commitTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "markSaved",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "markUnsaved",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "serializedText",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "restoreText",
+          "returns": "bool",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "save",
+          "returns": "bool",
+          "parameters": "const QUrl &url, bool replaceExisting = false"
+        },
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": "const QUrl &url"
+        },
+        {
+          "name": "reset",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "registerFormat",
+          "returns": "bool",
+          "parameters": "QObject *formatRegistry"
+        },
+        {
+          "name": "adoptImport",
+          "returns": "bool",
+          "parameters": "QObject *formatRegistry, const QString &jobId"
+        },
+        {
+          "name": "columnName",
+          "returns": "QString",
+          "parameters": "int column"
+        },
+        {
+          "name": "functionSignature",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "address",
+          "returns": "QString",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "rangeAddress",
+          "returns": "QString",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "parseAddress",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "referenceText",
+          "returns": "QString",
+          "parameters": "const QString &fromSheetId, const QString &toSheetId, int firstRow, int firstColumn, int lastRow, int lastColumn"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "WorkbookSheetAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: presents one sheet of a Workbook through the existing EditableGridModel contract (docs/editable-grid.md#domain-sources) without a second store. Its GridCellSource returns display text for requested cells only and, as a GridCellSourceExtension, the formula source for editors, resolved cell presentation and merged areas. The grid runs in sourceCommits mode: a committed edit, paste or fill-handle drag is applied to the Workbook as one transaction and the grid keeps no cell values or history. Structural workbook changes move the grid's stable row/column IDs (compact generated runs); frozen panes and section sizes follow the sheet's properties, and a finished header resize is recorded in the Workbook (one undo step per gesture).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/workbook_sheet_adapter.h",
+      "properties": [
+        {
+          "name": "workbook",
+          "type": "QindaTK::Workbook *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sheetId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sheetName",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "gridModel",
+          "type": "QindaTK::EditableGridModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "rowCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "columnCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hasCopiedRange",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "copiedRange",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastErrorDetail",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "workbookChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sheetIdChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sheetNameChanged",
+          "parameters": ""
+        },
+        {
+          "name": "dimensionsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "copiedRangeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "cellsChanged",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "validationPrompt",
+          "parameters": "int row, int column, const QString &input, const QVariantMap &check"
+        }
+      ],
+      "methods": [
+        {
+          "name": "columnLabel",
+          "returns": "QString",
+          "parameters": "int column"
+        },
+        {
+          "name": "address",
+          "returns": "QString",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "inputAt",
+          "returns": "QString",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "displayAt",
+          "returns": "QString",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "cellInfo",
+          "returns": "QVariantMap",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "checkInput",
+          "returns": "QVariantMap",
+          "parameters": "const QString &input"
+        },
+        {
+          "name": "commitInput",
+          "returns": "bool",
+          "parameters": "int row, int column, const QString &input"
+        },
+        {
+          "name": "validateInput",
+          "returns": "QVariantMap",
+          "parameters": "int row, int column, const QString &input"
+        },
+        {
+          "name": "validationAt",
+          "returns": "QVariantMap",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "validationItems",
+          "returns": "QStringList",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "fillDown",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "fillRight",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "fillRange",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int rowCount, int columnCount, int targetRow, int targetColumn, int targetRowCount, int targetColumnCount"
+        },
+        {
+          "name": "copyRange",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "pasteCopied",
+          "returns": "bool",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "clearRange",
+          "returns": "bool",
+          "parameters": "int firstRow, int firstColumn, int lastRow, int lastColumn"
+        },
+        {
+          "name": "pasteInputs",
+          "returns": "bool",
+          "parameters": "int row, int column, const QVariantList &rows, const QString &policy = QStringLiteral(\"allOrNothing\""
+        },
+        {
+          "name": "reportResult",
+          "returns": "bool",
+          "parameters": "bool ok"
+        },
+        {
+          "name": "parseTabularText",
+          "returns": "QVariantList",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "sourceReadCount",
+          "returns": "qint64",
+          "parameters": ""
+        },
+        {
+          "name": "resetSourceReads",
+          "returns": "void",
           "parameters": ""
         }
       ],

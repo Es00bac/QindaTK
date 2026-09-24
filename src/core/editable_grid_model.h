@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include "grid_axis_ids.h"
 #include <QAbstractTableModel>
 #include <QHash>
 #include <QPointer>
+#include <QRect>
 #include <QRectF>
 #include <QSet>
+#include <QSizeF>
 #include <QStringList>
 #include <QVariantList>
+#include <QVector>
 #include <QtQml/qqmlregistration.h>
 #include <functional>
 
@@ -26,6 +30,36 @@ public:
     { Q_UNUSED(rowId); Q_UNUSED(columnId); Q_UNUSED(candidate); return {}; }
 };
 
+// AGENT-CONTRACT (docs/editable-grid.md#domain-sources): optional capabilities
+// a GridCellSource adds by also deriving from this interface. The model finds
+// it with dynamic_cast, so existing sources keep their behavior and ABI. A
+// domain source that owns its data (a spreadsheet) supplies the editor text
+// separately from the display value, cell presentation, merged areas, and —
+// with EditableGridModel::sourceCommits — applies validated change sets and
+// fills itself instead of the grid's override layer.
+class GridCellSourceExtension {
+public:
+    virtual ~GridCellSourceExtension() = default;
+    // Text an editor starts from; the displayed value() may be computed.
+    virtual QVariant editValue(const QString &rowId, const QString &columnId) const = 0;
+    // Optional presentation: horizontalAlignment ("left"|"center"|"right"),
+    // bold/italic/underline/strikeout booleans, textColor/fillColor document
+    // colors ("#rrggbb"). Empty means the view's theme defaults.
+    virtual QVariantMap cellStyle(const QString &rowId, const QString &columnId) const
+    { Q_UNUSED(rowId); Q_UNUSED(columnId); return {}; }
+    // Merged areas intersecting an index window (x/left = first column,
+    // y/top = first row). Areas never overlap; the top-left cell is the anchor.
+    virtual QVector<QRect> mergedRanges(const QRect &window) const
+    { Q_UNUSED(window); return {}; }
+    // Applies one validated change set (the `committed` payload) atomically
+    // when sourceCommits is true; false with an error leaves the edit open.
+    virtual bool commitChanges(const QString &label, const QVariantList &changes, QString *error) = 0;
+    // Domain fill of `target` from the repeating `source` block. Return false
+    // with an empty error when unsupported; the grid then copies values.
+    virtual bool fillCells(const QRect &source, const QRect &target, QString *error)
+    { Q_UNUSED(source); Q_UNUSED(target); Q_UNUSED(error); return false; }
+};
+
 class EditableGridModel : public QAbstractTableModel {
     Q_OBJECT
     QML_ELEMENT
@@ -37,6 +71,7 @@ class EditableGridModel : public QAbstractTableModel {
     Q_PROPERTY(qreal defaultRowSize READ defaultRowSize WRITE setDefaultRowSize NOTIFY geometryChanged)
     Q_PROPERTY(qreal defaultColumnSize READ defaultColumnSize WRITE setDefaultColumnSize NOTIFY geometryChanged)
     Q_PROPERTY(bool externalUndo READ externalUndo WRITE setExternalUndo NOTIFY historyChanged)
+    Q_PROPERTY(bool sourceCommits READ sourceCommits WRITE setSourceCommits NOTIFY historyChanged)
     Q_PROPERTY(bool readOnly READ readOnly WRITE setReadOnly NOTIFY readOnlyChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
@@ -57,13 +92,17 @@ public:
     int rows() const { return m_rows.size(); }
     int columns() const { return m_columns.size(); }
     QString revision() const { return QString::number(m_revision); }
+    // Changes whenever values or section identity/order change; cheap to compare.
+    quint64 revisionValue() const { return m_revision; }
     int frozenRows() const { return m_frozenRows; }
     int frozenColumns() const { return m_frozenColumns; }
     qreal defaultRowSize() const { return m_defaultRowSize; }
     qreal defaultColumnSize() const { return m_defaultColumnSize; }
     bool externalUndo() const { return m_externalUndo; }
-    bool canUndo() const { return !m_readOnly && !m_externalUndo && m_historyCursor > 0; }
-    bool canRedo() const { return !m_readOnly && !m_externalUndo && m_historyCursor < m_history.size(); }
+    bool sourceCommits() const { return m_sourceCommits; }
+    bool canUndo() const { return !m_readOnly && !m_externalUndo && !m_sourceCommits && m_historyCursor > 0; }
+    bool canRedo() const
+    { return !m_readOnly && !m_externalUndo && !m_sourceCommits && m_historyCursor < m_history.size(); }
     bool readOnly() const { return m_readOnly; }
     bool editing() const { return m_editing; }
     QString lastError() const { return m_lastError; }
@@ -71,6 +110,9 @@ public:
     GridCellSource *source() const { return m_source; }
     void setSource(GridCellSource *source);
     void setExternalUndo(bool enabled);
+    // Source-owned edits: commits, pastes and fills go to the source's
+    // GridCellSourceExtension; the grid keeps no overrides or history.
+    void setSourceCommits(bool enabled);
     void setReadOnly(bool enabled);
     void setValidator(std::function<QString(const QString &, const QString &, const QVariant &)> validator);
 
@@ -81,18 +123,45 @@ public:
     Q_INVOKABLE bool insertColumnsAt(int index, const QStringList &ids);
     Q_INVOKABLE bool removeRowsAt(int index, int count);
     Q_INVOKABLE bool removeColumnsAt(int index, int count);
+    // Inserts `count` fresh generated IDs ("r:N"/"c:N") as one compact run.
+    Q_INVOKABLE bool insertGeneratedRowsAt(int index, int count);
+    Q_INVOKABLE bool insertGeneratedColumnsAt(int index, int count);
     Q_INVOKABLE QString rowIdAt(int index) const;
     Q_INVOKABLE QString columnIdAt(int index) const;
     Q_INVOKABLE int rowIndex(const QString &id) const;
     Q_INVOKABLE int columnIndex(const QString &id) const;
     Q_INVOKABLE QVariant cellValue(const QString &rowId, const QString &columnId) const;
+    // Editor text: an override, else the source extension's editValue, else cellValue.
+    Q_INVOKABLE QVariant editValue(const QString &rowId, const QString &columnId) const;
+    // The source's values changed in this index window: bumps the revision
+    // and notifies views, which re-read only the cells they show.
+    Q_INVOKABLE void notifySourceChanged(int firstRow, int rowCount, int firstColumn, int columnCount);
+    Q_INVOKABLE QVariantList mergedRegions(int firstRow, int rowCount, int firstColumn, int columnCount) const;
+    Q_INVOKABLE QVariantMap mergeAt(int row, int column) const;
+    // Smallest index rectangle holding the given one and every merged area it
+    // touches: {firstRow, firstColumn, lastRow, lastColumn}; {} for an empty grid.
+    Q_INVOKABLE QVariantMap mergeBounds(int firstRow, int firstColumn, int lastRow, int lastColumn) const;
+    // The cells a viewport shows: visibleCells records plus x/y/width/height,
+    // frozen and its pane (frozenRow, frozenColumn), one record per merged
+    // area (rowSpan/columnSpan; covered cells omitted). At most 4096 records.
+    Q_INVOKABLE QVariantList layoutCells(qreal viewportWidth, qreal viewportHeight,
+                                         qreal scrollX, qreal scrollY) const;
     Q_INVOKABLE QVariantList visibleCells(int firstRow, int rows, int firstColumn, int columns) const;
     Q_INVOKABLE QVariantList visibleRegions(qreal viewportWidth, qreal viewportHeight,
                                             qreal scrollX, qreal scrollY) const;
     Q_INVOKABLE QRectF cellRect(int row, int column, qreal scrollX, qreal scrollY) const;
+    // Width of the frozen columns and height of the frozen rows: where the
+    // scrolling panes start in viewport coordinates.
+    Q_INVOKABLE QSizeF frozenExtent() const;
     Q_INVOKABLE QVariantMap hitTest(qreal x, qreal y, qreal scrollX, qreal scrollY) const;
     Q_INVOKABLE bool requestRowResize(const QString &id, qreal size);
     Q_INVOKABLE bool requestColumnResize(const QString &id, qreal size);
+    // Ends an interactive resize (a header drag); hosts that persist sizes
+    // listen to resizeFinished instead of every intermediate rowResized.
+    Q_INVOKABLE void finishResize(const QString &id, bool rowAxis);
+    // Returns one section to the default size (it then follows default changes).
+    Q_INVOKABLE bool resetRowSize(const QString &id);
+    Q_INVOKABLE bool resetColumnSize(const QString &id);
     Q_INVOKABLE bool requestRowMove(const QString &id, const QString &beforeId);
     Q_INVOKABLE bool requestColumnMove(const QString &id, const QString &beforeId);
     void setFrozenRows(int count);
@@ -110,6 +179,11 @@ public:
     Q_INVOKABLE bool paste(int firstRow, int firstColumn, const QVariantList &rows);
     Q_INVOKABLE bool fill(int firstRow, int firstColumn, int rowCount, int columnCount,
                           int targetRow, int targetColumn);
+    // Repeats the source block over the target rectangle (fill handle). With
+    // sourceCommits the source performs a domain fill; otherwise values copy.
+    Q_INVOKABLE bool fillRange(int firstRow, int firstColumn, int rowCount, int columnCount,
+                               int targetRow, int targetColumn, int targetRowCount,
+                               int targetColumnCount);
     Q_INVOKABLE bool commitEdit();
     Q_INVOKABLE void cancelEdit();
     Q_INVOKABLE bool undo();
@@ -133,6 +207,7 @@ signals:
     void readOnlyChanged();
     void rowResized(const QString &id, qreal size);
     void columnResized(const QString &id, qreal size);
+    void resizeFinished(const QString &id, bool rowAxis, qreal size);
     void rowMoved(const QString &id, int newIndex);
     void columnMoved(const QString &id, int newIndex);
     void committed(const QString &transactionId, const QString &label,
@@ -155,12 +230,20 @@ private:
     struct Range { QString ar, ac, br, bc; };
     bool fail(const QString &reason);
     bool setIds(QStringList ids, bool rowAxis);
+    bool resizeAxis(int count, bool rowAxis);
+    bool insertGenerated(int index, int count, bool rowAxis);
+    bool resetSize(const QString &id, bool rowAxis);
+    bool commitToSource(const QVector<Change> &changes, const QString &label);
+    GridCellSourceExtension *extension() const;
+    QVariantMap cellRecord(int row, int column, const GridCellSourceExtension *hooks) const;
+    // cellValue for IDs known to exist (no membership checks).
+    QVariant storedValue(const QString &rowId, const QString &columnId) const;
+    bool mergeInside(const QRect &area) const;
     bool insertIds(int index, const QStringList &ids, bool rowAxis);
     bool removeIds(int index, int count, bool rowAxis);
     bool moveId(const QString &id, const QString &beforeId, bool rowAxis);
     bool resizeId(const QString &id, qreal size, bool rowAxis);
     bool setDefaultSize(qreal size, bool rowAxis);
-    void rebuildIndexes(bool rowAxis);
     void rebuildPositions(bool rowAxis);
     void reconcile(bool invalidateHistory);
     bool validateCell(const QString &row, const QString &column, const QVariant &value);
@@ -171,8 +254,7 @@ private:
     QVariantMap region(int firstRow, int lastRow, int firstColumn, int lastColumn,
                        bool frozenRow, bool frozenColumn) const;
 
-    QStringList m_rows, m_columns;
-    QHash<QString, int> m_rowIndexes, m_columnIndexes;
+    GridAxisIds m_rows, m_columns;
     QVector<qreal> m_rowSizes, m_columnSizes, m_rowPositions, m_columnPositions;
     QSet<QString> m_explicitRowSizes, m_explicitColumnSizes;
     QHash<QString, QVariant> m_overrides;
@@ -187,7 +269,7 @@ private:
     quint64 m_nextRow = 1, m_nextColumn = 1;
     int m_frozenRows = 0, m_frozenColumns = 0, m_sparseCount = 0;
     qreal m_defaultRowSize = 24, m_defaultColumnSize = 100;
-    bool m_editing = false, m_externalUndo = false, m_readOnly = false;
+    bool m_editing = false, m_externalUndo = false, m_readOnly = false, m_sourceCommits = false;
     QString m_label, m_lastError;
 };
 

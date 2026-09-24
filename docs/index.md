@@ -24,6 +24,7 @@ pages below are the reference.
 | [commands.md](commands.md) | Scoped command contexts, registry and bindings, shortcut routing, focus restoration, and menu/toolbar/palette adapters |
 | [editing.md](editing.md) | Reference document, reversible transactions, per-document undo, stable selection, property projection and validation |
 | [editable-grid.md](editable-grid.md) | Sparse 2D model, stable IDs, bounded visible ranges, frozen geometry and range transactions |
+| [workbook.md](workbook.md) | Workbook model, formula grammar and functions, reference rules and names, incremental recalculation, transactions, cell and number formats, conditional formats, data validation, merged cells, sheet properties, clipboard ranges, CSV/TSV interchange, sessions and the native workbook format |
 | [query-pivot.md](query-pivot.md) | Typed query AST, null semantics, bounded grouping and pivots, provenance and grid/provider adapters |
 | [diff-view.md](diff-view.md) | Bounded local diff, lazy large-provider seam, stable hunk IDs and host transaction requests |
 | [rich-text.md](rich-text.md) | Structured rich-text model, `qindatk.richtext/1` persistence, per-view shaping and incremental pagination, commands, clipboard and object seams |

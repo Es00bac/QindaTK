@@ -174,6 +174,8 @@ T.Control {
                     header.requestResize(section.modelData,
                                          startSize + coordinate - startCoordinate)
                 }
+                onReleased: if (header.gridModel)
+                                header.gridModel.finishResize(section.modelData.id, !header.horizontal)
             }
         }
     }

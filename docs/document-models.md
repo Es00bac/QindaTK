@@ -28,6 +28,7 @@ text or workbook engine joins the same way; see
 | --- | --- | --- | --- | --- | --- |
 | `qindatk.property-document.v1` | `property` | `PropertyDocument` | `qindatk.reference-property-document` JSON, version 2 (version 1 migrates) | `qtk` | 64 MiB |
 | `qindatk.canvas-document.v1` | `canvas` | `CanvasDocument` | `qindatk.canvas` binary, version 1 ([canvas](canvas.md#native-format)) | `qtkc` | 320 MiB (`CanvasDocumentLimits`) |
+| `qindatk.workbook.v1` | `workbook` | `Workbook` | `qindatk.workbook` JSON, version 2 with the session header (version 1 and header-less files open as revision 1; [workbook](workbook.md#native-file-format)) | `qtkwb` | 64 MiB (`Workbook::MaxFileBytes`) |
 
 The reference format also stores a `QVariantList` property as an
 `objectCollection`: at most 4,096 object rows with unique stable UUID `id`
@@ -92,6 +93,9 @@ image and page deltas, with image pointers shared with the document. A step
 never holds a whole-scene copy. Moving one object of a 100,000-object canvas
 retains about 600 bytes
 ([evidence](universal-toolkit/implementation/evidence/WP-033-domain-sessions.md)).
+`Workbook` records `WorkbookCommand`s: the mutations one operation or
+transaction applied and their exact inverses. A step holds only the cells,
+feature sets and names it changed ([workbook](workbook.md#transactions-history-and-revision)).
 
 ## One live history per model
 
@@ -180,8 +184,10 @@ lanes) adopts the boundary in five steps:
 5. Optionally publish a `FormatProvider` whose `schemas` metadata lists the
    schema, so export dialogs refuse other documents before any job runs.
 
-No workbook or rich-text adapter is part of this change; those models still
-own local histories until their lanes adopt these steps.
+The workbook (WP-055) follows these steps: `Workbook` is the model, its
+`WorkbookCommand` steps hold the applied mutations and their exact inverses,
+and `workbookDocumentCodec()` is a built-in codec
+([workbook.md](workbook.md#sessions)). Rich text still owns a local history.
 
 ## Limits
 

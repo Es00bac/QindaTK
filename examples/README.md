@@ -394,3 +394,37 @@ job and verifies it before the automated check succeeds.
 one-sigma measurements. It uses `ScientificDataset`, `ScientificPlot`, shared
 `ChartAxis` calibration and the uncertainty renderer's PNG/SVG export path.
 Run `qtk-preview examples/scientific-plot/Main.qml --grab figure.png --size 1080x680`.
+
+## workbook
+
+The WP-055 spreadsheet over a two-sheet budget, a workbook session of a
+`DocumentManager` (`createDocument("qindatk.workbook.v1")`). `WorkbookTabs` switch
+between the Budget and Summary sheets (whose formulas refer to Budget by
+sheet ID, so renames and reordering keep them; the tab menu colors, hides
+and protects sheets). The `FormulaBar` edits the active cell's source input
+and shows its formatted value; Enter commits, Escape restores, and clicking
+cells while editing a formula inserts their references. Select F2:F5 and
+press Fill down (Ctrl+D) or drag the fill handle to complete the totals with
+relative references moved. The Budget sheet has number formats, a frozen
+header row and column, a data bar and a highlight rule, and a validated tax
+rate (B8 warns above 50%). Summary uses the name `Totals`, a whole-column
+`COUNTA(Budget!A:A)` and a merged note. The format toolbar applies bold,
+italic, underline, alignment, number formats, a highlight fill, merges
+and freeze panes to the selection; the side panel edits conditional formats
+(with a live preview) and validation rules. Ctrl+C/Ctrl+V use the system
+clipboard. Undo/Redo go through the manager's `UndoService`, which holds
+the workbook's history. Save writes a `.qtkwb` file to the temporary
+directory through the session on a worker, and Reopen saved closes the
+session (discarding later changes) and opens the file again. The status line reports the revision and the last
+recalculation's evaluated cells.
+
+- Run: `qtk-preview examples/workbook/Main.qml`
+- Dump: `qtk-preview examples/workbook/Main.qml --dump --size 1440x820`
+- Exercises: `Workbook`, `DocumentManager`, `DocumentSession`, `UndoService`, `ClipboardService`,
+  `SheetView` (over `EditableGrid`, `GridCellDelegate`, `GridFillHandle`),
+  `FormulaBar`, `WorkbookTabs`, `ConditionalFormatEditor`,
+  `DataValidationEditor`, `Segmented`, `ComboBox`, `MessageDialog`
+  (sheet removal prompt), `Button`, `IconButton`
+- Captures: [compact](../docs/universal-toolkit/implementation/evidence/WP-055-compact.png),
+  [comfortable](../docs/universal-toolkit/implementation/evidence/WP-055-comfortable.png),
+  [rejected formula](../docs/universal-toolkit/implementation/evidence/WP-055-formula-error.png)

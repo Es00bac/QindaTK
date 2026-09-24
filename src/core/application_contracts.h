@@ -103,6 +103,15 @@ struct ImmutableSnapshot {
 };
 using SnapshotPtr = std::shared_ptr<const ImmutableSnapshot>;
 
+// AGENT-CONTRACT (docs/format-registry.md#snapshot-sources): a document model that is
+// not a PropertyDocument hands FormatRegistry an immutable snapshot of its
+// committed state (FormatRegistry.startExportSource). Workbook implements it.
+class SnapshotSource {
+public:
+    virtual ~SnapshotSource() = default;
+    virtual SnapshotPtr exportSnapshot() const = 0;
+};
+
 class CancellationToken {
 public:
     CancellationToken() = default;

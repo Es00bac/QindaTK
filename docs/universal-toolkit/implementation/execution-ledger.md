@@ -19,7 +19,8 @@ qualification passed. The Qt 6.8 offscreen RHI readback repair passed the full
 integrated suite. WP-048 is accepted
 after its time-axis and host-media boundaries were reconciled with D-045;
 both full integrated suites and its installed consumers pass. WP-050 is
-accepted after focused merged editing, view and session checks; WP-055 remains active.
+accepted after focused merged editing, view and session checks; WP-055 is
+accepted after the merged workbook and sheet checks.
 WP-033 is accepted after its dual-Qt two-document workbench, installed
 lifecycle consumers, domain sessions, recovery, shared undo and external
 AT-SPI command action passed. WP-041 now has a document-space snap query,
@@ -90,7 +91,7 @@ as though a later fix had already passed the earlier run.
 | [WP-052 — Add equations, references and document review](phase-04-office.md#wp-052) | 04 | Sol | active | [Equation, reference and review request controls integrated; semantic document backend pending](evidence/WP-052.md) |
 | [WP-053 — Implement printing and publishing preflight](phase-04-office.md#wp-053) | 04 | Sol | active | [Three-page PDF export and preview/preflight controls integrated; native print jobs and backend checks pending](evidence/WP-053.md) |
 | [WP-054 — Implement PDF viewing and annotation](phase-04-office.md#wp-054) | 04 | Sol | active | [PDF controls, page/text backend and note/highlight save/reopen integrated; advanced operations pending](evidence/WP-054.md) |
-| [WP-055 — Implement a workbook and spreadsheet editing stack](phase-04-office.md#wp-055) | 04 | Sol | active | Isolated Opus lane; G-1–G-8 and full package scope remain under review |
+| [WP-055 — Implement a workbook and spreadsheet editing stack](phase-04-office.md#wp-055) | 04 | Sol | accepted | [Formula engine, sheet UI, domain-session persistence, formatting/validation and declared CSV/TSV interchange passed merged checks](evidence/WP-055.md) |
 | [WP-056 — Implement slide authoring and presentation](phase-04-office.md#wp-056) | 04 | Sol | active | [Five slide/presenter controls integrated; persistent model and playback pending](evidence/WP-056.md) |
 | [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | active | [NotebookView and BlockEditor integrated; persistent block model and content providers pending](evidence/WP-057.md) |
 | [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | active | [Local messages, rich drafts, attachments, recurring events and tasks persist with recovery and stale-writer rejection; delivery and sync providers remain](evidence/WP-058.md) |

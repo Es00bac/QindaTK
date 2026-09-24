@@ -55,7 +55,7 @@ falls through to an unrelated MIME representation of an internal payload.
 | Type | Application-facing contract |
 | --- | --- |
 | `TransferPayloadCodec` | `encode`, `decode` and `mimeAlternatives` enforce the version and byte/item limits; exact revisions are decimal strings on the wire. |
-| `ClipboardService` | `copyText`, `copyImage`, `copyObjectIds`, `cutObjectIds`, `inspectPaste` and `paste`; `availableFormats`, `canPaste`, `cutPending`, `lastError` and `lossWarnings`; `changed` and `rejected`. C++ callers may inject a `ClipboardAdapter`. |
+| `ClipboardService` | `copyText`, `copyImage`, `copyRange`, `copyObjectIds`, `cutObjectIds`, `inspectPaste`, `paste` and `rangePasteData`; `availableFormats`, `canPaste`, `cutPending`, `lastError` and `lossWarnings`; `changed` and `rejected`. C++ callers may inject a `ClipboardAdapter`. |
 | `DragDropService` | `beginEncodedDrag`, `previewEncodedDrop`, `commit`, `cancel`, `escape`, `invalidateView` and `requestAutoscroll`; phase/session/source/preview/error state and committed, cancelled, rejected and autoscroll signals. |
 | `DropTarget` | A domain endpoint supplies stable target/view IDs, generation, document snapshot, side-effect-free preview token, atomic commit and cancellation. It owns the actual model operation. |
 | `PropertyCollectionDropTarget` | C++ reference endpoint for a writable `QVariantList` of maps with canonical UUID `id` fields; Copy only. |
@@ -64,3 +64,21 @@ falls through to an unrelated MIME representation of an internal payload.
 or `malformed`, with a message and conversion warnings. `paste` returns a
 Boolean in QML and emits `rejected(message, code)` on failure; C++ callers
 receive `OperationError`. A successful reference edit uses one undo entry.
+
+<a id="ranges"></a>
+## Ranges
+
+`copyRange(documentId, revision, range, text)` places one `range` item on
+the clipboard: the internal MIME format carries the domain's `range` map
+(for a spreadsheet, `Workbook.rangeTransfer`'s versioned payload), and
+`text/plain` carries `text`, the projection other applications paste (at
+most 4 MiB of UTF-8). A range has no entity of its own, so each copy gets a
+fresh item ID. The document ID must be canonical and the revision an exact
+decimal. `rangePasteData()` tells a range-aware paste what it can use now:
+`{kind: "range", range, sourceDocumentId, text}` for a single copied range
+item, `{kind: "text", text}` for any plain text (including text copied from
+another application), or `{kind: ""}`. It only reads; the domain validates
+and commits the paste itself. `SheetView` uses both
+([workbook.md](workbook.md#clipboard)): a range pastes formulas, formats and
+merged areas into the same or another workbook as one undo step, and text
+pastes tab-separated values under the view's paste policy.

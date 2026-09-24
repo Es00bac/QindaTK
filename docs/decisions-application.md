@@ -134,6 +134,10 @@ applying a whole step. `PropertyDocument` and `UndoService` remain unchanged.
 The view and domain must supply accessible virtual cells, labels, persistence
 and formula evaluation. See [editable-grid.md](editable-grid.md).
 
+**Amended by D-055.** A domain source that owns its data and history can run
+the grid in `sourceCommits` mode instead: validated change sets go to the
+source and the grid keeps no overrides or history.
+
 ## D-041 — Carry typed query plans and source provenance across pivot refreshes
 
 **Context.** Filters and pivots must distinguish null from errors, preserve
@@ -442,6 +446,58 @@ presentation. Tempo is constant per segment (no ramps). Beat-locked clip
 lengths and automation stay absolute. The three models keep separate
 histories. Realtime reclamation and a real engine are WP-060. See
 [tempo-automation.md](tempo-automation.md).
+
+## D-055 — Keep workbook formulas positional and the Workbook the single revision owner
+
+**Context.** WP-055 needs spreadsheet references with relative and absolute
+anchors, structural row/column edits that keep formula targets, sheet renames
+and reorders that keep reference identity, and sparse sheets up to the
+1,048,576 × 16,384 grid. Formats, rules, merged areas, names and sheet
+properties must follow the same edits and undo exactly. `EditableGridModel`
+provides stable view IDs, bounded windows and an external-history bridge, and
+`UndoService`, `RecoveryManager` and `FormatRegistry` were written for
+`PropertyDocument`.
+
+**Decision.** Cells are stored by position in ordered per-sheet sparse maps.
+A reference stores its absolute target, per-axis anchor flags and, when
+explicit, the target sheet's stable ID; copy/fill moves only relative parts,
+and row/column insertion or removal rewrites references by a documented rule
+instead of giving every row and column an identity. Names store the name, and
+evaluation resolves it. Formats, rules, merges and properties are rectangles
+in an immutable per-sheet feature set: an edit swaps in a new copy, and a
+structural edit transforms it with the same rules as references. Every
+change is a primitive mutation whose exact inverse is computed when it is
+applied; one operation or explicit transaction is one history step. Values
+are never stored in history or files: commit, undo, redo, cancel and open
+recalculate the dirty closure found through a cell/range dependency index,
+ordered with Kahn's algorithm, with Tarjan SCCs evaluating to `#CYCLE!`.
+
+The Workbook is the single revision owner and joins the shared document
+framework (D-053) as a `DocumentModel`. Each operation or transaction applies
+its mutations, then records one immutable `WorkbookCommand` (the applied
+mutations and their exact inverses) through the `UndoService` holding its
+history. That is a private service while the workbook stands alone, and the
+session's once a `DocumentSession` adopts it. A built-in `DocumentCodec`
+lets `DocumentManager`, recovery, workspace restore and `FormatRegistry`
+open, save and adopt workbooks. The grid joins as a domain source
+(`GridCellSourceExtension`, `sourceCommits`): a committed edit, paste or fill
+reaches the Workbook as one transaction and the grid keeps no values or
+history. `SnapshotSource` exports a workbook outside any session.
+
+**Consequences.** Memory follows content, not declared dimensions, and
+insertion is value-neutral (no recalculation). A structural edit costs a
+rewrite of the formulas that refer to the sheet and a dependency-index
+rebuild (about 150 ms for 25,000 formulas in a Debug build). Typed formula
+whitespace and case are not preserved; the canonical rendering is. A step
+holds only what it changed, but a feature step keeps the previous feature
+set (768 KiB at the 4,096-area and 16,384-merge limits). The shared
+service's byte budget therefore refuses oversize steps rather than keeping
+them, and hosts of large workbooks raise it. A session keeps the
+workbook's document identity, so opening another file means another
+session. Grid row and column IDs are view-local. The contract changes closed
+the gaps listed in [workbook.md](workbook.md#gaps-in-consumed-contracts);
+the lane's interim `UndoParticipant`, recovery validators and
+`WorkbookSession` were retired when D-053 was merged.
 
 ## D-076 — Bounded scene hierarchy and optional Qt Quick 3D view
 
