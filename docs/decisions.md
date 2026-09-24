@@ -153,7 +153,6 @@ needed the private include path. D-015 subsequently moved that dependency
 behind the public facade. `examples/office-shell` is the smoke test for the
 whole set.
 
-
 ## D-014 — Telemetry draws twice, and a ramp is a theme role
 
 **Context.** QindaTK had no way to plot a value over time, which is the one
@@ -565,7 +564,6 @@ view. Hosts that need only X synchronization share only X. The annotation
 model and histogram selection do not infer analysis or color context; the
 host supplies those source semantics.
 
-
 ## D-047 — Own ICC encodings and keep numeric color independent of Theme
 
 **Context.** QColor and canvas metadata cannot represent a validated document
@@ -584,7 +582,6 @@ public headers. Gamut status remains unknown. Canvas/GPU display management,
 proofing and gradient interpolation require their own fixtures and integration;
 no Theme change modifies stored colors. See [color.md](color.md).
 
-
 ## D-048 — Keep editable curve geometry normalized and its domains typed
 
 **Context.** Tangent handles, evaluator samples and editor gestures need one
@@ -600,7 +597,6 @@ mutating host data. Ordered cubic controls permit a bounded monotone x solve.
 constraints and commits. Unit conversions, exact tick projection, mirrored
 tangents, adaptive sampling and undo remain explicit integration boundaries.
 See [curve.md](curve.md) for endpoints, repeat seams and numerical fixtures.
-
 
 ## D-049 — Interpolate tagged gradient stops in linear light with coverage alpha
 
@@ -755,3 +751,67 @@ available once `artboardId` names one) and the panel shows whatever list it
 is given. Alignment to a board uses the board rectangle, like the page.
 **Consequences.** Other domains can add references without panel changes;
 the panel's default list keeps existing hosts working.
+
+## D-100 — A held control is heard in every mode; static values are the parameter default
+
+**Context.** WP-061 controls must change real engine parameters, and one
+gesture must be one transaction. The reference automation engine (WP-049)
+sent the live value to the engine only while a write pass ran or in mode
+`off`. So a fader moved in read mode, or with the transport stopped, was not
+heard, and an `off` value lived in a transient field that undo and save never
+saw. **Decision.** An `EngineScheduleSnapshot` parameter overrides its curve
+while a control holds it (`touched`) or a pass writes it. Mode `off` plays
+the parameter's `defaultValue`, which is the static value of any parameter
+without points. `AudioParameterBinding` commits a gesture as the pass when
+one records it. Otherwise, in `off` or on a lane without points, it commits
+one `EditParameter` history step on `defaultValue`, applied while the control
+still holds the value. In read mode over a curve nothing is stored.
+**Consequences.** Every gesture is heard while held; static edits undo, redo
+and save like curve edits. A host that drives `AutomationModel` gestures
+directly in `off` mode must commit the value as the parameter default to keep
+it after release.
+
+## D-101 — A dB gain's range minimum is silence
+
+**Context.** Faders need negative infinity (AUD-11), but automation curves
+store finite canonical values, and the session's track gain spans −60…+12 dB.
+Storing −60 dB for "fader at the bottom" substitutes an arbitrary
+attenuation. **Decision.** For a parameter of dimension `gain` in `dB`, the
+range minimum means −∞ dB: `AudioRenderGraph` multiplies by exactly 0 at or
+below it, `AudioParameterBinding` reports `silent`, and the Fader's lowest
+mark reads −∞. The finite range is everything above the minimum.
+`AudioRenderGraph::hasSilenceFloor` is the one predicate both sides use.
+**Consequences.** Silence is bit-exact in renders, device output and meters.
+A host that needs −60 dB as a finite level gives the parameter a lower
+minimum.
+
+## D-102 — Meters measure 10 ms blocks on the audio thread; ballistics run on audio time
+
+**Context.** Meter values must leave the device thread without locks or
+allocation, and AUD-12 requires hold, decay and clip behaviour that does not
+change with the UI refresh rate. **Decision.** `AudioMeterTap` measures each
+rendered period in place: peak, sum of squares, and K-weighted sum of squares
+per channel, in blocks of `round(rate / 100)` frames. Closed blocks go
+through a preallocated 1024-block SPSC ring; a full ring drops and counts,
+and never waits. The GUI drains every block. `AudioMeterModel` advances hold
+(1500 ms) and fall (24 dB/s) by each block's audio duration and publishes
+once per drain. **Consequences.** Snapshots are identical at any publish
+cadence. The GUI can be at most 10 s late before blocks drop, and a drop is
+reported. One tap serves both peak/RMS and loudness, and further measurement
+points (inputs, tracks, buses) are further taps.
+
+## D-103 — Loudness follows ITU-R BS.1770-4 with a bounded histogram gate
+
+**Context.** AUD-29 asks for loudness history with provenance, and forbids
+labelling generic values as calibrated loudness. Integrated loudness gates
+over the whole programme, so storing every 400 ms block grows without bound.
+**Decision.** `AudioLoudnessModel` implements BS.1770-4. The K-weighting is
+bilinear from the analog prototypes, so every rate gets an exact filter.
+Channel weights come from Table 3. Momentary and short-term are 400 ms and 3 s
+windows updated every 100 ms, and the integrated value is gated at −70 LUFS
+and −10 LU. Gating blocks are kept in a 0.01 LU histogram with exact energy
+sums; the relative threshold uses the exact mean. The model names its metric
+`ITU-R BS.1770-4` and its report states that it is not a certified meter.
+**Consequences.** Memory is constant for any duration. Only blocks within
+0.005 LU of the relative threshold are classified at bin resolution. True
+peak, LRA and conformance certification are separate work.

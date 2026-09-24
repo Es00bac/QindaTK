@@ -6,6 +6,7 @@
 
 #include <QStringList>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -34,7 +35,14 @@ public:
     static std::shared_ptr<const AudioRenderGraph> compile(const Sources &sources);
     // Track gain automation binds by ID: "track:<track id>/gain"; a unit of
     // "dB" is converted to a linear factor, any other unit is a linear factor.
+    // The engine plays the live value while a control holds the parameter or
+    // a pass writes it, the static value (the parameter's defaultValue) when
+    // the lane has no points or its mode is off, and the curve otherwise.
     static QString gainParameterId(const QString &trackId);
+    // AGENT-CONTRACT (D-101): a dB gain's range minimum is silence (-inf dB),
+    // so a fader at the bottom of its travel is exact silence and no finite
+    // attenuation stands in for it. AudioParameterBinding reports the same.
+    static bool hasSilenceFloor(const AutomationParameter &parameter);
 
     quint64 generation() const { return m_generation; }
     int sampleRate() const { return m_sampleRate; }
@@ -61,6 +69,7 @@ private:
         QVector<AutomationPoint> gainPoints; // step/linear only
         bool automated = false;
         bool decibels = false;
+        double silenceFloor = -std::numeric_limits<double>::infinity(); // dB at or below: gain 0
         double constantGain = 1.0;
     };
     quint64 m_generation = 0;

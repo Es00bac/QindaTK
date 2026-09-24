@@ -65,6 +65,9 @@ public:
     // Graph at `sampleRate` from the committed timeline, media and schedule.
     AudioRenderGraphPtr compileGraph(int sampleRate);
     AudioBufferPtr mediaBuffer(const QString &resourceId, int sampleRate);
+    // The engine clock in timeline ticks: the device thread's live transport
+    // sample when an engine is attached, else the automation transport.
+    qint64 transportTicks() const;
 
     Q_INVOKABLE QString addTrack(const QString &name);
     Q_INVOKABLE bool setTrackArmed(const QString &trackId, bool armed);
@@ -95,6 +98,7 @@ signals:
 private:
     void rebuild();
     void engineFormatChanged();
+    void forwardTransport();
     void updateRecordTarget();
     void addRecordedTake(const QVariantMap &take);
     bool decode(const QString &resourceId);
@@ -116,6 +120,7 @@ private:
     QString m_filePath;
     QString m_mediaDirectory;
     QString m_lastError;
+    qint64 m_forwardedTicks = 0;
 };
 
 } // namespace QindaTK

@@ -137,8 +137,8 @@ survive save/reopen bit-exactly).
 
 | Mode | Transport running, control touched | Released | Transport stops |
 | --- | --- | --- | --- |
-| `off` | live value only | — | — |
-| `read` | curve plays; gestures are live only | — | — |
+| `off` | the static value (`defaultValue`) plays; a held control is live | static value | — |
+| `read` | curve plays; a held control is live, nothing written | curve | — |
 | `touch` | writes from the touch | pass ends, returns to the curve | pass ends |
 | `latch` | writes from the touch | holds the last value | pass ends |
 | `write` | writes from transport start, touched or not | keeps writing | pass ends |
@@ -146,7 +146,11 @@ survive save/reopen bit-exactly).
 The caller supplies every timestamp as exact ticks from its transport or
 engine clock: `transportStarted/Stopped/Moved(ticks)` (QML
 `setTransportState`, `setTransportTicks`) and `beginGesture`,
-`recordGesture`, `endGesture(parameterId, ticks, value)`. A pass keeps the
+`recordGesture`, `endGesture(parameterId, ticks, value)`. An `AudioSession`
+with an engine forwards the engine's acknowledged transport (start, stop,
+seeks and loop wraps) in ticks of the device's live sample position, the
+same clock `AudioParameterBinding` stamps gestures with. `discardPass(id)`
+drops a pass whose opening gesture was canceled, recording nothing. A pass keeps the
 curve before its start exactly (an entry point holds the original value),
 replaces points inside it with the recorded samples (constant runs are
 thinned), holds to the pass end and ramps back to the original curve over
@@ -166,13 +170,14 @@ value and pass start.
 
 `EngineSchedule` republishes an immutable `EngineScheduleSnapshot` whenever
 committed tempo or automation changes (tempo `revisionChanged`, never a
-preview), a mode changes, a write pass changes a live value, or the TimeMap's
+preview), a mode changes, a control gesture changes a live value, or the TimeMap's
 sample rate, PPQ or origin changes. `acquire()` returns a
 `std::shared_ptr<const EngineScheduleSnapshot>` from an atomic and is safe on
 any thread. A snapshot holds its own TimeMap copy detached from every thread
 (`moveToThread(nullptr)`), the committed tempo events and, per parameter, the
 committed points (implicitly shared, never mutated), mode, and an override
-(`writing` or `off`) with the live value. Queries take exact timestamps only:
+(`writing` or `touched`: a held control is heard in every mode, D-100) with
+the live value; mode `off` plays `defaultValue`. Queries take exact timestamps only:
 `ticksAtSample`, `sampleAtTicks`, `musicalTickAtSample`,
 `sampleAtMusicalTick` (the same rounding as `TimelineModel::musicalTickFor`),
 `microsecondsPerQuarterAt`, `valueAtSample`/`valueAtTicks` (`{known,

@@ -14,6 +14,7 @@ seams below instead of adding their own clocks, graphs or device code.
    ResourceResolver · WAV codec                                     │ commands ◀─ SPSC ring (64)
  AudioEngine (TransportAdapter) ◀─ events/acks ─ SPSC ring (256) ◀──┘ events ─▶
    TransportModel · DeviceSettingsPanel host      open/stop/close   capture ─▶ SPSC ring ─▶ take writer thread ─▶ WAV
+   outputMeter · outputLoudness ◀─ meter blocks ─ SPSC ring (1024) ◀─ AudioMeterTap(output)
 ```
 
 ## Threads and queues
@@ -27,7 +28,8 @@ seams below instead of adding their own clocks, graphs or device code.
 
 `AudioSpscRing<T>` (`audio_ring.h`) is the only cross-thread channel into or
 out of the device thread: bounded, allocated once, lock-free, rejecting when
-full. Commands (`Play`, `Stop`, `Seek`, `Record`, `Loop`) carry a serial and
+full. The output meter tap is one more ring: 10 ms measurement blocks,
+drained by the GUI on every poll ([audio-measurement.md](audio-measurement.md)). Commands (`Play`, `Stop`, `Seek`, `Record`, `Loop`) carry a serial and
 are applied at the start of the next period; each produces one acknowledgment
 event with the transport sample at which it took effect. The engine keeps at
 most 64 commands in flight, so the 256-entry event ring cannot overflow. The
@@ -53,6 +55,11 @@ function, so device output and offline renders are identical samples.
   10^(v/20), any other unit is a linear factor), evaluated **per sample** at
   that sample's exact tick through `AutomationCurve::valueAt`; cubic segments
   are flattened to 32 linear pieces at compile time (declared tolerance).
+  A held control or a writing pass plays its live value, mode `off` or a lane
+  without points plays the static value (`defaultValue`), otherwise the curve
+  plays (D-100). A dB gain's range minimum is exact silence (D-101).
+  `AudioParameterBinding` turns Knob and Fader gestures into these parameter
+  transactions ([audio-measurement.md](audio-measurement.md)).
 - Loops wrap inside a period at the exact loop end; seeks, play/stop and
   record start/stop take effect at the next period boundary.
 - Mute/solo come from `TimelineTrack`; overlapping clips on a track sum.
@@ -140,9 +147,16 @@ the period deadline), `maxCallbackUs`, `meanCallbackUs`, `budgetUs`,
 `hardwareClock`, rates and latencies. The engine requests SCHED_FIFO 70 and
 continues at normal priority when the system refuses it.
 
+`AudioEngine.outputMeter` (`AudioMeterModel`: sample peak, RMS, hold, clip
+per channel) and `AudioEngine.outputLoudness` (`AudioLoudnessModel`: ITU-R
+BS.1770-4 momentary, short-term, integrated, history, report) measure what
+the device receives. Both are reconfigured by the stream's rate and output
+layout; see [audio-measurement.md](audio-measurement.md).
+
 ## Not covered here
 
 Hardware/OS matrices (PipeWire native, JACK, WASAPI, CoreAudio, real
 interfaces, driver hot-plug notifications) are WP-088 platform qualification;
 formats beyond WAV belong to format adapters; resampling at playback time,
-fades/crossfades, per-clip gain, sends/buses and plugins belong to WP-062/066.
+fades/crossfades, per-clip gain, sends/buses, per-track and bus meters and
+plugins belong to WP-062/066.
