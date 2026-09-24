@@ -19856,6 +19856,282 @@
       ]
     },
     {
+      "name": "ScoreView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: the notation host owns semantic score records, rhythmic interpretation, engraving coordinates, pagination, selection, and edits. `layoutSnapshot` supplies already-laid-out staff/measure/event coordinates and exact insertion tick strings. This control draws that snapshot and sends stable-ID requests; it does not infer spacing, spelling, rhythm, or playback.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ScoreView.qml",
+      "properties": [
+        {
+          "name": "scoreId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scoreName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layoutSnapshot",
+          "type": "var",
+          "default": "({ available: false, systems: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapshotRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedEventId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activePartId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeStaffId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeVoiceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeMeasureId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entryTick",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entryPitch",
+          "type": "string",
+          "default": "\"C4\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entryDurationId",
+          "type": "string",
+          "default": "\"quarter\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entryMode",
+          "type": "string",
+          "default": "\"note\" // note or rest",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "unsupportedFeatures",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playbackCursorX",
+          "type": "real",
+          "default": "-1 // host-provided normalized display coordinate; no playback is produced here",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layoutAvailable",
+          "type": "bool",
+          "default": "Boolean(root.layoutSnapshot && root.layoutSnapshot.available)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "effectiveError",
+          "type": "string",
+          "default": "root.errorText.length ? root.errorText",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumPaintEvents",
+          "type": "int",
+          "default": "4096",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "eventSelectionRequested",
+          "parameters": "string requestId, string scoreId, string eventId, string partId, string staffId, string voiceId, string measureId"
+        },
+        {
+          "name": "measureSelectionRequested",
+          "parameters": "string requestId, string scoreId, string partId, string staffId, string measureId"
+        },
+        {
+          "name": "voiceSelectionRequested",
+          "parameters": "string scoreId, string partId, string staffId, string voiceId"
+        },
+        {
+          "name": "noteEntryRequested",
+          "parameters": "string requestId, string scoreId, string partId, string staffId, string voiceId, string measureId, string positionTicks, string pitch, string durationId"
+        },
+        {
+          "name": "restEntryRequested",
+          "parameters": "string requestId, string scoreId, string partId, string staffId, string voiceId, string measureId, string positionTicks, string durationId"
+        },
+        {
+          "name": "navigateRequested",
+          "parameters": "string scoreId, string selectedEventId, string direction"
+        },
+        {
+          "name": "playbackLocateRequested",
+          "parameters": "string measureId, string positionTicks"
+        }
+      ],
+      "methods": [
+        {
+          "name": "css",
+          "parameters": "color"
+        },
+        {
+          "name": "allStaves",
+          "parameters": ""
+        },
+        {
+          "name": "measureFor",
+          "parameters": "staff, measureId"
+        },
+        {
+          "name": "voiceFor",
+          "parameters": "measure, voiceId"
+        },
+        {
+          "name": "createRequestId",
+          "parameters": "prefix"
+        },
+        {
+          "name": "eventContext",
+          "parameters": "event"
+        },
+        {
+          "name": "eventAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "requestSelection",
+          "parameters": "eventId"
+        },
+        {
+          "name": "requestMeasureSelection",
+          "parameters": "partId, staffId, measureId"
+        },
+        {
+          "name": "requestEntryAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "requestCursorEntry",
+          "parameters": ""
+        },
+        {
+          "name": "navigate",
+          "parameters": "direction"
+        },
+        {
+          "name": "locateAtCursor",
+          "parameters": ""
+        },
+        {
+          "name": "acknowledgeRequest",
+          "parameters": "message"
+        },
+        {
+          "name": "repaint",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "scoreCanvas",
+        "scoreStatus",
+        "scoreView"
+      ]
+    },
+    {
       "name": "Scroll",
       "kind": "qml",
       "base": "Item",

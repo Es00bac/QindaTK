@@ -642,6 +642,12 @@ on `gestureStarted`, apply previews on `valuePreview`, commit on
 The live fixture is `examples/audio-controls/Main.qml`; its synthetic snapshots
 are explicitly demonstration data, not measured audio.
 
+## Notation and score
+
+| Type | Base | Properties | Signals | Notes |
+| --- | --- | --- | --- | --- |
+| `ScoreView` | T.Control | `scoreId`, `scoreName`, `layoutSnapshot`, `snapshotRevision`, `selectedEventId`, active part/staff/voice/measure IDs, `entryTick`, `entryPitch`, `entryDurationId`, `entryMode`, `unsupportedFeatures`, `errorText`, host `playbackCursorX`, `tooltip` | `eventSelectionRequested`, `measureSelectionRequested`, `voiceSelectionRequested`, `noteEntryRequested`, `restEntryRequested`, `navigateRequested`, `playbackLocateRequested` | Draws only host-supplied normalized engraving coordinates and exact entry tick strings. The host owns score records, rhythmic interpretation, engraving, pagination, selected state, edit validation, persistence, and audio. Pointer/keyboard actions send stable-ID requests; they never mutate the snapshot. Snapshot systems contain staves; staves contain measure records; measures supply `entryPositions` with exact `ticks` strings and voices/events. Unsupported and unavailable layout states remain visible and accessible. `playbackCursorX` is a display coordinate only; this control has no playback engine. objectNames `scoreView`, `scoreCanvas`, `scoreStatus`. |
+
 ## Size table (compact density)
 
 | Token | px | Used by |
