@@ -97,8 +97,12 @@ Item {
                     onSearchRequested: function(query) { page.status = qsTr("Host search requested: %1").arg(query) }
                     onAssetActivated: function(id) { page.status = qsTr("Host opened %1").arg(id) }
                     onRelinkRequested: function(id) {
-                        const row = assets.findIndex(function(item) { return item.assetId === id })
-                        if (row >= 0) assets.setProperty(row, "label", assets.get(row).label + " (relinked)")
+                        for (let row = 0; row < assets.count; ++row) {
+                            const item = assets.get(row)
+                            if (item.assetId !== id) continue
+                            assets.setProperty(row, "label", item.label + " (relinked)")
+                            break
+                        }
                         page.status = qsTr("Host relinked %1").arg(id)
                     }
                     onProxyActionRequested: function(id, action) { page.status = qsTr("Host proxy request: %1 · %2").arg(action).arg(id) }
