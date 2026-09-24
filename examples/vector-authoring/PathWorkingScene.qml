@@ -8,6 +8,7 @@ Rectangle {
     height: 640
     color: Tk.Theme.color.bg
     property string pathId: ""
+    property int contourIndex: 0
     property var strokeStyle: ({ width: 7, unit: "document", color: "#f4b858",
         alignment: "center", cap: "round", join: "bevel", dash: [3, 2], dashMode: "custom" })
     property var fillStyle: ({ kind: "solid", settings: { solid: { color: "#329eaa" } } })
@@ -22,10 +23,15 @@ Rectangle {
                 {x: 430, y: 315}, {x: 75, y: 340}
             ]
             scene.pathId = String(addPath(nodes, true, "#329eaa", "#f4b858", 7))
+            addPathContour(scene.pathId, [
+                {x: 175, y: 140}, {x: 310, y: 140},
+                {x: 310, y: 250}, {x: 175, y: 250}
+            ], true)
             styles.apply([scene.pathId], { dash: [3,2], cap: "round", join: "bevel" })
         }
     }
     Tk.CanvasStyleModel { id: styles; document: document }
+    Tk.ClipboardService { id: clipboard }
     Tk.ToolController { id: tools; document: document }
     Tk.CanvasViewState { id: pose }
 
@@ -51,6 +57,7 @@ Rectangle {
                 document: document
                 surface: canvas
                 objectId: scene.pathId
+                contourIndex: scene.contourIndex
             }
         }
         Tk.Flex {
@@ -59,6 +66,11 @@ Rectangle {
             gap: Tk.Theme.space.md
             Tk.Label { text: qsTr("PATH AUTHORING") }
             Tk.Caption { text: qsTr("Drag the square nodes or round Bézier handles.") }
+            Tk.Button {
+                text: scene.contourIndex === 0 ? qsTr("Edit inner contour") : qsTr("Edit outer contour")
+                tooltip: qsTr("Switch the contour whose nodes can be dragged")
+                onClicked: scene.contourIndex = scene.contourIndex === 0 ? 1 : 0
+            }
             Tk.StrokeStyleEditor {
                 objectName: "pathWorkingStroke"
                 width: parent.width
@@ -86,6 +98,20 @@ Rectangle {
                 tooltip: qsTr("Undo the latest path or appearance edit")
                 enabled: document.canUndo
                 onClicked: document.undo()
+            }
+            Tk.Button {
+                text: qsTr("Copy path")
+                tooltip: qsTr("Copy the selected path with its hole")
+                onClicked: clipboard.copyCanvasPaths(document, [scene.pathId])
+            }
+            Tk.Button {
+                text: qsTr("Paste path")
+                tooltip: qsTr("Paste a new path object with its hole")
+                enabled: clipboard.canPaste
+                onClicked: {
+                    const ids = clipboard.pasteCanvasPaths(document, 24, 24)
+                    if (ids.length > 0) scene.pathId = ids[0]
+                }
             }
             Tk.Caption { text: styles.lastError; visible: text.length > 0 }
         }

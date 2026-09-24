@@ -8,16 +8,20 @@ QPainterPath local(const CanvasObject &object)
     QPainterPath path;
     path.setFillRule(object.fillRule);
     if (object.shape != CanvasShape::Path || object.pathNodes.isEmpty()) return path;
-    const auto &nodes = object.pathNodes;
-    path.moveTo(nodes.first().anchor);
-    const int segments = object.pathClosed ? nodes.size() : nodes.size() - 1;
-    for (int i = 0; i < segments; ++i) {
-        const auto &a = nodes[i];
-        const auto &b = nodes[(i + 1) % nodes.size()];
-        if (a.out == a.anchor && b.in == b.anchor) path.lineTo(b.anchor);
-        else path.cubicTo(a.out, b.in, b.anchor);
-    }
-    if (object.pathClosed) path.closeSubpath();
+    const auto appendContour = [&path](const QVector<CanvasPathNode> &nodes, bool closed) {
+        if (nodes.isEmpty()) return;
+        path.moveTo(nodes.first().anchor);
+        const int segments = closed ? nodes.size() : nodes.size() - 1;
+        for (int i = 0; i < segments; ++i) {
+            const auto &a = nodes[i];
+            const auto &b = nodes[(i + 1) % nodes.size()];
+            if (a.out == a.anchor && b.in == b.anchor) path.lineTo(b.anchor);
+            else path.cubicTo(a.out, b.in, b.anchor);
+        }
+        if (closed) path.closeSubpath();
+    };
+    appendContour(object.pathNodes, object.pathClosed);
+    for (const auto &contour : object.extraContours) appendContour(contour.nodes, contour.closed);
     return path;
 }
 

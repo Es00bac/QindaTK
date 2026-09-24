@@ -336,7 +336,7 @@ void CanvasDocument::place(const CanvasObject &object, QVector<QRectF> *damage)
     }
     ++m_layerUse[object.layer];
     if (object.shape == CanvasShape::Image) ++m_imageUse[object.image];
-    m_totalPoints += object.points.size() + object.pathNodes.size();
+    m_totalPoints += object.points.size() + object.pathPointCount();
     m_encodedBytes += CanvasDocumentFormat::objectRecordBytes(object);
     m_nextZ = std::max(m_nextZ, object.z + 1);
     m_nextId = std::max(m_nextId, object.id + 1);
@@ -353,7 +353,7 @@ void CanvasDocument::unplace(CanvasObjectId id, QVector<QRectF> *damage)
     };
     release(m_layerUse, it->layer);
     if (it->shape == CanvasShape::Image) release(m_imageUse, it->image);
-    m_totalPoints -= it->points.size() + it->pathNodes.size();
+    m_totalPoints -= it->points.size() + it->pathPointCount();
     m_encodedBytes -= CanvasDocumentFormat::objectRecordBytes(*it);
     const QRectF bounds = m_bounds.take(id);
     if (!bounds.isNull()) {

@@ -635,15 +635,19 @@ and calibrated monitor presentation remain separate work.
 handles, winding or stroke descriptors through undo and save. A vector export
 must state exactly which appearances it can preserve.
 
-**Decision.** A path is one ordered contour of local-space anchors with
-absolute incoming/outgoing controls, closure and fill rule. Stroke cap, join
-and dash values live on `CanvasObject`. Native binary version 3 saves them;
-versions 1 and 2 remain readable. Every path edit is one `CanvasEdit`. The
+**Decision.** A path starts with an ordered contour of local-space anchors
+with absolute incoming/outgoing controls, closure and fill rule. Version 4 adds
+bounded extra contours with individual closure; the fill rule applies across
+all contours. Stroke cap, join and dash values live on `CanvasObject`. Native
+binary version 3 saves the first contour and stroke fields; version 4 saves
+extra contours. Versions 1 through 3 remain readable. Every path edit is one `CanvasEdit`. The
 software painter draws the cubic directly; RHI uploads its composited tile
 when the content needs path or nondefault stroke semantics. SVG 1.1 export
 writes the flat-color vector subset and rejects image, managed ICC fill and
-output-profile cases explicitly.
+output-profile cases explicitly. Clipboard path copies use a bounded native
+snapshot and paste as one edit with fresh destination IDs; SVG is offered
+when the style can be exported.
 
 **Consequences.** The reference authoring backend now preserves editable
-path geometry and supported stroke appearance. Multi-contour/boolean paths,
+path geometry and supported stroke appearance. Arbitrary boolean geometry,
 pattern fills and effect stacks need separate contracts.

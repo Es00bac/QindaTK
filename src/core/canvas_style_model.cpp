@@ -146,7 +146,7 @@ bool CanvasStyleModel::applyManaged(const QVariantList &selectedIds, const QByte
         if (!before || !m_document->effectiveVisible(*before) || m_document->effectiveLocked(*before))
             return fail(tr("A selected object is missing, hidden or locked"));
         if (before->shape == CanvasShape::Polyline || before->shape == CanvasShape::Image
-            || (before->shape == CanvasShape::Path && !before->pathClosed))
+            || (before->shape == CanvasShape::Path && !before->hasClosedContour()))
             return fail(tr("Managed fills require a closed vector object"));
         CanvasObject after = *before;
         after.fill = preview;

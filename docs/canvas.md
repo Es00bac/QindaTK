@@ -160,8 +160,8 @@ hashes; the next edit detaches the document's copy. A worker encodes the
 state.
 
 <a id="native-format"></a>
-The file is big-endian binary: the signature `QTKCANVS`, version 3 (the reader
-also accepts versions 1 and 2), the
+The file is big-endian binary: the signature `QTKCANVS`, version 4 (the reader
+also accepts versions 1 through 3), the
 document UUID, revision and reset generation, then the exact 64-bit
 `nextObject`/`nextLayer`/`nextImage` counters and `nextZ`, the page rectangle
 and colour, an owned output RGB ICC profile (or empty for sRGB), the session
@@ -177,9 +177,10 @@ tiles would first need a bounded inflater.
 Each version 2 or newer object has a bounded managed-fill payload after its name.
 Solid fills own their tagged channels and ICC bytes; gradient fills own their
 typed stop definition and stop ICC bytes. Version 3 adds path nodes, closure,
-fill rule, cap, join and dash pattern to each object. The
+fill rule, cap, join and dash pattern to each object. Version 4 adds
+bounded extra path contours, each with its own closure. The
 `qindatk.canvas-document.v1` session schema ID remains stable while the native
-file reader handles all three binary versions. `setOutputProfileIcc(bytes)` changes the document's output
+file reader handles all four binary versions. `setOutputProfileIcc(bytes)` changes the document's output
 reference and is persisted; it is currently a document-setting change outside
 object undo history.
 

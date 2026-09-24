@@ -31,7 +31,14 @@ absolute incoming and outgoing controls. `CanvasDocument.addPath` takes
 anchor. `movePathPart(id,index,"anchor"|"in"|"out",x,y)` commits one undoable
 edit; moving an anchor preserves both handle offsets. `insertPathNode`,
 `removePathNode` and `setPathClosed` are also undoable. A closed path needs
-three nodes and an open path two. `pathNodes(id)` returns the current values.
+three nodes and an open path two. `pathNodes(id)` returns the first contour.
+`addPathContour(id,nodes,closed)` appends a subpath; `removePathContour`,
+`movePathContourPart`, `insertPathContourNode`, `removePathContourNode` and
+`setPathContourClosed` commit reversible edits. `pathContourCount` and
+`pathContourNodes` expose zero-based contours. Even-odd fill makes a nested
+closed contour a hole; nonzero fill follows each contour's winding. Both
+painter and scene-graph composite render them, and hit testing respects the
+hole. `Tk.PathEditor.contourIndex` chooses which contour's handles to edit.
 `Tk.PathEditor` overlays a `CanvasView`, maps the selected path through its
 object transform and view pose, previews node/handle drags, then calls the
 document edit once on release. Escape cancels the preview.
@@ -42,11 +49,15 @@ flat RGBA fill/stroke, fill rule, cap, join and dash pattern. It reports an
 explicit unsupported error for image objects, typed ICC/gradient fills and
 non-sRGB output ICC, so export cannot silently lose them. A zero-width canvas
 hairline exports as one SVG document unit at nominal zoom. Native `qtkc`
-version 3 saves path nodes and stroke styles; the reader accepts versions 1
-and 2. The session schema ID is unchanged.
+version 4 saves path nodes, stroke styles and extra contours; the reader
+accepts versions 1 through 3. `Tk.ClipboardService.copyCanvasPaths(document,
+objectIds)` publishes the bounded native path snapshot and SVG alternative;
+`pasteCanvasPaths(document, offsetX, offsetY)` inserts one undoable edit with
+fresh stable object IDs into the active layer. The clipboard accepts paths
+only and does not copy image resources. The session schema ID is unchanged.
 
-Still outside this reference backend: multi-contour paths and boolean
-operations, stroke inside/outside alignment, parametric shapes beyond rect
-and ellipse, pattern fills, appearance-stack effects, and vector clipboard.
+Still outside this reference backend: arbitrary boolean geometry operations,
+stroke inside/outside alignment, parametric shapes beyond rect and ellipse,
+pattern fills, and appearance-stack effects.
 The panels keep these descriptors for a richer host and the reference model
 rejects unsupported style keys rather than dropping them.

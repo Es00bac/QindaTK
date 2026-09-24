@@ -183,7 +183,8 @@ void ClipboardService::refresh()
             mime->data(QString::fromLatin1(TransferPayloadCodec::InternalMime)), &decodeError);
         supported = internal && internal->operation == TransferOperation::Copy;
     } else if (mime) {
-        supported = mime->hasFormat(QStringLiteral("text/plain"))
+        supported = mime->hasFormat(QStringLiteral("application/vnd.qindatk.canvas-paths"))
+            || mime->hasFormat(QStringLiteral("text/plain"))
             || mime->hasFormat(QStringLiteral("image/png"));
     }
     const QByteArray internalBytes = mime && mime->hasFormat(

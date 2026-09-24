@@ -23,7 +23,8 @@ constexpr qsizetype minimumImageRecord = 8 + 4 + 4 + 4 + 4;
 constexpr qsizetype minimumTileRecord = 4 + 4 + 4;
 constexpr qsizetype minimumObjectRecordV1 = 8 + 8 + 1 + 32 + 4 + 72 + 2 * colorBytes + 8 + 8 + 8 + 1 + 1 + 4;
 constexpr qsizetype minimumObjectRecordV2 = minimumObjectRecordV1 + 4;
-constexpr qsizetype minimumObjectRecord = minimumObjectRecordV2 + 12;
+constexpr qsizetype minimumObjectRecordV3 = minimumObjectRecordV2 + 12;
+constexpr qsizetype minimumObjectRecord = minimumObjectRecordV3 + 4;
 // Keeps (order << 40) in CanvasDocumentAdapter::paintKey inside 63 bits.
 constexpr quint64 idCeiling = IdCeiling;
 
@@ -154,31 +155,6 @@ bool recognizes(const QByteArray &prefix)
     return prefix.startsWith(QByteArrayView(Signature, SignatureBytes));
 }
 
-qsizetype objectRecordBytes(const CanvasObject &object)
-{
-    return minimumObjectRecord + qsizetype(object.points.size()) * 16
-        + qsizetype(object.name.size()) * 2 + object.managedFill.size()
-        + qsizetype(object.pathNodes.size()) * 48 + qsizetype(object.dashPattern.size()) * 8;
-}
-
-qsizetype layerRecordBytes(const CanvasLayer &layer)
-{
-    return minimumLayerRecord + qsizetype(layer.name.size()) * 2;
-}
-
-qsizetype imageRecordBytes(const CanvasTiledImage &image)
-{
-    return minimumImageRecord + qsizetype(image.tiles.size()) * minimumTileRecord + imageBytes(image);
-}
-
-qsizetype imageBytes(const CanvasTiledImage &image)
-{
-    qsizetype total = 0;
-    for (const QImage &tile : image.tiles) total += qsizetype(tile.width()) * tile.height() * 4;
-    return total;
-}
-
-
 std::optional<SnapshotHeader> inspect(const QByteArray &bytes, OperationError *error)
 {
     if (error) *error = {};
@@ -266,6 +242,14 @@ QByteArray encode(const CanvasDocumentState &state, OperationError *error)
                 << quint8(o.strokeCap) << quint8(o.strokeJoin)
                 << quint32(o.dashPattern.size());
         for (qreal dash : o.dashPattern) w.out() << double(dash);
+        w.out() << quint32(o.extraContours.size());
+        for (const auto &contour : o.extraContours) {
+            w.out() << quint32(contour.nodes.size()) << quint8(contour.closed);
+            for (const auto &node : contour.nodes)
+                w.out() << double(node.anchor.x()) << double(node.anchor.y())
+                        << double(node.in.x()) << double(node.in.y())
+                        << double(node.out.x()) << double(node.out.y());
+        }
     }
     if (!w.ok()) {
         if (error) *error = problem(ErrorCode::BackendFailure, QStringLiteral("Canvas encoding failed"));
@@ -408,7 +392,8 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
 
     quint32 objectCount = 0;
     if (!in.read(objectCount) || qint64(objectCount)
-        * (version >= 3 ? minimumObjectRecord : version == 2 ? minimumObjectRecordV2
+        * (version >= 4 ? minimumObjectRecord : version == 3 ? minimumObjectRecordV3
+                        : version == 2 ? minimumObjectRecordV2
                         : minimumObjectRecordV1) > in.remaining()) return truncated();
     if (objectCount > limits.maximumObjects)
         return fail(problem(ErrorCode::Unsupported, QStringLiteral("Too many canvas objects"), QStringLiteral("objects")));
@@ -464,6 +449,29 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
                 double length;
                 if (!in.read(length)) return truncated();
                 o.dashPattern.append(length);
+            }
+        }
+        if (version >= 4) {
+            quint32 contourCount = 0;
+            if (!in.read(contourCount) || contourCount > limits.maximumPointsPerObject) return truncated();
+            o.extraContours.reserve(contourCount);
+            for (quint32 c = 0; c < contourCount; ++c) {
+                quint32 count = 0;
+                quint8 closed = 0;
+                if (!in.read(count) || !in.read(closed) || count > limits.maximumPointsPerObject
+                    || totalPoints + count > limits.maximumTotalPoints
+                    || qint64(count) * 48 > in.remaining()) return truncated();
+                CanvasPathContour contour;
+                contour.closed = closed;
+                contour.nodes.reserve(count);
+                totalPoints += count;
+                for (quint32 n = 0; n < count; ++n) {
+                    double ax, ay, ix, iy, ox, oy;
+                    if (!in.read(ax) || !in.read(ay) || !in.read(ix) || !in.read(iy)
+                        || !in.read(ox) || !in.read(oy)) return truncated();
+                    contour.nodes.append({{ax, ay}, {ix, iy}, {ox, oy}});
+                }
+                o.extraContours.append(std::move(contour));
             }
         }
         o.id = id;

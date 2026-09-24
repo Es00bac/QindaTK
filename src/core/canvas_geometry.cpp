@@ -109,7 +109,7 @@ bool fillContains(const CanvasObject &object, QPointF documentPoint)
     case CanvasShape::Polyline:
         return false;
     case CanvasShape::Path:
-        return object.pathClosed && CanvasPath::local(object).contains(p);
+        return object.hasClosedContour() && CanvasPath::local(object).contains(p);
     }
     return false;
 }

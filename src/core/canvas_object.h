@@ -33,6 +33,12 @@ struct CanvasPathNode {
     friend bool operator==(const CanvasPathNode &, const CanvasPathNode &) = default;
 };
 
+struct CanvasPathContour {
+    QVector<CanvasPathNode> nodes;
+    bool closed = true;
+    friend bool operator==(const CanvasPathContour &, const CanvasPathContour &) = default;
+};
+
 // Subobject parts a hit can resolve to. `index` on a hit names the vertex,
 // segment or image tile; it is -1 for Fill/Stroke of a whole outline.
 enum class CanvasPart : quint8 { Fill, Stroke, Vertex, Segment, ImageTile };
@@ -45,6 +51,7 @@ struct CanvasObject {
     QVector<QPointF> points;  // Polyline: local vertices (open path)
     QVector<CanvasPathNode> pathNodes; // Path: cubic nodes in local space
     bool pathClosed = false;
+    QVector<CanvasPathContour> extraContours; // additional subpaths; winding follows fillRule
     Qt::FillRule fillRule = Qt::OddEvenFill;
     QTransform transform;     // local -> document
     QColor fill;              // invalid or transparent = no fill
@@ -62,8 +69,12 @@ struct CanvasObject {
 
     friend bool operator==(const CanvasObject &, const CanvasObject &) = default;
 
+    [[nodiscard]] qsizetype pathPointCount() const
+    { qsizetype count = pathNodes.size(); for (const auto &c : extraContours) count += c.nodes.size(); return count; }
+    [[nodiscard]] bool hasClosedContour() const
+    { if (pathClosed) return true; for (const auto &c : extraContours) if (c.closed) return true; return false; }
     [[nodiscard]] bool hasFill() const { return fill.isValid() && fill.alpha() > 0
-        && shape != CanvasShape::Polyline && (shape != CanvasShape::Path || pathClosed); }
+        && shape != CanvasShape::Polyline && (shape != CanvasShape::Path || hasClosedContour()); }
     [[nodiscard]] bool hasStroke() const { return stroke.isValid() && stroke.alpha() > 0; }
 };
 

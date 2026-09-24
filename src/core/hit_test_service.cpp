@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "hit_test_service.h"
 #include "canvas_transform.h"
+#include "canvas_path.h"
 
 #include <algorithm>
 #include <cmath>
@@ -24,6 +25,8 @@ QPolygonF grabVertices(const CanvasObject &o)
     case CanvasShape::Path: {
         QPolygonF nodes;
         for (const auto &node : o.pathNodes) nodes << node.anchor;
+        for (const auto &contour : o.extraContours)
+            for (const auto &node : contour.nodes) nodes << node.anchor;
         return o.transform.map(nodes);
     }
     case CanvasShape::Ellipse:
@@ -76,7 +79,18 @@ std::optional<CanvasHit> probe(const CanvasDocumentAdapter &doc, const CanvasObj
     }
     const QPolygonF outline = documentOutline(o);
     int segment = -1;
-    const qreal edge = distanceToOutline(p, outline, isClosed(o), &segment);
+    qreal edge = distanceToOutline(p, outline, isClosed(o), &segment);
+    if (o.shape == CanvasShape::Path && !o.extraContours.isEmpty()) {
+        int base = o.pathNodes.size();
+        const auto polygons = CanvasPath::document(o).toSubpathPolygons();
+        for (int c = 1; c < polygons.size() && c <= o.extraContours.size(); ++c) {
+            int localSegment = -1;
+            const qreal distance = distanceToOutline(p, polygons[c],
+                o.extraContours[c - 1].closed, &localSegment);
+            if (distance < edge) { edge = distance; segment = base + localSegment; }
+            base += o.extraContours[c - 1].nodes.size();
+        }
+    }
     const qreal reach = tol + (o.hasStroke() ? std::max(o.strokeWidth, 0.0) / 2.0 : 0.0);
     if (edge <= reach) {
         const bool segmented = o.shape != CanvasShape::Ellipse;
@@ -199,9 +213,19 @@ QVector<CanvasObjectId> HitTestService::hitRegion(const CanvasDocumentAdapter &d
             ++stats->tested;
         }
         const QPolygonF outline = documentOutline(*o);
-        const bool match = mode == CanvasRegionMode::Contain
+        bool match = mode == CanvasRegionMode::Contain
             ? outlineInsideRegion(outline, region)
             : outlineTouchesRegion(outline, isClosed(*o), region);
+        if (o->shape == CanvasShape::Path && !o->extraContours.isEmpty()) {
+            const auto polygons = CanvasPath::document(*o).toSubpathPolygons();
+            for (int c = 1; c < polygons.size() && c <= o->extraContours.size(); ++c) {
+                const bool current = mode == CanvasRegionMode::Contain
+                    ? outlineInsideRegion(polygons[c], region)
+                    : outlineTouchesRegion(polygons[c], o->extraContours[c - 1].closed, region);
+                if (mode == CanvasRegionMode::Contain) match = match && current;
+                else match = match || current;
+            }
+        }
         if (match) {
             CanvasHit h;
             h.object = o->id;

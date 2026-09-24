@@ -11,6 +11,7 @@ Item {
     property var document
     property var surface
     property string objectId: ""
+    property int contourIndex: 0
     property string tooltip: qsTr("Edit path nodes and Bézier handles")
     property var nodes: []
     property var objectMatrix: [1, 0, 0, 1, 0, 0]
@@ -21,7 +22,7 @@ Item {
     Accessible.name: tooltip
 
     function refresh() {
-        nodes = document && objectId ? document.pathNodes(objectId) : []
+        nodes = document && objectId ? document.pathContourNodes(objectId, contourIndex) : []
         const info = document && objectId ? document.objectInfo(objectId) : null
         objectMatrix = info && info.matrix ? info.matrix : [1, 0, 0, 1, 0, 0]
         guides.requestPaint()
@@ -56,13 +57,14 @@ Item {
     function finish(index, part, viewPoint) {
         if (!document || !surface) return
         const local = localFromView(viewPoint)
-        if (!local || !document.movePathPart(objectId, index, part, local.x, local.y))
+        if (!local || !document.movePathContourPart(objectId, contourIndex, index, part, local.x, local.y))
             editRejected(document ? document.lastError : qsTr("No document"))
         refresh()
     }
 
     onDocumentChanged: refresh()
     onObjectIdChanged: refresh()
+    onContourIndexChanged: refresh()
     onSurfaceChanged: geometryRevision++
     onNodesChanged: guides.requestPaint()
     Connections {

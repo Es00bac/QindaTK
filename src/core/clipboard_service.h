@@ -12,6 +12,7 @@
 #include <memory>
 
 namespace QindaTK {
+class CanvasDocument;
 
 // Injectable GUI-thread seam. Implementations own data passed to setMimeData.
 class ClipboardAdapter : public QObject {
@@ -28,6 +29,7 @@ signals:
 class ClipboardService : public QObject {
     Q_OBJECT
     QML_ELEMENT
+    Q_MOC_INCLUDE("canvas_document.h")
     Q_PROPERTY(QStringList availableFormats READ availableFormats NOTIFY changed)
     Q_PROPERTY(bool canPaste READ canPaste NOTIFY changed)
     Q_PROPERTY(bool cutPending READ cutPending NOTIFY changed)
@@ -91,6 +93,11 @@ public:
     // sourceDocumentId, text} for a copyRange payload, {kind: "text", text}
     // for any plain text, else {kind: ""}.
     Q_INVOKABLE QVariantMap rangePasteData() const;
+    // Copies vector path objects through the native, bounded canvas codec.
+    // Paste inserts one undoable edit and gives every copy a fresh object ID.
+    Q_INVOKABLE bool copyCanvasPaths(CanvasDocument *document, const QStringList &objectIds);
+    Q_INVOKABLE QStringList pasteCanvasPaths(CanvasDocument *document, qreal offsetX = 16,
+                                            qreal offsetY = 16);
 
 signals:
     void changed();

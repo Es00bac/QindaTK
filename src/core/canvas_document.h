@@ -224,6 +224,15 @@ public:
     Q_INVOKABLE bool insertPathNode(qulonglong id, int index, const QVariantMap &node);
     Q_INVOKABLE bool removePathNode(qulonglong id, int index);
     Q_INVOKABLE bool setPathClosed(qulonglong id, bool closed);
+    Q_INVOKABLE int pathContourCount(qulonglong id) const;
+    Q_INVOKABLE QVariantList pathContourNodes(qulonglong id, int contour) const;
+    Q_INVOKABLE bool addPathContour(qulonglong id, const QVariantList &nodes, bool closed = true);
+    Q_INVOKABLE bool removePathContour(qulonglong id, int contour);
+    Q_INVOKABLE bool movePathContourPart(qulonglong id, int contour, int index,
+                                        const QString &part, qreal x, qreal y);
+    Q_INVOKABLE bool insertPathContourNode(qulonglong id, int contour, int index, const QVariantMap &node);
+    Q_INVOKABLE bool removePathContourNode(qulonglong id, int contour, int index);
+    Q_INVOKABLE bool setPathContourClosed(qulonglong id, int contour, bool closed);
     Q_INVOKABLE bool exportSvg(const QString &filePath);
     // matrix = [m11, m12, m21, m22, dx, dy] (QTransform affine order)
     Q_INVOKABLE bool setObjectTransform(qulonglong id, const QVariantList &matrix);

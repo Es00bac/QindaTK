@@ -11,19 +11,25 @@ QString point(QPointF p) { return num(p.x()) + QLatin1Char(' ') + num(p.y()); }
 QString cssColor(const QColor &color) { return color.name(QColor::HexRgb); }
 QString pathData(const CanvasObject &object)
 {
-    const auto &nodes = object.pathNodes;
-    QString d = QStringLiteral("M ") + point(nodes.first().anchor);
-    const int count = object.pathClosed ? nodes.size() : nodes.size() - 1;
-    for (int i = 0; i < count; ++i) {
-        const auto &a = nodes[i];
-        const auto &b = nodes[(i + 1) % nodes.size()];
-        if (a.out == a.anchor && b.in == b.anchor)
-            d += QStringLiteral(" L ") + point(b.anchor);
-        else
-            d += QStringLiteral(" C ") + point(a.out) + QLatin1Char(' ')
-                + point(b.in) + QLatin1Char(' ') + point(b.anchor);
-    }
-    if (object.pathClosed) d += QStringLiteral(" Z");
+    QString d;
+    const auto appendContour = [&d](const QVector<CanvasPathNode> &nodes, bool closed) {
+        if (nodes.isEmpty()) return;
+        if (!d.isEmpty()) d += QLatin1Char(' ');
+        d += QStringLiteral("M ") + point(nodes.first().anchor);
+        const int count = closed ? nodes.size() : nodes.size() - 1;
+        for (int i = 0; i < count; ++i) {
+            const auto &a = nodes[i];
+            const auto &b = nodes[(i + 1) % nodes.size()];
+            if (a.out == a.anchor && b.in == b.anchor)
+                d += QStringLiteral(" L ") + point(b.anchor);
+            else
+                d += QStringLiteral(" C ") + point(a.out) + QLatin1Char(' ')
+                    + point(b.in) + QLatin1Char(' ') + point(b.anchor);
+        }
+        if (closed) d += QStringLiteral(" Z");
+    };
+    appendContour(object.pathNodes, object.pathClosed);
+    for (const auto &contour : object.extraContours) appendContour(contour.nodes, contour.closed);
     return d;
 }
 void style(QXmlStreamWriter &xml, const CanvasObject &o)

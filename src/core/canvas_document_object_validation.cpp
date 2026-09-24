@@ -34,7 +34,7 @@ OperationError validateObject(const CanvasObject &o, CanvasObjectId id, const Ca
     if (!finite(o.rect) || !CanvasTransform::isFinite(o.transform) || !std::isfinite(o.strokeWidth)
         || o.strokeWidth < 0)
         return problem(ErrorCode::Validation, QStringLiteral("Object geometry must be finite"), QStringLiteral("objects.geometry"));
-    if (o.points.size() + o.pathNodes.size() > limits.maximumPointsPerObject)
+    if (o.points.size() + o.pathPointCount() > limits.maximumPointsPerObject)
         return problem(ErrorCode::Unsupported, QStringLiteral("Too many points in one object"), QStringLiteral("objects.points"));
     for (const QPointF &point : o.points)
         if (!std::isfinite(point.x()) || !std::isfinite(point.y()))
@@ -46,7 +46,15 @@ OperationError validateObject(const CanvasObject &o, CanvasObjectId id, const Ca
             for (const QPointF &p : {node.anchor, node.in, node.out})
                 if (!std::isfinite(p.x()) || !std::isfinite(p.y()))
                     return problem(ErrorCode::Validation, QStringLiteral("Path coordinates must be finite"), QStringLiteral("objects.pathNodes"));
-    } else if (!o.pathNodes.isEmpty() || o.pathClosed)
+        for (const auto &contour : o.extraContours) {
+            if (contour.nodes.size() < (contour.closed ? 3 : 2))
+                return problem(ErrorCode::Validation, QStringLiteral("Contour needs ordered nodes"), QStringLiteral("objects.extraContours"));
+            for (const auto &node : contour.nodes)
+                for (const QPointF &p : {node.anchor, node.in, node.out})
+                    if (!std::isfinite(p.x()) || !std::isfinite(p.y()))
+                        return problem(ErrorCode::Validation, QStringLiteral("Contour coordinates must be finite"), QStringLiteral("objects.extraContours"));
+        }
+    } else if (!o.pathNodes.isEmpty() || o.pathClosed || !o.extraContours.isEmpty())
         return problem(ErrorCode::Validation, QStringLiteral("Only paths own path nodes"), QStringLiteral("objects.pathNodes"));
     if (o.fillRule != Qt::OddEvenFill && o.fillRule != Qt::WindingFill)
         return problem(ErrorCode::Validation, QStringLiteral("Invalid fill rule"), QStringLiteral("objects.fillRule"));
@@ -69,7 +77,7 @@ OperationError validateObject(const CanvasObject &o, CanvasObjectId id, const Ca
         return problem(ErrorCode::Validation, QStringLiteral("Invalid object colour"), QStringLiteral("objects.colour"));
     if (!o.managedFill.isEmpty()) {
         if (o.shape == CanvasShape::Image || o.shape == CanvasShape::Polyline
-            || (o.shape == CanvasShape::Path && !o.pathClosed))
+            || (o.shape == CanvasShape::Path && !o.hasClosedContour()))
             return problem(ErrorCode::Unsupported, QStringLiteral("Managed fills require a closed vector object"), QStringLiteral("objects.managedFill"));
         if (const auto error = CanvasManagedPaint::validate(o.managedFill)) return error;
     }

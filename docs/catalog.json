@@ -20731,6 +20731,14 @@
           "required": false
         },
         {
+          "name": "contourIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Edit path nodes and Bézier handles\")",
@@ -38729,6 +38737,46 @@
           "parameters": "qulonglong id, bool closed"
         },
         {
+          "name": "pathContourCount",
+          "returns": "int",
+          "parameters": "qulonglong id"
+        },
+        {
+          "name": "pathContourNodes",
+          "returns": "QVariantList",
+          "parameters": "qulonglong id, int contour"
+        },
+        {
+          "name": "addPathContour",
+          "returns": "bool",
+          "parameters": "qulonglong id, const QVariantList &nodes, bool closed = true"
+        },
+        {
+          "name": "removePathContour",
+          "returns": "bool",
+          "parameters": "qulonglong id, int contour"
+        },
+        {
+          "name": "movePathContourPart",
+          "returns": "bool",
+          "parameters": "qulonglong id, int contour, int index, const QString &part, qreal x, qreal y"
+        },
+        {
+          "name": "insertPathContourNode",
+          "returns": "bool",
+          "parameters": "qulonglong id, int contour, int index, const QVariantMap &node"
+        },
+        {
+          "name": "removePathContourNode",
+          "returns": "bool",
+          "parameters": "qulonglong id, int contour, int index"
+        },
+        {
+          "name": "setPathContourClosed",
+          "returns": "bool",
+          "parameters": "qulonglong id, int contour, bool closed"
+        },
+        {
           "name": "exportSvg",
           "returns": "bool",
           "parameters": "const QString &filePath"
@@ -40889,6 +40937,16 @@
           "name": "rangePasteData",
           "returns": "QVariantMap",
           "parameters": ""
+        },
+        {
+          "name": "copyCanvasPaths",
+          "returns": "bool",
+          "parameters": "CanvasDocument *document, const QStringList &objectIds"
+        },
+        {
+          "name": "pasteCanvasPaths",
+          "returns": "QStringList",
+          "parameters": "CanvasDocument *document, qreal offsetX = 16, qreal offsetY = 16"
         }
       ],
       "enums": {},

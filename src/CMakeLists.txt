@@ -149,6 +149,7 @@ qt_add_qml_module(qindatk
         core/timeline_media_provider.cpp core/timeline_media_provider.h
         core/timeline_transfer.cpp core/timeline_transfer.h
         core/clipboard_service.cpp core/clipboard_service.h core/clipboard_ranges.cpp
+        core/clipboard_canvas.cpp
         core/drag_drop_service.cpp core/drag_drop_service.h
         core/property_collection_drop_target.cpp
         core/locale_service.cpp core/locale_service.h
@@ -297,12 +298,13 @@ qt_add_qml_module(qindatk
         core/canvas_document.cpp core/canvas_document.h
         core/canvas_document_state.h
         core/canvas_document_edit.cpp core/canvas_document_p.h
-        core/canvas_document_format.cpp core/canvas_document_format.h
+        core/canvas_document_format.cpp core/canvas_document_format_sizes.cpp core/canvas_document_format.h
         core/canvas_document_object_validation.cpp
         core/canvas_document_misc_validation.cpp
         core/canvas_document_codec.cpp
         core/canvas_document_qml.cpp
         core/canvas_document_path.cpp
+        core/canvas_document_contours.cpp
         core/canvas_native_format.cpp
         core/hit_test_service.cpp core/hit_test_service.h
         core/tool_controller.cpp core/tool_controller.h

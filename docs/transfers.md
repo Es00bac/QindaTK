@@ -82,3 +82,13 @@ and commits the paste itself. `SheetView` uses both
 ([workbook.md](workbook.md#clipboard)): a range pastes formulas, formats and
 merged areas into the same or another workbook as one undo step, and text
 pastes tab-separated values under the view's paste policy.
+
+## Canvas vector paths
+
+`ClipboardService.copyCanvasPaths(document, objectIds)` copies selected path
+objects as `application/vnd.qindatk.canvas-paths`, a bounded native canvas
+snapshot; it also advertises `image/svg+xml` when SVG export is supported.
+`pasteCanvasPaths(document, offsetX, offsetY)` decodes into the destination's
+limits, assigns fresh stable object IDs and paint order in the active layer,
+and commits the whole paste as one undo step. It returns the new decimal IDs.
+Other object kinds and external SVG import are outside this operation.
