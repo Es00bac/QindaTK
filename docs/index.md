@@ -54,6 +54,7 @@ pages below are the reference.
 | [node-graph.md](node-graph.md) | Typed source/solid/mask/transform/blend/output graph: type table and parameter identity, groups, edit transactions and history, incremental image evaluation and versioned topology storage |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
 | [caption-rendering.md](caption-rendering.md) | Burned-caption frame rendering, exact interval semantics, style limits, atomic PNG sequences and timing manifests |
+| [media-playback.md](media-playback.md) | Media decode with exact frame identity and rate policy, audio sync, source/timeline programs, playback engine and frame transfer, virtual media bins with proxies and relink, frame feeds, verified export and the test signal |
 | [render-queue.md](render-queue.md) | Durable render snapshots, provider registration, ordered PNG output, manifests and restart policy |
 | [tracking-roto.md](tracking-roto.md) | Accepted feature tracks, loss confidence, cancellable analysis, keyframed normalized masks and composition pixel application |
 | [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |

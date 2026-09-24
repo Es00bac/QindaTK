@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "render_queue_model.h"
+#include "media_export.h"
 
 #include <QCryptographicHash>
 #include <QDir>
@@ -158,6 +159,9 @@ RenderQueueModel::RenderQueueModel(QObject *parent) : QAbstractListModel(parent)
                      {QStringLiteral("pdf")}, renderRichDocumentPdf);
     registerProvider(QStringLiteral("qindatk.pcm16-wav-gain"), QStringLiteral("1"),
                      {QStringLiteral("wav")}, renderPcm16WavGain);
+    if (MediaEncoder::available()) // FFV1/PCM Matroska programs (docs/media-playback.md)
+        registerProvider(MediaExport::providerId(), QStringLiteral("1"), {QStringLiteral("mkv")},
+                         MediaExport::renderProvider);
     connect(m_jobs.get(), &JobModel::jobFinished, this, &RenderQueueModel::finish);
     connect(m_jobs.get(), &JobModel::changed, this, [this]() {
         for (int row = 0; row < m_entries.size(); ++row) {
