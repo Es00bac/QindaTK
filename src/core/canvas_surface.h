@@ -140,6 +140,7 @@ private:
     CanvasToolInput toolInput(QPointF viewPoint, Qt::KeyboardModifiers modifiers,
                               CanvasDevice device, qreal pressure) const;
     void onStateChanged();
+    void onPoseChanged();
     void scheduleFrame();
     void applyFit();
     void attachWindow(QQuickWindow *window);
@@ -171,6 +172,8 @@ private:
     qreal m_touchAngle = 0;
     bool m_touchNavigating = false;
     bool m_userNavigated = false;
+    bool m_writingPose = false; // inside setPose: this surface's own write
+    CanvasViewPose m_lastPose;  // the pose onPoseChanged last saw
     bool m_refineScheduled = false;
     bool m_spaceHeld = false;
     qreal m_fitPadding = 16;

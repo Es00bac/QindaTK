@@ -226,6 +226,7 @@ qulonglong CanvasDocument::populateFixture(int count, int seed, bool withImage)
     shapeLayer.name = tr("Shapes");
     shapeLayer.order = nextLayerOrder();
     placeLayer(shapeLayer);
+    refreshLayerTree();
     const CanvasLayerId shapes = shapeLayer.id;
     for (int i = 0; i < count; ++i) {
         const int cx = i % columns;

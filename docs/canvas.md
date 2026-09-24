@@ -18,6 +18,8 @@ and PLT-10 RenderSurfaceAdapter. Evidence:
 | `Tk.SpatialTransformEditor` | QML | Numeric inspector (position, size, rotation, pivot) over a `SpatialTransform` |
 | `Tk.ToolController` | C++ | Active/temporary tools and the one-gesture state machine |
 | `Tk.CanvasSelectionModel` | C++ | Shared live-object selection across tool controllers/views |
+| `Tk.CanvasLayerTreeModel` | C++ (`QAbstractItemModel`) | Layer/group/object rows derived from the document; requests become document commands ([layer tree model](#layer-tree-model)) |
+| `Tk.CanvasArtboardModel` | C++ | Active board and gesture preview for `Tk.ArtboardView`; commits board edits ([artboard model](#artboard-model)) |
 | `Tk.HitTestService` | C++ | Point and region picking with lock/visibility policy |
 | `RenderSurfaceAdapter` | C++ (`view.renderSurface`) | Tiles, damage, budgets, backends, resource generations |
 | `Tk.CanvasOverlay` | C++ painted item | Hover, selection outlines and tool preview (inside CanvasView) |
@@ -65,11 +67,14 @@ anchor fixed on screen. `panBy(delta)` moves content by `delta` view pixels.
 plus a layer, a shape (`Rect`, `Ellipse`, `Polyline`, `Image`, `Path`), local
 geometry, a local→document `transform`, fill, stroke, and stroke width (in
 document units, not scaled by the object transform). It also carries
-`visible`, `locked` and `z`. Layers carry `order`, `visible` and `locked`.
-An object is effectively hidden or locked when it or its layer is.
+`visible`, `locked` and `z`. Layers carry `order`, `visible`, `locked`, a
+`parent` group and a `group` flag ([layer hierarchy](#layer-hierarchy)).
+An object is effectively hidden or locked when it, its layer or any
+ancestor group is.
 
-Paint order is `(layer order, z)`, ties broken by id. Picking uses the
-reverse order.
+Paint order is `(layer rank, z)`, ties broken by id, where the rank is the
+layer's place in the depth-first flattening of the layer tree. Picking uses
+the reverse order.
 
 `Path` stores ordered contours of cubic nodes in local coordinates. Each
 node has an anchor and absolute incoming/outgoing controls; coincident
@@ -101,14 +106,16 @@ Views, tools, picking and renderers use only `CanvasDocumentAdapter`. It is
 read-only except for `commit(CanvasEdit)`, which applies all of an edit or
 none of it. Each object change in an edit lists `before` and `after`; an
 insert has no `before` and a remove has no `after`. An edit may also carry
-layer, image (shared `CanvasTiledImagePtr`, null = absent) and page deltas
-under the same rule. `commit` rejects the whole edit when any target appears
+layer, image (shared `CanvasTiledImagePtr`, null = absent), page, guide-list
+and artboard-list deltas under the same rule. `commit` rejects the whole edit when any target appears
 twice, or any `before` differs from the current state. That makes a stale
 edit (built against an older revision) harmless. It also rejects the edit
 when the resulting document would be invalid: non-finite geometry, a missing
 layer or image reference, a removed layer that still holds objects, a removed
-image still referenced, the last layer removed, or a limit
-(`CanvasDocumentLimits`) exceeded. An edit that names
+image still referenced, the last layer removed, an invalid layer tree (a
+missing or non-group parent, a cycle, nesting deeper than
+`maximumLayerDepth`, objects on a group, no content layer left), invalid
+artboards, or a limit (`CanvasDocumentLimits`) exceeded. An edit that names
 `baseResetGeneration` is stale after a reset. `commitEdit` returns the
 reason. A rejected commit changes nothing and emits nothing: no revision,
 damage, history step or notification. Each accepted commit increments
@@ -129,8 +136,8 @@ increments the revision. `insert(object, false)` still validates, but
 unrecorded content makes a saved clean state unreachable. `clear()` and
 `populateFixture(count, seed, withImage)` are loads: they increment
 `resetGeneration` and discard the history. The active layer is editor state:
-it changes no revision, is not saved, and a loaded document starts on its
-top layer. Values declared on a `Tk.CanvasDocument` in QML set up the
+it changes no revision, is not saved, is never a group, and a loaded
+document starts on its topmost content layer. Values declared on a `Tk.CanvasDocument` in QML set up the
 document without creating undo steps. The uniform-grid spatial index uses
 512-unit cells; objects spanning more than 256 cells go in a flat list.
 Cell-span arithmetic uses 64-bit endpoint differences, including for finite
@@ -163,14 +170,26 @@ on the GUI thread. That is an O(1) share of the object, layer and image
 hashes; the next edit detaches the document's copy. A worker encodes the
 state.
 
+Guides, artboards and the layer tree travel inside the extensions JSON
+(D-041, D-092, D-093) under `qindatk.canvas.guides`,
+`qindatk.canvas.artboards` and `qindatk.canvas.layerTree`, so the binary
+layout and version stay unchanged and an older reader keeps them as opaque
+data. The decoder moves each record out of the host extensions and validates
+it against the decoded layers and objects (unique ids, finite geometry, group
+parents, no cycles, depth, no objects on a group). A flat document without
+guides or boards writes none of them, so its bytes are unchanged. Host
+extensions and these records share `maximumExtensionBytes`; a save that would
+exceed it fails explicitly.
+
 <a id="native-format"></a>
 The file is big-endian binary: the signature `QTKCANVS`, version 5 (the reader
 also accepts versions 1 through 4), the
 document UUID, revision and reset generation, then the exact 64-bit
 `nextObject`/`nextLayer`/`nextImage` counters and `nextZ`, the page rectangle
 and colour, an owned output RGB ICC profile (or empty for sRGB), the session
-extensions (JSON, which also carries the [document guides](#document-guides)
-record), layers, images and objects in
+extensions (JSON, which also carries the [document guides](#document-guides),
+[artboard](#artboards) and [layer tree](#layer-hierarchy) records), layers,
+images and objects in
 ascending id order, and finally a SHA-256 of everything before it. Equal
 content therefore gives equal bytes. Names are stored as UTF-16 code units,
 so every `QString` round-trips exactly; UTF-8 would drop a leading U+FEFF or
@@ -315,12 +334,27 @@ shared `center` at its own centre, with the same zoom and rotation, at its
 own size and DPR. Navigating in either writes the shared state and never the
 document. A view without a `viewState` uses a private one.
 
+A pose change that did not come through a view (another view on the shared
+state, a `NavigatorView`, the host writing the state) is navigation for that
+view: a view with a `fitMode` stops refitting until `fitDocument()`, so a
+later edit or resize cannot refit the shared pose over it. A `changed`
+signal that leaves the pose as it was (a zoom-limit change) is not
+navigation. `CanvasViewState.setCenter(x, y)` moves both coordinates in one
+change, so synchronized views never see a half-moved centre.
+
 `Tk.NavigatorView` binds a separate fitted preview to `mainView.document`.
-Its outline maps the main view's four corners through document space into the
-preview. A press or drag in the preview sets the main view state's centre;
-the navigator does not change zoom, rotation or document data. The preview
-is noninteractive so it cannot capture canvas editing gestures. WP-042 has
-an artboard overlay but no authoritative board model or shared layer-selection model.
+The preview is a second `CanvasView` on the same render providers with its
+own private view state, fitted to the content (`fitMode: "content"`), so it
+renders at its own coarse level of detail and never requests the main
+view's resolution; it refits after edits and after a model reset. Its
+outline maps the main view's four corners through document space into the
+preview. A press or drag in the preview centres the main view there
+(`setCenter`, one pose change per step); arrow keys pan the main view by
+`keyboardStep` of its visible extent, and `+`/`-`, the wheel and the
+accessible increase/decrease actions zoom it about its centre. The navigator
+never changes document data, selection or tool state, and the main pose
+never feeds back into the preview. The preview is noninteractive so it
+cannot capture canvas editing gestures.
 
 <a id="rendering"></a>
 ## Rendering
@@ -455,21 +489,148 @@ source ([document guides](#document-guides)). The
 [guide scene](../examples/spatial-canvas/GuideScene.qml) shows both orientations
 over a rotated page.
 
-`Tk.ArtboardView` is an application overlay for host-owned artboard records.
-Each record has a stable `id`, document-space `rect`, `name` and optional
-`background`; `activeBoardId` marks the resize affordance. It maps and paints
-the board frames through the CanvasView pose and exposes accessible board
-labels. A frame press/release requests activation. Dragging a board frame reports
+<a id="artboard-view"></a>
+`Tk.ArtboardView` is an application overlay for artboard records. Each record
+has a stable `id`, document-space `rect`, `name` and optional `background`;
+`activeBoardId` marks the resize affordance. With `artboardModel` (a
+`Tk.CanvasArtboardModel`, [below](#artboard-model)) the records and the active
+board come from the document and every gesture is sent to the model; without
+it a host supplies `boardData` and handles the signals itself. The view maps
+and paints the board frames through the CanvasView pose and exposes
+accessible board labels. A frame press/release requests activation. Dragging a board frame reports
 arrange preview/finish/cancel with start and current document points; dragging
 the active board's bottom-right handle reports resize intent with the same
 semantics. The active press snapshots its board ID and starting point, so an
 owner refresh of `boardData` cannot retarget that gesture. Escape suppresses
 the rest of that press. Interior and outside presses pass through to the canvas
 by default, so object tools work over the board. Set `captureInterior: true`
-while an artboard editing tool owns the board interior.
-Board backgrounds are document data painted by the host renderer below objects;
-the overlay only paints frames. The view does not own geometry, apply previews, clip
-content, persist, export or provide undo; those remain domain responsibilities.
+while an artboard editing tool owns the board interior, and `createEnabled:
+true` while a board-creation tool owns canvas presses: a drag that does not
+start on a frame or handle previews `pendingBoard` and reports
+`boardCreateRequested(documentRect)` on release (Escape cancels it).
+Board backgrounds are document data painted by the renderers below objects;
+the overlay only paints frames. The view does not own geometry, apply
+previews, clip content, persist, export or provide undo; the model and the
+document do.
+
+<a id="layer-hierarchy"></a>
+## Layer hierarchy
+
+Layers form a tree (decision D-092). A layer's `parent` is 0 (top level) or
+a layer **group**; `order` ranks it among its siblings, larger in front.
+Groups hold child layers and never objects; content layers hold objects and
+never child layers. Groups carry no transform, opacity or blend, so a
+hierarchy edit never moves geometry: only an object's layer and paint order
+(`z`) can change. Visibility and lock cascade: a layer is effectively
+hidden/locked when it or any ancestor group is
+(`layerEffectivelyVisible/Locked`), and painting, picking, snapping,
+alignment, the selection model and tool declines all use those effective
+flags. `CanvasDocument::layerRank` is the depth-first flattening of the tree
+(bottom first), and the paint key is `(rank, z)`.
+
+Every commit that touches layers validates the resulting tree: parents exist
+and are groups, no cycles, depth below `maximumLayerDepth` (64 levels), no
+objects on a group and at least one content layer. The active layer is
+always a content layer.
+
+| Command | Undo label | Notes |
+| --- | --- | --- |
+| `addLayerAt(name, group, parent, index)`, `addLayerGroup(name)` | *Add layer* / *Add layer group* | `index` counts siblings in paint order (0 = bottom), clamped |
+| `moveLayer(id, parent, index)` | *Move layer* | refuses a non-group parent, itself or a descendant (cycle) |
+| `renameLayer(id, name)` | *Rename layer* | |
+| `groupLayers(ids, name)` | *Group layers* | siblings only; the group takes the topmost member's place |
+| `ungroupLayer(id)` | *Ungroup layers* | children move to the group's parent at its place |
+| `removeLayerTree(id)` | *Delete layer* / *Delete layer group* | the layer, its descendants and their objects; refuses locked content |
+| `moveObjectToLayer(id, layer, index)` | *Move object to layer* / *Reorder object* | fresh paint orders for the object and the objects above it |
+
+Each accepted command is one recorded `CanvasEdit`, so one undo restores the
+whole structural change; a refusal sets `lastError` and changes nothing, and
+a request that would change nothing returns false with no step. The QML
+facade exposes the same commands by id (`addGroupNamed`, `moveLayerTo`,
+`renameLayerById`, `groupLayersById`, `ungroupLayerById`,
+`removeLayerTreeById`, `moveObjectTo`) plus `childLayerIds(parent)` and
+`layerObjectIds(layer)` in paint order. `layers` lists every layer in paint
+order with `parent`, `group`, `depth`, `rank`, `effectiveVisible` and
+`effectiveLocked`.
+
+<a id="layer-tree-model"></a>
+## Layer tree model
+
+`Tk.CanvasLayerTreeModel` is the `QAbstractItemModel` a layer panel reads
+(decision D-094). It keeps no hierarchy of its own: after every document
+change it derives rows from the layers and objects. Keys are `layer:<id>` and
+`object:<id>`; children list the front-most first (the reverse of paint
+order). Roles: `key`, `kind` (`group`, `layer`, `object`), `itemId`, `label`,
+`detail`, `iconName`, `shown`, `locked`, `effectiveVisible`,
+`effectiveLocked`, `selected`, `active`, `childCount`, `parentKey`. A change
+that keeps the same rows emits `dataChanged` only, so expansion and scrolling
+survive visibility, lock, selection and rename changes.
+
+Requests: `select(key, toggle)` writes the shared `CanvasSelectionModel` (an
+object row; hidden or locked objects are refused) or activates a layer;
+`setShown`, `setLocked`, `rename`, `move(key, targetKey, placement)`
+(`above`, `below` or `inside`; `canMove` answers without editing), `step`,
+`indent`, `outdent`, `addLayer`, `groupLayers`, `ungroup` and `remove` are the
+document commands above. `revealRequested(key)` fires only for selections
+made elsewhere (a canvas tool, another view); the model's own selection
+writes never reveal, so tree and canvas cannot drive each other in a loop.
+
+`Tk.LayerTree` projects the model through `Tk.VirtualCollectionAdapter`
+(`idRole: "key"`): only expanded rows are projected and the list builds
+delegates for visible rows only. Groups start expanded and stay collapsed
+once the user collapses them; content layers start collapsed. Pointer:
+click selects or activates, Ctrl+click toggles, double-click renames, a drag
+drops above, below or inside a row with an accent marker (invalid drops show
+no marker). Keyboard: arrows move the current row, Left/Right collapse and
+expand, Ctrl+Up/Down reorder, Ctrl+Right/Left indent and outdent, Ctrl+G and
+Ctrl+Shift+G group and ungroup, F2 renames, Delete removes, V and L toggle
+visibility and lock, Space or Return selects. A reveal expands the ancestors
+and scrolls to the row without writing selection.
+
+<a id="artboards"></a>
+## Artboards
+
+Artboards are document content (decision D-093): an ordered list of
+`{id, name, rect, background, bleed}` records with stable `artboard-<n>` ids
+from a saved counter that is never reused. `rect` is a finite document-space
+rectangle of positive size, `background` an 8-bit sRGB colour and `bleed` a
+finite non-negative margin; `exportRect` is the rectangle grown by the
+bleed. List order is board order: a later board's background paints above an
+earlier one's, and `artboardAt(x, y)` returns the topmost board containing a
+point. Boards own no objects: arranging or resizing a board never changes
+object coordinates, and objects outside a board stay in the document.
+
+| Command | Undo label |
+| --- | --- |
+| `addArtboard(name, rect, background)` | *Add artboard* |
+| `setArtboardRect(id, rect)` | *Move artboard* (same size) or *Resize artboard* |
+| `renameArtboard`, `setArtboardBackground`, `setArtboardBleed` | *Rename artboard*, *Artboard background*, *Artboard bleed* |
+| `moveArtboard(id, index)` | *Reorder artboard* |
+| `removeArtboard(id)` | *Delete artboard* |
+
+Each is one `CanvasEdit` carrying the whole before/after list, so undo, stale
+edits and the shared session history behave as for guides. The renderers
+paint board backgrounds after the page colour and below every object
+(`CanvasDocumentAdapter::backdrops`), in both the software and scene-graph
+providers, and a board change damages its old and new rectangles.
+`exportArtboardSvg(id, path)` writes the SVG vector subset with the board's
+export rectangle as the view box over its background. `artboards` lists the
+records (`{id, name, rect, background, bleed, exportRect}`) that
+`ArtboardView.boardData` reads; `contentBounds` includes every board.
+
+<a id="artboard-model"></a>
+## Artboard model
+
+`Tk.CanvasArtboardModel` connects `Tk.ArtboardView` to a `CanvasDocument`. It
+owns editor state only: `activeBoardId` (not saved, like the active layer)
+and one gesture preview. `previewArrange`/`previewResize` show the moved or
+resized board in `boards` (the document records with the preview applied)
+without editing; `finish` commits one *Move artboard* or *Resize artboard*
+step; `cancel` drops the preview. A resize moves the bottom-right corner and
+keeps each side at least `minimumSize`. A board list changed elsewhere (undo,
+another view) or a document reset drops a running preview instead of
+committing stale geometry. `createBoard(rect)` adds a normalized board and
+activates it; `removeActive()` deletes the active board.
 
 <a id="document-guides"></a>
 ## Document guides
@@ -513,11 +674,20 @@ The model reads transformed document bounds and commits one `CanvasEdit`;
 undo restores every moved object together. Hidden, locked, missing or invalid
 objects reject the whole command. A selected key object stays fixed.
 
-Alignment uses the selection union, page or key-object bounds. With a zero
-gap, distribution places centers at equal intervals; selection mode preserves
-the two outer centers. With a positive gap, objects receive that exact edge
-gap, starting at the first selected object (or the page/key reference edge).
-The working fixture is `examples/spatial-canvas/AlignWorkingScene.qml`.
+Alignment uses the selection union, page, key-object or artboard bounds.
+With a zero gap, distribution places centers at equal intervals; selection
+mode preserves the two outer centers. With a positive gap, objects receive
+that exact edge gap, starting at the first selected object (or the
+page/board/key reference edge). The working fixture is
+`examples/spatial-canvas/AlignWorkingScene.qml`.
+
+The reference choices are domain data (decision D-095): `referenceOptions`
+lists `{value, text, available}` for selection, key object and page, plus
+`artboard` when the document has boards; it is available once `artboardId`
+names a board (bind it to `CanvasArtboardModel.activeBoardId`). Bind
+`AlignDistributePanel.referenceOptions` to it. With a `selectionModel`, the
+model mirrors the shared selection as decimal strings in `selectedIds` for
+the panel. One selected object may align to the page or a board.
 
 ## Spatial snapping
 
@@ -606,9 +776,8 @@ model; all bound controllers receive the resulting selection. The model
 deduplicates IDs and removes deleted, hidden or locked objects on document
 edits/reset. Controllers without a selection model keep their local selection.
 
-`Tk.LayerTree` reads the current `CanvasDocument.layers` facade and sends
-active, visibility and lock requests back to it. The list is flat. Layer
-hierarchy, reorder and artboard transactions require the WP-042 model work.
+`Tk.LayerTree` shows the document's layer tree and shares this selection
+model; see [layer tree model](#layer-tree-model).
 
 `Tk.AlignDistributePanel` accepts selected stable object IDs as strings and
 offers selection, key-object and page reference choices. It reports semantic

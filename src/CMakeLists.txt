@@ -309,6 +309,9 @@ qt_add_qml_module(qindatk
         core/canvas_document_misc_validation.cpp
         core/canvas_document_codec.cpp
         core/canvas_document_guides.cpp
+        core/canvas_document_layers.cpp
+        core/canvas_document_artboards.cpp
+        core/canvas_document_scene_format.cpp
         core/canvas_document_qml.cpp
         core/canvas_document_path.cpp
         core/canvas_parametric.cpp core/canvas_parametric.h
@@ -318,6 +321,8 @@ qt_add_qml_module(qindatk
         core/hit_test_service.cpp core/hit_test_service.h
         core/tool_controller.cpp core/tool_controller.h
         core/canvas_selection_model.cpp core/canvas_selection_model.h
+        core/canvas_layer_tree_model.cpp core/canvas_layer_tree_commands.cpp core/canvas_layer_tree_model.h
+        core/canvas_artboard_model.cpp core/canvas_artboard_model.h
         core/canvas_alignment_model.cpp core/canvas_alignment_model.h
         core/canvas_style_model.cpp core/canvas_style_model.h
         core/canvas_tools.cpp

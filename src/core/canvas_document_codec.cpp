@@ -86,9 +86,10 @@ public:
         }
         CanvasDocumentState state = document->state();
         state.extensions = extensions;
-        // AGENT-GUARD: guides share the saved extensions block, so the limit
-        // applies to host extensions and guides together (decode enforces it).
-        if (QJsonDocument(CanvasDocumentFormat::extensionsWithGuides(state)).toJson(QJsonDocument::Compact).size()
+        // AGENT-GUARD: guides, artboards and the layer tree share the saved
+        // extensions block, so the limit applies to host extensions and those
+        // records together (decode enforces it).
+        if (QJsonDocument(CanvasDocumentFormat::savedExtensions(state)).toJson(QJsonDocument::Compact).size()
             > m_limits.maximumExtensionBytes) {
             if (error) *error = failure(ErrorCode::Unsupported, QStringLiteral("Canvas extensions exceed the size limit"));
             return {};

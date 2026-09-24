@@ -65,6 +65,12 @@ void style(QXmlStreamWriter &xml, const CanvasObject &o)
 
 QByteArray encode(const CanvasDocument &document, OperationError *error)
 {
+    return encodeRegion(document, document.pageRect(), document.pageColor(), error);
+}
+
+QByteArray encodeRegion(const CanvasDocument &document, const QRectF &region,
+                        const QColor &background, OperationError *error)
+{
     if (error) *error = {};
     if (!document.outputProfileIcc().isEmpty()) {
         if (error) *error = {ErrorCode::Unsupported,
@@ -100,7 +106,7 @@ QByteArray encode(const CanvasDocument &document, OperationError *error)
     xml.writeStartDocument();
     xml.writeStartElement(QStringLiteral("svg"));
     xml.writeDefaultNamespace(QStringLiteral("http://www.w3.org/2000/svg"));
-    const QRectF page = document.pageRect();
+    const QRectF page = region;
     xml.writeAttribute(QStringLiteral("version"), QStringLiteral("1.1"));
     xml.writeAttribute(QStringLiteral("viewBox"), num(page.x()) + QLatin1Char(' ') + num(page.y())
         + QLatin1Char(' ') + num(page.width()) + QLatin1Char(' ') + num(page.height()));
@@ -109,10 +115,23 @@ QByteArray encode(const CanvasDocument &document, OperationError *error)
     xml.writeAttribute(QStringLiteral("y"), num(page.y()));
     xml.writeAttribute(QStringLiteral("width"), num(page.width()));
     xml.writeAttribute(QStringLiteral("height"), num(page.height()));
-    xml.writeAttribute(QStringLiteral("fill"), cssColor(document.pageColor()));
-    if (document.pageColor().alpha() < 255)
-        xml.writeAttribute(QStringLiteral("fill-opacity"), num(document.pageColor().alphaF()));
+    xml.writeAttribute(QStringLiteral("fill"), cssColor(background));
+    if (background.alpha() < 255)
+        xml.writeAttribute(QStringLiteral("fill-opacity"), num(background.alphaF()));
     xml.writeEndElement();
+    // Artboard backgrounds are document data below every object (D-093),
+    // as the renderers paint them.
+    for (const CanvasBackdrop &backdrop : document.backdrops()) {
+        xml.writeStartElement(QStringLiteral("rect"));
+        xml.writeAttribute(QStringLiteral("x"), num(backdrop.rect.x()));
+        xml.writeAttribute(QStringLiteral("y"), num(backdrop.rect.y()));
+        xml.writeAttribute(QStringLiteral("width"), num(backdrop.rect.width()));
+        xml.writeAttribute(QStringLiteral("height"), num(backdrop.rect.height()));
+        xml.writeAttribute(QStringLiteral("fill"), cssColor(backdrop.color));
+        if (backdrop.color.alpha() < 255)
+            xml.writeAttribute(QStringLiteral("fill-opacity"), num(backdrop.color.alphaF()));
+        xml.writeEndElement();
+    }
     for (const CanvasObject *o : objects) {
         const QString tag = o->shape == CanvasShape::Rect ? QStringLiteral("rect")
             : o->shape == CanvasShape::Ellipse ? QStringLiteral("ellipse")
@@ -146,7 +165,13 @@ QByteArray encode(const CanvasDocument &document, OperationError *error)
 
 bool write(const CanvasDocument &document, const QString &filePath, OperationError *error)
 {
-    const QByteArray data = encode(document, error);
+    return writeRegion(document, document.pageRect(), document.pageColor(), filePath, error);
+}
+
+bool writeRegion(const CanvasDocument &document, const QRectF &region, const QColor &background,
+                 const QString &filePath, OperationError *error)
+{
+    const QByteArray data = encodeRegion(document, region, background, error);
     if (data.isEmpty()) return false;
     QSaveFile file(filePath);
     if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) {

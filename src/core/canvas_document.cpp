@@ -11,16 +11,40 @@
 
 namespace QindaTK {
 
+namespace {
+// AGENT-GUARD: bounded so a malformed adapter hierarchy (a parent cycle)
+// cannot hang painting or picking; CanvasDocument validates depth <= 64.
+constexpr int maximumLayerWalk = 256;
+} // namespace
+
 bool CanvasDocumentAdapter::effectiveVisible(const CanvasObject &object) const
 {
-    const CanvasLayer *l = layer(object.layer);
-    return object.visible && (l == nullptr || l->visible);
+    return object.visible && layerEffectivelyVisible(object.layer);
 }
 
 bool CanvasDocumentAdapter::effectiveLocked(const CanvasObject &object) const
 {
-    const CanvasLayer *l = layer(object.layer);
-    return object.locked || (l != nullptr && l->locked);
+    return object.locked || layerEffectivelyLocked(object.layer);
+}
+
+bool CanvasDocumentAdapter::layerEffectivelyVisible(CanvasLayerId id) const
+{
+    const CanvasLayer *l = layer(id);
+    for (int step = 0; l && step < maximumLayerWalk; ++step) {
+        if (!l->visible) return false;
+        l = l->parent ? layer(l->parent) : nullptr;
+    }
+    return true;
+}
+
+bool CanvasDocumentAdapter::layerEffectivelyLocked(CanvasLayerId id) const
+{
+    const CanvasLayer *l = layer(id);
+    for (int step = 0; l && step < maximumLayerWalk; ++step) {
+        if (l->locked) return true;
+        l = l->parent ? layer(l->parent) : nullptr;
+    }
+    return false;
 }
 
 qint64 CanvasDocumentAdapter::paintKey(const CanvasObject &object) const
@@ -37,6 +61,7 @@ CanvasDocument::CanvasDocument(QObject *parent)
     first.id = m_nextLayer;
     first.name = tr("Layer 1");
     placeLayer(first);
+    refreshLayerTree();
     m_activeLayer = first.id;
     attachLocalHistory();
     // A new empty layer on top changes no pixels but invalidates order keys
@@ -63,7 +88,10 @@ std::unique_ptr<CanvasDocument> CanvasDocument::fromState(const CanvasDocumentSt
     document->m_outputProfileIcc = state.outputProfileIcc;
     document->m_guides = state.guides;
     document->m_nextGuide = state.nextGuide;
+    document->m_artboards = state.artboards;
+    document->m_nextArtboard = state.nextArtboard;
     for (const CanvasLayer &layer : state.layers) document->placeLayer(layer);
+    document->refreshLayerTree();
     for (auto it = state.images.cbegin(); it != state.images.cend(); ++it)
         document->placeImage(it.key(), it.value());
     QVector<QRectF> ignored;
@@ -209,6 +237,8 @@ CanvasDocumentState CanvasDocument::state() const
     captured.images = m_images;
     captured.guides = m_guides;
     captured.nextGuide = m_nextGuide;
+    captured.artboards = m_artboards;
+    captured.nextArtboard = m_nextArtboard;
     return captured;
 }
 
@@ -218,6 +248,7 @@ QRectF CanvasDocument::contentBounds() const
     for (const QRectF &b : m_bounds) {
         bounds |= b;
     }
+    for (const CanvasArtboard &board : m_artboards) bounds |= board.rect;
     return bounds;
 }
 
@@ -245,7 +276,10 @@ QVector<CanvasObjectId> CanvasDocument::candidates(const QRectF &region) const
 
 qint64 CanvasDocument::paintKey(const CanvasObject &object) const
 {
-    return CanvasDocumentAdapter::paintKey(object);
+    // AGENT-NOTE: `order` is sibling-relative since layer groups (D-092);
+    // the paint order of a layer is its depth-first rank (refreshLayerTree).
+    const qint64 rank = std::max(0, m_layerRank.value(object.layer, 0));
+    return (rank << 40) + (object.z & ((qint64(1) << 40) - 1));
 }
 
 CanvasObjectId CanvasDocument::allocateId()
@@ -261,7 +295,8 @@ qint64 CanvasDocument::reserveZ()
 
 void CanvasDocument::setActiveLayer(CanvasLayerId id)
 {
-    if (id != m_activeLayer && m_layers.contains(id)) {
+    const CanvasLayer *target = layer(id);
+    if (id != m_activeLayer && target && !target->group) {
         m_activeLayer = id;
         emit changed();
     }
@@ -269,13 +304,16 @@ void CanvasDocument::setActiveLayer(CanvasLayerId id)
 
 void CanvasDocument::ensureActiveLayer()
 {
-    if (m_layers.contains(m_activeLayer)) return;
+    const CanvasLayer *current = layer(m_activeLayer);
+    if (current && !current->group) return;
+    // The topmost content layer in paint order (groups hold no objects).
     m_activeLayer = 0;
-    int order = 0;
+    int best = -1;
     for (const CanvasLayer &l : std::as_const(m_layers)) {
-        if (m_activeLayer == 0 || l.order > order || (l.order == order && l.id > m_activeLayer)) {
+        const int rank = m_layerRank.value(l.id, -1);
+        if (!l.group && (m_activeLayer == 0 || rank > best)) {
             m_activeLayer = l.id;
-            order = l.order;
+            best = rank;
         }
     }
 }
@@ -285,22 +323,6 @@ int CanvasDocument::nextLayerOrder() const
     int order = -1;
     for (const CanvasLayer &l : m_layers) order = std::max(order, l.order);
     return order + 1;
-}
-
-QVariantList CanvasDocument::layerList() const
-{
-    QList<CanvasLayer> sorted = m_layers.values();
-    std::sort(sorted.begin(), sorted.end(),
-              [](const CanvasLayer &a, const CanvasLayer &b) { return a.order < b.order; });
-    QVariantList out;
-    for (const CanvasLayer &l : sorted) {
-        out << QVariantMap{{QStringLiteral("id"), qulonglong(l.id)},
-                           {QStringLiteral("name"), l.name},
-                           {QStringLiteral("order"), l.order},
-                           {QStringLiteral("visible"), l.visible},
-                           {QStringLiteral("locked"), l.locked}};
-    }
-    return out;
 }
 
 QVector<CanvasObjectId> CanvasDocument::degenerateObjects() const

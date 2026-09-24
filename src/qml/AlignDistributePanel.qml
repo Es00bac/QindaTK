@@ -4,7 +4,9 @@ import QindaTK as Tk
 
 // AGENT-CONTRACT (WP-042/CAN-21): the host supplies stable object IDs and
 // owns canonical bounds, geometry previews, commit and undo. Requests carry
-// string IDs so 64-bit CanvasObjectIds remain exact across QML/JS.
+// string IDs so 64-bit CanvasObjectIds remain exact across QML/JS. The
+// reference choices are domain data (D-095): bind `referenceOptions` to
+// CanvasAlignmentModel.referenceOptions to offer its artboard reference.
 Item {
     id: control
     objectName: "alignDistributePanel"
@@ -15,12 +17,27 @@ Item {
     property real spacing: 0
     property real spacingStep: 1
     property string tooltip: qsTr("Align and distribute selected objects")
+    // [{value, text, available}] in menu order; "page" and "artboard" are
+    // fixed references that one selected object can align to.
+    property var referenceOptions: [
+        { value: "selection", text: qsTr("Selection"), available: true },
+        { value: "keyObject", text: qsTr("Key object"), available: true },
+        { value: "page", text: qsTr("Page"), available: true }
+    ]
 
     readonly property bool hasSelection: selectedIds && selectedIds.length > 0
-    readonly property bool referenceAvailable: referenceMode !== "keyObject"
-                                                || keyObjectId.length > 0
+    readonly property int referenceIndex: {
+        const options = control.referenceOptions || []
+        for (let i = 0; i < options.length; ++i)
+            if (options[i].value === control.referenceMode) return i
+        return -1
+    }
+    readonly property bool referenceAvailable: referenceIndex >= 0
+                                                && referenceOptions[referenceIndex].available !== false
+                                                && (referenceMode !== "keyObject" || keyObjectId.length > 0)
     readonly property bool actionAvailable: hasSelection && referenceAvailable
-                                            && (referenceMode === "page" || selectedIds.length > 1)
+                                            && (referenceMode === "page" || referenceMode === "artboard"
+                                                || selectedIds.length > 1)
 
     signal operationRequested(string operation, var selectedIds,
                               string referenceMode, string keyObjectId,
@@ -58,15 +75,10 @@ Item {
             width: parent.width
             tooltip: qsTr("Alignment reference")
             textRole: "text"
-            model: [
-                { text: qsTr("Selection"), value: "selection" },
-                { text: qsTr("Key object"), value: "keyObject" },
-                { text: qsTr("Page"), value: "page" }
-            ]
-            currentIndex: control.referenceMode === "keyObject" ? 1
-                        : control.referenceMode === "page" ? 2 : 0
+            model: control.referenceOptions
+            currentIndex: Math.max(0, control.referenceIndex)
             onActivated: function(index) {
-                control.referenceMode = referencePicker.model[index].value
+                control.referenceMode = control.referenceOptions[index].value
             }
         }
 

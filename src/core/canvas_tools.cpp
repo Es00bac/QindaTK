@@ -24,11 +24,12 @@ bool layerWritable(const CanvasToolContext &ctx, QString *declined)
         *declined = QStringLiteral("no-layer");
         return false;
     }
-    if (layer->locked) {
+    // Effective flags: a lock or hide on any ancestor group counts (D-092).
+    if (ctx.document->layerEffectivelyLocked(layer->id)) {
         *declined = QStringLiteral("layer-locked");
         return false;
     }
-    if (!layer->visible) {
+    if (!ctx.document->layerEffectivelyVisible(layer->id)) {
         *declined = QStringLiteral("layer-hidden");
         return false;
     }

@@ -692,3 +692,66 @@ sessions and output conversion apply to raster content without a second
 image model. The histories stay separate, the canvas shows a stroke when it
 is published, and layered raster state is saved in the raster file, not in
 the canvas document.
+
+## D-092 — Canvas layers form a tree of groups and content layers
+
+**Context.** CAN-09 needs nested layers that reorder with parent checks and
+undo, while painting, picking, snapping, alignment, tools and the native file
+already rely on a flat `(layer order, z)` paint order and on
+`CanvasEdit` before/after deltas. **Decision.** `CanvasLayer` gains a
+`parent` group and a `group` flag; `order` becomes sibling-relative. Groups
+hold layers and never objects, carry no transform, opacity or blend, and
+cascade visibility and lock to their descendants. The paint key uses the
+layer's rank in the depth-first flattening of the tree, recomputed after each
+layer change. Structural commands build ordinary layer deltas, so one undo
+step restores a whole move, group, ungroup or tree deletion, and every commit
+validates parents, cycles, depth (`maximumLayerDepth`, 64) and group content.
+The tree is saved in the extensions JSON under `qindatk.canvas.layerTree`
+(only for non-flat layers), like the guides of D-041. **Consequences.**
+Existing flat documents keep their bytes and behaviour; older readers keep the
+tree as opaque data and see the layers flat. Group transforms, opacity,
+blend modes and masks remain outside this model (WP-044/WP-045 own
+appearance and masks).
+
+## D-093 — Artboards are document content painted below objects
+
+**Context.** CAN-08 left board records host-owned, so boards could not be
+saved, undone, rendered or exported with the document. **Decision.** The
+reference `CanvasDocument` owns an ordered artboard list (`id`, `name`,
+`rect`, 8-bit sRGB `background`, `bleed`) with ids from a saved counter that
+is never reused. Board edits are `CanvasEdit` steps carrying the whole list.
+Boards own no objects: arranging or resizing a board never changes object
+coordinates. Backgrounds reach the renderers through
+`CanvasDocumentAdapter::backdrops()` and paint after the page colour and
+below every object; the export region is the board plus its bleed. The list
+is saved under `qindatk.canvas.artboards` in the extensions JSON.
+**Consequences.** Boards survive save, reopen, recovery and undo, render in
+both providers and export as SVG per board; clipping content to a board and
+board-scoped object membership are not modelled.
+
+## D-094 — Tree and overview views derive from the model and never feed back
+
+**Context.** A layer panel, several canvases and an overview on one document
+can drive each other: a tree click selects, the selection scrolls the tree,
+the overview moves the view, and a fitted view refits over navigation.
+**Decision.** `CanvasLayerTreeModel` derives rows from the document after
+every change and stores no hierarchy; it writes only the shared
+`CanvasSelectionModel` and document commands, and asks the view to reveal a
+row only for selections it did not make. `NavigatorView` keeps a private,
+content-fitted preview pose and writes the main pose with one atomic
+`setCenter`. A `CanvasView` treats any pose change it did not make itself as
+navigation, which ends `fitMode` refitting until `fitDocument()`.
+**Consequences.** Each state has one writer per gesture and each change
+travels one way, so no selection or viewport loop exists; a host that wants
+a fitted view to follow a shared pose again calls `fitDocument()`.
+
+## D-095 — Alignment reference choices come from the domain model
+
+**Context.** `AlignDistributePanel` hard-coded selection, key object and page,
+so a domain with artboards could not offer a board reference. **Decision.**
+`CanvasAlignmentModel.referenceOptions` lists the references the document
+supports (`selection`, `keyObject`, `page`, and `artboard` when boards exist,
+available once `artboardId` names one) and the panel shows whatever list it
+is given. Alignment to a board uses the board rectangle, like the page.
+**Consequences.** Other domains can add references without panel changes;
+the panel's default list keeps existing hosts working.
