@@ -44,6 +44,7 @@ qindatk_add_test(tst_uncertainty)
 target_link_libraries(tst_uncertainty PRIVATE Qt6::Svg)
 qindatk_add_test(tst_application_contracts)
 qindatk_add_test(tst_color_engine)
+qindatk_add_test(tst_color_grade_processor)
 qindatk_add_test(tst_gradient_editor_model)
 target_compile_definitions(tst_color_engine PRIVATE
     QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")

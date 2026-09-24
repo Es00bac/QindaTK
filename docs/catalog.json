@@ -34023,6 +34023,74 @@
       "bridge": false
     },
     {
+      "name": "ColorGradePreviewModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A small QML adapter for the deterministic pixel fixture. Production hosts pass decoded frames to ColorGradeProcessor directly.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/color_grade_preview_model.h",
+      "properties": [
+        {
+          "name": "beforeImageUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "afterImageUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "beforeScopes",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "afterScopes",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorMessage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "render",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &parameters"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ColorPickerModel",
       "kind": "cpp",
       "base": "QObject",

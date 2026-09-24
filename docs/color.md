@@ -82,6 +82,35 @@ verified for the supplied matrix/TRC fixtures. Nonfinite results fail.
 `[0,1]`. `gamut` is always `Unknown`: neither nominal range nor successful
 conversion establishes profile gamut, and this slice makes no clipping claim.
 
+## CPU image grade
+
+`ColorGradeProcessor::process(QImage, ColorGradeParameters, ColorContextSnapshot)`
+is a synchronous, bounded CPU image transform for the host-defined wheel
+coordinates supplied by `ColorWheels`. Input must carry a valid RGB ICC tag;
+the processor converts it to `context.working`, applies the grade in linear
+sRGB, then converts to and tags `context.output`. The working profile must be
+the resolved `ColorProfile::linearSRgb()`. Output uses Qt's ICC conversion;
+only relative-colorimetric conversion without BPC is currently accepted.
+
+`ColorGradeParameters` provides `exposureEv` and lift/gamma/gain wheel points.
+Each wheel point has finite x/y in `[-1,1]`. x moves red against green and y
+moves blue against yellow in a zero-sum opponent basis:
+`(x/2-y/3, -x/2-y/3, 2y/3)`. Processing order is lift (add 0.25 times that
+vector), signed power gamma (exponent `2^(-wheelVector)` per channel), gain
+(multiply by `max(0, 1+wheelVector)`), then exposure (`2^EV`). Exposure is
+limited to `[-8,8]` EV. Signed power preserves negative lifted components
+until output encoding; the deterministic 8-bit output quantizer clamps each
+encoded channel to `[0,1]` and rounds to nearest byte. Alpha is copied without
+grading. Processing refuses untagged input, unresolved profiles, invalid
+parameters, unsupported working profiles/intents, and images above 16 MP.
+
+The [color-grade fixture](../examples/color-grade/Main.qml) binds the wheel
+requests to this processor and shows before/after images and bounded scope
+snapshots. Its synthetic pixels demonstrate the transform only; this is not a
+video decoder, broadcast/legal-range path, codec, calibrated display pipeline,
+or undo/export integration. `ColorGradePreviewModel` is a fixture adapter;
+production hosts should call the reusable processor with decoded tagged frames.
+
 ## Picker model and edits
 
 `ColorPickerModel` is the QML-facing adapter for `Tk.ColorPicker`. It owns
