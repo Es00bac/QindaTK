@@ -58,8 +58,8 @@ Q3D.View3D {
             }
         }
     }
-    // AGENT-CONTRACT: the viewport owns a camera-plane gesture. SceneModel3D
-    // owns the single edit transaction and converts world deltas through parents.
+    // AGENT-CONTRACT: the viewport maps pointer motion into the chosen transform
+    // mode; SceneModel3D owns the transaction, constraints and parent conversion.
     MouseArea {
         id: gesture
         anchors.fill: parent
@@ -78,6 +78,11 @@ Q3D.View3D {
         }
         property real depth: 0
         property vector3d start: Qt.vector3d(0, 0, 0)
+        property real startX: 0
+        property real startY: 0
+        property string mode: "translate"
+        property string axis: "free"
+        property string space: "world"
         onPressed: function(mouse) {
             if (!viewport.control || (!viewport.control.scene && !viewport.control.meshDocument)) return
             const scene = viewport.control.scene
@@ -95,12 +100,36 @@ Q3D.View3D {
             viewport.control.entityPicked(id, hit.scenePosition)
             depth = viewport.mapFrom3DScene(hit.scenePosition).z
             start = viewport.mapTo3DScene(Qt.vector3d(mouse.x, mouse.y, depth))
+            startX = mouse.x
+            startY = mouse.y
+            mode = viewport.control.transformMode
+            axis = viewport.control.transformConstraint
+            space = viewport.control.transformSpace
             dragging = scene.beginTransform(id)
         }
         onPositionChanged: function(mouse) {
             if (!dragging || !gestureScene || !gestureScene.editing) return
             const point = viewport.mapTo3DScene(Qt.vector3d(mouse.x, mouse.y, depth))
-            gestureScene.previewWorldTranslation(point.minus(start), viewport.control.translationSnap)
+            if (mode === "rotate") {
+                gestureScene.previewRotation((mouse.x - startX) * 0.5, axis.length === 1 ? axis : "z",
+                                             space, viewport.control.rotationSnap)
+            } else if (mode === "scale") {
+                gestureScene.previewUniformScale(Math.exp((mouse.x - startX - mouse.y + startY) * 0.01),
+                                                 viewport.control.scaleSnap)
+            } else {
+                let delta = point.minus(start)
+                // A Z axis viewed head-on has no screen projection; vertical
+                // motion supplies a depth gesture at the picked pixel scale.
+                if (axis === "z") {
+                    const up = viewport.mapTo3DScene(Qt.vector3d(startX, startY - 1, depth))
+                    const perPixel = up.minus(start).length()
+                    gestureScene.previewAxisTranslation((startY - mouse.y) * perPixel,
+                                                        "z", space, viewport.control.translationSnap)
+                } else {
+                    gestureScene.previewConstrainedTranslation(delta, axis, space,
+                                                               viewport.control.translationSnap)
+                }
+            }
         }
         onReleased: {
             if (dragging && gestureScene && gestureScene.editing) gestureScene.commitTransform()

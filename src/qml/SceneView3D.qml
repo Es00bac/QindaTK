@@ -8,10 +8,15 @@ T.Control {
     objectName: "sceneView3D"
     property Tk.SceneModel3D scene: null
     property Tk.MeshRigDocument meshDocument: null
-    property string tooltip: qsTr("3D scene: drag objects to translate; arrows move selection; Escape cancels")
+    property string tooltip: qsTr("3D scene: select a transform mode and axis, then drag an object; Escape cancels")
     property vector3d cameraPosition: Qt.vector3d(0, 120, 650)
     property vector3d cameraEulerDegrees: Qt.vector3d(-10, 0, 0)
     property real translationSnap: 0
+    property real rotationSnap: 0
+    property real scaleSnap: 0
+    property string transformMode: "translate" // translate, rotate, scale
+    property string transformConstraint: "free" // free, x, y, z, xy, xz, yz
+    property string transformSpace: "world" // world, local
     readonly property bool rendererAvailable: GraphicsInfo.api !== GraphicsInfo.Software && renderer.status === Loader.Ready
     function projectWorldPosition(position) {
         return renderer.item ? renderer.item.mapFrom3DScene(position) : Qt.vector3d(0, 0, -1)
@@ -43,6 +48,65 @@ T.Control {
             active: control.GraphicsInfo.api !== GraphicsInfo.Software
             source: "SceneView3DRenderer.qml"
             onLoaded: item.control = control
+        }
+        Tk.Flex {
+            id: transformBar
+            objectName: "sceneTransformBar3D"
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.margins: Tk.Theme.space.sm
+            z: 1
+            direction: Tk.Flex.Row
+            gap: Tk.Theme.space.xs
+            padding: Tk.Theme.space.xs
+            Rectangle {
+                anchors.fill: parent
+                z: -1
+                radius: Tk.Theme.radius.sm
+                color: Tk.Theme.color.panel
+                border.color: Tk.Theme.color.border
+            }
+            Repeater {
+                model: [{label: qsTr("Move"), value: "translate"},
+                        {label: qsTr("Rotate"), value: "rotate"},
+                        {label: qsTr("Scale"), value: "scale"}]
+                delegate: Tk.Button {
+                    required property var modelData
+                    objectName: "sceneMode3D_" + modelData.value
+                    text: modelData.label
+                    small: true
+                    checkable: true
+                    checked: control.transformMode === modelData.value
+                    tooltip: qsTr("Drag the selected object to %1").arg(modelData.label.toLowerCase())
+                    onClicked: {
+                        control.transformMode = modelData.value
+                        if (modelData.value === "rotate" && control.transformConstraint.length !== 1)
+                            control.transformConstraint = "z"
+                    }
+                }
+            }
+            Repeater {
+                model: ["free", "x", "y", "z", "xy", "xz", "yz"]
+                delegate: Tk.Button {
+                    required property string modelData
+                    objectName: "sceneAxis3D_" + modelData
+                    text: modelData.toUpperCase()
+                    small: true
+                    checkable: true
+                    checked: control.transformConstraint === modelData
+                    available: control.transformMode === "translate"
+                        || (control.transformMode === "rotate" && modelData.length === 1)
+                    tooltip: qsTr("Constrain movement to %1 in %2 space").arg(modelData).arg(control.transformSpace)
+                    onClicked: control.transformConstraint = modelData
+                }
+            }
+            Tk.Button {
+                objectName: "sceneSpace3D"
+                text: control.transformSpace === "world" ? qsTr("World") : qsTr("Local")
+                small: true
+                tooltip: qsTr("Toggle world or local transform axes")
+                onClicked: control.transformSpace = control.transformSpace === "world" ? "local" : "world"
+            }
         }
         Tk.Label {
             anchors.centerIn: parent

@@ -42,6 +42,40 @@ private slots:
         QVERIFY(scene.setAppearance(parent, QColor("#00aabb"), false));
         QVERIFY(!scene.entities()[1].toMap()["visible"].toBool());
     }
+    void constrainedTransformGesture() {
+        SceneModel3D scene;
+        const auto parent = scene.addEntity("Parent", "cube", {0, 0, 0}, QColor("#00aabb"));
+        const auto child = scene.addEntity("Child", "sphere", {0, 0, 0}, QColor("#ff8822"));
+        QVERIFY(scene.setTransform(parent, {0, 0, 0}, {0, 0, 90}, 2));
+        QVERIFY(scene.reparent(child, parent, false));
+        QVERIFY(scene.setTransform(child, {10, 0, 0}, {0, 0, 0}, 1));
+        const auto original = scene.toJson();
+        auto position = [&] { return scene.worldTransform(child)["position"].value<QVector3D>(); };
+        auto rotation = [&] { return scene.worldTransform(child)["rotation"].value<QQuaternion>(); };
+        QVERIFY((position() - QVector3D(0, 20, 0)).length() < .001f);
+        QVERIFY(scene.beginTransform(child));
+        QVERIFY(scene.previewConstrainedTranslation({7, 11, 3}, "x", "world", 5));
+        QVERIFY((position() - QVector3D(5, 20, 0)).length() < .001f);
+        QVERIFY(scene.previewConstrainedTranslation({7, 11, 3}, "x", "local", 5));
+        QVERIFY((position() - QVector3D(0, 30, 0)).length() < .001f);
+        QVERIFY(scene.previewAxisTranslation(7, "z", "local", 5));
+        QVERIFY((position() - QVector3D(0, 20, 5)).length() < .001f);
+        QVERIFY(scene.previewRotation(47, "z", "world", 15));
+        QVERIFY((position() - QVector3D(0, 20, 0)).length() < .001f);
+        QVERIFY((rotation().rotatedVector({1, 0, 0}) - QVector3D(-.7071068f, .7071068f, 0)).length() < .001f);
+        QVERIFY(scene.previewRotation(90, "x", "local"));
+        QVERIFY((rotation().rotatedVector({0, 1, 0}) - QVector3D(0, 0, 1)).length() < .001f);
+        QVERIFY(scene.previewUniformScale(1.5f));
+        QCOMPARE(scene.worldTransform(child)["scale"].toFloat(), 3.f);
+        QCOMPARE(scene.toJson(), original); // no preview leaks to persistent state
+        QVERIFY(scene.cancelTransform()); QCOMPARE(scene.toJson(), original);
+        QVERIFY(scene.beginTransform(child));
+        QVERIFY(scene.previewUniformScale(1.5f));
+        QVERIFY(scene.commitTransform());
+        QCOMPARE(scene.worldTransform(child)["scale"].toFloat(), 3.f);
+        QVERIFY(scene.undo()); QCOMPARE(scene.toJson(), original);
+        QVERIFY(scene.redo()); QCOMPARE(scene.worldTransform(child)["scale"].toFloat(), 3.f);
+    }
 };
 QTEST_GUILESS_MAIN(SceneModel3DTest)
 #include "tst_scene_model_3d.moc"

@@ -2,8 +2,8 @@
 # 3D scene model and viewport
 
 `SceneModel3D` is a small persistent scene hierarchy. `SceneView3D` renders it
-through Qt Quick 3D and supports picking, camera-plane translation, snapping,
-keyboard movement and cancellation. This is a reusable toolkit slice, with
+through Qt Quick 3D and supports picking, constrained translation, rotation,
+uniform scale, snapping, keyboard movement and cancellation. This is a reusable toolkit slice, with
 512 primitive entities maximum; it does not provide a mesh authoring app.
 
 ## Model
@@ -41,6 +41,18 @@ parent's inverse transform. `commitTransform()` creates one history step;
 edits are rejected during a gesture. `undo()` and `redo()` hold up to 64 snapshots.
 `canUndo`, `canRedo`, `editing` and `lastError` expose state to the host.
 
+`previewConstrainedTranslation(delta, constraint, space, snap)` projects a
+world-space drag delta onto `x`, `y`, `z`, `xy`, `xz`, or `yz` axes; `free` retains
+the original camera-plane/world-grid behavior. `space` is `world` or `local`
+using the selected entity's orientation at gesture start. Constrained snap
+rounds each allowed displacement, so an unsnapped starting position stays on
+the chosen axis. `previewAxisTranslation(distance, axis, space, snap)` supplies
+a scalar drag distance for an axis viewed head-on. `previewRotation(degrees, axis, space, snapDegrees)` rotates
+around `x`, `y`, or `z` in world or local space. `previewUniformScale(factor,
+snap)` scales uniformly, with optional absolute world-scale increments. Every
+preview replaces the previous preview from the same `beginTransform` state.
+Cancel restores the original and commit records one undo step.
+
 ## View and renderer
 
 `Tk.SceneView3D { scene: sceneModel }` loads `SceneView3DRenderer` on an RHI backend.
@@ -62,19 +74,30 @@ for a host paint gesture, and `meshPicked(worldPosition)` reports a mesh hit.
 The mesh objectName is `sceneMeshRig3D`. This adapter is available only when
 the Qt Quick 3D module is built and the view has a GPU backend.
 
-The view exposes `cameraPosition`, `cameraEulerDegrees`, `translationSnap` and
+The view exposes `cameraPosition`, `cameraEulerDegrees`, `translationSnap`,
+`rotationSnap`, `scaleSnap`, `transformMode` (`translate`, `rotate`, `scale`),
+`transformConstraint` (`free`, axes or planes), `transformSpace` (`world`,
+`local`) and
 `entityPicked(entityId, worldPosition)`. `projectWorldPosition(position)` maps a
 world point to viewport pixels/depth; `pickEntity(x,y)` returns the nearest visible
 mesh hit (`entityId`, `worldPosition`, `distance`) or an empty object. Coordinates
 are relative to the view content, with no padding. A left press uses Qt's actual nearest
 mesh hit test, selects that stable ID and starts a camera-plane drag. Pixel to
 world mapping uses the picked depth, so zoom does not change the contract.
-Release commits, Escape and pointer cancellation restore the initial state.
+The toolbar selects mode, axis or plane and world/local coordinates. Rotation
+uses an axis (`z` when the constraint is `free`); scale is uniform. Horizontal
+motion controls rotation and diagonal motion controls scale. A world Z-axis
+translation viewed head-on uses vertical pointer motion for depth. Release
+commits; Escape and pointer cancellation restore the initial state.
+Plane drags project camera-plane motion onto the chosen axes; at a camera angle
+parallel to one plane axis, the hidden axis needs camera navigation or the
+single-axis depth gesture.
 Replacing the scene or destroying the renderer cancels its active gesture.
 Arrow keys translate the selection along world X/Y by one unit or the snap step.
 Hosts may bind camera properties to their own navigation controls.
 
-Internal objectNames: `sceneView3D`, `sceneRenderer3D`, and
+Internal objectNames: `sceneView3D`, `sceneRenderer3D`, `sceneTransformBar3D`,
+`sceneMode3D_<mode>`, `sceneAxis3D_<constraint>`, `sceneSpace3D`, and
 `sceneEntity3D_<stable UUID>`. The viewport has an accessible graphic role/name
 and supports keyboard selection movement. A future outliner must supply complete
 keyboard traversal of entities.
@@ -95,7 +118,7 @@ visibility in one focused scenario.
 
 ## Remaining WP-076 scope
 
-SceneOutliner, axis/plane rotation/scale gizmos and allowed degrees of freedom;
+SceneOutliner, on-object 3D gizmo handles and constrained scale;
 instance and imported mesh/resource providers; material property editing and
 asynchronous material preview; camera orbit/pan controls; application document
 session/shared undo integration; device loss and multiple-view qualification;

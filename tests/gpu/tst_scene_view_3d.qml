@@ -37,6 +37,36 @@ Item {
             mouseRelease(viewport, 390, 240)
             verify(!sceneData.editing)
             fuzzyCompare(sceneData.worldTransform(id).position.x, 0, 0.001)
+            const rotate = findChild(viewport, "sceneMode3D_rotate")
+            verify(rotate !== null)
+            mouseClick(rotate)
+            compare(viewport.transformMode, "rotate")
+            viewport.transformConstraint = "z"
+            tryVerify(function() { return viewport.pickEntity(320, 240).entityId === id })
+            mousePress(viewport, 320, 240)
+            verify(sceneData.editing, "rotation press did not start edit")
+            mouseMove(viewport, 380, 240)
+            mouseRelease(viewport, 380, 240)
+            verify(sceneData.entities[0].eulerDegrees.z > 20,
+                   "rotation=" + sceneData.entities[0].eulerDegrees.z + ", error=" + sceneData.lastError)
+            verify(sceneData.undo())
+            fuzzyCompare(sceneData.entities[0].eulerDegrees.z, 0, 0.01)
+            viewport.transformMode = "scale"
+            tryVerify(function() { return viewport.pickEntity(320, 240).entityId === id })
+            mousePress(viewport, 320, 240)
+            mouseMove(viewport, 380, 240)
+            mouseRelease(viewport, 380, 240)
+            verify(sceneData.worldTransform(id).scale > 1.5)
+            verify(sceneData.undo())
+            fuzzyCompare(sceneData.worldTransform(id).scale, 1, 0.001)
+            viewport.transformMode = "translate"
+            viewport.transformConstraint = "x"
+            tryVerify(function() { return viewport.pickEntity(320, 240).entityId === id })
+            mousePress(viewport, 320, 240)
+            mouseMove(viewport, 360, 260)
+            mouseRelease(viewport, 360, 260)
+            verify(sceneData.worldTransform(id).position.x > 0)
+            fuzzyCompare(sceneData.worldTransform(id).position.y, 0, 0.001)
         }
     }
 }

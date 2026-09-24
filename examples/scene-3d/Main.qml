@@ -23,7 +23,7 @@ Item {
         padding: Tk.Theme.space.lg
         gap: Tk.Theme.space.md
         Tk.Heading { text: qsTr("3D scene primitives"); level: 1 }
-        Tk.Caption { text: qsTr("Real Qt Quick 3D rendering · persistent scene hierarchy · world-space translation") }
+        Tk.Caption { text: qsTr("Real Qt Quick 3D rendering · persistent scene hierarchy · move, rotate and scale") }
         Tk.Flex {
             direction: Tk.Flex.Row
             gap: Tk.Theme.space.sm
@@ -37,7 +37,8 @@ Item {
             Tk.Flex.grow: 1
             scene: sceneModel
             translationSnap: 10
+            rotationSnap: 15
         }
-        Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Drag an object in the camera plane · Arrow keys move in world X/Y · Escape cancels · Snap: 10 world units") }
+        Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Choose mode and axis above, then drag an object · World/Local toggles axes · Escape cancels") }
     }
 }

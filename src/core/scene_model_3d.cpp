@@ -158,13 +158,86 @@ bool SceneModel3D::previewWorldTranslation(const QVector3D &delta, float snap) {
         return fail("Invalid translation preview");
     auto target = m_startWorld.position + delta;
     if (snap > 0) for (int a = 0; a < 3; ++a) target[a] = std::round(target[a] / snap) * snap;
+    auto pose = m_startWorld; pose.position = target;
+    return previewWorldTransform(pose);
+}
+bool SceneModel3D::previewWorldTransform(const Transform &target) {
+    if (!finite(target.position) || !std::isfinite(target.scale)
+        || !std::isfinite(target.rotation.scalar()) || !std::isfinite(target.rotation.x())
+        || !std::isfinite(target.rotation.y()) || !std::isfinite(target.rotation.z()))
+        return fail("Transform exceeds supported range");
     int i = index(m_editId), p = index(m_entities[i].parent);
     const auto parent = p < 0 ? Transform{} : world(p);
-    auto local = parent.rotation.conjugated().rotatedVector(target - parent.position) / parent.scale;
-    if (!finite(local)) return fail("Translation exceeds supported range");
-    const auto previous = m_entities[i].position; m_entities[i].position = local;
-    if (!validWorld()) { m_entities[i].position = previous; return fail("World transform exceeds supported range"); }
+    auto local = parent.rotation.conjugated().rotatedVector(target.position - parent.position) / parent.scale;
+    const float scale = target.scale / parent.scale;
+    if (!finite(local) || !std::isfinite(scale) || scale < .001f || scale > 1000.f)
+        return fail("Transform exceeds supported range");
+    const auto previous = m_entities[i];
+    m_entities[i].position = local;
+    m_entities[i].rotation = (parent.rotation.conjugated() * target.rotation).normalized();
+    m_entities[i].scale = scale;
+    if (!validWorld()) { m_entities[i] = previous; return fail("World transform exceeds supported range"); }
     notify(); return true;
+}
+bool SceneModel3D::previewConstrainedTranslation(const QVector3D &delta,
+        const QString &constraint, const QString &space, float snap) {
+    if (!editing() || !finite(delta) || !std::isfinite(snap) || snap < 0
+        || (space != "world" && space != "local")
+        || (constraint != "free" && constraint != "x" && constraint != "y"
+            && constraint != "z" && constraint != "xy" && constraint != "xz" && constraint != "yz"))
+        return fail("Invalid constrained translation preview");
+    if (constraint == "free") return previewWorldTranslation(delta, snap);
+    const QQuaternion basis = space == "local" ? m_startWorld.rotation : QQuaternion();
+    const QVector3D axes[3] = {basis.rotatedVector({1, 0, 0}),
+                               basis.rotatedVector({0, 1, 0}), basis.rotatedVector({0, 0, 1})};
+    QVector3D projected;
+    const QString names[3] = {"x", "y", "z"};
+    for (int a = 0; a < 3; ++a) {
+        if (!constraint.contains(names[a])) continue;
+        float component = QVector3D::dotProduct(delta, axes[a]);
+        if (snap > 0) component = std::round(component / snap) * snap;
+        projected += axes[a] * component;
+    }
+    auto pose = m_startWorld; pose.position += projected;
+    return previewWorldTransform(pose);
+}
+bool SceneModel3D::previewAxisTranslation(float distance, const QString &axis,
+        const QString &space, float snap) {
+    if (!editing() || !std::isfinite(distance) || !std::isfinite(snap) || snap < 0
+        || (space != "world" && space != "local")
+        || (axis != "x" && axis != "y" && axis != "z"))
+        return fail("Invalid axis translation preview");
+    if (snap > 0) distance = std::round(distance / snap) * snap;
+    const QVector3D unit = axis == "x" ? QVector3D(1, 0, 0)
+        : axis == "y" ? QVector3D(0, 1, 0) : QVector3D(0, 0, 1);
+    const auto worldAxis = space == "local" ? m_startWorld.rotation.rotatedVector(unit) : unit;
+    auto pose = m_startWorld; pose.position += worldAxis * distance;
+    return previewWorldTransform(pose);
+}
+bool SceneModel3D::previewRotation(float degrees, const QString &axis,
+        const QString &space, float snapDegrees) {
+    if (!editing() || !std::isfinite(degrees) || !std::isfinite(snapDegrees)
+        || snapDegrees < 0 || (space != "world" && space != "local")
+        || (axis != "x" && axis != "y" && axis != "z"))
+        return fail("Invalid rotation preview");
+    if (snapDegrees > 0) degrees = std::round(degrees / snapDegrees) * snapDegrees;
+    if (!std::isfinite(degrees) || std::abs(degrees) > 1e6f)
+        return fail("Rotation exceeds supported range");
+    const QVector3D vector = axis == "x" ? QVector3D(1, 0, 0)
+        : axis == "y" ? QVector3D(0, 1, 0) : QVector3D(0, 0, 1);
+    const auto turn = QQuaternion::fromAxisAndAngle(vector, degrees);
+    auto pose = m_startWorld;
+    pose.rotation = space == "world" ? (turn * pose.rotation).normalized()
+                                      : (pose.rotation * turn).normalized();
+    return previewWorldTransform(pose);
+}
+bool SceneModel3D::previewUniformScale(float factor, float snap) {
+    if (!editing() || !std::isfinite(factor) || factor <= 0
+        || !std::isfinite(snap) || snap < 0) return fail("Invalid scale preview");
+    auto pose = m_startWorld;
+    pose.scale *= factor;
+    if (snap > 0) pose.scale = std::round(pose.scale / snap) * snap;
+    return previewWorldTransform(pose);
 }
 bool SceneModel3D::commitTransform() {
     if (!editing()) return false;

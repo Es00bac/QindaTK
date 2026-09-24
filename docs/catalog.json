@@ -24723,7 +24723,7 @@
         {
           "name": "tooltip",
           "type": "string",
-          "default": "qsTr(\"3D scene: drag objects to translate; arrows move selection; Escape cancels\")",
+          "default": "qsTr(\"3D scene: select a transform mode and axis, then drag an object; Escape cancels\")",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -24748,6 +24748,46 @@
           "name": "translationSnap",
           "type": "real",
           "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rotationSnap",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scaleSnap",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "transformMode",
+          "type": "string",
+          "default": "\"translate\" // translate, rotate, scale",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "transformConstraint",
+          "type": "string",
+          "default": "\"free\" // free, x, y, z, xy, xz, yz",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "transformSpace",
+          "type": "string",
+          "default": "\"world\" // world, local",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -24794,6 +24834,10 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "sceneAxis3D_",
+        "sceneMode3D_",
+        "sceneSpace3D",
+        "sceneTransformBar3D",
         "sceneView3D"
       ]
     },
@@ -47573,6 +47617,26 @@
           "name": "previewWorldTranslation",
           "returns": "bool",
           "parameters": "const QVector3D &delta, float snap = 0"
+        },
+        {
+          "name": "previewConstrainedTranslation",
+          "returns": "bool",
+          "parameters": "const QVector3D &delta, const QString &constraint, const QString &space, float snap = 0"
+        },
+        {
+          "name": "previewAxisTranslation",
+          "returns": "bool",
+          "parameters": "float distance, const QString &axis, const QString &space, float snap = 0"
+        },
+        {
+          "name": "previewRotation",
+          "returns": "bool",
+          "parameters": "float degrees, const QString &axis, const QString &space, float snapDegrees = 0"
+        },
+        {
+          "name": "previewUniformScale",
+          "returns": "bool",
+          "parameters": "float factor, float snap = 0"
         },
         {
           "name": "commitTransform",

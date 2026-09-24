@@ -39,6 +39,15 @@ public:
     Q_INVOKABLE bool beginTransform(const QString &id);
     // Each preview is a world-space offset FROM BEGIN, never a cumulative delta.
     Q_INVOKABLE bool previewWorldTranslation(const QVector3D &delta, float snap = 0);
+    // Constraint is free, x/y/z, xy/xz/yz; space is world or local.
+    // Every preview is relative to beginTransform, including after another mode preview.
+    Q_INVOKABLE bool previewConstrainedTranslation(const QVector3D &delta,
+        const QString &constraint, const QString &space, float snap = 0);
+    Q_INVOKABLE bool previewAxisTranslation(float distance, const QString &axis,
+        const QString &space, float snap = 0);
+    Q_INVOKABLE bool previewRotation(float degrees, const QString &axis,
+        const QString &space, float snapDegrees = 0);
+    Q_INVOKABLE bool previewUniformScale(float factor, float snap = 0);
     Q_INVOKABLE bool commitTransform();
     Q_INVOKABLE bool cancelTransform();
     Q_INVOKABLE bool undo();
@@ -70,6 +79,7 @@ private:
     void remember();
     void notify();
     void restore(const QVector<Entity> &state);
+    bool previewWorldTransform(const Transform &target);
     QVector<Entity> m_entities, m_before;
     QVector<QVector<Entity>> m_undo, m_redo;
     QString m_selected, m_editId, m_error;
