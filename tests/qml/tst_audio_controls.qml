@@ -43,6 +43,25 @@ TestCase {
         const id = session.ensureGainParameter(session.addTrack("Bus"))
         return createTemporaryObject(bindingComponent, root, { session: session, parameterId: id })
     }
+    function collect(item, name, out) {
+        if (!item) return out
+        if (item.objectName === name) out.push(item)
+        for (let i = 0; i < item.children.length; ++i) collect(item.children[i], name, out)
+        return out
+    }
+    function shown(items) { return items.filter(function(item) { return item.visible }) }
+    // True when no two items overlap along the axis (in root coordinates).
+    function disjoint(items, horizontal) {
+        for (let i = 0; i < items.length; ++i) {
+            for (let j = i + 1; j < items.length; ++j) {
+                const a = items[i].mapToItem(root, 0, 0), b = items[j].mapToItem(root, 0, 0)
+                const apart = horizontal ? a.x + items[i].width <= b.x || b.x + items[j].width <= a.x
+                                         : a.y + items[i].height <= b.y || b.y + items[j].height <= a.y
+                if (!apart) return false
+            }
+        }
+        return true
+    }
 
     function test_mapper_and_keyboard_are_one_gesture() {
         const knob = createTemporaryObject(knobComponent, root, { x: 10, y: 10 })
@@ -110,6 +129,53 @@ TestCase {
         verify(history.undo())
         compare(binding.staticValue, before)
         compare(fader.value, before)
+    }
+
+    function test_late_bound_controls_follow_the_mapping() {
+        // The parameter arrives after the controls exist, as in the example.
+        const session = createTemporaryObject(sessionComponent, root)
+        const binding = createTemporaryObject(bindingComponent, root, { session: session })
+        const fader = createTemporaryObject(boundFaderComponent, root, {
+            x: 150, y: 10, binding: binding, scaleMarks: [-60, -30, -18, -12, -6, 0, 6, 12] })
+        const knob = createTemporaryObject(boundKnobComponent, root, { x: 10, y: 10, binding: binding })
+        verify(fader !== null && knob !== null)
+        binding.parameterId = session.ensureGainParameter(session.addTrack("Late"))
+        verify(binding.valid)
+        fuzzyCompare(fader.normalizedValue, 0.75, 1e-9)
+        fuzzyCompare(knob.normalizedValue, 0.75, 1e-9)
+        // The thumb sits on the unity line at 0 dB, well above the bottom.
+        const thumb = findChild(fader, "faderThumb")
+        const unity = findChild(fader, "faderUnityMark")
+        tryVerify(function() { return thumb.height > 0 && fader.travel > thumb.height })
+        fuzzyCompare(thumb.y + thumb.height / 2, unity.y + unity.height / 2, 0.5)
+        const track = findChild(fader, "faderTrack")
+        verify(thumb.y + thumb.height / 2 < track.y + track.height / 2)
+        // Scale labels never overlap; crowded ones are dropped, ends and unity stay.
+        const labels = shown(collect(fader, "faderScaleLabel", []))
+        verify(labels.length >= 3 && labels.length < 8)
+        verify(disjoint(labels, false))
+        const texts = labels.map(function(label) { return label.text })
+        verify(texts.indexOf("0") >= 0 && texts.indexOf("12") >= 0 && texts.indexOf("−∞") >= 0)
+    }
+
+    function test_meter_scale_clears_the_reset_button() {
+        const model = createTemporaryObject(meterModelComponent, root)
+        verify(model.submitInterleaved([1.0, 0.5], 2, 10)) // channel 1 clips: Reset clip shows
+        const view = createTemporaryObject(meterViewComponent, root, { x: 10, y: 10, meter: model })
+        verify(view !== null)
+        const reset = findChild(view, "meterClipReset")
+        // Once laid out, every scale label ends above Reset clip (the labels
+        // spilled onto it when the scale row reserved no height).
+        const labels = function() { return shown(collect(view, "meterScaleLabel", [])) }
+        tryVerify(function() {
+            const top = reset.mapToItem(view, 0, 0).y
+            return reset.visible && labels().length >= 2
+                && labels().every(function(label) { return label.mapToItem(view, 0, label.height).y <= top })
+                && view.implicitHeight >= reset.mapToItem(view, 0, reset.height).y
+        })
+        // Labels clear each other and the unit; the bars start where the scale starts.
+        verify(disjoint(labels().concat([findChild(view, "meterScaleUnit")]), true))
+        fuzzyCompare(findChild(view, "channelTrack").mapToItem(view, 0, 0).x, view.trackX, 0.5)
     }
 
     function test_bound_knob_wheel_burst_is_one_transaction() {

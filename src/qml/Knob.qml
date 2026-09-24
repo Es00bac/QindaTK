@@ -45,8 +45,11 @@ T.Control {
 
     readonly property var activeMapper: binding ? binding.mapper : mapper
     readonly property real clampedValue: Math.max(from, Math.min(to, value))
-    readonly property real normalizedValue: activeMapper ? activeMapper.positionFor(clampedValue, silent)
-        : (to > from ? (clampedValue - from) / (to - from) : 0)
+    // AGENT-GUARD: the mapper's invokables are not tracked by QML; the
+    // revision argument re-evaluates the position when the mapping changes
+    // (for example a binding whose parameter arrives after the knob was built).
+    property int _mappingRevision: 0
+    readonly property real normalizedValue: positionOf(_mappingRevision, clampedValue, silent)
     readonly property string valueText: binding ? binding.valueText
         : silent ? "−∞" + unit : Number(clampedValue).toFixed(decimals) + unit
     implicitWidth: Math.max(Tk.Theme.size.controlLg, numericEntry ? Tk.Theme.size.fieldWidth : 0)
@@ -71,6 +74,10 @@ T.Control {
     Binding { target: control; property: "parameterId"; when: control.binding !== null; value: control.binding ? control.binding.parameterId : "" }
 
     function clamp(v) { return Math.max(from, Math.min(to, v)) }
+    function positionOf(_revision, v, isSilent) {
+        if (activeMapper) return activeMapper.positionFor(v, isSilent)
+        return to > from ? (v - from) / (to - from) : 0
+    }
     function beginGesture(source) {
         if (_source === "wheel" && source !== "wheel") commitGesture() // another input ends a wheel burst
         if (_source.length) return false
@@ -166,6 +173,11 @@ T.Control {
         id: wheelIdle
         interval: Tk.Theme.motion.gestureIdle
         onTriggered: control.commitGesture()
+    }
+    Connections {
+        target: control.activeMapper
+        ignoreUnknownSignals: true
+        function onChanged() { control._mappingRevision++ }
     }
 
     Item {

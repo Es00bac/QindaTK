@@ -160,11 +160,19 @@ entry, Home/End and a reset. A double-click resets inside the open pointer
 gesture, so it is one transaction, and Escape cancels. The Fader's scale marks
 and unity mark sit where the mapper puts those values under the thumb
 centre. With a silence floor, the mark at the range minimum reads −∞.
+Positions come from the mapper's invokables, which QML cannot track, so each
+control passes a mapping revision (bumped on the mapper's `changed`) into
+every position binding; a binding whose parameter arrives after the control
+exists still moves the thumb and marks. Labels that would overlap are dropped
+(`ScaleLabels.js`: unity and the range ends first, ticks stay).
 
 `AudioMeter` takes `meter: Tk.AudioMeterModel` (or provider `levels` rows).
 It shows channel names, the RMS bar, the display peak (warning colour at or
 above `warningDbfs`, default −6), the held-peak line and numeric readout, a
-dBFS scale row, and the clip latch with a **Reset clip** request. Its
+dBFS scale row, and the clip latch with a **Reset clip** request. Rows use
+fixed name and value columns (`Tk.Flex.basis`; Flex ignores a child's
+`width`/`height`), so the bars and the scale share one x range, and the scale
+row reserves its height through `implicitHeight`. Its
 accessible description lists peak, RMS, hold, max and clip for every channel.
 `LoudnessHistory` takes `loudness: Tk.AudioLoudnessModel` (or provider
 `samples`). It shows the history, a labelled level scale, the M/S/I readout,
