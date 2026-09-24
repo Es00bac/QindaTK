@@ -214,6 +214,73 @@
       ]
     },
     {
+      "name": "AppearanceStack",
+      "kind": "qml",
+      "base": "Item",
+      "description": "`effects` is the host's ordered appearance graph snapshot. User operations are requests; the host validates capability and writes accepted state back.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AppearanceStack.qml",
+      "properties": [
+        {
+          "name": "effects",
+          "type": "var",
+          "default": "[] // [{id, name, kind, enabled, supported, parameters, masked}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Inspect ordered vector appearance effects\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "reorderRequested",
+          "parameters": "string effectId, int newIndex"
+        },
+        {
+          "name": "enabledChangeRequested",
+          "parameters": "string effectId, bool enabled"
+        },
+        {
+          "name": "editRequested",
+          "parameters": "string effectId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "rowIndex",
+          "parameters": "effectId"
+        },
+        {
+          "name": "move",
+          "parameters": "effectId, delta"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "appearanceEdit_",
+        "appearanceEffect_",
+        "appearanceEnabled_",
+        "appearanceMoveDown_",
+        "appearanceMoveUp_",
+        "appearanceName_"
+      ]
+    },
+    {
       "name": "ArtboardView",
       "kind": "qml",
       "base": "Item",
@@ -8303,6 +8370,111 @@
       ]
     },
     {
+      "name": "FillStyleEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The fill descriptor is host-owned. `settings` retains one record per kind, so changing kind and returning restores the prior colour/gradient/pattern.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FillStyleEditor.qml",
+      "properties": [
+        {
+          "name": "fill",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "patterns",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit vector fill style\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kinds",
+          "type": "var",
+          "default": "[\"none\", \"solid\", \"gradient\", \"pattern\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "settings",
+          "type": "var",
+          "default": "fill.settings || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentSettings",
+          "type": "var",
+          "default": "settings[fill.kind] || defaultSettings(fill.kind)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "fillChangeRequested",
+          "parameters": "var fill"
+        },
+        {
+          "name": "gradientEditRequested",
+          "parameters": "var gradient"
+        }
+      ],
+      "methods": [
+        {
+          "name": "defaultSettings",
+          "parameters": "kind"
+        },
+        {
+          "name": "request",
+          "parameters": "nextKind, patch"
+        },
+        {
+          "name": "patternIndex",
+          "parameters": "id"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "fillEditGradient",
+        "fillKind",
+        "fillPattern",
+        "fillSolidColor"
+      ]
+    },
+    {
       "name": "Filmstrip",
       "kind": "qml",
       "base": "Item",
@@ -15992,6 +16164,115 @@
       ]
     },
     {
+      "name": "ShapePalette",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Shape definitions and factories belong to the document host. This palette only requests insertion by stable definition ID and passes default params.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ShapePalette.qml",
+      "properties": [
+        {
+          "name": "definitions",
+          "type": "var",
+          "default": "[] // [{id, label, category, iconName, parameters, enabled, description}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "recentIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "default": "\"all\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Choose a shape to insert into the document\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "3",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "categories",
+          "type": "var",
+          "default": "collectCategories()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleDefinitions",
+          "type": "var",
+          "default": "filterDefinitions()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "shapeRequested",
+          "parameters": "string shapeId, var parameters"
+        }
+      ],
+      "methods": [
+        {
+          "name": "collectCategories",
+          "parameters": ""
+        },
+        {
+          "name": "filterDefinitions",
+          "parameters": ""
+        },
+        {
+          "name": "requestInsert",
+          "parameters": "shape"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "shapeCategories",
+        "shapeGrid",
+        "shapeSearch",
+        "shape_"
+      ]
+    },
+    {
       "name": "ShortcutEditor",
       "kind": "qml",
       "base": "Tk.Box",
@@ -16747,6 +17028,128 @@
       "objectNames": [
         "statusAction",
         "statusFocusRing"
+      ]
+    },
+    {
+      "name": "StrokeStyleEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Edits one canonical stroke descriptor. The host owns preview, persistence, unit conversion and the transaction represented by styleChangeRequested.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/StrokeStyleEditor.qml",
+      "properties": [
+        {
+          "name": "style",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit vector stroke style\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "units",
+          "type": "var",
+          "default": "capabilities.units || [\"px\", \"pt\", \"document\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "alignments",
+          "type": "var",
+          "default": "capabilities.alignments || [\"center\", \"inside\", \"outside\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "caps",
+          "type": "var",
+          "default": "capabilities.caps || [\"butt\", \"round\", \"square\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "joins",
+          "type": "var",
+          "default": "capabilities.joins || [\"miter\", \"round\", \"bevel\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dashModes",
+          "type": "var",
+          "default": "[\"solid\", \"dash\", \"dot\", \"custom\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dashText",
+          "type": "string",
+          "default": "(style.dash || []).join(\" \")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "styleChangeRequested",
+          "parameters": "var style"
+        }
+      ],
+      "methods": [
+        {
+          "name": "request",
+          "parameters": "patch"
+        },
+        {
+          "name": "indexOf",
+          "parameters": "list, value"
+        },
+        {
+          "name": "parseDash",
+          "parameters": "text"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "strokeAlignment",
+        "strokeCap",
+        "strokeColor",
+        "strokeDashMode",
+        "strokeDashPattern",
+        "strokeJoin",
+        "strokeMiterLimit",
+        "strokeUnits",
+        "strokeWidth"
       ]
     },
     {
