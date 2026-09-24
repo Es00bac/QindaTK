@@ -47830,6 +47830,144 @@
       "bridge": false
     },
     {
+      "name": "TerminalSession",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the application owns the decision to start a local process; TerminalSession never starts a shell when instantiated by QML.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/terminal_session.h",
+      "properties": [
+        {
+          "name": "running",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "exitCode",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorString",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rows",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cursorRow",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cursorColumn",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cursorVisible",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "screen",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "scrollback",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maxScrollback",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "screenChanged",
+          "parameters": ""
+        },
+        {
+          "name": "processChanged",
+          "parameters": ""
+        },
+        {
+          "name": "exited",
+          "parameters": "int exitCode"
+        }
+      ],
+      "methods": [
+        {
+          "name": "start",
+          "returns": "bool",
+          "parameters": "const QString &program, const QStringList &arguments = {}, const QString &workingDirectory = {}"
+        },
+        {
+          "name": "sendText",
+          "returns": "bool",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "resize",
+          "returns": "bool",
+          "parameters": "int rows, int columns"
+        },
+        {
+          "name": "stop",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "copyText",
+          "returns": "QString",
+          "parameters": "int firstRow, int lastRow"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "Theme",
       "kind": "cpp",
       "base": "QObject",

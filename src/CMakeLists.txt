@@ -75,6 +75,7 @@ qt_add_qml_module(qindatk
         core/settings_persistence.cpp core/settings_persistence.h
         core/workspace_session.cpp core/workspace_session.h
         core/job_model.cpp core/job_model.h
+        core/terminal_session.cpp core/terminal_session.h
         core/render_queue_model.cpp core/render_queue_model.h core/render_queue_provider.cpp
         core/notification_model.cpp core/notification_model.h
         core/pdf_annotation_document.cpp core/pdf_annotation_document.h
@@ -279,7 +280,8 @@ target_include_directories(qindatk PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
-    PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2 SQLite3::SQLite3)
+    PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2 SQLite3::SQLite3
+    PUBLIC PkgConfig::VTERM)
 if(POPPLER_QT6_FOUND)
     target_link_libraries(qindatk PRIVATE PkgConfig::POPPLER_QT6)
     target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_POPPLER_QT6=1)
