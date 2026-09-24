@@ -17,7 +17,8 @@ release; pressing and releasing without movement selects the owning knot
 without submitting an edit. `tests/qml/tst_curve_editor.qml` covers handle hit
 and selection, drag across record replacement, original-position cancellation,
 keyboard movement and unchanged host records. The focused suite passed **7/7**
-on Qt 6.11.1.
+on Qt 6.11.1 in the isolated lane and **7/7** on both Qt 6.11.1 and Qt 6.8.3
+after integration at `5de3c62`. Both integrated preview checks passed.
 
 The reproducible visual fixture is
 [`CurveEditorScene.qml`](../../../../examples/spatial-canvas/CurveEditorScene.qml).
