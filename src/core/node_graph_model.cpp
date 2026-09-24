@@ -2,6 +2,7 @@
 #include "node_graph_model.h"
 
 #include <QMetaType>
+#include <QColor>
 #include <QUuid>
 #include <cmath>
 #include <utility>
@@ -55,7 +56,8 @@ int NodeGraphModel::edgeIndex(const QString &id) const
 bool NodeGraphModel::validType(const QString &type)
 {
     return type == QLatin1String("source") || type == QLatin1String("transform")
-        || type == QLatin1String("blend") || type == QLatin1String("output");
+        || type == QLatin1String("solid") || type == QLatin1String("blend")
+        || type == QLatin1String("output");
 }
 
 QVariantList NodeGraphModel::portList(const QString &type, bool inputs)
@@ -86,6 +88,11 @@ bool NodeGraphModel::validParameters(const QString &type, const QVariantMap &par
         if (type == QLatin1String("source") && it.key() == QLatin1String("sourceId")) {
             if (it.value().metaType().id() != QMetaType::QString
                 || it.value().toString().size() > 128) return false;
+            continue;
+        }
+        if (type == QLatin1String("solid") && it.key() == QLatin1String("color")) {
+            if (it.value().metaType().id() != QMetaType::QString
+                || !QColor(it.value().toString()).isValid()) return false;
             continue;
         }
         double number = 0;

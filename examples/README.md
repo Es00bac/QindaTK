@@ -76,6 +76,8 @@ typed-edge snapshots, accepts compatible connections, and shows the host's
 rejection for incompatible port types. `NodeGraphModel` separately supplies
 typed image evaluation, cycle validation, undo and topology persistence for
 hosts that use the toolkit's initial processing nodes.
+The [live node graph fixture](node-graph-live/Main.qml) wires that model to the
+editor and displays its actual blended pixel output from two solid-color nodes.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
 The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows

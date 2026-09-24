@@ -12,6 +12,7 @@ class NodeGraphModelTest : public QObject {
     Q_OBJECT
 private slots:
     void graphRendersAndReopens();
+    void solidColorNodeRenders();
 };
 
 void NodeGraphModelTest::graphRendersAndReopens()
@@ -71,6 +72,22 @@ void NodeGraphModelTest::graphRendersAndReopens()
     QVERIFY(!reopened.render(output, 4, 4).value(QStringLiteral("ok")).toBool());
     QVERIFY(reopened.undo());
     QVERIFY(reopened.render(output, 4, 4).value(QStringLiteral("ok")).toBool());
+}
+
+void NodeGraphModelTest::solidColorNodeRenders()
+{
+    NodeGraphModel graph;
+    const QString solid = graph.addNode(QStringLiteral("solid"), QStringLiteral("Teal"), 0, 0,
+                                        {{QStringLiteral("color"), QStringLiteral("#007f99")}});
+    const QString output = graph.addNode(QStringLiteral("output"), QStringLiteral("Output"), 200, 0);
+    QVERIFY(!solid.isEmpty());
+    QVERIFY(!output.isEmpty());
+    QVERIFY(!graph.connectPorts(solid, QStringLiteral("image"), output,
+                                QStringLiteral("image")).isEmpty());
+    QVERIFY2(graph.render(output, 2, 2).value(QStringLiteral("ok")).toBool(),
+             qPrintable(graph.lastError()));
+    QCOMPARE(graph.frame().pixelColor(1, 1), QColor(QStringLiteral("#007f99")));
+    QVERIFY(!graph.setParameters(solid, {{QStringLiteral("color"), QStringLiteral("not-a-color")}}));
 }
 
 QTEST_MAIN(NodeGraphModelTest)

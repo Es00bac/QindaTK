@@ -108,11 +108,11 @@ as though a later fix had already passed the earlier run.
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | active | [Trim, multicam and transition controls integrated; sequence edit backend pending](evidence/WP-071.md) |
 | [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [Caption model, burned PNG sequence, scopes and grade edit history integrated; video encoding and fidelity work remain](evidence/WP-072.md) |
 | [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | active | [Exact-tick composition, persistence, ordered effects and rendered frame output integrated; external assets, cache and export coverage remain](evidence/WP-073.md) |
-| [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | planned | — |
+| [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | active | [Typed graph model, editor and live rendering fixture integrated; broader operation set and qualification remain](evidence/WP-074.md) |
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | planned | — |
 | [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | planned | — |
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | planned | — |
-| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Host snapshot render queue view integrated; durable execution lane underway](evidence/WP-078.md) |
+| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view and durable execution core integrated; merged wiring and output fixture under verification](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
 | [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | planned | — |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | planned | — |

@@ -95,7 +95,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-074"></a>
 ## WP-074 — Implement node-based compositing
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041), [WP-070](phase-06-video.md#wp-070), [WP-073](phase-06-video.md#wp-073)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041), [WP-070](phase-06-video.md#wp-070), [WP-073](phase-06-video.md#wp-073)
 
 **Proposal scope:** [VID-13 NodeGraph](../proposed/07-video-motion.md#vid-13)
 

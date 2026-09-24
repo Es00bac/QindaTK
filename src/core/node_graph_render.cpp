@@ -77,6 +77,10 @@ QImage NodeGraphModel::evaluate(const QString &nodeId, const QSize &size,
             QPainter painter(&result);
             painter.drawImage(QPoint(0, 0), source);
         }
+    } else if (node.type == QLatin1String("solid")) {
+        result = blank(size);
+        result.fill(QColor(node.parameters.value(QStringLiteral("color"),
+                                  QStringLiteral("transparent")).toString()));
     } else if (node.type == QLatin1String("transform")) {
         const QImage source = input(QStringLiteral("image"));
         if (!source.isNull()) {

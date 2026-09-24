@@ -13,6 +13,7 @@ choose its own decoder, asset store and project format.
 | Type | Inputs | Output | Parameters | Evaluation |
 | --- | --- | --- | --- | --- |
 | `source` | — | `image` | optional `sourceId` string | Draw the host's tagged sRGB image at the canvas origin. |
+| `solid` | — | `image` | `color` CSS color string | Fill the output canvas with a solid color. |
 | `transform` | `image` | `image` | `x`, `y` pixel translation; `scale` (0.001–1000) | Draw a transformed input onto a transparent canvas. |
 | `blend` | `background`, `foreground` | `image` | `opacity` (0–1) | Source-over the foreground over the background. |
 | `output` | `image` | — | — | Publish the connected pixels. |
