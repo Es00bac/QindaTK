@@ -17,6 +17,7 @@ include(CTest)
 option(QINDATK_BUILD_EXAMPLES "Build the gallery and studio-shell examples" ON)
 option(QINDATK_BUILD_TOOLS "Build qtk-preview (headless render/dump tool)" ON)
 option(QINDATK_ENABLE_POPPLER_QT6 "Enable the optional Poppler Qt 6 PDF backend" ON)
+option(QINDATK_ENABLE_ALSA "Enable the optional ALSA audio device backend" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg Concurrent Network)
 find_package(SQLite3 REQUIRED)
@@ -41,6 +42,27 @@ if(QINDATK_ENABLE_POPPLER_QT6)
             message(STATUS "poppler-qt6 does not link with Qt ${Qt6_VERSION}; the Poppler PDF backend is off")
             set(POPPLER_QT6_FOUND FALSE)
         endif()
+    endif()
+endif()
+# AGENT-NOTE: the audio engine always builds with its silent built-in
+# reference devices; ALSA adds real Linux PCM devices (WP-060, D-088). Like
+# Poppler it is used only when the library actually links.
+if(QINDATK_ENABLE_ALSA)
+    pkg_check_modules(QINDATK_ALSA QUIET IMPORTED_TARGET alsa>=1.1)
+    if(QINDATK_ALSA_FOUND)
+        include(CheckCXXSourceCompiles)
+        set(CMAKE_REQUIRED_LIBRARIES PkgConfig::QINDATK_ALSA)
+        check_cxx_source_compiles("
+            #include <alsa/asoundlib.h>
+            int main() { snd_pcm_t *pcm = nullptr; return snd_pcm_open(&pcm, \"null\", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK); }"
+            QINDATK_ALSA_LINKS)
+        unset(CMAKE_REQUIRED_LIBRARIES)
+        if(NOT QINDATK_ALSA_LINKS)
+            set(QINDATK_ALSA_FOUND FALSE)
+        endif()
+    endif()
+    if(NOT QINDATK_ALSA_FOUND)
+        message(STATUS "QindaTK: ALSA not found or not linkable; the audio engine offers built-in devices only")
     endif()
 endif()
 # Native QFileDialog is an optional adapter; base qindatk stays QtQuick-only.

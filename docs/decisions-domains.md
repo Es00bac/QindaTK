@@ -24,3 +24,33 @@ mapping. The cursor stays within the outer centres.
 an edge cell selects that voxel. World positions are unchanged (`world =
 origin + orientation × index × spacing`). Views stay in voxel-index planes;
 oblique or patient-axis reslicing needs its own resampling contract.
+
+## D-088 — A queue-driven realtime engine with built-in silent devices and optional ALSA
+
+**Context.** WP-060 needs a functional audio engine: real device I/O,
+recording, offline render and measured callbacks, without making core QindaTK
+depend on an audio runtime, and with automated checks that never play sound.
+The machine offers ALSA 1.2, PipeWire 1.6, PulseAudio and Qt Multimedia.
+PipeWire needs a running server and silent tests would add nodes to the
+user's live graph; Qt Multimedia hides the callback and has no null device;
+ALSA runs without a server, reaches PipeWire through its `default` PCM, and
+its null/file plugins give real alsa-lib I/O into files.
+
+**Decision.** The engine core (`AudioEngine`, `AudioEngineProcessor`,
+`AudioRenderGraph`, `AudioSession`) is always built with two software
+reference devices, `builtin:null` and `builtin:loopback`, paced by the
+monotonic clock. ALSA is an optional backend (`QINDATK_ENABLE_ALSA`, used
+only when `libasound` links), linked privately like Poppler. The device
+thread only runs `process()`; it talks to the GUI through bounded lock-free
+SPSC rings and atomics, adopts immutable graphs by pointer and never frees
+them; devices open and close on a worker thread. Media decode is RIFF/WAVE in
+core; the session reuses `TimelineModel`, `AutomationModel`/`EngineSchedule`
+and `ResourceResolver` rather than defining its own edit, time or media
+identity model.
+
+**Consequences.** Core consumers build and test without any audio library;
+with ALSA, `libasound` becomes a runtime dependency of `libqindatk`. The same
+render function feeds devices and files, so offline output is the reference
+for device output. Other platform backends (PipeWire native, JACK, WASAPI,
+CoreAudio) implement `AudioDeviceBackend` and are qualified in WP-088; they
+change no engine, session or QML contract.
