@@ -99,7 +99,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-064"></a>
 ## WP-064 — Implement MIDI, patterns and clip launching
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-049](phase-03-authoring.md#wp-049), [WP-060](phase-05-audio.md#wp-060), [WP-061](phase-05-audio.md#wp-061)
+**Implementation lead:** Sol. **Status:** active (four MIDI editing/launch controls integrated; music backend pending). **Depends on:** [WP-049](phase-03-authoring.md#wp-049), [WP-060](phase-05-audio.md#wp-060), [WP-061](phase-05-audio.md#wp-061)
 
 **Proposal scope:** [AUD-22 PianoRoll](../proposed/06-audio-music.md#aud-22), [AUD-23 MidiControllerLane](../proposed/06-audio-music.md#aud-23), [AUD-24 StepSequencer](../proposed/06-audio-music.md#aud-24), [AUD-25 ClipLauncher](../proposed/06-audio-music.md#aud-25)
 

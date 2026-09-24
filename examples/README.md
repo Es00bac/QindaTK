@@ -46,6 +46,10 @@ The [waveform and spectrogram fixture](waveform-spectrogram/Main.qml)
 exercises `WaveformEditor` and `SpectrogramView` with exact sample selection
 requests and host-owned spectral snapshots.
 
+The [MIDI editing fixture](midi-editors/Main.qml) exercises `PianoRoll`,
+`MidiControllerLane`, `StepSequencer` and `ClipLauncher` with exact tick strings
+and host-owned pattern and launch state.
+
 ```
 P=build/dev/tools/preview/qtk-preview
 $P examples/gallery/Main.qml                       # on screen
