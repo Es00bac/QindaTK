@@ -33,6 +33,30 @@ TestCase {
         timeBoundaries: [root.startTicks, root.middleTicks, root.endTicks]
     }
 
+    Tk.EffectBrowser {
+        id: browser
+        y: 190
+        width: 360
+        height: 240
+        targetLayerId: "child"
+        revision: composition.revision
+        effects: [{effectId: "grayscale", label: "Grayscale", category: "Color", compatible: true},
+                  {effectId: "blur", label: "Blur", category: "Blur", compatible: false, reason: "Needs a GPU blur"}]
+        onEffectInsertRequested: function(requestId, effectId, targetLayerId, expectedRevision) {
+            root.insertResult = composition.insertEffect(targetLayerId, {effectId: effectId}, -1, expectedRevision)
+        }
+    }
+    property var insertResult: ({})
+    Tk.DopeSheet {
+        id: dope
+        y: 440
+        width: 480
+        height: 160
+        frameBoundaries: ["0", "10", "20", "30"]
+        layers: [{layerId: "ink", label: "Ink", exposures: [{exposureId: "e1", startTicks: "0", endTicks: "10", artworkId: "a1"}]}]
+    }
+    SignalSpy { id: exposureSpy; target: dope; signalName: "exposureEditRequested" }
+
     function init() {
         model.clearHistory()
         model.removeParameter("layer/child/x")
@@ -64,5 +88,37 @@ TestCase {
         verify(model.undo())
         const restored = composition.evaluate(middleTicks)
         compare(restored.layers.find(function(layer) { return layer.layerId === "child" }).matrix[4], 60)
+    }
+
+    function test_effect_browser_insert_is_one_layer_transaction() {
+        const effectsOf = function() {
+            return composition.layers.find(function(layer) { return layer.layerId === "child" }).effects || []
+        }
+        verify(browser.select("blur"))
+        verify(!browser.insert()) // incompatible rows are refused with their reason
+        verify(!composition.canUndo)
+        verify(browser.select("grayscale"))
+        verify(browser.insert())
+        verify(insertResult.ok)
+        compare(effectsOf().length, 1)
+        compare(effectsOf()[0].effectId, "grayscale")
+        verify(composition.canUndo)
+        verify(composition.undo())
+        compare(effectsOf().length, 0)
+        verify(!composition.canUndo)
+    }
+
+    function test_dope_sheet_gesture_emits_one_request() {
+        exposureSpy.clear()
+        verify(dope.select("ink", "e1"))
+        verify(dope.retimeSelected(1))
+        compare(exposureSpy.count, 1)
+        compare(exposureSpy.signalArguments[0][1], "retime")
+        compare(exposureSpy.signalArguments[0][4], "10")
+        compare(exposureSpy.signalArguments[0][5], "20")
+        dope.pendingRequestId = exposureSpy.signalArguments[0][0]
+        verify(!dope.retimeSelected(1)) // one request in flight per gesture
+        compare(exposureSpy.count, 1)
+        dope.pendingRequestId = ""
     }
 }

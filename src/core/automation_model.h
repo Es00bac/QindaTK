@@ -35,6 +35,12 @@ struct AutomationEditRequest {
     AutomationEditFields fields; // AddPoint template or initial values
 };
 
+// One member of an atomic multi-parameter transaction (applyBatch).
+struct AutomationBatchEdit {
+    AutomationEditRequest request;
+    AutomationEditFields input;
+};
+
 // AGENT-CONTRACT: AutomationModel owns automation curves keyed by stable
 // parameter IDs (WP-049). Points carry exact timeline ticks and canonical
 // unit values; AutomationLane/CurveEditor only request edits. A gesture is one
@@ -121,6 +127,12 @@ public:
     OperationError commit(const QString &operationId, QString *transactionId = nullptr,
                           QStringList *createdIds = nullptr);
     void cancel(const QString &operationId);
+    // AGENT-CONTRACT: MotionComposition path/tangent gestures edit x and y
+    // curves together. Every edit is planned against the committed curves
+    // (each parameter at most once); all are recorded as ONE history step,
+    // or nothing changes. An empty diff records nothing.
+    OperationError applyBatch(const QVector<AutomationBatchEdit> &edits, const QString &label,
+                              QString *transactionId = nullptr, QStringList *createdIds = nullptr);
 
     // ---- C++ record path (ticks from the transport/engine clock) ----
     void transportStarted(qint64 ticks);

@@ -1,11 +1,50 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+#include "../../src/core/automation_model.h"
 #include "../../src/core/motion_composition.h"
 #include "../../src/core/motion_frame_renderer.h"
 #include <QColorSpace>
+#include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
 
 using namespace QindaTK;
+
+namespace {
+bool addCurve(AutomationModel &model, const QString &id, double maximum, const QVariantList &keys)
+{
+    if (!model.addParameterMap({{QStringLiteral("id"), id}, {QStringLiteral("name"), id},
+            {QStringLiteral("dimension"), QStringLiteral("length")}, {QStringLiteral("unitId"), QStringLiteral("px")},
+            {QStringLiteral("minimum"), 0.0}, {QStringLiteral("maximum"), maximum}, {QStringLiteral("default"), 0.0},
+            {QStringLiteral("interpolation"), QStringLiteral("linear")}}).value(QStringLiteral("ok")).toBool())
+        return false;
+    for (const QVariant &entry : keys) {
+        const QVariantList pair = entry.toList();
+        if (!model.applyEdit({{QStringLiteral("kind"), QStringLiteral("addPoint")}, {QStringLiteral("parameterId"), id}},
+                             {{QStringLiteral("ticks"), pair.at(0)}, {QStringLiteral("value"), pair.at(1)},
+                              {QStringLiteral("interpolation"), QStringLiteral("linear")}}).value(QStringLiteral("ok")).toBool())
+            return false;
+    }
+    return true;
+}
+
+bool addSources(MotionFrameRenderer &renderer)
+{
+    QImage art(4, 3, QImage::Format_ARGB32_Premultiplied);
+    for (int y = 0; y < art.height(); ++y)
+        for (int x = 0; x < art.width(); ++x) art.setPixelColor(x, y, QColor(60 * x, 80 * y, 200));
+    QImage block(2, 2, QImage::Format_ARGB32_Premultiplied);
+    block.fill(QColor(20, 180, 90));
+    return renderer.setSourceImage(QStringLiteral("art"), art) && renderer.setSourceImage(QStringLiteral("block"), block);
+}
+
+QByteArray exported(MotionFrameRenderer &renderer, const QString &path)
+{
+    if (!renderer.exportPng(QUrl::fromLocalFile(path))) return {};
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+} // namespace
 
 class MotionFrameRendererTest final : public QObject {
     Q_OBJECT
@@ -110,6 +149,134 @@ private slots:
         composition.setLayers({layer({QVariantMap{{QStringLiteral("effectId"), QStringLiteral("invert")}}})});
         QVERIFY(renderer.render(QStringLiteral("0"), 1, 1).value(QStringLiteral("ok")).toBool());
         QCOMPARE(renderer.frame().pixelColor(0, 0), QColor(0, 255, 255));
+    }
+
+    void boundedCacheReusesFramesAndNeverReturnsStaleOnes()
+    {
+        AutomationModel model;
+        QVERIFY(addCurve(model, QStringLiteral("x"), 7, {QVariantList{QStringLiteral("0"), 0.0},
+                                                          QVariantList{QStringLiteral("10"), 4.0}}));
+        MotionComposition composition;
+        composition.setAnimationModel(&model);
+        composition.setLayers({QVariantMap{{QStringLiteral("layerId"), QStringLiteral("dot")},
+            {QStringLiteral("sourceId"), QStringLiteral("pixel")},
+            {QStringLiteral("animatedProperties"), QVariantMap{{QStringLiteral("x"), QStringLiteral("x")}}}}});
+        MotionFrameRenderer renderer;
+        renderer.setComposition(&composition);
+        QImage white(1, 1, QImage::Format_ARGB32_Premultiplied);
+        white.fill(Qt::white);
+        QVERIFY(renderer.setSourceImage(QStringLiteral("pixel"), white));
+        QSignalSpy invalidated(&renderer, &MotionFrameRenderer::contentInvalidated);
+
+        QVERIFY(!renderer.render(QStringLiteral("10"), 8, 1).value(QStringLiteral("cached")).toBool());
+        const QImage first = renderer.frame();
+        QCOMPARE(first.pixelColor(4, 0), QColor(Qt::white));
+        QVERIFY(renderer.render(QStringLiteral("10"), 8, 1).value(QStringLiteral("cached")).toBool());
+        QCOMPARE(renderer.frame(), first);
+        QCOMPARE(renderer.frameRevision(), renderer.contentRevision());
+
+        renderer.setFrameCacheLimit(2);
+        QVERIFY(renderer.render(QStringLiteral("0"), 8, 1).value(QStringLiteral("ok")).toBool());
+        QVERIFY(renderer.render(QStringLiteral("5"), 8, 1).value(QStringLiteral("ok")).toBool());
+        QCOMPARE(renderer.cachedFrameCount(), 2);
+        QVERIFY(!renderer.render(QStringLiteral("10"), 8, 1).value(QStringLiteral("cached")).toBool()); // evicted
+
+        const QString revision = renderer.contentRevision();
+        const QString keyId = model.points(QStringLiteral("x")).at(1).toMap().value(QStringLiteral("id")).toString();
+        QVERIFY(model.applyEdit({{QStringLiteral("kind"), QStringLiteral("setPoint")}, {QStringLiteral("parameterId"), QStringLiteral("x")},
+                                 {QStringLiteral("pointId"), keyId}}, {{QStringLiteral("value"), 6.0}}).value(QStringLiteral("ok")).toBool());
+        QVERIFY(invalidated.count() > 0);
+        QVERIFY(renderer.contentRevision() != revision);
+        QCOMPARE(renderer.cachedFrameCount(), 0);
+        QVERIFY(renderer.frameRevision() != renderer.contentRevision()); // displayed frame is now stale
+        QVERIFY(!renderer.render(QStringLiteral("10"), 8, 1).value(QStringLiteral("cached")).toBool());
+        QCOMPARE(renderer.frame().pixelColor(6, 0), QColor(Qt::white));
+        QCOMPARE(renderer.frame().pixelColor(4, 0).alpha(), 0);
+
+        QImage red(1, 1, QImage::Format_ARGB32_Premultiplied);
+        red.fill(Qt::red);
+        QVERIFY(renderer.setSourceImage(QStringLiteral("pixel"), red));
+        QCOMPARE(renderer.cachedFrameCount(), 0);
+        QVERIFY(!renderer.render(QStringLiteral("10"), 8, 1).value(QStringLiteral("cached")).toBool());
+        QCOMPARE(renderer.frame().pixelColor(6, 0), QColor(Qt::red));
+        QVERIFY(renderer.registerEffectProcessor(QStringLiteral("noop"), [](QImage &, const QVariantMap &, QString *) { return true; }));
+        QCOMPARE(renderer.cachedFrameCount(), 0);
+        renderer.setFrameCacheLimit(0);
+        renderer.render(QStringLiteral("10"), 8, 1);
+        QVERIFY(!renderer.render(QStringLiteral("10"), 8, 1).value(QStringLiteral("cached")).toBool());
+    }
+
+    void sampledFramesExportIdenticallyAfterSaveAndReopen()
+    {
+        AutomationModel animation;
+        QVERIFY(addCurve(animation, QStringLiteral("x"), 40, {QVariantList{QStringLiteral("0"), 2.0},
+                                                               QVariantList{QStringLiteral("100"), 30.0}}));
+        QVERIFY(addCurve(animation, QStringLiteral("opacity"), 1, {QVariantList{QStringLiteral("0"), 1.0},
+                                                                    QVariantList{QStringLiteral("100"), 0.4}}));
+        const QString firstKey = animation.points(QStringLiteral("x")).at(0).toMap().value(QStringLiteral("id")).toString();
+        QVERIFY(animation.applyEdit({{QStringLiteral("kind"), QStringLiteral("setHandle")}, {QStringLiteral("parameterId"), QStringLiteral("x")},
+            {QStringLiteral("pointId"), firstKey}, {QStringLiteral("side"), QStringLiteral("out")}},
+            {{QStringLiteral("handle"), QVariantMap{{QStringLiteral("x"), 0.2}, {QStringLiteral("y"), 0.9}}}}).value(QStringLiteral("ok")).toBool());
+        const auto pair = [](const char *comp, const char *local) {
+            return QVariantMap{{QStringLiteral("compTicks"), QString::fromLatin1(comp)},
+                               {QStringLiteral("layerTicks"), QString::fromLatin1(local)}};
+        };
+        MotionComposition composition;
+        composition.setAnimationModel(&animation);
+        composition.setLayers({
+            QVariantMap{{QStringLiteral("layerId"), QStringLiteral("group")},
+                {QStringLiteral("transform"), QVariantMap{{QStringLiteral("x"), 3.0}, {QStringLiteral("y"), 2.0},
+                    {QStringLiteral("scaleX"), 1.5}, {QStringLiteral("scaleY"), 1.5}}}},
+            QVariantMap{{QStringLiteral("layerId"), QStringLiteral("art")}, {QStringLiteral("parentLayerId"), QStringLiteral("group")},
+                {QStringLiteral("sourceId"), QStringLiteral("art")}, {QStringLiteral("zIndex"), 2},
+                {QStringLiteral("timeOffsetTicks"), QStringLiteral("20")},
+                {QStringLiteral("timeRemap"), QVariantList{pair("0", "0"), pair("60", "100"), pair("80", "100")}},
+                {QStringLiteral("animatedProperties"), QVariantMap{{QStringLiteral("x"), QStringLiteral("x")},
+                                                                   {QStringLiteral("opacity"), QStringLiteral("opacity")}}},
+                {QStringLiteral("effects"), QVariantList{
+                    QVariantMap{{QStringLiteral("effectId"), QStringLiteral("brightness")},
+                                {QStringLiteral("parameters"), QVariantMap{{QStringLiteral("amount"), 0.25}}}},
+                    QVariantMap{{QStringLiteral("effectId"), QStringLiteral("grayscale")}}}}},
+            QVariantMap{{QStringLiteral("layerId"), QStringLiteral("block")}, {QStringLiteral("sourceId"), QStringLiteral("block")},
+                {QStringLiteral("zIndex"), 1}, {QStringLiteral("transform"), QVariantMap{{QStringLiteral("x"), 10.0}, {QStringLiteral("y"), 12.0}}}}});
+        MotionFrameRenderer renderer;
+        renderer.setComposition(&composition);
+        QVERIFY(addSources(renderer));
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QStringList ticks{QStringLiteral("0"), QStringLiteral("20"), QStringLiteral("35"), QStringLiteral("50"),
+                                QStringLiteral("80"), QStringLiteral("100"), QStringLiteral("250")};
+        QList<QImage> frames;
+        QList<QByteArray> pngs;
+        for (const QString &time : ticks) {
+            QVERIFY2(renderer.render(time, 48, 32).value(QStringLiteral("ok")).toBool(), qPrintable(renderer.lastError()));
+            frames.push_back(renderer.frame());
+            pngs.push_back(exported(renderer, directory.filePath(QStringLiteral("a-%1.png").arg(time))));
+            QVERIFY(!pngs.last().isEmpty());
+        }
+        QVERIFY(frames.at(1) != frames.at(3));  // the remapped key animation moves the layer
+        QCOMPARE(frames.at(4), frames.at(5));    // remap freeze holds layer tick 100
+        renderer.clearFrameCache();
+        for (qsizetype i = 0; i < ticks.size(); ++i) {
+            QVERIFY(!renderer.render(ticks.at(i), 48, 32).value(QStringLiteral("cached")).toBool());
+            QCOMPARE(renderer.frame(), frames.at(i));
+        }
+
+        const QUrl manifest = QUrl::fromLocalFile(directory.filePath(QStringLiteral("motion.qtmotion")));
+        QVERIFY(composition.saveToFile(manifest));
+        AutomationModel reopenedAnimation;
+        MotionComposition reopened;
+        reopened.setAnimationModel(&reopenedAnimation);
+        QVERIFY(reopened.loadFromFile(manifest).value(QStringLiteral("ok")).toBool());
+        MotionFrameRenderer reopenedRenderer;
+        reopenedRenderer.setComposition(&reopened);
+        QVERIFY(addSources(reopenedRenderer));
+        for (qsizetype i = 0; i < ticks.size(); ++i) {
+            QVERIFY(reopenedRenderer.render(ticks.at(i), 48, 32).value(QStringLiteral("ok")).toBool());
+            QCOMPARE(reopenedRenderer.frame(), frames.at(i));
+            QCOMPARE(exported(reopenedRenderer, directory.filePath(QStringLiteral("b-%1.png").arg(ticks.at(i)))), pngs.at(i));
+        }
     }
 };
 

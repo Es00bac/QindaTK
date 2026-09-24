@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "motion_frame_renderer.h"
+#include "automation_model.h"
 #include "motion_composition.h"
+#include "timeline_time.h"
 #include "tracking_roto_model.h"
 
 #include <QColorSpace>
@@ -10,6 +12,7 @@
 #include <QPainter>
 #include <QSaveFile>
 #include <QTransform>
+#include <algorithm>
 
 namespace QindaTK {
 namespace {
@@ -32,15 +35,97 @@ MotionFrameRenderer::MotionFrameRenderer(QObject *parent) : QObject(parent) {}
 void MotionFrameRenderer::setComposition(MotionComposition *composition)
 {
     if (m_composition == composition) return;
+    for (const auto &link : std::as_const(m_compositionLinks)) disconnect(link);
+    m_compositionLinks.clear();
     m_composition = composition;
+    if (composition) {
+        m_compositionLinks = {
+            connect(composition, &MotionComposition::layersChanged, this, &MotionFrameRenderer::invalidate),
+            connect(composition, &MotionComposition::animationModelChanged, this, [this] {
+                watchAnimation();
+                invalidate();
+            })};
+    }
+    watchAnimation();
+    invalidate();
     emit compositionChanged();
+}
+
+void MotionFrameRenderer::watchAnimation()
+{
+    for (const auto &link : std::as_const(m_animationLinks)) disconnect(link);
+    m_animationLinks.clear();
+    AutomationModel *model = m_composition ? m_composition->animationModel() : nullptr;
+    if (!model) return;
+    // Gesture previews and record passes change sampled values between revisions.
+    m_animationLinks = {
+        connect(model, &AutomationModel::revisionChanged, this, &MotionFrameRenderer::invalidate),
+        connect(model, &AutomationModel::pointsChanged, this, &MotionFrameRenderer::invalidate),
+        connect(model, &AutomationModel::parametersChanged, this, &MotionFrameRenderer::invalidate),
+        connect(model, &AutomationModel::contentReset, this, &MotionFrameRenderer::invalidate)};
 }
 
 void MotionFrameRenderer::setRotoModel(TrackingRotoModel *model)
 {
     if (m_rotoModel == model) return;
+    for (const auto &link : std::as_const(m_rotoLinks)) disconnect(link);
+    m_rotoLinks.clear();
     m_rotoModel = model;
+    if (model) {
+        m_rotoLinks = {connect(model, &TrackingRotoModel::changed, this, &MotionFrameRenderer::invalidate),
+                       connect(model, &TrackingRotoModel::analysisChanged, this, &MotionFrameRenderer::invalidate)};
+    }
+    invalidate();
     emit rotoModelChanged();
+}
+
+void MotionFrameRenderer::invalidate()
+{
+    ++m_contentRevision;
+    if (!m_cache.isEmpty()) {
+        m_cache.clear();
+        emit cacheChanged();
+    }
+    emit contentInvalidated();
+}
+
+void MotionFrameRenderer::clearFrameCache()
+{
+    if (m_cache.isEmpty()) return;
+    m_cache.clear();
+    emit cacheChanged();
+}
+
+void MotionFrameRenderer::setFrameCacheLimit(int limit)
+{
+    limit = std::clamp(limit, 0, kMaxCachedFrames);
+    if (m_cacheLimit == limit) return;
+    m_cacheLimit = limit;
+    trimCache();
+    emit cacheChanged();
+}
+
+void MotionFrameRenderer::trimCache()
+{
+    qsizetype bytes = 0;
+    for (qsizetype i = 0; i < m_cache.size(); ++i) {
+        bytes += m_cache.at(i).image.sizeInBytes();
+        if (i >= m_cacheLimit || (i > 0 && bytes > kMaxCacheBytes)) {
+            m_cache.resize(i);
+            return;
+        }
+    }
+}
+
+void MotionFrameRenderer::publish(const QImage &image, const QString &ticks)
+{
+    {
+        QMutexLocker lock(&m_frameMutex);
+        m_frame = image;
+    }
+    m_frameTicks = ticks;
+    m_frameRevision = m_contentRevision;
+    emit frameChanged();
 }
 
 void MotionFrameRenderer::setError(const QString &error)
@@ -70,6 +155,7 @@ bool MotionFrameRenderer::setSourceImage(const QString &sourceId, const QImage &
     }
     m_sourceBytes += srgb.sizeInBytes() - oldBytes;
     m_sources.insert(sourceId, srgb);
+    invalidate();
     setError({});
     return true;
 }
@@ -77,7 +163,9 @@ bool MotionFrameRenderer::setSourceImage(const QString &sourceId, const QImage &
 bool MotionFrameRenderer::registerEffectProcessor(const QString &effectId,
                                                  MotionEffectRegistry::Processor processor)
 {
-    return m_effects.registerProcessor(effectId, std::move(processor));
+    if (!m_effects.registerProcessor(effectId, std::move(processor))) return false;
+    invalidate();
+    return true;
 }
 
 bool MotionFrameRenderer::loadSource(const QString &sourceId, const QUrl &url)
@@ -109,6 +197,7 @@ void MotionFrameRenderer::removeSource(const QString &sourceId)
     if (it == m_sources.end()) return;
     m_sourceBytes -= it->sizeInBytes();
     m_sources.erase(it);
+    invalidate();
 }
 
 QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int height)
@@ -116,6 +205,21 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
     if (!m_composition || width < 1 || height < 1 || qint64(width) * height > kMaxPixels) {
         setError(QStringLiteral("A composition and a frame of at most 16 megapixels are required."));
         return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), m_error}};
+    }
+    // A cached frame belongs to the current content revision: invalidate()
+    // clears the cache, so a hit can never return a stale composite.
+    const auto exact = TimelineTime::parseDecimal(timeTicks);
+    const QString key = exact ? TimelineTime::toDecimal(*exact) : QString();
+    for (qsizetype i = 0; exact && i < m_cache.size(); ++i) {
+        if (m_cache.at(i).ticks != key || m_cache.at(i).width != width || m_cache.at(i).height != height) continue;
+        m_cache.move(i, 0);
+        const CachedFrame hit = m_cache.first();
+        publish(hit.image, timeTicks);
+        setError({});
+        return {{QStringLiteral("ok"), true}, {QStringLiteral("timeTicks"), timeTicks},
+                {QStringLiteral("width"), width}, {QStringLiteral("height"), height},
+                {QStringLiteral("drawnLayers"), hit.drawn}, {QStringLiteral("missingSourceIds"), hit.missing},
+                {QStringLiteral("cached"), true}, {QStringLiteral("contentRevision"), contentRevision()}};
     }
     const QVariantMap evaluation = m_composition->evaluate(timeTicks);
     if (!evaluation.value(QStringLiteral("ok")).toBool()) {
@@ -206,15 +310,17 @@ QVariantMap MotionFrameRenderer::render(const QString &timeTicks, int width, int
         ++drawn;
     }
     painter.end();
-    {
-        QMutexLocker lock(&m_frameMutex);
-        m_frame = output;
+    publish(output, timeTicks);
+    if (exact && m_cacheLimit > 0) {
+        m_cache.prepend(CachedFrame{key, width, height, output, drawn, missing});
+        trimCache();
+        emit cacheChanged();
     }
     setError({});
-    emit frameChanged();
     return {{QStringLiteral("ok"), true}, {QStringLiteral("timeTicks"), timeTicks},
             {QStringLiteral("width"), width}, {QStringLiteral("height"), height},
-            {QStringLiteral("drawnLayers"), drawn}, {QStringLiteral("missingSourceIds"), missing}};
+            {QStringLiteral("drawnLayers"), drawn}, {QStringLiteral("missingSourceIds"), missing},
+            {QStringLiteral("cached"), false}, {QStringLiteral("contentRevision"), contentRevision()}};
 }
 
 bool MotionFrameRenderer::exportPng(const QUrl &url)

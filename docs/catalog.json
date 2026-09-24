@@ -6675,7 +6675,7 @@
       "name": "CompositionView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "",
+      "description": "AGENT-CONTRACT: with timeTicks and a frame size set, the view requests that exact frame from MotionFrameRenderer and re-requests it after every contentInvalidated; a failed re-render keeps the previous frame, flagged by frameStale. Without timeTicks the host drives render() itself.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/CompositionView.qml",
@@ -6689,6 +6689,38 @@
           "required": false
         },
         {
+          "name": "timeTicks",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameWidth",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameHeight",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameStale",
+          "type": "bool",
+          "default": "renderer !== null && renderer.frameTicks.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Composited motion frame\")",
@@ -6698,7 +6730,12 @@
         }
       ],
       "signals": [],
-      "methods": [],
+      "methods": [
+        {
+          "name": "requestFrame",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -18516,7 +18553,7 @@
       "name": "MotionPathOverlay",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: host supplies the composition, sample times and stable key IDs; this control only displays positions and emits selection requests.",
+      "description": "AGENT-CONTRACT: host supplies the composition, sample times and stable key IDs (keyPoints ticks are composition ticks listed in sampleTicks). A key or tangent drag calls MotionComposition.movePathKey/setPathTangent once, at release: one AutomationModel transaction per gesture. Selection is a request.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/MotionPathOverlay.qml",
@@ -18562,9 +18599,57 @@
           "required": false
         },
         {
+          "name": "frameWidth",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameHeight",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "pathPoints",
           "type": "var",
           "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handles",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragState",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -18576,12 +18661,28 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "worldView",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
         {
           "name": "keySelectionRequested",
           "parameters": "string layerId, string keyId, string timeTicks"
+        },
+        {
+          "name": "pathEditCommitted",
+          "parameters": "string transactionId"
+        },
+        {
+          "name": "pathEditRejected",
+          "parameters": "string reason"
         }
       ],
       "methods": [
@@ -18590,12 +18691,48 @@
           "parameters": ""
         },
         {
+          "name": "keyById",
+          "parameters": "id"
+        },
+        {
+          "name": "samplePoint",
+          "parameters": "key"
+        },
+        {
+          "name": "refreshHandles",
+          "parameters": ""
+        },
+        {
           "name": "mapPoint",
           "parameters": "point"
         },
         {
+          "name": "unmapPoint",
+          "parameters": "x, y"
+        },
+        {
           "name": "requestNearestKeyAt",
           "parameters": "x, y"
+        },
+        {
+          "name": "hitTest",
+          "parameters": "x, y"
+        },
+        {
+          "name": "beginDrag",
+          "parameters": "x, y"
+        },
+        {
+          "name": "updateDrag",
+          "parameters": "x, y"
+        },
+        {
+          "name": "finishDrag",
+          "parameters": ""
+        },
+        {
+          "name": "cancelDrag",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -19950,7 +20087,7 @@
       "name": "OnionSkinView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: host supplies exact adjacent/current times; renderer owns evaluated pixels and this view retains tinted display snapshots only.",
+      "description": "AGENT-CONTRACT: host supplies exact adjacent/current times; renderer owns evaluated pixels and this view retains tinted display snapshots only. Edits and retiming mark the snapshots stale and queue one refresh; they are never serialized or exported.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/OnionSkinView.qml",
@@ -20023,6 +20160,14 @@
           "name": "lastError",
           "type": "string",
           "default": "onion.lastError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stale",
+          "type": "bool",
+          "default": "onion.stale",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -49366,14 +49511,14 @@
       "name": "MotionComposition",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: MotionComposition saves layer records and AutomationModel keys; MotionFrameRenderer keeps decoded pixels external behind sourceId and executes each layer's ordered effects before transform/composition.",
+      "description": "AGENT-CONTRACT: MotionComposition saves layer records and AutomationModel keys; MotionFrameRenderer keeps decoded pixels external behind sourceId and executes each layer's ordered effects before transform/composition. AGENT-CONTRACT: every edit gesture is one transaction. Key, path and tangent edits are AutomationModel transactions (applyBatch spans x and y); layer-record edits (insertEffect) use this object's bounded history, which a host replacement through setLayers()/loadContent() clears. The host orders the two histories (docs/controls.md, \"Motion and keyframe surfaces\").",
       "singleton": false,
       "attached": null,
       "file": "src/core/motion_composition.h",
       "properties": [
         {
           "name": "animationModel",
-          "type": "AutomationModel *",
+          "type": "QindaTK::AutomationModel *",
           "default": "",
           "readonly": false,
           "constant": false
@@ -49391,6 +49536,27 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -49405,6 +49571,14 @@
         {
           "name": "evaluationChanged",
           "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "layerEditCommitted",
+          "parameters": "const QString &transactionId, const QString &label"
         }
       ],
       "methods": [
@@ -49442,6 +49616,36 @@
           "name": "loadFromFile",
           "returns": "QVariantMap",
           "parameters": "const QUrl &url"
+        },
+        {
+          "name": "insertEffect",
+          "returns": "QVariantMap",
+          "parameters": "const QString &layerId, const QVariantMap &effect, int index = -1, const QString &expectedRevision = QString("
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "pathHandles",
+          "returns": "QVariantMap",
+          "parameters": "const QString &layerId, const QString &timeTicks"
+        },
+        {
+          "name": "movePathKey",
+          "returns": "QVariantMap",
+          "parameters": "const QString &layerId, const QString &timeTicks, double worldX, double worldY"
+        },
+        {
+          "name": "setPathTangent",
+          "returns": "QVariantMap",
+          "parameters": "const QString &layerId, const QString &timeTicks, const QString &side, double worldX, double worldY"
         }
       ],
       "enums": {},
@@ -49492,7 +49696,7 @@
       "name": "MotionFrameRenderer",
       "kind": "cpp",
       "base": "QObject",
-      "description": "CPU source-over compositor for MotionComposition's evaluated 2D layers. Hosts supply decoded QImages; loadSource is a local-file convenience.",
+      "description": "CPU source-over compositor for MotionComposition's evaluated 2D layers. Hosts supply decoded QImages; loadSource is a local-file convenience. AGENT-GUARD: every input that can change pixels (layers, animation curves and previews, sources, effect processors, roto masks) must call invalidate(); otherwise the bounded frame cache returns stale frames.",
       "singleton": false,
       "attached": null,
       "file": "src/core/motion_frame_renderer.h",
@@ -49517,6 +49721,41 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "contentRevision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frameTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frameRevision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frameCacheLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "cachedFrameCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -49534,6 +49773,14 @@
         },
         {
           "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentInvalidated",
+          "parameters": ""
+        },
+        {
+          "name": "cacheChanged",
           "parameters": ""
         }
       ],
@@ -49557,6 +49804,11 @@
           "name": "exportPng",
           "returns": "bool",
           "parameters": "const QUrl &url"
+        },
+        {
+          "name": "clearFrameCache",
+          "returns": "void",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -49573,7 +49825,7 @@
       "name": "MotionOnionSkinItem",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
-      "description": "AGENT-CONTRACT: MotionFrameRenderer owns exact-tick layer evaluation and source-over composition; this item only retains/tints adjacent display frames.",
+      "description": "AGENT-CONTRACT: MotionFrameRenderer owns exact-tick layer evaluation and source-over composition; this item only retains/tints adjacent display frames. Retained frames go stale when the request or renderer content changes; a queued refresh replaces all three together or keeps the previous set.",
       "singleton": false,
       "attached": null,
       "file": "src/core/motion_onion_skin_item.h",
@@ -49647,6 +49899,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "stale",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -49664,6 +49923,10 @@
         },
         {
           "name": "refreshed",
+          "parameters": ""
+        },
+        {
+          "name": "staleChanged",
           "parameters": ""
         }
       ],

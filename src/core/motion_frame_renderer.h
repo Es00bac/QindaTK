@@ -18,14 +18,30 @@ class MotionComposition;
 
 // CPU source-over compositor for MotionComposition's evaluated 2D layers.
 // Hosts supply decoded QImages; loadSource is a local-file convenience.
+// AGENT-GUARD: every input that can change pixels (layers, animation curves
+// and previews, sources, effect processors, roto masks) must call
+// invalidate(); otherwise the bounded frame cache returns stale frames.
 class MotionFrameRenderer : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QindaTK::MotionComposition *composition READ composition WRITE setComposition NOTIFY compositionChanged)
     Q_PROPERTY(QindaTK::TrackingRotoModel *rotoModel READ rotoModel WRITE setRotoModel NOTIFY rotoModelChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
+    Q_PROPERTY(QString contentRevision READ contentRevision NOTIFY contentInvalidated)
+    Q_PROPERTY(QString frameTicks READ frameTicks NOTIFY frameChanged)
+    Q_PROPERTY(QString frameRevision READ frameRevision NOTIFY frameChanged)
+    Q_PROPERTY(int frameCacheLimit READ frameCacheLimit WRITE setFrameCacheLimit NOTIFY cacheChanged)
+    Q_PROPERTY(int cachedFrameCount READ cachedFrameCount NOTIFY cacheChanged)
 public:
+    static constexpr int kMaxCachedFrames = 64;
+    static constexpr qsizetype kMaxCacheBytes = 128 * 1024 * 1024;
     explicit MotionFrameRenderer(QObject *parent = nullptr);
+    QString contentRevision() const { return QString::number(m_contentRevision); }
+    QString frameTicks() const { return m_frameTicks; }
+    QString frameRevision() const { return QString::number(m_frameRevision); }
+    int frameCacheLimit() const { return m_cacheLimit; }
+    void setFrameCacheLimit(int limit);
+    int cachedFrameCount() const { return int(m_cache.size()); }
     MotionComposition *composition() const { return m_composition; }
     void setComposition(MotionComposition *composition);
     TrackingRotoModel *rotoModel() const { return m_rotoModel; }
@@ -38,21 +54,42 @@ public:
     Q_INVOKABLE void removeSource(const QString &sourceId);
     Q_INVOKABLE QVariantMap render(const QString &timeTicks, int width, int height);
     Q_INVOKABLE bool exportPng(const QUrl &url);
+    Q_INVOKABLE void clearFrameCache();
 signals:
     void compositionChanged();
     void rotoModelChanged();
     void frameChanged();
     void errorChanged();
+    void contentInvalidated();
+    void cacheChanged();
 private:
+    struct CachedFrame {
+        QString ticks; // canonical decimal
+        int width = 0;
+        int height = 0;
+        QImage image;
+        int drawn = 0;
+        QStringList missing;
+    };
     void setError(const QString &error);
+    void invalidate();
+    void watchAnimation();
+    void publish(const QImage &image, const QString &ticks);
+    void trimCache();
     QPointer<MotionComposition> m_composition;
     QPointer<TrackingRotoModel> m_rotoModel;
+    QList<QMetaObject::Connection> m_compositionLinks, m_animationLinks, m_rotoLinks;
     QHash<QString, QImage> m_sources;
     MotionEffectRegistry m_effects;
     qsizetype m_sourceBytes = 0;
     mutable QMutex m_frameMutex;
     QImage m_frame;
     QString m_error;
+    QString m_frameTicks;
+    quint64 m_contentRevision = 1;
+    quint64 m_frameRevision = 0;
+    QList<CachedFrame> m_cache; // most recently used first; current content only
+    int m_cacheLimit = 8;
 };
 
 class MotionFrameItem : public QQuickPaintedItem {
