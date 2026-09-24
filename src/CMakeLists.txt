@@ -113,7 +113,7 @@ qt_add_qml_module(qindatk
         core/audio_graph.cpp core/audio_graph.h
         core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp
         core/audio_engine.h core/audio_engine_p.h
-        core/audio_session.cpp core/audio_session.h
+        core/audio_session.cpp core/audio_session_transport.cpp core/audio_session.h
         core/uri_validator.cpp core/uri_validator.h
         core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h
@@ -176,6 +176,19 @@ qt_add_qml_module(qindatk
         core/file_asset_backend.cpp
         core/pdf_asset_backend.cpp core/pdf_asset_backend.h
         core/video_asset_backend.cpp core/video_asset_backend.h
+        core/media_source_info.cpp core/media_source_info.h
+        core/media_decoder.h core/media_ffmpeg_p.h
+        core/media_decoder_ffmpeg.cpp core/media_decoder_frames.cpp core/media_decoder_audio.cpp
+        core/media_encoder.h core/media_encoder_ffmpeg.cpp
+        core/media_backend_stub.cpp
+        core/media_program.cpp core/media_program.h core/media_program_render.cpp
+        core/media_export.cpp core/media_export.h core/media_export_jobs.cpp
+        core/media_decode_worker.cpp core/media_decode_worker.h
+        core/media_playback_engine.cpp core/media_playback_engine.h
+        core/media_player.cpp core/media_player.h
+        core/media_frame_view.cpp core/media_frame_view.h
+        core/media_catalog.cpp core/media_catalog.h core/media_catalog_jobs.cpp
+        core/media_frame_feed.cpp core/media_frame_feed.h
         core/video_scopes_model.cpp core/video_scopes_model.h
         core/caption_track_model.cpp core/caption_track_model.h
         core/caption_track_codec.cpp core/caption_track_codec.h
@@ -305,7 +318,10 @@ qt_add_qml_module(qindatk
         core/icon_data.cpp core/icon_data.h
         core/meter.cpp core/meter.h
         core/audio_meter_model.cpp core/audio_meter_model.h
+        core/audio_meter_tap.cpp core/audio_meter_tap.h
+        core/audio_loudness_model.cpp core/audio_loudness_model.h
         core/audio_parameter_map.cpp core/audio_parameter_map.h
+        core/audio_parameter_binding.cpp core/audio_parameter_binding.h
         core/layout_attached.cpp core/layout_attached.h
         core/layout_info.cpp core/layout_info.h
         core/screen_work_area.cpp core/screen_work_area.h
@@ -315,6 +331,8 @@ qt_add_qml_module(qindatk
         core/canvas_object.h
         core/canvas_geometry.cpp core/canvas_geometry.h
         core/canvas_path.cpp core/canvas_path.h
+        core/canvas_path_boolean.cpp core/canvas_path_boolean.h
+        core/canvas_appearance.cpp core/canvas_appearance_codec.cpp core/canvas_appearance.h
         core/canvas_svg_export.cpp core/canvas_svg_export.h
         core/canvas_document.cpp core/canvas_document.h
         core/canvas_document_state.h
@@ -329,6 +347,7 @@ qt_add_qml_module(qindatk
         core/canvas_document_scene_format.cpp
         core/canvas_document_qml.cpp
         core/canvas_document_path.cpp
+        core/canvas_document_boolean.cpp
         core/canvas_parametric.cpp core/canvas_parametric.h
         core/canvas_document_parametric.cpp
         core/canvas_document_contours.cpp
@@ -339,10 +358,13 @@ qt_add_qml_module(qindatk
         core/canvas_layer_tree_model.cpp core/canvas_layer_tree_commands.cpp core/canvas_layer_tree_model.h
         core/canvas_artboard_model.cpp core/canvas_artboard_model.h
         core/canvas_alignment_model.cpp core/canvas_alignment_model.h
-        core/canvas_style_model.cpp core/canvas_style_model.h
+        core/canvas_style_model.cpp core/canvas_style_model_selection.cpp core/canvas_style_model.h
+        core/canvas_appearance_model.cpp core/canvas_appearance_model.h
         core/canvas_tools.cpp
         core/canvas_render.h
         core/canvas_painter.cpp
+        core/canvas_appearance_paint.cpp core/canvas_appearance_paint.h
+        core/canvas_effects.cpp core/canvas_effects.h
         core/canvas_tessellator.cpp
         core/render_surface_adapter.cpp core/render_surface_adapter.h
         core/canvas_view_state.cpp core/canvas_view_state.h
@@ -379,6 +401,12 @@ if(QINDATK_ENABLE_ALSA AND QINDATK_ALSA_FOUND)
     target_sources(qindatk PRIVATE core/audio_device_alsa.cpp)
     target_link_libraries(qindatk PRIVATE PkgConfig::QINDATK_ALSA)
     target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_ALSA=1)
+endif()
+# The media backend's FFmpeg headers stay inside qindatk's .cpp files and
+# media_ffmpeg_p.h, so consumers never need them (D-096).
+if(QINDATK_ENABLE_FFMPEG AND FFMPEG_FOUND)
+    target_link_libraries(qindatk PRIVATE PkgConfig::FFMPEG)
+    target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_FFMPEG=1)
 endif()
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)

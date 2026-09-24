@@ -4,6 +4,7 @@
 #include "audio_device.h"
 #include "audio_engine.h"
 #include "audio_graph.h"
+#include "audio_meter_tap.h"
 #include "audio_ring.h"
 
 #include <QString>
@@ -76,6 +77,10 @@ public:
     void closeAfterStop();
     EngineTransportState stateAfterStop() const;
 
+    // ---- meter consumer (GUI thread) ----
+    // Output measurement after each rendered period; null without output.
+    AudioMeterTap *outputTap() { return m_outputTap.get(); }
+
     // ---- take writer side ----
     AudioSpscRing<float> &capture() { return m_capture; }
     quint64 takeSerial() const { return m_takeSerial.load(std::memory_order_acquire); }
@@ -100,6 +105,7 @@ private:
     AudioSpscRing<EngineEvent> m_events{kEventCapacity};
     AudioSpscRing<float> m_capture;
     std::unique_ptr<double[]> m_scratch;
+    std::unique_ptr<AudioMeterTap> m_outputTap;
     std::atomic<const AudioRenderGraph *> m_pending{nullptr};
     std::atomic<quint64> m_adopted{0};
     const AudioRenderGraph *m_graph = nullptr;

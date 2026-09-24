@@ -3,6 +3,8 @@
 
 #include "audio_device.h"
 #include "audio_graph.h"
+#include "audio_loudness_model.h"
+#include "audio_meter_model.h"
 #include "transport_model.h"
 
 #include <QFutureWatcher>
@@ -26,11 +28,15 @@ struct EngineEvent;
 // Device thread: AudioEngineProcessor only. The engine is the
 // TransportAdapter of its own `transport` model, renders the AudioRenderGraph
 // offered by its session, and reports finished takes; it never selects a
-// device by index and never replaces a lost device on its own.
+// device by index and never replaces a lost device on its own. Its output is
+// measured on the device thread (AudioMeterTap) and drained each poll into
+// `outputMeter` (peak/RMS) and `outputLoudness` (BS.1770) on the GUI thread.
 class AudioEngine : public TransportAdapter {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
+    Q_PROPERTY(QindaTK::AudioMeterModel *outputMeter READ outputMeter CONSTANT)
+    Q_PROPERTY(QindaTK::AudioLoudnessModel *outputLoudness READ outputLoudness CONSTANT)
     Q_PROPERTY(QVariantMap activeConfiguration READ activeConfiguration NOTIFY stateChanged)
     Q_PROPERTY(QString state READ stateName NOTIFY stateChanged)
     Q_PROPERTY(QString stateMessage READ stateMessage NOTIFY stateChanged)
@@ -64,6 +70,8 @@ public:
     State stateValue() const { return m_state; }
 
     QVariantList devices() const { return m_devices; }
+    AudioMeterModel *outputMeter() const { return m_outputMeter; }
+    AudioLoudnessModel *outputLoudness() const { return m_outputLoudness; }
     QVariantMap activeConfiguration() const;
     QString stateName() const;
     QString stateMessage() const { return m_stateMessage; }
@@ -106,6 +114,7 @@ private:
     void finishJob();
     QString startRun(AudioDeviceStreamPtr stream, const AudioDeviceConfig &config, int previousRate);
     void drain(Run &run);
+    void drainMeters(Run &run);
     void poll();
     void handleEvent(Run &run, const EngineEvent &event);
     void takeWritten(const QString &key, const QString &path, qint64 frames, const QString &error);
@@ -122,6 +131,9 @@ private:
     QList<AudioDeviceBackendPtr> m_backends;
     std::shared_ptr<BuiltinAudioBackend> m_builtin;
     QVariantList m_devices;
+    AudioMeterModel *m_outputMeter = nullptr;
+    AudioLoudnessModel *m_outputLoudness = nullptr;
+    quint64 m_meterDropped = 0; // blocks the current run's tap reported dropped
     std::optional<AudioDeviceConfig> m_active;
     QString m_activeName;
     State m_state = State::Stopped;

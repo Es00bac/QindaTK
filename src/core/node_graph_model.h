@@ -67,6 +67,9 @@ public:
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
     bool setSourceImage(const QString &nodeId, const QImage &image);
+    // Forgets a source node's pixels (e.g. its media went offline), so the
+    // next render reports the source unavailable instead of stale pixels.
+    Q_INVOKABLE bool clearSourceImage(const QString &nodeId);
     Q_INVOKABLE QVariantMap render(const QString &outputNodeId, int width, int height);
     Q_INVOKABLE bool saveToFile(const QString &path);
     Q_INVOKABLE bool loadFromFile(const QString &path);

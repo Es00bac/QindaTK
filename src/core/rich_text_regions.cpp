@@ -154,11 +154,15 @@ std::optional<Position> RichTextLayout::framePosition(const QString &frameId)
         if (item.frameId != frameId) continue;
         if (item.kind == PageItem::Lines) {
             const Paragraph *p = m_document->paragraph(item.block);
+            if (!p) continue;
             const ParagraphMetrics &m = itemMetrics(*p, item);
+            if (item.first >= m.lines.size()) continue;
             return Position{p->id, modelOffset(m, m.lines.at(item.first).start)};
         }
-        if (item.kind != PageItem::TableRows || item.headerRepeat) continue;
-        const auto g = tableGeometry(*m_document->table(item.block), item.width);
+        const Table *table = item.kind == PageItem::TableRows && !item.headerRepeat ? m_document->table(item.block) : nullptr;
+        if (!table) continue;
+        const auto g = tableGeometry(*table, item.width);
+        if (item.first + item.count > g->rows) continue;
         for (const auto &visible : g->visibleCells(item)) {
             if (visible.start >= visible.end) continue;
             const auto &line = visible.cell->lines.at(visible.start);

@@ -42,6 +42,8 @@ qint64 rescaled(qint64 value, int from, int to)
 AudioEngine::AudioEngine(QObject *parent)
     : TransportAdapter(parent),
       m_builtin(std::make_shared<BuiltinAudioBackend>()),
+      m_outputMeter(new AudioMeterModel(this)),
+      m_outputLoudness(new AudioLoudnessModel(this)),
       m_sharedDirectory(std::make_shared<SharedDirectory>())
 {
     m_backends.push_back(m_builtin);
@@ -253,6 +255,7 @@ void AudioEngine::finishJob()
         const EngineTransportState last = job->old->processor->stateAfterStop();
         m_idle = {last.position, last.loopEnabled, last.loopStart, last.loopEnd};
         drain(*job->old);
+        drainMeters(*job->old);
         m_statistics = job->finalStatistics;
         emit statisticsChanged();
         job->old.reset();
@@ -290,6 +293,9 @@ void AudioEngine::finishJob()
         m_active.reset(); // nothing is active after an explicit stop; a lost device stays active
         setState(State::Stopped, tr("The audio device is stopped"));
     }
+    // Without a running stream the peak meter shows no channels rather than
+    // freezing at its last level; the loudness measurement keeps its result.
+    if (!m_run) m_outputMeter->configure(0, 0, {});
     refreshDevices();
     publishSnapshot(false);
     if (m_queuedApply) {
@@ -338,14 +344,46 @@ QString AudioEngine::startRun(AudioDeviceStreamPtr stream, const AudioDeviceConf
         m_run.reset();
         return error;
     }
+    // Blocks wait in the tap's ring until the first poll, so configuring the
+    // GUI models after start loses nothing. Same format: measurement continues.
+    m_meterDropped = 0;
+    if (AudioMeterTap *tap = run->processor->outputTap()) {
+        m_outputMeter->configure(run->format.sampleRate, tap->channels(), config.outputLayout, tap->blockFrames());
+        m_outputLoudness->configure(run->format.sampleRate, tap->channels(), config.outputLayout, tap->blockFrames());
+    } else {
+        m_outputMeter->configure(0, 0, {});
+        m_outputLoudness->configure(0, 0, {});
+    }
     m_poll.start();
     return {};
+}
+
+void AudioEngine::drainMeters(Run &run)
+{
+    AudioMeterTap *tap = run.processor ? run.processor->outputTap() : nullptr;
+    if (!tap) return;
+    AudioMeterBlock block;
+    bool measured = false;
+    // Bounded: one ring's worth per drain, so a producer can never keep the
+    // GUI thread here.
+    for (std::size_t n = 0; n < AudioMeterTap::kRingBlocks && tap->pop(block); ++n) {
+        m_outputMeter->consume(block);
+        m_outputLoudness->consume(block);
+        measured = true;
+    }
+    const quint64 dropped = tap->droppedBlocks();
+    const quint64 newlyDropped = dropped > m_meterDropped ? dropped - m_meterDropped : 0;
+    m_meterDropped = dropped;
+    if (!measured && newlyDropped == 0) return;
+    m_outputMeter->publish(newlyDropped);
+    m_outputLoudness->publish(newlyDropped);
 }
 
 void AudioEngine::poll()
 {
     if (!m_run) return;
     drain(*m_run);
+    drainMeters(*m_run);
     if (m_lost && !m_job) {
         startJob(JobKind::Lost, {}, std::nullopt);
         return;

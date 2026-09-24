@@ -107,6 +107,12 @@ Rectangle {
             const cell = scene.cellOfParagraph(view.area.caretParagraphId)
             if (cell && scene.selectedCellIds.indexOf(cell.id) < 0) scene.selectedCellIds = [cell.id]
         }
+        // The caret's frame is known once its page is laid out: at startup the
+        // inspector shows it without waiting for the caret to move.
+        function onPagesChanged() {
+            if (!scene.selectedFrameId.length && view.area.caretFrameId.length)
+                scene.selectedFrameId = view.area.caretFrameId
+        }
     }
 
     Tk.PageSetupDialog {
@@ -188,11 +194,14 @@ Rectangle {
                 overflowY: Tk.Scroll.Auto
                 accessibleName: qsTr("Publishing inspector")
 
+                // Anchored, so Scroll keeps this width: a gutter for the
+                // overlay scroll bar (as in examples/rich-table).
                 Tk.Flex {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
                     width: parent.width - Tk.Theme.size.scrollbar - Tk.Theme.space.xs
                     direction: Tk.Flex.Column
                     gap: Tk.Theme.space.md
-                    padding: Tk.Theme.space.xs
 
                     Tk.StyleManager {
                         id: styleManager

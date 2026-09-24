@@ -61,7 +61,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-042"></a>
 ## WP-042 — Add artboards, layers and document navigation
 
-**Implementation lead:** Luna. **Status:** active layer, navigator, alignment and artboard presentation slices ([evidence](evidence/WP-042.md); WP-041 dependency remains open). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041)
+**Implementation lead:** Luna. **Status:** accepted (layer tree, artboards, alignment references and navigator on one document). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041)
 
 **Proposal scope:** [CAN-08 ArtboardView](../proposed/04-canvas-color.md#can-08), [CAN-09 LayerTree](../proposed/04-canvas-color.md#can-09), [CAN-21 AlignDistributePanel](../proposed/04-canvas-color.md#can-21), [CAN-22 NavigatorView](../proposed/04-canvas-color.md#can-22)
 

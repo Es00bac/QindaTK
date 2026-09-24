@@ -24,7 +24,10 @@ QStringList RichTextArea::selectedParagraphIds() const
 
 QString RichTextArea::caretFrameId() const
 {
-    // AGENT-GUARD: a getter never paginates; an unlaid caret has no frame yet.
+    // AGENT-GUARD: a getter never paginates. caretBox paginates only up to a
+    // position that is not laid out yet, so isLaidOut comes first (as in
+    // cursorRectangle); an unlaid caret has no frame yet. The layout always
+    // handles a document change before this area signals (setDocument).
     if (!m_document || !m_layout->frameMode() || !m_layout->isLaidOut(m_focus.position)) return {};
     const CaretBox caret = m_layout->caretBox(m_focus.position);
     if (caret.page < 0) return {};

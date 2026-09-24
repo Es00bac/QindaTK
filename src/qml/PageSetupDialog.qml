@@ -92,7 +92,10 @@ Tk.Dialog {
                 label: qsTr("Width")
                 Tk.NumberField {
                     objectName: "pageWidth"
-                    value: dialog.displayValue(dialog.draft.widthMm || 0)
+                    // NumberField clamps by assigning `value`, which would drop a binding.
+                    readonly property real shown: dialog.displayValue(dialog.draft.widthMm || 0)
+                    onShownChanged: value = shown
+                    Component.onCompleted: value = shown
                     from: 0.01
                     to: 100000
                     stepSize: 1
@@ -106,7 +109,10 @@ Tk.Dialog {
                 label: qsTr("Height")
                 Tk.NumberField {
                     objectName: "pageHeight"
-                    value: dialog.displayValue(dialog.draft.heightMm || 0)
+                    // NumberField clamps by assigning `value`, which would drop a binding.
+                    readonly property real shown: dialog.displayValue(dialog.draft.heightMm || 0)
+                    onShownChanged: value = shown
+                    Component.onCompleted: value = shown
                     from: 0.01
                     to: 100000
                     stepSize: 1
@@ -140,7 +146,10 @@ Tk.Dialog {
                 label: qsTr("Columns")
                 Tk.NumberField {
                     objectName: "pageColumns"
-                    value: dialog.draft.columns || 1
+                    // NumberField clamps by assigning `value`, which would drop a binding.
+                    readonly property real shown: dialog.draft.columns || 1
+                    onShownChanged: value = shown
+                    Component.onCompleted: value = shown
                     from: 1
                     to: 24
                     stepSize: 1
@@ -153,7 +162,10 @@ Tk.Dialog {
                 label: qsTr("Column gap")
                 Tk.NumberField {
                     objectName: "pageGutter"
-                    value: dialog.displayValue(dialog.draft.gutterMm || 0)
+                    // NumberField clamps by assigning `value`, which would drop a binding.
+                    readonly property real shown: dialog.displayValue(dialog.draft.gutterMm || 0)
+                    onShownChanged: value = shown
+                    Component.onCompleted: value = shown
                     from: 0
                     to: 100000
                     stepSize: 1
@@ -167,7 +179,10 @@ Tk.Dialog {
                 label: qsTr("Bleed")
                 Tk.NumberField {
                     objectName: "pageBleed"
-                    value: dialog.displayValue(dialog.draft.bleedMm || 0)
+                    // NumberField clamps by assigning `value`, which would drop a binding.
+                    readonly property real shown: dialog.displayValue(dialog.draft.bleedMm || 0)
+                    onShownChanged: value = shown
+                    Component.onCompleted: value = shown
                     from: 0
                     to: 100000
                     stepSize: 0.5
@@ -200,7 +215,10 @@ Tk.Dialog {
                     label: modelData.charAt(0).toUpperCase() + modelData.slice(1)
                     Tk.NumberField {
                         objectName: "pageMargin_" + modelData
-                        value: dialog.displayValue((dialog.draft.marginsMm || ({}))[modelData] || 0)
+                        // NumberField clamps by assigning `value`, which would drop a binding.
+                        readonly property real shown: dialog.displayValue((dialog.draft.marginsMm || ({}))[modelData] || 0)
+                        onShownChanged: value = shown
+                        Component.onCompleted: value = shown
                         from: 0
                         to: 100000
                         stepSize: 1

@@ -17,19 +17,21 @@ namespace QindaTK {
 // It holds no QObject that lives on a thread (its TimeMap copy is detached),
 // never calls QML, and never reads a GUI frame clock: every query takes an
 // exact sample or tick timestamp. Tempo previews never reach a snapshot; the
-// live value of a control that is being written does, as `overriding`.
+// live value of a control that is held or written does, as `overriding`
+// (D-100: a held control is heard in every mode, nothing records it unless a
+// pass writes). Mode off plays the static value (defaultValue).
 class EngineScheduleSnapshot {
 public:
     struct Parameter {
         AutomationParameter parameter;
         QVector<AutomationPoint> points; // implicitly shared, read-only
         AutomationMode mode = AutomationMode::Read;
-        bool overriding = false;         // a write pass or Off: the engine uses liveValue
+        bool overriding = false;         // a control holds it or a pass writes it: the engine uses liveValue
         double liveValue = 0.0;
     };
     struct Value {
         bool known = false;       // the parameter exists
-        bool automated = false;   // the curve drives it (read, or a write mode not writing)
+        bool automated = false;   // the curve drives it (points, mode not off, nothing holds it)
         double value = 0.0;
     };
 

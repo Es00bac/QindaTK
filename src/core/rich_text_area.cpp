@@ -67,6 +67,12 @@ void RichTextArea::setDocument(RichTextDocument *document)
     m_document = document;
     m_pendingFormat.reset();
     m_goalX = -1;
+    // AGENT-GUARD: the layout must handle every document change before this
+    // area does. onContentChanged emits caretChanged, and the getters bound
+    // to it (cursorRectangle, caretFrameId, caretContext) read the layout's
+    // pages; connected the other way round they read pages built for the
+    // previous content (tst_publishing_example crashed on a style undo).
+    m_layout->setDocument(m_document);
     if (m_document) {
         m_anchor.position = m_focus.position = m_document->startPosition();
         m_document->registerAnchor(&m_anchor);
@@ -79,7 +85,6 @@ void RichTextArea::setDocument(RichTextDocument *document)
         });
         connect(m_document, &QObject::destroyed, this, [this] { setDocument(nullptr); });
     }
-    m_layout->setDocument(m_document);
     m_assetRenderer->setDocument(m_document);
     updateLayoutWidth();
     schedulePagination();
