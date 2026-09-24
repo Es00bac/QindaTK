@@ -97,7 +97,7 @@ as though a later fix had already passed the earlier run.
 | [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | planned | — |
 | [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | active | [Host-acknowledged device panel integrated; real audio engine pending](evidence/WP-060.md) |
 | [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | active | [Peak/RMS model integrated; controls and engine binding pending](evidence/WP-061.md) |
-| [WP-062 — Implement mixing, panning and routing](phase-05-audio.md#wp-062) | 05 | Sol | planned | — |
+| [WP-062 — Implement mixing, panning and routing](phase-05-audio.md#wp-062) | 05 | Sol | active | [Four mixer/routing controls integrated; real DSP and graph operations pending](evidence/WP-062.md) |
 | [WP-063 — Implement waveform and spectral editing](phase-05-audio.md#wp-063) | 05 | Sol | planned | — |
 | [WP-064 — Implement MIDI, patterns and clip launching](phase-05-audio.md#wp-064) | 05 | Sol | planned | — |
 | [WP-065 — Implement take comping](phase-05-audio.md#wp-065) | 05 | Sol | planned | — |

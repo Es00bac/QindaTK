@@ -57,7 +57,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-062"></a>
 ## WP-062 — Implement mixing, panning and routing
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-060](phase-05-audio.md#wp-060), [WP-061](phase-05-audio.md#wp-061)
+**Implementation lead:** Sol. **Status:** active (four host-backed controls integrated; audio graph pending). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-060](phase-05-audio.md#wp-060), [WP-061](phase-05-audio.md#wp-061)
 
 **Proposal scope:** [AUD-13 ChannelStrip](../proposed/06-audio-music.md#aud-13), [AUD-14 MixerView](../proposed/06-audio-music.md#aud-14), [AUD-15 PanningControl](../proposed/06-audio-music.md#aud-15), [AUD-16 RoutingMatrix](../proposed/06-audio-music.md#aud-16)
 

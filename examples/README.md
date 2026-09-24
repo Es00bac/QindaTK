@@ -25,6 +25,10 @@ The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real
 device engine must supply enumeration and apply the settings.
 
+The [mixer and routing fixture](mixer-routing.qml) exercises `ChannelStrip`,
+`MixerView`, `PanningControl`, and `RoutingMatrix` against a host-owned model.
+The audio graph and DSP remain a host/backend integration task.
+
 ```
 P=build/dev/tools/preview/qtk-preview
 $P examples/gallery/Main.qml                       # on screen
