@@ -19,8 +19,14 @@ Item {
     width: 1440
     height: 820
 
-    readonly property url fileUrl: StandardPaths.writableLocation(StandardPaths.TempLocation)
-                                   + "/qindatk-workbook-example.qtkwb"
+    // A local path: sessions save to and open paths.
+    readonly property string filePath: decodeURIComponent(
+        String(StandardPaths.writableLocation(StandardPaths.TempLocation)).replace(/^file:\/\//, ""))
+        + "/qindatk-workbook-example.qtkwb"
+    // The workbook is the model of a DocumentSession: the DocumentManager owns
+    // the session, its single history (the manager's UndoService) and saves.
+    property Tk.DocumentSession session: null
+    readonly property Tk.Workbook book: session ? session.model : null
     property string status: qsTr("Select F2:F5 and fill down to complete the totals")
     readonly property var numberFormats: [
         { text: "General", value: "General" }, { text: "1,234.50", value: "#,##0.00" },
@@ -73,7 +79,7 @@ Item {
         book.applyStyle(summary, 8, 0, 8, 0, { italic: true, horizontalAlignment: "center" })
         book.setColumnWidth(summary, 0, 140)
         // Present the seeded document as a freshly opened one: same content,
-        // no seed history, nothing modified.
+        // no seed history.
         book.restoreText(book.serializedText())
         sheet.sheetId = book.sheetIdAt(0)
         sheet.selectRange(4, 5, 1, 5) // F5 up to F2: F2 is the active cell
@@ -81,27 +87,31 @@ Item {
     }
     function report(ok, done) { status = ok ? done : sheet.errorText }
 
-    Tk.Workbook {
-        id: book
-        Component.onCompleted: root.seed()
+    Component.onCompleted: {
+        // Large pastes and sheet removals stay undoable (the default is 8 MiB).
+        documents.undoService.memoryLimit = "268435456"
+        session = documents.createDocument("qindatk.workbook.v1")
+        seed()
+    }
+    // Save/Save As write on a worker; Reopen closes and reopens the file.
+    Tk.DocumentManager { id: documents }
+    readonly property Tk.UndoService history: documents.undoService
+    Connections {
+        target: root.session
+        function onSaveFinished(ok, message, revision) { root.status = ok ? "Saved revision " + revision : message }
+    }
+    function reopenSaved() {
+        const path = session.uri
+        if (!documents.closeDocument(session.documentId, Tk.DocumentManager.Discard)) return documents.lastError
+        const reopened = documents.openDocument(path, "qindatk.workbook.v1")
+        if (!reopened) return documents.lastError
+        session = reopened
+        history.activeModel = book
+        return "Reopened the saved workbook"
     }
     // Ctrl+C/Ctrl+V use the system clipboard: ranges paste into any workbook,
     // and other applications receive tab-separated text.
     Tk.ClipboardService { id: clipboard }
-    // The shared services: the toolbar's Undo/Redo go through UndoService,
-    // which routes them to the Workbook's own history, and Save/Reopen go
-    // through a WorkbookSession (the write runs on a worker).
-    Tk.UndoService {
-        id: history
-        activeParticipant: book
-    }
-    Tk.WorkbookSession {
-        id: session
-        workbook: book
-        onSaveFinished: function(ok, error, revision) {
-            root.status = ok ? "Saved revision " + revision : error
-        }
-    }
     Tk.MessageDialog {
         id: removal
         objectName: "removeSheetDialog"
@@ -159,15 +169,15 @@ Item {
                 }
                 Tk.Button {
                     objectName: "saveButton"
-                    text: session.saving ? "Saving…" : "Save"
+                    text: root.session && root.session.saving ? "Saving…" : "Save"
                     iconName: "save"
-                    tooltip: "Save the workbook to " + root.fileUrl
-                    enabled: !formula.editing && !session.saving
+                    tooltip: "Save the workbook to " + root.filePath
+                    enabled: !formula.editing && !!root.session && !root.session.saving
                     // The example's fixed file may exist from an earlier run.
                     onClicked: {
-                        const started = session.url.toString() === root.fileUrl.toString()
-                            ? session.requestSave() : session.requestSaveAs(root.fileUrl, true)
-                        if (!started) root.status = session.lastError
+                        const started = root.session.uri.length > 0 ? root.session.requestSave()
+                                                                    : root.session.requestSaveAs(root.filePath, true)
+                        if (!started) root.status = root.session.lastError
                     }
                 }
                 Tk.Button {
@@ -175,9 +185,8 @@ Item {
                     text: "Reopen saved"
                     iconName: "folder-open"
                     tooltip: "Discard changes and reopen the saved workbook file"
-                    enabled: !formula.editing && !session.saving && session.url.toString().length > 0
-                    onClicked: root.status = session.open(root.fileUrl) ? "Reopened the saved workbook"
-                                                                        : session.lastError
+                    enabled: !formula.editing && !!root.session && !root.session.saving && root.session.uri.length > 0
+                    onClicked: root.status = root.reopenSaved()
                 }
                 Tk.Caption {
                     objectName: "workbookMessage"
@@ -345,6 +354,7 @@ Item {
             Tk.Caption {
                 objectName: "workbookStatus"
                 text: {
+                    if (!root.book) return ""
                     const stats = book.statistics
                     return "Revision " + book.revision + (book.modified ? " · modified" : " · saved")
                         + " · " + stats.formulas + " formulas · last recalculation evaluated "

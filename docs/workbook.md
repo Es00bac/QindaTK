@@ -5,14 +5,16 @@
 authoritative spreadsheet document: ordered sheets with stable IDs, sparse
 cells, typed literals and formulas, computed values, cell formats,
 conditional formats, validation rules, merged areas, sheet properties,
-workbook names, one revision counter and one undo/redo history. Views never
-keep cell state. `Tk.SheetView`, `Tk.FormulaBar`, `Tk.WorkbookTabs`,
+workbook names and one revision counter. Views never keep cell state.
+`Tk.SheetView`, `Tk.FormulaBar`, `Tk.WorkbookTabs`,
 `Tk.ConditionalFormatEditor` and `Tk.DataValidationEditor` present and edit
 it. `Tk.WorkbookSheetAdapter` feeds `Tk.EditableGrid` as a domain source
-([editable-grid.md](editable-grid.md#domain-sources)), and
-`Tk.WorkbookSession` connects it to the shared save, recovery and history
-services. This page is the contract for WP-055;
-[controls.md](controls.md#workbook-and-spreadsheet) lists the QML members.
+([editable-grid.md](editable-grid.md#domain-sources)). The Workbook is a
+[document model](document-models.md): its steps go to the shared
+`UndoService`, and `DocumentManager`/`DocumentSession` open, save and
+recover it through its built-in codec ([sessions](#sessions)). This page is
+the contract for WP-055; [controls.md](controls.md#workbook-and-spreadsheet)
+lists the QML members.
 
 ## Document model
 
@@ -171,21 +173,32 @@ restores the exact prior state, values included. A failing operation inside
 an open transaction rolls back only itself. While a transaction is open,
 `undo`/`redo`/`save` are refused and values are not yet recalculated.
 
-The history stores exact inverse mutations, recomputed at every undo/redo, so
-undo reproduces the previous serialization byte for byte (except the
-sheet-ID counter). A feature edit builds a new immutable copy of the sheet's
-features (or of the name table) and swaps it in, so its inverse is the
-previous copy. History keeps up to 200 steps and about 64 MiB
-(`MaxHistoryBytes`) of undo data, estimated from each step's stored
-inverse; the oldest steps are dropped first, and the newest step always
-stays. A step keeps only the list it needs next (undo before the cursor,
-redo after it). At the feature limits one format step keeps 768 KiB (4,096
-format areas and 16,384 merged areas), so about 85 such steps stay undoable.
-`revision` increases on every commit, undo, redo, restore and reset. `modified` compares the history
-position with the last `save`/`open`/`markSaved`; `markUnsaved` marks the
-current state as not saved anywhere (an adopted import or a recovered
-revision). An input equal to the current content (after canonicalization)
-records nothing.
+Each step is a `WorkbookCommand` recorded by an `UndoService`: the
+mutations the operation applied and their exact inverses, bound to the
+document ID and reset generation. Under a linear history the two lists stay
+valid for every later undo and redo, so undo reproduces the previous
+serialization byte for byte (except the sheet-ID counter). A feature edit
+builds a new immutable copy of the sheet's features (or of the name table)
+and swaps it in, so its inverse is the previous copy. The operation applies
+the transaction first; the service then records the step and publishes it,
+which recalculates and announces. If the service refuses the step, the
+whole transaction rolls back and the operation fails with the service's
+message. A standalone workbook records into a private service (200 steps,
+`StandaloneHistoryBytes` = 1 GiB); a `DocumentSession` moves that history
+into the shared service, whose `memoryLimit` applies (8 MiB unless the host
+raises it). A step whose estimated undo data exceeds the budget is refused
+(“Edit exceeds undo memory limit”) rather than recorded as not undoable,
+and older steps are evicted first. Adjacent cell edits of one step share a
+single mutation. Even so, a 45,002-cell transaction keeps about 13 MiB, and
+at the feature limits (4,096 format areas and 16,384 merged areas) one
+format step keeps 768 KiB, so hosts that edit large workbooks raise
+`memoryLimit`. `UndoService` macros group
+workbook steps (`composeCommands`), and `undoService` names the service that
+holds the history. `revision` increases on every commit, undo, redo, restore
+and reset. `modified` is the service's clean state: `save`, `open` and
+`markSaved` mark the current position clean, and `markUnsaved` marks the
+current state as not saved anywhere (an adopted import). An input equal to
+the current content (after canonicalization) records nothing.
 
 ## Recalculation
 
@@ -407,7 +420,11 @@ re-save byte-identically. Restore reads versions 1 and 2 and validates
 everything before replacing anything: format, version, unknown fields, IDs,
 names, dimensions, addresses, duplicates, literal types, every formula with
 its span, every rule, overlapping merges or validation areas, rule IDs and
-sizes. A restore clears history. `save` writes atomically with
+sizes. Files written through the [codec](#sessions) also carry the session
+header: `revision` and `resetGeneration` as decimal strings and the
+session's `extensions` object (at most 16 MiB). `serialize()` never writes
+it, and a file without it opens as revision 1. A restore invalidates the
+history. `save` writes atomically with
 `FormatIO::writeAtomic`; an existing file is replaced only if it still has
 the SHA-256 this workbook last read or wrote there (or with
 `replaceExisting` for a file it has not seen).
@@ -445,13 +462,16 @@ in-view copy.
 `registerFormat(registry)` adds three providers to a `Tk.FormatRegistry`:
 the native `qindatk.workbook.v1` (import, export, roundtrip) and `text.csv`
 and `text.tsv` (`WorkbookDelimitedFormat`, `<qindatk/workbook_delimited.h>`;
-import and export). A Workbook is a `SnapshotSource`, so
-`FormatRegistry.preflightExportSource(workbook, url, formatId, options)` and
-`startExportSource(…)` export its committed state as a background job
-([format-registry.md](format-registry.md#snapshot-sources)).
-`adoptImport(registry, jobId)` replaces the document with a succeeded import
-job's result, all-or-nothing like `restore`; the adopted document is
-unsaved and has no file URL.
+import and export). Each lists `qindatk.workbook.v1` as its only schema, so
+export dialogs refuse other documents. A workbook in a session exports with
+`FormatRegistry.startExportSession(session, url, formatId, options)`, and
+a standalone Workbook, a `SnapshotSource`, with
+`preflightExportSource(workbook, …)`/`startExportSource(…)`
+([format-registry.md](format-registry.md#snapshot-sources)). Imports produce
+native workbook bytes: `FormatRegistry.adoptImport(manager, jobId)` opens
+them as a new, unsaved session, and `Workbook.adoptImport(registry, jobId)`
+replaces a standalone workbook's content, all-or-nothing like `restore`
+(unsaved, no file URL).
 
 | Delimited text | Import | Export |
 | --- | --- | --- |
@@ -468,35 +488,35 @@ formulas, function coverage) is the subject of WP-089.
 <a id="sessions"></a>
 ## Sessions and shared history
 
-`Tk.WorkbookSession` (`<qindatk/workbook_session.h>`) is the document
-lifecycle of one Workbook under the shared persistence rules
-([persistence.md](persistence.md#domain-recovery)):
+`workbookDocumentCodec()` (`<qindatk/document_codec.h>`) makes
+`qindatk.workbook.v1` a built-in schema of `DocumentCodecRegistry`, next to
+the reference and canvas schemas ([document-models.md](document-models.md#codecs)).
+Everything in [persistence.md](persistence.md) then applies to workbooks:
 
-- `requestSave()`/`requestSaveAs(url, overwriteExisting)` capture an
-  immutable snapshot on the GUI thread and write it on a worker through a
-  `DocumentStore` (`WorkbookDocumentStore`: payload validation, SHA-256
-  baseline, atomic replacement). One save runs at a time, and a transaction
-  must be closed first. Save As refuses an existing file unless
-  `overwriteExisting`; a file changed behind the session is a conflict.
-- The workbook is marked saved only if its revision and reset generation
-  still match the snapshot, so an edit made during a save stays dirty.
-  `saveFinished(ok, error, revision)` reports each save.
-- `requestClose()` closes a clean document (`closed`) or emits
-  `closeRequested`. `respondToClose("save" | "discard" | "cancel")`: save
-  closes only after a successful save and emits `closeBlocked(reason)` when
-  the save fails or the document changed meanwhile; discard drops recovery
-  frames and closes.
-- With a `recovery` manager, `autosaveInterval` (ms) records a frame after
-  changes while dirty, and every save first records the state it writes.
-  The session registers a workbook payload validator with the manager.
-  `inspectRecovery()`, `restoreRecovery()` (the newest valid revision,
-  reopened as unsaved at the same URL), `recordRecovery()` and
-  `discardRecovery()` complete it.
-
-The Workbook remains its own history owner. It implements `UndoParticipant`,
-so `UndoService.activeParticipant = workbook` routes the shared undo/redo
-commands, their labels and clean state to it
-([editing.md](editing.md#history-participants)).
+- `DocumentManager.createDocument("qindatk.workbook.v1")` creates a session
+  whose `model` is a new Workbook. `openDocument(path)` recognizes a
+  workbook file by content, decodes it with full validation and opens a clean
+  session. `adoptBytes` and `FormatRegistry.adoptImport(manager, jobId)`
+  open imports as unsaved sessions. The session owns the Workbook and adopts
+  its history into the manager's `UndoService`.
+- A save captures a plain copy of the content on the GUI thread (cells,
+  formulas, features and names are shared immutable data). The worker
+  encodes it with the session header and `extensions`, appends a recovery
+  frame and replaces the file through the store. The codec's `inspect`
+  checks the payload against the captured header.
+- Edits made while a save runs stay dirty: only the captured history
+  position becomes clean, and undoing back to it is clean again. A failed
+  save keeps the session dirty and blocks `closeDocument(…, Save)`. Save
+  All, close negotiation, autosave, workspace restore and
+  `restoreRecovered` (the newest valid frame, reopened dirty at its original
+  path) are the shared framework's own.
+- `undoService.activeModel = workbook` routes the shared undo/redo commands
+  and labels to the workbook, whose own `undo()`, `canUndo`, `undoText` and
+  `modified` read the same history.
+- A workbook in a session keeps its document identity: `restore()` of a
+  file with another document ID and `reset()` are refused. Open or create
+  another document through the manager instead. `restore()` of the same
+  document replaces the content and leaves the session dirty.
 
 ## Views and adapter
 
@@ -531,7 +551,7 @@ recorded eight gaps. All are now closed by additive contract changes:
 | G-4 | No per-cell presentation, type-to-edit or fill handle. | `cellStyle`/`mergedRanges` hooks, `layoutCells`, `Tk.GridCellDelegate`, `Tk.GridFillHandle` and type-to-edit in `Tk.EditableGrid`. |
 | G-5 | Grid fill copied display values. | `GridCellSourceExtension::fillCells`: the Workbook fills formulas and formats. |
 | G-6 | Registry export took only `PropertyDocument`/`DocumentSession`; imports were adopted as sessions. | `SnapshotSource` with `FormatRegistry.preflightExportSource`/`startExportSource`, and `Workbook.adoptImport`. |
-| G-7 | `UndoService`/`DocumentSession` were `PropertyDocument`-specific. | `UndoParticipant` routing in `UndoService`, recovery payload validators, and `WorkbookSession`. |
+| G-7 | `UndoService`/`DocumentSession` were `PropertyDocument`-specific. | The integrated domain-document boundary (D-053): the Workbook is a `DocumentModel` recording `WorkbookCommand`s, with a built-in `DocumentCodec`. The lane's interim `UndoParticipant` routing, recovery validators and `WorkbookSession` were retired when D-053 was merged. |
 | G-8 | O(rows + columns) grid ID strings: a 100,000-row sheet took about 190 ms to present. | `GridAxisIds` keeps generated IDs as runs; the adapter measures in `tst_workbook_adapter`. |
 
 ## Not supported

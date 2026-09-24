@@ -58,6 +58,35 @@ QJsonArray encodeCell(const CellEntry &e, const SheetNameLookup &names)
     }
     return cell;
 }
+// The optional session header: decimal-string revision and reset generation
+// (both or neither) and an extensions object.
+bool decodeSessionHeader(const QJsonObject &root, DecodedWorkbook *result, QString *error)
+{
+    const QJsonValue revision = root.value(QStringLiteral("revision"));
+    const QJsonValue generation = root.value(QStringLiteral("resetGeneration"));
+    const QJsonValue extensions = root.value(QStringLiteral("extensions"));
+    if (revision.isUndefined() != generation.isUndefined())
+        return fail(error, QStringLiteral("A workbook header needs both revision and resetGeneration"));
+    if (!revision.isUndefined()) {
+        const auto parsedRevision = RevisionId::parseDecimal(revision.toString());
+        bool generationOk = false;
+        const quint64 parsedGeneration = generation.toString().toULongLong(&generationOk, 10);
+        if (!revision.isString() || !parsedRevision || !generation.isString() || !generationOk
+            || QString::number(parsedGeneration) != generation.toString())
+            return fail(error, QStringLiteral("Workbook revision and resetGeneration must be decimal strings"));
+        result->hasHeader = true;
+        result->revision = parsedRevision->value;
+        result->resetGeneration = parsedGeneration;
+    }
+    if (!extensions.isUndefined()) {
+        if (!extensions.isObject() || !result->hasHeader)
+            return fail(error, QStringLiteral("Workbook extensions must be an object in a file with a header"));
+        if (QJsonDocument(extensions.toObject()).toJson(QJsonDocument::Compact).size() > MaxExtensionBytes)
+            return fail(error, QStringLiteral("Workbook extensions exceed %1 bytes").arg(MaxExtensionBytes));
+        result->extensions = extensions.toObject();
+    }
+    return true;
+}
 } // namespace
 
 std::optional<DecodedWorkbook> decodeWorkbook(const QByteArray &bytes, QString *error)
@@ -86,7 +115,8 @@ std::optional<DecodedWorkbook> decodeWorkbook(const QByteArray &bytes, QString *
         return std::nullopt;
     }
     const bool v2 = version >= 2;
-    if (!(v2 ? onlyKeys(root, {"format", "version", "documentId", "nextSheetNumber", "sheets", "names"}, &unknown)
+    if (!(v2 ? onlyKeys(root, {"format", "version", "documentId", "nextSheetNumber", "sheets", "names", "revision",
+                               "resetGeneration", "extensions"}, &unknown)
              : onlyKeys(root, {"format", "version", "documentId", "nextSheetNumber", "sheets"}, &unknown))) {
         fail(error, QStringLiteral("Unsupported workbook field '%1'").arg(unknown));
         return std::nullopt;
@@ -151,6 +181,7 @@ std::optional<DecodedWorkbook> decodeWorkbook(const QByteArray &bytes, QString *
         result.sheets.push_back(std::move(sheet));
     }
     const SheetIdLookup lookup = [&](const QString &name) { return idsByFoldedName.value(name.toCaseFolded()); };
+    if (v2 && !decodeSessionHeader(root, &result, error)) return std::nullopt;
     if (v2) {
         QHash<QString, QPoint> bounds;
         for (const DecodedSheet &sheet : result.sheets) bounds.insert(sheet.id, QPoint(sheet.columns, sheet.rows));
@@ -257,14 +288,21 @@ QByteArray encodeWorkbook(const DecodedWorkbook &workbook)
         object.insert(QStringLiteral("cells"), cells);
         sheets.append(object);
     }
-    // AGENT-NOTE: a workbook without names or sheet features is written as
-    // version 1, so files from before version 2 re-save byte-identically.
+    // AGENT-NOTE: a workbook without names, sheet features or a session
+    // header is written as version 1, so files from before version 2 re-save
+    // byte-identically.
+    v2 = v2 || workbook.hasHeader;
     QJsonObject root{{QStringLiteral("format"), QLatin1StringView(WorkbookFormatName)},
                      {QStringLiteral("version"), v2 ? WorkbookFormatVersion : 1},
                      {QStringLiteral("documentId"), workbook.documentId},
                      {QStringLiteral("nextSheetNumber"), qint64(workbook.nextSheetNumber)},
                      {QStringLiteral("sheets"), sheets}};
     if (!workbook.names->empty()) root.insert(QStringLiteral("names"), encodeNames(*workbook.names, lookup));
+    if (workbook.hasHeader) {
+        root.insert(QStringLiteral("revision"), QString::number(workbook.revision));
+        root.insert(QStringLiteral("resetGeneration"), QString::number(workbook.resetGeneration));
+        if (!workbook.extensions.isEmpty()) root.insert(QStringLiteral("extensions"), workbook.extensions);
+    }
     return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }
 

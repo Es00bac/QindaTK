@@ -125,31 +125,3 @@ failed restore (no codec, a decode or bounds failure) leaves the files for a
 capable build. Autosave records after a two-second quiet period and at
 the beginning of an explicit save; edits made immediately before a process
 crash can fall inside that debounce window.
-
-<a id="domain-recovery"></a>
-## Domain stores and recovery
-
-A domain application brings its own `DocumentStore` and serializer and keeps
-these rules. `Tk.WorkbookSession` with `WorkbookDocumentStore` is the
-reference ([workbook.md](workbook.md#sessions)).
-
-- The store's `save` runs on a worker with only the request's copies. It
-  validates the payload against the snapshot header, honours the file
-  expectation (missing, matching SHA-256, or any: the current file's hash
-  becomes the baseline) and replaces the file atomically through
-  `FormatIO::writeAtomic`.
-- The session marks the model saved only when its revision and reset
-  generation still match the captured snapshot. A failed save, a conflict or
-  a later edit leaves it dirty, and a close that asked to save stays open.
-- `RecoveryManager::addPayloadValidator(validator)` lets the manager accept
-  a domain payload. For each frame and each `record`, reference-document
-  payloads decode as before; otherwise each validator is tried. A validator
-  returns no error for a valid payload and fills `header.schemaId` and
-  `documentId` (plus revision and reset generation if the payload records
-  them; the frame supplies the revision otherwise). Frames are otherwise
-  unchanged: hash-checked, identity- and revision-checked, and a torn tail
-  is ignored and reported as `truncatedTail`.
-- A domain application reads recovered bytes with `inspect(id)` and adopts
-  them itself; `restore()`/`restoreRecovered` stay reference-document only.
-  The recovered revision reopens as unsaved at the original URL, so a normal
-  Save still checks the file's baseline.

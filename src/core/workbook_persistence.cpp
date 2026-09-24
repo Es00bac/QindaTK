@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "format_io.h"
+#include "undo_service.h"
 #include "workbook_codec_p.h"
 #include "workbook_delimited.h"
 #include "workbook_format.h"
@@ -69,6 +70,7 @@ QVariantMap WorkbookFormat::metadata() const
             {"operations", QStringList{QStringLiteral("import"), QStringLiteral("export"), QStringLiteral("roundtrip")}},
             {"editableImport", true}, {"renderOnly", false}, {"roundtrip", true},
             {"maximumBytes", Workbook::MaxFileBytes},
+            {"schemas", QStringList{QString::fromLatin1(FormatId)}},
             {"features", QStringList{QStringLiteral("sheets"), QStringLiteral("cells"), QStringLiteral("formulas"),
                                      QStringLiteral("names"), QStringLiteral("formats"), QStringLiteral("merges"),
                                      QStringLiteral("conditionalFormats"), QStringLiteral("validations"),
@@ -113,15 +115,18 @@ FormatPayload WorkbookFormat::exportDocument(const SnapshotPtr &snapshot, const 
     return canonical(snapshot->payload, cancel, progress);
 }
 
-void WorkbookPrivate::adopt(DecodedWorkbook &&data)
+void WorkbookPrivate::adopt(DecodedWorkbook &&data, const SnapshotHeader *header)
 {
+    // AGENT-GUARD: UndoService keys a history by document ID. A new identity
+    // leaves the private service first and re-attaches under the new key.
+    const bool identityChanges = data.documentId != documentId;
+    if (identityChanges) {
+        Q_ASSERT(standalone());
+        if (UndoService *service = q->historyService()) service->removeModel(q);
+    }
     sheets.clear();
     byId.clear();
     byUid.clear();
-    history.clear();
-    historyBytes = 0;
-    cursor = 0;
-    cleanCursor = 0;
     documentId = data.documentId;
     nextSheetNumber = data.nextSheetNumber;
     names = data.names;
@@ -144,8 +149,15 @@ void WorkbookPrivate::adopt(DecodedWorkbook &&data)
     }
     rebuildDependencies();
     recalculate(seeds, nullptr);
-    ++revision;
-    ++resetGeneration;
+    if (header) {
+        revision = header->revision.value;
+        resetGeneration = header->resetGeneration;
+    } else {
+        ++revision;
+        ++resetGeneration;
+    }
+    if (identityChanges) attachLocalHistory();
+    else q->invalidateHistory();
     lastError.clear();
     lastErrorDetail.clear();
     emit q->resetOccurred();
@@ -158,21 +170,39 @@ void WorkbookPrivate::adopt(DecodedWorkbook &&data)
 
 QUrl Workbook::fileUrl() const { return d->fileUrl; }
 
-QByteArray Workbook::serialize() const
+DecodedWorkbook WorkbookPrivate::decodedState() const
 {
-    if (d->txn) return {};
+    // AGENT-NOTE: cell contents, formulas, features and names are immutable
+    // once shared, so the copy can be encoded on a worker while edits go on.
     DecodedWorkbook data;
-    data.documentId = d->documentId;
-    data.nextSheetNumber = d->nextSheetNumber;
-    data.names = d->names;
-    for (const auto &s : d->sheets) {
+    data.documentId = documentId;
+    data.nextSheetNumber = nextSheetNumber;
+    data.names = names;
+    for (const auto &s : sheets) {
         DecodedSheet sheet{s->id, s->name, s->rows, s->columns, {}, s->features};
         sheet.cells.reserve(s->cells.size());
         for (const auto &[position, c] : s->cells)
             sheet.cells.push_back({keyRow(position), keyColumn(position), c.content});
         data.sheets.push_back(std::move(sheet));
     }
-    return encodeWorkbook(data);
+    return data;
+}
+bool WorkbookPrivate::standalone() const
+{
+    const UndoService *service = q->historyService();
+    return !service || service == localHistory;
+}
+DecodedWorkbook WorkbookPrivate::captureState(const Workbook &workbook) { return workbook.d->decodedState(); }
+void WorkbookPrivate::loadState(Workbook &workbook, DecodedWorkbook &&data, const SnapshotHeader &header)
+{
+    workbook.d->adopt(std::move(data), &header);
+    workbook.d->localHistory->markModelClean(&workbook);
+}
+
+QByteArray Workbook::serialize() const
+{
+    if (d->txn) return {};
+    return encodeWorkbook(d->decodedState());
 }
 bool Workbook::restore(const QByteArray &bytes)
 {
@@ -180,7 +210,15 @@ bool Workbook::restore(const QByteArray &bytes)
     QString error;
     auto decoded = decodeWorkbook(bytes, &error);
     if (!decoded) return d->fail(error);
+    if (decoded->documentId != d->documentId && !d->standalone())
+        return d->fail(QStringLiteral("A workbook in a document session keeps its identity; open the file "
+                                      "through the DocumentManager"));
+    const bool standalone = d->standalone();
     d->adopt(std::move(*decoded));
+    // Standalone, the restored content is the saved baseline; in a session
+    // the session's file still holds the previous content.
+    if (standalone) markSaved();
+    else markUnsaved();
     return true;
 }
 SnapshotPtr Workbook::snapshot() const
@@ -245,12 +283,18 @@ bool Workbook::open(const QUrl &url)
 }
 void Workbook::reset()
 {
+    if (!d->standalone()) {
+        d->fail(QStringLiteral("A workbook in a document session keeps its identity; create a new document "
+                               "through the DocumentManager"));
+        return;
+    }
     if (d->txn) d->cancel();
     DecodedWorkbook data;
     data.documentId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     data.nextSheetNumber = 2;
     data.sheets.push_back({QStringLiteral("sheet-1"), QStringLiteral("Sheet1"), DefaultRows, DefaultColumns, {}});
     d->adopt(std::move(data));
+    markSaved(); // a new, empty document has nothing unsaved
     d->fileUrl.clear();
     d->fileSha256.clear();
     emit fileChanged();

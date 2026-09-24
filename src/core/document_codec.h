@@ -83,6 +83,7 @@ private:
 // Codecs for the built-in model families.
 DocumentCodecPtr referenceDocumentCodec();
 DocumentCodecPtr canvasDocumentCodec();
+DocumentCodecPtr workbookDocumentCodec(); // qindatk.workbook.v1 (docs/workbook.md#sessions)
 
 // Empty result when `actual` names the same schema, document, revision and
 // reset generation as `expected`; otherwise the first mismatch.

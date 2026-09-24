@@ -80,7 +80,9 @@ struct Mutation {
 };
 using MutationList = std::vector<Mutation>;
 // Estimated heap bytes a mutation list keeps alive (history budgets).
-qint64 retainedBytes(const MutationList &list);
+// `sharedState`: sheet states, features and names are shared with the live
+// document (a step's forward list at record time) and are not counted.
+qint64 retainedBytes(const MutationList &list, bool sharedState = false);
 
 struct RangeKey {
     quint32 sheet = 0;
@@ -106,6 +108,27 @@ struct StructuralNotice {
 
 } // namespace Calc
 
+// AGENT-CONTRACT (docs/workbook.md#transactions-history-and-revision): one
+// recorded workbook step for UndoService. `forward` holds the mutations as
+// the operation applied them and `backward` their exact inverses, both in
+// application order; under a linear history each stays valid for every later
+// undo or redo. The document identity and reset generation that produced the
+// step guard against replaying it into another document state.
+class WorkbookCommand final : public DocumentCommand {
+public:
+    WorkbookCommand(QString documentId, quint64 resetGeneration, Calc::MutationList forward,
+                    Calc::MutationList backward);
+    quint64 retainedBytes() const override { return m_bytes; }
+    bool isNoOp() const override { return forward.empty() && backward.empty(); }
+    const QString documentId;
+    const quint64 resetGeneration;
+    const Calc::MutationList forward;
+    const Calc::MutationList backward;
+
+private:
+    quint64 m_bytes = 0;
+};
+
 struct WorkbookPrivate final : Calc::EvalContext {
     using Cell = Calc::Cell;
     using CellContent = Calc::CellContent;
@@ -116,21 +139,13 @@ struct WorkbookPrivate final : Calc::EvalContext {
     struct Transaction {
         QString label;
         std::vector<MutationList> inverses; // one group per applied mutation
+        MutationList forwards;              // the applied mutations, aligned with inverses
         QSet<quint64> seeds;                // global keys needing recalculation
         QHash<quint32, Calc::Bounds> touched;
         std::vector<Calc::StructuralNotice> structural;
         QSet<QString> propertySheets;       // sheet properties changed
         bool sheetsChanged = false;
         bool namesChanged = false;
-    };
-    // AGENT-NOTE: a step keeps only the list it needs next (undo before the
-    // cursor, redo after it); the other is recomputed when it is replayed.
-    struct Step {
-        QString id;
-        QString label;
-        MutationList undo;
-        MutationList redo;
-        qint64 bytes = 0; // Calc::retainedBytes of both lists
     };
     struct RecalcStats {
         qint64 dirty = 0, evaluated = 0, cycleCells = 0, microseconds = 0;
@@ -213,18 +228,28 @@ struct WorkbookPrivate final : Calc::EvalContext {
     void rollbackTo(size_t mark);
     bool commit();
     void cancel();
-    bool replay(bool undo);
-    // History bookkeeping (workbook_mutations.cpp): pushHistory drops the
-    // redo branch, appends a committed step and trims the oldest steps past
-    // MaxHistorySteps or MaxHistoryBytes (the newest step always stays);
-    // storeReplayed keeps a replayed step's opposite list and its bytes.
-    void pushHistory(Step step);
-    void storeReplayed(Step &step, bool undone, MutationList opposite);
+    // History (workbook_history.cpp): the open transaction's own operation
+    // applied it, so publishing its command only recalculates and announces.
+    void finishCommit();
+    // Applies a recorded step in one direction as one revision.
+    void replayCommand(const WorkbookCommand &command, bool forward);
+    // Re-keys the private history after the document identity changed.
+    void attachLocalHistory();
     void finish(const QString &label, bool emitChanges, QHash<quint32, Calc::Bounds> changed,
                 const Transaction &txn);
     template <typename Body> bool mutate(const QString &label, Body body);
-    // Replaces the whole document (restore/reset); clears history.
-    void adopt(Calc::DecodedWorkbook &&data);
+    // Replaces the whole document (restore/reset/codec adoption); recorded
+    // steps no longer apply. `header` (codec adoption) sets the revision and
+    // reset generation; otherwise both advance. A new identity re-keys the
+    // private history; callers refuse it while a session holds the history.
+    void adopt(Calc::DecodedWorkbook &&data, const SnapshotHeader *header = nullptr);
+    // A plain copy of the live content that another thread may encode.
+    Calc::DecodedWorkbook decodedState() const;
+    // True while the history lives in the private service (not a session's).
+    bool standalone() const;
+    // DocumentCodec access (workbook_document_codec.cpp).
+    static Calc::DecodedWorkbook captureState(const Workbook &workbook);
+    static void loadState(Workbook &workbook, Calc::DecodedWorkbook &&data, const SnapshotHeader &header);
 
     Workbook *q;
     QString documentId;
@@ -243,10 +268,9 @@ struct WorkbookPrivate final : Calc::EvalContext {
     QHash<quint32, QSet<Calc::RangeKey>> wideRanges;
 
     std::optional<Transaction> txn;
-    std::vector<Step> history;
-    size_t cursor = 0;
-    qint64 historyBytes = 0;
-    qint64 cleanCursor = 0; // -1 once the saved state left the history
+    UndoService *localHistory = nullptr;              // child of q; standalone history
+    const DocumentCommand *pendingCommit = nullptr;   // applied; publish only finishes it
+    QMetaObject::Connection historyConnection;
     RecalcStats stats;
     QUrl fileUrl;
     QByteArray fileSha256;

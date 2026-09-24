@@ -4,7 +4,8 @@ import QtTest
 
 // Drives examples/workbook/Main.qml the way a user would: switch sheets,
 // edit through the formula bar, fill a formula, undo through the shared
-// UndoService, save through the WorkbookSession (asynchronous) and reopen.
+// UndoService, save through the workbook's DocumentSession (asynchronous)
+// and reopen it through the DocumentManager.
 TestCase {
     id: root
     name: "WorkbookExample"
@@ -66,10 +67,12 @@ TestCase {
         verify(book.setCellInput("sheet-2", 3, 1, "changed"))
         verify(book.modified)
         mouseClick(part("reopenButton"))
-        compare(book.cellInput("sheet-2", 3, 1), "42")
-        compare(book.cellInput(book.sheetIdAt(0), 4, 5), "=SUM(B5:E5)")
-        verify(!book.canUndo)
-        verify(!book.modified)
+        // The reopened file is a new session and a new Workbook model.
+        tryVerify(function() { return sheet.workbook !== null && sheet.workbook.cellInput("sheet-2", 3, 1) === "42" })
+        const reopened = sheet.workbook
+        compare(reopened.cellInput(reopened.sheetIdAt(0), 4, 5), "=SUM(B5:E5)")
+        verify(!reopened.canUndo)
+        verify(!reopened.modified)
         tryCompare(sheet, "activeAddress", "B4")
         compare(formula.result, "42.00")
         verify(part("workbookStatus").text.indexOf("saved") > 0)

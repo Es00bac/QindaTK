@@ -2,6 +2,7 @@
 #pragma once
 
 #include "application_contracts.h"
+#include "document_model.h"
 #include "workbook_formula.h"
 #include <QObject>
 #include <QUrl>
@@ -11,17 +12,22 @@
 #include <memory>
 
 namespace QindaTK {
+class UndoService;
 struct WorkbookPrivate;
 
-// AGENT-CONTRACT: Workbook is the single authoritative spreadsheet model and
-// the only revision/history owner for its cells, sheets and formulas. Views
-// (WorkbookSheetAdapter/SheetView, FormulaBar, WorkbookTabs) read it and
-// route every change through these operations; none keeps cell state.
-// docs/workbook.md defines the grammar, functions, reference rules,
-// transactions and the native file format.
-class Workbook : public QObject, public SnapshotSource, public UndoParticipant {
+// AGENT-CONTRACT: Workbook is the single authoritative spreadsheet model for
+// its cells, sheets and formulas. Views (WorkbookSheetAdapter/SheetView,
+// FormulaBar, WorkbookTabs) read it and route every change through these
+// operations; none keeps cell state. It is a DocumentModel
+// (docs/document-models.md): every operation or transaction is one
+// WorkbookCommand recorded by the UndoService that holds its single live
+// history. That is a private service while the workbook stands alone, and
+// the shared one once a DocumentSession adopts it. docs/workbook.md defines
+// the grammar, functions, reference rules, transactions and file format.
+class Workbook : public QObject, public SnapshotSource, public DocumentModel {
     Q_OBJECT
     QML_ELEMENT
+    Q_MOC_INCLUDE("undo_service.h")
     Q_PROPERTY(QString documentId READ documentId NOTIFY resetOccurred)
     Q_PROPERTY(QString revision READ revision NOTIFY revisionChanged)
     Q_PROPERTY(QString resetGeneration READ resetGeneration NOTIFY resetOccurred)
@@ -32,6 +38,9 @@ class Workbook : public QObject, public SnapshotSource, public UndoParticipant {
     Q_PROPERTY(QString undoText READ undoText NOTIFY historyChanged)
     Q_PROPERTY(QString redoText READ redoText NOTIFY historyChanged)
     Q_PROPERTY(bool modified READ isModified NOTIFY historyChanged)
+    // The service holding the history: private while standalone, the
+    // session's once a DocumentSession adopts the workbook.
+    Q_PROPERTY(QindaTK::UndoService *undoService READ undoService NOTIFY historyChanged)
     Q_PROPERTY(bool transactionActive READ transactionActive NOTIFY transactionChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
     Q_PROPERTY(QVariantMap lastErrorDetail READ lastErrorDetail NOTIFY errorChanged)
@@ -47,8 +56,9 @@ public:
     static constexpr int MaxTransactionCells = 65536;
     static constexpr int MaxVisibleCells = 4096;
     static constexpr int MaxHistorySteps = 200;
-    // Estimated undo data the history retains; the oldest steps go first.
-    static constexpr qint64 MaxHistoryBytes = 64 * 1024 * 1024;
+    // Undo budget of the private service of a standalone workbook. Inside a
+    // DocumentSession the shared UndoService's memoryLimit applies instead.
+    static constexpr quint64 StandaloneHistoryBytes = quint64(1) << 30;
     static constexpr qsizetype MaxTextLength = 32767;
     static constexpr qsizetype MaxFileBytes = 64 * 1024 * 1024;
 
@@ -60,11 +70,12 @@ public:
     QString resetGeneration() const;
     QVariantList sheets() const;
     int sheetCount() const;
-    bool canUndo() const override;
-    bool canRedo() const override;
-    QString undoText() const override;
-    QString redoText() const override;
-    bool isModified() const override;
+    bool canUndo() const;
+    bool canRedo() const;
+    QString undoText() const;
+    QString redoText() const;
+    bool isModified() const;
+    UndoService *undoService() const;
     bool transactionActive() const;
     QString lastError() const;
     QVariantMap lastErrorDetail() const;
@@ -206,9 +217,9 @@ public:
     Q_INVOKABLE bool beginTransaction(const QString &label);
     Q_INVOKABLE bool commitTransaction();
     Q_INVOKABLE bool cancelTransaction();
-    Q_INVOKABLE bool undo() override;
-    Q_INVOKABLE bool redo() override;
-    Q_INVOKABLE void markSaved() override;
+    Q_INVOKABLE bool undo();
+    Q_INVOKABLE bool redo();
+    Q_INVOKABLE void markSaved();
     // The current state is not saved anywhere (an import or a recovery).
     Q_INVOKABLE void markUnsaved();
 
@@ -244,6 +255,17 @@ public:
     Q_INVOKABLE QString referenceText(const QString &fromSheetId, const QString &toSheetId,
                                       int firstRow, int firstColumn, int lastRow, int lastColumn) const;
 
+    // DocumentModel (schema qindatk.workbook.v1, kind "workbook"). Commands
+    // are WorkbookCommands: the forward and inverse mutations of one step.
+    QObject *modelObject() const override { return const_cast<Workbook *>(this); }
+    DocumentId modelId() const override;
+    QString modelKind() const override { return QStringLiteral("workbook"); }
+    SnapshotHeader modelHeader() const override;
+    QMetaObject::Connection connectModelChanged(QObject *receiver, std::function<void()> slot) override;
+    OperationError prepareCommand(const DocumentCommand &command, bool forward) const override;
+    void publishCommand(const DocumentCommand &command, bool forward) override;
+    DocumentCommandPtr composeCommands(const DocumentCommand &first, const DocumentCommand &second) const override;
+
 signals:
     void revisionChanged();
     void historyChanged();
@@ -263,8 +285,14 @@ signals:
     void namesChanged();
     void pasteReported();
 
+protected:
+    void historyAttached(UndoService *service) override;
+
 private:
     friend struct WorkbookPrivate;
+    // The service holding the live history; re-attaches the private one when
+    // a session released the workbook.
+    UndoService *history() const;
     std::unique_ptr<WorkbookPrivate> d;
 };
 

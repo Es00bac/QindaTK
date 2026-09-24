@@ -2,12 +2,12 @@
 # Installed workbook consumer
 
 This standalone application checks the installed package for WP-055. Its
-window imports `WorkbookTabs`, `FormulaBar`, `SheetView`,
-`ConditionalFormatEditor` and `DataValidationEditor` through
-`QindaTK as Tk` over a small workbook, with `UndoService`,
-`WorkbookSession` and `FormatRegistry`. `main.cpp` compiles against the
-installed `workbook*.h`, `undo_service.h` and `format_registry.h` headers and
-checks, with one exit code per step:
+window creates a workbook through a `DocumentManager` session and imports
+`WorkbookTabs`, `FormulaBar`, `SheetView`, `ConditionalFormatEditor` and
+`DataValidationEditor` through `QindaTK as Tk`, with `FormatRegistry` and a
+second standalone workbook. `main.cpp` compiles against the installed
+`workbook*.h`, `document_manager.h`, `undo_service.h` and `format_registry.h`
+headers and checks, with one exit code per step:
 
 1. every view instantiates;
 2. formulas, a whole-column `COUNTA(A:A)`, the name `Amounts` and a
@@ -20,9 +20,9 @@ checks, with one exit code per step:
    its formats, and undoes in one step;
 6. a CSV export runs through the registry with the Workbook as a snapshot
    source;
-7. `UndoService` routes undo/redo to the Workbook;
-8. `WorkbookSession` saves on a worker, and the reopened file serializes
-   identically.
+7. the session's `UndoService` records and replays the workbook's steps;
+8. the `DocumentSession` saves on a worker, and a second `DocumentManager`
+   reopens the file as a clean session with identical content.
 
 Stage an install the way the integration stages are made: the build's
 install prefix and QML directory both point into the stage. The package

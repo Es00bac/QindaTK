@@ -386,7 +386,7 @@ bool WorkbookPrivate::applySheetChange(const Mutation &m, MutationList *inverse,
     return true;
 }
 
-// ---- history bookkeeping ---------------------------------------------------
+// ---- undo data estimates ------------------------------------------------------
 
 namespace {
 qint64 contentBytes(const CellContent &content)
@@ -412,12 +412,13 @@ qint64 featureBytes(const SheetFeatures &f)
 }
 } // namespace
 
-qint64 Calc::retainedBytes(const MutationList &list)
+qint64 Calc::retainedBytes(const MutationList &list, bool sharedState)
 {
     qint64 bytes = 0;
     for (const Mutation &m : list) {
         bytes += qint64(sizeof(Mutation));
         for (const CellEntry &entry : m.cells) bytes += contentBytes(entry.content);
+        if (sharedState) continue;
         if (m.state) {
             bytes += qint64(sizeof(SheetState));
             for (const CellEntry &entry : m.state->cells) bytes += contentBytes(entry.content);
@@ -427,35 +428,6 @@ qint64 Calc::retainedBytes(const MutationList &list)
         if (m.names) bytes += qint64(m.names->size()) * qint64(sizeof(NamedRange) + 64);
     }
     return bytes;
-}
-
-void WorkbookPrivate::pushHistory(Step step)
-{
-    for (size_t i = cursor; i < history.size(); ++i) historyBytes -= history[i].bytes;
-    history.resize(cursor);
-    step.bytes = retainedBytes(step.undo);
-    historyBytes += step.bytes;
-    history.push_back(std::move(step));
-    ++cursor;
-    // AGENT-GUARD: only steps before the cursor are dropped, and the saved
-    // position moves with them (or becomes unreachable), so modified stays right.
-    while (history.size() > 1 && cursor > 0
-           && (history.size() > size_t(Workbook::MaxHistorySteps) || historyBytes > Workbook::MaxHistoryBytes)) {
-        historyBytes -= history.front().bytes;
-        history.erase(history.begin());
-        --cursor;
-        cleanCursor = cleanCursor > 0 ? cleanCursor - 1 : -1;
-    }
-}
-
-void WorkbookPrivate::storeReplayed(Step &step, bool undone, MutationList opposite)
-{
-    historyBytes -= step.bytes;
-    // The list just applied is recomputed by the next replay; keep only its opposite.
-    (undone ? step.redo : step.undo) = std::move(opposite);
-    MutationList().swap(undone ? step.undo : step.redo);
-    step.bytes = retainedBytes(undone ? step.redo : step.undo);
-    historyBytes += step.bytes;
 }
 
 } // namespace QindaTK

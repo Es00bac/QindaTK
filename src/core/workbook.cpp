@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "workbook_p.h"
+#include "undo_service.h"
 
 #include <QUuid>
 #include <algorithm>
@@ -11,6 +12,11 @@ Workbook::Workbook(QObject *parent) : QObject(parent), d(std::make_unique<Workbo
 {
     d->documentId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     d->createSheet(d->nextSheetId(), QStringLiteral("Sheet1"), 0, DefaultRows, DefaultColumns);
+    // AGENT-NOTE: like CanvasDocument, a standalone workbook records into a
+    // private service; a DocumentSession moves that history into its own.
+    d->localHistory = new UndoService(this);
+    d->localHistory->setMemoryLimit(StandaloneHistoryBytes);
+    d->attachLocalHistory();
 }
 Workbook::~Workbook() = default;
 
@@ -18,12 +24,6 @@ QString Workbook::documentId() const { return d->documentId; }
 QString Workbook::revision() const { return QString::number(d->revision); }
 QString Workbook::resetGeneration() const { return QString::number(d->resetGeneration); }
 int Workbook::sheetCount() const { return int(d->sheets.size()); }
-bool Workbook::canUndo() const { return !d->txn && d->cursor > 0; }
-bool Workbook::canRedo() const { return !d->txn && d->cursor < d->history.size(); }
-QString Workbook::undoText() const { return d->cursor > 0 ? d->history[d->cursor - 1].label : QString(); }
-QString Workbook::redoText() const
-{ return d->cursor < d->history.size() ? d->history[d->cursor].label : QString(); }
-bool Workbook::isModified() const { return d->cleanCursor != qint64(d->cursor); }
 bool Workbook::transactionActive() const { return d->txn.has_value(); }
 QString Workbook::lastError() const { return d->lastError; }
 QVariantMap Workbook::lastErrorDetail() const { return d->lastErrorDetail; }
@@ -50,8 +50,8 @@ QVariantMap Workbook::statistics() const
             {"lastDirty", d->stats.dirty}, {"lastEvaluated", d->stats.evaluated},
             {"lastCycleCells", d->stats.cycleCells}, {"lastRecalcMicroseconds", d->stats.microseconds},
             {"totalEvaluations", d->stats.totalEvaluations},
-            {"historySteps", qint64(d->history.size())}, {"historyCursor", qint64(d->cursor)},
-            {"historyBytes", d->historyBytes}};
+            {"historySteps", historyService() ? historyService()->stepCount(this) : 0},
+            {"historyBytes", historyService() ? qint64(historyService()->retainedBytes(this)) : qint64(0)}};
 }
 
 int WorkbookPrivate::indexOf(const Sheet *s) const
@@ -219,6 +219,7 @@ bool WorkbookPrivate::record(Mutation m, QString *error)
     MutationList inverse;
     if (!apply(m, &inverse, error)) return false;
     txn->inverses.push_back(std::move(inverse));
+    txn->forwards.push_back(std::move(m));
     return true;
 }
 void WorkbookPrivate::rollbackTo(size_t mark)
@@ -234,6 +235,7 @@ void WorkbookPrivate::rollbackTo(size_t mark)
             if (!apply(m, &ignored, &error)) qWarning("Workbook rollback failed: %s", qPrintable(error));
         }
     }
+    if (txn && txn->forwards.size() > mark) txn->forwards.resize(mark);
 }
 namespace {
 MutationList flattenReversed(const std::vector<MutationList> &groups)
@@ -244,28 +246,38 @@ MutationList flattenReversed(const std::vector<MutationList> &groups)
     return result;
 }
 }
+// AGENT-GUARD: the operation already applied the transaction. The command is
+// recorded through UndoService::commit, whose publish step (finishCommit)
+// only recalculates and announces; a refusal (the undo budget, a history
+// operation in progress) rolls the whole transaction back.
 bool WorkbookPrivate::commit()
 {
     if (!txn) return fail(QStringLiteral("No active workbook transaction"));
-    Transaction t = std::move(*txn);
-    txn.reset();
-    const bool any = std::any_of(t.inverses.begin(), t.inverses.end(),
+    const bool any = std::any_of(txn->inverses.begin(), txn->inverses.end(),
                                  [](const MutationList &group) { return !group.empty(); });
     if (!any) {
+        txn.reset();
         emit q->transactionChanged();
         emit q->historyChanged();
         return true;
     }
-    QHash<quint32, Bounds> changed = t.touched;
-    recalculate(t.seeds, &changed);
-    Step step;
-    step.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    step.label = t.label;
-    step.undo = flattenReversed(t.inverses);
-    if (cleanCursor > qint64(cursor)) cleanCursor = -1;
-    pushHistory(std::move(step));
-    ++revision;
-    finish(t.label, true, changed, t);
+    UndoService *service = q->history();
+    if (!service) {
+        cancel();
+        return fail(QStringLiteral("The workbook has no history service"));
+    }
+    // The inverses stay in the transaction for a rollback; the forwards move.
+    const auto command = std::make_shared<const WorkbookCommand>(documentId, resetGeneration,
+                                                                 std::move(txn->forwards),
+                                                                 flattenReversed(txn->inverses));
+    const QString label = txn->label;
+    pendingCommit = command.get();
+    const OperationError problem = service->commit(q, label, {}, command);
+    pendingCommit = nullptr;
+    if (problem) {
+        cancel();
+        return fail(problem.message);
+    }
     return true;
 }
 void WorkbookPrivate::cancel()
@@ -277,35 +289,6 @@ void WorkbookPrivate::cancel()
     if (!seeds.isEmpty()) recalculate(seeds, nullptr); // restores cached results of re-set formulas
     emit q->transactionChanged();
     emit q->historyChanged();
-}
-bool WorkbookPrivate::replay(bool undoing)
-{
-    if (txn) return fail(QStringLiteral("Finish the active workbook transaction first"));
-    if (undoing ? cursor == 0 : cursor >= history.size())
-        return fail(undoing ? QStringLiteral("Nothing to undo") : QStringLiteral("Nothing to redo"));
-    Step &step = history[undoing ? cursor - 1 : cursor];
-    txn.emplace();
-    txn->label = step.label;
-    for (const Mutation &m : undoing ? step.undo : step.redo) {
-        QString error;
-        if (!record(m, &error)) {
-            rollbackTo(0);
-            const QSet<quint64> seeds = txn->seeds;
-            txn.reset();
-            if (!seeds.isEmpty()) recalculate(seeds, nullptr);
-            return fail(QStringLiteral("History replay failed: %1").arg(error));
-        }
-    }
-    Transaction t = std::move(*txn);
-    txn.reset();
-    storeReplayed(step, undoing, flattenReversed(t.inverses));
-    QHash<quint32, Bounds> changed = t.touched;
-    recalculate(t.seeds, &changed);
-    cursor = undoing ? cursor - 1 : cursor + 1;
-    ++revision;
-    clearError();
-    finish(step.label, true, changed, t);
-    return true;
 }
 void WorkbookPrivate::finish(const QString &label, bool emitChanges, QHash<quint32, Bounds> changed,
                              const Transaction &t)
@@ -345,20 +328,6 @@ bool Workbook::cancelTransaction()
     if (!d->txn) return d->fail(QStringLiteral("No active workbook transaction"));
     d->cancel();
     return true;
-}
-bool Workbook::undo() { return d->replay(true); }
-bool Workbook::redo() { return d->replay(false); }
-void Workbook::markUnsaved()
-{
-    if (d->cleanCursor == -1) return;
-    d->cleanCursor = -1;
-    emit historyChanged();
-}
-void Workbook::markSaved()
-{
-    if (d->cleanCursor == qint64(d->cursor)) return;
-    d->cleanCursor = qint64(d->cursor);
-    emit historyChanged();
 }
 
 QString Workbook::addSheet(const QString &name, int index, int rows, int columns)

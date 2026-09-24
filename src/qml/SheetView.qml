@@ -85,9 +85,12 @@ T.Control {
         ? qsTr("Cell %1. Formula or value: %2. Result: %3").arg(activeAddress).arg(activeInput).arg(activeDisplay)
         : qsTr("No active cell")
 
+    // AGENT-GUARD: an API selection marks its sheet as shown, so the
+    // restoreCell queued by a sheet change does not replace it afterwards.
     function setCurrent(row, column, extend) {
         const quiet = apiSelection
         apiSelection = true
+        shownSheetId = currentSheetId
         sheetGrid.setCurrent(row, column, extend === true)
         sheetGrid.ensureCurrentVisible()
         apiSelection = quiet
@@ -95,6 +98,7 @@ T.Control {
     function selectRange(firstRow, firstColumn, lastRow, lastColumn) {
         const quiet = apiSelection
         apiSelection = true
+        shownSheetId = currentSheetId
         sheetGrid.setCurrent(firstRow, firstColumn, false)
         sheetGrid.setCurrent(lastRow, lastColumn, true)
         apiSelection = quiet

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+#include "undo_service.h"
 #include "workbook.h"
 #include <QElapsedTimer>
 #include <QFile>
@@ -69,6 +70,8 @@ void WorkbookScaleTest::sparseMillionRowSheet()
     QVERIFY(wb.commitTransaction());
     const qint64 commitMs = timer.elapsed();
     QCOMPARE(evaluated(wb), qint64(Values + 1 + FanOut));
+    // One 45,002-cell step: its forward and inverse cells (adjacent edits merged).
+    metric("scale.seedStepKiB", wb.statistics().value("historyBytes").toLongLong() / 1024);
     QCOMPARE(wb.cellDisplay(s, 1, 2), QStringLiteral("400020000"));
     const qint64 rssSeeded = statusKiB("VmRSS:");
 
@@ -251,16 +254,26 @@ void WorkbookScaleTest::featuresAtScale()
     for (int i = 0; i < 100; ++i) QVERIFY(limits.applyStyle(l, 0, 5, 0, 5, {{"bold", i % 2 == 1}}));
     metric("features.formats4096StepUs", timer.nsecsElapsed() / 1000 / 100);
     if (heapBefore >= 0) metric("features.formats4096StepHeapKiB", (heapInUse() - heapBefore) / 1024 / 100);
-    // About 75 MiB of steps: the history keeps the newest ones within its byte budget.
-    const QVariantMap history = limits.statistics();
-    const qint64 steps = history.value("historySteps").toLongLong(), bytes = history.value("historyBytes").toLongLong();
-    QVERIFY(bytes <= Workbook::MaxHistoryBytes);
-    QVERIFY(steps > 1 && steps < 100);
-    metric("features.historyStepsKept", steps);
-    metric("features.historyStepEstimateKiB", bytes / steps / 1024);
+    // The standalone budget keeps all 101 steps; a smaller UndoService budget
+    // evicts the oldest, and a single step larger than it is refused.
+    QVariantMap history = limits.statistics();
+    QCOMPARE(history.value("historySteps").toLongLong(), 101);
+    metric("features.historyStepEstimateKiB", history.value("historyBytes").toLongLong() / 101 / 1024);
+    limits.undoService()->setMemoryLimit(64 * 1024 * 1024);
+    history = limits.statistics();
+    const qint64 kept = history.value("historySteps").toLongLong();
+    QVERIFY(history.value("historyBytes").toLongLong() <= 64 * 1024 * 1024);
+    QVERIFY(kept > 1 && kept < 101);
+    metric("features.historyStepsKept64MiB", kept);
     QCOMPARE(limits.cellFormat(l, 0, 5).value("bold").toBool(), true);
     QVERIFY(limits.undo());
     QCOMPARE(limits.cellFormat(l, 0, 5).value("bold").toBool(), false);
+    limits.undoService()->setMemoryLimit(512 * 1024); // evicts every 768 KiB step
+    const QByteArray before = limits.serialize();
+    QVERIFY(!limits.applyStyle(l, 0, 5, 0, 5, {{"bold", true}})); // replaces a layer: only the budget refuses it
+    QCOMPARE(limits.lastError(), QStringLiteral("Edit exceeds undo memory limit"));
+    QCOMPARE(limits.serialize(), before);
+    QVERIFY(!limits.canUndo());
 }
 
 QTEST_GUILESS_MAIN(WorkbookScaleTest)

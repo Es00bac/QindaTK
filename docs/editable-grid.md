@@ -113,9 +113,9 @@ undo or redo. It passes the exact change payload and the grid's current
 generation, payload, revision, current values and validation before applying
 anything. The host should call `releaseHistoryTransaction` when it discards a
 step. This is an adapter bridge, not an `UndoService` registration. A
-domain model that keeps its own history uses [`sourceCommits`](#domain-sources)
-instead and joins `UndoService` as an `UndoParticipant`
-([editing.md](editing.md#history-participants)). There must be one history
+domain model that owns its data uses [`sourceCommits`](#domain-sources)
+instead and records its own steps as a
+[document model](document-models.md#commands). There must be one history
 owner per active grid, otherwise a shared undo command can replay the same
 edit twice.
 

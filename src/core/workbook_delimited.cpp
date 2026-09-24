@@ -133,6 +133,7 @@ QVariantMap WorkbookDelimitedFormat::metadata() const
             {"version", 1}, {"operations", QStringList{QStringLiteral("import"), QStringLiteral("export")}},
             {"editableImport", true}, {"renderOnly", false}, {"roundtrip", false},
             {"maximumBytes", Workbook::MaxFileBytes},
+            {"schemas", QStringList{QString::fromLatin1(WorkbookFormat::FormatId)}},
             {"features", QStringList{QStringLiteral("cells")}},
             {"losses", QStringList{QStringLiteral("formulas"), QStringLiteral("formats"), QStringLiteral("mergedCells"),
                                    QStringLiteral("conditionalFormats"), QStringLiteral("validation"),

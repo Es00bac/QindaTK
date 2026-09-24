@@ -179,7 +179,8 @@ rename). This is the shape the QindaQt office suite's windows take.
 
 ## workbook
 
-The WP-055 spreadsheet over a two-sheet budget. `WorkbookTabs` switch
+The WP-055 spreadsheet over a two-sheet budget, a workbook session of a
+`DocumentManager` (`createDocument("qindatk.workbook.v1")`). `WorkbookTabs` switch
 between the Budget and Summary sheets (whose formulas refer to Budget by
 sheet ID, so renames and reordering keep them; the tab menu colors, hides
 and protects sheets). The `FormulaBar` edits the active cell's source input
@@ -193,15 +194,15 @@ rate (B8 warns above 50%). Summary uses the name `Totals`, a whole-column
 italic, underline, alignment, number formats, a highlight fill, merges
 and freeze panes to the selection; the side panel edits conditional formats
 (with a live preview) and validation rules. Ctrl+C/Ctrl+V use the system
-clipboard. Undo/Redo go through the shared `UndoService` to the Workbook's
-history. Save writes a `.qtkwb` file to the temporary directory through a
-`WorkbookSession` on a worker, and Reopen saved restores it, discarding
-later changes. The status line reports the revision and the last
+clipboard. Undo/Redo go through the manager's `UndoService`, which holds
+the workbook's history. Save writes a `.qtkwb` file to the temporary
+directory through the session on a worker, and Reopen saved closes the
+session (discarding later changes) and opens the file again. The status line reports the revision and the last
 recalculation's evaluated cells.
 
 - Run: `qtk-preview examples/workbook/Main.qml`
 - Dump: `qtk-preview examples/workbook/Main.qml --dump --size 1440x820`
-- Exercises: `Workbook`, `WorkbookSession`, `UndoService`, `ClipboardService`,
+- Exercises: `Workbook`, `DocumentManager`, `DocumentSession`, `UndoService`, `ClipboardService`,
   `SheetView` (over `EditableGrid`, `GridCellDelegate`, `GridFillHandle`),
   `FormulaBar`, `WorkbookTabs`, `ConditionalFormatEditor`,
   `DataValidationEditor`, `Segmented`, `ComboBox`, `MessageDialog`

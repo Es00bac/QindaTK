@@ -450,27 +450,29 @@ are never stored in history or files: commit, undo, redo, cancel and open
 recalculate the dirty closure found through a cell/range dependency index,
 ordered with Kahn's algorithm, with Tarjan SCCs evaluating to `#CYCLE!`.
 
-The Workbook is the single revision and history owner. The grid joins it as
-a domain source (`GridCellSourceExtension`, `sourceCommits`): a committed
-edit, paste or fill reaches the Workbook as one transaction and the grid keeps
-no values or history. Shared services join it through small additive
-contracts instead of wrapping it in a `PropertyDocument`: `UndoParticipant`
-routes `UndoService` commands, recovery payload validators accept its
-snapshots, `SnapshotSource` lets `FormatRegistry` export it, and
-`WorkbookSession` applies the persistence rules with a workbook
-`DocumentStore`.
+The Workbook is the single revision owner and joins the shared document
+framework (D-053) as a `DocumentModel`. Each operation or transaction applies
+its mutations, then records one immutable `WorkbookCommand` (the applied
+mutations and their exact inverses) through the `UndoService` holding its
+history. That is a private service while the workbook stands alone, and the
+session's once a `DocumentSession` adopts it. A built-in `DocumentCodec`
+lets `DocumentManager`, recovery, workspace restore and `FormatRegistry`
+open, save and adopt workbooks. The grid joins as a domain source
+(`GridCellSourceExtension`, `sourceCommits`): a committed edit, paste or fill
+reaches the Workbook as one transaction and the grid keeps no values or
+history. `SnapshotSource` exports a workbook outside any session.
 
 **Consequences.** Memory follows content, not declared dimensions, and
 insertion is value-neutral (no recalculation). A structural edit costs a
 rewrite of the formulas that refer to the sheet and a dependency-index
 rebuild (about 150 ms for 25,000 formulas in a Debug build). Typed formula
-whitespace and case are not preserved; the canonical rendering is. A feature
-step keeps the previous feature set (768 KiB at the 4,096-area and
-16,384-merge limits), so the history is bounded by bytes as well as steps
-(64 MiB). Grid row and column IDs are view-local. The contract changes closed
-the gaps listed in
-[workbook.md](workbook.md#gaps-in-consumed-contracts). If the domain
-document boundary proposed by the WP-033 domain-session lane (`DocumentModel`,
-`DocumentCommand`, `DocumentCodec`) is integrated, the Workbook's mutation
-lists map onto its command steps and `WorkbookSession` onto its generic
-session; the participant and validator hooks then become adapters to retire.
+whitespace and case are not preserved; the canonical rendering is. A step
+holds only what it changed, but a feature step keeps the previous feature
+set (768 KiB at the 4,096-area and 16,384-merge limits). The shared
+service's byte budget therefore refuses oversize steps rather than keeping
+them, and hosts of large workbooks raise it. A session keeps the
+workbook's document identity, so opening another file means another
+session. Grid row and column IDs are view-local. The contract changes closed
+the gaps listed in [workbook.md](workbook.md#gaps-in-consumed-contracts);
+the lane's interim `UndoParticipant`, recovery validators and
+`WorkbookSession` were retired when D-053 was merged.

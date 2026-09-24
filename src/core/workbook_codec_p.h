@@ -13,8 +13,10 @@
 namespace QindaTK::Calc {
 
 inline constexpr auto WorkbookFormatName = "qindatk.workbook";
-// Version 2 adds names and sheet features; files without them stay version 1.
+// Version 2 adds names, sheet features and the optional session header;
+// files without them stay version 1.
 inline constexpr int WorkbookFormatVersion = 2;
+inline constexpr qsizetype MaxExtensionBytes = 16 * 1024 * 1024;
 
 struct DecodedSheet {
     QString id;
@@ -27,6 +29,12 @@ struct DecodedSheet {
 struct DecodedWorkbook {
     QString documentId;
     quint64 nextSheetNumber = 1;
+    // The session header (DocumentCodec captures: docs/workbook.md#sessions);
+    // serialize() writes none.
+    bool hasHeader = false;
+    quint64 revision = 0;
+    quint64 resetGeneration = 0;
+    QJsonObject extensions;
     std::vector<DecodedSheet> sheets;
     NamesPtr names = std::make_shared<const NameTable>();
     qint64 cellCount = 0;

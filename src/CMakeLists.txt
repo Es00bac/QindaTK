@@ -150,7 +150,7 @@ qt_add_qml_module(qindatk
         core/workbook_sheetops.cpp core/workbook_ruleops.cpp
         core/workbook_codec_features.cpp core/workbook_transfer.cpp
         core/workbook_delimited.cpp core/workbook_delimited.h
-        core/workbook_session.cpp core/workbook_session.h
+        core/workbook_history.cpp core/workbook_document_codec.cpp
         core/workbook.cpp core/workbook.h core/workbook_p.h
         core/workbook_recalc.cpp core/workbook_mutations.cpp core/workbook_ops.cpp
         core/workbook_codec.cpp core/workbook_codec_p.h

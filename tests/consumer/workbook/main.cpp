@@ -8,18 +8,19 @@
 #include <QTimer>
 #include <QUrl>
 
+#include <qindatk/document_manager.h>
 #include <qindatk/format_registry.h>
 #include <qindatk/job_model.h>
 #include <qindatk/undo_service.h>
 #include <qindatk/workbook.h>
 #include <qindatk/workbook_delimited.h>
-#include <qindatk/workbook_session.h>
 #include <qindatk/workbook_sheet_adapter.h>
 
 // Checks the installed WP-055 package: every view instantiates and renders
 // cells from the installed module, and the C++ API computes, formats,
-// validates, pastes across workbooks, exports, saves and undoes through the
-// shared services. Each failure has its own exit code.
+// validates, pastes across workbooks, exports, saves, reopens and undoes
+// through the shared document framework (DocumentManager, DocumentSession,
+// UndoService). Each failure has its own exit code.
 namespace {
 // Spins the event loop until `done` or the deadline.
 template <typename Predicate>
@@ -55,14 +56,15 @@ int main(int argc, char **argv)
         if (!root->findChild<QObject *>(QLatin1StringView(name))) return 2;
 
     using namespace QindaTK;
-    auto *book = root->findChild<Workbook *>(QStringLiteral("installedWorkbook"));
+    auto *documents = root->findChild<DocumentManager *>(QStringLiteral("installedDocuments"));
+    auto *session = qobject_cast<DocumentSession *>(root->property("session").value<QObject *>());
+    auto *book = session ? qobject_cast<Workbook *>(session->modelObject()) : nullptr;
     auto *other = root->findChild<Workbook *>(QStringLiteral("installedOtherWorkbook"));
-    auto *history = root->findChild<UndoService *>(QStringLiteral("installedUndo"));
-    auto *session = root->findChild<WorkbookSession *>(QStringLiteral("installedSession"));
+    UndoService *history = documents ? documents->undoService() : nullptr;
     auto *registry = root->findChild<FormatRegistry *>(QStringLiteral("installedRegistry"));
     QObject *sheet = root->findChild<QObject *>(QStringLiteral("installedSheetView"));
     QObject *formulaBar = root->findChild<QObject *>(QStringLiteral("installedFormulaBar"));
-    if (!book || !other || !history || !session || !registry) return 3;
+    if (!documents || !session || !book || !other || !history || !registry) return 3;
     const QString data = book->sheetIdAt(0);
 
     // Formulas, a whole-column reference, a name and a number format.
@@ -115,20 +117,24 @@ int main(int argc, char **argv)
         }) || !readAll(csv.toLocalFile()).contains("Total,\"1,800.75\""))
         return 13;
 
-    // Shared history: UndoService routes to the Workbook.
-    if (!history->canUndo() || history->undoText() != book->undoText() || !history->undo()
-        || book->cellDisplay(data, 6, 1) != QStringLiteral("") || !history->redo())
+    // Shared history: the session's UndoService records the workbook's steps.
+    history->setActiveModel(book);
+    if (book->undoService() != history || !history->canUndo() || history->undoText() != book->undoText()
+        || !history->undo() || book->cellDisplay(data, 6, 1) != QStringLiteral("") || !history->redo())
         return 14;
 
-    // Save on a worker through the session, then reopen an equal document.
-    const QUrl file = QUrl::fromLocalFile(dir.filePath(QStringLiteral("book.qtkwb")));
+    // Save on a worker through the session, then reopen it through the manager.
+    const QString file = dir.filePath(QStringLiteral("book.qtkwb"));
     bool saved = false, finished = false;
-    QObject::connect(session, &WorkbookSession::saveFinished, session,
+    QObject::connect(session, &DocumentSession::saveFinished, session,
                      [&](bool ok, const QString &, const QString &) { saved = ok; finished = true; });
     if (!session->requestSaveAs(file) || !waitFor([&] { return finished; }) || !saved || session->isDirty()) return 15;
-    Workbook reopened;
-    if (!reopened.open(file) || reopened.serialize() != book->serialize()
-        || reopened.cellDisplay(reopened.sheetIdAt(0), 3, 1) != QStringLiteral("1,800.75"))
+    const QByteArray content = book->serialize();
+    DocumentManager reader;
+    DocumentSession *reopened = reader.openDocument(file);
+    auto *copy = reopened ? qobject_cast<Workbook *>(reopened->modelObject()) : nullptr;
+    if (!copy || reopened->isDirty() || copy->serialize() != content
+        || copy->cellDisplay(copy->sheetIdAt(0), 3, 1) != QStringLiteral("1,800.75"))
         return 16;
     return 0;
 }

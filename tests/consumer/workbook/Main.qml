@@ -12,7 +12,12 @@ Window {
     visible: true
     color: Tk.Theme.color.canvas
 
+    // The workbook is the model of a DocumentSession in the shared framework.
+    property Tk.DocumentSession session: null
+    readonly property Tk.Workbook book: session ? session.model : null
+
     Component.onCompleted: {
+        session = documents.createDocument("qindatk.workbook.v1")
         const data = book.sheetIdAt(0)
         book.renameSheet(data, "Data")
         book.pasteInputs(data, 0, 0, [
@@ -27,21 +32,13 @@ Window {
         sheet.setCurrent(3, 1, false)
     }
 
-    Tk.Workbook {
-        id: book
-        objectName: "installedWorkbook"
+    Tk.DocumentManager {
+        id: documents
+        objectName: "installedDocuments"
     }
     Tk.Workbook {
         id: other
         objectName: "installedOtherWorkbook"
-    }
-    Tk.UndoService {
-        objectName: "installedUndo"
-        activeParticipant: book
-    }
-    Tk.WorkbookSession {
-        objectName: "installedSession"
-        workbook: book
     }
     Tk.FormatRegistry {
         objectName: "installedRegistry"

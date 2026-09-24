@@ -79,21 +79,23 @@ snapshots; they cannot read or mutate live QObjects from worker threads.
 <a id="snapshot-sources"></a>
 ## Snapshot sources
 
-A document model that is not a `PropertyDocument` exports through the same
-jobs by implementing `SnapshotSource` (`<qindatk/application_contracts.h>`):
-`exportSnapshot()` returns an immutable `SnapshotPtr` of its committed state
-on the GUI thread. `preflightExportSource(source, destination, formatId,
-options)` and `startExportSource(…)` accept any QObject that is one (QML
-passes the model itself, for example a `Tk.Workbook`). C++ callers may pass
-a snapshot directly to `preflightSnapshot`/`startExportSnapshot`. The plan
+A document open in a `DocumentSession` exports through
+`preflightExportSession`/`startExportSession`, whatever its kind. A model
+used outside a session exports the same way by implementing `SnapshotSource`
+(`<qindatk/application_contracts.h>`): `exportSnapshot()` returns an
+immutable `SnapshotPtr` of its committed state on the GUI thread.
+`preflightExportSource(source, destination, formatId, options)` and
+`startExportSource(…)` accept any QObject that is one; QML passes the model
+itself, for example a standalone `Tk.Workbook`. C++ callers may pass a
+snapshot directly to `preflightSnapshot`/`startExportSnapshot`. The plan
 records `expectedSnapshotSha256`, so a start with a model that changed since
-preflight is refused, like a session export. A QObject that is not a
-snapshot source gets “Not a snapshot source”. The provider must accept the
-snapshot's `schemaId`: the workbook providers (`qindatk.workbook.v1`,
-`text.csv`, `text.tsv`, added by `Workbook.registerFormat`) refuse other
-snapshots, and the reference providers refuse workbooks. Imports from those
-providers are adopted by the model (`Workbook.adoptImport(registry, jobId)`)
-rather than as a `DocumentSession`; see
+preflight is refused, as in a session export. A QObject that is not a
+snapshot source gets “Not a snapshot source”. A provider's `schemas`
+metadata still applies: the workbook providers (`qindatk.workbook.v1`,
+`text.csv` and `text.tsv`, added by `Workbook.registerFormat`) list only
+`qindatk.workbook.v1`. Their imports are adopted as a new workbook session
+(`adoptImport(manager, jobId)`), or into a standalone model with
+`Workbook.adoptImport(registry, jobId)`; see
 [workbook.md](workbook.md#interchange).
 
 The reference file's schema and save/recovery lifecycle are documented in
