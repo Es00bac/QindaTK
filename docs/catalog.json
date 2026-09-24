@@ -27312,7 +27312,7 @@
         {
           "name": "tooltip",
           "type": "string",
-          "default": "qsTr(\"3D scene: left drag transforms, right drag orbits, middle drag pans, wheel zooms; Escape cancels\")",
+          "default": "qsTr(\"3D scene: drag a handle or the object to transform, right drag orbits, middle drag pans, wheel zooms; Escape cancels\")",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -27396,6 +27396,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "renderGeneration",
+          "type": "alias",
+          "default": "internal.generation",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -27422,11 +27430,19 @@
           "parameters": "steps"
         },
         {
+          "name": "resetRenderer",
+          "parameters": ""
+        },
+        {
           "name": "projectWorldPosition",
           "parameters": "position"
         },
         {
           "name": "pickEntity",
+          "parameters": "x, y"
+        },
+        {
+          "name": "viewRay",
           "parameters": "x, y"
         },
         {
@@ -35223,6 +35239,202 @@
       "valueType": false,
       "bridge": false,
       "objectNames": []
+    },
+    {
+      "name": "TransformGizmo3D",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (WP-076, docs/scene-3d.md#transform-gizmo): `view` owns the projection. It provides projectWorldPosition(vector3d) -> vector3d(x, y, depth) in this item's pixels (negative depth: not visible) and viewRay(x, y) -> {origin, direction} in world space; SceneView3D is the standard adapter and calls refresh() when its camera or renderer changes. SceneModel3D owns the transaction, world/local basis, snapping, parent inversion and undo. This item only draws handles and turns one drag into beginTransform, previews measured from the press, then commit or cancel.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TransformGizmo3D.qml",
+      "properties": [
+        {
+          "name": "scene",
+          "type": "Tk.SceneModel3D",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "view",
+          "type": "Item",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"translate\" // translate, rotate, scale",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "space",
+          "type": "string",
+          "default": "\"world\" // world, local",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "translationSnap",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rotationSnap",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scaleSnap",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "armLength",
+          "type": "real",
+          "default": "Tk.Theme.size.action * 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hitTolerance",
+          "type": "real",
+          "default": "Tk.Theme.size.handle / 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Transform handles: drag an arrow or square to move, a ring to rotate or the circle to scale; Escape cancels\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "handles",
+          "type": "var",
+          "default": "state.geometry",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeHandle",
+          "type": "string",
+          "default": "state.gesture ? state.gesture.handle : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hoveredHandle",
+          "type": "string",
+          "default": "state.hovered",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "refresh",
+          "parameters": ""
+        },
+        {
+          "name": "relayout",
+          "parameters": ""
+        },
+        {
+          "name": "rotated",
+          "parameters": "q, v"
+        },
+        {
+          "name": "polygonArea",
+          "parameters": "points"
+        },
+        {
+          "name": "computeGeometry",
+          "parameters": ""
+        },
+        {
+          "name": "segmentDistance",
+          "parameters": "px, py, a, b"
+        },
+        {
+          "name": "inside",
+          "parameters": "points, x, y"
+        },
+        {
+          "name": "handleAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "planeHit",
+          "parameters": "x, y, pivot, normal"
+        },
+        {
+          "name": "preview",
+          "parameters": "x, y"
+        },
+        {
+          "name": "finishGesture",
+          "parameters": "commit"
+        },
+        {
+          "name": "cancelGesture",
+          "parameters": ""
+        },
+        {
+          "name": "nudge",
+          "parameters": "handle, steps"
+        },
+        {
+          "name": "targetFor",
+          "parameters": "name"
+        },
+        {
+          "name": "axisColor",
+          "parameters": "name"
+        },
+        {
+          "name": "paintHandles",
+          "parameters": "context"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "transformGizmo3D",
+        "transformGizmoCanvas3D",
+        "transformGizmoHandle3D_",
+        "transformGizmoPointer3D"
+      ]
     },
     {
       "name": "TransitionEditor",

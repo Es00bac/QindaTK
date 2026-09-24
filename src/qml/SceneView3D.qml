@@ -8,7 +8,7 @@ T.Control {
     objectName: "sceneView3D"
     property Tk.SceneModel3D scene: null
     property Tk.MeshRigDocument meshDocument: null
-    property string tooltip: qsTr("3D scene: left drag transforms, right drag orbits, middle drag pans, wheel zooms; Escape cancels")
+    property string tooltip: qsTr("3D scene: drag a handle or the object to transform, right drag orbits, middle drag pans, wheel zooms; Escape cancels")
     property vector3d cameraPosition: Qt.vector3d(0, 120, 650)
     property vector3d cameraEulerDegrees: Qt.vector3d(-10, 0, 0)
     property vector3d cameraTarget: Qt.vector3d(0, 0, 0)
@@ -52,6 +52,18 @@ T.Control {
     property string transformConstraint: "free" // free, x, y, z, xy, xz, yz
     property string transformSpace: "world" // world, local
     readonly property bool rendererAvailable: GraphicsInfo.api !== GraphicsInfo.Software && renderer.status === Loader.Ready
+    // Counts renderer instances: each one owns a fresh set of Qt Quick 3D GPU resources.
+    readonly property alias renderGeneration: internal.generation
+    // AGENT-NOTE: the scene and mesh models are the CPU-side source of truth.
+    // When Qt invalidates this window's scene graph (device loss, or a hidden
+    // window without persistent graphics) the view cancels its gestures and
+    // replaces the whole renderer, so every GPU resource is rebuilt from the
+    // models on the next initialized frame. Other windows keep their renderers.
+    function resetRenderer() {
+        gizmo.cancelGesture()
+        internal.resetting = true
+        Qt.callLater(function() { internal.resetting = false })
+    }
     function projectWorldPosition(position) {
         return renderer.item ? renderer.item.mapFrom3DScene(position) : Qt.vector3d(0, 0, -1)
     }
@@ -60,11 +72,14 @@ T.Control {
         const hit = renderer.item.pick(x, y)
         return hit.objectHit ? {entityId: hit.objectHit.entityId, worldPosition: hit.scenePosition, distance: hit.distance} : ({})
     }
-    function meshRay(x, y) {
-        if (!renderer.item || !meshDocument) return ({})
+    function viewRay(x, y) {
+        if (!renderer.item) return ({})
         const nearPoint = renderer.item.mapTo3DScene(Qt.vector3d(x, y, 0))
         const farPoint = renderer.item.mapTo3DScene(Qt.vector3d(x, y, 1))
         return {origin: nearPoint, direction: farPoint.minus(nearPoint).normalized()}
+    }
+    function meshRay(x, y) {
+        return meshDocument ? viewRay(x, y) : ({})
     }
     signal entityPicked(string entityId, vector3d worldPosition)
     signal meshPicked(vector3d worldPosition)
@@ -75,13 +90,41 @@ T.Control {
     Accessible.name: tooltip
     Accessible.description: rendererAvailable ? qsTr("Real 3D scene and mesh rendering") : qsTr("3D requires a Qt RHI graphics backend")
     background: Rectangle { color: Tk.Theme.color.canvas; border.color: Tk.Theme.color.border; border.width: Tk.Theme.size.border }
+    QtObject {
+        id: internal
+        property int generation: 0
+        property bool resetting: false
+    }
+    Connections {
+        target: control.Window.window
+        // Emitted on the render thread; QML delivers it on the GUI thread.
+        function onSceneGraphInvalidated() { control.resetRenderer() }
+    }
+    onCameraPositionChanged: gizmo.refresh()
+    onCameraEulerDegreesChanged: gizmo.refresh()
+    onRendererAvailableChanged: gizmo.refresh()
     contentItem: Item {
         Loader {
             id: renderer
             anchors.fill: parent
-            active: control.GraphicsInfo.api !== GraphicsInfo.Software
+            active: control.GraphicsInfo.api !== GraphicsInfo.Software && !internal.resetting
             source: "SceneView3DRenderer.qml"
-            onLoaded: item.control = control
+            onLoaded: {
+                item.control = control
+                ++internal.generation
+            }
+        }
+        Tk.TransformGizmo3D {
+            id: gizmo
+            anchors.fill: parent
+            visible: control.rendererAvailable
+            view: control
+            scene: control.scene
+            mode: control.transformMode
+            space: control.transformSpace
+            translationSnap: control.translationSnap
+            rotationSnap: control.rotationSnap
+            scaleSnap: control.scaleSnap
         }
         Tk.Flex {
             id: transformBar

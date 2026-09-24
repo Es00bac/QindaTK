@@ -24,7 +24,7 @@ Item {
         padding: Tk.Theme.space.lg
         gap: Tk.Theme.space.md
         Tk.Heading { text: qsTr("3D scene primitives"); level: 1 }
-        Tk.Caption { text: qsTr("Real Qt Quick 3D rendering · persistent scene hierarchy · move, rotate and scale") }
+        Tk.Caption { text: qsTr("Real Qt Quick 3D rendering · persistent scene hierarchy · on-object move, rotate and scale handles") }
         Tk.Flex {
             direction: Tk.Flex.Row
             gap: Tk.Theme.space.sm
@@ -64,6 +64,6 @@ Item {
                 scene: sceneModel
             }
         }
-        Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Left drag transforms · Right drag orbits · Middle drag pans · Wheel zooms · Escape cancels") }
+        Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Drag a handle or the object to transform · Right drag orbits · Middle drag pans · Wheel zooms · Escape cancels") }
     }
 }
