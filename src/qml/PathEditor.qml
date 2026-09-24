@@ -36,6 +36,10 @@ Item {
     }
     function handlePoint(index, part) {
         const node = nodes[index]
+        // AGENT-GUARD: the Repeater follows nodes.length, so when a shorter
+        // node list arrives (fewer star points, a removed node, another
+        // selected object) trailing handles re-evaluate once before removal.
+        if (!node) return Qt.point(0, 0)
         const anchor = mapLocal(node.x, node.y)
         if (part === "anchor") return anchor
         const handle = mapLocal(node[part + "X"], node[part + "Y"])
