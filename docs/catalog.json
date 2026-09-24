@@ -41652,7 +41652,7 @@
       "name": "MotionComposition",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: MotionComposition saves layer records and AutomationModel keys; MotionFrameRenderer's decoded pixels stay external behind sourceId. This type records effect descriptors but does not execute them.",
+      "description": "AGENT-CONTRACT: MotionComposition saves layer records and AutomationModel keys; MotionFrameRenderer keeps decoded pixels external behind sourceId and executes each layer's ordered effects before transform/composition.",
       "singleton": false,
       "attached": null,
       "file": "src/core/motion_composition.h",

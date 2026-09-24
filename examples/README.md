@@ -69,13 +69,16 @@ paths and neighboring composited frames for onion-skin inspection.
 The [motion persistence fixture](motion-persistence/Main.qml) saves and
 reopens a versioned composition with exact animation ticks and stable layer
 IDs; artwork remains an external asset.
+The [motion effects fixture](motion-effects/Main.qml) renders the same source
+before and after ordered brightness and grayscale effects.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
 The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows
 stable channel/preset snapshots and explicit host acknowledgments for brush
 dynamics requests. The [tiled raster fixture](tiled-raster/Main.qml) paints
 actual masked RGBA tiles, undoes a stroke, saves and reopens its native state,
-and exports a tagged sRGB composite PNG.
+and exports a tagged sRGB composite PNG. Its `RasterStrokeInput` overlay
+accepts tablet pressure/tilt and mouse strokes on the rendered canvas.
 The [raster workbench fixture](raster-workbench/Main.qml) connects those
 controls to the tiled document, paints with mouse gestures and compares live
 before/after PNG pixels without writing temporary source images.
