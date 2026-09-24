@@ -228,6 +228,14 @@ and a `PageNavigator` shows thumbnails and an outline. `showcase.qtkrich` is a n
 - Screenshots: [compact](../docs/universal-toolkit/implementation/evidence/WP-050-compact.png),
   [comfortable](../docs/universal-toolkit/implementation/evidence/WP-050-comfortable.png)
 
+## rich-asset
+
+The [managed-image fixture](rich-asset/Main.qml) registers a stable resource ID
+with `ResourceResolver`, passes its `AssetProvider` to `RichDocumentView`, and
+inserts an `asset:` image object. The figure is fetched asynchronously; a
+missing resource remains a labelled placeholder. Run with
+`qtk-preview examples/rich-asset/Main.qml --wait 2000 --grab rich-asset.png`.
+
 ## office-shell
 
 A document application's window: `Tk.AppWindow` with a `MenuBar` (radio

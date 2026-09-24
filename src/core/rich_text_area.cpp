@@ -4,6 +4,7 @@
 #include "rich_text_clipboard.h"
 #include "rich_text_format_state.h"
 #include "rich_text_objects.h"
+#include "rich_text_asset_renderer.h"
 
 #include <QCursor>
 #include <QGuiApplication>
@@ -19,6 +20,7 @@ RichTextArea::RichTextArea(QQuickItem *parent)
       m_visible(new RichTextVisiblePages(this)),
       m_formatState(new RichTextFormatState(this)),
       m_defaultRenderer(std::make_unique<RichTextImageRenderer>()),
+      m_assetRenderer(std::make_unique<RichTextAssetRenderer>(this)),
       m_clipboard(std::make_unique<RichTextClipboard>())
 {
     m_renderer = m_defaultRenderer.get();
@@ -30,6 +32,8 @@ RichTextArea::RichTextArea(QQuickItem *parent)
     setCursor(QCursor(Qt::IBeamCursor));
     setClip(true);
     connect(m_layout.get(), &RichTextLayout::pagesChanged, this, &RichTextArea::onPagesChanged);
+    connect(m_assetRenderer.get(), &RichTextAssetRenderer::updated,
+            this, [this] { emit repaintRequested(-1); });
     // A width change (continuous mode) or a document reset drops all pages;
     // lay out the viewport again at the next turn of the event loop.
     connect(m_layout.get(), &RichTextLayout::layoutReset, this, &RichTextArea::schedulePagination,
@@ -76,6 +80,7 @@ void RichTextArea::setDocument(RichTextDocument *document)
         connect(m_document, &QObject::destroyed, this, [this] { setDocument(nullptr); });
     }
     m_layout->setDocument(m_document);
+    m_assetRenderer->setDocument(m_document);
     updateLayoutWidth();
     schedulePagination();
     m_formatState->refresh();
@@ -83,6 +88,19 @@ void RichTextArea::setDocument(RichTextDocument *document)
     emit caretChanged();
     emit selectionChanged();
     emit accessibleTextChanged();
+}
+
+AssetProvider *RichTextArea::assetProvider() const { return m_assetRenderer->provider(); }
+
+void RichTextArea::setAssetProvider(AssetProvider *provider)
+{
+    if (assetProvider() == provider) return;
+    const bool usingDefault = m_renderer == m_defaultRenderer.get() || m_renderer == m_assetRenderer.get();
+    m_assetRenderer->setProvider(provider);
+    if (usingDefault) m_renderer = provider ? static_cast<RichTextObjectRenderer *>(m_assetRenderer.get())
+                                           : static_cast<RichTextObjectRenderer *>(m_defaultRenderer.get());
+    emit assetProviderChanged();
+    emit repaintRequested(-1);
 }
 
 void RichTextArea::setPaged(bool paged)
@@ -426,7 +444,9 @@ RichTextObjectRenderer *RichTextArea::objectRenderer() const { return m_renderer
 
 void RichTextArea::setObjectRenderer(RichTextObjectRenderer *renderer)
 {
-    m_renderer = renderer ? renderer : m_defaultRenderer.get();
+    m_renderer = renderer ? renderer : assetProvider()
+        ? static_cast<RichTextObjectRenderer *>(m_assetRenderer.get())
+        : static_cast<RichTextObjectRenderer *>(m_defaultRenderer.get());
     emit repaintRequested(-1);
 }
 

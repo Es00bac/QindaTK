@@ -4,6 +4,7 @@
 #include "rich_text_format_state.h"
 #include "rich_text_layout.h"
 #include "rich_text_visible_pages.h"
+#include "asset_provider.h"
 #include <QBasicTimer>
 #include <QColor>
 #include <QQuickItem>
@@ -16,6 +17,7 @@ class ClipboardAdapter;
 class RichTextClipboard;
 class RichTextObjectRenderer;
 class RichTextImageRenderer;
+class RichTextAssetRenderer;
 
 // Interactive surface of RichTextEditor (continuous flow) and RichDocumentView
 // (pages). It owns one RichTextLayout of the shared RichTextDocument, the
@@ -29,6 +31,7 @@ class RichTextArea : public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QindaTK::RichTextDocument *document READ document WRITE setDocument NOTIFY documentChanged)
+    Q_PROPERTY(QindaTK::AssetProvider *assetProvider READ assetProvider WRITE setAssetProvider NOTIFY assetProviderChanged)
     Q_PROPERTY(bool paged READ paged WRITE setPaged NOTIFY pagedChanged)
     Q_PROPERTY(bool readOnly READ readOnly WRITE setReadOnly NOTIFY readOnlyChanged)
     Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
@@ -74,6 +77,8 @@ public:
 
     RichTextDocument *document() const { return m_document; }
     void setDocument(RichTextDocument *document);
+    AssetProvider *assetProvider() const;
+    void setAssetProvider(AssetProvider *provider);
     bool paged() const { return m_layout->mode() == RichTextLayout::Mode::Paged; }
     void setPaged(bool paged);
     bool readOnly() const { return m_readOnly; }
@@ -140,6 +145,7 @@ public:
 
 signals:
     void documentChanged();
+    void assetProviderChanged();
     void readOnlyChanged();
     void pagedChanged();
     void zoomChanged();
@@ -215,6 +221,7 @@ private:
     RichTextVisiblePages *m_visible = nullptr;
     RichTextFormatState *m_formatState = nullptr;
     std::unique_ptr<RichTextImageRenderer> m_defaultRenderer;
+    std::unique_ptr<RichTextAssetRenderer> m_assetRenderer;
     RichTextObjectRenderer *m_renderer = nullptr;
     std::unique_ptr<RichTextClipboard> m_clipboard;
     RichText::PositionAnchor m_anchor;

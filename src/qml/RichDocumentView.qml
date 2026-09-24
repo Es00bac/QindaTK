@@ -16,6 +16,7 @@ T.Control {
     id: control
 
     property Tk.RichTextDocument document: null
+    property Tk.AssetProvider assetProvider: null
     property bool readOnly: false
     property string tooltip: ""
     property alias zoom: area.zoom
@@ -56,6 +57,7 @@ T.Control {
             focus: true
             paged: true
             document: control.document
+            assetProvider: control.assetProvider
             readOnly: control.readOnly
             padding: Tk.Theme.space.xl
             pageGap: Tk.Theme.space.lg

@@ -456,6 +456,10 @@ and command table are in [rich-text.md](rich-text.md).
 `RichTextSessionAdapter` (`session`, `document`, `extensionKey`, `loaded`,
 `lastError`, `warnings`, `reload()`, `flush()`) keeps the document in a
 `DocumentSession`, which then handles save, recovery and stale-save checks.
+`RichTextEditor`, `RichDocumentView` and their inner `RichTextArea` expose
+`assetProvider`. When set, `asset:<resourceId>` image objects request a
+thumbnail through that provider and repaint after it arrives or is relinked.
+The host registers each resource ID in the provider's `ResourceResolver`.
 [examples/pdf-review](../examples/pdf-review/Main.qml) uses a two-page PDF resource and an in-memory `PdfAnnotationDocument` whose changes can be saved with `saveAs`. [examples/print-preflight](../examples/print-preflight/Main.qml) uses RichDocumentView as the page renderer and models host-owned preflight issues and print-job acknowledgement. [examples/document-review](../examples/document-review/Main.qml) illustrates reference/review request surfaces. [examples/rich-document](../examples/rich-document/Main.qml) shows a paged
 view, a draft editor over the same document, a `FormatBar` and a
 `PageNavigator` on a mixed-script fixture.

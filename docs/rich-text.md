@@ -289,11 +289,12 @@ become text. `ClipboardService` hosts can pass their own
 The document stores geometry, placement, alt text and a source URI only.
 Drawing goes through the `RichTextObjectRenderer` seam
 (`rich_text_objects.h`). The reference `RichTextImageRenderer` decodes
-`file:`, `qrc:` and `data:` images into a 64 MiB bounded cache. Any other
-source, or a failed load, paints a labelled placeholder, so missing content
-stays visible and selectable. Resolving `asset:` sources through
-`AssetProvider` (WP-017) and editing object geometry on a canvas (WP-040)
-are host adapters of this seam.
+`file:`, `qrc:` and `data:` images into a 64 MiB bounded cache. When a view's
+`assetProvider` is set, `RichTextAssetRenderer` requests each `asset:<resourceId>`
+image asynchronously through that provider, decodes on the GUI thread and
+passes an immutable image snapshot to the painted tile. Resource invalidation
+re-requests the image. Missing or failed content remains a labelled placeholder.
+The host still owns resource registration and object geometry editing.
 
 ## Fonts and fallback
 
@@ -314,6 +315,6 @@ seams are typed; nothing here is a stand-in contract.
 | WP-024 FontPicker | `FontPicker` binds through `PropertyBinding`, which does not fit a selection. `FormatBar` uses `FontCatalog` with a `ComboBox`. |
 | WP-025 find/replace | `RichTextFindReplaceService` connects `FindReplaceBar` to this document. It searches editor-compatible UTF-16 text within paragraphs, returns paragraph IDs and offsets, skips object-containing matches and invalid grapheme boundaries, rejects stale revisions, and commits replace-all as one undo step. Matches cannot cross paragraph boundaries. |
 | WP-033 shared framework | Not available; the controls have not been verified against it. |
-| WP-040 canvas / WP-017 assets | Object renderer seam above. `asset:` sources show a placeholder. |
+| WP-040 canvas / WP-017 assets | `asset:` images resolve through `assetProvider` on either rich-text view. Canvas geometry editing remains a host adapter. |
 | UndoService | `PropertyDocument`-only; use `externalUndo` (D-050). |
 | WP-051 | Style, table, text-frame and page-setup controls are integrated. Document-wide page size and margins connect to rich-text history; named style resolution, merged/table structural edits, linked frames and advanced page geometry remain. |

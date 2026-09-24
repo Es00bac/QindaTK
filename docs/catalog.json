@@ -21072,6 +21072,14 @@
           "required": false
         },
         {
+          "name": "assetProvider",
+          "type": "Tk.AssetProvider",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "readOnly",
           "type": "bool",
           "default": "false",
@@ -21318,6 +21326,14 @@
         {
           "name": "document",
           "type": "Tk.RichTextDocument",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "assetProvider",
+          "type": "Tk.AssetProvider",
           "default": "null",
           "readonly": false,
           "defaultProperty": false,
@@ -40120,6 +40136,13 @@
           "constant": false
         },
         {
+          "name": "assetProvider",
+          "type": "QindaTK::AssetProvider *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "paged",
           "type": "bool",
           "default": "",
@@ -40396,6 +40419,10 @@
       "signals": [
         {
           "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "assetProviderChanged",
           "parameters": ""
         },
         {

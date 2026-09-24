@@ -134,6 +134,7 @@ qt_add_qml_module(qindatk
         core/rich_text_shaping.cpp core/rich_text_pagination.cpp core/rich_text_table_flow.cpp
         core/rich_text_pages.cpp core/rich_text_mapping.cpp core/rich_text_navigation.cpp
         core/rich_text_painter.cpp core/rich_text_objects.cpp core/rich_text_objects.h
+        core/rich_text_asset_renderer.cpp core/rich_text_asset_renderer.h
         core/rich_text_graphemes.cpp core/rich_text_graphemes.h
         core/rich_text_area.cpp core/rich_text_area.h core/rich_text_area_input.cpp
         core/rich_text_area_edit.cpp core/rich_text_area_commands.cpp

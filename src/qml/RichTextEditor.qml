@@ -16,6 +16,7 @@ T.Control {
     id: control
 
     property Tk.RichTextDocument document: null
+    property Tk.AssetProvider assetProvider: null
     property bool readOnly: false
     property bool error: false
     property int rows: 3
@@ -83,6 +84,7 @@ T.Control {
             paged: false
             padding: 0
             document: control.document
+            assetProvider: control.assetProvider
             readOnly: control.readOnly
             inkColor: control.enabled ? Tk.Theme.color.text : Tk.Theme.color.textDisabled
             pageColor: Tk.Theme.color.inputBg
