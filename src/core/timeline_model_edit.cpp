@@ -271,6 +271,12 @@ QVariantMap TimelineModel::beginEdit(const QVariantMap &map)
         || !optionalTicks(map, QStringLiteral("sourceOffset"), request.sourceOffset, error))
         return failure(error);
     request.grabTicks = grab.value_or(0);
+    if (map.contains(QStringLiteral("anchor"))) {
+        const QString anchor = map.value(QStringLiteral("anchor")).toString();
+        if (anchor == QLatin1String("time")) request.clipAnchor = TimelineClip::Anchor::Time;
+        else if (anchor == QLatin1String("musical")) request.clipAnchor = TimelineClip::Anchor::Musical;
+        else return failure(tr("anchor must be \"time\" or \"musical\""));
+    }
     if (map.contains(QStringLiteral("expectedRevision"))) {
         const auto revision = RevisionId::parseDecimal(map.value(QStringLiteral("expectedRevision")).toString());
         if (!revision) return failure(tr("expectedRevision must be a decimal string"));

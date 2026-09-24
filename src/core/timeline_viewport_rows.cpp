@@ -193,7 +193,9 @@ void TimelineViewport::rebuildClips(qint64 start, qint64 end)
                             sourceEnd ? QString::number(*sourceEnd) : QString(),
                             clip.start < start, clip.end() > end, entry.preview, entry.ghost,
                             entry.preview && invalid, false, 0,
-                            entry.ghost ? -1 : (entry.preview ? layer + 100000 : layer)};
+                            entry.ghost ? -1 : (entry.preview ? layer + 100000 : layer),
+                            clip.anchor == TimelineClip::Anchor::Musical ? QStringLiteral("musical")
+                                                                         : QStringLiteral("time")};
     };
     QVector<QVariantList> rows;
     double threshold = m_summaryPixels;
@@ -234,7 +236,8 @@ void TimelineViewport::rebuildClips(qint64 start, qint64 end)
                                     QString(), QString(), false, QString::number(entry.clip.start),
                                     QString::number(runEnd - entry.clip.start), QString::number(runEnd),
                                     QString(), QString(), QString(), QString(), entry.clip.start < start,
-                                    runEnd > end, false, false, false, true, last - i + 1, layer++});
+                                    runEnd > end, false, false, false, true, last - i + 1, layer++,
+                                    QStringLiteral("time")});
                     summarized += last - i + 1;
                 } else {
                     rows.push_back(row(entry, trackIndex, layer++));

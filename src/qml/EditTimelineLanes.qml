@@ -269,6 +269,7 @@ Item {
             required kind
             required resourceId
             required locked
+            required anchorMode
             required preview
             required ghost
             required invalid

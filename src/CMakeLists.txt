@@ -80,6 +80,7 @@ qt_add_qml_module(qindatk
         core/timeline_planner.h
         core/timeline_model.cpp core/timeline_model_edit.cpp core/timeline_model_history.cpp
         core/timeline_model_io.cpp core/timeline_model_qml.cpp core/timeline_model.h
+        core/timeline_model_musical.cpp
         core/timeline_visible_list.cpp core/timeline_visible_list.h
         core/timeline_viewport.cpp core/timeline_viewport_rows.cpp core/timeline_viewport.h
         core/timeline_media_provider.cpp core/timeline_media_provider.h

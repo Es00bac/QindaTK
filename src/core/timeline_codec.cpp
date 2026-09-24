@@ -89,7 +89,7 @@ QVariantMap toMap(const TimelineTrack &track)
 
 QVariantMap toMap(const TimelineClip &clip)
 {
-    return {{QStringLiteral("id"), clip.id.toString(QUuid::WithoutBraces)},
+    QVariantMap map{{QStringLiteral("id"), clip.id.toString(QUuid::WithoutBraces)},
             {QStringLiteral("trackId"), clip.trackId.toString(QUuid::WithoutBraces)},
             {QStringLiteral("start"), QString::number(clip.start)},
             {QStringLiteral("duration"), QString::number(clip.duration)},
@@ -100,7 +100,15 @@ QVariantMap toMap(const TimelineClip &clip)
             {QStringLiteral("label"), clip.label},
             {QStringLiteral("color"), clip.color},
             {QStringLiteral("kind"), clip.kind},
-            {QStringLiteral("locked"), clip.locked}};
+            {QStringLiteral("locked"), clip.locked},
+            {QStringLiteral("anchor"), clip.anchor == TimelineClip::Anchor::Musical
+                                           ? QStringLiteral("musical") : QStringLiteral("time")}};
+    // Beat-locked clips carry their canonical musical anchor; `start` is derived.
+    if (clip.anchor == TimelineClip::Anchor::Musical) {
+        map.insert(QStringLiteral("musicalTick"), QString::number(clip.musicalTick));
+        map.insert(QStringLiteral("musicalOffset"), QString::number(clip.musicalOffset));
+    }
+    return map;
 }
 
 QVariantMap toMap(const TimelineMarker &marker)
@@ -159,8 +167,19 @@ std::optional<TimelineClip> clipFromMap(const QVariantMap &map, QString *error,
         || !readString(map, QStringLiteral("label"), clip.label, error)
         || !readString(map, QStringLiteral("color"), clip.color, error)
         || !readString(map, QStringLiteral("kind"), clip.kind, error)
-        || !readBool(map, QStringLiteral("locked"), clip.locked, error))
+        || !readBool(map, QStringLiteral("locked"), clip.locked, error)
+        || !readTicks(map, QStringLiteral("musicalTick"), clip.musicalTick, error, false)
+        || !readTicks(map, QStringLiteral("musicalOffset"), clip.musicalOffset, error, false))
         return std::nullopt;
+    if (map.contains(QStringLiteral("anchor"))) {
+        const QString anchor = map.value(QStringLiteral("anchor")).toString();
+        if (anchor == QLatin1String("time")) clip.anchor = TimelineClip::Anchor::Time;
+        else if (anchor == QLatin1String("musical")) clip.anchor = TimelineClip::Anchor::Musical;
+        else {
+            setError(error, tr("anchor must be \"time\" or \"musical\""));
+            return std::nullopt;
+        }
+    }
     if (clip.duration < 1) {
         setError(error, tr("duration must be at least one tick"));
         return std::nullopt;

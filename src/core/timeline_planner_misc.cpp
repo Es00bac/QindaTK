@@ -465,6 +465,14 @@ void TimelinePlanner::finish(Context &context)
         return setError(context, error(ErrorCode::Validation,
             tr("This edit changes %1 objects; the limit is %2")
                 .arg(changes.size()).arg(policy.maxChangesPerEdit())));
+    // A beat-locked clip whose start or anchor changed takes a new musical
+    // anchor here, the one place every planned clip passes through.
+    for (auto &change : changes) {
+        if (change.kind != TimelineChange::Kind::Clip || !change.clipAfter) continue;
+        const auto &before = change.clipBefore;
+        if (!before || before->start != change.clipAfter->start || before->anchor != change.clipAfter->anchor)
+            change.clipAfter = context.model.anchoredClip(*change.clipAfter);
+    }
     QSet<QUuid> touched;
     for (const auto &change : changes) {
         if (change.kind == TimelineChange::Kind::Clip) {
