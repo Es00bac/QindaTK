@@ -40,7 +40,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-051"></a>
 ## WP-051 — Add publishing structure, styles and tables
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-042](phase-03-authoring.md#wp-042), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** active (authoring controls and undoable table row/column editing merged; merged cells, styles and frame flow pending). **Depends on:** [WP-042](phase-03-authoring.md#wp-042), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-04 StyleManager](../proposed/05-documents-office.md#off-04), [OFF-06 PageSetupDialog](../proposed/05-documents-office.md#off-06), [OFF-07 TextFrameEditor](../proposed/05-documents-office.md#off-07), [OFF-08 TableEditor](../proposed/05-documents-office.md#off-08)
 

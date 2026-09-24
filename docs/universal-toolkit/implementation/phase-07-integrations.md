@@ -145,7 +145,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-086"></a>
 ## WP-086 — Implement image slices, volumes and transfer functions
 
-**Implementation lead:** Sol. **Status:** active (voxel provider, slice view and transfer editor lane underway; volume rendering follows). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-076](phase-06-video.md#wp-076), [WP-085](phase-07-integrations.md#wp-085)
+**Implementation lead:** Sol. **Status:** active (typed voxel volumes, linked slice views and transfer editing merged; volume rendering follows). **Depends on:** [WP-043](phase-03-authoring.md#wp-043), [WP-076](phase-06-video.md#wp-076), [WP-085](phase-07-integrations.md#wp-085)
 
 **Proposal scope:** [EXT-07 ImageSliceView](../proposed/09-specialized-domains.md#ext-07), [EXT-08 VolumeView](../proposed/09-specialized-domains.md#ext-08), [EXT-09 TransferFunctionEditor](../proposed/09-specialized-domains.md#ext-09)
 

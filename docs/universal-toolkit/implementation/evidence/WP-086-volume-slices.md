@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # WP-086 — Voxel volumes, calibrated slices and transfer functions
 
-**State: ready for integration; package not accepted.** This record covers
+**State: merged on the integration branch (`3313138`); package not accepted.** This record covers
 the principal-plane slice of WP-086: the typed voxel provider, `ImageSliceView`
 ([EXT-07](../../proposed/09-specialized-domains.md#ext-07)) and
 `TransferFunctionEditor` ([EXT-09](../../proposed/09-specialized-domains.md#ext-09)).
