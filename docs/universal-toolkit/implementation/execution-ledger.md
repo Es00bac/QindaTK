@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 35 packages accepted, 38 active, one in review, and 10 planned.**
+**Execution state: 37 packages accepted, 37 active, none in review, and 10 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -14,12 +14,12 @@ WP-020 and WP-022 were accepted earlier. The remaining 12 review packages
 passed the consolidated Qt 6.11/6.8 repository, QML lint, staged-consumer and
 visual gates recorded in the [2026-09-23 acceptance record](evidence/review-acceptance-2026-09-23.md).
 WP-031 subsequently passed its own installed-consumer gate and is accepted.
-WP-040 is active: its WP-033 dependency is accepted; render lifecycle
-qualification remains. The Qt 6.8
-offscreen RHI readback repair passed the full integrated suite. WP-048 is accepted
+WP-040 is accepted: its WP-033 dependency and live-window render lifecycle
+qualification passed. The Qt 6.8 offscreen RHI readback repair passed the full
+integrated suite. WP-048 is accepted
 after its time-axis and host-media boundaries were reconciled with D-045;
 both full integrated suites and its installed consumers pass. WP-050 is
-integrated and in review; WP-055 remains active in an isolated Opus worktree.
+accepted after focused merged editing, view and session checks; WP-055 remains active.
 WP-033 is accepted after its dual-Qt two-document workbench, installed
 lifecycle consumers, domain sessions, recovery, shared undo and external
 AT-SPI command action passed. WP-041 now has a document-space snap query,
@@ -75,7 +75,7 @@ as though a later fix had already passed the earlier run.
 | [WP-031 — Complete analytical chart and scheduling families](phase-02-controls-data.md#wp-031) | 02 | Sol | accepted | [Seven families, dual-Qt suite and installed consumer](evidence/WP-031.md) |
 | [WP-032 — Build event, diff and resource views](phase-02-controls-data.md#wp-032) | 02 | Luna | accepted | [Event, diff and resource integration status](evidence/WP-032.md) |
 | [WP-033 — Prove the shared application framework](phase-02-controls-data.md#wp-033) | 02 | Sol | accepted | [Native collection transfer, dual-Qt workbench lifecycle and external AT-SPI action passed](evidence/WP-033.md) |
-| [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | active | [Integrated renderer and installed consumer; dual-Qt 102/102; render lifecycle qualification in progress](evidence/WP-040.md) |
+| [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | accepted | [Integrated renderer, installed consumer, dual-Qt 102/102 and focused resource lifecycle checks](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Lasso, snap, guides, shared selection and reference group transforms; persistence still open](evidence/WP-041.md) |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
 | [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [Typed curve, gradient and picker models; ICC/evaluator backends; bounded canvas display; output integration open](evidence/WP-043.md) |
@@ -85,7 +85,7 @@ as though a later fix had already passed the earlier run.
 | [WP-047 — Connect transport state to an authoritative clock](phase-03-authoring.md#wp-047) | 03 | Sol | accepted | [Clock and transport-bar checks](evidence/WP-047.md) |
 | [WP-048 — Implement the shared edit timeline](phase-03-authoring.md#wp-048) | 03 | Sol | accepted | [Exact edits, dual-Qt 101/101 suites, visuals and installed consumer](evidence/WP-048.md) |
 | [WP-049 — Implement tempo and automation editing](phase-03-authoring.md#wp-049) | 03 | Sol | accepted | [Tempo/automation models, clip anchoring, schedule snapshots and lanes accepted](evidence/WP-049.md) |
-| [WP-050 — Implement rich text and paginated document editing](phase-04-office.md#wp-050) | 04 | Sol | review | [Rich-text model, layout, controls and codec integrated; focused dual-Qt checks passed](evidence/WP-050.md) |
+| [WP-050 — Implement rich text and paginated document editing](phase-04-office.md#wp-050) | 04 | Sol | accepted | [Styled multi-page editing, cursor mapping and persistence; focused merged and dual-Qt checks passed](evidence/WP-050.md) |
 | [WP-051 — Add publishing structure, styles and tables](phase-04-office.md#wp-051) | 04 | Sol | active | [Four authoring controls integrated; production document operations pending](evidence/WP-051.md) |
 | [WP-052 — Add equations, references and document review](phase-04-office.md#wp-052) | 04 | Sol | active | [Equation, reference and review request controls integrated; semantic document backend pending](evidence/WP-052.md) |
 | [WP-053 — Implement printing and publishing preflight](phase-04-office.md#wp-053) | 04 | Sol | active | [Three-page PDF export and preview/preflight controls integrated; native print jobs and backend checks pending](evidence/WP-053.md) |
