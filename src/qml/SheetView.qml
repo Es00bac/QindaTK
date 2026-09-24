@@ -6,9 +6,12 @@ import QindaTK as Tk
 
 // AGENT-CONTRACT (docs/controls.md, docs/workbook.md): one sheet of a
 // Tk.Workbook shown through Tk.EditableGrid via Tk.WorkbookSheetAdapter.
-// The Workbook owns inputs, formulas, values and history; the grid owns only
-// geometry and stable-ID selection; this view keeps the active cell. Cell
-// editing shows the formula source, never the computed display value.
+// The Workbook owns inputs, formulas, values, formats, rules, sheet
+// properties and history; the grid (sourceCommits) owns only geometry and
+// stable-ID selection, and its edits, pastes and fill-handle drags become
+// Workbook transactions; this view keeps the active cell and a pending
+// validation prompt. Cell editing shows the formula source, never the
+// computed display value.
 T.Control {
     id: control
 
@@ -17,27 +20,34 @@ T.Control {
     // back to the first sheet when the requested one is removed).
     property string sheetId: ""
     property string tooltip: qsTr("Spreadsheet")
+    // Policy for pasteText: "allOrNothing" or "skipInvalid" (Workbook.pasteInputs).
+    property string pastePolicy: "allOrNothing"
     property int epoch: 0
     readonly property alias adapter: sheetAdapter
     readonly property alias grid: sheetGrid
     readonly property string currentSheetId: sheetAdapter.sheetId
     readonly property string sheetName: sheetAdapter.sheetName
-    // AGENT-NOTE: EditableGrid.activeRow/activeColumn bind to an invokable
-    // and do not re-evaluate when rows move; these follow the stable IDs
-    // through structural edits via `epoch` (docs/workbook.md gap G-3).
-    // AGENT-GUARD: `epoch` must take part in each value (not an unused
-    // local): the AOT-compiled binding otherwise drops the dependency and
-    // the active cell never refreshes after an edit.
-    readonly property int activeRow: control.epoch >= 0 && sheetGrid.model
-                                     ? sheetGrid.model.rowIndex(sheetGrid.activeRowId) : -1
-    readonly property int activeColumn: control.epoch >= 0 && sheetGrid.model
-                                        ? sheetGrid.model.columnIndex(sheetGrid.activeColumnId) : -1
+    readonly property int activeRow: sheetGrid.activeRow
+    readonly property int activeColumn: sheetGrid.activeColumn
     readonly property bool hasActiveCell: activeRow >= 0 && activeColumn >= 0
     readonly property string activeAddress: hasActiveCell ? sheetAdapter.address(activeRow, activeColumn) : ""
+    // AGENT-GUARD: `epoch` must take part in each value (not an unused
+    // local): the AOT-compiled binding otherwise drops the dependency and
+    // these never refresh after an edit.
     readonly property string activeInput: control.epoch >= 0 && hasActiveCell
                                           ? sheetAdapter.inputAt(activeRow, activeColumn) : ""
     readonly property string activeDisplay: control.epoch >= 0 && hasActiveCell
                                             ? sheetAdapter.displayAt(activeRow, activeColumn) : ""
+    // Explicit formats of the active cell (for toolbar state) and its rules.
+    readonly property var activeFormat: control.epoch >= 0 && hasActiveCell && workbook
+                                        ? workbook.cellFormat(currentSheetId, activeRow, activeColumn) : ({})
+    readonly property var activeValidation: control.epoch >= 0 && hasActiveCell
+                                            ? sheetAdapter.validationAt(activeRow, activeColumn) : ({})
+    readonly property var activeMerge: control.epoch >= 0 && hasActiveCell && workbook
+                                       ? workbook.mergeAt(currentSheetId, activeRow, activeColumn) : ({})
+    readonly property var sheetProperties: control.epoch >= 0 && workbook ? workbook.sheetProperties(currentSheetId) : ({})
+    readonly property bool readOnly: sheetProperties.protected === true
+    readonly property bool validationPending: assist.pending !== null
     readonly property var selection: {
         const ranges = sheetAdapter.gridModel.ranges
         return ranges.length > 0 ? ranges[ranges.length - 1] : null
@@ -59,6 +69,8 @@ T.Control {
     signal sheetShown(string sheetId)
     signal inputCommitted(int row, int column, string input)
     signal inputRejected(string message, var detail)
+    // A validation prompt closed: action is "commit", "retry" or "cancel".
+    signal validationResolved(int row, int column, string action)
 
     implicitWidth: Tk.Theme.size.panelMinWidth
     implicitHeight: Tk.Theme.size.panelMinHeight
@@ -84,7 +96,17 @@ T.Control {
     }
     function focusGrid() { sheetGrid.forceActiveFocus() }
     function beginEdit() { return sheetGrid.beginCellEdit() }
-    function commitInputAt(row, column, text) {
+    // Applies one input. A warning/information rule the input breaks opens a
+    // prompt first (validationPending; false now, validationResolved later);
+    // `confirmed` skips it.
+    function commitInputAt(row, column, text, confirmed) {
+        if (confirmed !== true) {
+            const check = sheetAdapter.validateInput(row, column, text)
+            if (!check.ok && !check.syntax && check.style !== "stop") {
+                assist.prompt(row, column, text, check, "api")
+                return false
+            }
+        }
         if (!sheetAdapter.commitInput(row, column, text)) return false
         inputCommitted(row, column, text)
         return true
@@ -96,6 +118,12 @@ T.Control {
         if (selection) return selection
         return hasActiveCell ? { firstRow: activeRow, firstColumn: activeColumn,
                                  lastRow: activeRow, lastColumn: activeColumn } : null
+    }
+    // Runs a Workbook range operation on the selection and reports its result here.
+    function onSelection(operation) {
+        const r = selectionOrActive()
+        return !!r && !!workbook
+               && sheetAdapter.reportResult(operation(currentSheetId, r.firstRow, r.firstColumn, r.lastRow, r.lastColumn))
     }
     function fillDown() {
         const r = selectionOrActive()
@@ -110,15 +138,45 @@ T.Control {
         return !!r && sheetAdapter.copyRange(r.firstRow, r.firstColumn, r.lastRow, r.lastColumn)
     }
     function pasteCopied() { return hasActiveCell && sheetAdapter.pasteCopied(activeRow, activeColumn) }
-    // Tab/newline text through EditableGrid.pasteMatrix: validated atomically,
-    // then applied to the workbook as one "Paste cells" transaction.
+    // Tab/newline text under `pastePolicy`: validated per cell, applied as one
+    // "Paste cells" step; Workbook.lastPasteReport lists invalid cells.
     function pasteText(text) {
-        return hasActiveCell && sheetGrid.pasteMatrix(activeRow, activeColumn, sheetAdapter.parseTabularText(text))
+        return hasActiveCell && sheetAdapter.pasteInputs(activeRow, activeColumn,
+                                                         sheetAdapter.parseTabularText(text), pastePolicy)
     }
     function clearSelection() {
         const r = selectionOrActive()
         return !!r && sheetAdapter.clearRange(r.firstRow, r.firstColumn, r.lastRow, r.lastColumn)
     }
+    // Formatting of the selection (Workbook.applyStyle keys).
+    function applyStyle(patch) {
+        return onSelection(function(s, r1, c1, r2, c2) { return workbook.applyStyle(s, r1, c1, r2, c2, patch) })
+    }
+    // Toggles bold/italic/underline/strikeout from the active cell's state.
+    function toggleStyle(key) {
+        const patch = {}
+        patch[key] = activeFormat[key] !== true
+        return applyStyle(patch)
+    }
+    function clearFormats() {
+        return onSelection(function(s, r1, c1, r2, c2) { return workbook.clearFormats(s, r1, c1, r2, c2) })
+    }
+    function mergeSelection() {
+        return onSelection(function(s, r1, c1, r2, c2) { return workbook.mergeCells(s, r1, c1, r2, c2) })
+    }
+    function unmergeSelection() {
+        return onSelection(function(s, r1, c1, r2, c2) { return workbook.unmergeCells(s, r1, c1, r2, c2) })
+    }
+    // Freezes the rows above and the columns left of the active cell (none at A1).
+    function freezePanes() {
+        return hasActiveCell && !!workbook && sheetAdapter.reportResult(
+            workbook.setSheetProperties(currentSheetId, { frozenRows: activeRow, frozenColumns: activeColumn }))
+    }
+    function unfreezePanes() {
+        return !!workbook && sheetAdapter.reportResult(
+            workbook.setSheetProperties(currentSheetId, { frozenRows: 0, frozenColumns: 0 }))
+    }
+    function openValidationList() { return assist.openList() }
     function undo() { return !!workbook && !sheetGrid.cellEditing && workbook.undo() }
     function redo() { return !!workbook && !sheetGrid.cellEditing && workbook.redo() }
     // Restores the remembered active cell when a different sheet is shown;
@@ -139,11 +197,13 @@ T.Control {
         sheetId: control.sheetId
         onCellsChanged: control.epoch += 1
         onDimensionsChanged: control.epoch += 1
-        onErrorChanged: if (lastError.length > 0) control.inputRejected(lastError, lastErrorDetail)
+        onErrorChanged: if (lastError.length > 0 && !control.validationPending)
+                            control.inputRejected(lastError, lastErrorDetail)
         onSheetIdChanged: {
             control.epoch += 1
             Qt.callLater(control.restoreCell)
         }
+        onValidationPrompt: function(row, column, input, check) { assist.prompt(row, column, input, check, "grid") }
     }
     Connections {
         target: control.workbook
@@ -155,9 +215,9 @@ T.Control {
         function onSelectionChanged() { if (!control.apiSelection) control.selectionEdited() }
     }
 
-    // AGENT-NOTE: EditableGrid's own Ctrl+Z/Y call its model history, which
-    // is disabled (externalUndo) because the Workbook owns history. These
-    // shortcuts reach the Workbook first while the table itself has focus.
+    // AGENT-NOTE: the grid's own Ctrl+Z/Y reach its model, which keeps no
+    // history (sourceCommits: the Workbook owns it). These shortcuts reach
+    // the Workbook first while the table itself has focus.
     readonly property bool tableFocused: sheetGrid.activeFocus && !sheetGrid.cellEditing
     Shortcut { sequences: [StandardKey.Undo]; enabled: control.tableFocused; onActivated: control.undo() }
     // Explicit sequences: StandardKey.Redo may already contain Ctrl+Y, and a
@@ -168,6 +228,10 @@ T.Control {
     Shortcut { sequences: [StandardKey.Copy]; enabled: control.tableFocused; onActivated: control.copySelection() }
     Shortcut { sequences: [StandardKey.Paste]; enabled: control.tableFocused; onActivated: control.pasteCopied() }
     Shortcut { sequences: [StandardKey.Delete]; enabled: control.tableFocused; onActivated: control.clearSelection() }
+    Shortcut { sequences: [StandardKey.Bold]; enabled: control.tableFocused; onActivated: control.toggleStyle("bold") }
+    Shortcut { sequences: [StandardKey.Italic]; enabled: control.tableFocused; onActivated: control.toggleStyle("italic") }
+    Shortcut { sequences: [StandardKey.Underline]; enabled: control.tableFocused; onActivated: control.toggleStyle("underline") }
+    Shortcut { sequences: ["Alt+Down"]; enabled: control.tableFocused; onActivated: control.openValidationList() }
 
     contentItem: Tk.EditableGrid {
         id: sheetGrid
@@ -176,19 +240,9 @@ T.Control {
         tooltip: control.sheetName.length > 0 ? qsTr("Sheet %1").arg(control.sheetName) : control.tooltip
         columnLabel: function(id, index) { return sheetAdapter.columnLabel(index) }
         rowLabel: function(id, index) { return String(index + 1) }
-        onCellEditingChanged: {
-            if (!sheetGrid.cellEditing || !sheetGrid.model) return
-            // Present the source input; the grid pre-filled the display text.
-            sheetGrid.editText = sheetAdapter.inputAt(sheetGrid.model.rowIndex(sheetGrid.editingRowId),
-                                                      sheetGrid.model.columnIndex(sheetGrid.editingColumnId))
-        }
-        // AGENT-GUARD: EditableGridModel skips a commit whose text equals the
-        // displayed value (a formula showing 6 replaced by the literal 6), so
-        // every committed editor value is also applied here; an unchanged
-        // input is a no-op without history (docs/workbook.md gap G-1).
         onEditCommitted: function(rowId, columnId, value) {
-            control.commitInputAt(sheetGrid.model.rowIndex(rowId), sheetGrid.model.columnIndex(columnId),
-                                  value === undefined || value === null ? "" : String(value))
+            control.inputCommitted(sheetGrid.model.rowIndex(rowId), sheetGrid.model.columnIndex(columnId),
+                                   value === undefined || value === null ? "" : String(value))
         }
         onCurrentCellChanged: function(rowId, columnId) {
             const row = sheetGrid.model.rowIndex(rowId), column = sheetGrid.model.columnIndex(columnId)
@@ -198,5 +252,16 @@ T.Control {
             control.currentCellChanged(row, column, sheetAdapter.address(row, column))
         }
     }
+
+    Tk.SheetCellAssist {
+        id: assist
+        view: control
+        x: control.leftPadding
+        y: control.topPadding
+        width: control.availableWidth
+        height: control.availableHeight
+        z: 20
+    }
+
     Component.onCompleted: restoreCell()
 }

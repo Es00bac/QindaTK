@@ -184,6 +184,8 @@ public:
     Q_INVOKABLE QString setValidation(const QString &sheetId, const QVariantMap &rule);
     Q_INVOKABLE bool removeValidation(const QString &sheetId, const QString &ruleId);
     Q_INVOKABLE QVariantMap validationAt(const QString &sheetId, int row, int column) const;
+    // The allowed values of a list rule (inline items or its source range).
+    Q_INVOKABLE QStringList validationItems(const QString &sheetId, int row, int column) const;
     // {ok, style, title, message, ruleId}; setCellInput refuses only "stop".
     Q_INVOKABLE QVariantMap validateInput(const QString &sheetId, int row, int column, const QString &input) const;
 

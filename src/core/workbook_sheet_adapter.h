@@ -4,18 +4,22 @@
 #include "editable_grid_model.h"
 #include "workbook.h"
 #include <QPointer>
+#include <QSet>
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
 
 // AGENT-CONTRACT: presents one sheet of a Workbook through the existing
-// EditableGridModel contract (docs/editable-grid.md) without a second store.
-// The grid's GridCellSource returns display text for requested cells only;
-// its validator parses candidate inputs; externalUndo transfers history to
-// the Workbook. A committed grid edit or paste is applied to the Workbook as
-// one transaction, then the grid's override layer is reverted through its
-// applyHistoryChanges bridge, so the grid never holds cell values.
-// Structural workbook changes move the grid's stable row/column IDs.
+// EditableGridModel contract (docs/editable-grid.md#domain-sources) without a
+// second store. Its GridCellSource returns display text for requested cells
+// only and, as a GridCellSourceExtension, the formula source for editors,
+// resolved cell presentation and merged areas. The grid runs in
+// sourceCommits mode: a committed edit, paste or fill-handle drag is applied
+// to the Workbook as one transaction and the grid keeps no cell values or
+// history. Structural workbook changes move the grid's stable row/column IDs
+// (compact generated runs); frozen panes and section sizes follow the
+// sheet's properties, and a finished header resize is recorded in the
+// Workbook (one undo step per gesture).
 class WorkbookSheetAdapter : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -39,8 +43,8 @@ public:
     void setSheetId(const QString &sheetId);
     QString sheetName() const;
     EditableGridModel *gridModel() const { return m_grid; }
-    int rowCount() const { return m_rowIds.size(); }
-    int columnCount() const { return m_columnIds.size(); }
+    int rowCount() const { return m_grid->rows(); }
+    int columnCount() const { return m_grid->columns(); }
     bool hasCopiedRange() const { return !m_copy.sheetId.isEmpty(); }
     QString copiedRange() const;
     QString lastError() const { return m_lastError; }
@@ -54,6 +58,10 @@ public:
     Q_INVOKABLE QVariantMap checkInput(const QString &input) const;
     // Applies one input; an unchanged input is a no-op without history.
     Q_INVOKABLE bool commitInput(int row, int column, const QString &input);
+    // Workbook.validateInput / validationAt / validationItems for this sheet.
+    Q_INVOKABLE QVariantMap validateInput(int row, int column, const QString &input) const;
+    Q_INVOKABLE QVariantMap validationAt(int row, int column) const;
+    Q_INVOKABLE QStringList validationItems(int row, int column) const;
     // Excel-style fills over an inclusive selection rectangle.
     Q_INVOKABLE bool fillDown(int firstRow, int firstColumn, int lastRow, int lastColumn);
     Q_INVOKABLE bool fillRight(int firstRow, int firstColumn, int lastRow, int lastColumn);
@@ -64,6 +72,12 @@ public:
     Q_INVOKABLE bool copyRange(int firstRow, int firstColumn, int lastRow, int lastColumn);
     Q_INVOKABLE bool pasteCopied(int row, int column);
     Q_INVOKABLE bool clearRange(int firstRow, int firstColumn, int lastRow, int lastColumn);
+    // A matrix of inputs under a paste policy (Workbook.pasteInputs).
+    Q_INVOKABLE bool pasteInputs(int row, int column, const QVariantList &rows,
+                                 const QString &policy = QStringLiteral("allOrNothing"));
+    // Reports the result of a Workbook call made by the view: false copies the
+    // Workbook's lastError/lastErrorDetail here, true clears the error.
+    Q_INVOKABLE bool reportResult(bool ok) { return report(ok); }
     // Tab/newline separated inputs as a rectangular matrix for pasteMatrix.
     Q_INVOKABLE QVariantList parseTabularText(const QString &text) const;
     // Instrumentation: cells the grid pulled from this adapter (the bounded
@@ -80,17 +94,25 @@ signals:
     void errorChanged();
     // Inputs or values changed inside this rectangle of the shown sheet.
     void cellsChanged(int firstRow, int firstColumn, int lastRow, int lastColumn);
+    // A grid edit of one cell broke a warning/information validation rule;
+    // nothing was applied. The view asks and commits with commitInput.
+    void validationPrompt(int row, int column, const QString &input, const QVariantMap &check);
 
 private:
     class Source;
     friend class Source;
     struct CopiedRange { QString sheetId; int row = 0, column = 0, rows = 0, columns = 0; };
     QVariant displayForIds(const QString &rowId, const QString &columnId) const;
+    // ID -> index through a one-entry memo per axis (views read row-major);
+    // the memo is dropped whenever the grid revision moves.
+    int rowFor(const QString &id) const;
+    int columnFor(const QString &id) const;
     QString validateCandidate(const QString &rowId, const QString &columnId, const QVariant &candidate) const;
-    void absorb(const QString &transactionId, const QString &label, const QVariantList &changes);
-    void rebuildIds();
-    void applyIds();
-    void moveIds(QStringList *ids, bool insert, int at, int count, bool rows);
+    bool applyGridChanges(const QString &label, const QVariantList &changes, QString *error);
+    // `fresh`: another sheet is shown (empty and regrow); otherwise the same
+    // sheet was reset or reopened and keeps its IDs (so the view keeps its cell).
+    void rebuildIds(bool fresh = true);
+    void applyProperties();
     void refreshAll();
     bool report(bool ok);
     void setError(const QString &message, const QVariantMap &detail);
@@ -99,11 +121,13 @@ private:
     QString m_sheetId;
     EditableGridModel *m_grid = nullptr;
     Source *m_source = nullptr;
-    QStringList m_rowIds, m_columnIds;
-    quint64 m_nextRowId = 1, m_nextColumnId = 1;
     mutable qint64 m_sourceReads = 0;
     mutable QVariantMap m_validationDetail;
-    bool m_absorbing = false;
+    mutable quint64 m_memoStamp = ~quint64(0);
+    mutable QString m_memoRowId, m_memoColumnId;
+    mutable int m_memoRow = -1, m_memoColumn = -1;
+    QSet<QString> m_sizedRows, m_sizedColumns; // grid IDs carrying workbook sizes
+    bool m_applyingProperties = false;
     CopiedRange m_copy;
     QString m_lastError;
     QVariantMap m_lastErrorDetail;

@@ -91,6 +91,8 @@ public:
     int rows() const { return m_rows.size(); }
     int columns() const { return m_columns.size(); }
     QString revision() const { return QString::number(m_revision); }
+    // Changes whenever values or section identity/order change; cheap to compare.
+    quint64 revisionValue() const { return m_revision; }
     int frozenRows() const { return m_frozenRows; }
     int frozenColumns() const { return m_frozenColumns; }
     qreal defaultRowSize() const { return m_defaultRowSize; }
@@ -150,6 +152,12 @@ public:
     Q_INVOKABLE QVariantMap hitTest(qreal x, qreal y, qreal scrollX, qreal scrollY) const;
     Q_INVOKABLE bool requestRowResize(const QString &id, qreal size);
     Q_INVOKABLE bool requestColumnResize(const QString &id, qreal size);
+    // Ends an interactive resize (a header drag); hosts that persist sizes
+    // listen to resizeFinished instead of every intermediate rowResized.
+    Q_INVOKABLE void finishResize(const QString &id, bool rowAxis);
+    // Returns one section to the default size (it then follows default changes).
+    Q_INVOKABLE bool resetRowSize(const QString &id);
+    Q_INVOKABLE bool resetColumnSize(const QString &id);
     Q_INVOKABLE bool requestRowMove(const QString &id, const QString &beforeId);
     Q_INVOKABLE bool requestColumnMove(const QString &id, const QString &beforeId);
     void setFrozenRows(int count);
@@ -195,6 +203,7 @@ signals:
     void readOnlyChanged();
     void rowResized(const QString &id, qreal size);
     void columnResized(const QString &id, qreal size);
+    void resizeFinished(const QString &id, bool rowAxis, qreal size);
     void rowMoved(const QString &id, int newIndex);
     void columnMoved(const QString &id, int newIndex);
     void committed(const QString &transactionId, const QString &label,
@@ -219,9 +228,12 @@ private:
     bool setIds(QStringList ids, bool rowAxis);
     bool resizeAxis(int count, bool rowAxis);
     bool insertGenerated(int index, int count, bool rowAxis);
+    bool resetSize(const QString &id, bool rowAxis);
     bool commitToSource(const QVector<Change> &changes, const QString &label);
     GridCellSourceExtension *extension() const;
     QVariantMap cellRecord(int row, int column, const GridCellSourceExtension *hooks) const;
+    // cellValue for IDs known to exist (no membership checks).
+    QVariant storedValue(const QString &rowId, const QString &columnId) const;
     bool mergeInside(const QRect &area) const;
     bool insertIds(int index, const QStringList &ids, bool rowAxis);
     bool removeIds(int index, int count, bool rowAxis);

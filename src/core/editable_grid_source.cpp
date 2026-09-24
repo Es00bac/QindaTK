@@ -63,11 +63,18 @@ bool EditableGridModel::mergeInside(const QRect &area) const
         && area.right() < columns() && (area.width() > 1 || area.height() > 1);
 }
 
+QVariant EditableGridModel::storedValue(const QString &row, const QString &column) const
+{
+    if (!m_overrides.isEmpty())
+        if (const auto it = m_overrides.constFind(key(row, column)); it != m_overrides.cend()) return it.value();
+    return m_source ? m_source->value(row, column) : QVariant{};
+}
+
 QVariantMap EditableGridModel::cellRecord(int row, int column, const GridCellSourceExtension *hooks) const
 {
     const QString rowId = m_rows.at(row), columnId = m_columns.at(column);
     QVariantMap cell{{"row", row}, {"column", column}, {"rowId", rowId}, {"columnId", columnId},
-                     {"value", cellValue(rowId, columnId)}};
+                     {"value", storedValue(rowId, columnId)}};
     if (hooks) {
         const QVariantMap style = hooks->cellStyle(rowId, columnId);
         if (!style.isEmpty()) cell.insert(QStringLiteral("style"), style);
@@ -256,13 +263,16 @@ bool EditableGridModel::resizeAxis(int count, bool rowAxis)
         }
         axis.remove(count, old - count);
         sizes.resize(count);
+        // An emptied axis holds no IDs (and reconcile drops their history and
+        // ranges), so generated IDs restart: a re-grown axis begins at r:1/c:1.
+        if (count == 0) (rowAxis ? m_nextRow : m_nextColumn) = 1;
     }
+    ++m_revision; // AGENT-GUARD: before reconcile() can emit; ID-keyed caches compare it
     rebuildPositions(rowAxis);
     m_frozenRows = std::min(m_frozenRows, rows());
     m_frozenColumns = std::min(m_frozenColumns, columns());
     reconcile(removedIdentity);
     if (removedIdentity) ++m_structureGeneration;
-    ++m_revision;
     endResetModel();
     emit structureChanged(); emit geometryChanged(); emit cellsChanged();
     return true;
@@ -291,6 +301,27 @@ bool EditableGridModel::insertGenerated(int index, int count, bool rowAxis)
     emit structureChanged(); emit geometryChanged(); emit cellsChanged();
     return true;
 }
+bool EditableGridModel::resetSize(const QString &id, bool rowAxis)
+{
+    const int i = rowAxis ? rowIndex(id) : columnIndex(id);
+    if (i < 0) return fail(QStringLiteral("Unknown grid section ID"));
+    if (!(rowAxis ? m_explicitRowSizes : m_explicitColumnSizes).remove(id)) return true;
+    auto &sizes = rowAxis ? m_rowSizes : m_columnSizes;
+    const qreal size = rowAxis ? m_defaultRowSize : m_defaultColumnSize;
+    if (sizes[i] == size) return true;
+    sizes[i] = size;
+    rebuildPositions(rowAxis);
+    emit headerDataChanged(rowAxis ? Qt::Vertical : Qt::Horizontal, i, i);
+    emit geometryChanged();
+    return true;
+}
+bool EditableGridModel::resetRowSize(const QString &id) { return resetSize(id, true); }
+void EditableGridModel::finishResize(const QString &id, bool rowAxis)
+{
+    const int i = rowAxis ? rowIndex(id) : columnIndex(id);
+    if (i >= 0) emit resizeFinished(id, rowAxis, rowAxis ? m_rowSizes[i] : m_columnSizes[i]);
+}
+bool EditableGridModel::resetColumnSize(const QString &id) { return resetSize(id, false); }
 bool EditableGridModel::insertGeneratedRowsAt(int index, int count) { return insertGenerated(index, count, true); }
 bool EditableGridModel::insertGeneratedColumnsAt(int index, int count) { return insertGenerated(index, count, false); }
 

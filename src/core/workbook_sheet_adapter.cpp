@@ -3,13 +3,47 @@
 
 namespace QindaTK {
 
-class WorkbookSheetAdapter::Source final : public GridCellSource {
+class WorkbookSheetAdapter::Source final : public GridCellSource, public GridCellSourceExtension {
 public:
     explicit Source(WorkbookSheetAdapter *adapter) : GridCellSource(adapter), m_adapter(adapter) {}
     QVariant value(const QString &rowId, const QString &columnId) const override
     { return m_adapter->displayForIds(rowId, columnId); }
     QString validate(const QString &rowId, const QString &columnId, const QVariant &candidate) const override
     { return m_adapter->validateCandidate(rowId, columnId, candidate); }
+    QVariant editValue(const QString &rowId, const QString &columnId) const override
+    {
+        const int row = m_adapter->rowFor(rowId), column = m_adapter->columnFor(columnId);
+        return row < 0 || column < 0 ? QVariant() : QVariant(m_adapter->inputAt(row, column));
+    }
+    QVariantMap cellStyle(const QString &rowId, const QString &columnId) const override
+    {
+        const Workbook *wb = m_adapter->m_workbook;
+        const int row = m_adapter->rowFor(rowId), column = m_adapter->columnFor(columnId);
+        return wb && row >= 0 && column >= 0 ? wb->cellPresentation(m_adapter->m_sheetId, row, column) : QVariantMap();
+    }
+    QVector<QRect> mergedRanges(const QRect &window) const override
+    {
+        QVector<QRect> result;
+        if (!m_adapter->m_workbook) return result;
+        const QVariantList areas = m_adapter->m_workbook->mergedAreas(m_adapter->m_sheetId, window.top(), window.left(),
+                                                                      window.bottom(), window.right());
+        for (const QVariant &item : areas) {
+            const QVariantMap a = item.toMap();
+            result.append(QRect(QPoint(a.value(QStringLiteral("firstColumn")).toInt(), a.value(QStringLiteral("firstRow")).toInt()),
+                                QPoint(a.value(QStringLiteral("lastColumn")).toInt(), a.value(QStringLiteral("lastRow")).toInt())));
+        }
+        return result;
+    }
+    bool commitChanges(const QString &label, const QVariantList &changes, QString *error) override
+    { return m_adapter->applyGridChanges(label, changes, error); }
+    bool fillCells(const QRect &source, const QRect &target, QString *error) override
+    {
+        if (m_adapter->fillRange(source.top(), source.left(), source.height(), source.width(), target.top(),
+                                 target.left(), target.height(), target.width())) return true;
+        *error = m_adapter->lastError();
+        m_adapter->m_validationDetail = m_adapter->lastErrorDetail();
+        return false;
+    }
 private:
     WorkbookSheetAdapter *m_adapter;
 };
@@ -17,13 +51,18 @@ private:
 WorkbookSheetAdapter::WorkbookSheetAdapter(QObject *parent)
     : QObject(parent), m_grid(new EditableGridModel(this)), m_source(new Source(this))
 {
-    m_grid->setExternalUndo(true);
     m_grid->setSource(m_source);
-    connect(m_grid, &EditableGridModel::committed, this, &WorkbookSheetAdapter::absorb);
+    m_grid->setSourceCommits(true);
     connect(m_grid, &EditableGridModel::rejected, this, [this](const QString &reason) {
-        if (m_absorbing) return;
         setError(reason, m_validationDetail);
         m_validationDetail.clear();
+    });
+    connect(m_grid, &EditableGridModel::resizeFinished, this, [this](const QString &id, bool rows, qreal size) {
+        if (m_applyingProperties || !m_workbook) return;
+        const int index = rows ? m_grid->rowIndex(id) : m_grid->columnIndex(id);
+        const bool ok = rows ? m_workbook->setRowHeight(m_sheetId, index, size)
+                             : m_workbook->setColumnWidth(m_sheetId, index, size);
+        if (!report(ok)) applyProperties(); // e.g. protected: snap back to the Workbook's size
     });
 }
 WorkbookSheetAdapter::~WorkbookSheetAdapter()
@@ -41,8 +80,15 @@ void WorkbookSheetAdapter::setWorkbook(Workbook *workbook)
         auto structural = [this](bool rows, bool insert) {
             return [this, rows, insert](const QString &sheetId, int at, int count) {
                 if (sheetId != m_sheetId) return;
-                moveIds(rows ? &m_rowIds : &m_columnIds, insert, at, count, rows);
-                applyIds();
+                // A replayed step may restructure a sheet that is still locked
+                // until its properties arrive: structure sync bypasses readOnly.
+                const bool locked = m_grid->readOnly();
+                if (locked) m_grid->setReadOnly(false);
+                // Fresh generated IDs for inserted sections; removed ones take their IDs along.
+                if (insert) rows ? m_grid->insertGeneratedRowsAt(at, count) : m_grid->insertGeneratedColumnsAt(at, count);
+                else rows ? m_grid->removeRowsAt(at, count) : m_grid->removeColumnsAt(at, count);
+                if (locked) m_grid->setReadOnly(true);
+                emit dimensionsChanged();
             };
         };
         m_connections << connect(m_workbook, &Workbook::rowsInserted, this, structural(true, true))
@@ -55,20 +101,20 @@ void WorkbookSheetAdapter::setWorkbook(Workbook *workbook)
                                      r2 = std::min(r2, rowCount() - 1);
                                      c2 = std::min(c2, columnCount() - 1);
                                      if (r1 > r2 || c1 > c2) return;
-                                     // AGENT-NOTE: EditableGridModel has no public "source changed"
-                                     // request; its public Qt signals are emitted so every grid view
-                                     // re-reads only the cells it shows (docs/workbook.md gap G-2).
-                                     emit m_grid->dataChanged(m_grid->index(r1, c1), m_grid->index(r2, c2));
-                                     emit m_grid->cellsChanged();
+                                     m_grid->notifySourceChanged(r1, r2 - r1 + 1, c1, c2 - c1 + 1);
                                      emit cellsChanged(r1, c1, r2, c2);
+                                 })
+                      << connect(m_workbook, &Workbook::sheetPropertiesChanged, this, [this](const QString &sheetId) {
+                                     if (sheetId == m_sheetId) applyProperties();
                                  })
                       << connect(m_workbook, &Workbook::sheetsChanged, this, [this]() {
                                      if (m_workbook->sheetIndex(m_sheetId) < 0) setSheetId(m_workbook->sheetIdAt(0));
                                      else emit sheetNameChanged();
                                  })
                       << connect(m_workbook, &Workbook::resetOccurred, this, [this]() {
-                                     if (m_workbook->sheetIndex(m_sheetId) < 0) m_sheetId = m_workbook->sheetIdAt(0);
-                                     rebuildIds();
+                                     const bool kept = m_workbook->sheetIndex(m_sheetId) >= 0;
+                                     if (!kept) m_sheetId = m_workbook->sheetIdAt(0);
+                                     rebuildIds(!kept);
                                      emit sheetIdChanged();
                                      emit sheetNameChanged();
                                  })
@@ -103,53 +149,84 @@ QString WorkbookSheetAdapter::copiedRange() const
                                      m_copy.row + m_copy.rows - 1, m_copy.column + m_copy.columns - 1);
 }
 
-void WorkbookSheetAdapter::rebuildIds()
+// AGENT-NOTE: showing a sheet empties the grid (dropping selection and grid
+// history) and regrows it with generated ID runs — r:1.., c:1.. — instead of
+// one string per section (docs/workbook.md G-8).
+void WorkbookSheetAdapter::rebuildIds(bool fresh)
 {
     const int rows = m_workbook ? m_workbook->rowCount(m_sheetId) : 0;
     const int columns = m_workbook ? m_workbook->columnCount(m_sheetId) : 0;
-    m_rowIds.clear();
-    m_columnIds.clear();
-    m_rowIds.reserve(rows);
-    m_columnIds.reserve(columns);
-    for (int i = 0; i < rows; ++i) m_rowIds.append(QStringLiteral("r:%1").arg(i + 1));
-    for (int i = 0; i < columns; ++i) m_columnIds.append(QStringLiteral("c:%1").arg(i + 1));
-    m_nextRowId = quint64(rows) + 1;
-    m_nextColumnId = quint64(columns) + 1;
-    applyIds();
+    m_grid->setReadOnly(false); // applyProperties locks a protected sheet again
+    if (fresh) {
+        m_grid->setDimensions(0, 0);
+        m_sizedRows.clear();
+        m_sizedColumns.clear();
+    }
+    m_grid->setDimensions(rows, columns);
+    applyProperties();
+    emit dimensionsChanged();
     refreshAll();
 }
-void WorkbookSheetAdapter::applyIds()
+
+void WorkbookSheetAdapter::applyProperties()
 {
-    m_grid->setRowIds(m_rowIds);
-    m_grid->setColumnIds(m_columnIds);
-    emit dimensionsChanged();
+    if (!m_workbook) return;
+    m_applyingProperties = true;
+    const QVariantMap properties = m_workbook->sheetProperties(m_sheetId);
+    // A protected sheet is read-only in the grid: no editor, paste or fill handle.
+    m_grid->setReadOnly(properties.value(QStringLiteral("protected")).toBool());
+    m_grid->setFrozenRows(properties.value(QStringLiteral("frozenRows")).toInt());
+    m_grid->setFrozenColumns(properties.value(QStringLiteral("frozenColumns")).toInt());
+    const auto apply = [this](const QVariantMap &sizes, bool rows, QSet<QString> *sized) {
+        QSet<QString> next;
+        for (auto it = sizes.cbegin(); it != sizes.cend(); ++it) {
+            const QString id = rows ? m_grid->rowIdAt(it.key().toInt()) : m_grid->columnIdAt(it.key().toInt());
+            if (id.isEmpty()) continue;
+            next.insert(id);
+            rows ? m_grid->requestRowResize(id, it.value().toDouble()) : m_grid->requestColumnResize(id, it.value().toDouble());
+        }
+        for (const QString &id : std::as_const(*sized))
+            if (!next.contains(id)) rows ? m_grid->resetRowSize(id) : m_grid->resetColumnSize(id);
+        *sized = next;
+    };
+    apply(m_workbook->rowHeights(m_sheetId), true, &m_sizedRows);
+    apply(m_workbook->columnWidths(m_sheetId), false, &m_sizedColumns);
+    m_applyingProperties = false;
 }
-void WorkbookSheetAdapter::moveIds(QStringList *ids, bool insert, int at, int count, bool rows)
-{
-    if (at < 0 || count < 1 || at > ids->size()) return;
-    if (insert) {
-        QStringList fresh;
-        fresh.reserve(count);
-        for (int i = 0; i < count; ++i)
-            fresh.append(rows ? QStringLiteral("r:%1").arg(m_nextRowId++) : QStringLiteral("c:%1").arg(m_nextColumnId++));
-        for (int i = 0; i < count; ++i) ids->insert(at + i, fresh.at(i));
-    } else {
-        ids->remove(at, std::min<qsizetype>(count, ids->size() - at));
-    }
-}
+
 void WorkbookSheetAdapter::refreshAll()
 {
     if (rowCount() == 0 || columnCount() == 0) return;
-    emit m_grid->dataChanged(m_grid->index(0, 0), m_grid->index(rowCount() - 1, columnCount() - 1));
-    emit m_grid->cellsChanged();
+    m_grid->notifySourceChanged(0, rowCount(), 0, columnCount());
     emit cellsChanged(0, 0, rowCount() - 1, columnCount() - 1);
+}
+
+int WorkbookSheetAdapter::rowFor(const QString &id) const
+{
+    if (m_memoStamp != m_grid->revisionValue()) {
+        m_memoStamp = m_grid->revisionValue();
+        m_memoRowId.clear();
+        m_memoColumnId.clear();
+    }
+    if (id != m_memoRowId || m_memoRowId.isEmpty()) { m_memoRowId = id; m_memoRow = m_grid->rowIndex(id); }
+    return m_memoRow;
+}
+int WorkbookSheetAdapter::columnFor(const QString &id) const
+{
+    if (m_memoStamp != m_grid->revisionValue()) {
+        m_memoStamp = m_grid->revisionValue();
+        m_memoRowId.clear();
+        m_memoColumnId.clear();
+    }
+    if (id != m_memoColumnId || m_memoColumnId.isEmpty()) { m_memoColumnId = id; m_memoColumn = m_grid->columnIndex(id); }
+    return m_memoColumn;
 }
 
 QVariant WorkbookSheetAdapter::displayForIds(const QString &rowId, const QString &columnId) const
 {
     ++m_sourceReads;
     if (!m_workbook) return {};
-    const int row = m_grid->rowIndex(rowId), column = m_grid->columnIndex(columnId);
+    const int row = rowFor(rowId), column = columnFor(columnId);
     if (row < 0 || column < 0) return {};
     const QString text = m_workbook->cellDisplay(m_sheetId, row, column);
     return text.isEmpty() ? QVariant() : QVariant(text);
@@ -157,7 +234,7 @@ QVariant WorkbookSheetAdapter::displayForIds(const QString &rowId, const QString
 QString WorkbookSheetAdapter::validateCandidate(const QString &rowId, const QString &columnId,
                                                 const QVariant &candidate) const
 {
-    if (m_absorbing || !m_workbook || candidate.metaType().id() != QMetaType::QString) return {};
+    if (!m_workbook || candidate.metaType().id() != QMetaType::QString) return {};
     const QVariantMap check = m_workbook->checkInput(m_sheetId, candidate.toString());
     if (check.value(QStringLiteral("ok")).toBool()) return {};
     const int row = m_grid->rowIndex(rowId), column = m_grid->columnIndex(columnId);
@@ -169,39 +246,41 @@ QString WorkbookSheetAdapter::validateCandidate(const QString &rowId, const QStr
     return QStringLiteral("%1: %2").arg(where, message);
 }
 
-// AGENT-GUARD: this slot runs inside EditableGridModel::commitEdit(). It must
-// apply the change set to the Workbook and then revert the grid's override
-// layer with the exact payload; skipping the revert leaves stale typed text
-// shadowing computed values, and applying twice duplicates history.
-void WorkbookSheetAdapter::absorb(const QString &transactionId, const QString &label,
-                                  const QVariantList &changes)
+// AGENT-GUARD: this runs inside EditableGridModel::commitEdit() (sourceCommits).
+// Returning false keeps the grid's editor open with the typed text; the
+// grid reports `error` through `rejected`, so m_validationDetail must hold
+// the matching detail before returning.
+bool WorkbookSheetAdapter::applyGridChanges(const QString &label, const QVariantList &changes, QString *error)
 {
-    bool ok = m_workbook != nullptr;
-    if (ok) {
-        const bool own = !m_workbook->transactionActive();
-        if (own) ok = m_workbook->beginTransaction(label);
-        for (const QVariant &item : changes) {
-            if (!ok) break;
-            const QVariantMap change = item.toMap();
-            const int row = m_grid->rowIndex(change.value(QStringLiteral("rowId")).toString());
-            const int column = m_grid->columnIndex(change.value(QStringLiteral("columnId")).toString());
-            const QVariant after = change.value(QStringLiteral("after"));
-            ok = row >= 0 && column >= 0
-                && m_workbook->setCellInput(m_sheetId, row, column, after.isValid() ? after.toString() : QString());
+    if (!m_workbook) { *error = QStringLiteral("No workbook"); return false; }
+    QVariantList cells;
+    for (const QVariant &item : changes) {
+        const QVariantMap change = item.toMap();
+        const QVariant after = change.value(QStringLiteral("after"));
+        cells.append(QVariantMap{{"row", m_grid->rowIndex(change.value(QStringLiteral("rowId")).toString())},
+                                 {"column", m_grid->columnIndex(change.value(QStringLiteral("columnId")).toString())},
+                                 {"input", after.isValid() ? after.toString() : QString()}});
+    }
+    if (cells.size() == 1) {
+        const QVariantMap cell = cells.first().toMap();
+        const int row = cell.value(QStringLiteral("row")).toInt(), column = cell.value(QStringLiteral("column")).toInt();
+        const QString input = cell.value(QStringLiteral("input")).toString();
+        const QVariantMap check = m_workbook->validateInput(m_sheetId, row, column, input);
+        const QString style = check.value(QStringLiteral("style")).toString();
+        if (!check.value(QStringLiteral("ok")).toBool() && !check.value(QStringLiteral("syntax")).toBool() && style != u"stop") {
+            *error = check.value(QStringLiteral("message")).toString();
+            m_validationDetail = check;
+            emit validationPrompt(row, column, input, check);
+            return false;
         }
-        if (own && ok) ok = m_workbook->commitTransaction();
-        else if (own && m_workbook->transactionActive()) m_workbook->cancelTransaction();
     }
-    m_absorbing = true;
-    const bool reverted = m_grid->applyHistoryChanges(transactionId, changes, true, m_grid->revision());
-    m_grid->releaseHistoryTransaction(transactionId);
-    if (!reverted) {
-        // Defensive: a fresh source drops every override without touching the Workbook.
-        m_grid->setSource(nullptr);
-        m_grid->setSource(m_source);
+    if (m_workbook->setCellInputs(m_sheetId, cells, QStringLiteral("allOrNothing"), label)) {
+        report(true);
+        return true;
     }
-    m_absorbing = false;
-    report(ok);
+    *error = m_workbook->lastError();
+    m_validationDetail = m_workbook->lastErrorDetail();
+    return false;
 }
 
 bool WorkbookSheetAdapter::report(bool ok)
@@ -233,6 +312,12 @@ QVariantMap WorkbookSheetAdapter::checkInput(const QString &input) const
 { return m_workbook ? m_workbook->checkInput(m_sheetId, input) : QVariantMap{{"ok", false}}; }
 bool WorkbookSheetAdapter::commitInput(int row, int column, const QString &input)
 { return report(m_workbook && m_workbook->setCellInput(m_sheetId, row, column, input)); }
+QVariantMap WorkbookSheetAdapter::validateInput(int row, int column, const QString &input) const
+{ return m_workbook ? m_workbook->validateInput(m_sheetId, row, column, input) : QVariantMap{{"ok", false}}; }
+QVariantMap WorkbookSheetAdapter::validationAt(int row, int column) const
+{ return m_workbook ? m_workbook->validationAt(m_sheetId, row, column) : QVariantMap(); }
+QStringList WorkbookSheetAdapter::validationItems(int row, int column) const
+{ return m_workbook ? m_workbook->validationItems(m_sheetId, row, column) : QStringList(); }
 
 bool WorkbookSheetAdapter::fillDown(int firstRow, int firstColumn, int lastRow, int lastColumn)
 {
@@ -288,6 +373,8 @@ bool WorkbookSheetAdapter::clearRange(int firstRow, int firstColumn, int lastRow
                                                        std::abs(lastRow - firstRow) + 1,
                                                        std::abs(lastColumn - firstColumn) + 1));
 }
+bool WorkbookSheetAdapter::pasteInputs(int row, int column, const QVariantList &rows, const QString &policy)
+{ return report(m_workbook && m_workbook->pasteInputs(m_sheetId, row, column, rows, policy)); }
 QVariantList WorkbookSheetAdapter::parseTabularText(const QString &text) const
 {
     QString normalized = text;

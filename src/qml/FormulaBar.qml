@@ -79,6 +79,9 @@ T.Control {
             ? sheetView.commitInputAt(targetRow, targetColumn, input)
             : workbook.setCellInput(targetSheetId, targetRow, targetColumn, input)
         if (!ok) {
+            // The view is asking about a warning/information rule; its answer
+            // arrives through validationResolved.
+            if (sheetView.validationPending) return false
             showError(workbook.lastError, workbook.lastErrorDetail)
             editor.forceActiveFocus()
             return false
@@ -176,6 +179,18 @@ T.Control {
         function onSheetShown() {
             if (control.pointMode && !control.pointing)
                 control.pointAt(control.sheetView.selectionOrActive())
+        }
+        function onValidationResolved(row, column, action) {
+            if (!control.editing || row !== control.targetRow || column !== control.targetColumn) return
+            if (action === "cancel") {
+                control.cancel()
+            } else if (action === "commit") {
+                const where = control.targetAddress, input = editor.text
+                control.finishEditing(true)
+                control.committed(where, input)
+            } else {
+                editor.forceActiveFocus()
+            }
         }
     }
 

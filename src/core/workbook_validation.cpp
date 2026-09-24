@@ -88,6 +88,34 @@ private:
 };
 } // namespace
 
+QStringList WorkbookPrivate::listItems(const Sheet &s, const ValidationRule &rule) const
+{
+    QStringList allowed = rule.items;
+    if (!allowed.isEmpty() || !rule.value1.formula || rule.value1.formula->root < 0) return allowed;
+    // A list source is one reference or name: its non-blank values, in order.
+    const Formula &f = *rule.value1.formula;
+    const Node &root = f.nodes[size_t(f.root)];
+    Precedent target;
+    bool found = false;
+    if (root.kind == Node::Kind::Name) {
+        found = resolveName(f.strings.at(root.text), &target) && !target.sheetId.isEmpty();
+    } else if (root.kind == Node::Kind::Cell || root.kind == Node::Kind::Range) {
+        target.sheetId = root.sheet >= 0 ? f.sheets.at(root.sheet) : s.id;
+        target.firstRow = root.first.row;
+        target.firstColumn = root.first.column;
+        target.lastRow = root.kind == Node::Kind::Range ? root.last.row : root.first.row;
+        target.lastColumn = root.kind == Node::Kind::Range ? root.last.column : root.first.column;
+        found = true;
+    }
+    if (found)
+        visitRange(target.sheetId, target.firstRow, target.firstColumn, target.lastRow, target.lastColumn,
+                   [&](const Value &v) {
+                       if (!v.isBlank()) allowed.append(displayText(v));
+                       return allowed.size() < MaxListItems;
+                   });
+    return allowed;
+}
+
 const ValidationRule *WorkbookPrivate::validationRuleAt(const Sheet &s, int row, int column) const
 {
     for (const ValidationRule &rule : s.features->validations)
@@ -132,29 +160,7 @@ QString WorkbookPrivate::validationProblem(const Sheet &s, int row, int column, 
         return withinBounds(rule->op, subject, x.number, y.number) ? QString() : message(fallback);
     }
     case ValidationRule::Type::List: {
-        QStringList allowed = rule->items;
-        if (allowed.isEmpty() && rule->value1.formula && rule->value1.formula->root >= 0) {
-            const Formula &f = *rule->value1.formula;
-            const Node &root = f.nodes[size_t(f.root)];
-            Precedent target;
-            bool found = false;
-            if (root.kind == Node::Kind::Name) {
-                found = resolveName(f.strings.at(root.text), &target) && !target.sheetId.isEmpty();
-            } else if (root.kind == Node::Kind::Cell || root.kind == Node::Kind::Range) {
-                target.sheetId = root.sheet >= 0 ? f.sheets.at(root.sheet) : s.id;
-                target.firstRow = root.first.row;
-                target.firstColumn = root.first.column;
-                target.lastRow = root.kind == Node::Kind::Range ? root.last.row : root.first.row;
-                target.lastColumn = root.kind == Node::Kind::Range ? root.last.column : root.first.column;
-                found = true;
-            }
-            if (found)
-                visitRange(target.sheetId, target.firstRow, target.firstColumn, target.lastRow, target.lastColumn,
-                           [&](const Value &v) {
-                               if (!v.isBlank()) allowed.append(displayText(v));
-                               return allowed.size() < MaxListItems;
-                           });
-        }
+        const QStringList allowed = listItems(s, *rule);
         const QString text = displayText(value);
         if (allowed.contains(text, Qt::CaseInsensitive)) return {};
         const QStringList shown = allowed.mid(0, 5);
@@ -288,6 +294,13 @@ QVariantMap Workbook::validateInput(const QString &sheetId, int row, int column,
     if (message.isEmpty()) return {{"ok", true}};
     return {{"ok", false}, {"style", styleName(rule->errorStyle)}, {"title", rule->errorTitle},
             {"message", message}, {"ruleId", rule->id}};
+}
+
+QStringList Workbook::validationItems(const QString &sheetId, int row, int column) const
+{
+    const Sheet *s = d->sheet(sheetId);
+    const ValidationRule *rule = s ? d->validationRuleAt(*s, row, column) : nullptr;
+    return rule && rule->type == ValidationRule::Type::List ? d->listItems(*s, *rule) : QStringList();
 }
 
 QVariantMap Workbook::validationAt(const QString &sheetId, int row, int column) const

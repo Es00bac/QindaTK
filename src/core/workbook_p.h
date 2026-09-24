@@ -193,6 +193,7 @@ struct WorkbookPrivate final : Calc::EvalContext {
     // Validation and input lists (workbook_validation.cpp)
     struct InputEntry { int row = 0; int column = 0; QVariant input; };
     const Calc::ValidationRule *validationRuleAt(const Sheet &s, int row, int column) const;
+    QStringList listItems(const Sheet &s, const Calc::ValidationRule &rule) const;
     // "" when `candidate` satisfies the cell's rule (or it has none).
     QString validationProblem(const Sheet &s, int row, int column, const CellContent &candidate,
                               const Calc::ValidationRule **rule) const;

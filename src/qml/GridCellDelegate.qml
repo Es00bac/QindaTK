@@ -7,6 +7,9 @@ import QindaTK as Tk
 // of Tk.EditableGrid. It renders the record the grid collected from its model
 // — value, optional source `style` and merged-area span — and stores no cell
 // state. objectName gridCell_<rowId>_<columnId> is part of the grid contract.
+// Style keys: horizontalAlignment, bold, italic, underline, strikeout,
+// textColor/fillColor (document colors), dataBar (0-1) + dataBarColor,
+// icon + iconTone (positive|neutral|negative -> theme roles), error.
 Item {
     id: cell
 
@@ -18,6 +21,7 @@ Item {
     readonly property string displayText: modelData.value === undefined || modelData.value === null
                                           ? "" : String(modelData.value)
     readonly property bool merged: (modelData.rowSpan || 1) > 1 || (modelData.columnSpan || 1) > 1
+    readonly property bool hasIcon: String(cellStyle.icon || "").length > 0
 
     objectName: "gridCell_" + modelData.rowId + "_" + modelData.columnId
     x: modelData.x
@@ -52,17 +56,42 @@ Item {
         border.width: Tk.Theme.size.border
         border.color: Tk.Theme.color.divider
     }
+    Rectangle {
+        objectName: "gridCellDataBar"
+        visible: cell.cellStyle.dataBar !== undefined
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.margins: Tk.Theme.space.xs
+        width: Math.max(0, (parent.width - Tk.Theme.space.xs * 2) * Number(cell.cellStyle.dataBar || 0))
+        radius: Tk.Theme.radius.xs
+        color: cell.cellStyle.dataBarColor || Tk.Theme.color.accent
+        opacity: Tk.Theme.opacity.ghost
+    }
+    Tk.Icon {
+        id: cellIcon
+        objectName: "gridCellIcon"
+        visible: cell.hasIcon
+        anchors.left: parent.left
+        anchors.leftMargin: Tk.Theme.space.xs
+        anchors.verticalCenter: parent.verticalCenter
+        name: String(cell.cellStyle.icon || "")
+        size: Tk.Theme.size.iconSm
+        color: cell.cellStyle.iconTone === "positive" ? Tk.Theme.color.success
+             : cell.cellStyle.iconTone === "negative" ? Tk.Theme.color.danger : Tk.Theme.color.warning
+    }
     Tk.Label {
         objectName: "gridCellText"
         anchors.fill: parent
-        anchors.leftMargin: Tk.Theme.space.xs
+        anchors.leftMargin: cell.hasIcon ? Tk.Theme.space.xs * 2 + Tk.Theme.size.iconSm : Tk.Theme.space.xs
         anchors.rightMargin: Tk.Theme.space.xs
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: cell.cellStyle.horizontalAlignment === "right" ? Text.AlignRight
                              : cell.cellStyle.horizontalAlignment === "center" ? Text.AlignHCenter
                              : Text.AlignLeft
         text: cell.displayText
-        color: cell.cellStyle.textColor ? cell.cellStyle.textColor : Tk.Theme.color.text
+        color: cell.cellStyle.textColor ? cell.cellStyle.textColor
+             : cell.cellStyle.error === true ? Tk.Theme.color.danger : Tk.Theme.color.text
         font.pixelSize: Tk.Theme.font.body
         font.bold: cell.cellStyle.bold === true
         font.italic: cell.cellStyle.italic === true

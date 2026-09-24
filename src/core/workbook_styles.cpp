@@ -159,19 +159,19 @@ QVariantMap WorkbookPrivate::presentation(const Sheet &s, int row, int column, c
         if (matched && rule.stopIfTrue) break;
     }
     style.apply(conditional);
-    QVariantMap result = styleToMap(style);
-    result.remove(QStringLiteral("numberFormat"));
-    for (const char *key : {"bold", "italic", "underline", "strikeout"})
-        if (!result.value(QLatin1StringView(key)).toBool()) result.remove(QLatin1StringView(key));
-    for (const char *key : {"textColor", "fillColor"})
-        if (result.value(QLatin1StringView(key)).toString().isEmpty()) result.remove(QLatin1StringView(key));
+    QVariantMap result = extra;
+    if (style.bold) result.insert(QStringLiteral("bold"), true);
+    if (style.italic) result.insert(QStringLiteral("italic"), true);
+    if (style.underline) result.insert(QStringLiteral("underline"), true);
+    if (style.strikeout) result.insert(QStringLiteral("strikeout"), true);
+    if (!style.textColor.isEmpty()) result.insert(QStringLiteral("textColor"), style.textColor);
+    if (!style.fillColor.isEmpty()) result.insert(QStringLiteral("fillColor"), style.fillColor);
     QString align = style.align;
     if (align.isEmpty())
         align = value.isNumber() ? QStringLiteral("right")
               : (value.isBoolean() || value.isError()) ? QStringLiteral("center") : QStringLiteral("left");
     result.insert(QStringLiteral("horizontalAlignment"), align);
     if (value.isError()) result.insert(QStringLiteral("error"), true);
-    result.insert(extra);
     return result;
 }
 

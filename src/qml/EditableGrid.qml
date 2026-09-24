@@ -224,7 +224,7 @@ T.Control {
     function beginCellEdit() {
         if (!model || activeRow < 0 || activeColumn < 0 || !enabled || model.readOnly) return false
         // The source's edit text (a formula), not its computed display (G-1).
-        editText = String(model.editValue(activeRowId, activeColumnId) ?? "")
+        setEditorText(String(model.editValue(activeRowId, activeColumnId) ?? ""))
         editingRowId = activeRowId
         editingColumnId = activeColumnId
         cellEditing = true
@@ -252,6 +252,20 @@ T.Control {
         forceActiveFocus()
         return true
     }
+
+    // AGENT-GUARD: the editor's text is bound to editText and user typing
+    // keeps that binding but can leave it stale; never assign editor.text
+    // (that breaks the binding), resync through clear()/insert() instead.
+    function setEditorText(text) {
+        editText = text
+        if (editor.text !== text) {
+            editor.clear()
+            editor.insert(0, text)
+        }
+    }
+
+    // Returns focus to an open editor (a host prompt closed without committing).
+    function focusCellEditor() { if (cellEditing) editor.forceActiveFocus() }
 
     function cancelCellEdit() {
         if (!cellEditing) return
@@ -317,8 +331,7 @@ T.Control {
             if (event.text.length === 0 || event.text.charCodeAt(0) < 32 || event.text.charCodeAt(0) === 127
                     || (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
                     || !beginCellEdit()) return
-            editText = event.text
-            editor.text = event.text
+            setEditorText(event.text)
             editor.cursorPosition = editor.text.length
             event.accepted = true
             return
@@ -446,7 +459,16 @@ T.Control {
                 height: grid.editorRect.height
                 text: grid.editText
                 tooltip: qsTr("Edit grid cell")
-                onAccepted: grid.commitCellEdit(text)
+                // AGENT-GUARD: TextInput ignores Return after `accepted`, so the key
+                // would reach the grid's own handler and reopen an editor; consume it.
+                Keys.onReturnPressed: function(event) {
+                    event.accepted = true
+                    grid.commitCellEdit(text)
+                }
+                Keys.onEnterPressed: function(event) {
+                    event.accepted = true
+                    grid.commitCellEdit(text)
+                }
                 Keys.onEscapePressed: function(event) {
                     event.accepted = true
                     grid.cancelCellEdit()

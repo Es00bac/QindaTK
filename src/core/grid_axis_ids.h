@@ -38,6 +38,8 @@ public:
 
     // Parses "<prefix:><canonical decimal>"; false for any other form.
     static bool parseGenerated(const QString &id, QString *prefix, quint64 *number);
+    // Allocation-free form: `prefix` views into `id`.
+    static bool splitGenerated(QStringView id, QStringView *prefix, quint64 *number);
 
 private:
     struct Segment {
@@ -54,10 +56,17 @@ private:
     void appendRuns(std::vector<Segment> *out, const QStringList &ids) const;
     void rebuild();
 
+    // Generated runs of one prefix by first number; axes use one or two prefixes.
+    struct PrefixRuns {
+        QString prefix;
+        std::map<quint64, int> firsts; // first -> segment
+    };
+    const PrefixRuns *runsFor(QStringView prefix) const;
+
     std::vector<Segment> m_segments;
     std::vector<int> m_starts;
     QHash<QString, std::pair<int, int>> m_explicit;            // id -> (segment, offset)
-    std::map<std::pair<QString, quint64>, int> m_runs;         // (prefix, first) -> segment
+    std::vector<PrefixRuns> m_runs;
     int m_size = 0;
 };
 

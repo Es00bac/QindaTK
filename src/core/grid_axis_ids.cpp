@@ -5,11 +5,11 @@
 
 namespace QindaTK {
 
-bool GridAxisIds::parseGenerated(const QString &id, QString *prefix, quint64 *number)
+bool GridAxisIds::splitGenerated(QStringView id, QStringView *prefix, quint64 *number)
 {
-    const qsizetype colon = id.lastIndexOf(QLatin1Char(':'));
+    const qsizetype colon = id.lastIndexOf(u':');
     if (colon < 0 || colon + 1 >= id.size()) return false;
-    const QStringView digits = QStringView(id).mid(colon + 1);
+    const QStringView digits = id.mid(colon + 1);
     if (digits.size() > 19 || (digits.size() > 1 && digits.front() == u'0')) return false;
     quint64 value = 0;
     for (QChar c : digits) {
@@ -19,6 +19,21 @@ bool GridAxisIds::parseGenerated(const QString &id, QString *prefix, quint64 *nu
     if (prefix) *prefix = id.left(colon + 1);
     if (number) *number = value;
     return true;
+}
+
+bool GridAxisIds::parseGenerated(const QString &id, QString *prefix, quint64 *number)
+{
+    QStringView view;
+    if (!splitGenerated(id, &view, number)) return false;
+    if (prefix) *prefix = view.toString();
+    return true;
+}
+
+const GridAxisIds::PrefixRuns *GridAxisIds::runsFor(QStringView prefix) const
+{
+    for (const PrefixRuns &runs : m_runs)
+        if (runs.prefix == prefix) return &runs;
+    return nullptr;
 }
 
 int GridAxisIds::segmentAt(int index) const
@@ -40,13 +55,14 @@ int GridAxisIds::indexOf(const QString &id) const
 {
     if (const auto it = m_explicit.constFind(id); it != m_explicit.cend())
         return m_starts[size_t(it->first)] + it->second;
-    QString prefix;
+    QStringView prefix;
     quint64 number = 0;
-    if (!parseGenerated(id, &prefix, &number)) return -1;
-    auto it = m_runs.upper_bound({prefix, number});
-    if (it == m_runs.begin()) return -1;
+    if (!splitGenerated(id, &prefix, &number)) return -1;
+    const PrefixRuns *runs = runsFor(prefix);
+    if (!runs) return -1;
+    auto it = runs->firsts.upper_bound(number);
+    if (it == runs->firsts.begin()) return -1;
     --it;
-    if (it->first.first != prefix) return -1;
     const Segment &s = m_segments[size_t(it->second)];
     if (number >= s.first + quint64(s.count)) return -1;
     return m_starts[size_t(it->second)] + int(number - s.first);
@@ -66,11 +82,12 @@ QStringList GridAxisIds::toList() const
 bool GridAxisIds::overlapsGenerated(const QString &prefix, quint64 first, int count) const
 {
     if (count <= 0) return false;
+    const PrefixRuns *runs = runsFor(prefix);
+    if (!runs) return false;
     const quint64 last = first + quint64(count) - 1;
-    auto it = m_runs.upper_bound({prefix, last});
-    if (it == m_runs.begin()) return false;
+    auto it = runs->firsts.upper_bound(last);
+    if (it == runs->firsts.begin()) return false;
     --it;
-    if (it->first.first != prefix) return false;
     const Segment &s = m_segments[size_t(it->second)];
     return s.first + quint64(s.count) > first;
 }
@@ -78,11 +95,12 @@ bool GridAxisIds::overlapsGenerated(const QString &prefix, quint64 first, int co
 quint64 GridAxisIds::nextFreeGenerated(const QString &prefix, quint64 from, int count) const
 {
     if (count <= 0) return from;
+    const PrefixRuns *runs = runsFor(prefix);
+    if (!runs) return from;
     for (;;) {
-        auto it = m_runs.upper_bound({prefix, from + quint64(count) - 1});
-        if (it == m_runs.begin()) return from;
+        auto it = runs->firsts.upper_bound(from + quint64(count) - 1);
+        if (it == runs->firsts.begin()) return from;
         --it;
-        if (it->first.first != prefix) return from;
         const Segment &s = m_segments[size_t(it->second)];
         if (s.first + quint64(s.count) <= from) return from;
         from = s.first + quint64(s.count); // jump past the overlapping run
@@ -213,7 +231,11 @@ void GridAxisIds::rebuild()
     for (size_t i = 0; i < m_segments.size(); ++i) {
         m_starts[i] = start;
         const Segment &s = m_segments[i];
-        if (s.generated()) m_runs.insert({{s.prefix, s.first}, int(i)});
+        if (s.generated()) {
+            auto runs = std::find_if(m_runs.begin(), m_runs.end(), [&](const PrefixRuns &r) { return r.prefix == s.prefix; });
+            if (runs == m_runs.end()) runs = m_runs.insert(m_runs.end(), PrefixRuns{s.prefix, {}});
+            runs->firsts.emplace(s.first, int(i));
+        }
         else for (int k = 0; k < s.count; ++k) m_explicit.insert(s.explicitIds.at(k), {int(i), k});
         start += s.count;
     }

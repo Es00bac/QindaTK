@@ -107,6 +107,7 @@ bool EditableGridModel::setIds(QStringList ids, bool rowAxis)
     for (int i = 0; i < oldIds.size(); ++i) sizeById.insert(oldIds[i], oldSizes[i]);
     beginResetModel();
     axis.assign(ids);
+    ++m_revision; // AGENT-GUARD: before reconcile() can emit; ID-keyed caches compare it
     auto &sizes = rowAxis ? m_rowSizes : m_columnSizes;
     auto &explicitSizes = rowAxis ? m_explicitRowSizes : m_explicitColumnSizes;
     for (auto it = explicitSizes.begin(); it != explicitSizes.end();) {
@@ -121,7 +122,6 @@ bool EditableGridModel::setIds(QStringList ids, bool rowAxis)
     m_frozenColumns = std::min(m_frozenColumns, columns());
     reconcile(removedIdentity);
     if (removedIdentity) ++m_structureGeneration;
-    ++m_revision;
     endResetModel();
     emit structureChanged(); emit geometryChanged(); emit cellsChanged();
     return true;
