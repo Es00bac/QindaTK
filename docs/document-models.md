@@ -29,6 +29,23 @@ text or workbook engine joins the same way; see
 | `qindatk.property-document.v1` | `property` | `PropertyDocument` | `qindatk.reference-property-document` JSON, version 2 (version 1 migrates) | `qtk` | 64 MiB |
 | `qindatk.canvas-document.v1` | `canvas` | `CanvasDocument` | `qindatk.canvas` binary, version 1 ([canvas](canvas.md#native-format)) | `qtkc` | 320 MiB (`CanvasDocumentLimits`) |
 
+The reference format also stores a `QVariantList` property as an
+`objectCollection`: at most 4,096 object rows with unique stable UUID `id`
+fields, 100,000 JSON-compatible values, 24 nested levels and 16 MiB per
+collection. Values are strings, booleans, finite numbers with magnitude at
+most 2^53−1, maps or lists. Nulls, QObject pointers, binary assets and other
+QVariant types are rejected at capture or decode. Existing format version 2
+files remain readable.
+
+`PropertyCollectionDropTarget` copies object transfer items into this native
+collection with fresh destination row IDs in one `UndoService` transaction.
+An explicit nested `{ "$ref": "<source-row-uuid>" }` points to another row in
+the same transfer and is rewritten to its new ID, including inside maps and
+lists. An external `$ref`, bare UUID string, implicit reference field or
+resource field is rejected before mutation. Resource payloads need a domain
+adapter with a resource store; the reference collection does not claim to
+copy them. Save, reopen and recovery preserve the resulting structured rows.
+
 `DocumentManager::createDocument(schemaId)` creates an empty session of any
 registered kind; `documentTypes` lists them for QML. `openDocument(path,
 schemaId)` recognizes the file **by content**, decodes it with full

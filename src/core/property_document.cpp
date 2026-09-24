@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "property_document.h"
+#include <QJsonDocument>
 #include <QThread>
 
 namespace QindaTK {
@@ -20,6 +21,10 @@ quint64 PropertyCommand::estimate(const QVector<PropertyChange> &changes)
         const auto valueBytes = [](const QVariant &value) -> quint64 {
             if (value.metaType().id() == QMetaType::QByteArray)
                 return static_cast<quint64>(value.toByteArray().size());
+            if (value.metaType() == QMetaType::fromType<QVariantList>()
+                || value.metaType() == QMetaType::fromType<QVariantMap>())
+                return static_cast<quint64>(QJsonDocument::fromVariant(value)
+                    .toJson(QJsonDocument::Compact).size());
             return static_cast<quint64>(value.toString().size()) * 2 + 32;
         };
         total += 128 + static_cast<quint64>(change.propertyId.size()) * 2

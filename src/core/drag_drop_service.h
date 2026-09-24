@@ -52,8 +52,9 @@ public:
 
 // Reference object adapter for applications whose collection property is a
 // QVariantList of QVariantMap rows with stable UUID strings in the `id` key.
-// It supports safe Copy only, remaps every incoming row ID, rejects unresolved
-// resource/entity references, and commits the insertion as one undoable edit.
+// It supports safe Copy only, remaps every incoming row ID and explicit nested
+// $ref within the transfer, rejects external/resource references, and commits
+// the insertion as one undoable edit.
 class PropertyCollectionDropTarget final : public DropTarget {
 public:
     PropertyCollectionDropTarget(PropertyDocument *document, UndoService *undo,

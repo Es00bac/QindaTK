@@ -10,8 +10,6 @@
 #include <QTimer>
 #include <QEventLoop>
 #include <QFile>
-#include <QJsonArray>
-#include <QJsonDocument>
 #include <QTemporaryDir>
 #include <qindatk/edit_transaction.h>
 #include <qindatk/shortcut_map.h>
@@ -287,13 +285,13 @@ int main(int argc, char **argv)
         const QString sheetArchiveId = QStringLiteral("00000000-0000-0000-0000-000000000304");
         if (!host.copyAsset(QString::fromLatin1(boardRows[0].id))
             || !host.pasteAssetToOtherDocument()) return 26;
-        const auto pastedArray = QJsonDocument::fromJson(sheet->document()->valueFor(
-            sheetArchiveId, QStringLiteral("transfers")).toString().toUtf8()).array();
-        if (pastedArray.size() != 1
-            || pastedArray.last().toObject().value(QStringLiteral("name")).toString() != QStringLiteral("Opening shot")
-            || pastedArray.last().toObject().value(QStringLiteral("id")).toString() == QString::fromLatin1(boardRows[0].id)
+        const QVariantList pasted = sheet->document()->valueFor(
+            sheetArchiveId, QStringLiteral("transfers")).toList();
+        if (pasted.size() != 1
+            || pasted.last().toMap().value(QStringLiteral("name")).toString() != QStringLiteral("Opening shot")
+            || pasted.last().toMap().value(QStringLiteral("id")).toString() == QString::fromLatin1(boardRows[0].id)
             || !host.manager()->undoService()->undo()
-            || !sheet->document()->valueFor(sheetArchiveId, QStringLiteral("transfers")).toString().isEmpty())
+            || !sheet->document()->valueFor(sheetArchiveId, QStringLiteral("transfers")).toList().isEmpty())
             return 27;
 
         QTemporaryDir lifecycle;

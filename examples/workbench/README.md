@@ -15,11 +15,11 @@ The inspector lifecycle panel provides:
   save and restore. Save the documents before capturing a workspace. Restore
   reopens any saved document that is not already in the manager.
 - Copy selected asset to the other document. `TransferPayloadCodec` validates
-  and encodes the stable-ID object payload; this example adapter creates a new
-  destination ID and commits the remapped JSON record to a serializable
-  reference-document string property in one undo step. The reference codec
-  currently serializes primitive property types, so the adapter keeps the
-  record in that string property instead of a `QVariantList` collection.
+  and encodes the stable-ID object payload; `PropertyCollectionDropTarget`
+  remaps the row ID and commits a native `QVariantList` object collection in
+  one undo step. The reference codec saves and recovers this bounded
+  structured collection. Resource fields and unresolved references are
+  rejected until a domain adapter supplies their payload and resolver.
 - Close during task demo. A delayed snapshot-bound analysis is invalidated when
   its document closes. The host publishes a completion only while the source
   document remains open and active; otherwise it reports that the stale result
@@ -51,9 +51,9 @@ declared in `workbench_host.h`, with implementation split between
 in `WorkbenchLifecyclePanel.qml` to keep the main scene within the file-size
 limit.
 
-The cross-document adapter stores a remapped object record in a JSON string
-property because the built-in reference codec supports primitive property
-types only. It does not claim nested reference resolution or embedded resource
-transfer. Native operating-system accessibility-client activation also remains
+The cross-document adapter stores remapped object rows in a native structured
+collection. Explicit nested `$ref` links between copied rows are remapped;
+embedded resources and references outside the transfer are rejected. Native
+operating-system accessibility-client activation also remains
 outside this local `--check`; the semantic command is exercised through its
 QML toolbar/context-menu/shortcut and accessible activation paths.

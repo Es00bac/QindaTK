@@ -187,8 +187,8 @@ DocumentSession *WorkbenchHost::seed(bool board, EditableGridModel *grid, QStand
     PropertyDocument *document = session->document();
     for (const QString &column : columns)
         if (!document->defineProperty({column, QMetaType::fromType<QString>(), QString(), {}, true, false})) return nullptr;
-    if (!document->defineProperty({QStringLiteral("transfers"), QMetaType::fromType<QString>(),
-                                   QString{}, {}, true, false})) return nullptr;
+    if (!document->defineProperty({QStringLiteral("transfers"), QMetaType::fromType<QVariantList>(),
+                                   QVariantList{}, {}, true, false})) return nullptr;
     QStringList ids;
     const auto &rows = board ? boardRows : sheetRows;
     for (const Record &row : rows) {
@@ -200,7 +200,7 @@ DocumentSession *WorkbenchHost::seed(bool board, EditableGridModel *grid, QStand
     }
     const QString archiveId = board ? QStringLiteral("00000000-0000-0000-0000-000000000303")
                                     : QStringLiteral("00000000-0000-0000-0000-000000000304");
-    if (!document->addEntity(EntityId::parse(archiveId), {{QStringLiteral("transfers"), QString{}}})) return nullptr;
+    if (!document->addEntity(EntityId::parse(archiveId), {{QStringLiteral("transfers"), QVariantList{}}})) return nullptr;
     if (board) m_boardRowIds = ids; else m_sheetRowIds = ids;
     bindProjection(session, ids, grid, assets);
     return session;

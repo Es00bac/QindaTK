@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "drag_drop_service.h"
 #include "edit_transaction.h"
+#include "reference_collection_value.h"
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -17,48 +18,49 @@ OperationError makeError(ErrorCode code, const QString &message)
     return {code, message, {}, {}};
 }
 
-bool unresolvedReferenceKey(const QString &key)
-{
-    const QString normalized = key.toCaseFolded();
-    return normalized == QStringLiteral("missingresource")
-        || normalized == QStringLiteral("resource")
-        || normalized == QStringLiteral("resources")
-        || normalized == QStringLiteral("resourceid")
-        || normalized == QStringLiteral("resourceids")
-        || normalized == QStringLiteral("resourceuri")
-        || normalized == QStringLiteral("assetid")
-        || normalized == QStringLiteral("asseturi")
-        || normalized == QStringLiteral("uri")
-        || normalized == QStringLiteral("references")
-        || normalized == QStringLiteral("referenceid")
-        || normalized == QStringLiteral("referenceids")
-        || normalized == QStringLiteral("documentid");
-}
-
-bool hasUnresolvedReference(const QJsonValue &value, bool root, QString *reason)
+std::optional<QJsonValue> remapReferences(const QJsonValue &value,
+                                          const QHash<QString, QString> &ids,
+                                          QString *reason)
 {
     if (value.isObject()) {
         const QJsonObject object = value.toObject();
-        for (auto it = object.constBegin(); it != object.constEnd(); ++it) {
-            if (unresolvedReferenceKey(it.key())) {
-                *reason = QStringLiteral("Object rows with resource or reference fields need a domain resolver.");
-                return true;
+        if (object.contains(QStringLiteral("$ref"))) {
+            const QString source = object.value(QStringLiteral("$ref")).toString();
+            if (object.size() != 1 || !ids.contains(source)) {
+                *reason = QStringLiteral("Nested $ref must name an object in the same transfer.");
+                return std::nullopt;
             }
-            if (root && it.key() == QStringLiteral("id")) continue;
-            if (hasUnresolvedReference(it.value(), false, reason)) return true;
+            return QJsonObject{{QStringLiteral("$ref"), ids.value(source)}};
         }
+        QJsonObject remapped;
+        for (auto it = object.constBegin(); it != object.constEnd(); ++it) {
+            if (ReferenceCollectionValue::unresolvedField(it.key())) {
+                *reason = QStringLiteral("Resource or implicit reference fields need a domain resolver.");
+                return std::nullopt;
+            }
+            const auto child = remapReferences(it.value(), ids, reason);
+            if (!child) return std::nullopt;
+            remapped.insert(it.key(), *child);
+        }
+        return remapped;
     } else if (value.isArray()) {
+        QJsonArray remapped;
         for (const QJsonValue &child : value.toArray())
-            if (hasUnresolvedReference(child, false, reason)) return true;
+        {
+            const auto mapped = remapReferences(child, ids, reason);
+            if (!mapped) return std::nullopt;
+            remapped.append(*mapped);
+        }
+        return remapped;
     } else if (value.isString()) {
         const QString text = value.toString();
         const QUuid id(text);
         if (!id.isNull() && id.toString(QUuid::WithoutBraces) == text) {
-            *reason = QStringLiteral("Object row contains an entity reference this collection adapter cannot resolve.");
-            return true;
+            *reason = QStringLiteral("UUID references must use a nested $ref object.");
+            return std::nullopt;
         }
     }
-    return false;
+    return value;
 }
 
 bool sameSnapshot(const SnapshotHeader &a, const SnapshotHeader &b)
@@ -146,30 +148,45 @@ DropPreview PropertyCollectionDropTarget::previewDrop(
         return {false, {}, codecError.message, codecError.code, {}, false};
     QVector<QVariantMap> rows;
     rows.reserve(payload.items.size());
-    QSet<QString> incomingIds;
+    QHash<QString, QString> remappedIds;
+    QSet<QString> reservedIds = existingIds;
     for (const TransferItem &item : payload.items) {
         if (item.kind != TransferItemKind::Object)
             return {false, {}, QStringLiteral("Collection adapter accepts object items only."),
                     ErrorCode::Unsupported, {}, false};
         const QString sourceId = item.entityId.toString();
-        QVariantMap row = item.payload.toVariantMap();
-        const QString embeddedId = row.value(QStringLiteral("id")).toString();
+        const QString embeddedId = item.payload.value(QStringLiteral("id")).toString();
         const EntityId embeddedEntity = EntityId::parse(embeddedId);
         if (!embeddedEntity.isValid() || embeddedEntity != item.entityId
-            || incomingIds.contains(sourceId))
+            || remappedIds.contains(sourceId))
             return {false, {}, QStringLiteral("Object row IDs are missing, duplicated, or inconsistent with transfer identities."),
                     ErrorCode::Validation, {}, false};
+        QString destinationId;
+        do { destinationId = EntityId::create().toString(); }
+        while (reservedIds.contains(destinationId));
+        reservedIds.insert(destinationId);
+        remappedIds.insert(sourceId, destinationId);
+    }
+    for (const TransferItem &item : payload.items) {
+        QJsonObject rowObject = item.payload;
+        rowObject.remove(QStringLiteral("id"));
         QString unresolved;
-        if (hasUnresolvedReference(QJsonValue::fromVariant(row), true, &unresolved))
+        const auto mapped = remapReferences(rowObject, remappedIds, &unresolved);
+        if (!mapped)
             return {false, {}, unresolved, ErrorCode::Unsupported, {}, false};
-        incomingIds.insert(sourceId);
-        row.insert(QStringLiteral("id"), EntityId::create().toString());
+        QVariantMap row = mapped->toObject().toVariantMap();
+        row.insert(QStringLiteral("id"), remappedIds.value(item.entityId.toString()));
         rows.append(std::move(row));
     }
 
     for (qsizetype offset = 0; offset < rows.size(); ++offset)
         candidate.insert(static_cast<qsizetype>(index) + offset, rows.at(offset));
-    if (m_plans.size() >= 64)
+    // AGENT-GUARD: a successful preview must be capturable by the native
+    // codec, or a later save/recovery could fail after the undoable commit.
+    if (!ReferenceCollectionValue::encode(QVariant(candidate)))
+        return {false, {}, QStringLiteral("Collection exceeds native bounds or contains unsupported references."),
+                ErrorCode::Unsupported, {}, false};
+    if (m_plans.size() >= 8)
         return {false, {}, QStringLiteral("Too many unfinished collection previews."),
                 ErrorCode::Unavailable, {}, false};
     Plan plan;

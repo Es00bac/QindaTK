@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "reference_document_codec.h"
+#include "reference_collection_value.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
@@ -38,6 +39,7 @@ QString kindFor(QMetaType type)
     case QMetaType::Double: return QStringLiteral("double");
     case QMetaType::QString: return QStringLiteral("string");
     case QMetaType::QByteArray: return QStringLiteral("bytes");
+    case QMetaType::QVariantList: return QStringLiteral("objectCollection");
     default: return {};
     }
 }
@@ -52,6 +54,7 @@ QMetaType typeFor(const QString &kind)
     if (kind == QStringLiteral("double")) return QMetaType::fromType<double>();
     if (kind == QStringLiteral("string")) return QMetaType::fromType<QString>();
     if (kind == QStringLiteral("bytes")) return QMetaType::fromType<QByteArray>();
+    if (kind == QStringLiteral("objectCollection")) return QMetaType::fromType<QVariantList>();
     return {};
 }
 
@@ -90,7 +93,11 @@ std::optional<QJsonObject> encodeValue(const QVariant &value)
     else if (kind == QStringLiteral("string")) stored = value.toString();
     else if (kind == QStringLiteral("bytes"))
         stored = QString::fromLatin1(value.toByteArray().toBase64());
-    else if (kind == QStringLiteral("double")) {
+    else if (kind == QStringLiteral("objectCollection")) {
+        const auto collection = ReferenceCollectionValue::encode(value);
+        if (!collection) return std::nullopt;
+        stored = *collection;
+    } else if (kind == QStringLiteral("double")) {
         const double number = value.toDouble();
         if (!std::isfinite(number)) return std::nullopt;
         stored = QString::number(number, 'g', 17);
@@ -122,6 +129,12 @@ std::optional<QVariant> decodeValue(const QJsonValue &json, QMetaType expected,
         const auto decoded = QByteArray::fromBase64Encoding(encoded);
         if (!decoded || decoded.decoded.toBase64() != encoded) return std::nullopt;
         return QVariant(decoded.decoded);
+    }
+    if (kind == QStringLiteral("objectCollection")) {
+        if (!stored.isArray()) return std::nullopt;
+        const auto collection = ReferenceCollectionValue::decode(stored.toArray());
+        if (!collection) return std::nullopt;
+        return QVariant(*collection);
     }
     if (kind == QStringLiteral("double")) {
         double number = 0.0;

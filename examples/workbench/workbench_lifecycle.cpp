@@ -2,13 +2,12 @@
 #include "workbench_host.h"
 
 #include <QFileInfo>
-#include <QJsonArray>
-#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTimer>
 #include <QThread>
 #include <QSet>
 #include <QUuid>
-#include <qindatk/edit_transaction.h>
+#include <qindatk/drag_drop_service.h>
 #include <qindatk/transfer_payload.h>
 
 namespace {
@@ -96,6 +95,7 @@ bool WorkbenchHost::copyAsset(const QString &rowId)
     for (const QString &property : {QStringLiteral("name"), QStringLiteral("kind"),
                                     QStringLiteral("owner"), QStringLiteral("state")})
         object.insert(property, QJsonValue::fromVariant(session->document()->valueFor(rowId, property)));
+    object.insert(QStringLiteral("id"), rowId);
     TransferPayload payload{DocumentId::parse(session->documentId()),
         session->document()->header().revision, TransferOperation::Copy,
         {{EntityId::parse(rowId), TransferItemKind::Object, object}}};
@@ -114,23 +114,17 @@ bool WorkbenchHost::pasteAssetToOtherDocument()
     if (!payload || !destination || payload->items.size() != 1 || !source
         || source->document()->header().revision != payload->sourceRevision)
         return report(error.message.isEmpty() ? QStringLiteral("Transfer source changed or destination is unavailable") : error.message, false);
-    QJsonObject item = payload->items.first().payload;
-    const EntityId newId = EntityId::create();
-    item.insert(QStringLiteral("id"), newId.toString());
     const EntityId archiveId = archiveFor(destination);
-    const QString oldValue = destination->document()->valueFor(archiveId.toString(), QStringLiteral("transfers")).toString();
-    QJsonArray records = QJsonDocument::fromJson(oldValue.toUtf8()).array();
-    records.append(item);
     m_manager.activate(destination->documentId());
-    EditTransaction edit;
-    edit.setDocument(destination->document()); edit.setUndoService(m_manager.undoService());
-    if (!edit.begin({archiveId}, QStringLiteral("transfers"), QStringLiteral("Transfer asset"))
-        || edit.updateValue(QString::fromUtf8(QJsonDocument(records).toJson(QJsonDocument::Compact)))
-        || edit.commitEdit()) {
-        const QString why = edit.error().message;
-        edit.cancel();
-        return report(why.isEmpty() ? QStringLiteral("Transfer could not be committed") : why, false);
-    }
+    PropertyCollectionDropTarget target(destination->document(), m_manager.undoService(), archiveId,
+        QStringLiteral("transfers"), QStringLiteral("workbench-archive"), QStringLiteral("workbench-assets"));
+    DragDropService transfer;
+    const QString dragId = transfer.beginDrag(*payload, {TransferOperation::Copy},
+        QStringLiteral("workbench-assets"), 0, source->document(), &error);
+    if (dragId.isEmpty() || !transfer.previewDrop(&target, TransferOperation::Copy))
+        return report(error.message.isEmpty() ? transfer.errorMap().value(QStringLiteral("message")).toString() : error.message, false);
+    if (const OperationError committed = transfer.commitDrop(); committed)
+        return report(committed.message, false);
     m_transferBytes.clear();
     return report(QStringLiteral("Asset copied into destination archive with a fresh stable ID"), true);
 }
