@@ -368,7 +368,7 @@ std::shared_ptr<const CanvasRenderFrame> RenderSurfaceAdapter::prepare(CanvasRen
                     const CanvasObject *object = m_document->object(id);
                     if (object && (object->shape == CanvasShape::Path || !object->managedFill.isEmpty()
                         || !object->dashPattern.isEmpty() || object->strokeCap != Qt::FlatCap
-                        || object->strokeJoin != Qt::MiterJoin)) {
+                        || object->strokeJoin != Qt::MiterJoin || !object->appearance.isDefault())) {
                         rasterizedVector = true; break;
                     }
                 }

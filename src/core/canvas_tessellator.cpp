@@ -168,7 +168,8 @@ CanvasTileContent build(const CanvasDocumentAdapter &doc, const QRectF &rect, qr
         if (bounds.width() < pixel && bounds.height() < pixel) {
             quad(current.vertices, QRectF(bounds.center() - QPointF(pixel / 2, pixel / 2),
                                           QSizeF(pixel, pixel)),
-                 o->hasFill() ? o->fill : o->stroke);
+                 o->hasFill() ? o->fill
+                     : o->hasPattern() ? o->appearance.pattern.ink : o->stroke);
             if (stats) {
                 ++stats->dots;
             }

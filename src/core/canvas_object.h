@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include <QByteArray>
 #include <QColor>
 #include <QImage>
 #include <QPointF>
@@ -45,6 +46,51 @@ struct CanvasPathContour {
 // segment or image tile; it is -1 for Fill/Stroke of a whole outline.
 enum class CanvasPart : quint8 { Fill, Stroke, Vertex, Segment, ImageTile };
 
+enum class CanvasStrokeAlignment : quint8 { Center, Inside, Outside };
+// The separable W3C compositing modes the QPainter raster engine implements.
+enum class CanvasBlendMode : quint8 { Normal, Multiply, Screen, Overlay, Darken, Lighten,
+                                      ColorDodge, ColorBurn, HardLight, SoftLight,
+                                      Difference, Exclusion };
+enum class CanvasPatternKind : quint8 { None, Lines, Grid, Dots, Checker };
+
+// Pattern ink drawn over the fill area in the object's LOCAL space, on cells
+// `spacing` wide rotated by `angle` degrees about the local origin. `weight`
+// is the line width or dot diameter. Kind None keeps every field default.
+struct CanvasPattern {
+    CanvasPatternKind kind = CanvasPatternKind::None;
+    QColor ink;
+    qreal spacing = 0;
+    qreal angle = 0;
+    qreal weight = 0;
+    friend bool operator==(const CanvasPattern &, const CanvasPattern &) = default;
+};
+
+// One entry of an object's ordered effect stack. `id` is stable within the
+// object; `parameters` is canonical compact JSON (an object), so a kind the
+// reference renderer does not know round-trips byte for byte.
+struct CanvasEffect {
+    QString id;
+    QString kind;
+    bool enabled = true;
+    QByteArray parameters;
+    friend bool operator==(const CanvasEffect &, const CanvasEffect &) = default;
+};
+
+// AGENT-CONTRACT (docs/vector-authoring.md#appearance, D-106): appearance
+// beyond flat fill and stroke. Effects apply in list order (index 0 first) to
+// the painted fill, pattern and stroke; opacity and blend then composite the
+// result. Validation and the native v6 codec live in canvas_appearance.h.
+struct CanvasAppearance {
+    CanvasStrokeAlignment strokeAlignment = CanvasStrokeAlignment::Center;
+    qreal miterLimit = 4.0; // SVG stroke-miterlimit semantics
+    qreal opacity = 1.0;
+    CanvasBlendMode blend = CanvasBlendMode::Normal;
+    CanvasPattern pattern;
+    QVector<CanvasEffect> effects;
+    [[nodiscard]] bool isDefault() const { return *this == CanvasAppearance{}; }
+    friend bool operator==(const CanvasAppearance &, const CanvasAppearance &) = default;
+};
+
 struct CanvasObject {
     CanvasObjectId id = 0;
     CanvasLayerId layer = 0;
@@ -72,6 +118,7 @@ struct CanvasObject {
     bool visible = true;
     bool locked = false;
     QString name;
+    CanvasAppearance appearance; // alignment, opacity, blend, pattern, effects (D-106)
 
     friend bool operator==(const CanvasObject &, const CanvasObject &) = default;
 
@@ -79,8 +126,15 @@ struct CanvasObject {
     { qsizetype count = pathNodes.size(); for (const auto &c : extraContours) count += c.nodes.size(); return count; }
     [[nodiscard]] bool hasClosedContour() const
     { if (pathClosed) return true; for (const auto &c : extraContours) if (c.closed) return true; return false; }
-    [[nodiscard]] bool hasFill() const { return fill.isValid() && fill.alpha() > 0
-        && shape != CanvasShape::Polyline && (shape != CanvasShape::Path || hasClosedContour()); }
+    [[nodiscard]] bool closesArea() const
+    { return shape != CanvasShape::Polyline && (shape != CanvasShape::Path || hasClosedContour()); }
+    // The fill COLOUR is painted (patterns are separate: hasPattern()).
+    [[nodiscard]] bool hasFill() const { return fill.isValid() && fill.alpha() > 0 && closesArea(); }
+    [[nodiscard]] bool hasPattern() const
+    { return appearance.pattern.kind != CanvasPatternKind::None && appearance.pattern.ink.isValid()
+        && appearance.pattern.ink.alpha() > 0 && closesArea(); }
+    // Some paint covers the fill area (picking and containment use this).
+    [[nodiscard]] bool fillsArea() const { return hasFill() || hasPattern(); }
     [[nodiscard]] bool hasStroke() const { return stroke.isValid() && stroke.alpha() > 0; }
     void clearParametric()
     { parametricKind = CanvasParametricKind::None; parametricPoints = 0;

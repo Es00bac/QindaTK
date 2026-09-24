@@ -325,6 +325,8 @@ qt_add_qml_module(qindatk
         core/canvas_object.h
         core/canvas_geometry.cpp core/canvas_geometry.h
         core/canvas_path.cpp core/canvas_path.h
+        core/canvas_path_boolean.cpp core/canvas_path_boolean.h
+        core/canvas_appearance.cpp core/canvas_appearance_codec.cpp core/canvas_appearance.h
         core/canvas_svg_export.cpp core/canvas_svg_export.h
         core/canvas_document.cpp core/canvas_document.h
         core/canvas_document_state.h
@@ -339,6 +341,7 @@ qt_add_qml_module(qindatk
         core/canvas_document_scene_format.cpp
         core/canvas_document_qml.cpp
         core/canvas_document_path.cpp
+        core/canvas_document_boolean.cpp
         core/canvas_parametric.cpp core/canvas_parametric.h
         core/canvas_document_parametric.cpp
         core/canvas_document_contours.cpp
@@ -349,10 +352,13 @@ qt_add_qml_module(qindatk
         core/canvas_layer_tree_model.cpp core/canvas_layer_tree_commands.cpp core/canvas_layer_tree_model.h
         core/canvas_artboard_model.cpp core/canvas_artboard_model.h
         core/canvas_alignment_model.cpp core/canvas_alignment_model.h
-        core/canvas_style_model.cpp core/canvas_style_model.h
+        core/canvas_style_model.cpp core/canvas_style_model_selection.cpp core/canvas_style_model.h
+        core/canvas_appearance_model.cpp core/canvas_appearance_model.h
         core/canvas_tools.cpp
         core/canvas_render.h
         core/canvas_painter.cpp
+        core/canvas_appearance_paint.cpp core/canvas_appearance_paint.h
+        core/canvas_effects.cpp core/canvas_effects.h
         core/canvas_tessellator.cpp
         core/render_surface_adapter.cpp core/render_surface_adapter.h
         core/canvas_view_state.cpp core/canvas_view_state.h

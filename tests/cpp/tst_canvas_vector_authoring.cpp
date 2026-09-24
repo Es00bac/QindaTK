@@ -433,10 +433,11 @@ void TstCanvasVectorAuthoring::parametricPersistenceAndOlderVersions()
              qPrintable(error.message));
 
     // Older files: the object section ends the body and each version appended
-    // one block to every object record, so a one-object version 5 file turns
-    // into an older one by dropping the blocks it lacks from the end: 21 bytes
-    // of parametric definition (v5), a 4-byte contour count (v4), the 12-byte
-    // path/stroke block (v3) and a 4-byte empty managed fill (v2). Version 1
+    // one block to every object record, so a one-object version 6 file turns
+    // into an older one by dropping the blocks it lacks from the end: a 4-byte
+    // empty appearance block (v6), 21 bytes of parametric definition (v5), a
+    // 4-byte contour count (v4), the 12-byte path/stroke block (v3) and a
+    // 4-byte empty managed fill (v2). Version 1
     // also lacks the 4-byte output ICC length that follows the 44-byte
     // identity header, four 8-byte counters, the page rectangle and colour.
     const auto older = [](const QByteArray &current, quint32 version, qsizetype trailing) {
@@ -455,16 +456,18 @@ void TstCanvasVectorAuthoring::parametricPersistenceAndOlderVersions()
     const QByteArray rectBytes = CanvasDocumentFormat::encode(rectDoc.state());
     const QByteArray pathBytes = CanvasDocumentFormat::encode(pathDoc.state());
     struct Older { quint32 version; qsizetype trailing; bool path; };
-    for (const Older &o : {Older{4, 21, true}, Older{3, 25, true}, Older{4, 21, false},
-                           Older{3, 25, false}, Older{2, 37, false}, Older{1, 41, false}}) {
+    for (const Older &o : {Older{5, 4, true}, Older{4, 25, true}, Older{3, 29, true},
+                           Older{5, 4, false}, Older{4, 25, false}, Older{3, 29, false},
+                           Older{2, 41, false}, Older{1, 45, false}}) {
         const auto decoded = CanvasDocumentFormat::decode(
             older(o.path ? pathBytes : rectBytes, o.version, o.trailing), {}, &error);
         QVERIFY2(decoded, qPrintable(QStringLiteral("v%1: %2").arg(o.version).arg(error.message)));
         const CanvasObjectId id = o.path ? path : box;
         QCOMPARE(decoded->objects.value(id), *(o.path ? pathDoc : rectDoc).object(id));
     }
-    // A version 4 layout has no room for the parametric block.
-    QVERIFY(!CanvasDocumentFormat::decode(older(pathBytes, 4, 0), {}, &error));
+    // Older layouts have no room for the newer blocks.
+    QVERIFY(!CanvasDocumentFormat::decode(older(pathBytes, 4, 4), {}, &error));
+    QVERIFY(!CanvasDocumentFormat::decode(older(pathBytes, 5, 0), {}, &error));
 }
 
 void TstCanvasVectorAuthoring::roundedRectangleAtFullRadius()
