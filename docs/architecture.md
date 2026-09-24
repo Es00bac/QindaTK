@@ -5,6 +5,25 @@ QindaTK is one QML module, `QindaTK`, backed by one shared library,
 `libqindatk`. C++ owns everything that needs an algorithm or process-wide
 state; QML owns everything that is chrome.
 
+## Toolkit and application boundary
+
+QindaTK supplies visual controls plus reusable behavior behind them. A
+timeline, for example, can carry clip identity, drag/edit commands, selection,
+undo and persistence adapters; a document view can lay out styled pages and
+save a native document. In this repository, **backend** means that reusable
+model, algorithm, service or optional engine provider behind a toolkit API.
+It does not mean a complete application server or a finished product.
+
+An application still chooses its workflows, project format, media or business
+logic, commands, integration services and output requirements. A Premiere-like
+editor could assemble QindaTK timeline, monitor, color and panel pieces, then
+connect the host's media pipeline and product behavior. The gallery and
+reference workbenches prove those pieces; they are not a bundled Office suite
+or video editor. Optional domain packs may include real parsers, renderers or
+engines where a control needs them, while the lightweight core remains usable
+without those dependencies. The implementation scope and evidence live in the
+[universal toolkit plan](universal-toolkit/implementation/README.md).
+
 ```
 application QML  ── import QindaTK as Tk ──►  QindaTK (QML module)
                                               ├── qml/*.qml      controls, chrome, text, Box, Scroll
