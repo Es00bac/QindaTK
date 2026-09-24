@@ -21434,6 +21434,62 @@
       "bridge": false
     },
     {
+      "name": "AudioParameterMap",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Canonical audio parameter value <-> control travel. Controls send gesture requests; the owner supplies this mapping and commits through its engine.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_parameter_map.h",
+      "properties": [
+        {
+          "name": "descriptor",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "positionFor",
+          "returns": "double",
+          "parameters": "double value, bool silent = false"
+        },
+        {
+          "name": "valueAt",
+          "returns": "QVariantMap",
+          "parameters": "double position"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "AutomationModel",
       "kind": "cpp",
       "base": "QObject",

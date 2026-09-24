@@ -24,5 +24,14 @@ samples are ignored and counted in `invalidSamples`. It allocates and is not
 an audio-callback API. A real engine must hand measured snapshots from its
 realtime callback to a non-realtime worker through a preallocated bounded
 handoff, then queue the compact channel levels to this GUI-thread model.
-Device timing and that handoff belong to WP-060. Integrated LUFS history,
-parameter taper, and automation ownership remain WP-061 work.
+Device timing and that handoff belong to WP-060. Integrated LUFS history and
+automation ownership remain WP-061 work.
+
+`AudioParameterMap` converts canonical values to normalized Knob/Fader travel.
+Its descriptor names `linear`, `logarithmic` (positive bounds), or `gainDb`
+(negative minimum, positive maximum and a unity position inside travel).
+For gain, position zero alone means silence; the lowest finite dB value begins
+at 0.001, and the configured unity position is exactly 0 dB. The mapper
+returns `{value, silent}` so controls never substitute a finite dB number for
+negative infinity. Invalid descriptors leave the prior mapping intact.
+The host still owns parameter edits and automation transactions.

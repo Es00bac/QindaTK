@@ -479,6 +479,7 @@ interface; `TestTransportClock` is a deterministic contract fixture.
 | Type | Base | Main properties and actions | Behavior |
 | --- | --- | --- | --- |
 | `AudioMeterModel` | QObject (C++) | `levels` (one `{channel, peakDbfs, rmsDbfs, displayPeakDbfs, heldPeakDbfs, clipped, silent, invalidSamples}` map per channel), `channelCount`, `holdMilliseconds`, `fallDbPerSecond`, `lastError`; `submitLevels(peaks,rms,elapsedMilliseconds)`, `submitInterleaved(samples,channels,elapsedMilliseconds)`, `resetClip()` | Block peak and RMS are linear full scale on input and dBFS in snapshots, floored at −120 dBFS with a separate silence flag. Overload at a sample magnitude of 1 or greater latches clip until reset. `submitInterleaved` is for fixtures/offline use; see [audio-measurement.md](audio-measurement.md). |
+| `AudioParameterMap` | QObject (C++) | `descriptor` (`taper`: `linear`, `logarithmic` or `gainDb`; `minimum`, `maximum`, `unityPosition` for gain); `positionFor(value,silent)`, `valueAt(position)` → `{value,silent}`, `lastError` | Provider-owned conversion between canonical values and control travel. Gain maps an explicit silent state to position 0, finite floor above it and 0 dB to the configured unity position. Knob/Fader gestures can use the same mapping; see [audio-measurement.md](audio-measurement.md). |
 
 ## Edit timeline
 
