@@ -8172,7 +8172,7 @@
       "name": "DeviceSettingsPanel",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: host supplies stable device IDs/capabilities and both active and pending configurations. This panel emits candidate/apply requests only; only the host/engine may acknowledge or reject a reconfiguration.",
+      "description": "AGENT-CONTRACT: host supplies stable device IDs/capabilities and both active and pending configurations. This panel emits candidate/apply requests only; only the host/engine may acknowledge or reject a reconfiguration. When the host reports engineState \"lost\"/\"error\", Apply re-requests the same stable device ID (Reconnect); the panel never falls back to another device.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/DeviceSettingsPanel.qml",
@@ -8197,6 +8197,22 @@
           "name": "pendingConfiguration",
           "type": "var",
           "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "engineState",
+          "type": "string",
+          "default": "\"\"   // host: running, stopped, lost, error; \"\" = not reported",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "engineMessage",
+          "type": "string",
+          "default": "\"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -8253,6 +8269,22 @@
           "name": "configurationAvailable",
           "type": "bool",
           "default": "!!pendingDevice && pendingDevice.available !== false",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "engineFailed",
+          "type": "bool",
+          "default": "engineState === \"lost\" || engineState === \"error\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "recoveryAvailable",
+          "type": "bool",
+          "default": "engineFailed && configurationAvailable",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -38958,6 +38990,141 @@
       "bridge": false
     },
     {
+      "name": "AudioEngine",
+      "kind": "cpp",
+      "base": "TransportAdapter",
+      "description": "AGENT-CONTRACT: the real audio engine seam (WP-060, docs/audio-engine.md). GUI thread: device list, acknowledged reconfiguration, transport commands and telemetry. Worker thread: opening, stopping and closing devices. Device thread: AudioEngineProcessor only. The engine is the TransportAdapter of its own `transport` model, renders the AudioRenderGraph offered by its session, and reports finished takes; it never selects a device by index and never replaces a lost device on its own.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_engine.h",
+      "properties": [
+        {
+          "name": "devices",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "activeConfiguration",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "stateMessage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sampleRate",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "bufferSize",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "statistics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "transport",
+          "type": "QindaTK::TransportModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "recordDirectory",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "devicesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "formatChanged",
+          "parameters": ""
+        },
+        {
+          "name": "statisticsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "recordDirectoryChanged",
+          "parameters": ""
+        },
+        {
+          "name": "configurationApplied",
+          "parameters": "const QString &requestId, const QString &state, const QVariantMap &activeConfiguration, const QString &message"
+        },
+        {
+          "name": "recordingFinished",
+          "parameters": "const QVariantMap &take"
+        }
+      ],
+      "methods": [
+        {
+          "name": "refreshDevices",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "applyConfiguration",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QVariantMap &configuration"
+        },
+        {
+          "name": "stop",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "setBuiltinDeviceConnected",
+          "returns": "bool",
+          "parameters": "const QString &deviceId, bool connected"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "AudioMeterModel",
       "kind": "cpp",
       "base": "QObject",
@@ -39087,6 +39254,188 @@
           "name": "valueAt",
           "returns": "QVariantMap",
           "parameters": "double position"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AudioSession",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md). It owns the accepted domain models — TimelineModel (clips, edits, undo), TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver (media identity, availability, relink) — and compiles them into an AudioRenderGraph for its engine and for offline renders. It persists as \"qindatk.audio-session/1\" JSON with media paths relative to the session.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_session.h",
+      "properties": [
+        {
+          "name": "timeline",
+          "type": "QindaTK::TimelineModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "timeMap",
+          "type": "QindaTK::TimeMap *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "tempo",
+          "type": "QindaTK::TempoMapModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "automation",
+          "type": "QindaTK::AutomationModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "schedule",
+          "type": "QindaTK::EngineSchedule *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "resources",
+          "type": "QindaTK::ResourceResolver *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "engine",
+          "type": "QindaTK::AudioEngine *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "filePath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "mediaDirectory",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "media",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "missingMedia",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sampleRate",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "engineChanged",
+          "parameters": ""
+        },
+        {
+          "name": "filePathChanged",
+          "parameters": ""
+        },
+        {
+          "name": "mediaDirectoryChanged",
+          "parameters": ""
+        },
+        {
+          "name": "mediaChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sampleRateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "graphCompiled",
+          "parameters": "int clips, const QStringList &missing"
+        },
+        {
+          "name": "takeRecorded",
+          "parameters": "const QString &clipId, const QString &resourceId, const QVariantMap &take"
+        }
+      ],
+      "methods": [
+        {
+          "name": "addTrack",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "setTrackArmed",
+          "returns": "bool",
+          "parameters": "const QString &trackId, bool armed"
+        },
+        {
+          "name": "ensureGainParameter",
+          "returns": "QString",
+          "parameters": "const QString &trackId"
+        },
+        {
+          "name": "importMedia",
+          "returns": "QVariantMap",
+          "parameters": "const QString &file, const QString &trackId, const QString &startTicks = QStringLiteral(\"0\""
+        },
+        {
+          "name": "save",
+          "returns": "bool",
+          "parameters": "const QString &file"
+        },
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": "const QString &file"
+        },
+        {
+          "name": "relinkMedia",
+          "returns": "bool",
+          "parameters": "const QString &resourceId, const QString &file"
         }
       ],
       "enums": {},

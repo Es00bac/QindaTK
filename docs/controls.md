@@ -709,10 +709,18 @@ snapshot, and the panel waits for `acknowledgeApply(requestId, state,
 configuration, message)`. Accepted, rejected and error outcomes are explicit;
 the host remains responsible for actual reconfiguration and updating both
 snapshots. It does not infer latency, device availability or successful I/O.
+A host that reports `engineState` `"lost"` or `"error"` (with `engineMessage`)
+gets the message in the status line and a **Reconnect** action that re-requests
+the same stable device ID once that device is available again; the panel never
+substitutes another device. `Tk.AudioEngine` is a complete host: bind
+`devices`, `activeConfiguration`, `state` and `stateMessage`, forward
+`applyRequested` to `applyConfiguration` and `configurationApplied` to
+`acknowledgeApply` (see [audio-engine.md](audio-engine.md) and
+`examples/audio-session`).
 
 | Type | Base | Host contract | Stable objectNames |
 | --- | --- | --- | --- |
-| `DeviceSettingsPanel` | T.Control | `devices` (`[{id, name, available, unavailableReason, sampleRates, bufferSizes, inputLayouts, outputLayouts}]`), `activeConfiguration`, `pendingConfiguration`; read-only `applyState`/`applyMessage`; `configurationChangeRequested(candidate)`, `applyRequested(requestId, configuration)`, `applyAcknowledged(requestId, state, activeConfiguration, message)`; `acknowledgeApply(requestId, "accepted"/"rejected"/"error", activeConfiguration, message)` | `deviceSettingsPanel`, `deviceSettingsActive`, `deviceSettingsPending`, `deviceSettingsDevice`, `deviceSettingsSampleRate`, `deviceSettingsBufferSize`, `deviceSettingsInputLayout`, `deviceSettingsOutputLayout`, `deviceSettingsStatus`, `deviceSettingsApply`. |
+| `DeviceSettingsPanel` | T.Control | `devices` (`[{id, name, available, unavailableReason, sampleRates, bufferSizes, inputLayouts, outputLayouts}]`), `activeConfiguration`, `pendingConfiguration`, optional `engineState` (`running`/`stopped`/`lost`/`error`) and `engineMessage`; read-only `applyState`/`applyMessage`/`recoveryAvailable`; `configurationChangeRequested(candidate)`, `applyRequested(requestId, configuration)`, `applyAcknowledged(requestId, state, activeConfiguration, message)`; `acknowledgeApply(requestId, "accepted"/"rejected"/"error", activeConfiguration, message)` | `deviceSettingsPanel`, `deviceSettingsActive`, `deviceSettingsPending`, `deviceSettingsDevice`, `deviceSettingsSampleRate`, `deviceSettingsBufferSize`, `deviceSettingsInputLayout`, `deviceSettingsOutputLayout`, `deviceSettingsStatus`, `deviceSettingsApply`. |
 
 ## Mixer and routing
 

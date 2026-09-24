@@ -108,6 +108,12 @@ qt_add_qml_module(qindatk
         core/event_log_model.cpp core/event_log_model.h
         core/transport_model.cpp core/transport_model.h
         core/test_transport_clock.cpp core/test_transport_clock.h
+        core/audio_ring.h core/audio_media.cpp core/audio_media.h
+        core/audio_device.cpp core/audio_device.h
+        core/audio_graph.cpp core/audio_graph.h
+        core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp
+        core/audio_engine.h core/audio_engine_p.h
+        core/audio_session.cpp core/audio_session.h
         core/uri_validator.cpp core/uri_validator.h
         core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h
@@ -354,6 +360,11 @@ endif()
 if(QINDATK_ENABLE_POPPLER_QT6 AND POPPLER_QT6_FOUND)
     target_link_libraries(qindatk PRIVATE PkgConfig::POPPLER_QT6)
     target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_POPPLER_QT6=1)
+endif()
+if(QINDATK_ENABLE_ALSA AND QINDATK_ALSA_FOUND)
+    target_sources(qindatk PRIVATE core/audio_device_alsa.cpp)
+    target_link_libraries(qindatk PRIVATE PkgConfig::QINDATK_ALSA)
+    target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_ALSA=1)
 endif()
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)

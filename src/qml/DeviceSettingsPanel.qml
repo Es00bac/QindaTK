@@ -5,7 +5,9 @@ import QindaTK as Tk
 
 // AGENT-CONTRACT: host supplies stable device IDs/capabilities and both active
 // and pending configurations. This panel emits candidate/apply requests only;
-// only the host/engine may acknowledge or reject a reconfiguration.
+// only the host/engine may acknowledge or reject a reconfiguration. When the
+// host reports engineState "lost"/"error", Apply re-requests the same stable
+// device ID (Reconnect); the panel never falls back to another device.
 T.Control {
     id: panel
     objectName: "deviceSettingsPanel"
@@ -13,6 +15,8 @@ T.Control {
     property var devices: []
     property var activeConfiguration: ({})
     property var pendingConfiguration: ({})
+    property string engineState: ""   // host: running, stopped, lost, error; "" = not reported
+    property string engineMessage: ""
     property string tooltip: qsTr("Audio device and I/O settings")
     property string accessibleName: qsTr("Device settings")
 
@@ -30,6 +34,8 @@ T.Control {
             && optionAvailable(pendingDevice.bufferSizes, pendingConfiguration.bufferSize)
             && optionAvailable(pendingDevice.inputLayouts, pendingConfiguration.inputLayout)
             && optionAvailable(pendingDevice.outputLayouts, pendingConfiguration.outputLayout)
+    readonly property bool engineFailed: engineState === "lost" || engineState === "error"
+    readonly property bool recoveryAvailable: engineFailed && configurationAvailable
     readonly property string activeSummary: summary(activeConfiguration)
     readonly property string pendingSummary: summary(pendingConfiguration)
 
@@ -43,8 +49,8 @@ T.Control {
     hoverEnabled: true
     Accessible.role: Accessible.Pane
     Accessible.name: panel.accessibleName
-    Accessible.description: qsTr("Active: %1. Pending: %2. %3")
-            .arg(activeSummary).arg(pendingSummary).arg(_applyMessage)
+    Accessible.description: qsTr("Active: %1. Pending: %2. %3 %4")
+            .arg(activeSummary).arg(pendingSummary).arg(engineFailed ? engineMessage : "").arg(_applyMessage)
 
     function deviceForId(id) {
         for (let i = 0; i < devices.length; ++i)
@@ -90,7 +96,8 @@ T.Control {
         panel.configurationChangeRequested(candidate)
     }
     function requestApply() {
-        if (!panel.enabled || !configurationChanged || !configurationAvailable || _applyState === "pending") return ""
+        if (!panel.enabled || !(configurationChanged || recoveryAvailable) || !configurationAvailable
+                || _applyState === "pending") return ""
         _serial = String(Number(_serial) + 1)
         const requestId = "device-config:" + _serial
         _applyRequestId = requestId
@@ -204,20 +211,26 @@ T.Control {
             Tk.Spacer { }
             Tk.Caption {
                 objectName: "deviceSettingsStatus"
-                text: panel._applyMessage.length ? panel._applyMessage
+                text: panel.engineFailed && panel.engineMessage.length && panel._applyState !== "pending"
+                      ? panel.engineMessage
+                      : panel._applyMessage.length ? panel._applyMessage
                       : !panel.pendingDevice ? qsTr("Select an available device")
                       : panel.pendingDevice.available === false ? (panel.pendingDevice.unavailableReason || qsTr("Device unavailable"))
                       : !panel.configurationAvailable ? qsTr("Pending settings are not supported by this device")
                       : panel.configurationChanged ? qsTr("Pending · not active") : qsTr("Using active configuration")
-                color: panel._applyState === "error" || panel._applyState === "rejected" || !panel.configurationAvailable
-                       ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
+                color: panel.engineFailed || panel._applyState === "error" || panel._applyState === "rejected"
+                       || !panel.configurationAvailable ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
             }
             Tk.Button {
                 objectName: "deviceSettingsApply"
-                text: panel._applyState === "pending" ? qsTr("Applying…") : qsTr("Apply")
-                enabled: panel.configurationChanged && panel.configurationAvailable && panel._applyState !== "pending"
-                tooltip: enabled ? qsTr("Ask the host to apply the pending device configuration")
-                                 : qsTr("No applicable pending configuration")
+                text: panel._applyState === "pending" ? qsTr("Applying…")
+                      : panel.recoveryAvailable && !panel.configurationChanged ? qsTr("Reconnect") : qsTr("Apply")
+                enabled: (panel.configurationChanged || panel.recoveryAvailable) && panel.configurationAvailable
+                         && panel._applyState !== "pending"
+                tooltip: !enabled ? qsTr("No applicable pending configuration")
+                         : panel.recoveryAvailable && !panel.configurationChanged
+                           ? qsTr("Ask the host to reopen the same device by its stable ID")
+                           : qsTr("Ask the host to apply the pending device configuration")
                 onClicked: panel.requestApply()
             }
         }

@@ -1,0 +1,121 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+#pragma once
+
+#include "audio_engine.h"
+#include "audio_graph.h"
+#include "audio_media.h"
+#include "automation_model.h"
+#include "engine_schedule.h"
+#include "resource_resolver.h"
+#include "tempo_map_model.h"
+#include "time_map.h"
+#include "timeline_model.h"
+
+#include <QHash>
+#include <QObject>
+#include <QPointer>
+#include <QVariantList>
+#include <QtQml/qqmlregistration.h>
+
+namespace QindaTK {
+
+// AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md).
+// It owns the accepted domain models — TimelineModel (clips, edits, undo),
+// TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver
+// (media identity, availability, relink) — and compiles them into an
+// AudioRenderGraph for its engine and for offline renders. It persists as
+// "qindatk.audio-session/1" JSON with media paths relative to the session.
+class AudioSession : public QObject {
+    Q_OBJECT
+    QML_ELEMENT
+    Q_PROPERTY(QindaTK::TimelineModel *timeline READ timeline CONSTANT)
+    Q_PROPERTY(QindaTK::TimeMap *timeMap READ timeMap CONSTANT)
+    Q_PROPERTY(QindaTK::TempoMapModel *tempo READ tempo CONSTANT)
+    Q_PROPERTY(QindaTK::AutomationModel *automation READ automation CONSTANT)
+    Q_PROPERTY(QindaTK::EngineSchedule *schedule READ schedule CONSTANT)
+    Q_PROPERTY(QindaTK::ResourceResolver *resources READ resources CONSTANT)
+    Q_PROPERTY(QindaTK::AudioEngine *engine READ engine WRITE setEngine NOTIFY engineChanged)
+    Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
+    Q_PROPERTY(QString mediaDirectory READ mediaDirectory WRITE setMediaDirectory NOTIFY mediaDirectoryChanged)
+    Q_PROPERTY(QVariantList media READ media NOTIFY mediaChanged)
+    Q_PROPERTY(QStringList missingMedia READ missingMedia NOTIFY mediaChanged)
+    Q_PROPERTY(int sampleRate READ sampleRate NOTIFY sampleRateChanged)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
+public:
+    explicit AudioSession(QObject *parent = nullptr);
+    ~AudioSession() override;
+    static QString schemaId() { return QStringLiteral("qindatk.audio-session/1"); }
+
+    TimelineModel *timeline() const { return m_timeline; }
+    TimeMap *timeMap() const { return m_timeMap; }
+    TempoMapModel *tempo() const { return m_tempo; }
+    AutomationModel *automation() const { return m_automation; }
+    EngineSchedule *schedule() const { return m_schedule; }
+    ResourceResolver *resources() const { return m_resources; }
+    AudioEngine *engine() const { return m_engine; }
+    void setEngine(AudioEngine *engine);
+    QString filePath() const { return m_filePath; }
+    QString mediaDirectory() const { return m_mediaDirectory; }
+    void setMediaDirectory(const QString &directory);
+    QVariantList media() const;
+    QStringList missingMedia() const;
+    int sampleRate() const;
+    QString lastError() const { return m_lastError; }
+
+    // Graph at `sampleRate` from the committed timeline, media and schedule.
+    AudioRenderGraphPtr compileGraph(int sampleRate);
+    AudioBufferPtr mediaBuffer(const QString &resourceId, int sampleRate);
+
+    Q_INVOKABLE QString addTrack(const QString &name);
+    Q_INVOKABLE bool setTrackArmed(const QString &trackId, bool armed);
+    // Adds "track:<id>/gain" (dB, -60..+12, default 0) when missing; returns its ID.
+    Q_INVOKABLE QString ensureGainParameter(const QString &trackId);
+    // Decodes a WAV file, registers it and inserts one undoable clip.
+    Q_INVOKABLE QVariantMap importMedia(const QString &file, const QString &trackId,
+                                        const QString &startTicks = QStringLiteral("0"));
+    Q_INVOKABLE bool save(const QString &file);
+    Q_INVOKABLE bool open(const QString &file);
+    // Missing media stays referenced by ID; relink points the ID at a new file.
+    Q_INVOKABLE bool relinkMedia(const QString &resourceId, const QString &file);
+    // Offline render through the same graph the device plays; float32 WAV.
+    // An empty endTicks renders to the end of the last clip.
+    Q_INVOKABLE QVariantMap renderToFile(const QString &file, const QString &startTicks = QStringLiteral("0"),
+                                         const QString &endTicks = {}, int sampleRate = 0, int channels = 2);
+
+signals:
+    void engineChanged();
+    void filePathChanged();
+    void mediaDirectoryChanged();
+    void mediaChanged();
+    void sampleRateChanged();
+    void lastErrorChanged();
+    void graphCompiled(int clips, const QStringList &missing);
+    void takeRecorded(const QString &clipId, const QString &resourceId, const QVariantMap &take);
+
+private:
+    void rebuild();
+    void engineFormatChanged();
+    void updateRecordTarget();
+    void addRecordedTake(const QVariantMap &take);
+    bool decode(const QString &resourceId);
+    QString insertClip(TimelineClip clip, const QString &trackId, qint64 at, QString *error);
+    QString armedTrack() const;
+    bool fail(const QString &message);
+    void clearError();
+
+    TimeMap *m_timeMap = nullptr;
+    TimelineModel *m_timeline = nullptr;
+    TempoMapModel *m_tempo = nullptr;
+    AutomationModel *m_automation = nullptr;
+    EngineSchedule *m_schedule = nullptr;
+    ResourceResolver *m_resources = nullptr;
+    QPointer<AudioEngine> m_engine;
+    QList<QMetaObject::Connection> m_engineConnections;
+    QHash<QString, AudioBufferPtr> m_decoded;
+    QHash<QString, AudioBufferPtr> m_resampled; // "<rate>/<resource id>"
+    QString m_filePath;
+    QString m_mediaDirectory;
+    QString m_lastError;
+};
+
+} // namespace QindaTK
