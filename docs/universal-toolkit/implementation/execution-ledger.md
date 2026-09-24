@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, ten active, three in review, and 38 planned.**
+**Execution state: 33 packages accepted, eleven active, three in review, and 37 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -95,7 +95,7 @@ as though a later fix had already passed the earlier run.
 | [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | planned | — |
 | [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | planned | — |
 | [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | planned | — |
-| [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | planned | — |
+| [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | active | [Host-acknowledged device panel integrated; real audio engine pending](evidence/WP-060.md) |
 | [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | active | [Peak/RMS model integrated; controls and engine binding pending](evidence/WP-061.md) |
 | [WP-062 — Implement mixing, panning and routing](phase-05-audio.md#wp-062) | 05 | Sol | planned | — |
 | [WP-063 — Implement waveform and spectral editing](phase-05-audio.md#wp-063) | 05 | Sol | planned | — |

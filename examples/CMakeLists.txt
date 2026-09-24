@@ -39,4 +39,9 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
                 --check --size 1120x680)
     set_tests_properties(example_media_source_browser PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    add_test(NAME example_device_settings_panel
+        COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/device-settings-panel.qml"
+                --check --size 760x640)
+    set_tests_properties(example_device_settings_panel PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()

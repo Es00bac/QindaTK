@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 05 — Audio and music workflows
 
-**IN PROGRESS — WP-061 has an initial measurement slice; other phase packages remain planned.**
+**IN PROGRESS — WP-060 has a device settings control and WP-061 has measurement and parameter slices.**
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -15,7 +15,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-060"></a>
 ## WP-060 — Integrate a real audio engine and device settings
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-019](phase-01-services.md#wp-019), [WP-047](phase-03-authoring.md#wp-047), [WP-048](phase-03-authoring.md#wp-048), [WP-049](phase-03-authoring.md#wp-049)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-019](phase-01-services.md#wp-019), [WP-047](phase-03-authoring.md#wp-047), [WP-048](phase-03-authoring.md#wp-048), [WP-049](phase-03-authoring.md#wp-049)
 
 **Proposal scope:** [PLT-19 DeviceSettingsPanel](../proposed/08-platform-integrations.md#plt-19)
 
