@@ -30,6 +30,8 @@ Tk.Dialog {
         openingWorkspace = host.workspace
         const list = []
         if (info.floating) list.push({ text: qsTr("Move floating panel"), kind: "move" })
+        if (host.detachedHost !== null)
+            list.push({ text: qsTr("Detach into a native window"), kind: "native" })
         const zones = ["left", "right", "top", "bottom", "center", "overlay"]
         const names = [qsTr("Left"), qsTr("Right"), qsTr("Top"), qsTr("Bottom"), qsTr("Center"), qsTr("Overlay")]
         for (let i = 0; i < zones.length; ++i)
@@ -66,6 +68,8 @@ Tk.Dialog {
         if (choice.kind === "move" && info.floating) {
             host.model.moveFloating(panelId, Math.max(0, Math.min(horizontal.value, horizontal.to)),
                                     Math.max(0, Math.min(vertical.value, vertical.to)))
+        } else if (choice.kind === "native" && host.detachedHost !== null) {
+            if (!host.detachPanelNative(panelId)) return
         } else if (choice.kind === "zone" && host.model.acceptsZone(panelId, choice.zone)) {
             host.model.dock(panelId, choice.zone)
         } else if (choice.kind === "beside" && host.model.hasPanel(choice.target)) {

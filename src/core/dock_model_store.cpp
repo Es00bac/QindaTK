@@ -32,7 +32,8 @@ bool validArrangement(const QJsonValue &value)
         if (!mode.isString()) return false;
         const QString name = mode.toString();
         if (name != QStringLiteral("docked") && name != QStringLiteral("floating")
-            && name != QStringLiteral("collapsed") && name != QStringLiteral("hidden")) return false;
+            && name != QStringLiteral("collapsed") && name != QStringLiteral("hidden")
+            && name != QStringLiteral("detached")) return false;
     }
     for (const QString &key : {QStringLiteral("zone"), QStringLiteral("dockZone")}) {
         if (map.contains(key) && (!map.value(key).isString()
@@ -49,6 +50,8 @@ bool validArrangement(const QJsonValue &value)
         if (map.contains(key) && (!finiteNumber(map.value(key)) || map.value(key).toDouble() < 0)) return false;
     }
     if (map.contains(QStringLiteral("group")) && !map.value(QStringLiteral("group")).isString()) return false;
+    if (map.contains(QStringLiteral("detachedScreenId"))
+        && !map.value(QStringLiteral("detachedScreenId")).isString()) return false;
     if (map.contains(QStringLiteral("groupActive")) && !map.value(QStringLiteral("groupActive")).isBool()) return false;
     if (map.contains(QStringLiteral("floatingRect"))) {
         const QJsonValue rectValue = map.value(QStringLiteral("floatingRect"));
@@ -95,6 +98,7 @@ QVariantMap DockModel::arrangementOf(const PanelState &p) const
         {QStringLiteral("share"), p.share},
         {QStringLiteral("zOrder"), p.zOrder},
         {QStringLiteral("group"), p.group},
+        {QStringLiteral("detachedScreenId"), p.detachedScreenId},
         {QStringLiteral("groupActive"), p.groupActive},
         {QStringLiteral("floatingRect"), QVariantMap{{QStringLiteral("x"), p.floatingRect.x()},
                                                      {QStringLiteral("y"), p.floatingRect.y()},
@@ -122,6 +126,8 @@ void DockModel::applyArrangement(PanelState &p, const QVariantMap &values)
         m_zCounter = std::max(m_zCounter, p.zOrder);
     }
     if (values.contains(QStringLiteral("group"))) p.group = values.value(QStringLiteral("group")).toString();
+    if (values.contains(QStringLiteral("detachedScreenId")))
+        p.detachedScreenId = values.value(QStringLiteral("detachedScreenId")).toString();
     if (values.contains(QStringLiteral("groupActive"))) p.groupActive = values.value(QStringLiteral("groupActive")).toBool();
     const QVariantMap rect = values.value(QStringLiteral("floatingRect")).toMap();
     if (!rect.isEmpty()) {
@@ -147,6 +153,7 @@ void DockModel::applyDefaults(PanelState &p)
     p.extent = p.defaultExtent;
     p.share = p.defaultShare;
     p.floatingRect = p.defaultFloatingRect;
+    p.detachedScreenId.clear();
     p.group = p.defaultGroup;
     p.groupActive = p.defaultGroupActive;
     p.zOrder = nextZOrder();

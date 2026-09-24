@@ -363,3 +363,23 @@ upload cost, but both backends receive the same tile bytes. It does not
 perform proofing, arbitrary working-space painting or gamut classification.
 Those need separate renderer and ColorEngine integration. See
 [canvas.md](canvas.md#rendering).
+
+## D-052 — Keep detached panel placement in DockModel
+
+**Context.** DockHost already displays panels docked or floating inside one
+window. A detached panel needs a real native window, but its position still
+belongs to the persisted workspace arrangement. Keeping a second placement
+map in QML would allow restore and close behavior to diverge.
+
+**Decision.** Add `detached` to DockModel's persisted mode. Its existing
+`floatingRect` stores global logical geometry in that mode, and
+`detachedScreenId` records the preferred display. `DetachedPanelHost` uses
+WindowHost for native lifetime and moves the same declared content item into
+the native window after DockHost reclaims its old frame. Native close returns
+the item to its declaration and docks the panel in its remembered zone.
+
+**Consequences.** In-host `floating` keeps its old meaning. Restoring a
+detached panel with a missing screen uses an available screen and clamps the
+logical rectangle to reachable bounds. Apps provide one DetachedPanelHost
+and WindowHost alongside DockHost. Content stays model-bound and is not
+duplicated when it crosses windows. See [docking.md](docking.md).

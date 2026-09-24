@@ -16,6 +16,8 @@ namespace QindaTK::DockModelDetail {
         return QStringLiteral("collapsed");
     case DockModel::Hidden:
         return QStringLiteral("hidden");
+    case DockModel::Detached:
+        return QStringLiteral("detached");
     }
     return QStringLiteral("docked");
 }
@@ -26,6 +28,7 @@ namespace QindaTK::DockModelDetail {
     if (name == QLatin1String("floating")) return DockModel::Floating;
     if (name == QLatin1String("collapsed")) return DockModel::Collapsed;
     if (name == QLatin1String("hidden")) return DockModel::Hidden;
+    if (name == QLatin1String("detached")) return DockModel::Detached;
     return fallback;
 }
 

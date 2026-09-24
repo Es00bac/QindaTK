@@ -5009,6 +5009,14 @@
           "required": false
         },
         {
+          "name": "detachedHost",
+          "type": "Tk.DetachedPanelHost",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "workspace",
           "type": "string",
           "default": "\"default\"",
@@ -5286,6 +5294,14 @@
         },
         {
           "name": "floatPanel",
+          "parameters": "panelId"
+        },
+        {
+          "name": "detachPanelNative",
+          "parameters": "panelId"
+        },
+        {
+          "name": "reattachPanel",
           "parameters": "panelId"
         },
         {
@@ -22399,6 +22415,109 @@
       "bridge": false
     },
     {
+      "name": "DetachedPanelHost",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: DockModel owns placement and persisted geometry. This host owns native window lifetime and seats the SAME QQuickItem content in the active window. DockHost registers each declaration's contentItem once.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/detached_panel_host.h",
+      "properties": [
+        {
+          "name": "model",
+          "type": "QindaTK::DockModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "windowHost",
+          "type": "QindaTK::WindowHost *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "windows",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "panelDetached",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "panelReattached",
+          "parameters": "const QString &panelId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "registerContent",
+          "returns": "bool",
+          "parameters": "const QString &panelId, QQuickItem *content"
+        },
+        {
+          "name": "unregisterContent",
+          "returns": "void",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "detach",
+          "returns": "bool",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "reattach",
+          "returns": "bool",
+          "parameters": "const QString &panelId"
+        },
+        {
+          "name": "synchronize",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "reclaimDocked",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "windowId",
+          "returns": "QString",
+          "parameters": "const QString &panelId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "DiffModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
@@ -22669,7 +22788,7 @@
       "name": "DockModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: the arrangement authority for dockable panels. It owns where every panel is; DockHost (QML) only draws that and reports gestures. The model is zone-based, as Sloom Studio's dockablePanel contract and QindaStudio's PanelLayoutController are: a panel is docked, floating, collapsed or hidden; a docked panel sits in one zone (left, right, top, bottom, center, overlay), in one lane of that zone (lanes are columns for side zones, rows for the others), at an order inside the lane, optionally sharing a tab group with neighbours. Arrangements are per workspace, persist across runs (`storageKey`), and can be saved by name. Every operation is idempotent on invalid ids.  Compatibility: method names follow PanelLayoutController so QindaStudio can adopt this model with a find-and-replace; dockBeside/lanes/shares are the additions that make drag-to-dock and lane splitting possible.",
+      "description": "AGENT-CONTRACT: the arrangement authority for dockable panels. It owns where every panel is; DockHost (QML) only draws that and reports gestures. The model is zone-based, as Sloom Studio's dockablePanel contract and QindaStudio's PanelLayoutController are: a panel is docked, floating, collapsed, hidden or detached into a native window; a docked panel sits in one zone (left, right, top, bottom, center, overlay), in one lane of that zone (lanes are columns for side zones, rows for the others), at an order inside the lane, optionally sharing a tab group with neighbours. Arrangements are per workspace, persist across runs (`storageKey`), and can be saved by name. Every operation is idempotent on invalid ids.  Compatibility: method names follow PanelLayoutController so QindaStudio can adopt this model with a find-and-replace; dockBeside/lanes/shares are the additions that make drag-to-dock and lane splitting possible.",
       "singleton": false,
       "attached": null,
       "file": "src/core/dock_model.h",
@@ -22801,6 +22920,11 @@
           "parameters": ""
         },
         {
+          "name": "detachedPanels",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
           "name": "acceptsZone",
           "returns": "bool",
           "parameters": "const QString &panelId, const QString &zone"
@@ -22824,6 +22948,16 @@
           "name": "floatPanel",
           "returns": "void",
           "parameters": "const QString &panelId, double x = -1, double y = -1"
+        },
+        {
+          "name": "detachPanel",
+          "returns": "void",
+          "parameters": "const QString &panelId, const QRectF &globalRect = {}"
+        },
+        {
+          "name": "setDetachedScreen",
+          "returns": "void",
+          "parameters": "const QString &panelId, const QString &screenId"
         },
         {
           "name": "hide",

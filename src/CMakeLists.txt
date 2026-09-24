@@ -91,6 +91,7 @@ qt_add_qml_module(qindatk
         core/font_catalog.cpp core/font_catalog.h
         core/accessibility_adapter.cpp core/accessibility_adapter.h
         core/window_host.cpp core/window_host.h
+        core/detached_panel_host.cpp core/detached_panel_host.h
         core/file_dialog_adapter.cpp core/file_dialog_adapter.h
         core/desktop_integration.cpp core/desktop_integration.h
         core/format_registry.cpp core/format_registry.h

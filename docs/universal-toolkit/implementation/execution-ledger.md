@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, five active, two in review, and 44 planned.**
+**Execution state: 33 packages accepted, six active, two in review, and 43 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -17,17 +17,18 @@ WP-031 subsequently passed its own installed-consumer gate and is accepted.
 WP-040 is in review: its WP-033 dependency remains open. The Qt 6.8
 offscreen RHI readback repair passed the full integrated suite. WP-048 is accepted
 after its time-axis and host-media boundaries were reconciled with D-045;
-both full integrated suites and its installed consumers pass. WP-050 and WP-055
-remain active in separate Opus worktrees; their draft code is not integrated
-or accepted. WP-033 has a dual-Qt editable, sortable and filterable two-document
+both full integrated suites and its installed consumers pass. WP-050 is
+integrated and in review; WP-055 remains active in an isolated Opus worktree.
+WP-033 has a dual-Qt editable, sortable and filterable two-document
 workbench plus installed lifecycle consumers; its remaining end-to-end gates
 are recorded in its evidence. WP-041 now has a document-space snap query,
 guide layer, lasso and reference-canvas group move/resize/rotation controller, while
 WP-042 has layer, navigator, alignment and artboard presentation.
 Both spatial packages still have model, command and acceptance gates open.
 WP-043 has CurveEditor, GradientEditor and ColorPicker presentation plus
-numerical RGB ICC and typed curve evaluators. Tangent UI, managed-display and
-typed transaction gates remain open.
+numerical RGB ICC, curve and gradient evaluators, tangent UI, managed canvas
+display and soft proofing. Typed transaction and UI-to-model integration remain
+open. WP-080 has a native detached-panel implementation in progress.
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -106,7 +107,7 @@ as though a later fix had already passed the earlier run.
 | [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | planned | — |
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | planned | — |
 | [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | planned | — |
-| [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | planned | — |
+| [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
 | [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | planned | — |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | planned | — |
 | [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | planned | — |

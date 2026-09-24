@@ -28,6 +28,7 @@ Item {
     id: host
 
     property Tk.DockModel model: null
+    property Tk.DetachedPanelHost detachedHost: null
     property string workspace: "default"
     property Item canvas: null
     default property alias panels: registry.data
@@ -101,6 +102,8 @@ Item {
                 continue
             }
             host.model.registerPanel(host.workspace, child.panelId, child.definition(index))
+            if (host.detachedHost !== null)
+                host.detachedHost.registerContent(child.panelId, child.contentItem)
             ++index
         }
     }
@@ -162,6 +165,12 @@ Item {
     function hidePanel(panelId) { if (host.model !== null) host.model.hide(panelId) }
     function togglePanel(panelId) { if (host.model !== null) host.model.toggle(panelId) }
     function floatPanel(panelId) { if (host.model !== null) host.model.floatPanel(panelId) }
+    function detachPanelNative(panelId) {
+        return host.detachedHost !== null && host.detachedHost.detach(panelId)
+    }
+    function reattachPanel(panelId) {
+        return host.detachedHost !== null && host.detachedHost.reattach(panelId)
+    }
     function resetLayout() { if (host.model !== null) host.model.reset() }
     function applyPreset(presetId) { if (host.model !== null) host.model.applyPreset(presetId) }
     function isShaded(panelId) { host.gen; return host.shadedIds[panelId] === true }
@@ -197,6 +206,7 @@ Item {
         if (host.model === null) {
             return
         }
+        if (host.detachedHost !== null) host.detachedHost.reclaimDocked()
         host.gen = host.gen + 1
         const zones = ["left", "right", "top", "bottom", "center", "overlay"]
         const props = ["leftLanes", "rightLanes", "topLanes", "bottomLanes", "centerLanes", "overlayLanes"]
@@ -382,6 +392,12 @@ Item {
             host.refresh()
         }
     }
+    onDetachedHostChanged: {
+        if (host.ready && host.detachedHost !== null) {
+            host.registerAll()
+            host.detachedHost.synchronize()
+        }
+    }
     onWidthChanged: scheduleFloatConstraint()
     onHeightChanged: scheduleFloatConstraint()
 
@@ -398,6 +414,13 @@ Item {
         host.ready = true
         host.refresh()
         host.scheduleFloatConstraint()
+    }
+    Component.onDestruction: {
+        if (host.detachedHost !== null) {
+            for (const child of registry.children)
+                if (child.isDockPanel === true && child.panelId !== "")
+                    host.detachedHost.unregisterContent(child.panelId)
+        }
     }
 
     Connections {
