@@ -20,14 +20,16 @@ namespace QindaTK {
 
 enum class CanvasBackend : quint8 { Software, SceneGraph };
 
-// Declared colour pipeline. Only sRGB -> sRGB is implemented; WP-043 owns
-// real profile transforms. Changing the context (generation) invalidates
-// every cached tile.
+// Document QColor values are authored in sRGB. After compositing a tile, the
+// supported display path converts it to a valid RGB QColorSpace. Other working
+// spaces and proof/output operations require a separate document-color path.
 struct CanvasColorContext {
     QColorSpace working{QColorSpace::SRgb};
     QColorSpace display{QColorSpace::SRgb};
     quint64 generation = 1;
     [[nodiscard]] QString description() const;
+    [[nodiscard]] QString validationError() const;
+    [[nodiscard]] bool needsDisplayTransform() const { return working != display; }
 };
 
 struct CanvasTileKey {

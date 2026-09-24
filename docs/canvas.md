@@ -249,6 +249,13 @@ Two providers sit behind one adapter contract:
 | Software | `QPainter` into a 256² ARGB32 premultiplied `QImage`, shown as a texture | every Qt Quick backend, including the software adaptation |
 | SceneGraph | Vertex-coloured triangles (fills as centroid fans, miter-limited strokes) plus image-tile textures, clipped to the tile | RHI backends (OpenGL, Vulkan, Metal, D3D); the software adaptation silently skips custom geometry, so the adapter falls back and reports `fallbackReason: "software-adaptation"` |
 
+For an explicit non-sRGB RGB display space, both backends use a fully
+composited `QImage` tile converted by Qt after painting. The scene graph then
+uploads that same encoded raster as a texture. The raw sRGB scene-graph path
+keeps its geometry runs. This bounded path is for sRGB-authored QColor
+documents and valid RGB display profiles representable by `QColorSpace`;
+proofing, CMYK and arbitrary working-space painting are not supported.
+
 Both providers drop sub-pixel objects to a single device pixel, draw stroke
 widths of at least one device pixel, and flatten ellipses with
 `clamp(4·√r, 8, 64)` segments, where r is the on-screen radius.
@@ -260,9 +267,11 @@ The GUI-thread half of the boundary is `view.renderSurface`:
 
 - **Request.** Each frame's request carries `documentRevision`, the pose,
   the view size, `devicePixelRatio` and `CanvasColorContext` (working and
-  display colour spaces plus a generation). Only sRGB → sRGB is implemented;
-  real profile transforms belong to WP-043. Changing the colour context
-  invalidates every tile.
+  display colour spaces plus a generation). sRGB-authored tiles can be
+  transformed after compositing to a valid RGB display space. Changing the
+  colour context clears every cached tile so old-profile pixels cannot remain
+  visible. Unsupported spaces are reported in `colorError` and leave the
+  frame empty; `stats.colorError` carries the same text.
 - **Damage.** `damaged` marks intersecting cached tiles stale at every LOD,
   padded by two device pixels. A stale tile stays on screen until it is
   re-rendered. `reset` marks every tile stale.
@@ -415,10 +424,10 @@ make single-step edits through the same preview/finish requests. The control
 never owns canonical document colour, profiles, conversion, transactions,
 undo or persistence; the host decides how requests affect its model.
 
-This presentation does not imply colour-managed display output. The current
-canvas renderer implements sRGB-to-sRGB only. Profile-aware conversion,
-out-of-gamut handling, proofing and agreement between managed GPU and software
-compositing remain WP-043 backend work. The [picker scene](../examples/spatial-canvas/ColorPickerScene.qml)
+The canvas now has a bounded RGB display transform after sRGB compositing,
+using Qt's `QColorSpace`/`QImage` conversion. It does not connect the picker to
+the document color engine, infer gamut, perform proofing or transform an
+arbitrary working profile. The [picker scene](../examples/spatial-canvas/ColorPickerScene.qml)
 demonstrates a host-maintained sRGB preview and committed value.
 
 <a id="curve-presentation"></a>

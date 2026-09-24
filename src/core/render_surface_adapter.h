@@ -33,6 +33,7 @@ class RenderSurfaceAdapter : public QObject {
     Q_PROPERTY(int maxTilesPerFrame READ maxTilesPerFrame WRITE setMaxTilesPerFrame NOTIFY configurationChanged)
     Q_PROPERTY(int cacheLimitMiB READ cacheLimitMiB WRITE setCacheLimitMiB NOTIFY configurationChanged)
     Q_PROPERTY(QString colorContext READ colorContextDescription NOTIFY configurationChanged)
+    Q_PROPERTY(QString colorError READ colorError NOTIFY configurationChanged)
     Q_PROPERTY(QVariantMap stats READ stats NOTIFY statsChanged)
     Q_PROPERTY(bool pending READ hasPendingWork NOTIFY statsChanged)
 
@@ -60,6 +61,7 @@ public:
     const CanvasColorContext &colorContext() const { return m_color; }
     void setColorContext(const CanvasColorContext &context);
     QString colorContextDescription() const { return m_color.description(); }
+    QString colorError() const { return m_colorError; }
 
     // Plans the visible tiles for `request`, renders at most
     // maxTilesPerFrame missing/stale ones, evicts beyond the byte limit and
@@ -107,6 +109,7 @@ private:
     QPointer<CanvasDocumentAdapter> m_document;
     QHash<CanvasTileKey, Tile> m_cache;
     CanvasColorContext m_color;
+    QString m_colorError;
     QString m_requested = QStringLiteral("auto");
     QString m_fallbackReason;
     QString m_resetReason;

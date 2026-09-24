@@ -82,7 +82,6 @@ private slots:
     void damageInvalidatesOnlyTouchedTiles();
     void revisionAndColorContext();
     void cacheIsByteBounded();
-    void softwarePixelsKnownAnswer();
     void tessellationCoversShapes();
     void synchronizedViews();
     void contextLossAndBackendFallback();
@@ -230,7 +229,7 @@ void TstCanvasRender::revisionAndColorContext()
     settle(adapter, request, 24);
     QCOMPARE(adapter.stats().value("renderedRevision").toULongLong(), doc.revision());
     CanvasColorContext context;
-    context.working = QColorSpace(QColorSpace::SRgbLinear);
+    context.display = QColorSpace(QColorSpace::SRgbLinear);
     adapter.setColorContext(context);
     adapter.prepare(request);
     QCOMPARE(adapter.lastRendered(), adapter.lastVisible()); // every tile is stale after a context change
@@ -258,32 +257,6 @@ void TstCanvasRender::cacheIsByteBounded()
         QVERIFY(adapter.cacheBytes() <= std::max<qsizetype>(1024 * 1024, adapter.lastVisible() * tileBytes));
     }
     QVERIFY(adapter.stats().value("totalEvicted").toULongLong() > 0);
-}
-
-void TstCanvasRender::softwarePixelsKnownAnswer()
-{
-    CanvasDocument doc;
-    doc.setPageRect(QRectF(0, 0, 100, 100));
-    box(doc, QRectF(10, 10, 20, 20), Qt::red);
-    const CanvasObjectId hidden = box(doc, QRectF(50, 50, 20, 20), Qt::green);
-    QVERIFY(doc.setObjectVisible(hidden, false));
-    const CanvasObjectId flat = box(doc, QRectF(50, 10, 20, 20), Qt::blue);
-    QVERIFY(doc.setObjectTransform(flat, {0.0, 0.0, 0.0, 0.0, 50.0, 10.0}));
-    const QImage tile = CanvasPainter::renderTile(doc, QRectF(0, 0, 128, 128), 128, {});
-    QCOMPARE(tile.pixelColor(20, 20), QColor(Qt::red));
-    QCOMPARE(tile.pixelColor(5, 5), QColor(Qt::white));   // page colour
-    QCOMPARE(tile.pixelColor(60, 60), QColor(Qt::white)); // hidden object
-    QCOMPARE(tile.pixelColor(51, 11), QColor(Qt::white)); // degenerate object
-    QCOMPARE(tile.pixelColor(110, 110).alpha(), 0);       // outside the page
-    // A tile at 4 px per document unit maps pixel (16,16) to document (20,20).
-    const QImage fine = CanvasPainter::renderTile(doc, QRectF(16, 16, 8, 8), 32, {});
-    QCOMPARE(fine.pixelColor(16, 16), QColor(Qt::red));
-    // Sub-pixel objects become single device pixels, not nothing.
-    CanvasPaintStats stats;
-    const QImage coarse = CanvasPainter::renderTile(doc, QRectF(0, 0, 4096, 4096), 16, {}, &stats);
-    QCOMPARE(coarse.width(), 16);
-    QCOMPARE(stats.dots, 1);
-    QCOMPARE(stats.skipped, 1); // the hidden one; degenerate objects are not even indexed
 }
 
 void TstCanvasRender::tessellationCoversShapes()

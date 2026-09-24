@@ -144,17 +144,22 @@ void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &re
 QImage renderTile(const CanvasDocumentAdapter &doc, const QRectF &rect, int pixels,
                   const CanvasColorContext &color, CanvasPaintStats *stats)
 {
+    if (!color.validationError().isEmpty()) return {};
     QImage tile(pixels, pixels, QImage::Format_ARGB32_Premultiplied);
     tile.fill(Qt::transparent);
-    // AGENT-NOTE: pixels are authored in the working space and presented
-    // unconverted because only sRGB -> sRGB is supported (CanvasColorContext).
     tile.setColorSpace(color.working);
-    QPainter painter(&tile);
-    const qreal scale = pixels / rect.width();
-    painter.scale(scale, scale);
-    painter.translate(-rect.topLeft());
-    painter.setClipRect(rect);
-    paint(&painter, doc, rect, scale, stats);
+    {
+        QPainter painter(&tile);
+        const qreal scale = pixels / rect.width();
+        painter.scale(scale, scale);
+        painter.translate(-rect.topLeft());
+        painter.setClipRect(rect);
+        paint(&painter, doc, rect, scale, stats);
+    }
+    // AGENT-GUARD: convert only after the complete tile has been composited.
+    // Per-object conversion changes alpha blending and makes CPU/GPU differ.
+    if (color.needsDisplayTransform())
+        return tile.convertedToColorSpace(color.display, QImage::Format_ARGB32_Premultiplied);
     return tile;
 }
 

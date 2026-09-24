@@ -292,3 +292,22 @@ position. Different views can share the same guide/document data while their
 own zoom controls tolerance in logical pixels. Guide storage and transactions
 remain a WP-041 domain responsibility; this decision does not make a
 one-point snap query a complete transform controller.
+
+## D-051 — Convert composed sRGB canvas tiles for explicit RGB displays
+
+**Context.** Canvas objects currently carry QColor sRGB values. Applying a
+display transform to each object before alpha blending changes the result,
+and the scene-graph geometry path has no profile-aware shader contract.
+
+**Decision.** Composite in an sRGB QImage, then convert the complete tile with
+Qt's QColorSpace API for a valid RGB display target. Use the converted raster
+as the scene-graph texture as well as the software tile. Keep the geometry
+path for identity sRGB display. Clear cached tiles on profile changes and
+report unsupported working/display configurations instead of showing stale
+or unconverted pixels.
+
+**Consequences.** The supported managed path has CPU conversion and texture
+upload cost, but both backends receive the same tile bytes. It does not
+perform proofing, arbitrary working-space painting or gamut classification.
+Those need separate renderer and ColorEngine integration. See
+[canvas.md](canvas.md#rendering).

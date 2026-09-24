@@ -103,6 +103,10 @@ qindatk_add_test(tst_canvas_snap)
 qindatk_add_test(tst_canvas_transform)
 qindatk_add_test(tst_canvas_tools)
 qindatk_add_test(tst_canvas_render)
+qindatk_add_test(tst_canvas_display)
+add_test(NAME tst_canvas_display_rhi COMMAND tst_canvas_display managedDisplaySceneGraph)
+set_tests_properties(tst_canvas_display_rhi PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 qindatk_add_test(tst_canvas_tile_limits)
 qindatk_add_test(tst_canvas_input)
 # The same binary again on the RHI adaptation: sceneGraphBackend() exercises
