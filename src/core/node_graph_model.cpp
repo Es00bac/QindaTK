@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "node_graph_model.h"
 
-#include <QMetaType>
-#include <QColor>
 #include <QUuid>
 #include <cmath>
 #include <utility>
@@ -11,23 +9,6 @@ namespace QindaTK {
 namespace {
 constexpr int kMaxNodes = 1000;
 constexpr int kMaxEdges = 2000;
-
-bool finiteNumber(const QVariant &value, double *number)
-{
-    const int type = value.metaType().id();
-    if (type != QMetaType::Int && type != QMetaType::UInt
-        && type != QMetaType::LongLong && type != QMetaType::ULongLong
-        && type != QMetaType::Double && type != QMetaType::Float) return false;
-    bool ok = false;
-    *number = value.toDouble(&ok);
-    return ok && std::isfinite(*number);
-}
-
-QVariantMap port(const QString &id, const QString &label)
-{
-    return {{QStringLiteral("portId"), id}, {QStringLiteral("label"), label},
-            {QStringLiteral("type"), QStringLiteral("image")}};
-}
 }
 
 NodeGraphModel::NodeGraphModel(QObject *parent) : QObject(parent) {}
@@ -51,62 +32,6 @@ int NodeGraphModel::edgeIndex(const QString &id) const
     for (int i = 0; i < m_edges.size(); ++i)
         if (m_edges.at(i).id == id) return i;
     return -1;
-}
-
-bool NodeGraphModel::validType(const QString &type)
-{
-    return type == QLatin1String("source") || type == QLatin1String("transform")
-        || type == QLatin1String("solid") || type == QLatin1String("blend")
-        || type == QLatin1String("output");
-}
-
-QVariantList NodeGraphModel::portList(const QString &type, bool inputs)
-{
-    if (inputs) {
-        if (type == QLatin1String("transform") || type == QLatin1String("output"))
-            return {port(QStringLiteral("image"), QStringLiteral("Image"))};
-        if (type == QLatin1String("blend"))
-            return {port(QStringLiteral("background"), QStringLiteral("Background")),
-                    port(QStringLiteral("foreground"), QStringLiteral("Foreground"))};
-        return {};
-    }
-    return type == QLatin1String("output") ? QVariantList{}
-        : QVariantList{port(QStringLiteral("image"), QStringLiteral("Image"))};
-}
-
-bool NodeGraphModel::hasPort(const QString &type, const QString &portId, bool input)
-{
-    for (const QVariant &value : portList(type, input))
-        if (value.toMap().value(QStringLiteral("portId")).toString() == portId) return true;
-    return false;
-}
-
-bool NodeGraphModel::validParameters(const QString &type, const QVariantMap &parameters)
-{
-    if (parameters.size() > 16) return false;
-    for (auto it = parameters.cbegin(); it != parameters.cend(); ++it) {
-        if (type == QLatin1String("source") && it.key() == QLatin1String("sourceId")) {
-            if (it.value().metaType().id() != QMetaType::QString
-                || it.value().toString().size() > 128) return false;
-            continue;
-        }
-        if (type == QLatin1String("solid") && it.key() == QLatin1String("color")) {
-            if (it.value().metaType().id() != QMetaType::QString
-                || !QColor(it.value().toString()).isValid()) return false;
-            continue;
-        }
-        double number = 0;
-        if (!finiteNumber(it.value(), &number)) return false;
-        if (type == QLatin1String("transform")
-            && (it.key() == QLatin1String("x") || it.key() == QLatin1String("y"))) {
-            if (std::abs(number) > 1000000) return false;
-        } else if (type == QLatin1String("transform") && it.key() == QLatin1String("scale")) {
-            if (number < 0.001 || number > 1000) return false;
-        } else if (type == QLatin1String("blend") && it.key() == QLatin1String("opacity")) {
-            if (number < 0 || number > 1) return false;
-        } else return false;
-    }
-    return true;
 }
 
 QVariantList NodeGraphModel::nodes() const
@@ -140,8 +65,11 @@ QVariantList NodeGraphModel::edges() const
 
 void NodeGraphModel::rememberEdit()
 {
-    m_undo.append({m_nodes, m_edges});
-    if (m_undo.size() > 128) m_undo.removeFirst();
+    // Inside beginEdit/commitEdit the base snapshot is already on the stack.
+    if (!m_editing) {
+        m_undo.append(state());
+        if (m_undo.size() > 128) m_undo.removeFirst();
+    }
     m_redo.clear();
     ++m_revision;
 }
@@ -202,6 +130,8 @@ bool NodeGraphModel::removeNode(const QString &nodeId)
     m_edges.removeIf([&](const Edge &edge) {
         return edge.fromNode == nodeId || edge.toNode == nodeId;
     });
+    for (Group &group : m_groups) group.nodeIds.removeAll(nodeId);
+    m_groups.removeIf([](const Group &group) { return group.nodeIds.isEmpty(); });
     invalidateAll();
     setError({});
     emit changed();
@@ -245,6 +175,16 @@ bool NodeGraphModel::setParameters(const QString &nodeId, const QVariantMap &par
     return true;
 }
 
+bool NodeGraphModel::setParameter(const QString &nodeId, const QString &parameterId,
+                                  const QVariant &value)
+{
+    const int index = nodeIndex(nodeId);
+    if (index < 0) { setError(QStringLiteral("Unknown node")); return false; }
+    QVariantMap parameters = m_nodes.at(index).parameters;
+    parameters.insert(parameterId, value);
+    return setParameters(nodeId, parameters);
+}
+
 bool NodeGraphModel::reaches(const QString &start, const QString &target) const
 {
     QSet<QString> seen{start};
@@ -264,11 +204,20 @@ QString NodeGraphModel::connectPorts(const QString &fromNodeId, const QString &f
                                      const QString &toNodeId, const QString &toPortId)
 {
     const int from = nodeIndex(fromNodeId), to = nodeIndex(toNodeId);
-    if (from < 0 || to < 0 || !hasPort(m_nodes.at(from).type, fromPortId, false)
-        || !hasPort(m_nodes.at(to).type, toPortId, true) || fromNodeId == toNodeId
-        || reaches(toNodeId, fromNodeId) || m_edges.size() >= kMaxEdges) {
-        setError(QStringLiteral("Unknown port, cycle or edge limit")); return {};
+    const QString fromType = from < 0 ? QString() : portType(m_nodes.at(from).type, fromPortId, false);
+    const QString toType = to < 0 ? QString() : portType(m_nodes.at(to).type, toPortId, true);
+    if (fromType.isEmpty() || toType.isEmpty()) {
+        setError(QStringLiteral("Unknown node or port")); return {};
     }
+    if (fromType != toType) {
+        setError(QStringLiteral("Incompatible ports: %1 output cannot connect to %2 input")
+                     .arg(fromType, toType));
+        return {};
+    }
+    if (fromNodeId == toNodeId || reaches(toNodeId, fromNodeId)) {
+        setError(QStringLiteral("Connection would create a cycle")); return {};
+    }
+    if (m_edges.size() >= kMaxEdges) { setError(QStringLiteral("Graph edge limit reached")); return {}; }
     for (const Edge &edge : m_edges)
         if (edge.toNode == toNodeId && edge.toPort == toPortId) {
             setError(QStringLiteral("Input port already connected")); return {};
@@ -295,29 +244,32 @@ bool NodeGraphModel::disconnectEdge(const QString &edgeId)
     return true;
 }
 
-bool NodeGraphModel::undo()
+void NodeGraphModel::restore(GraphState graph)
 {
-    if (m_undo.isEmpty()) return false;
-    m_redo.append({m_nodes, m_edges});
-    GraphState state = m_undo.takeLast();
-    m_nodes = std::move(state.nodes); m_edges = std::move(state.edges);
+    m_nodes = std::move(graph.nodes);
+    m_edges = std::move(graph.edges);
+    m_groups = std::move(graph.groups);
     ++m_revision;
     invalidateAll();
     setError({});
     emit changed();
+}
+
+bool NodeGraphModel::undo()
+{
+    if (m_editing) { setError(QStringLiteral("Commit or cancel the open edit first")); return false; }
+    if (m_undo.isEmpty()) return false;
+    m_redo.append(state());
+    restore(m_undo.takeLast());
     return true;
 }
 
 bool NodeGraphModel::redo()
 {
+    if (m_editing) { setError(QStringLiteral("Commit or cancel the open edit first")); return false; }
     if (m_redo.isEmpty()) return false;
-    m_undo.append({m_nodes, m_edges});
-    GraphState state = m_redo.takeLast();
-    m_nodes = std::move(state.nodes); m_edges = std::move(state.edges);
-    ++m_revision;
-    invalidateAll();
-    setError({});
-    emit changed();
+    m_undo.append(state());
+    restore(m_redo.takeLast());
     return true;
 }
 

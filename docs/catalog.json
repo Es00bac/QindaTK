@@ -19210,7 +19210,7 @@
       "name": "NodeGraph",
       "kind": "qml",
       "base": "Item",
-      "description": "Hosts validate and republish snapshots after each graph edit request.",
+      "description": "Hosts validate and republish snapshots after each graph edit request. AGENT-CONTRACT (docs/node-graph.md): NodeGraphModel is the reference host; selection, groups and topology stay host-owned, search is view-local.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/NodeGraph.qml",
@@ -19218,7 +19218,7 @@
         {
           "name": "nodes",
           "type": "var",
-          "default": "[] // {nodeId,title,x,y,inputs:[{portId,label,type}],outputs:[...]}",
+          "default": "[] // {nodeId,title,x,y,inputs:[{portId,label,type,optional}],outputs:[...]}",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -19232,9 +19232,33 @@
           "required": false
         },
         {
+          "name": "groups",
+          "type": "var",
+          "default": "[] // {groupId,title,nodeIds:[...]}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nodeTypes",
+          "type": "var",
+          "default": "[] // {type,title} offered by the Add menu",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "selectedNodeId",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedNodeIds",
+          "type": "var",
+          "default": "[] // extra host-owned selection used for grouping",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -19244,6 +19268,30 @@
           "type": "string",
           "default": "\"\"",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedGroupId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchMatches",
+          "type": "var",
+          "default": "GraphGeometry.searchNodes(nodes, searchText)",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         },
@@ -19328,6 +19376,14 @@
           "required": false
         },
         {
+          "name": "nudgeStep",
+          "type": "real",
+          "default": "Tk.Theme.space.lg",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "nodeWidth",
           "type": "real",
           "default": "Tk.Theme.size.panelMinWidth",
@@ -19390,6 +19446,30 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "dragCanceled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draggingGroupId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "groupDragDelta",
+          "type": "point",
+          "default": "Qt.point(0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -19398,12 +19478,40 @@
           "parameters": "string nodeId"
         },
         {
+          "name": "nodeSelectionToggled",
+          "parameters": "string nodeId"
+        },
+        {
           "name": "edgeSelected",
           "parameters": "string edgeId"
         },
         {
+          "name": "groupSelected",
+          "parameters": "string groupId"
+        },
+        {
           "name": "nodeMoveRequested",
           "parameters": "string nodeId, real x, real y"
+        },
+        {
+          "name": "groupMoveRequested",
+          "parameters": "string groupId, real dx, real dy"
+        },
+        {
+          "name": "nodeAddRequested",
+          "parameters": "string type, real x, real y"
+        },
+        {
+          "name": "nodeRemoveRequested",
+          "parameters": "string nodeId"
+        },
+        {
+          "name": "groupRequested",
+          "parameters": "var nodeIds"
+        },
+        {
+          "name": "ungroupRequested",
+          "parameters": "string groupId"
         },
         {
           "name": "linkConnectRequested",
@@ -19436,12 +19544,84 @@
           "parameters": "record"
         },
         {
+          "name": "isNodeSelected",
+          "parameters": "nodeId"
+        },
+        {
+          "name": "selectionIds",
+          "parameters": ""
+        },
+        {
+          "name": "groupOffset",
+          "parameters": "nodeId"
+        },
+        {
+          "name": "groupBounds",
+          "parameters": "group"
+        },
+        {
+          "name": "status",
+          "parameters": "state, text"
+        },
+        {
           "name": "beginOrFinishLink",
           "parameters": "nodeId, portId, side"
         },
         {
+          "name": "armKeyboardLink",
+          "parameters": ""
+        },
+        {
+          "name": "finishKeyboardLink",
+          "parameters": ""
+        },
+        {
+          "name": "cancelInteraction",
+          "parameters": ""
+        },
+        {
+          "name": "finishDrag",
+          "parameters": "kind, id, dx, dy"
+        },
+        {
           "name": "requestDisconnect",
           "parameters": "edgeId"
+        },
+        {
+          "name": "requestRemoveSelection",
+          "parameters": ""
+        },
+        {
+          "name": "requestGroup",
+          "parameters": ""
+        },
+        {
+          "name": "requestUngroup",
+          "parameters": ""
+        },
+        {
+          "name": "requestAddNode",
+          "parameters": "type"
+        },
+        {
+          "name": "nudge",
+          "parameters": "dx, dy"
+        },
+        {
+          "name": "selectAdjacent",
+          "parameters": "delta"
+        },
+        {
+          "name": "revealNode",
+          "parameters": "nodeId"
+        },
+        {
+          "name": "findNext",
+          "parameters": "backwards"
+        },
+        {
+          "name": "focusSearch",
+          "parameters": ""
         },
         {
           "name": "acknowledgeLink",
@@ -19471,13 +19651,219 @@
       "objectNames": [
         "nodeGraph",
         "nodeGraphFocusRing",
+        "nodeGraphLinkPreview",
         "nodeGraphStatus",
         "nodeGraphStatusText",
-        "nodeGraphToolbar",
-        "nodeGraphWires",
+        "nodeGraphWires"
+      ]
+    },
+    {
+      "name": "NodeGraphGroup",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "AGENT-NOTE: NodeGraph's frame for one host-owned group (docs/controls.md). Its bounds follow the member cards; header gestures only ask `graph` to emit groupSelected/groupMoveRequested, and the host moves the members.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/NodeGraphGroup.qml",
+      "properties": [
+        {
+          "name": "graph",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "modelData",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "default": "String(modelData.groupId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "String(modelData.title || modelData.groupId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bounds",
+          "type": "var",
+          "default": "graph.groupBounds(modelData)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "groupId === graph.selectedGroupId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "offset",
+          "type": "point",
+          "default": "graph.draggingGroupId === groupId && !graph.dragCanceled",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "nodeGroupHeader_",
+        "nodeGroup_"
+      ]
+    },
+    {
+      "name": "NodeGraphNode",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "AGENT-NOTE: one NodeGraph card (docs/controls.md). It reads `graph` for geometry, selection and search state and only asks it to emit requests; the host that owns the graph model decides every edit.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/NodeGraphNode.qml",
+      "properties": [
+        {
+          "name": "graph",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "record",
+          "type": "var",
+          "default": "({ nodeId: \"\", title: \"\", x: 0, y: 0, inputs: [], outputs: [] })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragDelta",
+          "type": "point",
+          "default": "Qt.point(0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nodeId",
+          "type": "string",
+          "default": "String(record.nodeId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "graph.isNodeSelected(nodeId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "matched",
+          "type": "bool",
+          "default": "graph.searchMatches.indexOf(nodeId) >= 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
         "nodeHeader_",
         "nodePort_",
         "node_"
+      ]
+    },
+    {
+      "name": "NodeGraphToolbar",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "AGENT-NOTE: NodeGraph's toolbar part (docs/controls.md). Buttons only ask `graph` to emit requests; search is the one view-local state it edits.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/NodeGraphToolbar.qml",
+      "properties": [
+        {
+          "name": "graph",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "searchField",
+          "type": "alias",
+          "default": "search",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "nodeGraphAddButton",
+        "nodeGraphAddMenu",
+        "nodeGraphAdd_",
+        "nodeGraphGroupButton",
+        "nodeGraphSearch",
+        "nodeGraphToolbar",
+        "nodeGraphUngroupButton"
       ]
     },
     {
@@ -50441,7 +50827,7 @@
       "name": "NodeGraphModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "A bounded, typed image graph. Source pixels belong to the host; topology, parameters and edit history belong to the toolkit. Saved graphs retain source IDs but never embed a decoder, codec or application project.",
+      "description": "A bounded, typed image graph. Source pixels belong to the host; topology, parameters, groups and edit history belong to the toolkit. Saved graphs retain source IDs but never embed a decoder, codec or application project. AGENT-CONTRACT (docs/node-graph.md): NodeGraph.qml draws the nodes/edges/ groups snapshots and emits requests; only this model validates and edits.",
       "singleton": false,
       "attached": null,
       "file": "src/core/node_graph_model.h",
@@ -50459,6 +50845,20 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "groups",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "nodeTypes",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": true
         },
         {
           "name": "imageDataUrl",
@@ -50490,6 +50890,13 @@
         },
         {
           "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editing",
           "type": "bool",
           "default": "",
           "readonly": true,
@@ -50532,6 +50939,11 @@
           "parameters": "const QString &nodeId, const QVariantMap &parameters"
         },
         {
+          "name": "setParameter",
+          "returns": "bool",
+          "parameters": "const QString &nodeId, const QString &parameterId, const QVariant &value"
+        },
+        {
           "name": "connectPorts",
           "returns": "QString",
           "parameters": "const QString &fromNodeId, const QString &fromPortId, const QString &toNodeId, const QString &toPortId"
@@ -50540,6 +50952,36 @@
           "name": "disconnectEdge",
           "returns": "bool",
           "parameters": "const QString &edgeId"
+        },
+        {
+          "name": "groupNodes",
+          "returns": "QString",
+          "parameters": "const QStringList &nodeIds, const QString &title = {}"
+        },
+        {
+          "name": "ungroup",
+          "returns": "bool",
+          "parameters": "const QString &groupId"
+        },
+        {
+          "name": "moveGroup",
+          "returns": "bool",
+          "parameters": "const QString &groupId, double dx, double dy"
+        },
+        {
+          "name": "beginEdit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "commitEdit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "bool",
+          "parameters": ""
         },
         {
           "name": "undo",

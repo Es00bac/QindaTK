@@ -50,7 +50,7 @@ pages below are the reference.
 | [canvas.md](canvas.md) | Spatial canvas: document/view/device transforms, object model, picking, tool gestures, synchronized views and the tile rendering boundary |
 | [compare.md](compare.md) | Aligned before/after image comparison, split/blink/difference modes and color limits |
 | [raster-document.md](raster-document.md) | Deterministic pressure/tilt brush samples, pen/mouse canvas input, 256 px raster tiles, sparse 8-bit masks, bounded undo, versioned document save/reopen and atomic PNG export |
-| [node-graph.md](node-graph.md) | Typed source/transform/blend/output graph, stable IDs, local history, incremental image evaluation and native topology storage |
+| [node-graph.md](node-graph.md) | Typed source/solid/mask/transform/blend/output graph: type table and parameter identity, groups, edit transactions and history, incremental image evaluation and versioned topology storage |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
 | [caption-rendering.md](caption-rendering.md) | Burned-caption frame rendering, exact interval semantics, style limits, atomic PNG sequences and timing manifests |
 | [render-queue.md](render-queue.md) | Durable render snapshots, provider registration, ordered PNG output, manifests and restart policy |
