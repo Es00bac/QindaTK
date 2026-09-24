@@ -22073,6 +22073,262 @@
       ]
     },
     {
+      "name": "TakeCompView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "Host-owned takes and comp snapshots. Gesture coordinates choose among the supplied decimal-string boundaries; sample values are never Number-coerced.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TakeCompView.qml",
+      "properties": [
+        {
+          "name": "takes",
+          "type": "var",
+          "default": "[] // {takeId, sourceId, sourceOffsetSample, peaks, available}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "compSegments",
+          "type": "var",
+          "default": "[] // {segmentId, takeId, startSample, endSample, sourceOffsetSample, fadeInEndSample, fadeOutStartSample}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sampleBoundaries",
+          "type": "var",
+          "default": "[] // exact, ordered decimal strings spanning the visible timeline",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionStartSample",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionEndSample",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceTakeId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "proposal",
+          "type": "var",
+          "default": "null // host response descriptor; status \"pending\" exposes accept/reject requests",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapshotValid",
+          "type": "bool",
+          "default": "root.validateSnapshot()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "takeCount",
+          "type": "int",
+          "default": "root.takes ? root.takes.length : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "segmentCount",
+          "type": "int",
+          "default": "root.compSegments ? root.compSegments.length : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "takeLaneHeight",
+          "type": "int",
+          "default": "Tk.Theme.size.controlLg * 2",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasPendingProposal",
+          "type": "bool",
+          "default": "root.proposal",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "compProposalPreviewRequested",
+          "parameters": "string proposalId, string takeId, string startSample, string endSample, string sourceOffsetSample"
+        },
+        {
+          "name": "compProposalRequested",
+          "parameters": "string proposalId, string segmentId, string takeId, string startSample, string endSample, string sourceId, string sourceOffsetSample"
+        },
+        {
+          "name": "proposalDecisionRequested",
+          "parameters": "string proposalId, bool accept"
+        },
+        {
+          "name": "auditionRequested",
+          "parameters": "string takeId, string sourceId, string startSample, string endSample, string sourceOffsetSample"
+        },
+        {
+          "name": "compareRequested",
+          "parameters": "string takeId, string referenceTakeId, string startSample, string endSample, string takeOffsetSample, string referenceOffsetSample"
+        }
+      ],
+      "methods": [
+        {
+          "name": "isDecimalString",
+          "parameters": "value"
+        },
+        {
+          "name": "decimalCompare",
+          "parameters": "a, b"
+        },
+        {
+          "name": "indexForBoundary",
+          "parameters": "sample"
+        },
+        {
+          "name": "takeById",
+          "parameters": "takeId"
+        },
+        {
+          "name": "validateSnapshot",
+          "parameters": ""
+        },
+        {
+          "name": "boundaryIndexAt",
+          "parameters": "x, laneWidth"
+        },
+        {
+          "name": "swipeRange",
+          "parameters": ""
+        },
+        {
+          "name": "segmentForRange",
+          "parameters": "startSample, endSample"
+        },
+        {
+          "name": "validRange",
+          "parameters": "startSample, endSample"
+        },
+        {
+          "name": "beginSwipe",
+          "parameters": "takeId, x, laneWidth"
+        },
+        {
+          "name": "updateSwipe",
+          "parameters": "x, laneWidth"
+        },
+        {
+          "name": "previewSwipe",
+          "parameters": ""
+        },
+        {
+          "name": "finishSwipe",
+          "parameters": ""
+        },
+        {
+          "name": "cancelSwipe",
+          "parameters": ""
+        },
+        {
+          "name": "requestProposalForRange",
+          "parameters": "takeId"
+        },
+        {
+          "name": "decideProposal",
+          "parameters": "accept"
+        },
+        {
+          "name": "requestAudition",
+          "parameters": "takeId"
+        },
+        {
+          "name": "requestCompare",
+          "parameters": "takeId"
+        },
+        {
+          "name": "fractionForSample",
+          "parameters": "sample"
+        },
+        {
+          "name": "colorCss",
+          "parameters": "color"
+        },
+        {
+          "name": "refreshPaint",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "activeCompLane",
+        "compSegmentCanvas",
+        "proposalAccept",
+        "proposalReject",
+        "takeCompView",
+        "takeLane_",
+        "takeSwipeSurface_"
+      ]
+    },
+    {
       "name": "TargetDisplay",
       "kind": "qml",
       "base": "Item",
