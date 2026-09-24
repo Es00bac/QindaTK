@@ -84,13 +84,16 @@ public:
             if (error) *error = failure(ErrorCode::InvalidArgument, QStringLiteral("Model is not a canvas document"));
             return {};
         }
-        if (QJsonDocument(extensions).toJson(QJsonDocument::Compact).size() > m_limits.maximumExtensionBytes) {
+        CanvasDocumentState state = document->state();
+        state.extensions = extensions;
+        // AGENT-GUARD: guides share the saved extensions block, so the limit
+        // applies to host extensions and guides together (decode enforces it).
+        if (QJsonDocument(CanvasDocumentFormat::extensionsWithGuides(state)).toJson(QJsonDocument::Compact).size()
+            > m_limits.maximumExtensionBytes) {
             if (error) *error = failure(ErrorCode::Unsupported, QStringLiteral("Canvas extensions exceed the size limit"));
             return {};
         }
         if (error) *error = {};
-        CanvasDocumentState state = document->state();
-        state.extensions = extensions;
         return std::make_shared<const CanvasCapture>(std::move(state));
     }
 private:

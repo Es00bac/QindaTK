@@ -6,7 +6,9 @@ import QindaTK as Tk
 // document-space selectionCorners, or document-space selectionBounds as a
 // fallback, and a CanvasView surface. This item owns only view-space
 // presentation and gesture reporting; a geometry adapter owns validation,
-// snapping, preview and commit.
+// snapping, preview and commit. A handle drag held within autoScrollMargin
+// of (or beyond) a view edge pans the surface every frame and re-reports the
+// same view point as a new document point, so the gesture continues.
 Item {
     id: root
     objectName: "selectionOverlay"
@@ -21,6 +23,10 @@ Item {
     property real rotationHandleDistance: Tk.Theme.size.controlLg
     property real outlineWidth: Tk.Theme.size.border
     property int geometryRevision: 0
+    property bool autoScroll: true
+    property real autoScrollMargin: Tk.Theme.size.dropEdge
+    readonly property bool autoScrolling: dragState.handle.length > 0
+                                          && (dragState.autoX !== 0 || dragState.autoY !== 0)
     readonly property var viewCorners: mappedCorners()
     readonly property rect viewBounds: mappedBounds()
 
@@ -89,6 +95,50 @@ Item {
                         top.y + (length > 0 ? dy / length : -1) * rotationHandleDistance)
     }
 
+    // Reports one pointer update and records it for autoscroll.
+    function trackDrag(handle, startDocumentPoint, viewPoint, modifiers) {
+        if (!surface) return
+        const edge = autoScrollMargin
+        dragState.handle = handle
+        dragState.start = startDocumentPoint
+        dragState.viewPoint = viewPoint
+        dragState.modifiers = modifiers
+        dragState.autoX = !autoScroll ? 0 : viewPoint.x < edge ? -1
+                        : viewPoint.x > surface.width - edge ? 1 : 0
+        dragState.autoY = !autoScroll ? 0 : viewPoint.y < edge ? -1
+                        : viewPoint.y > surface.height - edge ? 1 : 0
+        transformRequested(handle, startDocumentPoint, surface.mapToDocument(viewPoint), modifiers)
+    }
+    function endDrag() {
+        dragState.handle = ""
+        dragState.autoX = 0
+        dragState.autoY = 0
+    }
+    // One autoscroll step: content moves away from the held edge (the same
+    // rate as EditTimelineLanes), and the unchanged view point is re-reported.
+    function autoScrollStep(seconds) {
+        if (!surface || !autoScrolling || !(seconds > 0)) return false
+        const distance = autoScrollMargin * 30 * seconds
+        surface.panBy(-dragState.autoX * distance, -dragState.autoY * distance)
+        transformRequested(dragState.handle, dragState.start,
+                           surface.mapToDocument(dragState.viewPoint), dragState.modifiers)
+        return true
+    }
+
+    QtObject {
+        id: dragState
+        property string handle: ""
+        property point start
+        property point viewPoint
+        property int modifiers: 0
+        property int autoX: 0
+        property int autoY: 0
+    }
+    FrameAnimation {
+        running: root.autoScrolling
+        onTriggered: root.autoScrollStep(frameTime)
+    }
+
     Connections {
         target: root.surface
         function onViewChanged() { root.geometryRevision += 1 }
@@ -131,6 +181,43 @@ Item {
     onOutlineWidthChanged: frame.requestPaint()
     onRotationHandleDistanceChanged: frame.requestPaint()
     onHandlesEnabledChanged: frame.requestPaint()
+
+    // Keyboard move: arrows report a "move" nudge in view pixels, the same
+    // step as the resize handles. It has no pointer handler, so canvas tools
+    // still receive presses inside the selection.
+    Item {
+        id: moveTarget
+        objectName: "selectionMoveTarget"
+        visible: root.handlesEnabled && root.viewCorners.length === 4
+        x: root.viewBounds.x
+        y: root.viewBounds.y
+        width: root.viewBounds.width
+        height: root.viewBounds.height
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Button
+        Accessible.name: qsTr("Move selection")
+        Accessible.description: qsTr("Arrow keys move the selection")
+        Accessible.onPressAction: moveTarget.forceActiveFocus()
+        Keys.onPressed: function(event) {
+            const step = Tk.Theme.size.controlSm
+            let dx = 0
+            let dy = 0
+            if (event.key === Qt.Key_Left) dx = -step
+            else if (event.key === Qt.Key_Right) dx = step
+            else if (event.key === Qt.Key_Up) dy = -step
+            else if (event.key === Qt.Key_Down) dy = step
+            else return
+            root.transformNudgeRequested("move", dx, dy, event.modifiers)
+            event.accepted = true
+        }
+        Rectangle {
+            anchors.fill: parent
+            color: "transparent"
+            border.color: Tk.Theme.color.focus
+            border.width: Tk.Theme.size.focusRing
+            visible: moveTarget.activeFocus
+        }
+    }
 
     Repeater {
         model: root.handlesEnabled && root.viewCorners.length === 4 ? 8 : 0
@@ -195,12 +282,11 @@ Item {
                 }
                 onPositionChanged: function(mouse) {
                     if (!pressed) return
-                    const viewPoint = mapToItem(root.surface, mouse.x, mouse.y)
-                    root.transformRequested(handle.handleName, startDocumentPoint,
-                                            root.surface.mapToDocument(viewPoint), mouse.modifiers)
+                    root.trackDrag(handle.handleName, startDocumentPoint,
+                                   mapToItem(root.surface, mouse.x, mouse.y), mouse.modifiers)
                 }
-                onReleased: root.transformFinished(handle.handleName)
-                onCanceled: root.transformCanceled(handle.handleName)
+                onReleased: { root.endDrag(); root.transformFinished(handle.handleName) }
+                onCanceled: { root.endDrag(); root.transformCanceled(handle.handleName) }
             }
         }
     }
@@ -248,12 +334,11 @@ Item {
             }
             onPositionChanged: function(mouse) {
                 if (!pressed) return
-                const viewPoint = mapToItem(root.surface, mouse.x, mouse.y)
-                root.transformRequested("rotate", startDocumentPoint,
-                                        root.surface.mapToDocument(viewPoint), mouse.modifiers)
+                root.trackDrag("rotate", startDocumentPoint,
+                               mapToItem(root.surface, mouse.x, mouse.y), mouse.modifiers)
             }
-            onReleased: root.transformFinished("rotate")
-            onCanceled: root.transformCanceled("rotate")
+            onReleased: { root.endDrag(); root.transformFinished("rotate") }
+            onCanceled: { root.endDrag(); root.transformCanceled("rotate") }
         }
     }
 }

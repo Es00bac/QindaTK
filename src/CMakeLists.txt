@@ -307,6 +307,7 @@ qt_add_qml_module(qindatk
         core/canvas_document_object_validation.cpp
         core/canvas_document_misc_validation.cpp
         core/canvas_document_codec.cpp
+        core/canvas_document_guides.cpp
         core/canvas_document_qml.cpp
         core/canvas_document_path.cpp
         core/canvas_parametric.cpp core/canvas_parametric.h

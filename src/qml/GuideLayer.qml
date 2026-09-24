@@ -2,10 +2,14 @@
 import QtQuick
 import QindaTK as Tk
 
-// AGENT-CONTRACT (WP-041): the host supplies guideData records with stable
-// `id`, `orientation` (horizontal/vertical), and document-space `position`.
-// This layer paints/maps guides and reports requests; guide persistence,
-// snapping, and authoritative movement remain with the host model.
+// AGENT-CONTRACT (WP-041, docs/canvas.md#document-guides): the host supplies
+// guideData records with stable `id`, `orientation` (horizontal/vertical)
+// and document-space `position` (Tk.CanvasDocument.guides has this shape).
+// This layer paints/maps guides, previews a dragged guide or a ruler drag
+// itself, and reports requests; persistence, snapping and the authoritative
+// edit remain with the host model. A pointer drag reports moves and one
+// finish; a keyboard or accessible step reports a move and its finish, so a
+// host that commits on guideMoveFinished records one undo step per gesture.
 Item {
     id: root
     objectName: "guideLayer"
@@ -18,6 +22,11 @@ Item {
     property real keyboardStep: 1
     property int geometryRevision: 0
     property string tooltip: qsTr("Document guides")
+    // {orientation, position} while a ruler drag previews a new guide.
+    readonly property var pendingGuide: _pendingAdd
+    property string _dragId: ""
+    property real _dragPosition: 0
+    property var _pendingAdd: null
 
     signal guideAddRequested(string orientation, real documentPosition)
     signal guideMoveRequested(string guideId, real documentPosition)
@@ -29,7 +38,10 @@ Item {
     Accessible.name: tooltip
     Accessible.description: qsTr("Document guides in view coordinates")
 
-    function guidePosition(guide) { return Number(guide.position) }
+    function guidePosition(guide) {
+        return _dragId.length > 0 && guide.id !== undefined && String(guide.id) === _dragId
+                ? _dragPosition : Number(guide.position)
+    }
 
     function lineGeometry(guide) {
         const revision = geometryRevision
@@ -70,18 +82,39 @@ Item {
                  length: length, angle: Math.atan2(last.y - first.y, last.x - first.x) * 180 / Math.PI }
     }
 
-    function requestAdd(orientation, localX, localY) {
+    // Document position under a point in this layer's coordinates.
+    function documentPositionAt(orientation, localX, localY) {
         if (!surface || (orientation !== "horizontal" && orientation !== "vertical"))
-            return false
-        const surfacePoint = mapToItem(surface, localX, localY)
-        const point = surface.mapToDocument(surfacePoint)
-        guideAddRequested(orientation, orientation === "vertical" ? point.x : point.y)
+            return NaN
+        const point = surface.mapToDocument(mapToItem(surface, localX, localY))
+        return orientation === "vertical" ? point.x : point.y
+    }
+    function requestAdd(orientation, localX, localY) {
+        const position = documentPositionAt(orientation, localX, localY)
+        if (!Number.isFinite(position)) return false
+        guideAddRequested(orientation, position)
         return true
     }
+    // Ruler drag: the host maps its ruler pointer into this layer and calls
+    // previewAdd while dragging, then finishAdd on release over the canvas
+    // (one guideAddRequested) or cancelAdd when released back on the ruler.
+    function previewAdd(orientation, localX, localY) {
+        const position = documentPositionAt(orientation, localX, localY)
+        if (!Number.isFinite(position)) return false
+        _pendingAdd = { orientation: orientation, position: position }
+        return true
+    }
+    function finishAdd(orientation, localX, localY) {
+        _pendingAdd = null
+        return requestAdd(orientation, localX, localY)
+    }
+    function cancelAdd() { _pendingAdd = null }
 
     function moveBy(guide, delta) {
         if (!guide || !guide.id) return
-        guideMoveRequested(String(guide.id), guidePosition(guide) + delta)
+        const position = guidePosition(guide) + delta
+        guideMoveRequested(String(guide.id), position)
+        guideMoveFinished(String(guide.id), position)
     }
 
     Connections {
@@ -89,6 +122,9 @@ Item {
         function onViewChanged() { root.geometryRevision += 1; guides.requestPaint() }
     }
     onGuideDataChanged: guides.requestPaint()
+    on_DragIdChanged: guides.requestPaint()
+    on_DragPositionChanged: guides.requestPaint()
+    on_PendingAddChanged: guides.requestPaint()
     onGeometryRevisionChanged: guides.requestPaint()
     onGuideColorChanged: guides.requestPaint()
     onLineWidthChanged: guides.requestPaint()
@@ -103,8 +139,10 @@ Item {
             context.strokeStyle = root.guideColor
             context.lineWidth = root.lineWidth
             context.beginPath()
-            for (let i = 0; i < root.guideData.length; ++i) {
-                const line = root.lineGeometry(root.guideData[i])
+            const records = root._pendingAdd ? root.guideData.concat([root._pendingAdd])
+                                             : root.guideData
+            for (let i = 0; i < records.length; ++i) {
+                const line = root.lineGeometry(records[i])
                 if (!line) continue
                 context.moveTo(line.x1, line.y1)
                 context.lineTo(line.x2, line.y2)
@@ -166,26 +204,40 @@ Item {
                 preventStealing: true
                 acceptedButtons: Qt.LeftButton
                 property real startPosition: action.originalPosition
+                // The dragged guide is previewed here, so the host commits
+                // once on finish instead of writing guideData per move.
+                property string dragId: ""
                 onPressed: function(event) {
                     startPosition = action.originalPosition
+                    dragId = action.guideId
+                    root._dragPosition = startPosition
+                    root._dragId = dragId
                     action.forceActiveFocus()
                     event.accepted = true
                 }
                 onPositionChanged: function(event) {
-                    if (!pressed || !root.surface) return
-                    const viewPoint = mapToItem(root.surface, event.x, event.y)
-                    const documentPoint = root.surface.mapToDocument(viewPoint)
-                    root.guideMoveRequested(action.guideId,
-                        action.orientation === "vertical" ? documentPoint.x : documentPoint.y)
+                    if (!pressed) return
+                    const local = mapToItem(root, event.x, event.y)
+                    const position = root.documentPositionAt(action.orientation, local.x, local.y)
+                    if (!Number.isFinite(position)) return
+                    root._dragPosition = position
+                    root.guideMoveRequested(dragId, position)
                 }
                 onReleased: function(event) {
-                    if (!root.surface) return
-                    const viewPoint = mapToItem(root.surface, event.x, event.y)
-                    const documentPoint = root.surface.mapToDocument(viewPoint)
-                    root.guideMoveFinished(action.guideId,
-                        action.orientation === "vertical" ? documentPoint.x : documentPoint.y)
+                    const local = mapToItem(root, event.x, event.y)
+                    const position = root.documentPositionAt(action.orientation, local.x, local.y)
+                    const id = dragId
+                    dragId = ""
+                    root._dragId = ""
+                    if (Number.isFinite(position)) root.guideMoveFinished(id, position)
+                    else root.guideMoveCanceled(id, startPosition)
                 }
-                onCanceled: root.guideMoveCanceled(action.guideId, startPosition)
+                onCanceled: {
+                    const id = dragId
+                    dragId = ""
+                    root._dragId = ""
+                    root.guideMoveCanceled(id, startPosition)
+                }
             }
         }
     }
