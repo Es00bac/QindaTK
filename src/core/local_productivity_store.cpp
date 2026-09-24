@@ -2,6 +2,7 @@
 #include "local_productivity_store.h"
 
 #include <QDir>
+#include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
@@ -9,6 +10,7 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QSet>
+#include <QTimeZone>
 #include <algorithm>
 #include <utility>
 
@@ -176,8 +178,10 @@ bool LocalProductivityStore::loadFrom(const QString &path)
     m_tasks = listFrom(snapshot, QStringLiteral("tasks"));
     m_revision = snapshot.value(QStringLiteral("revision")).toString().toULongLong();
     m_taskUndo.clear();
+    m_eventUndo.clear();
     emit dataChanged();
     emit taskHistoryChanged();
+    emit eventHistoryChanged();
     setStatus(recovered ? QStringLiteral("recovered") : QStringLiteral("loaded"),
               recovered ? primaryError : QString());
     return true;
@@ -219,9 +223,10 @@ QVariantMap LocalProductivityStore::upsert(const QString &name, const QVariantMa
     const QString id = idOf(record);
     if (!rows || id.isEmpty()) { const QString error = QStringLiteral("Unknown collection or empty stable ID"); setStatus(QStringLiteral("error"), error); return result(false, error); }
     for (int i = 0; i < rows->size(); ++i) {
-        if (idOf(rows->at(i).toMap()) == id) { (*rows)[i] = record; ++m_revision; emit dataChanged(); setStatus(QStringLiteral("modified")); return result(true); }
+        if (idOf(rows->at(i).toMap()) == id) { (*rows)[i] = record; if (name == QLatin1String("events")) { m_eventUndo.clear(); emit eventHistoryChanged(); } ++m_revision; emit dataChanged(); setStatus(QStringLiteral("modified")); return result(true); }
     }
     rows->append(record);
+    if (name == QLatin1String("events")) { m_eventUndo.clear(); emit eventHistoryChanged(); }
     ++m_revision;
     emit dataChanged();
     setStatus(QStringLiteral("modified"));
@@ -233,7 +238,7 @@ QVariantMap LocalProductivityStore::remove(const QString &name, const QString &r
     auto *rows = collection(name);
     if (!rows || recordId.trimmed().isEmpty()) { const QString error = QStringLiteral("Unknown collection or empty stable ID"); setStatus(QStringLiteral("error"), error); return result(false, error); }
     for (qsizetype i = 0; i < rows->size(); ++i) {
-        if (idOf(rows->at(i).toMap()) == recordId) { rows->removeAt(i); ++m_revision; emit dataChanged(); setStatus(QStringLiteral("modified")); return result(true); }
+        if (idOf(rows->at(i).toMap()) == recordId) { rows->removeAt(i); if (name == QLatin1String("events")) { m_eventUndo.clear(); emit eventHistoryChanged(); } ++m_revision; emit dataChanged(); setStatus(QStringLiteral("modified")); return result(true); }
     }
     const QString error = QStringLiteral("Record %1 was not found").arg(recordId);
     setStatus(QStringLiteral("error"), error);
@@ -306,6 +311,71 @@ QVariantMap LocalProductivityStore::undoTaskMove()
     ++m_revision;
     emit dataChanged();
     emit taskHistoryChanged();
+    setStatus(QStringLiteral("modified"));
+    return result(true);
+}
+
+QVariantMap LocalProductivityStore::shiftEventLocal(const QString &eventId, int minutes)
+{
+    if (minutes == 0 || minutes < -1440 || minutes > 1440) {
+        const QString error = QStringLiteral("Event shift must be within one day and nonzero");
+        setStatus(QStringLiteral("error"), error);
+        return result(false, error);
+    }
+    int index = -1;
+    for (int i = 0; i < m_events.size(); ++i)
+        if (idOf(m_events[i].toMap()) == eventId) { index = i; break; }
+    if (index < 0) {
+        const QString error = QStringLiteral("Event %1 was not found").arg(eventId);
+        setStatus(QStringLiteral("error"), error);
+        return result(false, error);
+    }
+    QVariantMap row = m_events[index].toMap();
+    const QTimeZone zone(row.value(QStringLiteral("zone")).toString().toUtf8());
+    auto shift = [&zone, minutes](const QString &value) -> QString {
+        const QString normalized = QString(value).replace(QLatin1Char(' '), QLatin1Char('T'));
+        const QDate date = QDate::fromString(normalized.left(10), Qt::ISODate);
+        const QTime time = QTime::fromString(normalized.mid(11), Qt::ISODate);
+        if (!date.isValid() || !time.isValid() || !zone.isValid()) return {};
+        // AGENT-GUARD: do wall-clock arithmetic before validating in the event
+        // zone; zoned addSecs would move elapsed time and can normalize a DST gap.
+        const QDateTime wall = QDateTime(date, time, Qt::UTC).addSecs(minutes * 60);
+        const QDateTime zoned(wall.date(), wall.time(), zone,
+                              QDateTime::TransitionResolution::Reject);
+        if (!zoned.isValid()) return {};
+        return wall.toString(value.size() > 16 ? QStringLiteral("yyyy-MM-dd HH:mm:ss")
+                                               : QStringLiteral("yyyy-MM-dd HH:mm"));
+    };
+    const QString start = shift(row.value(QStringLiteral("startLocal")).toString());
+    const QString end = shift(row.value(QStringLiteral("endLocal")).toString());
+    if (start.isEmpty() || end.isEmpty()) {
+        const QString error = QStringLiteral("Event shift enters an invalid or ambiguous local time");
+        setStatus(QStringLiteral("error"), error);
+        return result(false, error);
+    }
+    m_eventUndo.append(m_events);
+    if (m_eventUndo.size() > kUndoLimit) m_eventUndo.removeFirst();
+    row.insert(QStringLiteral("startLocal"), start);
+    row.insert(QStringLiteral("endLocal"), end);
+    m_events[index] = row;
+    ++m_revision;
+    emit dataChanged();
+    emit eventHistoryChanged();
+    setStatus(QStringLiteral("modified"));
+    return result(true);
+}
+
+QVariantMap LocalProductivityStore::undoEventChange()
+{
+    if (m_eventUndo.isEmpty()) {
+        const QString error = QStringLiteral("No event change to undo");
+        setStatus(QStringLiteral("error"), error);
+        return result(false, error);
+    }
+    m_events = m_eventUndo.takeLast();
+    ++m_revision;
+    emit dataChanged();
+    emit eventHistoryChanged();
     setStatus(QStringLiteral("modified"));
     return result(true);
 }

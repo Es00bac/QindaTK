@@ -8,6 +8,29 @@
 class LocalProductivityStoreTest : public QObject {
     Q_OBJECT
 private slots:
+    void shiftsAndUndoesCalendarEventInLocalWallTime()
+    {
+        QindaTK::LocalProductivityStore store;
+        QVERIFY(store.upsert(QStringLiteral("events"), {{QStringLiteral("id"), QStringLiteral("e-1")},
+            {QStringLiteral("startLocal"), QStringLiteral("2026-09-24 10:00")},
+            {QStringLiteral("endLocal"), QStringLiteral("2026-09-24 10:45")},
+            {QStringLiteral("zone"), QStringLiteral("America/Denver")}}).value("ok").toBool());
+        QVERIFY(store.shiftEventLocal(QStringLiteral("e-1"), 60).value("ok").toBool());
+        QCOMPARE(store.events().first().toMap().value(QStringLiteral("startLocal")).toString(),
+                 QStringLiteral("2026-09-24 11:00"));
+        QVERIFY(store.canUndoEventChange());
+        QVERIFY(store.undoEventChange().value("ok").toBool());
+        QCOMPARE(store.events().first().toMap().value(QStringLiteral("startLocal")).toString(),
+                 QStringLiteral("2026-09-24 10:00"));
+        QVERIFY(store.upsert(QStringLiteral("events"), {{QStringLiteral("id"), QStringLiteral("e-1")},
+            {QStringLiteral("startLocal"), QStringLiteral("2026-03-08 01:30")},
+            {QStringLiteral("endLocal"), QStringLiteral("2026-03-08 01:45")},
+            {QStringLiteral("zone"), QStringLiteral("America/Denver")}}).value("ok").toBool());
+        QVERIFY(!store.shiftEventLocal(QStringLiteral("e-1"), 60).value("ok").toBool());
+        QCOMPARE(store.events().first().toMap().value(QStringLiteral("startLocal")).toString(),
+                 QStringLiteral("2026-03-08 01:30"));
+    }
+
     void persistsCollectionsRecoversAndUndoesTaskMove()
     {
         QTemporaryDir directory;

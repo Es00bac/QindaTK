@@ -39559,6 +39559,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "canUndoEventChange",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -39576,6 +39583,10 @@
         },
         {
           "name": "taskHistoryChanged",
+          "parameters": ""
+        },
+        {
+          "name": "eventHistoryChanged",
           "parameters": ""
         }
       ],
@@ -39617,6 +39628,16 @@
         },
         {
           "name": "undoTaskMove",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "shiftEventLocal",
+          "returns": "QVariantMap",
+          "parameters": "const QString &eventId, int minutes"
+        },
+        {
+          "name": "undoEventChange",
           "returns": "QVariantMap",
           "parameters": ""
         },

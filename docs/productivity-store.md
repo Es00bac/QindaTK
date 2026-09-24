@@ -42,6 +42,13 @@ one in-memory operation. Each move keeps a bounded whole-task-list checkpoint;
 the move/undo and acknowledges the matching `TaskBoard` request only after the
 save succeeds.
 
+`shiftEventLocal(eventId, minutes)` changes an event's start and end wall-clock
+fields together, rejects nonexistent or ambiguous times in the event's IANA
+zone, and retains bounded local undo. `undoEventChange()` restores the prior
+event collection. The caller saves and acknowledges the matching
+`CalendarView` request after persistence succeeds. Provider sync and edits to
+recurrence exceptions remain host responsibilities.
+
 `examples/local-productivity/Main.qml` shows message actions, draft autosave,
 calendar proposal rejection without a calendar provider, task move/undo and
 reload against the local store. The fixture never sends to a real recipient.

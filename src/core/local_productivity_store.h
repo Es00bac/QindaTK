@@ -25,6 +25,7 @@ class LocalProductivityStore : public QObject {
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(bool recoveryAvailable READ recoveryAvailable NOTIFY statusChanged)
     Q_PROPERTY(bool canUndoTaskMove READ canUndoTaskMove NOTIFY taskHistoryChanged)
+    Q_PROPERTY(bool canUndoEventChange READ canUndoEventChange NOTIFY eventHistoryChanged)
 public:
     explicit LocalProductivityStore(QObject *parent = nullptr);
     QString filePath() const { return m_filePath; }
@@ -39,6 +40,7 @@ public:
     QString status() const { return m_status; }
     bool recoveryAvailable() const { return m_recoveryAvailable; }
     bool canUndoTaskMove() const { return !m_taskUndo.isEmpty(); }
+    bool canUndoEventChange() const { return !m_eventUndo.isEmpty(); }
 
     Q_INVOKABLE bool load();
     Q_INVOKABLE bool save();
@@ -49,6 +51,8 @@ public:
     Q_INVOKABLE QVariantMap moveTask(const QString &taskId, const QString &toStatus,
                                      int targetOrder = -1);
     Q_INVOKABLE QVariantMap undoTaskMove();
+    Q_INVOKABLE QVariantMap shiftEventLocal(const QString &eventId, int minutes);
+    Q_INVOKABLE QVariantMap undoEventChange();
     Q_INVOKABLE QVariantMap exportSnapshot() const;
 
 signals:
@@ -56,6 +60,7 @@ signals:
     void dataChanged();
     void statusChanged();
     void taskHistoryChanged();
+    void eventHistoryChanged();
 
 private:
     QVariantList *collection(const QString &name);
@@ -71,6 +76,7 @@ private:
     QString m_filePath;
     QVariantList m_messages, m_drafts, m_events, m_tasks;
     QVector<QVariantList> m_taskUndo;
+    QVector<QVariantList> m_eventUndo;
     quint64 m_revision = 0;
     QString m_lastError, m_status = QStringLiteral("empty");
     bool m_recoveryAvailable = false;

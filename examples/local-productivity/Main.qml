@@ -83,6 +83,7 @@ Item {
             }
             Tk.Spacer { Tk.Flex.grow: 1 }
             Tk.Button { text: qsTr("Reload from disk"); tooltip: qsTr("Reload persisted local records"); onClicked: root.reloadStore() }
+            Tk.Button { text: qsTr("Undo event move"); tooltip: qsTr("Undo the last local calendar move"); enabled: store.canUndoEventChange; onClicked: { const result = store.undoEventChange(); if (result.ok && store.save()) root.hostMessage = qsTr("Calendar move undone and saved") } }
             Tk.Button { text: qsTr("Undo task move"); tooltip: qsTr("Undo the last local task move"); enabled: store.canUndoTaskMove; onClicked: { const result = store.undoTaskMove(); if (result.ok && store.save()) { board.acknowledge(board.lastRequestId, "accepted", qsTr("Task move undone and saved")); root.hostMessage = board.requestMessage } } }
             Tk.Badge { text: qsTr("Local only"); variant: "info" }
         }
@@ -140,8 +141,21 @@ Item {
                         hostMessage = qsTr("Calendar ranges are the current local snapshot; no remote navigation provider is configured.")
                     }
                     onEventChangeRequested: function(requestId, eventId, proposed) {
-                        calendar.acknowledge(requestId, "rejected")
-                        hostMessage = qsTr("Calendar proposal retained as read-only; recurrence and time-zone edits need a calendar provider.")
+                        if (proposed.kind !== "shift-local") {
+                            calendar.acknowledge(requestId, "rejected")
+                            hostMessage = qsTr("This calendar change needs a provider.")
+                            return
+                        }
+                        const result = store.shiftEventLocal(eventId, Number(proposed.minutes))
+                        if (result.ok && store.save()) {
+                            calendar.acknowledge(requestId, "accepted")
+                            hostMessage = qsTr("Calendar move saved locally; undo is available.")
+                        } else {
+                            const reason = result.error || store.lastError
+                            if (result.ok) store.undoEventChange()
+                            calendar.acknowledge(requestId, "rejected")
+                            hostMessage = reason
+                        }
                     }
                 }
             }
