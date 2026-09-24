@@ -25,6 +25,23 @@ pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2>=2.14)
 pkg_check_modules(VTERM REQUIRED IMPORTED_TARGET vterm>=0.3)
 if(QINDATK_ENABLE_POPPLER_QT6)
     pkg_check_modules(POPPLER_QT6 QUIET IMPORTED_TARGET poppler-qt6)
+    # AGENT-NOTE: a distro poppler-qt6 is built against the distro Qt. Linked
+    # into a build against another Qt (such as the Qt 6.8 SDK) it fails on the
+    # newer Qt's symbols, so the optional backend is used only when it links
+    # with the Qt this build uses.
+    if(POPPLER_QT6_FOUND)
+        include(CheckCXXSourceCompiles)
+        set(CMAKE_REQUIRED_LIBRARIES PkgConfig::POPPLER_QT6 Qt6::Core Qt6::Gui)
+        check_cxx_source_compiles("
+            #include <poppler-qt6.h>
+            int main() { return Poppler::Document::load(QString()) ? 1 : 0; }"
+            QINDATK_POPPLER_QT6_LINKS)
+        unset(CMAKE_REQUIRED_LIBRARIES)
+        if(NOT QINDATK_POPPLER_QT6_LINKS)
+            message(STATUS "poppler-qt6 does not link with Qt ${Qt6_VERSION}; the Poppler PDF backend is off")
+            set(POPPLER_QT6_FOUND FALSE)
+        endif()
+    endif()
 endif()
 # Native QFileDialog is an optional adapter; base qindatk stays QtQuick-only.
 find_package(Qt6 6.8 QUIET COMPONENTS Widgets)
