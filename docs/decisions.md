@@ -640,7 +640,10 @@ with absolute incoming/outgoing controls, closure and fill rule. Version 4 adds
 bounded extra contours with individual closure; the fill rule applies across
 all contours. Stroke cap, join and dash values live on `CanvasObject`. Native
 binary version 3 saves the first contour and stroke fields; version 4 saves
-extra contours. Versions 1 through 3 remain readable. Every path edit is one `CanvasEdit`. The
+extra contours. Version 5 stores polygon, star and rounded-rectangle
+parameters beside their generated nodes, which every commit and decode must
+match; a manual node edit converts the shape to a freeform path. Versions 1
+through 4 remain readable. Every path edit is one `CanvasEdit`. The
 software painter draws the cubic directly; RHI uploads its composited tile
 when the content needs path or nondefault stroke semantics. SVG 1.1 export
 writes the flat-color vector subset and rejects image, managed ICC fill and
@@ -649,5 +652,6 @@ snapshot and paste as one edit with fresh destination IDs; SVG is offered
 when the style can be exported.
 
 **Consequences.** The reference authoring backend now preserves editable
-path geometry and supported stroke appearance. Arbitrary boolean geometry,
-pattern fills and effect stacks need separate contracts.
+path geometry, editable parametric primitives and supported stroke appearance.
+Arbitrary boolean geometry, pattern fills and effect stacks need separate
+contracts.

@@ -24,7 +24,8 @@ constexpr qsizetype minimumTileRecord = 4 + 4 + 4;
 constexpr qsizetype minimumObjectRecordV1 = 8 + 8 + 1 + 32 + 4 + 72 + 2 * colorBytes + 8 + 8 + 8 + 1 + 1 + 4;
 constexpr qsizetype minimumObjectRecordV2 = minimumObjectRecordV1 + 4;
 constexpr qsizetype minimumObjectRecordV3 = minimumObjectRecordV2 + 12;
-constexpr qsizetype minimumObjectRecord = minimumObjectRecordV3 + 4;
+constexpr qsizetype minimumObjectRecordV4 = minimumObjectRecordV3 + 4;
+constexpr qsizetype minimumObjectRecord = minimumObjectRecordV4 + 21;
 // Keeps (order << 40) in CanvasDocumentAdapter::paintKey inside 63 bits.
 constexpr quint64 idCeiling = IdCeiling;
 
@@ -150,11 +151,6 @@ private:
 };
 } // namespace
 
-bool recognizes(const QByteArray &prefix)
-{
-    return prefix.startsWith(QByteArrayView(Signature, SignatureBytes));
-}
-
 std::optional<SnapshotHeader> inspect(const QByteArray &bytes, OperationError *error)
 {
     if (error) *error = {};
@@ -250,6 +246,8 @@ QByteArray encode(const CanvasDocumentState &state, OperationError *error)
                         << double(node.in.x()) << double(node.in.y())
                         << double(node.out.x()) << double(node.out.y());
         }
+        w.out() << quint8(o.parametricKind) << quint32(o.parametricPoints)
+                << double(o.parametricInnerRatio) << double(o.parametricCornerRadius);
     }
     if (!w.ok()) {
         if (error) *error = problem(ErrorCode::BackendFailure, QStringLiteral("Canvas encoding failed"));
@@ -392,7 +390,8 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
 
     quint32 objectCount = 0;
     if (!in.read(objectCount) || qint64(objectCount)
-        * (version >= 4 ? minimumObjectRecord : version == 3 ? minimumObjectRecordV3
+        * (version >= 5 ? minimumObjectRecord : version == 4 ? minimumObjectRecordV4
+                        : version == 3 ? minimumObjectRecordV3
                         : version == 2 ? minimumObjectRecordV2
                         : minimumObjectRecordV1) > in.remaining()) return truncated();
     if (objectCount > limits.maximumObjects)
@@ -473,6 +472,14 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
                 }
                 o.extraContours.append(std::move(contour));
             }
+        }
+        if (version >= 5) {
+            quint8 kind = 0;
+            quint32 points = 0;
+            double inner = 0, corner = 0;
+            if (!in.read(kind) || !in.read(points) || !in.read(inner) || !in.read(corner)) return truncated();
+            o.parametricKind = CanvasParametricKind(kind); o.parametricPoints = points;
+            o.parametricInnerRatio = inner; o.parametricCornerRadius = corner;
         }
         o.id = id;
         o.layer = layer;

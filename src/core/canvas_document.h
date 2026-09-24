@@ -219,6 +219,18 @@ public:
     // default to the anchor. Every gesture-end call is one undoable edit.
     Q_INVOKABLE qulonglong addPath(const QVariantList &nodes, bool closed,
                                   const QColor &fill, const QColor &stroke, qreal strokeWidth);
+    // Parametric paths (docs/vector-authoring.md#parametric-shapes): kind
+    // "polygon" {sides}, "star" {points, innerRadius} or "rounded-rectangle"
+    // {radius}, each also taking x/y/width/height. Invalid values or another
+    // kind's keys return 0/false without an edit; each accepted parameter
+    // change regenerates the path as one undoable edit.
+    Q_INVOKABLE qulonglong addParametricShape(const QString &kind, qreal x, qreal y,
+                                              qreal width, qreal height,
+                                              const QVariantMap &parameters,
+                                              const QColor &fill, const QColor &stroke,
+                                              qreal strokeWidth);
+    Q_INVOKABLE QVariantMap parametricParameters(qulonglong id) const;
+    Q_INVOKABLE bool setParametricParameters(qulonglong id, const QVariantMap &parameters);
     Q_INVOKABLE QVariantList pathNodes(qulonglong id) const;
     Q_INVOKABLE bool movePathPart(qulonglong id, int index, const QString &part, qreal x, qreal y);
     Q_INVOKABLE bool insertPathNode(qulonglong id, int index, const QVariantMap &node);

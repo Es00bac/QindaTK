@@ -64,6 +64,7 @@ bool CanvasDocument::addPathContour(qulonglong id, const QVariantList &values, b
     }
     CanvasObject after = *before;
     after.extraContours.append(std::move(contour));
+    after.clearParametric();
     CanvasEdit edit;
     edit.label = tr("Add path contour");
     edit.changes.append({id, *before, after});
