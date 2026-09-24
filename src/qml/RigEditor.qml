@@ -28,7 +28,7 @@ T.Control {
     focusPolicy: Qt.StrongFocus
     Accessible.role: Accessible.Grouping
     Accessible.name: tooltip
-    Accessible.description: qsTr("2D orthographic bone projection; arbitrary mesh rendering is provided by the host.")
+    Accessible.description: qsTr("2D orthographic bone projection; posed geometry can be displayed in SceneView3D.")
 
     function boneById(id) {
         for (const bone of (bones || [])) if (String(bone.boneId) === String(id)) return bone
