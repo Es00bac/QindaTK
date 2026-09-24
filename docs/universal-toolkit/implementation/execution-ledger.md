@@ -25,8 +25,9 @@ are recorded in its evidence. WP-041 now has a document-space snap query,
 guide layer, lasso and reference-canvas group move/resize/rotation controller, while
 WP-042 has layer, navigator, alignment and artboard presentation.
 Both spatial packages still have model, command and acceptance gates open.
-WP-043 has CurveEditor and GradientEditor presentation slices ahead of its
-open color and curve backend gates.
+WP-043 has CurveEditor, GradientEditor and ColorPicker presentation plus a
+numerical RGB ICC backend. Its curve, managed-display and typed transaction
+gates remain open.
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -70,7 +71,7 @@ as though a later fix had already passed the earlier run.
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | review | [Integrated renderer and installed consumer; dual-Qt 102/102; WP-033 dependency open](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Lasso, snap, guides and reference group move/resize/rotation; shared selection open](evidence/WP-041.md) |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
-| [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [CurveEditor and GradientEditor presentation; backend gates open](evidence/WP-043.md) |
+| [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [Curve, gradient and picker presentation; ICC numerical backend; integration gates open](evidence/WP-043.md) |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | planned | — |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | planned | — |
 | [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
