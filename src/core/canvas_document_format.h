@@ -68,6 +68,25 @@ inline constexpr const char *GuideExtensionKey = "qindatk.canvas.guides";
 [[nodiscard]] OperationError takeGuides(const QJsonObject &extensions,
                                         const CanvasDocumentLimits &limits,
                                         CanvasDocumentState *state);
+// Artboards and the layer tree (canvas_document_scene_format.cpp) ride in the
+// same block (D-092, D-093): unique ids within the length limit, finite
+// positive rectangles, 8-bit backgrounds, finite non-negative bleed.
+inline constexpr const char *ArtboardExtensionKey = "qindatk.canvas.artboards";
+inline constexpr const char *LayerTreeExtensionKey = "qindatk.canvas.layerTree";
+[[nodiscard]] OperationError validateArtboards(const QVector<CanvasArtboard> &boards,
+                                               const CanvasDocumentLimits &limits);
+// Parents exist and are groups, no cycles, depth within the limit, at
+// least one content layer.
+[[nodiscard]] OperationError validateLayerForest(const QHash<CanvasLayerId, CanvasLayer> &layers,
+                                                 const CanvasDocumentLimits &limits);
+// The whole extensions block as saved: host extensions, guides, artboards
+// and the layer tree. A flat document without boards adds no record.
+[[nodiscard]] QJsonObject savedExtensions(const CanvasDocumentState &state);
+// Moves every saved record out of `extensions` into `state`, which must
+// already hold its decoded layers and objects; validates all of them.
+[[nodiscard]] OperationError takeSavedExtensions(const QJsonObject &extensions,
+                                                 const CanvasDocumentLimits &limits,
+                                                 CanvasDocumentState *state);
 [[nodiscard]] qsizetype imageBytes(const CanvasTiledImage &image);
 } // namespace CanvasDocumentFormat
 

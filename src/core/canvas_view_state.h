@@ -40,6 +40,9 @@ public:
     int revision() const { return m_revision; }
     void setCenterX(qreal x);
     void setCenterY(qreal y);
+    // Both coordinates in one pose change (one `changed`, one revision), so
+    // a navigator never publishes a half-moved centre to synchronized views.
+    Q_INVOKABLE void setCenter(qreal x, qreal y);
     void setZoom(qreal zoom);
     void setRotation(qreal degrees);
     void setMinZoom(qreal zoom);

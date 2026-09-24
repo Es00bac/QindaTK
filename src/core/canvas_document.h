@@ -51,6 +51,11 @@ struct CanvasEdit {
         QVector<CanvasGuide> before;
         QVector<CanvasGuide> after;
     };
+    // The whole ordered artboard list before and after (boards are few).
+    struct ArtboardChange {
+        QVector<CanvasArtboard> before;
+        QVector<CanvasArtboard> after;
+    };
     QString label;
     QVector<Change> changes;
     QVector<LayerChange> layers = {};
@@ -60,10 +65,18 @@ struct CanvasEdit {
     // knows it; a different generation rejects the edit as stale.
     std::optional<quint64> baseResetGeneration = {};
     std::optional<GuideChange> guides = {};
+    std::optional<ArtboardChange> artboards = {};
     [[nodiscard]] bool isEmpty() const
     {
-        return changes.isEmpty() && layers.isEmpty() && images.isEmpty() && !page && !guides;
+        return changes.isEmpty() && layers.isEmpty() && images.isEmpty() && !page && !guides
+            && !artboards;
     }
+};
+
+// A document-space fill painted below every object (an artboard background).
+struct CanvasBackdrop {
+    QRectF rect;
+    QColor color;
 };
 
 // AGENT-CONTRACT (docs/canvas.md#document-adapter): the document side of the
@@ -95,8 +108,16 @@ public:
     // Effective flags: an object is visible/locked when it AND its layer are.
     [[nodiscard]] virtual bool effectiveVisible(const CanvasObject &object) const;
     [[nodiscard]] virtual bool effectiveLocked(const CanvasObject &object) const;
-    // Total paint order; strictly increasing along draw order.
+    // A layer is effectively visible/locked when it and every ancestor group
+    // are (a bounded walk over CanvasLayer::parent); a missing layer is
+    // visible and unlocked.
+    [[nodiscard]] virtual bool layerEffectivelyVisible(CanvasLayerId id) const;
+    [[nodiscard]] virtual bool layerEffectivelyLocked(CanvasLayerId id) const;
+    // Total paint order; strictly increasing along draw order. An adapter
+    // with layer groups overrides it with the flattened layer rank.
     [[nodiscard]] virtual qint64 paintKey(const CanvasObject &object) const;
+    // Fills painted after the page colour and below every object, in order.
+    [[nodiscard]] virtual QVector<CanvasBackdrop> backdrops() const { return {}; }
     // Where tools insert new objects, and fresh identity/paint order for them.
     [[nodiscard]] virtual CanvasLayerId activeLayer() const = 0;
     virtual CanvasObjectId reserveObjectId() = 0;
@@ -140,6 +161,10 @@ class CanvasDocument : public CanvasDocumentAdapter, public DocumentModel, publi
     // {id, orientation: "vertical"|"horizontal", position}: the record shape
     // GuideLayer.guideData and SnapModel.guides read.
     Q_PROPERTY(QVariantList guides READ guideList NOTIFY changed)
+    // {id, name, rect, background, bleed, exportRect} in board order: the
+    // record shape ArtboardView.boardData reads (docs/canvas.md#artboards).
+    Q_PROPERTY(QVariantList artboards READ artboardList NOTIFY changed)
+    Q_PROPERTY(int artboardCount READ artboardCount NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(QString undoText READ undoText NOTIFY historyChanged)
@@ -170,6 +195,7 @@ public:
     CanvasTiledImagePtr image(CanvasImageId id) const override;
     QVector<CanvasObjectId> candidates(const QRectF &region) const override;
     qint64 paintKey(const CanvasObject &object) const override;
+    QVector<CanvasBackdrop> backdrops() const override;
     bool commit(const CanvasEdit &edit) override { return !commitEdit(edit); }
     // The same commit with the reason for a rejection; nothing changes then.
     OperationError commitEdit(const CanvasEdit &edit);
@@ -183,7 +209,8 @@ public:
     CanvasObjectId reserveObjectId() override { return allocateId(); }
     qint64 reserveZ() override;
     // Editor state, not content: where tools insert. It does not change the
-    // revision and is not saved; a loaded document starts on its top layer.
+    // revision and is not saved; a loaded document starts on its topmost
+    // content layer. A layer group can never be the active layer.
     void setActiveLayer(CanvasLayerId id);
     QVariantList layerList() const;
     QVariantList guideList() const;
@@ -217,6 +244,49 @@ public:
     bool removeImage(CanvasImageId id);
     bool setLayerVisible(CanvasLayerId id, bool visible);
     bool setLayerLocked(CanvasLayerId id, bool locked);
+
+    // Layer hierarchy (docs/canvas.md#layer-hierarchy). `index` counts the
+    // destination siblings in paint order (0 = bottom) and is clamped. Each
+    // accepted call is one undoable edit; a refusal sets lastError only.
+    CanvasLayerId addLayerAt(const QString &name, bool group, CanvasLayerId parent, int index);
+    CanvasLayerId addLayerGroup(const QString &name);
+    bool moveLayer(CanvasLayerId id, CanvasLayerId parent, int index);
+    bool renameLayer(CanvasLayerId id, const QString &name);
+    // Wraps sibling layers (one parent) in a new group at the topmost one's place.
+    CanvasLayerId groupLayers(const QVector<CanvasLayerId> &ids, const QString &name);
+    // Moves a group's children to its parent at its place and removes it.
+    bool ungroupLayer(CanvasLayerId id);
+    // Removes a layer, its descendant layers and their objects in one edit.
+    bool removeLayerTree(CanvasLayerId id);
+    // Moves an object to a content layer at `index` of that layer's paint order.
+    bool moveObjectToLayer(CanvasObjectId id, CanvasLayerId layer, int index);
+    QVector<CanvasLayerId> childLayers(CanvasLayerId parent) const; // paint order
+    // Every layer's objects in paint order, in one pass (for tree views).
+    QHash<CanvasLayerId, QVector<CanvasObjectId>> objectsByLayer() const;
+    QVector<CanvasObjectId> objectsOnLayer(CanvasLayerId layer) const; // paint order
+    int layerDepth(CanvasLayerId id) const; // -1 when missing
+    bool isLayerAncestor(CanvasLayerId ancestor, CanvasLayerId id) const;
+    int layerRank(CanvasLayerId id) const { return m_layerRank.value(id, -1); }
+
+    // Artboards (docs/canvas.md#artboards). Each accepted call is one
+    // undoable edit; addArtboard returns the new stable id or "".
+    const QVector<CanvasArtboard> &artboardRecords() const { return m_artboards; }
+    const CanvasArtboard *artboard(const QString &id) const;
+    int artboardCount() const { return int(m_artboards.size()); }
+    QVariantList artboardList() const;
+    Q_INVOKABLE QString addArtboard(const QString &name, const QRectF &rect,
+                                    const QColor &background = QColor(Qt::white));
+    Q_INVOKABLE bool setArtboardRect(const QString &id, const QRectF &rect);
+    Q_INVOKABLE bool renameArtboard(const QString &id, const QString &name);
+    Q_INVOKABLE bool setArtboardBackground(const QString &id, const QColor &color);
+    Q_INVOKABLE bool setArtboardBleed(const QString &id, qreal bleed);
+    Q_INVOKABLE bool moveArtboard(const QString &id, int index); // board order
+    Q_INVOKABLE bool removeArtboard(const QString &id);
+    Q_INVOKABLE QVariantMap artboardInfo(const QString &id) const;
+    // The topmost board whose rectangle contains the document point, or "".
+    Q_INVOKABLE QString artboardAt(qreal x, qreal y) const;
+    // SVG whose viewBox is the board's export rectangle over its background.
+    Q_INVOKABLE bool exportArtboardSvg(const QString &id, const QString &filePath);
 
     // QML facade. Colours are document DATA, not chrome.
     Q_INVOKABLE qulonglong addLayerNamed(const QString &name) { return addLayer(name); }
@@ -266,6 +336,15 @@ public:
     Q_INVOKABLE bool setLayerVisibleById(qulonglong id, bool visible) { return setLayerVisible(id, visible); }
     Q_INVOKABLE bool setLayerLockedById(qulonglong id, bool locked) { return setLayerLocked(id, locked); }
     Q_INVOKABLE bool removeLayerById(qulonglong id) { return removeLayer(id); }
+    Q_INVOKABLE qulonglong addGroupNamed(const QString &name) { return addLayerGroup(name); }
+    Q_INVOKABLE bool moveLayerTo(qulonglong id, qulonglong parent, int index) { return moveLayer(id, parent, index); }
+    Q_INVOKABLE bool renameLayerById(qulonglong id, const QString &name) { return renameLayer(id, name); }
+    Q_INVOKABLE qulonglong groupLayersById(const QVariantList &ids, const QString &name);
+    Q_INVOKABLE bool ungroupLayerById(qulonglong id) { return ungroupLayer(id); }
+    Q_INVOKABLE bool removeLayerTreeById(qulonglong id) { return removeLayerTree(id); }
+    Q_INVOKABLE bool moveObjectTo(qulonglong id, qulonglong layer, int index) { return moveObjectToLayer(id, layer, index); }
+    Q_INVOKABLE QVariantList childLayerIds(qulonglong parent) const;
+    Q_INVOKABLE QVariantList layerObjectIds(qulonglong layer) const;
     Q_INVOKABLE QVariantMap objectInfo(qulonglong id) const;
     // Document guides (docs/canvas.md#document-guides). Each accepted call is
     // one undoable edit; addGuide returns the new stable id or "" on refusal.
@@ -323,6 +402,20 @@ private:
     void ensureActiveLayer();
     int nextLayerOrder() const;
     std::optional<CanvasObject> copy(CanvasObjectId id) const;
+    // canvas_document_layers.cpp: ranks and child lists after layer changes,
+    // and the hierarchy an edit would leave (parents, cycles, depth, groups).
+    void refreshLayerTree();
+    OperationError prepareLayerTree(const CanvasEdit &edit, bool forward,
+                                    const QHash<CanvasLayerId, qsizetype> &layerUse) const;
+    // One labelled edit: `layers` are after-states by id (unchanged ones are
+    // skipped), `removed` layers go away, `objects` ride along.
+    bool commitLayers(const QString &label, const QHash<CanvasLayerId, CanvasLayer> &layers,
+                      const QVector<CanvasLayerId> &removed = {},
+                      const QVector<CanvasEdit::Change> &objects = {});
+    bool commitRecorded(const CanvasEdit &edit); // commitEdit, reason in lastError
+    bool refuse(const QString &message);
+    bool unchanged(); // a request that changes nothing: false, lastError cleared
+    void artboardDamage(const CanvasEdit::ArtboardChange &change, QVector<QRectF> *damage) const;
 
     DocumentId m_id;
     QString m_documentId;
@@ -331,6 +424,10 @@ private:
     QHash<CanvasImageId, CanvasTiledImagePtr> m_images;
     QVector<CanvasGuide> m_guides;
     quint64 m_nextGuide = 1;
+    QVector<CanvasArtboard> m_artboards;
+    quint64 m_nextArtboard = 1;
+    QHash<CanvasLayerId, int> m_layerRank; // depth-first flattened paint rank
+    QHash<CanvasLayerId, QVector<CanvasLayerId>> m_layerChildren; // paint order
     QHash<CanvasObjectId, QRectF> m_bounds;
     QHash<CanvasLayerId, qsizetype> m_layerUse;  // objects per layer
     QHash<CanvasImageId, qsizetype> m_imageUse;  // image objects per image
