@@ -113,7 +113,10 @@ rejection for incompatible port types. `NodeGraphModel` separately supplies
 typed image evaluation, cycle validation, undo and topology persistence for
 hosts that use the toolkit's initial processing nodes.
 The [live node graph fixture](node-graph-live/Main.qml) wires that model to the
-editor and displays its actual blended pixel output from two solid-color nodes.
+editor: two grouped solid plates and an ellipse mask feed a masked blend, and
+the rendered pixels, render errors, blend opacity (one undo step per drag),
+blend mode and undo/redo sit beside the graph. Search, grouping, adding and
+removing nodes, and keyboard linking all go through the model's validation.
 The [tracking and roto fixture](tracking-roto/Main.qml) presents tracked point
 confidence and loss beside editable, keyframed mask paths; snapshots and edit
 requests follow the `TrackingRotoModel` host contract.

@@ -82,3 +82,64 @@ function paintEdge(ctx, a, b, mode, stub, clearance) {
         ctx.lineTo(b.x, b.y)
     }
 }
+
+function groupById(groups, groupId) {
+    const source = groups || []
+    for (let i = 0; i < source.length; ++i)
+        if (String(source[i].groupId) === String(groupId)) return source[i]
+    return null
+}
+
+function groupContains(groups, groupId, nodeId) {
+    const group = groupById(groups, groupId)
+    return Boolean(group) && (group.nodeIds || []).map(String).indexOf(String(nodeId)) >= 0
+}
+
+// Document-space frame around a group's member cards, with a title strip.
+function groupBounds(nodes, group, nodeWidth, nodeHeight, padding, header) {
+    const ids = group ? group.nodeIds || [] : []
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity
+    for (let i = 0; i < ids.length; ++i) {
+        const node = nodeById(nodes, ids[i])
+        if (!node) continue
+        const x = Number(node.x || 0)
+        const y = Number(node.y || 0)
+        left = Math.min(left, x)
+        top = Math.min(top, y)
+        right = Math.max(right, x + nodeWidth)
+        bottom = Math.max(bottom, y + nodeHeight)
+    }
+    if (left === Infinity) return null
+    return { x: left - padding, y: top - padding - header,
+             width: right - left + padding * 2, height: bottom - top + padding * 2 + header }
+}
+
+// Case-insensitive match on title, type and ID, in snapshot order.
+function searchNodes(nodes, text) {
+    const query = String(text || "").trim().toLowerCase()
+    const result = []
+    const source = nodes || []
+    for (let i = 0; query && i < source.length; ++i) {
+        const node = source[i]
+        const haystack = [node.title, node.type, node.nodeId].join(" ").toLowerCase()
+        if (haystack.indexOf(query) >= 0) result.push(String(node.nodeId))
+    }
+    return result
+}
+
+// Keyboard link target: first free input of the armed type, then any free
+// input, then the first input. The host still validates the request.
+function targetInput(nodes, edges, nodeId, type) {
+    const node = nodeById(nodes, nodeId)
+    const inputs = node ? node.inputs || [] : []
+    const occupied = function(port) {
+        return (edges || []).some(function(edge) {
+            return String(edge.toNodeId) === String(nodeId)
+                && String(edge.toPortId) === String(port.portId)
+        })
+    }
+    const free = inputs.filter(function(port) { return !occupied(port) })
+    const typed = free.filter(function(port) { return String(port.type) === String(type) })
+    const choice = typed.length ? typed[0] : free.length ? free[0] : inputs[0]
+    return choice ? String(choice.portId) : ""
+}
