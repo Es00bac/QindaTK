@@ -5,11 +5,7 @@ import QindaTK as Tk
 Item {
     width: 520
     height: 190
-    property var demoStops: [
-        { id: "warm", position: 0, color: "#e35d6a" },
-        { id: "sun", position: 0.38, color: "#f6c85f" },
-        { id: "cool", position: 1, color: "#4385c5" }
-    ]
+    Tk.GradientEditorModel { id: gradientModel }
 
     Tk.GradientEditor {
         objectName: "gradientEditor"
@@ -17,13 +13,18 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: Tk.Theme.space.lg
-        stops: parent.demoStops
-        selectedStopId: "sun"
+        stops: gradientModel.stops
+        previewSamples: gradientModel.previewSamples
+        selectedStopId: gradientModel.selectedStopId
         tooltip: qsTr("Color gradient stops")
-        onAddStopRequested: function(position) {
-            const next = parent.demoStops.slice()
-            next.push({ id: "new-" + next.length, position: position, color: "#ffffff" })
-            parent.demoStops = next
+        onSelectionRequested: function(id) { gradientModel.selectStop(String(id)) }
+        onAddStopRequested: function(position) { gradientModel.addStop(position) }
+        onMovePreviewRequested: function(id, position) {
+            if (!gradientModel.editing) gradientModel.beginGesture("Move gradient stop")
+            gradientModel.previewMove(String(id), position)
         }
+        onMoveFinished: function() { gradientModel.commitGesture() }
+        onMoveCanceled: function() { gradientModel.cancelGesture() }
+        onDeleteStopRequested: function(id) { gradientModel.deleteStop(String(id)) }
     }
 }

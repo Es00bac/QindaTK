@@ -9110,6 +9110,14 @@
           "required": false
         },
         {
+          "name": "previewSamples",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "selectedStopId",
           "type": "var",
           "default": "null",
@@ -25659,6 +25667,152 @@
           "name": "wheelIntent",
           "returns": "Intent",
           "parameters": "int modifiers"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GradientEditorModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/gradient_editor_model.h",
+      "properties": [
+        {
+          "name": "gradientId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "stops",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewSamples",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedStopId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "editRejected",
+          "parameters": "const QString &message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "selectStop",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "beginGesture",
+          "returns": "bool",
+          "parameters": "const QString &label = QStringLiteral(\"Edit gradient\""
+        },
+        {
+          "name": "previewMove",
+          "returns": "bool",
+          "parameters": "const QString &id, double position"
+        },
+        {
+          "name": "previewColor",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &hex"
+        },
+        {
+          "name": "commitGesture",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelGesture",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "addStop",
+          "returns": "bool",
+          "parameters": "double position"
+        },
+        {
+          "name": "deleteStop",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "setStopColor",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &hex"
+        },
+        {
+          "name": "encode",
+          "returns": "QByteArray",
+          "parameters": ""
+        },
+        {
+          "name": "decode",
+          "returns": "bool",
+          "parameters": "const QByteArray &bytes"
         }
       ],
       "enums": {},

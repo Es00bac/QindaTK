@@ -11,6 +11,7 @@ T.Control {
     objectName: "gradientEditor"
 
     property var stops: []
+    property var previewSamples: []
     property var selectedStopId: null
     property string tooltip: qsTr("Gradient stops")
     property real trackInset: Tk.Theme.size.iconSm
@@ -146,23 +147,22 @@ T.Control {
             onPaint: {
                 const ctx = getContext("2d")
                 ctx.reset()
-                const preview = ctx.createLinearGradient(0, 0, width, 0)
-                const source = control.stops || []
-                if (source.length < 2) {
-                    ctx.fillStyle = source.length ? String(source[0].color)
-                                                  : Tk.Theme.color.panel
+                const samples = control.previewSamples || []
+                if (samples.length === 0) {
+                    ctx.fillStyle = Tk.Theme.color.panel
                     ctx.fillRect(0, 0, width, height)
                     return
                 }
-                for (let i = 0; i < source.length; ++i)
-                    preview.addColorStop(Math.max(0, Math.min(1, Number(source[i].position))),
-                                         String(source[i].color))
-                ctx.fillStyle = preview
-                ctx.fillRect(0, 0, width, height)
+                for (let x = 0; x < width; ++x) {
+                    const index = Math.min(samples.length - 1, Math.floor(x / width * samples.length))
+                    ctx.fillStyle = String(samples[index])
+                    ctx.fillRect(x, 0, 1, height)
+                }
             }
             Connections {
                 target: control
                 function onStopsChanged() { gradientPreview.requestPaint() }
+                function onPreviewSamplesChanged() { gradientPreview.requestPaint() }
                 function onWidthChanged() { gradientPreview.requestPaint() }
                 function onHeightChanged() { gradientPreview.requestPaint() }
             }

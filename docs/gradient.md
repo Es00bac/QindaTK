@@ -135,3 +135,21 @@ tests use the fixed profiles and provenance in
 Host/QML adaptation, shared transactions/undo, color-space editing, separate
 opacity-stop tracks, spatial gradient geometry, alternate spread/interpolation
 policies, adaptive sampling and managed renderer integration remain open.
+
+## QML editing model
+
+`GradientEditorModel` is the host-facing owner of a typed
+`GradientDefinition`. It exposes stable stop IDs/order as QML role maps and
+uses `GradientEvaluator` for 64 target-sRGB preview samples. Gesture updates
+are transient `EditTransaction` previews; pointer release commits one
+`UndoService` entry and Escape/grab cancellation restores the committed
+snapshot. Add, delete, and color change each commit as a single undo step.
+Positions are stable-sorted after a move, preserving array order for ties.
+`GradientDefinitionCodec` stores IDs, full ICC bytes, and double precision
+channel/position values in a versioned JSON payload. The example's visible
+ramp is painted from these evaluator samples, rather than browser gradient
+interpolation.
+
+The model currently edits tagged RGB ICC profiles through sRGB hex color
+inputs and previews to sRGB. UI color conversion controls and application
+managed display output remain host responsibilities.
