@@ -442,3 +442,20 @@ presentation. Tempo is constant per segment (no ramps). Beat-locked clip
 lengths and automation stay absolute. The three models keep separate
 histories. Realtime reclamation and a real engine are WP-060. See
 [tempo-automation.md](tempo-automation.md).
+
+## D-076 — Bounded scene hierarchy and optional Qt Quick 3D view
+
+**Context.** WP-076 needs real rendered objects and reversible manipulation, while
+keeping scene state independent of camera and renderer lifetimes.
+
+**Decision.** SceneModel3D owns stable primitive IDs, hierarchy, uniform positive
+scale, quaternion transforms, appearance, transactions and native persistence.
+SceneView3D resolves world snapshots through an optional Qt Quick 3D renderer.
+Parent-local transforms remain authoritative. Camera-plane drag previews carry
+world deltas from the initial position and become one history step on release.
+
+**Consequences.** Uniform scales allow exact keep-world reparenting without shear
+or fragile matrix decomposition. Qt owns mesh picking and graphics resources.
+The software adaptation reports unavailable. Mesh providers, nonuniform scale,
+materials, shared document history and full gizmos remain separate WP-076 scope.
+See [scene-3d.md](scene-3d.md).

@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick3D as Q3D
+import QindaTK as Tk
+
+Q3D.View3D {
+    id: viewport
+    objectName: "sceneRenderer3D"
+    property var control: null
+    environment: Q3D.SceneEnvironment {
+        backgroundMode: Q3D.SceneEnvironment.Color
+        clearColor: Tk.Theme.color.canvas
+    }
+    camera: Q3D.PerspectiveCamera {
+        id: sceneCamera
+        position: viewport.control ? viewport.control.cameraPosition : Qt.vector3d(0, 0, 0)
+        eulerRotation: viewport.control ? viewport.control.cameraEulerDegrees : Qt.vector3d(0, 0, 0)
+    }
+    Q3D.DirectionalLight { eulerRotation: Qt.vector3d(-30, -35, 0) }
+    Q3D.Repeater3D {
+        model: viewport.control && viewport.control.scene ? viewport.control.scene.entities : []
+        delegate: Q3D.Model {
+            id: sceneEntity
+            required property var modelData
+            readonly property string entityId: modelData.entityId
+            objectName: "sceneEntity3D_" + entityId
+            source: modelData.primitive === "sphere" ? "#Sphere" : modelData.primitive === "cylinder" ? "#Cylinder" : "#Cube"
+            position: modelData.worldPosition
+            rotation: modelData.worldRotation
+            scale: Qt.vector3d(modelData.worldScale, modelData.worldScale, modelData.worldScale)
+            visible: modelData.visible
+            pickable: true
+            materials: Q3D.PrincipledMaterial {
+                baseColor: sceneEntity.modelData.color
+                roughness: 0.6
+                emissiveFactor: viewport.control && viewport.control.scene && viewport.control.scene.selectedId === sceneEntity.entityId
+                    ? Qt.vector3d(Tk.Theme.color.accentSubtle.r, Tk.Theme.color.accentSubtle.g, Tk.Theme.color.accentSubtle.b)
+                    : Qt.vector3d(0, 0, 0)
+            }
+        }
+    }
+    // AGENT-CONTRACT: the viewport owns a camera-plane gesture. SceneModel3D
+    // owns the single edit transaction and converts world deltas through parents.
+    MouseArea {
+        id: gesture
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
+        property bool dragging: false
+        property var gestureScene: null
+        function cancel() {
+            if (dragging && gestureScene && gestureScene.editing) gestureScene.cancelTransform()
+            dragging = false
+            gestureScene = null
+        }
+        Component.onDestruction: cancel()
+        Connections {
+            target: viewport.control
+            function onSceneChanged() { gesture.cancel() }
+        }
+        property real depth: 0
+        property vector3d start: Qt.vector3d(0, 0, 0)
+        onPressed: function(mouse) {
+            if (!viewport.control || !viewport.control.scene) return
+            const scene = viewport.control.scene
+            gestureScene = scene
+            viewport.control.forceActiveFocus()
+            const hit = viewport.pick(mouse.x, mouse.y)
+            const id = hit.objectHit ? hit.objectHit.entityId : ""
+            scene.select(id)
+            if (!id.length) return
+            viewport.control.entityPicked(id, hit.scenePosition)
+            depth = viewport.mapFrom3DScene(hit.scenePosition).z
+            start = viewport.mapTo3DScene(Qt.vector3d(mouse.x, mouse.y, depth))
+            dragging = scene.beginTransform(id)
+        }
+        onPositionChanged: function(mouse) {
+            if (!dragging || !gestureScene || !gestureScene.editing) return
+            const point = viewport.mapTo3DScene(Qt.vector3d(mouse.x, mouse.y, depth))
+            gestureScene.previewWorldTranslation(point.minus(start), viewport.control.translationSnap)
+        }
+        onReleased: {
+            if (dragging && gestureScene && gestureScene.editing) gestureScene.commitTransform()
+            dragging = false
+            gestureScene = null
+        }
+        onCanceled: cancel()
+    }
+}

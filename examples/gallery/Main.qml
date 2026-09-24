@@ -167,6 +167,7 @@ Rectangle {
                 TimelineSection { filter: search.text }
                 VideoSection { filter: search.text }
                 MotionSection { filter: search.text }
+                Scene3DSection { filter: search.text }
                 ChartReviewSection { filter: search.text }
                 PlanningSection { filter: search.text }
                 CanvasSection { filter: search.text }

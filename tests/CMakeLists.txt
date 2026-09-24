@@ -49,6 +49,7 @@ qindatk_add_test(tst_color_engine)
 qindatk_add_test(tst_color_grade_processor)
 qindatk_add_test(tst_color_grade_edit_session)
 qindatk_add_test(tst_node_graph_model)
+qindatk_add_test(tst_scene_model_3d)
 qindatk_add_test(tst_gradient_editor_model)
 target_compile_definitions(tst_color_engine PRIVATE
     QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")

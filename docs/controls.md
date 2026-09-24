@@ -837,3 +837,7 @@ creation. Qt retains responsibility for native popup placement and flipping.
 Qt reports geometry in logical coordinates; never multiply this rectangle
 by device pixel ratio. The platform may not supply reserved work areas on
 multi-monitor X11; see the [monitor qualification note](universal-toolkit/implementation/evidence/WP-007-FND-09-monitor.md).
+
+## SceneView3D
+
+`Tk.SceneView3D` renders a `Tk.SceneModel3D` through optional Qt Quick 3D. It supports mesh picking, camera-plane drag, snapped world translation, Escape cancellation and arrow-key movement. `scene`, `cameraPosition`, `cameraEulerDegrees`, `translationSnap`, `rendererAvailable`, `tooltip` and `entityPicked(id, worldPosition)` form the public surface. Internal objectNames: `sceneView3D`, `sceneRenderer3D`, `sceneEntity3D_<UUID>`. See [3D scene model and viewport](scene-3d.md) for hierarchy, persistence and renderer limits.

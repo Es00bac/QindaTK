@@ -9,6 +9,13 @@
 # on the import path and nothing else.
 
 file(GLOB qindatk_qml_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.qml")
+# Scene data stays renderer-independent. SDKs without Quick3D still expose
+# SceneView3D, which reports its renderer unavailable through the lazy Loader.
+find_package(Qt6Quick3D 6.8 QUIET)
+if(NOT TARGET Qt6::Quick3D)
+    list(FILTER qindatk_qml_files EXCLUDE REGEX "SceneView3DRenderer\\.qml$")
+    message(STATUS "QindaTK: optional SceneView3D renderer unavailable (Qt Quick 3D not installed)")
+endif()
 file(GLOB qindatk_js_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.js")
 
 # Singleton QML types are marked here (pragma Singleton alone is not enough
@@ -37,6 +44,7 @@ qt_add_qml_module(qindatk
     PLUGIN_TARGET qindatkplugin
     DEPENDENCIES QtQuick QtQuick.Controls QtQuick.Templates
     SOURCES
+        core/scene_model_3d.h core/scene_model_3d.cpp core/scene_model_3d_codec.cpp
         core/application_contracts.cpp core/application_contracts.h
         core/color_profile.cpp core/color_profile.h
         core/color_context.h core/color_engine.cpp core/color_engine.h

@@ -24091,6 +24091,125 @@
       ]
     },
     {
+      "name": "SceneView3D",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SceneView3D.qml",
+      "properties": [
+        {
+          "name": "scene",
+          "type": "Tk.SceneModel3D",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"3D scene: drag objects to translate; arrows move selection; Escape cancels\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cameraPosition",
+          "type": "vector3d",
+          "default": "Qt.vector3d(0, 120, 650)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cameraEulerDegrees",
+          "type": "vector3d",
+          "default": "Qt.vector3d(-10, 0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "translationSnap",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rendererAvailable",
+          "type": "bool",
+          "default": "GraphicsInfo.api !== GraphicsInfo.Software && renderer.status === Loader.Ready",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "entityPicked",
+          "parameters": "string entityId, vector3d worldPosition"
+        }
+      ],
+      "methods": [
+        {
+          "name": "projectWorldPosition",
+          "parameters": "position"
+        },
+        {
+          "name": "pickEntity",
+          "parameters": "x, y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "sceneView3D"
+      ]
+    },
+    {
+      "name": "SceneView3DRenderer",
+      "kind": "qml",
+      "base": "Q3D.View3D",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SceneView3DRenderer.qml",
+      "properties": [
+        {
+          "name": "control",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "sceneEntity3D_",
+        "sceneRenderer3D"
+      ]
+    },
+    {
       "name": "ScoreView",
       "kind": "qml",
       "base": "T.Control",
@@ -45673,6 +45792,169 @@
       "registrationKind": "qml_anonymous",
       "exported": false,
       "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SceneModel3D",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Scene coordinates are right-handed world units. Uniform positive scales make hierarchical rotations and keep-world reparenting exact without hidden shear.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/scene_model_3d.h",
+      "properties": [
+        {
+          "name": "entities",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "addEntity",
+          "returns": "QString",
+          "parameters": "const QString &name, const QString &primitive, const QVector3D &position, const QColor &color"
+        },
+        {
+          "name": "removeEntity",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "select",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "setTransform",
+          "returns": "bool",
+          "parameters": "const QString &id, const QVector3D &position, const QVector3D &eulerDegrees, float scale"
+        },
+        {
+          "name": "setAppearance",
+          "returns": "bool",
+          "parameters": "const QString &id, const QColor &color, bool visible"
+        },
+        {
+          "name": "reparent",
+          "returns": "bool",
+          "parameters": "const QString &id, const QString &parentId, bool keepWorld"
+        },
+        {
+          "name": "worldTransform",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "beginTransform",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "previewWorldTranslation",
+          "returns": "bool",
+          "parameters": "const QVector3D &delta, float snap = 0"
+        },
+        {
+          "name": "commitTransform",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTransform",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "fromJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
       "valueType": false,
       "bridge": false
     },
