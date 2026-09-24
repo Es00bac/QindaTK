@@ -27618,6 +27618,13 @@
           "constant": false
         },
         {
+          "name": "colorError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "stats",
           "type": "QVariantMap",
           "default": "",

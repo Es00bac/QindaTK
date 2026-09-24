@@ -10,9 +10,10 @@ Changing the color context clears all old-profile tiles. Unsupported working
 or display spaces report `RenderSurfaceAdapter.colorError` and present an
 empty tile frame. The policy is [D-051](../../../decisions-application.md#d-051--convert-composed-srgb-canvas-tiles-for-explicit-rgb-displays).
 
-The focused Qt 6.11.1 `tst_canvas_display` and existing `tst_canvas_render`
-CTest targets passed **2/2**. The separate offscreen RHI registration passed
-**1/1** with an actual scene-graph readback. A page authored at sRGB 128/255
+After integration at `debd004`, the Qt 6.11.1 and Qt 6.8.3 focused
+`tst_canvas_render`, `tst_canvas_display` and offscreen RHI registrations each
+passed **3/3**. The RHI tests performed actual scene-graph readback. A page
+authored at sRGB 128/255
 converted to linear-sRGB byte value **55** at the center; switching from
 scene graph to software kept the same value. The two 300×300 inspected grabs
 were pixel-identical (maximum absolute RGBA difference 0):
@@ -31,4 +32,5 @@ and Qt-representable RGB display targets. There is no proofing, gamut result,
 CMYK, arbitrary working-space compositing, display-device discovery, typed
 picker binding or document transaction integration. The managed scene-graph
 path uploads converted CPU rasters; a profile-aware geometry shader has not
-been implemented. Qt 6.8 integration verification is pending.
+been implemented. The installed-consumer and full-suite gates remain for the
+overall WP-043 package.
