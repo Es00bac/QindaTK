@@ -186,6 +186,7 @@ Rectangle {
                 FinancialSection { filter: search.text }
                 PolarSection { filter: search.text }
                 UncertaintySection { filter: search.text }
+                VolumeImagingSection { filter: search.text }
                 PartWholeSection { filter: search.text }
                 DockingSection { filter: search.text }
                 ThemeSection { filter: search.text }

@@ -1,6 +1,12 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Examples
 
+The [volume imaging phantom](volume-imaging/Main.qml) renders a typed
+41 × 41 × 21 sphere phantom with 0.8 × 0.8 × 1.6 mm voxels in three linked,
+calibrated principal planes; the cross-sections stay round because each view
+fits physical spacing. It includes an editable measured-value transfer
+function and a shared voxel/world cursor whose centre is world (0, 0, 0) mm.
+
 The [CAD sketch](cad-sketch/Main.qml) renders a constrained mounting plate
 with four circular bores. `CadViewport` can select, drag, snap, and create
 points, segments, circles and arcs against the persistent `CadDocument`

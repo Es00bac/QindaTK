@@ -250,6 +250,10 @@ qt_add_qml_module(qindatk
         core/grid.cpp core/grid.h
         core/chart_axis.cpp core/chart_axis.h
         core/scientific_dataset.cpp core/scientific_dataset.h
+        core/voxel_volume.cpp core/voxel_volume.h
+        core/volume_cursor.cpp core/volume_cursor.h
+        core/transfer_function_model.cpp core/transfer_function_model.h
+        core/image_slice_item.cpp core/image_slice_item.h
         core/chart_series.cpp core/chart_series.h
         core/chart_data.cpp core/chart_data.h
         core/chart_dataset.cpp core/chart_dataset.h
