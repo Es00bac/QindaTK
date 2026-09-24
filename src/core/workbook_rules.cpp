@@ -97,14 +97,15 @@ bool operandField(const QVariantMap &map, const char *key, const RuleLookups &lo
     else return fail(error, QStringLiteral("'%1' must be a value or a formula").arg(QLatin1StringView(key)));
     QString problem;
     if (!operandFromText(text, lookups, out, &problem))
-        return fail(error, QStringLiteral("%1: %2").arg(QLatin1StringView(key), problem));
+        return fail(error, QStringLiteral("%1: %2").arg(QLatin1StringView(key) == u"value1" ? QStringLiteral("Value")
+                                                        : QStringLiteral("Second value"), problem));
     return true;
 }
 bool twoValues(RuleOperator op) { return op == RuleOperator::Between || op == RuleOperator::NotBetween; }
 bool comparisonOperands(RuleOperator op, const RuleOperand &a, const RuleOperand &b, QString *error)
 {
-    if (a.isEmpty()) return fail(error, QStringLiteral("value1 is required"));
-    if (twoValues(op) && b.isEmpty()) return fail(error, QStringLiteral("value2 is required for this operator"));
+    if (a.isEmpty()) return fail(error, QStringLiteral("Enter a value to compare with"));
+    if (twoValues(op) && b.isEmpty()) return fail(error, QStringLiteral("Enter the second value of the range"));
     return true;
 }
 } // namespace
@@ -254,7 +255,7 @@ bool conditionalFromMap(const QVariantMap &map, const RuleLookups &lookups, Cond
         if (!comparisonOperands(rule->op, rule->value1, rule->value2, error)) return false;
         break;
     case ConditionalRule::Type::Expression:
-        if (!rule->value1.formula) return fail(error, QStringLiteral("An expression rule needs a formula in value1"));
+        if (!rule->value1.formula) return fail(error, QStringLiteral("Enter a formula such as =A1>0"));
         break;
     case ConditionalRule::Type::ContainsText:
         if (rule->text.isEmpty()) return fail(error, QStringLiteral("A contains-text rule needs text"));
@@ -329,10 +330,10 @@ bool validationFromMap(const QVariantMap &map, const RuleLookups &lookups, Valid
         break;
     case ValidationRule::Type::List:
         if (rule->items.isEmpty() && !rule->value1.formula)
-            return fail(error, QStringLiteral("A list needs items or a source range formula in value1"));
+            return fail(error, QStringLiteral("Enter list items or a source range such as =$D$1:$D$9"));
         break;
     case ValidationRule::Type::Custom:
-        if (!rule->value1.formula) return fail(error, QStringLiteral("A custom rule needs a formula in value1"));
+        if (!rule->value1.formula) return fail(error, QStringLiteral("Enter a formula such as =A1>0"));
         break;
     case ValidationRule::Type::Any: break;
     }

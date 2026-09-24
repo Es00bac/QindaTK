@@ -22,6 +22,15 @@ Item {
                                           ? "" : String(modelData.value)
     readonly property bool merged: (modelData.rowSpan || 1) > 1 || (modelData.columnSpan || 1) > 1
     readonly property bool hasIcon: String(cellStyle.icon || "").length > 0
+    readonly property color fill: cellStyle.fillColor ? cellStyle.fillColor : "transparent"
+
+    // Text over a document fill without its own text color: a shade of the
+    // fill itself, dark on light fills and light on dark ones (the theme's
+    // text color is chosen for the theme's panels, not the document's).
+    function contrastOn(color) {
+        const luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b
+        return luminance > 0.5 ? Qt.darker(color, 4) : Qt.lighter(color, 4)
+    }
 
     objectName: "gridCell_" + modelData.rowId + "_" + modelData.columnId
     x: modelData.x
@@ -91,6 +100,7 @@ Item {
                              : Text.AlignLeft
         text: cell.displayText
         color: cell.cellStyle.textColor ? cell.cellStyle.textColor
+             : cell.cellStyle.fillColor ? cell.contrastOn(cell.fill)
              : cell.cellStyle.error === true ? Tk.Theme.color.danger : Tk.Theme.color.text
         font.pixelSize: Tk.Theme.font.body
         font.bold: cell.cellStyle.bold === true
