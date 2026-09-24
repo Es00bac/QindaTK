@@ -73,6 +73,7 @@ void ToolController::setDocument(CanvasDocumentAdapter *document)
     }
     m_document = document;
     m_selection.clear();
+    if (m_selectionModel) m_selectionModel->setDocument(document);
     if (document) {
         connect(document, &CanvasDocumentAdapter::edited, this, &ToolController::onDocumentEdited);
         connect(document, &CanvasDocumentAdapter::reset, this, [this] {
@@ -93,6 +94,41 @@ void ToolController::setDocument(CanvasDocumentAdapter *document)
     }
     emit selectionChanged();
     emit documentChanged();
+}
+
+void ToolController::setSelectionModel(CanvasSelectionModel *model)
+{
+    if (m_selectionModel == model) return;
+    if (m_selectionModel) disconnect(m_selectionModel, nullptr, this, nullptr);
+    m_selectionModel = model;
+    if (model) {
+        if (model->document() != m_document) model->setDocument(m_document);
+        connect(model, &CanvasSelectionModel::selectionChanged, this, [this] {
+            if (m_publishingSelection || !m_selectionModel) return;
+            if (m_tool) cancel(QStringLiteral("selection-changed"));
+            if (m_selection == m_selectionModel->selection()) return;
+            m_selection = m_selectionModel->selection();
+            emit selectionChanged();
+        });
+        connect(model, &QObject::destroyed, this, [this] {
+            m_selectionModel = nullptr;
+            emit selectionModelChanged();
+        });
+        m_selection = model->selection();
+        emit selectionChanged();
+    }
+    emit selectionModelChanged();
+}
+
+void ToolController::publishSelection()
+{
+    if (!m_selectionModel) return;
+    m_publishingSelection = true;
+    m_selectionModel->setSelection(m_selection);
+    m_publishingSelection = false;
+    if (m_selection == m_selectionModel->selection()) return;
+    m_selection = m_selectionModel->selection();
+    emit selectionChanged();
 }
 
 void ToolController::setActiveTool(const QString &id)
@@ -185,6 +221,7 @@ bool ToolController::beginGesture(const QString &viewId, const CanvasToolInput &
     emit previewChanged();
     if (m_selection != selectionBefore) {
         emit selectionChanged();
+        publishSelection();
     }
     return true;
 }
@@ -224,6 +261,7 @@ bool ToolController::endGesture(const QString &viewId, const CanvasToolInput &in
     if (m_selection != selectionBefore) {
         pruneSelection();
         emit selectionChanged();
+        publishSelection();
     }
     if (outcome == QLatin1String("committed")) {
         emit gestureCommitted(tool->id(), m_document ? m_document->revision() : 0);
@@ -244,6 +282,7 @@ void ToolController::cancel(const QString &reason)
     if (m_selection != selectionBefore) {
         pruneSelection();
         emit selectionChanged();
+        publishSelection();
     }
     emit gestureCanceled(tool->id(), reason);
 }
@@ -288,6 +327,14 @@ void ToolController::onDocumentEdited(quint64)
 
 void ToolController::pruneSelection()
 {
+    if (m_selectionModel) {
+        m_selectionModel->setSelection(m_selection);
+        if (m_selection != m_selectionModel->selection()) {
+            m_selection = m_selectionModel->selection();
+            emit selectionChanged();
+        }
+        return;
+    }
     if (!m_document) {
         return;
     }
@@ -308,7 +355,7 @@ CanvasToolPreview ToolController::preview() const
 QVariantMap ToolController::previewMap() const
 {
     const CanvasToolPreview p = preview();
-    static const char *const kinds[] = {"none", "marquee", "rect", "ellipse", "polyline", "move"};
+    static const char *const kinds[] = {"none", "marquee", "rect", "ellipse", "polyline", "move", "lasso"};
     QVariantList points;
     for (const QPointF &pt : p.points) {
         points << pt;
@@ -326,6 +373,10 @@ QVariantMap ToolController::previewMap() const
 
 void ToolController::setSelection(const QVector<CanvasObjectId> &ids)
 {
+    if (m_selectionModel) {
+        m_selectionModel->setSelection(ids);
+        return;
+    }
     QVector<CanvasObjectId> next;
     for (CanvasObjectId id : ids) {
         if ((!m_document || m_document->object(id)) && !next.contains(id)) {

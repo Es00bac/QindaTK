@@ -101,6 +101,9 @@ bool FormatRegistry::registerProvider(FormatProviderPtr provider)
             || metadata.value(QStringLiteral("editableImport")).toBool())) return false;
     if (metadata.value(QStringLiteral("roundtrip")).toBool()
         != operations.contains(QStringLiteral("roundtrip"))) return false;
+    if (metadata.contains(QStringLiteral("schemas"))
+        && metadata.value(QStringLiteral("schemas")).metaType() != QMetaType::fromType<QStringList>())
+        return false;
     m_providers.append(std::move(provider));
     emit formatsChanged();
     return true;
@@ -177,6 +180,11 @@ QVariantMap FormatRegistry::preflightSnapshot(const SnapshotPtr &snapshot,
     if (!snapshot)
         return FormatIO::planMap(formatId, QStringLiteral("export"),
             failure(ErrorCode::InvalidArgument, QStringLiteral("No document for export")));
+    const QStringList schemas = selected->metadata().value(QStringLiteral("schemas")).toStringList();
+    if (!schemas.isEmpty() && !schemas.contains(snapshot->header.schemaId))
+        return FormatIO::planMap(formatId, QStringLiteral("export"),
+            failure(ErrorCode::Unsupported, QStringLiteral("Format does not support this document schema"),
+                    QStringLiteral("schemaId")));
     const QString snapshotHash = QString::fromLatin1(FormatIO::hash(snapshot->payload).toHex());
     if ((options.contains(QStringLiteral("expectedSourceRevision"))
          && options.value(QStringLiteral("expectedSourceRevision")).toString()
@@ -216,11 +224,10 @@ QVariantMap FormatRegistry::preflightExportSession(DocumentSession *session,
 {
     if (!session) return preflightSnapshot({}, destination, formatId, options);
     OperationError error;
-    const auto snapshot = ReferenceDocumentCodec::capture(*session->document(),
-                                                           session->extensions(), &error);
+    const auto snapshot = session->captureSnapshot(&error);
     return snapshot ? preflightSnapshot(snapshot, destination, formatId, options)
                     : FormatIO::planMap(formatId, QStringLiteral("export"),
-                                        {options, {}, {}, error});
+                                        {options, {}, {}, error, {}});
 }
 bool FormatRegistry::fail(const QString &message)
 {
@@ -276,8 +283,7 @@ QString FormatRegistry::startExportSession(DocumentSession *session, const QUrl 
 {
     if (!session) { fail(QStringLiteral("No document session for export")); return {}; }
     OperationError error;
-    const auto snapshot = ReferenceDocumentCodec::capture(*session->document(),
-                                                           session->extensions(), &error);
+    const auto snapshot = session->captureSnapshot(&error);
     if (!snapshot) { fail(error.message); return {}; }
     return startExportSnapshot(snapshot, destination, formatId, options);
 }
@@ -343,12 +349,8 @@ DocumentSession *FormatRegistry::adoptImport(DocumentManager *manager, const QSt
         fail(QStringLiteral("Job is not an import")); return nullptr;
     }
     OperationError error;
-    auto decoded = ReferenceDocumentCodec::decode(output.value(QStringLiteral("documentBytes")).toByteArray(), &error);
-    if (!decoded) { fail(error.message); return nullptr; }
-    const QJsonObject extensions = decoded->extensions;
-    auto *session = manager->create(std::move(decoded->document));
-    if (!session) { fail(QStringLiteral("Document identity is already open")); return nullptr; }
-    session->setExtensions(extensions);
+    auto *session = manager->adoptBytes(output.value(QStringLiteral("documentBytes")).toByteArray(), &error);
+    if (!session) { fail(error.message); return nullptr; }
     m_lastError.clear();
     emit changed();
     return session;

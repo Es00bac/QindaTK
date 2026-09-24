@@ -8,6 +8,11 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
     foreach(dir IN LISTS example_dirs)
         if(IS_DIRECTORY "${dir}" AND EXISTS "${dir}/Main.qml")
             get_filename_component(name "${dir}" NAME)
+            # The workbench QML requires its local C++ DocumentManager host;
+            # its standalone --check is the smoke gate for that example.
+            if(name STREQUAL "workbench")
+                continue()
+            endif()
             add_test(NAME example_${name}
                 COMMAND qtk-preview "${dir}/Main.qml" --check --size 1280x800)
             set_tests_properties(example_${name} PROPERTIES
@@ -23,5 +28,10 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
         COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/platform-services.qml"
                 --check --size 920x620)
     set_tests_properties(example_platform_services PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    add_test(NAME example_color_picker_model
+        COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/spatial-canvas/ColorPickerScene.qml"
+                --check --size 520x640)
+    set_tests_properties(example_color_picker_model PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()

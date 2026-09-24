@@ -193,6 +193,8 @@ QVariantMap DockModel::toMap(const QString &panelId, const PanelState &p) const
     map.insert(QStringLiteral("floating"), p.mode == Floating);
     map.insert(QStringLiteral("collapsed"), p.mode == Collapsed);
     map.insert(QStringLiteral("hidden"), p.mode == Hidden);
+    map.insert(QStringLiteral("detached"), p.mode == Detached);
+    map.insert(QStringLiteral("detachedScreenId"), p.detachedScreenId);
     map.insert(QStringLiteral("visible"), p.mode != Hidden);
     return map;
 }
@@ -353,6 +355,19 @@ QVariantList DockModel::floatingPanels() const
     return list;
 }
 
+QVariantList DockModel::detachedPanels() const
+{
+    QVariantList result;
+    const Workspace *ws = activeWorkspace();
+    if (!ws) return result;
+    QStringList ids;
+    for (auto it = ws->cbegin(); it != ws->cend(); ++it)
+        if (it.value().mode == Detached) ids.append(it.key());
+    std::sort(ids.begin(), ids.end());
+    for (const QString &id : ids) result.append(toMap(id, ws->value(id)));
+    return result;
+}
+
 bool DockModel::acceptsZone(const QString &panelId, const QString &zone) const
 {
     const PanelState *p = state(panelId);
@@ -386,6 +401,9 @@ void DockModel::setMode(const QString &panelId, const QString &mode)
         break;
     case Hidden:
         hide(panelId);
+        break;
+    case Detached:
+        detachPanel(panelId);
         break;
     }
 }
@@ -444,6 +462,29 @@ void DockModel::floatPanel(const QString &panelId, double x, double y)
     if (wasHidden) {
         emit panelShown(panelId);
     }
+}
+
+void DockModel::detachPanel(const QString &panelId, const QRectF &globalRect)
+{
+    PanelState *p = state(panelId);
+    if (!p) return;
+    if (p->mode == Detached && !globalRect.isValid()) return;
+    const QString oldZone = p->zone;
+    const int oldLane = p->lane;
+    p->mode = Detached;
+    p->group.clear();
+    if (globalRect.isValid() && globalRect.width() > 0 && globalRect.height() > 0)
+        p->floatingRect = globalRect;
+    renumberLane(oldZone, oldLane);
+    touched();
+}
+
+void DockModel::setDetachedScreen(const QString &panelId, const QString &screenId)
+{
+    PanelState *p = state(panelId);
+    if (!p || p->mode != Detached || p->detachedScreenId == screenId) return;
+    p->detachedScreenId = screenId;
+    touched();
 }
 
 void DockModel::hide(const QString &panelId)

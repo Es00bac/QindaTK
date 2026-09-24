@@ -168,8 +168,10 @@ QSGNode *sync(QSGNode *oldNode, const CanvasRenderFrame *frame, QQuickWindow *wi
             tile = nullptr;
         }
         if (!tile) {
-            tile = frame->backend == CanvasBackend::Software ? buildSoftware(item, window)
-                                                             : buildSceneGraph(item, window);
+            // Managed display tiles are composited and converted on the CPU,
+            // then uploaded by either backend. Raw sRGB keeps the geometry path.
+            tile = !item.content->raster.isNull() ? buildSoftware(item, window)
+                                                  : buildSceneGraph(item, window);
             root->transform->appendChildNode(tile);
             root->tiles.insert(item.key, tile);
         }

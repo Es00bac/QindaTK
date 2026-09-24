@@ -11,10 +11,21 @@ namespace QindaTK {
 QString CanvasColorContext::description() const
 {
     auto name = [](const QColorSpace &space) {
+        if (!space.isValid()) return QStringLiteral("<invalid>");
         const QString d = space.description();
-        return d.isEmpty() ? QStringLiteral("sRGB") : d;
+        return d.isEmpty() ? QStringLiteral("<unnamed RGB profile>") : d;
     };
     return name(working) + QStringLiteral(" -> ") + name(display);
+}
+
+QString CanvasColorContext::validationError() const
+{
+    if (working != QColorSpace(QColorSpace::SRgb))
+        return QStringLiteral("Canvas QColor document values require an sRGB working space");
+    if (!display.isValid() || !display.isValidTarget()
+        || display.colorModel() != QColorSpace::ColorModel::Rgb)
+        return QStringLiteral("Canvas display requires a valid RGB output color space");
+    return {};
 }
 
 namespace CanvasTiles {
@@ -208,6 +219,9 @@ void RenderSurfaceAdapter::setColorContext(const CanvasColorContext &context)
     const quint64 generation = m_color.generation + 1;
     m_color = context;
     m_color.generation = generation;
+    m_colorError = m_color.validationError();
+    clearCache(); // never show a tile encoded for the old display profile
+    m_renderedRevision = 0;
     emit configurationChanged();
     emit updateRequested();
 }
@@ -304,7 +318,7 @@ std::shared_ptr<const CanvasRenderFrame> RenderSurfaceAdapter::prepare(CanvasRen
     m_dpr = request.devicePixelRatio;
     m_visible = m_rendered = m_pending = 0;
     m_candidates = m_dots = 0;
-    if (!m_document || request.viewSize.isEmpty()) {
+    if (!m_document || request.viewSize.isEmpty() || !m_colorError.isEmpty()) {
         emit statsChanged();
         return frame;
     }
@@ -322,8 +336,17 @@ std::shared_ptr<const CanvasRenderFrame> RenderSurfaceAdapter::prepare(CanvasRen
         if (needs && m_rendered < m_budget) {
             CanvasPaintStats ps;
             auto content = std::make_shared<CanvasTileContent>();
-            if (m_backend == CanvasBackend::Software) {
+            if (m_backend == CanvasBackend::Software || m_color.needsDisplayTransform()) {
                 content->raster = CanvasPainter::renderTile(*m_document, rect, m_tilePixels, m_color, &ps);
+                if (content->raster.isNull()) {
+                    m_colorError = QStringLiteral("Canvas display profile conversion failed");
+                    clearCache();
+                    frame->items.clear();
+                    m_renderedRevision = 0;
+                    emit configurationChanged();
+                    emit statsChanged();
+                    return frame;
+                }
                 content->bytes = content->raster.sizeInBytes();
             } else {
                 *content = CanvasTessellator::build(*m_document, rect, scale, &ps);
@@ -375,7 +398,8 @@ QVariantMap RenderSurfaceAdapter::stats() const
             {QStringLiteral("documentRevision"), qulonglong(m_document ? m_document->revision() : 0)},
             {QStringLiteral("totalRendered"), qulonglong(m_totalRendered)},
             {QStringLiteral("totalEvicted"), qulonglong(m_totalEvicted)},
-            {QStringLiteral("colorContext"), m_color.description()}};
+            {QStringLiteral("colorContext"), m_color.description()},
+            {QStringLiteral("colorError"), m_colorError}};
 }
 
 } // namespace QindaTK

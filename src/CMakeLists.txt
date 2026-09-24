@@ -38,10 +38,21 @@ qt_add_qml_module(qindatk
     DEPENDENCIES QtQuick QtQuick.Controls QtQuick.Templates
     SOURCES
         core/application_contracts.cpp core/application_contracts.h
+        core/color_profile.cpp core/color_profile.h
+        core/color_context.h core/color_engine.cpp core/color_engine.h
+        core/color_picker_model.cpp core/color_picker_model.h
+        core/color_lcms_p.h
+        core/curve_evaluator.cpp core/curve_evaluator.h
+        core/curve_validation.cpp core/curve_evaluator_p.h
+        core/curve_editor_model.cpp core/curve_editor_model.h
+        core/gradient_evaluator.cpp core/gradient_evaluator.h
+        core/gradient_editor_model.cpp core/gradient_editor_model.h
         core/capability_registry.cpp core/capability_registry.h
         core/command_context.cpp core/command_context.h
         core/command_registry.cpp core/command_registry.h
         core/edit_transaction.cpp core/edit_transaction.h
+        core/document_model.h
+        core/document_codec.cpp core/document_codec.h
         core/document_store.cpp core/document_store.h
         core/document_session.cpp core/document_session.h
         core/document_manager.cpp core/document_manager.h
@@ -66,6 +77,18 @@ qt_add_qml_module(qindatk
         core/transfer_payload.cpp core/transfer_payload.h
         core/gesture_router.cpp core/gesture_router.h
         core/time_map.cpp core/time_map.h
+        core/timeline_time.cpp core/timeline_time.h core/timeline_types.h
+        core/timeline_policy.cpp core/timeline_policy.h
+        core/timeline_codec.cpp core/timeline_codec.h
+        core/timeline_snap.cpp core/timeline_snap.h
+        core/timeline_planner.cpp core/timeline_planner_misc.cpp core/timeline_planner_ripple.cpp
+        core/timeline_planner.h
+        core/timeline_model.cpp core/timeline_model_edit.cpp core/timeline_model_history.cpp
+        core/timeline_model_io.cpp core/timeline_model_qml.cpp core/timeline_model.h
+        core/timeline_visible_list.cpp core/timeline_visible_list.h
+        core/timeline_viewport.cpp core/timeline_viewport_rows.cpp core/timeline_viewport.h
+        core/timeline_media_provider.cpp core/timeline_media_provider.h
+        core/timeline_transfer.cpp core/timeline_transfer.h
         core/clipboard_service.cpp core/clipboard_service.h core/clipboard_ranges.cpp
         core/drag_drop_service.cpp core/drag_drop_service.h
         core/property_collection_drop_target.cpp
@@ -73,6 +96,7 @@ qt_add_qml_module(qindatk
         core/font_catalog.cpp core/font_catalog.h
         core/accessibility_adapter.cpp core/accessibility_adapter.h
         core/window_host.cpp core/window_host.h
+        core/detached_panel_host.cpp core/detached_panel_host.h
         core/file_dialog_adapter.cpp core/file_dialog_adapter.h
         core/desktop_integration.cpp core/desktop_integration.h
         core/format_registry.cpp core/format_registry.h
@@ -81,11 +105,33 @@ qt_add_qml_module(qindatk
         core/plain_text_format.cpp
         core/asset_provider.cpp core/asset_provider.h
         core/file_asset_backend.cpp
+        core/recovery_journal.cpp core/recovery_journal.h
         core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h
         core/reference_document_codec.cpp core/reference_document_codec.h
+        core/rich_text_types.cpp core/rich_text_types.h core/rich_text_spans.h
+        core/rich_text_document.cpp core/rich_text_document.h
+        core/rich_text_edit.cpp core/rich_text_history.cpp
+        core/rich_text_ops.cpp core/rich_text_ops_p.h
+        core/rich_text_structure.cpp core/rich_text_fragment.cpp
+        core/rich_text_codec.cpp core/rich_text_codec_read.cpp
+        core/rich_text_codec.h core/rich_text_codec_p.h
+        core/rich_text_layout.h core/rich_text_layout_p.h core/rich_text_shaping_p.h
+        core/rich_text_shaping.cpp core/rich_text_pagination.cpp core/rich_text_table_flow.cpp
+        core/rich_text_pages.cpp core/rich_text_mapping.cpp core/rich_text_navigation.cpp
+        core/rich_text_painter.cpp core/rich_text_objects.cpp core/rich_text_objects.h
+        core/rich_text_graphemes.cpp core/rich_text_graphemes.h
+        core/rich_text_area.cpp core/rich_text_area.h core/rich_text_area_input.cpp
+        core/rich_text_area_edit.cpp core/rich_text_area_commands.cpp
+        core/rich_text_format_state.cpp core/rich_text_format_state.h
+        core/rich_text_page_model.cpp core/rich_text_page_model.h core/rich_text_visible_pages.h
+        core/rich_text_tile.cpp core/rich_text_tile.h
+        core/rich_text_clipboard.cpp core/rich_text_clipboard.h
+        core/rich_text_html.cpp core/rich_text_html.h
+        core/rich_text_session_adapter.cpp core/rich_text_session_adapter.h
         core/property_binding.cpp core/property_binding.h
-        core/undo_service.cpp core/undo_service.h core/undo_participants.cpp
+        core/undo_service.cpp core/undo_service.h
+        core/undo_history.cpp
         core/validation_model.cpp core/validation_model.h
         core/selection_model.cpp core/selection_model.h
         core/editable_grid_model.cpp core/editable_grid_model.h
@@ -165,15 +211,24 @@ qt_add_qml_module(qindatk
         core/canvas_object.h
         core/canvas_geometry.cpp core/canvas_geometry.h
         core/canvas_document.cpp core/canvas_document.h
+        core/canvas_document_state.h
+        core/canvas_document_edit.cpp core/canvas_document_p.h
+        core/canvas_document_format.cpp core/canvas_document_format.h
+        core/canvas_document_codec.cpp
         core/canvas_document_qml.cpp
+        core/canvas_native_format.cpp
         core/hit_test_service.cpp core/hit_test_service.h
         core/tool_controller.cpp core/tool_controller.h
+        core/canvas_selection_model.cpp core/canvas_selection_model.h
+        core/canvas_alignment_model.cpp core/canvas_alignment_model.h
         core/canvas_tools.cpp
         core/canvas_render.h
         core/canvas_painter.cpp
         core/canvas_tessellator.cpp
         core/render_surface_adapter.cpp core/render_surface_adapter.h
         core/canvas_view_state.cpp core/canvas_view_state.h
+        core/canvas_snap_model.cpp core/canvas_snap_model.h
+        core/canvas_transform_controller.cpp core/canvas_transform_controller.h
         core/canvas_surface.cpp core/canvas_surface.h
         core/canvas_surface_input.cpp
         core/canvas_surface_nodes.cpp core/canvas_surface_nodes.h
@@ -191,7 +246,7 @@ target_include_directories(qindatk PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
-    PRIVATE Qt6::Svg Qt6::Concurrent)
+    PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2)
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
 

@@ -1,13 +1,18 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 03 — Spatial editing and exact time
 
-**Execution underway.** WP-046 and WP-047 are accepted; other packages remain planned.
+**Execution underway.** WP-046 through WP-048 are accepted; WP-040 is in
+integrated review. WP-041 through WP-043 have active slices. Other packages
+remain planned.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
-Execute only packages whose listed dependencies are accepted. Phase numbers
-organize the work; the dependency graph controls readiness. Sol remains the
+Integrate and accept package contracts only after their listed dependencies
+are accepted. Phase numbers organize the work; the dependency graph controls
+readiness. Sol remains the
 orchestrator and integration owner even where Luna is the implementation lead.
+The user-directed WP-041/WP-042 presentation slices began early in separate
+files; their model integration and acceptance still wait for those dependencies.
 Every package also inherits the common completion gate and the existing
 proposal contract/completion check. Paths below identify intended change areas;
 new filenames and interfaces are finalized in the owning package.
@@ -15,7 +20,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-040"></a>
 ## WP-040 — Build the spatial canvas and rendering boundary
 
-**Implementation lead:** Sol. **Status:** review ([evidence](evidence/WP-040.md); WP-033 dependency still planned). **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-033](phase-02-controls-data.md#wp-033)
+**Implementation lead:** Sol. **Status:** review ([evidence](evidence/WP-040.md); WP-033 dependency active). **Depends on:** [WP-012](phase-01-services.md#wp-012), [WP-015](phase-01-services.md#wp-015), [WP-017](phase-01-services.md#wp-017), [WP-033](phase-02-controls-data.md#wp-033)
 
 **Proposal scope:** [CAN-01 CanvasView](../proposed/04-canvas-color.md#can-01), [CAN-02 ToolController](../proposed/04-canvas-color.md#can-02), [CAN-03 HitTestService](../proposed/04-canvas-color.md#can-03), [PLT-10 RenderSurfaceAdapter](../proposed/08-platform-integrations.md#plt-10)
 
@@ -38,7 +43,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-041"></a>
 ## WP-041 — Implement spatial selection, snapping and transforms
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** active spatial slice ([evidence](evidence/WP-041.md); WP-040 dependency remains in review). **Depends on:** [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [CAN-04 SnapModel](../proposed/04-canvas-color.md#can-04), [CAN-05 SelectionOverlay](../proposed/04-canvas-color.md#can-05), [CAN-06 TransformHandles](../proposed/04-canvas-color.md#can-06), [CAN-07 GuideLayer](../proposed/04-canvas-color.md#can-07)
 
@@ -57,7 +62,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-042"></a>
 ## WP-042 — Add artboards, layers and document navigation
 
-**Implementation lead:** Luna. **Status:** planned. **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041)
+**Implementation lead:** Luna. **Status:** active layer, navigator, alignment and artboard presentation slices ([evidence](evidence/WP-042.md); WP-041 dependency remains open). **Depends on:** [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041)
 
 **Proposal scope:** [CAN-08 ArtboardView](../proposed/04-canvas-color.md#can-08), [CAN-09 LayerTree](../proposed/04-canvas-color.md#can-09), [CAN-21 AlignDistributePanel](../proposed/04-canvas-color.md#can-21), [CAN-22 NavigatorView](../proposed/04-canvas-color.md#can-22)
 
@@ -76,7 +81,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-043"></a>
 ## WP-043 — Implement document color and curve editing
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** active curve, tangent, gradient and picker presentation plus numerical RGB ICC, typed curve, gradient and ColorPicker model slices ([evidence](evidence/WP-043.md); WP-040 dependency in review). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-022](phase-02-controls-data.md#wp-022), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [CAN-11 ColorContext](../proposed/04-canvas-color.md#can-11), [CAN-12 ColorPicker](../proposed/04-canvas-color.md#can-12), [CAN-13 GradientEditor](../proposed/04-canvas-color.md#can-13), [CAN-14 CurveEditor](../proposed/04-canvas-color.md#can-14)
 
@@ -179,7 +184,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-048"></a>
 ## WP-048 — Implement the shared edit timeline
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-041](phase-03-authoring.md#wp-041), [WP-047](phase-03-authoring.md#wp-047)
+**Implementation lead:** Sol. **Status:** accepted ([integrated evidence](evidence/WP-048.md); D-045 reconciles the independent time-axis and host-media seams). **Depends on:** [WP-016](phase-01-services.md#wp-016), [WP-027](phase-02-controls-data.md#wp-027), [WP-047](phase-03-authoring.md#wp-047)
 
 **Proposal scope:** [AUD-04 EditTimeline](../proposed/06-audio-music.md#aud-04), [AUD-05 TrackHeader](../proposed/06-audio-music.md#aud-05), [AUD-06 ClipItem](../proposed/06-audio-music.md#aud-06), [AUD-07 TimeSelection](../proposed/06-audio-music.md#aud-07), [AUD-08 MarkerLane](../proposed/06-audio-music.md#aud-08)
 

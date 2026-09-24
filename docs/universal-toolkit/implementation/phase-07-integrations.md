@@ -15,7 +15,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-080"></a>
 ## WP-080 — Implement detached native panels
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-018](phase-01-services.md#wp-018), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** active (native window and DockModel integration in progress; WP-040 dependency in review). **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-018](phase-01-services.md#wp-018), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [PLT-02 DetachedPanelHost](../proposed/08-platform-integrations.md#plt-02)
 

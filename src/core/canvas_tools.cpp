@@ -153,6 +153,81 @@ private:
     QVector<CanvasObjectId> m_before;
 };
 
+class LassoTool final : public CanvasTool {
+public:
+    static constexpr int kMaxPoints = 4096;
+
+    QString id() const override { return QStringLiteral("lasso"); }
+    QString label() const override { return trTool("Lasso selection"); }
+    QString icon() const override { return QStringLiteral("lasso"); }
+    Qt::CursorShape cursor() const override { return Qt::CrossCursor; }
+    bool editsDocument() const override { return true; }
+
+    bool begin(CanvasToolContext &ctx, const CanvasToolInput &in, QString *declined) override
+    {
+        if (!ctx.document) {
+            *declined = QStringLiteral("no-document");
+            return false;
+        }
+        m_before = *ctx.selection;
+        m_points = {in.documentPoint};
+        m_additive = in.modifiers & Qt::ShiftModifier;
+        m_contain = in.modifiers & Qt::AltModifier;
+        if (!m_additive) ctx.selection->clear();
+        m_active = true;
+        return true;
+    }
+
+    void update(CanvasToolContext &, const CanvasToolInput &in) override
+    {
+        if (!m_active) return;
+        const QPointF delta = in.documentPoint - m_points.constLast();
+        if (std::hypot(delta.x(), delta.y()) * in.zoom < 1.5) return;
+        if (m_points.size() < kMaxPoints) m_points << in.documentPoint;
+        else m_points.last() = in.documentPoint;
+    }
+
+    CanvasEdit finish(CanvasToolContext &ctx, const CanvasToolInput &in) override
+    {
+        update(ctx, in);
+        m_active = false;
+        if (!ctx.document || m_points.size() < 3) return {};
+        const QRectF bounds = m_points.boundingRect();
+        if (bounds.width() * in.zoom < 2.0 || bounds.height() * in.zoom < 2.0)
+            return {};
+        const auto ids = HitTestService::hitRegion(
+            *ctx.document, m_points,
+            m_contain ? CanvasRegionMode::Contain : CanvasRegionMode::Intersect);
+        for (CanvasObjectId id : ids)
+            if (!ctx.selection->contains(id)) ctx.selection->append(id);
+        return {}; // selection has no document edit or undo entry
+    }
+
+    void cancel(CanvasToolContext &ctx) override
+    {
+        *ctx.selection = m_before;
+        m_points.clear();
+        m_active = false;
+    }
+
+    CanvasToolPreview preview() const override
+    {
+        CanvasToolPreview p;
+        if (m_active) {
+            p.kind = CanvasToolPreview::Lasso;
+            p.points = m_points;
+        }
+        return p;
+    }
+
+private:
+    QPolygonF m_points;
+    QVector<CanvasObjectId> m_before;
+    bool m_additive = false;
+    bool m_contain = false;
+    bool m_active = false;
+};
+
 class PanTool final : public CanvasTool {
 public:
     QString id() const override { return QStringLiteral("pan"); }
@@ -379,6 +454,7 @@ std::vector<std::unique_ptr<CanvasTool>> createStandardCanvasTools()
 {
     std::vector<std::unique_ptr<CanvasTool>> tools;
     tools.push_back(std::make_unique<SelectTool>());
+    tools.push_back(std::make_unique<LassoTool>());
     tools.push_back(std::make_unique<PanTool>());
     tools.push_back(std::make_unique<ShapeTool>(CanvasShape::Rect));
     tools.push_back(std::make_unique<ShapeTool>(CanvasShape::Ellipse));

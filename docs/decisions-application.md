@@ -230,10 +230,199 @@ teardown releases handles on the right thread, and context loss costs one
 re-upload from the CPU cache. The software adaptation cannot draw custom
 geometry, so the scene-graph provider falls back there and reports why.
 Picking tolerance is in logical pixels (`px / zoom`). Degenerate objects are
-kept but neither drawn nor picked. Until WP-033 proves a shared session for
-spatial documents, `CanvasDocument` keeps its own bounded history behind the
-adapter. Snapping, selection handles and guides (WP-041) and colour transforms
+kept but neither drawn nor picked. `CanvasDocument` records its edits in the
+shared history engine and persists through the document session boundary of
+[D-053](#d-053--compose-domain-documents-through-a-model-a-codec-and-one-history-engine).
+Snapping, selection handles and guides (WP-041) and colour transforms
 (WP-043) plug into the published contracts. See [canvas.md](canvas.md).
+
+## D-045 — Keep timeline placement in an exact tick model and views delegate-free
+
+**Context.** An edit timeline must move, trim, split and ripple thousands of
+clips with sample- and frame-exact results, undo each gesture exactly, and
+stay responsive with 10,000 clips. Floating-point pixel positions drift under
+zoom; QML Numbers round above 2⁵³; delegates recycled while scrolling cannot
+own a gesture or authoritative state. `UndoService` records `PropertyDocument`
+property changes and invalidates history on structural edits such as a split.
+
+**Decision.** `TimelineModel` stores tracks, clips and markers by UUID with
+signed 64-bit ticks in a declared rational timebase (705,600,000 ticks per
+second by default, which divides common sample rates and frame durations).
+A pure planner resolves typed intents under an explicit `TimelineEditPolicy`
+into complete change sets; one session previews at a time without touching
+committed state, and a revision-guarded commit applies one change set as one
+history step with precondition checks on undo and replay. The model owns a
+local history by default and offers the D-040 external-history bridge.
+`TimelineViewport` maps exact ticks to pixels from integer differences and
+diffs bounded delegate rows by key; views route gestures through its hit
+tests from one pointer controller per surface (clip lanes, header column,
+marker lane), never from a recycled delegate, and every exit path of a drag
+ends its session exactly once. Media previews use a cancellable,
+stale-checked provider seam, and transfers use the WP-016 payload and
+drop-target contracts.
+
+**Consequences.** Hosts with their own session model either project into
+`TimelineModel` or take its history through `externalUndo`; domain edit rules
+(overwrite, crossfades, beat-locked clips) are policy subclasses, not view
+code. Snapping is a time-axis provider until WP-041's spatial SnapModel
+exists. See [edit-timeline.md](edit-timeline.md).
+
+**Dependency reconciliation.** WP-041's spatial selection geometry and
+SnapModel are not consumed by this one-dimensional timeline. The exact-tick
+`TimelineSnapper` already fulfills the timeline snap contract, so WP-041 is
+not an implementation prerequisite for WP-048. The `TimelineMediaBackend`
+contract deliberately leaves real audio/video decoding to hosts and the
+later audio/video integration packages; the synthetic backend is identified
+as a fixture. WP-048 acceptance checks request, cancellation, stale-result
+and view behavior at that boundary, not a codec implementation.
+
+## D-046 — Query spatial snaps from raw document coordinates
+
+**Context.** Spatial gestures need guides, object geometry and grids to agree
+across rotated and zoomed views. A snap chosen in document units alone changes
+its apparent pointer tolerance under zoom. Reusing a previously snapped point
+as the next drag input causes a jump when snapping is toggled off.
+
+**Decision.** `SnapModel` takes the raw document-space pointer point on each
+query, a shareable `CanvasViewState` for pixel tolerance, optional stable-ID
+guide records, and a `CanvasDocumentAdapter` for indexed visible objects.
+Visible guides outrank object geometry, which outranks grid lines; distance
+and stable provenance break ties within a priority. The result is a point and
+per-axis provenance, with no document mutation or retained gesture state.
+Dragged object IDs are excluded by the host. The host chooses group anchors,
+validates constraints and commits one edit through the document adapter.
+
+**Consequences.** Disabling snapping immediately returns the raw pointer
+position. Different views can share the same guide/document data while their
+own zoom controls tolerance in logical pixels. Guide storage and transactions
+remain a WP-041 domain responsibility; this decision does not make a
+one-point snap query a complete transform controller.
+
+## D-050 — Own the rich-text model and paginate per view
+
+**Context.** WP-050 needs one authoritative rich-text document shown as a
+continuous editor and as pages, local reflow after an edit on a 500-page
+document, and stable page identities. `QTextDocument` has one document
+layout, so two views of different widths cannot share it. A scratch probe
+(Qt 6.11.1, 508 pages, 5,201 blocks) counted `QTextDocumentLayout` block
+layouts after one edit, from the `qt.text.layout` category:
+
+| Edit | `QTextDocumentLayout` | Per-view `RichTextLayout` |
+| --- | --- | --- |
+| One character, page 1 | 508 block layouts (181 ms; 601 ms under load 58) | 1 paragraph shaped, 1 page rebuilt |
+| One character, page 250 | 256 block layouts (610 ms under load) | 1 paragraph shaped, 1 page rebuilt, 249 reused (12 ms under load) |
+| New paragraph, page 1 | 1,017 block layouts (364 ms; 1,264 ms under load) | 2 paragraphs shaped; pages rebuilt from cached metrics up to the next section break |
+
+The document layout re-lays out every block that crosses a later page
+boundary. Re-shaping one paragraph with a standalone `QTextLayout` costs
+0.31 ms (0.49 ms under load).
+
+**Decision.** `RichTextDocument` is our own model: paragraphs, interned
+runs, tables, lists and object anchors, with UUID-and-offset positions. Its
+invertible steps form transactions and undo history. It has an
+`externalUndo` bridge on the D-040 pattern, because `UndoService` records
+`PropertyDocument` properties only. Each view owns a `RichTextLayout`:
+
+- one `QTextLayout` per paragraph, which keeps Qt shaping, bidi, line
+  breaking and font fallback;
+- a paginator that restarts at the page before the first dirty block and
+  stops when a page starts in its previous flow state;
+- page keys derived from the section and the ordinal within it.
+
+Fonts resolve against a 72-dpi device, so layout does not depend on the
+screen. Persistence is the canonical `qindatk.richtext/1` codec, and a
+`DocumentSession` extension adapter supplies save, recovery and stale-save
+protection.
+
+**Consequences.**
+
+- Tables, floats, keep rules and repeated header rows are our code, not
+  Qt's. The known-answer tests in `tst_rich_text_layout` and
+  `tst_rich_text_scale` guard them.
+- An inline object gets its width from percentage letter spacing. Qt 6.11
+  scales absolute spacing by `int(fontDpi / screenDpi)`, which is 0 on the
+  72-dpi device.
+- HTML is an exchange format through `QTextDocument`, never the storage
+  format.
+- Named styles, table editing, merged cells and FormatRegistry providers
+  belong to WP-051 and WP-019.
+- Rich-text measurements need a quiet machine or a load note; the block and
+  page counts are deterministic.
+- See [rich-text.md](rich-text.md).
+
+## D-051 — Convert composed sRGB canvas tiles for explicit RGB displays
+
+**Context.** Canvas objects currently carry QColor sRGB values. Applying a
+display transform to each object before alpha blending changes the result,
+and the scene-graph geometry path has no profile-aware shader contract.
+
+**Decision.** Composite in an sRGB QImage, then convert the complete tile with
+Qt's QColorSpace API for a valid RGB display target. Use the converted raster
+as the scene-graph texture as well as the software tile. Keep the geometry
+path for identity sRGB display. Clear cached tiles on profile changes and
+report unsupported working/display configurations instead of showing stale
+or unconverted pixels.
+
+**Consequences.** The supported managed path has CPU conversion and texture
+upload cost, but both backends receive the same tile bytes. It does not
+perform proofing, arbitrary working-space painting or gamut classification.
+Those need separate renderer and ColorEngine integration. See
+[canvas.md](canvas.md#rendering).
+
+## D-052 — Keep detached panel placement in DockModel
+
+**Context.** DockHost already displays panels docked or floating inside one
+window. A detached panel needs a real native window, but its position still
+belongs to the persisted workspace arrangement. Keeping a second placement
+map in QML would allow restore and close behavior to diverge.
+
+**Decision.** Add `detached` to DockModel's persisted mode. Its existing
+`floatingRect` stores global logical geometry in that mode, and
+`detachedScreenId` records the preferred display. `DetachedPanelHost` uses
+WindowHost for native lifetime and moves the same declared content item into
+the native window after DockHost reclaims its old frame. Native close returns
+the item to its declaration and docks the panel in its remembered zone.
+
+**Consequences.** In-host `floating` keeps its old meaning. Restoring a
+detached panel with a missing screen uses an available screen and clamps the
+logical rectangle to reachable bounds. Apps provide one DetachedPanelHost
+and WindowHost alongside DockHost. Content stays model-bound and is not
+duplicated when it crosses windows. See [docking.md](docking.md).
+
+## D-053 — Compose domain documents through a model, a codec and one history engine
+
+**Context.** Sessions, undo, atomic save, recovery, workspace restore and
+format import/export were written around `PropertyDocument` and its JSON
+codec. The spatial canvas kept a separate local history, and storing a canvas
+as one PropertyDocument byte value would copy the whole scene into history on
+every gesture and overrun the 8 MiB undo budget. Rich text and workbook
+engines carry their own histories too.
+
+**Decision.** A domain joins through `DocumentModel` (identity, kind, header,
+change notification, and two-phase `prepareCommand`/`publishCommand` of
+immutable `DocumentCommand` steps) and a `DocumentCodec` registered by stable
+`schemaId`. The codec captures on the GUI thread, then encodes, inspects and
+decodes (bounded) on any thread, and adopts on the GUI thread. `UndoService`
+becomes the single engine: histories are keyed by document UUID, commits
+record before they publish, rejections are returned without side effects, and
+a model has exactly one live history (`addModel` refuses a second service;
+`adoptModel` moves it). `DocumentSession` holds a model plus its codec and
+keeps the PropertyDocument API. A save captures on the GUI thread; a worker
+encodes, journals and replaces the file, and a stale receipt marks clean only
+the history position it captured. Recovery frames carry the schema and the
+complete header under a header hash, and version-1 frames stay readable. The
+canvas records `CanvasEdit` deltas with shared image pointers, and page,
+layer and image changes are recorded steps. Its binary native format keeps
+exact 64-bit identities and counters and is validated before adoption.
+
+**Consequences.** Existing PropertyDocument code and reference files are
+unchanged. Generic code must use `model`/`kind`/`schemaId`/`capture`, because
+`DocumentSession::document` is null for other kinds. Adding a domain takes a
+model adapter, a codec and optional format providers declaring `schemas`.
+Recovery frames written by this version cannot be read by older builds.
+Full-document snapshots remain the unit of save and recovery. Canvas tiles
+are stored uncompressed until a bounded inflater exists, because
+`qUncompress` does not bound its output. See [document-models.md](document-models.md).
 
 ## D-055 — Keep workbook formulas positional and the Workbook the only history owner
 

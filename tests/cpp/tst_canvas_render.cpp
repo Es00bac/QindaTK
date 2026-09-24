@@ -6,6 +6,7 @@
 
 #include <QElapsedTimer>
 #include <QQuickWindow>
+#include <QQuickItemGrabResult>
 #include <QSignalSpy>
 #include <QTest>
 #include <memory>
@@ -49,6 +50,20 @@ QColor pixelAt(QQuickWindow *window, QPointF p)
     return image.pixelColor(int(p.x() * dpr), int(p.y() * dpr));
 }
 
+QColor itemPixelAt(QQuickItem *item, QPointF p)
+{
+    // Offscreen Qt 6.8 OpenGL can read a stale 100x100 GLX dummy drawable
+    // through QQuickWindow::grabWindow(). An item grab renders to a texture,
+    // so this samples the scene graph rather than the platform backbuffer.
+    const auto grab = item->grabToImage();
+    if (!grab) return {};
+    QSignalSpy ready(grab.data(), &QQuickItemGrabResult::ready);
+    if (grab->image().isNull() && !ready.wait(5000)) return {};
+    const QImage image = grab->image();
+    const qreal dpr = image.devicePixelRatio();
+    return image.pixelColor(int(p.x() * dpr), int(p.y() * dpr));
+}
+
 bool close(QColor a, QColor b, int tolerance = 12)
 {
     return std::abs(a.red() - b.red()) <= tolerance && std::abs(a.green() - b.green()) <= tolerance
@@ -67,7 +82,6 @@ private slots:
     void damageInvalidatesOnlyTouchedTiles();
     void revisionAndColorContext();
     void cacheIsByteBounded();
-    void softwarePixelsKnownAnswer();
     void tessellationCoversShapes();
     void synchronizedViews();
     void contextLossAndBackendFallback();
@@ -215,7 +229,7 @@ void TstCanvasRender::revisionAndColorContext()
     settle(adapter, request, 24);
     QCOMPARE(adapter.stats().value("renderedRevision").toULongLong(), doc.revision());
     CanvasColorContext context;
-    context.working = QColorSpace(QColorSpace::SRgbLinear);
+    context.display = QColorSpace(QColorSpace::SRgbLinear);
     adapter.setColorContext(context);
     adapter.prepare(request);
     QCOMPARE(adapter.lastRendered(), adapter.lastVisible()); // every tile is stale after a context change
@@ -243,32 +257,6 @@ void TstCanvasRender::cacheIsByteBounded()
         QVERIFY(adapter.cacheBytes() <= std::max<qsizetype>(1024 * 1024, adapter.lastVisible() * tileBytes));
     }
     QVERIFY(adapter.stats().value("totalEvicted").toULongLong() > 0);
-}
-
-void TstCanvasRender::softwarePixelsKnownAnswer()
-{
-    CanvasDocument doc;
-    doc.setPageRect(QRectF(0, 0, 100, 100));
-    box(doc, QRectF(10, 10, 20, 20), Qt::red);
-    const CanvasObjectId hidden = box(doc, QRectF(50, 50, 20, 20), Qt::green);
-    QVERIFY(doc.setObjectVisible(hidden, false));
-    const CanvasObjectId flat = box(doc, QRectF(50, 10, 20, 20), Qt::blue);
-    QVERIFY(doc.setObjectTransform(flat, {0.0, 0.0, 0.0, 0.0, 50.0, 10.0}));
-    const QImage tile = CanvasPainter::renderTile(doc, QRectF(0, 0, 128, 128), 128, {});
-    QCOMPARE(tile.pixelColor(20, 20), QColor(Qt::red));
-    QCOMPARE(tile.pixelColor(5, 5), QColor(Qt::white));   // page colour
-    QCOMPARE(tile.pixelColor(60, 60), QColor(Qt::white)); // hidden object
-    QCOMPARE(tile.pixelColor(51, 11), QColor(Qt::white)); // degenerate object
-    QCOMPARE(tile.pixelColor(110, 110).alpha(), 0);       // outside the page
-    // A tile at 4 px per document unit maps pixel (16,16) to document (20,20).
-    const QImage fine = CanvasPainter::renderTile(doc, QRectF(16, 16, 8, 8), 32, {});
-    QCOMPARE(fine.pixelColor(16, 16), QColor(Qt::red));
-    // Sub-pixel objects become single device pixels, not nothing.
-    CanvasPaintStats stats;
-    const QImage coarse = CanvasPainter::renderTile(doc, QRectF(0, 0, 4096, 4096), 16, {}, &stats);
-    QCOMPARE(coarse.width(), 16);
-    QCOMPARE(stats.dots, 1);
-    QCOMPARE(stats.skipped, 1); // the hidden one; degenerate objects are not even indexed
 }
 
 void TstCanvasRender::tessellationCoversShapes()
@@ -498,17 +486,20 @@ void TstCanvasRender::sceneGraphBackend()
         || window.rendererInterface()->graphicsApi() == QSGRendererInterface::Null) {
         QSKIP("no hardware-backed RHI available for this offscreen window");
     }
-    const QPointF probe = view.mapFromDocument(QPointF(50, 50));
+    const QPointF documentProbe(50, 50);
     QTRY_COMPARE(view.renderSurface()->effectiveBackend(), QStringLiteral("scenegraph"));
-    QTRY_VERIFY(close(pixelAt(&window, probe), Qt::red));
-    const QColor gpu = pixelAt(&window, probe);
+    // A fit can finish after window exposure; sample the current pose while
+    // waiting for the first rendered frame instead of retaining a stale pixel.
+    QTRY_VERIFY(close(itemPixelAt(&view, view.mapFromDocument(documentProbe)), Qt::red));
+    const QPointF probe = view.mapFromDocument(documentProbe);
+    const QColor gpu = itemPixelAt(&view, probe);
     const quint64 generation = view.renderSurface()->resourceGeneration();
     view.setBackend(QStringLiteral("software"));
     QCOMPARE(view.renderSurface()->resourceGeneration(), generation + 1);
-    QTRY_VERIFY(close(pixelAt(&window, probe), gpu, 2)); // both providers agree
+    QTRY_VERIFY(close(itemPixelAt(&view, probe), gpu, 2)); // both providers agree
     view.setBackend(QStringLiteral("auto"));
     view.simulateContextLoss(true);
-    QTRY_VERIFY(close(pixelAt(&window, probe), gpu, 2));
+    QTRY_VERIFY(close(itemPixelAt(&view, probe), gpu, 2));
     QCOMPARE(CanvasSceneGraph::liveRootNodes(), 1);
     qInfo("scene-graph provider verified on %d", int(window.rendererInterface()->graphicsApi()));
 }

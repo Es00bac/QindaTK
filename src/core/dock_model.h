@@ -17,7 +17,7 @@ namespace QindaTK {
 // where every panel is; DockHost (QML) only draws that and reports
 // gestures. The model is zone-based, as Sloom Studio's dockablePanel
 // contract and QindaStudio's PanelLayoutController are: a panel is docked,
-// floating, collapsed or hidden; a docked panel sits in one zone (left,
+// floating, collapsed, hidden or detached into a native window; a docked panel sits in one zone (left,
 // right, top, bottom, center, overlay), in one lane of that zone (lanes are
 // columns for side zones, rows for the others), at an order inside the
 // lane, optionally sharing a tab group with neighbours. Arrangements are
@@ -39,7 +39,7 @@ class DockModel : public QObject {
     Q_PROPERTY(qulonglong generation READ generation NOTIFY layoutChanged)
 
 public:
-    enum Mode { Docked, Floating, Collapsed, Hidden };
+    enum Mode { Docked, Floating, Collapsed, Hidden, Detached };
     Q_ENUM(Mode)
     enum Zone { Left, Right, Top, Bottom, Center, Overlay };
     Q_ENUM(Zone)
@@ -72,6 +72,7 @@ public:
     Q_INVOKABLE [[nodiscard]] QVariantList lanes(const QString &zone) const;
     Q_INVOKABLE [[nodiscard]] qreal zoneExtent(const QString &zone) const;
     Q_INVOKABLE [[nodiscard]] QVariantList floatingPanels() const;
+    Q_INVOKABLE [[nodiscard]] QVariantList detachedPanels() const;
     Q_INVOKABLE [[nodiscard]] bool acceptsZone(const QString &panelId, const QString &zone) const;
 
     // ---- presentation ----
@@ -82,6 +83,9 @@ public:
     Q_INVOKABLE void dockBeside(const QString &panelId, const QString &targetPanelId,
                                 const QString &placement);
     Q_INVOKABLE void floatPanel(const QString &panelId, double x = -1, double y = -1);
+    // `floatingRect` becomes a global logical window rectangle while detached.
+    Q_INVOKABLE void detachPanel(const QString &panelId, const QRectF &globalRect = {});
+    Q_INVOKABLE void setDetachedScreen(const QString &panelId, const QString &screenId);
     Q_INVOKABLE void hide(const QString &panelId);
     Q_INVOKABLE void show(const QString &panelId);
     Q_INVOKABLE void collapse(const QString &panelId, bool collapsed);
@@ -153,6 +157,7 @@ private:
         qreal share = 1;
         qreal defaultShare = 1;
         QRectF floatingRect{80, 80, 320, 400};
+        QString detachedScreenId;
         QRectF defaultFloatingRect{80, 80, 320, 400};
         QSizeF minimumSize{160, 100};
         bool fixedSize = false;

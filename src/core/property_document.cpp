@@ -10,12 +10,75 @@ OperationError error(ErrorCode code, const QString &message, const QString &fiel
 }
 }
 
+PropertyCommand::PropertyCommand(QVector<PropertyChange> changes)
+    : m_changes(std::move(changes)), m_bytes(estimate(m_changes)) {}
+
+quint64 PropertyCommand::estimate(const QVector<PropertyChange> &changes)
+{
+    quint64 total = 0;
+    for (const auto &change : changes) {
+        const auto valueBytes = [](const QVariant &value) -> quint64 {
+            if (value.metaType().id() == QMetaType::QByteArray)
+                return static_cast<quint64>(value.toByteArray().size());
+            return static_cast<quint64>(value.toString().size()) * 2 + 32;
+        };
+        total += 128 + static_cast<quint64>(change.propertyId.size()) * 2
+            + valueBytes(change.before) + valueBytes(change.after);
+    }
+    return total;
+}
+
+QVector<PropertyChange> PropertyCommand::joined(const QVector<PropertyChange> &first,
+                                                const QVector<PropertyChange> &second)
+{
+    QVector<PropertyChange> result = first;
+    for (const auto &change : second) {
+        bool found = false;
+        for (auto &existing : result) {
+            if (existing.target != change.target || existing.propertyId != change.propertyId) continue;
+            existing.after = change.after;
+            found = true;
+            break;
+        }
+        if (!found) result.append(change);
+    }
+    return result;
+}
+
 PropertyDocument::PropertyDocument(QObject *parent) : QObject(parent) {}
+
+QMetaObject::Connection PropertyDocument::connectModelChanged(QObject *receiver,
+                                                              std::function<void()> slot)
+{
+    return connect(this, &PropertyDocument::changed, receiver, std::move(slot));
+}
+
+OperationError PropertyDocument::prepareCommand(const DocumentCommand &command, bool forward) const
+{
+    const auto *step = dynamic_cast<const PropertyCommand *>(&command);
+    if (!step) return error(ErrorCode::InvalidArgument, QStringLiteral("Step belongs to another document kind"));
+    return checkCommitted(step->changes(), forward);
+}
+
+void PropertyDocument::publishCommand(const DocumentCommand &command, bool forward)
+{
+    const auto *step = dynamic_cast<const PropertyCommand *>(&command);
+    Q_ASSERT(step);
+    if (step) publishCommitted(step->changes(), forward);
+}
+
+DocumentCommandPtr PropertyDocument::composeCommands(const DocumentCommand &first,
+                                                     const DocumentCommand &second) const
+{
+    const auto *a = dynamic_cast<const PropertyCommand *>(&first);
+    const auto *b = dynamic_cast<const PropertyCommand *>(&second);
+    if (!a || !b) return {};
+    return std::make_shared<const PropertyCommand>(PropertyCommand::joined(a->changes(), b->changes()));
+}
 
 SnapshotHeader PropertyDocument::header() const
 {
-    return {QStringLiteral("qindatk.property-document.v1"), m_documentId,
-            {m_revision}, m_resetGeneration};
+    return {QString::fromLatin1(SchemaId), m_documentId, {m_revision}, m_resetGeneration};
 }
 
 bool PropertyDocument::equalValue(const QVariant &a, const QVariant &b) const
@@ -63,6 +126,7 @@ bool PropertyDocument::addEntity(EntityId id, const QVariantMap &values)
         state.values.insert(it.key(), values.value(it.key(), it->defaultValue));
     m_entities.insert(key, state);
     ++m_revision;
+    invalidateHistory();
     emit historyInvalidated();
     emit changed();
     return true;
@@ -77,6 +141,7 @@ bool PropertyDocument::removeEntity(EntityId id)
     m_entities.remove(key);
     ++m_revision;
     emit entityRemoved(key);
+    invalidateHistory();
     emit historyInvalidated();
     emit changed();
     return true;
@@ -104,6 +169,7 @@ bool PropertyDocument::resetModel(const QVector<QPair<EntityId, QVariantMap>> &e
     ++m_revision;
     ++m_resetGeneration;
     emit reset();
+    invalidateHistory();
     emit historyInvalidated();
     emit changed();
     return true;
@@ -146,6 +212,7 @@ bool PropertyDocument::setTargetWritable(EntityId id, const QString &propertyId,
     else entity->readOnlyProperties.insert(propertyId);
     ++m_revision;
     emit propertyChanged(id.toString(), propertyId);
+    invalidateHistory();
     emit historyInvalidated();
     emit changed();
     return true;
@@ -165,6 +232,7 @@ bool PropertyDocument::setTargetAnimated(EntityId id, const QString &propertyId,
     else entity->animatedProperties.remove(propertyId);
     ++m_revision;
     emit propertyChanged(id.toString(), propertyId);
+    invalidateHistory();
     emit historyInvalidated();
     emit changed();
     return true;
@@ -227,7 +295,8 @@ void PropertyDocument::discardPreview(const QUuid &transactionId)
     emit changed();
 }
 
-OperationError PropertyDocument::applyCommitted(const QVector<PropertyChange> &changes, bool forward)
+OperationError PropertyDocument::checkCommitted(const QVector<PropertyChange> &changes,
+                                                bool forward) const
 {
     Q_ASSERT(thread() == QThread::currentThread());
     if (m_preview) return error(ErrorCode::Unavailable, QStringLiteral("An edit preview is active"));
@@ -238,6 +307,11 @@ OperationError PropertyDocument::applyCommitted(const QVector<PropertyChange> &c
         if (!equalValue(committedValue(change.target, change.propertyId), expected))
             return error(ErrorCode::StaleRevision, QStringLiteral("Property changed since this edit"), change.propertyId);
     }
+    return {};
+}
+
+void PropertyDocument::publishCommitted(const QVector<PropertyChange> &changes, bool forward)
+{
     // AGENT-GUARD: publish the whole multi-target edit before notifying any
     // binding; observers must never see a half-applied transaction.
     for (const auto &change : changes)
@@ -247,6 +321,12 @@ OperationError PropertyDocument::applyCommitted(const QVector<PropertyChange> &c
     for (const auto &change : changes)
         emit propertyChanged(change.target.toString(), change.propertyId);
     emit changed();
+}
+
+OperationError PropertyDocument::applyCommitted(const QVector<PropertyChange> &changes, bool forward)
+{
+    if (auto failure = checkCommitted(changes, forward)) return failure;
+    publishCommitted(changes, forward);
     return {};
 }
 

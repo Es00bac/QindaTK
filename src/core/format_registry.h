@@ -73,9 +73,29 @@ public:
                                  const JobProgress &progress) const override;
 };
 
+// The canvas native file (CanvasDocumentFormat): validated import, export and
+// roundtrip of `qindatk.canvas-document.v1` sessions only. Opt-in: an
+// application with canvas documents registers it, so reference-document
+// dialogs never list a format that cannot apply to their documents.
+class CanvasNativeFormat final : public FormatProvider {
+public:
+    QVariantMap metadata() const override;
+    bool recognizes(const QByteArray &prefix, const QUrl &url) const override;
+    FormatPlan preflightImport(const QByteArray &bytes, const QVariantMap &options) const override;
+    FormatPayload importDocument(const QByteArray &bytes, const QVariantMap &options,
+                                 const CancellationToken &cancel,
+                                 const JobProgress &progress) const override;
+    FormatPlan preflightExport(const SnapshotPtr &snapshot, const QVariantMap &options) const override;
+    FormatPayload exportDocument(const SnapshotPtr &snapshot, const QVariantMap &options,
+                                 const CancellationToken &cancel,
+                                 const JobProgress &progress) const override;
+};
+
 // GUI-thread broker for operation-specific providers and cancellable jobs.
-// Import jobs yield native reference bytes; adoptImport creates the live
-// DocumentSession only after a successful job and explicit caller decision.
+// Import jobs yield native bytes of a registered document schema; adoptImport
+// creates the live DocumentSession only after a successful job and explicit
+// caller decision. A provider's `schemas` metadata lists the document
+// schemas it can export; any other snapshot is refused before it runs.
 class FormatRegistry : public QObject {
     Q_OBJECT
     QML_ELEMENT

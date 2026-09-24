@@ -43,6 +43,11 @@ qindatk_add_test(tst_polar)
 qindatk_add_test(tst_uncertainty)
 target_link_libraries(tst_uncertainty PRIVATE Qt6::Svg)
 qindatk_add_test(tst_application_contracts)
+qindatk_add_test(tst_color_engine)
+qindatk_add_test(tst_gradient_editor_model)
+target_compile_definitions(tst_color_engine PRIVATE
+    QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
+qindatk_add_test(tst_color_picker_model)
 qindatk_add_test(tst_capability_registry)
 qindatk_add_test(tst_command_context)
 qindatk_add_test(tst_focus_manager)
@@ -51,6 +56,7 @@ qindatk_add_test(tst_command_workflow)
 qindatk_add_test(tst_shortcut_map)
 qindatk_add_test(tst_validation_model)
 qindatk_add_test(tst_edit_transaction)
+qindatk_add_test(tst_curve_editor_model)
 qindatk_add_test(tst_property_binding)
 qindatk_add_test(tst_edit_workflow)
 qindatk_add_test(tst_reference_document_codec)
@@ -74,6 +80,10 @@ qindatk_add_test(tst_document_resource_links)
 qindatk_add_test(tst_transfer_payload)
 qindatk_add_test(tst_gesture_router)
 qindatk_add_test(tst_time_map)
+qindatk_add_test(tst_timeline_model)
+qindatk_add_test(tst_timeline_view)
+qindatk_add_test(tst_timeline_edits)
+qindatk_add_test(tst_timeline_transport)
 qindatk_add_test(tst_clipboard_service)
 qindatk_add_test(tst_drag_drop_service)
 qindatk_add_test(tst_transfer_workflow)
@@ -81,6 +91,7 @@ qindatk_add_test(tst_locale_service)
 qindatk_add_test(tst_font_catalog)
 qindatk_add_test(tst_accessibility_adapter)
 qindatk_add_test(tst_window_host)
+qindatk_add_test(tst_detached_panel_host)
 qindatk_add_test(tst_format_registry)
 if(TARGET qindatk_widgets)
     qindatk_add_test(tst_native_file_dialog)
@@ -92,10 +103,20 @@ qindatk_add_test(tst_editable_grid_model)
 qindatk_add_test(tst_resource_plan_model)
 qindatk_add_test(tst_query_core)
 qindatk_add_test(tst_canvas_core)
+qindatk_add_test(tst_canvas_snap)
+qindatk_add_test(tst_canvas_transform)
 qindatk_add_test(tst_canvas_tools)
+qindatk_add_test(tst_canvas_selection_model)
+qindatk_add_test(tst_canvas_alignment_model)
 qindatk_add_test(tst_canvas_render)
+qindatk_add_test(tst_canvas_display)
+add_test(NAME tst_canvas_display_rhi COMMAND tst_canvas_display managedDisplaySceneGraph)
+set_tests_properties(tst_canvas_display_rhi PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 qindatk_add_test(tst_canvas_tile_limits)
 qindatk_add_test(tst_canvas_input)
+qindatk_add_test(tst_canvas_persistence)
+qindatk_add_test(tst_domain_session)
 # The same binary again on the RHI adaptation: sceneGraphBackend() exercises
 # the geometry provider there and QSKIPs when no offscreen GPU context exists.
 add_test(NAME tst_canvas_render_rhi COMMAND tst_canvas_render sceneGraphBackend)
@@ -112,6 +133,13 @@ qindatk_add_test(tst_workbook_model)
 qindatk_add_test(tst_workbook_history)
 qindatk_add_test(tst_workbook_adapter)
 qindatk_add_test(tst_workbook_scale)
+qindatk_add_test(tst_rich_text_model)
+qindatk_add_test(tst_rich_text_codec)
+qindatk_add_test(tst_rich_text_layout)
+qindatk_add_test(tst_rich_text_scale)
+qindatk_add_test(tst_rich_text_editing)
+qindatk_add_test(tst_rich_text_views)
+qindatk_add_test(tst_rich_text_session)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)
@@ -125,3 +153,26 @@ target_compile_definitions(tst_qml PRIVATE
 add_test(NAME tst_qml COMMAND tst_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/qml")
 set_tests_properties(tst_qml PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
+
+# Pure numerical sources are tested directly: no GUI/QML or document service
+# is needed to validate the stateless curve contract on each supported Qt.
+qt_add_executable(tst_curve_evaluator cpp/tst_curve_evaluator.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/curve_evaluator.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/curve_validation.cpp)
+qindatk_enable_warnings(tst_curve_evaluator)
+target_include_directories(tst_curve_evaluator PRIVATE ${PROJECT_SOURCE_DIR}/src/core)
+target_link_libraries(tst_curve_evaluator PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME tst_curve_evaluator COMMAND tst_curve_evaluator)
+
+# Numerical gradient tests exercise production color/gradient sources without QML.
+qt_add_executable(tst_gradient_evaluator cpp/tst_gradient_evaluator.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/application_contracts.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/color_profile.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/color_engine.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/gradient_evaluator.cpp)
+qindatk_enable_warnings(tst_gradient_evaluator)
+target_include_directories(tst_gradient_evaluator PRIVATE ${PROJECT_SOURCE_DIR}/src/core)
+target_link_libraries(tst_gradient_evaluator PRIVATE Qt6::Core Qt6::Gui Qt6::Test PkgConfig::LCMS2)
+target_compile_definitions(tst_gradient_evaluator PRIVATE
+    QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
+add_test(NAME tst_gradient_evaluator COMMAND tst_gradient_evaluator)

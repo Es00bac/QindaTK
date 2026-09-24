@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_document.h"
+#include "canvas_document_format.h"
 #include "canvas_transform.h"
+#include "undo_service.h"
 
 #include <QUuid>
 #include <algorithm>
@@ -26,29 +28,180 @@ qint64 CanvasDocumentAdapter::paintKey(const CanvasObject &object) const
 }
 
 CanvasDocument::CanvasDocument(QObject *parent)
-    : CanvasDocumentAdapter(parent),
-      m_documentId(QUuid::createUuid().toString(QUuid::WithoutBraces))
+    : CanvasDocumentAdapter(parent), m_id(DocumentId::create()),
+      m_documentId(m_id.toString())
 {
-    m_activeLayer = addLayer(tr("Layer 1"));
+    CanvasLayer first;
+    first.id = m_nextLayer;
+    first.name = tr("Layer 1");
+    placeLayer(first);
+    m_activeLayer = first.id;
+    attachLocalHistory();
+    // A new empty layer on top changes no pixels but invalidates order keys
+    // cached by consumers.
+    finishChange({}, true);
 }
 
-void CanvasDocument::setPageRect(const QRectF &rect)
+CanvasDocument::CanvasDocument(RestoreTag, QObject *parent) : CanvasDocumentAdapter(parent) {}
+
+CanvasDocument::~CanvasDocument()
 {
-    if (rect == m_pageRect || !rect.isValid()) {
-        return;
-    }
-    const QRectF old = m_pageRect;
-    m_pageRect = rect;
-    finishChange({old, rect}, false);
+    disconnect(m_historyConnection);
 }
 
-void CanvasDocument::setPageColor(const QColor &color)
+std::unique_ptr<CanvasDocument> CanvasDocument::fromState(const CanvasDocumentState &state,
+                                                          const CanvasDocumentLimits &limits)
 {
-    if (color == m_pageColor || !color.isValid()) {
-        return;
+    std::unique_ptr<CanvasDocument> document(new CanvasDocument(RestoreTag{}, nullptr));
+    document->m_limits = limits;
+    document->m_id = state.documentId;
+    document->m_documentId = state.documentId.toString();
+    document->m_pageRect = state.pageRect;
+    document->m_pageColor = state.pageColor;
+    for (const CanvasLayer &layer : state.layers) document->placeLayer(layer);
+    for (auto it = state.images.cbegin(); it != state.images.cend(); ++it)
+        document->placeImage(it.key(), it.value());
+    QVector<QRectF> ignored;
+    for (const CanvasObject &object : state.objects) document->place(object, &ignored);
+    document->m_nextId = std::max(document->m_nextId, state.nextObject);
+    document->m_nextLayer = std::max(document->m_nextLayer, state.nextLayer);
+    document->m_nextImage = std::max(document->m_nextImage, state.nextImage);
+    document->m_nextZ = std::max(document->m_nextZ, state.nextZ);
+    document->m_revision = state.revision;
+    document->m_resetGeneration = state.resetGeneration;
+    document->ensureActiveLayer();
+    document->attachLocalHistory();
+    return document;
+}
+
+void CanvasDocument::attachLocalHistory()
+{
+    // AGENT-NOTE: the standalone history keeps the pre-session behaviour:
+    // DefaultHistoryLimit steps and a byte budget large enough never to
+    // refuse an ordinary edit. A DocumentSession moves this single history
+    // into the shared UndoService (adoptModel) and applies its budget.
+    m_localHistory = new UndoService(this);
+    m_localHistory->setMemoryLimit(quint64(1) << 30);
+    m_localHistory->addModel(this);
+    m_localHistory->setStepLimit(this, DefaultHistoryLimit);
+}
+
+UndoService *CanvasDocument::history() const
+{
+    if (UndoService *service = historyService()) return service;
+    // Released by a session without being destroyed: resume standalone.
+    auto *self = const_cast<CanvasDocument *>(this);
+    if (m_localHistory && m_localHistory->addModel(self))
+        m_localHistory->setStepLimit(self, DefaultHistoryLimit);
+    return historyService();
+}
+
+void CanvasDocument::historyAttached(UndoService *service)
+{
+    disconnect(m_historyConnection);
+    if (!service) return; // transient during a transfer; the new owner follows
+    const QString key = m_documentId;
+    m_historyConnection = connect(service, &UndoService::historyChanged, this,
+                                  [this, key](const QString &id) {
+        if (id == key) emit historyChanged();
+    });
+    emit historyChanged();
+}
+
+UndoService *CanvasDocument::undoService() const { return history(); }
+
+bool CanvasDocument::canUndo() const
+{
+    const UndoService *service = history();
+    return service && service->canUndo(this);
+}
+
+bool CanvasDocument::canRedo() const
+{
+    const UndoService *service = history();
+    return service && service->canRedo(this);
+}
+
+QString CanvasDocument::undoText() const
+{
+    const UndoService *service = history();
+    return service ? service->undoText(this) : QString{};
+}
+
+QString CanvasDocument::redoText() const
+{
+    const UndoService *service = history();
+    return service ? service->redoText(this) : QString{};
+}
+
+int CanvasDocument::historyLimit() const
+{
+    const UndoService *service = history();
+    return service ? service->stepLimit(this) : 0;
+}
+
+void CanvasDocument::setHistoryLimit(int limit)
+{
+    if (UndoService *service = history()) service->setStepLimit(this, std::max(1, limit));
+}
+
+OperationError CanvasDocument::reject(const OperationError &error)
+{
+    m_lastError = error.message;
+    emit historyChanged();
+    return error;
+}
+
+bool CanvasDocument::undo()
+{
+    if (!canUndo()) return false;
+    if (const auto problem = history()->undo(this)) return !reject(problem);
+    if (!m_lastError.isEmpty()) {
+        m_lastError.clear();
+        emit historyChanged();
     }
-    m_pageColor = color;
-    finishChange({m_pageRect}, false);
+    return true;
+}
+
+bool CanvasDocument::redo()
+{
+    if (!canRedo()) return false;
+    if (const auto problem = history()->redo(this)) return !reject(problem);
+    if (!m_lastError.isEmpty()) {
+        m_lastError.clear();
+        emit historyChanged();
+    }
+    return true;
+}
+
+SnapshotHeader CanvasDocument::modelHeader() const
+{
+    return {QString::fromLatin1(CanvasDocumentFormat::SchemaId), m_id, {m_revision},
+            m_resetGeneration};
+}
+
+QMetaObject::Connection CanvasDocument::connectModelChanged(QObject *receiver,
+                                                            std::function<void()> slot)
+{
+    return connect(this, &CanvasDocument::changed, receiver, std::move(slot));
+}
+
+CanvasDocumentState CanvasDocument::state() const
+{
+    CanvasDocumentState captured;
+    captured.documentId = m_id;
+    captured.revision = m_revision;
+    captured.resetGeneration = m_resetGeneration;
+    captured.pageRect = m_pageRect;
+    captured.pageColor = m_pageColor;
+    captured.nextObject = m_nextId;
+    captured.nextLayer = m_nextLayer;
+    captured.nextImage = m_nextImage;
+    captured.nextZ = m_nextZ;
+    captured.objects = m_objects; // implicitly shared: O(1) until the next edit
+    captured.layers = m_layers;
+    captured.images = m_images;
+    return captured;
 }
 
 QRectF CanvasDocument::contentBounds() const
@@ -87,12 +240,43 @@ qint64 CanvasDocument::paintKey(const CanvasObject &object) const
     return CanvasDocumentAdapter::paintKey(object);
 }
 
+CanvasObjectId CanvasDocument::allocateId()
+{
+    return m_nextId < CanvasDocumentFormat::IdCeiling ? m_nextId++ : 0;
+}
+
+qint64 CanvasDocument::reserveZ()
+{
+    constexpr qint64 last = CanvasDocumentFormat::PaintOrderCeiling - 1;
+    return m_nextZ < last ? m_nextZ++ : last;
+}
+
 void CanvasDocument::setActiveLayer(CanvasLayerId id)
 {
     if (id != m_activeLayer && m_layers.contains(id)) {
         m_activeLayer = id;
         emit changed();
     }
+}
+
+void CanvasDocument::ensureActiveLayer()
+{
+    if (m_layers.contains(m_activeLayer)) return;
+    m_activeLayer = 0;
+    int order = 0;
+    for (const CanvasLayer &l : std::as_const(m_layers)) {
+        if (m_activeLayer == 0 || l.order > order || (l.order == order && l.id > m_activeLayer)) {
+            m_activeLayer = l.id;
+            order = l.order;
+        }
+    }
+}
+
+int CanvasDocument::nextLayerOrder() const
+{
+    int order = -1;
+    for (const CanvasLayer &l : m_layers) order = std::max(order, l.order);
+    return order + 1;
 }
 
 QVariantList CanvasDocument::layerList() const
@@ -130,25 +314,6 @@ QVector<CanvasObjectId> CanvasDocument::objectIds() const
     return ids;
 }
 
-QString CanvasDocument::undoText() const
-{
-    return canUndo() ? m_history.at(m_cursor - 1).label : QString{};
-}
-
-void CanvasDocument::setHistoryLimit(int limit)
-{
-    limit = std::max(1, limit);
-    if (limit == m_historyLimit) {
-        return;
-    }
-    m_historyLimit = limit;
-    while (m_history.size() > m_historyLimit) {
-        m_history.removeFirst();
-        m_cursor = std::max<qsizetype>(0, m_cursor - 1);
-    }
-    emit changed();
-}
-
 std::optional<CanvasObject> CanvasDocument::copy(CanvasObjectId id) const
 {
     const CanvasObject *o = object(id);
@@ -165,15 +330,27 @@ void CanvasDocument::place(const CanvasObject &object, QVector<QRectF> *damage)
     if (!bounds.isNull()) {
         damage->append(bounds);
     }
+    ++m_layerUse[object.layer];
+    if (object.shape == CanvasShape::Image) ++m_imageUse[object.image];
+    m_totalPoints += object.points.size();
+    m_encodedBytes += CanvasDocumentFormat::objectRecordBytes(object);
     m_nextZ = std::max(m_nextZ, object.z + 1);
     m_nextId = std::max(m_nextId, object.id + 1);
 }
 
 void CanvasDocument::unplace(CanvasObjectId id, QVector<QRectF> *damage)
 {
-    if (!m_objects.contains(id)) {
+    const auto it = m_objects.constFind(id);
+    if (it == m_objects.cend()) {
         return;
     }
+    const auto release = [](auto &uses, quint64 key) {
+        if (--uses[key] <= 0) uses.remove(key);
+    };
+    release(m_layerUse, it->layer);
+    if (it->shape == CanvasShape::Image) release(m_imageUse, it->image);
+    m_totalPoints -= it->points.size();
+    m_encodedBytes -= CanvasDocumentFormat::objectRecordBytes(*it);
     const QRectF bounds = m_bounds.take(id);
     if (!bounds.isNull()) {
         damage->append(bounds);
@@ -182,71 +359,36 @@ void CanvasDocument::unplace(CanvasObjectId id, QVector<QRectF> *damage)
     m_objects.remove(id);
 }
 
-void CanvasDocument::apply(const CanvasEdit &edit, bool forward, QVector<QRectF> *damage)
+void CanvasDocument::placeImage(CanvasImageId id, const CanvasTiledImagePtr &image)
 {
-    auto step = [&](const CanvasEdit::Change &c) {
-        const auto &target = forward ? c.after : c.before;
-        if (target) {
-            place(*target, damage);
-        } else {
-            unplace(c.id, damage);
-        }
-    };
-    if (forward) {
-        std::for_each(edit.changes.cbegin(), edit.changes.cend(), step);
+    if (const CanvasTiledImagePtr old = m_images.value(id)) {
+        m_imageBytes -= CanvasDocumentFormat::imageBytes(*old);
+        m_encodedBytes -= CanvasDocumentFormat::imageRecordBytes(*old);
+    }
+    if (image) {
+        m_images.insert(id, image);
+        m_imageBytes += CanvasDocumentFormat::imageBytes(*image);
+        m_encodedBytes += CanvasDocumentFormat::imageRecordBytes(*image);
+        m_nextImage = std::max(m_nextImage, id + 1);
     } else {
-        std::for_each(edit.changes.crbegin(), edit.changes.crend(), step);
+        m_images.remove(id);
     }
 }
 
-bool CanvasDocument::commit(const CanvasEdit &edit)
+void CanvasDocument::placeLayer(const CanvasLayer &layer)
 {
-    if (edit.isEmpty()) {
-        return false;
-    }
-    // Validate against the current state before touching anything, so a
-    // stale edit (built against an older revision) is rejected whole.
-    for (const auto &c : edit.changes) {
-        const CanvasObject *current = object(c.id);
-        if (bool(current) != c.before.has_value() || (current && !(*current == *c.before))) {
-            return false;
-        }
-        if (c.after && (c.after->id != c.id || !m_layers.contains(c.after->layer))) {
-            return false;
-        }
-    }
-    QVector<QRectF> damage;
-    apply(edit, true, &damage);
-    m_history.resize(m_cursor);
-    m_history.append(edit);
-    if (m_history.size() > m_historyLimit) {
-        m_history.removeFirst();
-    }
-    m_cursor = m_history.size();
-    finishChange(damage, false);
-    return true;
+    unplaceLayer(layer.id);
+    m_layers.insert(layer.id, layer);
+    m_encodedBytes += CanvasDocumentFormat::layerRecordBytes(layer);
+    m_nextLayer = std::max(m_nextLayer, layer.id + 1);
 }
 
-bool CanvasDocument::undo()
+void CanvasDocument::unplaceLayer(CanvasLayerId id)
 {
-    if (!canUndo()) {
-        return false;
-    }
-    QVector<QRectF> damage;
-    apply(m_history.at(--m_cursor), false, &damage);
-    finishChange(damage, false);
-    return true;
-}
-
-bool CanvasDocument::redo()
-{
-    if (!canRedo()) {
-        return false;
-    }
-    QVector<QRectF> damage;
-    apply(m_history.at(m_cursor++), true, &damage);
-    finishChange(damage, false);
-    return true;
+    const auto it = m_layers.constFind(id);
+    if (it == m_layers.cend()) return;
+    m_encodedBytes -= CanvasDocumentFormat::layerRecordBytes(*it);
+    m_layers.erase(it);
 }
 
 void CanvasDocument::finishChange(const QVector<QRectF> &damage, bool full)
@@ -261,50 +403,6 @@ void CanvasDocument::finishChange(const QVector<QRectF> &damage, bool full)
     emit changed();
 }
 
-CanvasObjectId CanvasDocument::insert(CanvasObject object, bool record)
-{
-    if (object.id == 0) {
-        object.id = allocateId();
-    }
-    if (!m_layers.contains(object.layer)) {
-        object.layer = m_activeLayer;
-    }
-    if (object.z == 0) {
-        object.z = m_nextZ++;
-    }
-    if (record) {
-        CanvasEdit edit;
-        edit.label = tr("Add object");
-        edit.changes.append({object.id, std::nullopt, object});
-        return commit(edit) ? object.id : 0;
-    }
-    QVector<QRectF> damage;
-    place(object, &damage);
-    finishChange(damage, false);
-    return object.id;
-}
-
-CanvasLayerId CanvasDocument::addLayer(const QString &name)
-{
-    CanvasLayer l;
-    l.id = m_nextLayer++;
-    l.name = name;
-    l.order = int(m_layers.size());
-    m_layers.insert(l.id, l);
-    // A new empty layer on top changes no pixels but invalidates order keys
-    // cached by consumers.
-    finishChange({}, true);
-    return l.id;
-}
-
-CanvasImageId CanvasDocument::addImage(CanvasTiledImage image)
-{
-    image.id = m_nextImage++;
-    const CanvasImageId id = image.id;
-    m_images.insert(id, std::make_shared<const CanvasTiledImage>(std::move(image)));
-    return id;
-}
-
 void CanvasDocument::layerDamage(CanvasLayerId id, QVector<QRectF> *damage) const
 {
     for (auto it = m_objects.cbegin(); it != m_objects.cend(); ++it) {
@@ -317,28 +415,22 @@ void CanvasDocument::layerDamage(CanvasLayerId id, QVector<QRectF> *damage) cons
     }
 }
 
-bool CanvasDocument::setLayerVisible(CanvasLayerId id, bool visible)
+void CanvasDocument::imageDamage(CanvasImageId id, QVector<QRectF> *damage) const
 {
-    auto it = m_layers.find(id);
-    if (it == m_layers.end() || it->visible == visible) {
-        return false;
+    if (m_imageUse.value(id) == 0) return;
+    for (auto it = m_objects.cbegin(); it != m_objects.cend(); ++it) {
+        if (it->shape == CanvasShape::Image && it->image == id) {
+            const QRectF b = m_bounds.value(it.key());
+            if (!b.isNull()) damage->append(b);
+        }
     }
-    it->visible = visible;
-    QVector<QRectF> damage;
-    layerDamage(id, &damage);
-    finishChange(damage, false);
-    return true;
 }
 
-bool CanvasDocument::setLayerLocked(CanvasLayerId id, bool locked)
+void CanvasDocument::resetModel()
 {
-    auto it = m_layers.find(id);
-    if (it == m_layers.end() || it->locked == locked) {
-        return false;
-    }
-    it->locked = locked;
-    finishChange({}, false); // no pixels change
-    return true;
+    ++m_resetGeneration;
+    // A reset is a load, not an edit: recorded steps cannot apply to it.
+    invalidateHistory();
 }
 
 void CanvasDocument::clear()
@@ -347,8 +439,14 @@ void CanvasDocument::clear()
     m_bounds.clear();
     m_index.clear();
     m_images.clear();
-    m_history.clear();
-    m_cursor = 0;
+    m_layerUse.clear();
+    m_imageUse.clear();
+    m_totalPoints = 0;
+    m_imageBytes = 0;
+    m_encodedBytes = 0;
+    for (const CanvasLayer &l : std::as_const(m_layers))
+        m_encodedBytes += CanvasDocumentFormat::layerRecordBytes(l);
+    resetModel();
     finishChange({}, true);
 }
 

@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 02 — Common controls and scalable data
 
-**Execution underway.** WP-020 through WP-030 and WP-032 are accepted, WP-031 is active,
-and WP-033 is planned as recorded in the ledger.
+**Execution underway.** WP-020 through WP-032 are accepted; WP-033 is active
+as recorded in the ledger.
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 
@@ -229,7 +229,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-031"></a>
 ## WP-031 — Complete analytical chart and scheduling families
 
-**Implementation lead:** Sol. **Status:** active (all assigned families passed shared focused checks; final package acceptance pending). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-028](phase-02-controls-data.md#wp-028), [WP-029](phase-02-controls-data.md#wp-029), [WP-030](phase-02-controls-data.md#wp-030)
+**Implementation lead:** Sol. **Status:** accepted; [integrated evidence](evidence/WP-031.md). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-028](phase-02-controls-data.md#wp-028), [WP-029](phase-02-controls-data.md#wp-029), [WP-030](phase-02-controls-data.md#wp-030)
 
 **Proposal scope:** [DAT-14 Heatmap](../proposed/03-data-views.md#dat-14), [DAT-16 DistributionPlot](../proposed/03-data-views.md#dat-16), [DAT-17 GanttView](../proposed/03-data-views.md#dat-17)
 
@@ -271,7 +271,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-033"></a>
 ## WP-033 — Prove the shared application framework
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-014](phase-01-services.md#wp-014), [WP-019](phase-01-services.md#wp-019), [WP-020](phase-02-controls-data.md#wp-020), [WP-022](phase-02-controls-data.md#wp-022), [WP-026](phase-02-controls-data.md#wp-026), [WP-028](phase-02-controls-data.md#wp-028)
+**Implementation lead:** Sol. **Status:** active; [integration evidence](evidence/WP-033.md). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-014](phase-01-services.md#wp-014), [WP-019](phase-01-services.md#wp-019), [WP-020](phase-02-controls-data.md#wp-020), [WP-022](phase-02-controls-data.md#wp-022), [WP-026](phase-02-controls-data.md#wp-026), [WP-028](phase-02-controls-data.md#wp-028)
 
 **Proposal scope:** Supporting implementation/qualification work; no new proposal ID.
 

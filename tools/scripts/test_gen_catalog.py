@@ -33,6 +33,18 @@ class FixtureValue {
 class FixtureHelper {
     Q_OBJECT
     QML_ANONYMOUS
+signals:
+    void changed();
+    void payloadReady(const QString &id,
+                      const QVariantMap &payload);
+private:
+    void internalOnly();
+private Q_SIGNALS:
+    void hiddenSignal();
+public Q_SIGNALS:
+    void published();
+public slots:
+    void runSlot();
 };
 class FixturePrivate {
     Q_OBJECT
@@ -53,6 +65,11 @@ class FixturePrivate {
                 "multiline invokable was not parsed")
         require(by_name["FixtureHelper"]["anonymous"] and not by_name["FixtureHelper"]["exported"],
                 "anonymous helper classification was lost")
+        signals = by_name["FixtureHelper"]["signals"]
+        require([signal["name"] for signal in signals] == ["changed", "payloadReady", "published"],
+                "public signals were lost or private methods/signals leaked")
+        require(signals[1]["parameters"] == "const QString &id, const QVariantMap &payload",
+                "multiline signal parameters were not joined")
         require("FixturePrivate" not in by_name, "unregistered private class entered catalog")
         bridge = Path(temp) / "BridgeFixture.qml"
         bridge.write_text("""// SPDX-License-Identifier: LGPL-3.0-or-later
@@ -64,6 +81,20 @@ QtObject {
         bridge_entry = GEN.parse_qml(bridge, "QindaTK.QindaQt", "bridge_qml")
         require(bridge_entry["bridge"] and bridge_entry["module"] == "QindaTK.QindaQt",
                 "bridge QML module classification was lost")
+        multiline = Path(temp) / "MultilineSignals.qml"
+        multiline.write_text("""// SPDX-License-Identifier: LGPL-3.0-or-later
+import QtQuick
+QtObject {
+    signal operationRequested(string operation, var selectedIds,
+                              string referenceMode, string keyObjectId,
+                              real spacing)
+}
+""")
+        multiline_entry = GEN.parse_qml(multiline)
+        require(multiline_entry["signals"] == [{
+            "name": "operationRequested",
+            "parameters": "string operation, var selectedIds, string referenceMode, string keyObjectId, real spacing"
+        }], "multiline QML signal parameters were not extracted")
 
 
 def repository_checks():
@@ -74,7 +105,8 @@ def repository_checks():
     before_names = {item["name"] for item in before["types"]}
     after_names = {item["name"] for item in after["types"]}
     require(before_names <= after_names, "one or more existing catalog entries disappeared")
-    require(len(after_names) == 101, "catalog should contain the expected 101 source entries")
+    require(len(after_names) == len(before_names),
+            "catalog type count differs from current source inventory")
     require({"stylusSample", "QindaQtTheme"} <= after_names,
             "value type or QindaQt bridge is missing")
     entries = {item["name"]: item for item in after["types"]}
@@ -99,6 +131,19 @@ def repository_checks():
     bridge = entries["QindaQtTheme"]
     require(bridge["module"] == "QindaTK.QindaQt" and bridge["bridge"],
             "bridge module metadata is incorrect")
+    require(any(signal["name"] == "jobFinished" for signal in entries["JobModel"]["signals"]),
+            "JobModel's public C++ signal was not cataloged")
+    panel = entries["AlignDistributePanel"]
+    require(any(signal["name"] == "operationRequested" for signal in panel["signals"]),
+            "AlignDistributePanel.operationRequested was not cataloged")
+    guide = entries["GuideLayer"]
+    require(any(signal["name"] == "guideMoveRequested" for signal in guide["signals"]),
+            "GuideLayer.guideMoveRequested was not cataloged")
+    snap_model = GEN.parse_header(GEN.CORE_DIR / "canvas_snap_model.h")
+    require(any(signal["name"] == "changed" for signal in snap_model[0]["signals"]),
+            "CanvasSnapModel::changed was not extracted from its C++ header")
+    require(not any(signal["name"] == "refresh" for signal in entries["FontCatalog"]["signals"]),
+            "private FontCatalog implementation leaked as a signal")
     ordered = sorted(after["types"], key=lambda e: (e["module"] != "QindaTK",
                                                      e["kind"] != "qml", e["name"]))
     require([e["name"] for e in after["types"]] == [e["name"] for e in ordered],

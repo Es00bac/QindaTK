@@ -36,6 +36,9 @@ CPP_INVOKABLE = re.compile(
     r"(?P<ret>[\w:<>]+(?:\s*[*&])?)\s*(?P<name>\w+)\s*\((?P<params>[^)]*)\)")
 CPP_ENUM = re.compile(r"^\s*enum\s+(?:class\s+)?(?P<name>\w+)\s*\{(?P<body>[^}]*)\}")
 CPP_SIGNAL = re.compile(r"^\s*void\s+(?P<name>\w+)\s*\((?P<params>[^)]*)\)\s*;")
+CPP_SECTION = re.compile(
+    r"^\s*(?:(?P<access>public|private|protected)\s*)?"
+    r"(?P<section>signals|Q_SIGNALS|slots|Q_SLOTS)?\s*:")
 CPP_QML_MACRO = re.compile(
     r"^\s*(?P<macro>QML_ELEMENT|QML_NAMED_ELEMENT\((?P<named>\w+)\)|"
     r"QML_ANONYMOUS|QML_SINGLETON|QML_VALUE_TYPE\((?P<value>\w+)\)|"
@@ -72,7 +75,7 @@ def parse_qml(path, module="QindaTK", registration="qml_module"):
                   "description": leading_comment(lines), "objectNames": []})
     entry["singleton"] = any(line.strip() == "pragma Singleton" for line in lines)
     depth, root_seen = 0, False
-    for line in lines:
+    for line_index, line in enumerate(lines):
         if not root_seen:
             root = QML_ROOT.match(line)
             if root:
@@ -87,7 +90,18 @@ def parse_qml(path, module="QindaTK", registration="qml_module"):
                     "type": prop.group("type"), "default": (prop.group("default") or "").strip(),
                     "readonly": "readonly" in mods, "defaultProperty": "default" in mods,
                     "required": "required" in mods})
-            signal = QML_SIGNAL.match(line)
+            # QML permits signal parameter lists to wrap across lines. Keep
+            # the source-depth walk line based, but parse the declaration as
+            # one normalized statement.
+            signal_statement = line
+            if re.match(r"^\s*signal\s+", line) and "(" in line:
+                balance = line.count("(") - line.count(")")
+                next_index = line_index + 1
+                while balance > 0 and next_index < len(lines):
+                    signal_statement += " " + lines[next_index].strip()
+                    balance += lines[next_index].count("(") - lines[next_index].count(")")
+                    next_index += 1
+            signal = QML_SIGNAL.match(signal_statement)
             if signal:
                 entry["signals"].append({"name": signal.group("name"),
                     "parameters": (signal.group("params") or "").strip()})
@@ -146,10 +160,24 @@ def parse_header(path):
                 current["attached"] = macro.group("attached")
             index += 1
             continue
-        if re.match(r"^\s*signals:", line):
-            in_signals = True
-        elif re.match(r"^\s*(public|private|protected)( slots)?:", line):
-            in_signals = False
+        section = CPP_SECTION.match(line)
+        if section:
+            in_signals = section.group("section") in ("signals", "Q_SIGNALS") \
+                and section.group("access") not in ("private", "protected")
+            index += 1
+            continue
+        if in_signals:
+            statement = line.split("//", 1)[0].strip()
+            if statement and "(" in statement:
+                while index + 1 < len(source_lines) and ";" not in statement:
+                    index += 1
+                    statement += " " + source_lines[index].split("//", 1)[0].strip()
+                sig = CPP_SIGNAL.fullmatch(statement)
+                if sig:
+                    current["signals"].append({"name": sig.group("name"),
+                        "parameters": " ".join(sig.group("params").split())})
+            index += 1
+            continue
         statement = line.strip()
         is_property = "Q_PROPERTY(" in statement
         if (is_property or "Q_INVOKABLE" in statement) and ")" not in statement:
@@ -178,11 +206,6 @@ def parse_header(path):
             enum = CPP_ENUM.match(statement)
             if enum:
                 current["enums"][enum.group("name")] = [v.strip() for v in enum.group("body").split(",") if v.strip()]
-            if in_signals:
-                sig = CPP_SIGNAL.search(statement)
-                if sig:
-                    current["signals"].append({"name": sig.group("name"),
-                        "parameters": " ".join(sig.group("params").split())})
         index += 1
     for entry in types:
         match = re.search(r"((?:^//.*\n)+)^class\s+" + re.escape(entry["name"]) + r"\b", text, re.M)

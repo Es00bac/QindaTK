@@ -248,6 +248,7 @@ void WindowHost::forgetWindow(QQuickWindow *window)
     m_records.removeAt(index);
     updateActive();
     emit windowClosed(id);
+    if (record.owned && window) window->deleteLater();
     emit changed();
 }
 bool WindowHost::moveWindow(const QString &id, const QRect &geometry, const QString &screenId)

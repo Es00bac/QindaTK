@@ -47,6 +47,11 @@ TextSelection selectText(const SnapshotPtr &snapshot, const QVariantMap &options
 {
     TextSelection result;
     if (!snapshot) { result.error = invalid(QStringLiteral("Missing document snapshot")); return result; }
+    if (snapshot->header.schemaId != QString::fromLatin1(PropertyDocument::SchemaId)) {
+        result.error = {ErrorCode::Unsupported, QStringLiteral("Text export supports property documents only"),
+                        QStringLiteral("schemaId"), QString::fromLatin1(formatId)};
+        return result;
+    }
     const QJsonObject root = QJsonDocument::fromJson(snapshot->payload).object();
     const QJsonArray entities = root.value(QStringLiteral("entities")).toArray();
     const QJsonArray properties = root.value(QStringLiteral("properties")).toArray();
@@ -109,6 +114,7 @@ QVariantMap PlainTextFormat::metadata() const
             {"operations", QStringList{QStringLiteral("import"), QStringLiteral("export")}},
             {"editableImport", true}, {"renderOnly", false}, {"roundtrip", false},
             {"features", QStringList{QStringLiteral("single-text-entity"), QStringLiteral("utf8")}},
+            {"schemas", QStringList{QString::fromLatin1(PropertyDocument::SchemaId)}},
             {"maximumBytes", 16 * 1024 * 1024},
             {"optionKeys", QStringList{QStringLiteral("lineEnding"), QStringLiteral("bom"),
                                         QStringLiteral("allowLossy"), QStringLiteral("entityId"),

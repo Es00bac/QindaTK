@@ -16,6 +16,10 @@ Rectangle {
     height: 800
     color: Tk.Theme.color.bg
 
+    Tk.DockModel { id: dockModel; workspace: "video" }
+    Tk.WindowHost { id: nativeWindows }
+    Tk.DetachedPanelHost { id: nativePanels; model: dockModel; windowHost: nativeWindows }
+
     // Keep a useful workspace when the window cannot fit its dock lanes.
     // This viewport changes presentation only; DockModel owns the arrangement.
     Tk.Scroll {
@@ -55,6 +59,10 @@ Rectangle {
                             onClicked: dock.floatPanel("inspector")
                         }
                         Tk.IconButton {
+                            iconName: "external-link"; tooltip: "Detach the inspector into a window"
+                            onClicked: dock.detachPanelNative("inspector")
+                        }
+                        Tk.IconButton {
                             iconName: "eye-off"; tooltip: "Hide the layers group tab"
                             onClicked: dock.hidePanel("layers")
                         }
@@ -80,11 +88,12 @@ Rectangle {
                     id: dock
                     objectName: "dock"
                     workspace: "video"
+                    model: dockModel
+                    detachedHost: nativePanels
                     Tk.Flex.grow: 1
                     Tk.Flex.basis: 0
                     Tk.Flex.minHeight: 0
-                    // storageKey on the model would persist this arrangement:
-                    // model: Tk.DockModel { storageKey: "example/docking" }
+                    // A storageKey on dockModel would persist this arrangement.
 
                     canvas: Tk.Box {
                         objectName: "canvasBox"

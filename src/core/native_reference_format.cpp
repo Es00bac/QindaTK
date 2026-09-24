@@ -50,6 +50,7 @@ QVariantMap NativeReferenceFormat::metadata() const
             {"editableImport", true}, {"renderOnly", false}, {"roundtrip", true},
             {"features", QStringList{QStringLiteral("reference-properties"),
                                       QStringLiteral("opaque-extensions")}},
+            {"schemas", QStringList{QString::fromLatin1(PropertyDocument::SchemaId)}},
             {"optionKeys", QStringList{QStringLiteral("conflictPolicy"),
                                         QStringLiteral("expectedSha256"),
                                         QStringLiteral("expectedSourceSha256"),
@@ -97,6 +98,11 @@ FormatPlan NativeReferenceFormat::preflightExport(const SnapshotPtr &snapshot,
     FormatPlan plan;
     plan.options = options;
     if (!allowedOptions(options)) { plan.error = invalid(QStringLiteral("Unknown native format option")); return plan; }
+    if (snapshot && snapshot->header.schemaId != QString::fromLatin1(PropertyDocument::SchemaId)) {
+        plan.error = {ErrorCode::Unsupported, QStringLiteral("Reference export supports property documents only"),
+                      QStringLiteral("schemaId"), QString::fromLatin1(formatId)};
+        return plan;
+    }
     OperationError decodeError;
     if (!snapshot || !ReferenceDocumentCodec::decode(snapshot->payload, &decodeError)) {
         plan.error = decodeError ? decodeError : invalid(QStringLiteral("Missing native document snapshot"));

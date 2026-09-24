@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "document_store.h"
-#include "reference_document_codec.h"
 #include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
@@ -45,9 +44,9 @@ LoadReceipt AtomicDocumentStore::load(const QString &path)
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
         return {{}, {}, ioError(file.errorString(), path)};
-    if (file.size() < 1 || file.size() > ReferenceDocumentCodec::MaximumBytes)
+    if (file.size() < 1 || file.size() > MaximumBytes)
         return {{}, {}, {ErrorCode::InvalidArgument,
-                         QStringLiteral("Invalid reference document size"), path, {}}};
+                         QStringLiteral("Invalid document size"), path, {}}};
     const QByteArray bytes = file.readAll();
     if (bytes.size() != file.size() || file.error() != QFileDevice::NoError)
         return {{}, {}, ioError(file.errorString(), path)};
@@ -57,13 +56,16 @@ LoadReceipt AtomicDocumentStore::load(const QString &path)
 SaveReceipt AtomicDocumentStore::save(const SaveRequest &request)
 {
     // AGENT-CONTRACT: DocumentSession supplies immutable bytes and a baseline;
-    // this worker adapter never accesses its live PropertyDocument QObject.
+    // this worker adapter never accesses the session's live model QObject.
     SaveReceipt receipt;
     receipt.path = request.path;
     if (request.snapshot) receipt.saved = request.snapshot->header;
-    if (!request.snapshot || !request.snapshot->header.documentId.isValid()
+    const DocumentCodecPtr codec = request.codec ? request.codec
+        : request.snapshot ? DocumentCodecRegistry::shared()->codec(request.snapshot->header.schemaId)
+                           : DocumentCodecPtr{};
+    if (!request.snapshot || !codec || !request.snapshot->header.documentId.isValid()
         || request.snapshot->payload.isEmpty()
-        || request.snapshot->payload.size() > ReferenceDocumentCodec::MaximumBytes
+        || request.snapshot->payload.size() > codec->maximumEncodedBytes()
         || request.path.isEmpty()
         || (request.expectation == FileExpectation::MatchingHash
             && request.expectedSha256.size() != 32)) {
@@ -72,10 +74,8 @@ SaveReceipt AtomicDocumentStore::save(const SaveRequest &request)
         return receipt;
     }
     OperationError codecError;
-    auto decoded = ReferenceDocumentCodec::decode(request.snapshot->payload, &codecError);
-    if (!decoded || decoded->document->documentId() != receipt.saved.documentId
-        || decoded->document->revision() != receipt.saved.revision
-        || decoded->document->resetGeneration() != receipt.saved.resetGeneration) {
+    const auto inspected = codec->inspect(request.snapshot->payload, &codecError);
+    if (!inspected || compareSnapshotHeaders(*inspected, receipt.saved)) {
         receipt.error = {ErrorCode::InvalidArgument,
                          QStringLiteral("Snapshot header or payload is invalid"),
                          request.path, {}};

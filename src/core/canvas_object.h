@@ -56,6 +56,8 @@ struct CanvasLayer {
     int order = 0;
     bool visible = true;
     bool locked = false;
+
+    friend bool operator==(const CanvasLayer &, const CanvasLayer &) = default;
 };
 
 // AGENT-NOTE: tiled pixel storage for the image kind. Tiles are immutable

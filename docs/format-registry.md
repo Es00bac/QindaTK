@@ -1,10 +1,13 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Format registry and import/export jobs
 
-`Tk.FormatRegistry` is the operation-specific format broker for reference
-documents. It ships two providers: `qindatk.reference.v2` and `text.utf8`.
-Neither provider recognizes or edits Adobe, Office, audio, video or other
-vendor formats. A file extension alone never establishes support.
+`Tk.FormatRegistry` is the operation-specific format broker for document
+sessions. It ships two providers, `qindatk.reference.v2` and `text.utf8`, for
+the reference property schema. An application with canvas documents
+registers a third, `CanvasNativeFormat` (`qindatk.canvas.v1`):
+`registry.registerProvider(std::make_shared<CanvasNativeFormat>())`.
+None of these providers recognizes or edits Adobe, Office, audio, video or
+other vendor formats. A file extension alone never establishes support.
 
 ## Public workflow
 
@@ -35,10 +38,11 @@ document or destination changed since approval. The default output conflict
 policy refuses an existing file. A replace request without the matching hash
 does not overwrite it. Local file URLs are supported; remote URLs are rejected.
 
-`startImport` returns a job ID; the worker produces validated reference bytes
-without mutating any open document. Call `adoptImport` only after the job state
-is `succeeded` and the user has chosen to open it. That creates a
-`DocumentSession` in the chosen `DocumentManager`. The job can be cancelled
+`startImport` returns a job ID; the worker produces validated native bytes
+of a registered document schema without mutating any open document. Call
+`adoptImport` only after the job state is `succeeded` and the user has chosen
+to open it. That creates a `DocumentSession` in the chosen `DocumentManager`
+through its codec registry (`DocumentManager::adoptBytes`). The job can be cancelled
 through `registry.jobs.cancelJob(jobId)`. A completed job exposes `result`,
 `warnings`, `losses` and errors through `jobs.job(jobId)`; its status key is
 `state` (`queued`, `running`, `succeeded`, `failed`, or `cancelled`). A
@@ -47,12 +51,23 @@ cancellation request arrived after the commit boundary. Failed results retain
 structured diagnostics. Do not treat a returned job ID as a successful import
 or file write.
 
+## Document schemas
+
+A provider's `schemas` metadata lists the document schemas it can export. An
+export preflight for a session of another schema fails with `Unsupported`
+before any job runs. The reference and text providers also check the
+snapshot's schema themselves. Session exports capture through
+`DocumentSession::captureSnapshot()`, so any registered kind reaches a
+provider as immutable native bytes plus a `SnapshotHeader`, never as a live
+model.
+
 ## Provider limits
 
 | Provider | Supported behavior | Deliberate boundary |
 | --- | --- | --- |
 | `qindatk.reference.v2` | Validated import and export of the version 2 `PropertyDocument` reference schema; typed values and `extensions` roundtrip | This is a reference model, not a generic creative or office document interchange format |
 | `text.utf8` | Strict UTF-8 import with optional BOM; export a single text value with selected BOM and line-ending policy | Properties or entities outside the representable text body are reported as losses and need explicit acknowledgement |
+| `qindatk.canvas.v1` (opt-in) | Validated import, export and roundtrip of the [canvas native file](canvas.md#native-format); preview reports object, layer and image counts | Canvas sessions only; the file is recognized by its `QTKCANVS` signature, never by the `.qtkc` name |
 
 Malformed or oversized source files fail preflight. A file with an unrelated
 signature is not imported because its name happens to use a known extension.

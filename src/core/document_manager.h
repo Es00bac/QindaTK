@@ -9,6 +9,9 @@
 
 namespace QindaTK {
 
+// Owns sessions of any registered document kind. Opening, restoring and
+// adopting go through the codec registry: bytes are recognized by content,
+// decoded with identity/bounds validation, then adopted on the GUI thread.
 class DocumentManager : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -18,6 +21,7 @@ class DocumentManager : public QObject {
     Q_PROPERTY(QindaTK::RecoveryManager *recoveryManager READ recoveryManager CONSTANT)
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
     Q_PROPERTY(QStringList viewOrder READ orderedViewIds NOTIFY changed)
+    Q_PROPERTY(QVariantList documentTypes READ documentTypes NOTIFY changed)
 public:
     enum class ClosePolicy { Cancel, Discard, Save };
     Q_ENUM(ClosePolicy)
@@ -28,9 +32,20 @@ public:
     RecoveryManager *recoveryManager() const { return m_recovery; }
     QString lastError() const { return m_lastError; }
     void setStore(DocumentStorePtr store);
+    std::shared_ptr<DocumentCodecRegistry> codecRegistry() const { return m_codecs; }
+    // Only before the first session; the recovery manager follows it.
+    bool setCodecRegistry(std::shared_ptr<DocumentCodecRegistry> registry);
+    QVariantList documentTypes() const;
     DocumentSession *create(std::unique_ptr<PropertyDocument> document);
+    // Any registered model; its schema selects the codec.
+    DocumentSession *create(std::unique_ptr<DocumentModel> model);
+    // Decodes native bytes of any registered schema into a new unsaved session.
+    DocumentSession *adoptBytes(const QByteArray &bytes, OperationError *error = nullptr);
     Q_INVOKABLE DocumentSession *createReferenceDocument();
+    Q_INVOKABLE DocumentSession *createDocument(const QString &schemaId);
     Q_INVOKABLE DocumentSession *openReferenceDocument(const QString &path);
+    // Opens any registered kind; a nonempty schemaId must match the file.
+    Q_INVOKABLE DocumentSession *openDocument(const QString &path, const QString &schemaId = {});
     Q_INVOKABLE DocumentSession *restoreRecovered(const QString &documentId,
                                                   const QString &originalPath = {});
     Q_INVOKABLE DocumentSession *findSession(const QString &documentId) const;
@@ -54,7 +69,8 @@ signals:
     void saveAllFinished(const QVariantList &results);
 private:
     static QString canonicalPath(const QString &path);
-    DocumentSession *adopt(std::unique_ptr<PropertyDocument> document);
+    DocumentSession *adopt(std::unique_ptr<DocumentModel> model, DocumentCodecPtr codec);
+    DocumentSession *failWith(const OperationError &error);
     bool remove(DocumentSession *session);
     void finishSaveAllIfDone();
     QList<DocumentSession *> m_sessions;
@@ -62,6 +78,7 @@ private:
     UndoService *m_undo = nullptr;
     RecoveryManager *m_recovery = nullptr;
     DocumentStorePtr m_store;
+    std::shared_ptr<DocumentCodecRegistry> m_codecs = DocumentCodecRegistry::shared();
     QHash<QString, QString> m_views; // view UUID -> document UUID
     QStringList m_viewOrder;
     QString m_lastError;

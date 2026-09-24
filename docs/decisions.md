@@ -544,3 +544,56 @@ exact domain edges, units and final-edge inclusivity.
 view. Hosts that need only X synchronization share only X. The annotation
 model and histogram selection do not infer analysis or color context; the
 host supplies those source semantics.
+
+
+## D-047 — Own ICC encodings and keep numeric color independent of Theme
+
+**Context.** QColor and canvas metadata cannot represent a validated document
+profile pipeline or prove that display pixels were transformed.
+
+**Decision.** The core numerical ColorEngine privately links Little CMS.
+Immutable profiles own exact ICC bytes and content hashes. ColorValue carries
+straight-alpha RGB doubles; ICC owns its complete transfer encoding. The first
+backend performs Float32 relative-colorimetric CPU conversions with BPC off,
+preserves alpha separately, tags results with context generations, and returns
+structured errors for unsupported proof/model/intent operations.
+
+**Consequences.** LCMS and pkg-config become required build dependencies.
+Profile import and the transform cache are bounded; no native handles enter
+public headers. Gamut status remains unknown. Canvas/GPU display management,
+proofing and gradient interpolation require their own fixtures and integration;
+no Theme change modifies stored colors. See [color.md](color.md).
+
+
+## D-048 — Keep editable curve geometry normalized and its domains typed
+
+**Context.** Tangent handles, evaluator samples and editor gestures need one
+coordinate convention, while automation and color curves have different units.
+
+**Decision.** Curve knots carry stable string IDs; knots and handles use
+absolute normalized coordinates. Typed axis domains provide explicit affine unit
+projection. A stateless validator rejects invalid proposals; a double-precision
+evaluator defines step, linear, cubic and edge semantics without repairing or
+mutating host data. Ordered cubic controls permit a bounded monotone x solve.
+
+**Consequences.** The editor proposes handle coordinates and the host owns
+constraints and commits. Unit conversions, exact tick projection, mirrored
+tangents, adaptive sampling and undo remain explicit integration boundaries.
+See [curve.md](curve.md) for endpoints, repeat seams and numerical fixtures.
+
+
+## D-049 — Interpolate tagged gradient stops in linear light with coverage alpha
+
+**Context.** Encoded RGB interpolation darkens light-space midpoints, and
+straight-channel mixing lets hidden transparent colors tint visible samples.
+
+**Decision.** The numerical gradient evaluator converts stops through
+ColorEngine into linear sRGB, interpolates premultiplied coverage, and converts
+the straight result to an explicit RGB ICC target. Array order resolves equal
+positions; the last duplicate wins exactly. Zero-alpha output has canonical
+zero channels while stored colors and ColorEngine hidden RGB remain intact.
+
+**Consequences.** Hosts preserve stable stop IDs and tie order, own transactions,
+and explicitly integrate renderer previews. Initial policies are relative
+colorimetric/BPC off with padded edges; proofing and alternative interpolation
+spaces remain unsupported. See [gradient.md](gradient.md).

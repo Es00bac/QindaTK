@@ -2,6 +2,7 @@
 #pragma once
 
 #include "application_contracts.h"
+#include "document_codec.h"
 #include <memory>
 
 namespace QindaTK {
@@ -14,6 +15,9 @@ struct SaveRequest {
     FileExpectation expectation = FileExpectation::Missing;
     QByteArray expectedSha256;
     CancellationToken cancellation;
+    // Codec that checks the payload against the header; when empty the
+    // shared registry resolves the snapshot's schema.
+    DocumentCodecPtr codec = {};
 };
 
 struct SaveReceipt {
@@ -42,6 +46,8 @@ public:
 
 class AtomicDocumentStore final : public DocumentStore {
 public:
+    // Largest file load() reads; each codec then applies its own bound.
+    static constexpr qsizetype MaximumBytes = qsizetype(512) * 1024 * 1024;
     SaveReceipt save(const SaveRequest &request) override;
     LoadReceipt load(const QString &path) override;
     static QByteArray sha256(const QByteArray &bytes);

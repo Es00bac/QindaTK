@@ -4,7 +4,7 @@ import QindaTK as Tk
 
 // Spatial canvas reference (WP-040): one CanvasDocument with 10,000 shapes
 // over a 2048x1536 tiled image, shown in two CanvasViews that share one
-// CanvasViewState. The left view renders through the scene-graph provider
+// CanvasViewState and CanvasSelectionModel. The left view renders through the scene-graph provider
 // when the window has a GPU backend; the right one is forced to software.
 //   qtk-preview examples/spatial-canvas/Main.qml
 //   qtk-preview examples/spatial-canvas/Main.qml --gpu --grab out.png
@@ -19,9 +19,19 @@ Rectangle {
         id: document
         Component.onCompleted: populateFixture(10000, 7, true)
     }
+    Tk.CanvasSelectionModel {
+        id: sharedSelection
+        document: document
+    }
     Tk.ToolController {
         id: tools
         document: document
+        selectionModel: sharedSelection
+    }
+    Tk.ToolController {
+        id: rightTools
+        document: document
+        selectionModel: sharedSelection
     }
     Tk.CanvasViewState {
         id: sharedPose
@@ -98,7 +108,7 @@ Rectangle {
                 viewId: "right"
                 accessibleName: qsTr("Synchronized canvas")
                 document: document
-                toolController: tools
+                toolController: rightTools
                 viewState: sharedPose
                 backend: "software"
                 Tk.Flex.flex: 2

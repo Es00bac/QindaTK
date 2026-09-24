@@ -14,13 +14,13 @@ View menu, a preset, or a script without touching the host.
 | Term | Meaning |
 | --- | --- |
 | **workspace** | A named set of panels with its own arrangement (`image`, `paper`, …). The model holds several; a host shows one (`workspace`). |
-| **mode** | `docked`, `floating`, `collapsed` (docked, only the header shows), `hidden`. |
+| **mode** | `docked`, `floating` (inside DockHost), `collapsed` (docked, only the header shows), `hidden`, `detached` (native window). |
 | **zone** | Where a docked panel sits: `left`, `right`, `top`, `bottom`, `center`, `overlay`. Top/bottom span the host width; left/right are columns beside the centre column; `center` stacks rows *above the canvas* inside the centre column (Sloom's monitors); `overlay` panels sit over the canvas at its top-right. |
 | **lane** | A sub-strip of a zone. Side zones have lanes side by side (columns), the others have stacked lanes (rows). Lane 0 is nearest the host edge. Each lane has one `extent` (width for side zones, height otherwise): the largest extent among its panels. |
 | **order** | Position of a slot inside its lane, renumbered 0..n-1 after every move. |
 | **share** | Relative weight of a slot inside its lane (stacked slots split the lane by share). Group members share one weight. |
 | **group** | Panels in the same lane with the same `group` id form one slot with a tab strip; `groupActive` marks the shown tab. |
-| **floatingRect** | Position and size while floating (host-local coordinates); `zOrder` stacks floating panels. On restore or host shrink, the host asks DockModel to move the rectangle so a usable part of its header remains inside the viewport. |
+| **floatingRect** | Position and size while floating (host-local coordinates); `zOrder` stacks floating panels. In `detached` mode, the same rectangle is native global logical geometry and `detachedScreenId` records the screen name. On restore, WindowHost clamps an absent screen to an available one. |
 | **allowedZones** | Optional list a panel may dock into; absent means any zone. `minWidth`/`minHeight` floor the lane extent and the floating size. `fixedSize` refuses floating resizes. |
 
 ## DockModel API
@@ -34,16 +34,18 @@ bumps on every change).
 | --- | --- |
 | `registerPanel(workspace, panelId, definition)` | Declares a panel and its defaults (`title, mode, zone, lane, order, extent, share, floatingRect{x,y,width,height}, minWidth, minHeight, fixedSize, closable, chrome, allowedZones, group, groupActive`). Idempotent: a panel that already carries a user arrangement keeps it; a pending arrangement from `deserialize()` is applied on first registration. |
 | `unregisterPanel(workspace, panelId)` / `hasPanel(id)` / `panelIds()` | Registry maintenance and queries (active workspace). |
-| `panel(id)` | Full map: arrangement keys plus `title, minWidth, minHeight, fixedSize, closable, chrome, allowedZones, x, y, width, height, docked, floating, collapsed, hidden, visible`. |
+| `panel(id)` | Full map: arrangement keys plus `title, minWidth, minHeight, fixedSize, closable, chrome, allowedZones, x, y, width, height, docked, floating, collapsed, hidden, detached, visible`. |
 | `panelsInZone(zone)` | Docked and collapsed panels of a zone, by lane then order. |
 | `lanes(zone)` | `[{lane, extent, slots: [{panelIds, activeId, share, collapsed}]}]` — the structure DockHost renders. |
 | `zoneExtent(zone)` | Sum of the zone's lane extents. |
 | `floatingPanels()` | Floating panels by `zOrder`. |
+| `detachedPanels()` | Panels assigned to native windows, by stable panel ID. |
 | `acceptsZone(id, zone)` | Whether the panel's `allowedZones` admits the zone. |
 | `setMode(id, mode)` | Mode by name; routes to the calls below. |
 | `dock(id, zone, lane = -1)` | Docks at the end of the lane (lane 0, or the given lane); clears its group when the zone changes. |
 | `dockBeside(id, targetId, placement)` | `before`/`after` (same lane, next to the target's slot), `tab` (join the target's group), `lane-before`/`lane-after` (a new lane nearer the edge / nearer the canvas). Respects `allowedZones`. |
 | `floatPanel(id, x = -1, y = -1)` | Floats (optionally at x,y), leaves its group, raises. |
+| `detachPanel(id, globalRect = {})` | Assigns the panel to a native window; keeps the last dock zone and uses global logical geometry. `setDetachedScreen(id, screenId)` records the preferred screen. |
 | `hide(id)` / `show(id)` / `toggle(id)` | Hidden panels keep their arrangement; `show` re-docks (or re-activates its tab) and emits `panelShown`. |
 | `collapse(id, bool)` | Docked ⇄ collapsed (header only). |
 | `moveFloating(id, x, y)` / `resizeFloating(id, w, h)` / `setFloatingRect(id, x, y, w, h)` | Floating geometry; sizes are floored at the minimum, `fixedSize` refuses resizes. |
@@ -86,6 +88,17 @@ kept pending until they register. `dock_model_store.cpp` is the source of
 truth (`arrangementOf`/`applyArrangement`).
 
 ## DockHost and DockPanel (QML)
+
+`Tk.DetachedPanelHost` connects a `DockModel` to a `WindowHost` and seats the
+same `DockPanel.contentItem` in a native `QQuickWindow`. Give it to DockHost as
+`detachedHost`; DockHost registers declarations automatically. Call
+`dockHost.detachPanelNative(panelId)` or `dockHost.reattachPanel(panelId)`.
+Closing a detached window re-docks its panel. `WindowHost` owns the native
+window, while DockModel remains the authority for placement and geometry.
+Its `windows` list maps panel IDs to WindowHost IDs; the native window gets
+`detachedPanelWindow_<panelId>` as its stable objectName. A restored window
+on a missing screen is clamped to the available primary screen. Existing
+`floating` panels remain inside DockHost.
 
 ```qml
 Tk.DockHost {
