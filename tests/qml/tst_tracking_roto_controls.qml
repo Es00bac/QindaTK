@@ -88,5 +88,17 @@ TestCase {
         compare(acceptedPreview[1], "22")
         verify(roto.cancelPreview())
         compare(cancelledPreview, ["mask-a", "22"])
+
+        tracking.tracks = [{trackId: "trk-1", label: "Camera", referenceFrame: 0,
+            state: "ready", previewPoints: [],
+            points: [{frame: 0, x: 12, y: 15, confidence: 1, state: "tracked"}]}]
+        compare(tracking.features.length, 1)
+        verify(!tracking.accept())
+        tracking.tracks = [{trackId: "trk-1", label: "Camera", referenceFrame: 0,
+            state: "ready", points: [{frame: 0, x: 12, y: 15, confidence: 1}],
+            previewPoints: [{frame: 1, x: 18, y: 15, confidence: 0.9}]}]
+        compare(tracking.features[0].frame, 1)
+        verify(tracking.accept())
+        compare(accepted, "trk-1")
     }
 }

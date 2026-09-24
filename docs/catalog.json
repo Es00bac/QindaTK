@@ -42228,7 +42228,7 @@
       "name": "MeshRigDocument",
       "kind": "cpp",
       "base": "QObject",
-      "description": "A bounded triangle-mesh document. Vertex, face, UV-corner and bone IDs are stable across pose/UV edits, undo, OBJ export and native save/reopen.",
+      "description": "A bounded triangle-mesh document. Vertex, face, UV-corner and bone IDs are stable across pose/UV edits, undo, OBJ export and native save/reopen. AGENT-CONTRACT: SceneView3D accepts primitives only; this model exports posed OBJ geometry and texture PNG until a host supplies an arbitrary-mesh renderer. See docs/mesh-rig.md and docs/scene-3d.md.",
       "singleton": false,
       "attached": null,
       "file": "src/core/mesh_rig_document.h",

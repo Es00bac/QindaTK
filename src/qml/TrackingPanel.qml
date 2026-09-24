@@ -17,7 +17,8 @@ T.Control {
     property string endFrame: "0"
     property string currentFrame: "0"
     readonly property var track: tracks.find(function(item) { return String(item.trackId) === control.selectedTrackId }) || ({})
-    readonly property var features: track.previewPoints || track.points || []
+    readonly property var features: (track.previewPoints || []).length
+                                    ? track.previewPoints : (track.points || [])
     property string tooltip: qsTr("Inspect tracking results and correct feature positions")
 
     signal trackSelected(string trackId)
@@ -35,7 +36,8 @@ T.Control {
         cancelRequested(String(track.trackId)); return true
     }
     function accept() {
-        if (!track.trackId || track.state !== "ready") return false
+        if (!track.trackId || track.state !== "ready" || !(track.previewPoints || []).length)
+            return false
         acceptRequested(String(track.trackId)); return true
     }
     function correctPoint(frame, x, y) {
@@ -100,7 +102,10 @@ T.Control {
             width: parent.width
             direction: Tk.Flex.Row
             gap: Tk.Theme.space.xs
-            Tk.Caption { text: qsTr("Reference %1").arg(String(control.track.referenceFrame || "—")) }
+            Tk.Caption {
+                text: qsTr("Reference %1").arg(control.track.referenceFrame !== undefined
+                                                  ? String(control.track.referenceFrame) : "—")
+            }
             Tk.Spacer { Tk.Flex.grow: 1 }
             Tk.Caption { text: qsTr("%1 points").arg(control.features.length) }
         }
@@ -162,8 +167,12 @@ T.Control {
             text: control.track.state === "lost"
                   ? qsTr("Tracking lost. Correct on the viewer or rerun analysis; no result was applied.")
                   : control.track.state === "running" ? qsTr("Analyzing tracking range…")
-                    : String(control.track.error || qsTr("Results remain unapplied until accepted."))
+                  : (control.track.previewPoints || []).length
+                    ? qsTr("Results remain unapplied until accepted.")
+                  : (control.track.points || []).length
+                    ? qsTr("%1 accepted tracking points.").arg(control.track.points.length)
+                    : String(control.track.error || qsTr("Run tracking to generate points."))
         }
-        Tk.Button { objectName: "trackingAccept"; text: qsTr("Accept results"); tooltip: qsTr("Apply this tracking result to the document"); enabled: control.track.state === "ready"; onClicked: control.accept() }
+        Tk.Button { objectName: "trackingAccept"; text: qsTr("Accept results"); tooltip: qsTr("Apply this tracking result to the document"); enabled: control.track.state === "ready" && (control.track.previewPoints || []).length > 0; onClicked: control.accept() }
     }
 }

@@ -1,0 +1,17 @@
+<!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270" viewBox="0 0 480 270">
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#244052"/><stop offset="1" stop-color="#0e1722"/></linearGradient></defs>
+  <rect width="480" height="270" fill="url(#bg)"/>
+  <path d="M0 205L480 175v95H0z" fill="#293941"/>
+  <path d="M0 235L480 205M58 270L110 202M215 270L238 194M378 270L365 186" stroke="#6a8290" stroke-opacity=".35" stroke-width="2"/>
+  <circle cx="400" cy="60" r="43" fill="#7ebdc0" opacity=".18"/>
+  <g transform="translate(6 0)">
+    <path d="M123 236L135 151l22-30 50-4 35 43 24 76z" fill="#d19675"/>
+    <path d="M135 150q-18-32 5-60 26-32 71-12 25 20 21 59l-20 20-63-3z" fill="#d9b293"/>
+    <path d="M135 124q-14-41 16-55 52-23 78 22l-1 36q-31-28-91-3z" fill="#1d2933"/>
+    <path d="M137 133l45-25 43 24-40 35z" fill="#f1d7a9" opacity=".35"/>
+    <circle cx="180" cy="112" r="8" fill="#f5e8d1"/><circle cx="180" cy="112" r="4" fill="#102530"/>
+    <path d="M160 172l54 5-27 23z" fill="#283a46"/>
+    <path d="M116 236q45-32 104-28l49 28z" fill="#3b7892"/>
+  </g>
+</svg>

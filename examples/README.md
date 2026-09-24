@@ -81,6 +81,11 @@ editor and displays its actual blended pixel output from two solid-color nodes.
 The [tracking and roto fixture](tracking-roto/Main.qml) presents tracked point
 confidence and loss beside editable, keyframed mask paths; snapshots and edit
 requests follow the `TrackingRotoModel` host contract.
+The [live tracking and roto fixture](tracking-roto-live/Main.qml) loads three
+local frames, runs the toolkit's patch tracker, accepts its measured points and
+shows a generated mask translation over the moved frame. Editing and preview
+requests feed back into the real model; the fixture still leaves source media
+decoding and project composition to a host application.
 The [image comparison fixture](image-compare/Main.qml) aligns two local images
 for split, blink and encoded-sRGB difference inspection.
 The [mask and brush controls fixture](mask-brush-controls/Main.qml) shows
