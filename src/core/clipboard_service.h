@@ -106,8 +106,7 @@ private:
     OperationError prepare(PropertyDocument *document, EntityId target,
                            const QString &propertyId, PreparedPaste *result,
                            qsizetype insertionIndex = -1) const;
-    OperationError publishPayload(const TransferPayload &payload,
-                                  const QMap<QString, QByteArray> &projections = {});
+    OperationError publishPayload(const TransferPayload &payload);
     void refresh();
     bool clearPendingCut();
     OperationError fail(ErrorCode code, const QString &message,

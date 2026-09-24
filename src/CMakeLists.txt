@@ -66,7 +66,7 @@ qt_add_qml_module(qindatk
         core/transfer_payload.cpp core/transfer_payload.h
         core/gesture_router.cpp core/gesture_router.h
         core/time_map.cpp core/time_map.h
-        core/clipboard_service.cpp core/clipboard_service.h
+        core/clipboard_service.cpp core/clipboard_service.h core/clipboard_ranges.cpp
         core/drag_drop_service.cpp core/drag_drop_service.h
         core/property_collection_drop_target.cpp
         core/locale_service.cpp core/locale_service.h
