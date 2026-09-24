@@ -293,6 +293,58 @@ own zoom controls tolerance in logical pixels. Guide storage and transactions
 remain a WP-041 domain responsibility; this decision does not make a
 one-point snap query a complete transform controller.
 
+## D-050 — Own the rich-text model and paginate per view
+
+**Context.** WP-050 needs one authoritative rich-text document shown as a
+continuous editor and as pages, local reflow after an edit on a 500-page
+document, and stable page identities. `QTextDocument` has one document
+layout, so two views of different widths cannot share it. A scratch probe
+(Qt 6.11.1, 508 pages, 5,201 blocks) counted `QTextDocumentLayout` block
+layouts after one edit, from the `qt.text.layout` category:
+
+| Edit | `QTextDocumentLayout` | Per-view `RichTextLayout` |
+| --- | --- | --- |
+| One character, page 1 | 508 block layouts (181 ms; 601 ms under load 58) | 1 paragraph shaped, 1 page rebuilt |
+| One character, page 250 | 256 block layouts (610 ms under load) | 1 paragraph shaped, 1 page rebuilt, 249 reused (12 ms under load) |
+| New paragraph, page 1 | 1,017 block layouts (364 ms; 1,264 ms under load) | 2 paragraphs shaped; pages rebuilt from cached metrics up to the next section break |
+
+The document layout re-lays out every block that crosses a later page
+boundary. Re-shaping one paragraph with a standalone `QTextLayout` costs
+0.31 ms (0.49 ms under load).
+
+**Decision.** `RichTextDocument` is our own model: paragraphs, interned
+runs, tables, lists and object anchors, with UUID-and-offset positions. Its
+invertible steps form transactions and undo history. It has an
+`externalUndo` bridge on the D-040 pattern, because `UndoService` records
+`PropertyDocument` properties only. Each view owns a `RichTextLayout`:
+
+- one `QTextLayout` per paragraph, which keeps Qt shaping, bidi, line
+  breaking and font fallback;
+- a paginator that restarts at the page before the first dirty block and
+  stops when a page starts in its previous flow state;
+- page keys derived from the section and the ordinal within it.
+
+Fonts resolve against a 72-dpi device, so layout does not depend on the
+screen. Persistence is the canonical `qindatk.richtext/1` codec, and a
+`DocumentSession` extension adapter supplies save, recovery and stale-save
+protection.
+
+**Consequences.**
+
+- Tables, floats, keep rules and repeated header rows are our code, not
+  Qt's. The known-answer tests in `tst_rich_text_layout` and
+  `tst_rich_text_scale` guard them.
+- An inline object gets its width from percentage letter spacing. Qt 6.11
+  scales absolute spacing by `int(fontDpi / screenDpi)`, which is 0 on the
+  72-dpi device.
+- HTML is an exchange format through `QTextDocument`, never the storage
+  format.
+- Named styles, table editing, merged cells and FormatRegistry providers
+  belong to WP-051 and WP-019.
+- Rich-text measurements need a quiet machine or a load note; the block and
+  page counts are deterministic.
+- See [rich-text.md](rich-text.md).
+
 ## D-051 — Convert composed sRGB canvas tiles for explicit RGB displays
 
 **Context.** Canvas objects currently carry QColor sRGB values. Applying a

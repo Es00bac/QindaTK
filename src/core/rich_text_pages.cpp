@@ -13,7 +13,7 @@ namespace {
 const QUuid PageKeyNamespace(QStringLiteral("{6b1f3c52-8d6e-4c0a-9a57-1f5e0b8a4d20}"));
 } // namespace
 
-bool RichTextLayout::rebuildMarkers()
+bool RichTextLayout::rebuildMarkers() const
 {
     QHash<QUuid, QString> markers;
     if (m_document) {
@@ -35,7 +35,15 @@ bool RichTextLayout::rebuildMarkers()
     }
     const bool changed = markers != m_markers;
     m_markers = markers;
+    m_markersDirty = false;
+    m_markersChanged = m_markersChanged || changed;
     return changed;
+}
+
+QString RichTextLayout::listMarker(const QUuid &paragraph) const
+{
+    if (m_markersDirty) rebuildMarkers();
+    return m_markers.value(paragraph);
 }
 
 static size_t hashItems(const RichTextDocument &doc, const Page &page, const QHash<QUuid, QString> &markers)
@@ -78,8 +86,9 @@ void RichTextLayout::pageRange(Page &page)
 void RichTextLayout::finalizePages(int firstChanged, int reusedFrom)
 {
     if (!m_document) return;
-    const bool markersChanged = m_markersDirty && rebuildMarkers();
-    m_markersDirty = false;
+    if (m_markersDirty) rebuildMarkers();
+    const bool markersChanged = m_markersChanged;
+    m_markersChanged = false;
     const int start = markersChanged ? 0 : qBound(0, firstChanged, pageCount());
     const auto &blocks = m_document->blocks();
     QUuid section = start > 0 ? m_pages.at(start - 1).section : QUuid();

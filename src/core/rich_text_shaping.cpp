@@ -90,7 +90,6 @@ QTextCharFormat resolvedFormat(const RichTextDocument &doc, const CharFormat &f,
     return format;
 }
 
-// Advance of U+FFFC under `format`, so letter spacing can give an object its width.
 qreal objectCharAdvance(const QTextCharFormat &format)
 {
     static QHash<QString, qreal> cache;
@@ -247,15 +246,29 @@ QTextLayout *RichTextLayout::buildLayout(const Paragraph &p, ParagraphMetrics &m
     QList<QTextLayout::FormatRange> formats;
     auto shift = [&m](int offset) { return m.preeditOffset >= 0 && offset > m.preeditOffset ? offset + m.preeditLength : offset; };
     int start = 0;
-    QHash<int, int> objectLayoutStart;
     for (const Span &span : p.spans) {
         const CharFormat &cf = doc.charFormat(span.format);
         QTextCharFormat format = resolvedFormat(doc, cf, pf);
         if (!cf.objectId.isEmpty()) {
+            // AGENT-GUARD: absolute letter spacing cannot size an object here.
+            // QTextEngine scales it by int(font dpi / screen dpi), which is 0
+            // on the 72-dpi layout device, so the spacing silently vanishes
+            // (measured on Qt 6.11.1; tst_rich_text_layout
+            // objectsTakeTheirWidthInTheLine fails if it comes back).
+            // Percentage spacing is not dpi-scaled.
             const RichObject *object = doc.object(cf.objectId);
             const qreal width = object && object->placement == Placement::Inline ? object->widthPt * PxPerPt : 0;
-            format.setFontLetterSpacingType(QFont::AbsoluteSpacing);
-            format.setFontLetterSpacing(width - objectCharAdvance(format));
+            const qreal advance = objectCharAdvance(format);
+            if (width > 0 && advance > 0) {
+                format.setFontLetterSpacingType(QFont::PercentageSpacing);
+                format.setFontLetterSpacing(100 * width / advance);
+            } else {
+                // Anchored and page objects take no inline space: their layout
+                // character is U+2060 WORD JOINER (default-ignorable, zero
+                // advance, no break opportunity), one for one with the model.
+                for (int i = start; i < start + span.length; ++i)
+                    if (text.at(i) == QChar(ObjectChar)) text[i] = QChar(WordJoiner);
+            }
             format.setForeground(QColor(Qt::transparent));
         }
         const int from = shift(start);

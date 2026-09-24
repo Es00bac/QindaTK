@@ -245,7 +245,7 @@ void RichTextLayout::invalidateAll()
     if (m_document && !m_document->blocks().isEmpty()) m_frontier.blockId = m_document->blocks().first().id();
     m_paginatedBlocks.clear();
     rebuildMarkers();
-    m_markersDirty = false;
+    m_markersChanged = false; // every page is rebuilt anyway
     emit layoutReset();
     emit pagesChanged(0, 0);
 }
@@ -276,6 +276,16 @@ void RichTextLayout::continuePagination(qint64 budgetNs, int stopPage)
 void RichTextLayout::ensurePaginated(int pageIndex)
 {
     continuePagination(std::numeric_limits<qint64>::max(), pageIndex + 1);
+}
+
+bool RichTextLayout::isLaidOut(const Position &position) const
+{
+    if (!m_document || m_pages.isEmpty()) return false;
+    if (m_complete) return true;
+    const Paragraph *p = m_document->paragraph(position.paragraph);
+    if (!p) return false;
+    m_document->paragraphsInOrder();
+    return (p->table ? p->table->blockIndex : p->blockIndex) < m_frontier.block;
 }
 
 void RichTextLayout::ensurePaginatedThrough(const Position &position)
@@ -310,6 +320,16 @@ void RichTextLayout::onContentChanged(const ChangeSet &change)
     for (const QUuid &id : change.removedParagraphs) m_metrics.erase(id);
     QSet<QString> prefixes;
     for (const QUuid &id : change.paragraphs) prefixes.insert(id.toString());
+    // A list definition changed in place moves its items' indents without
+    // touching their revisions; membership changes touch the paragraph itself.
+    QVector<const Paragraph *> relaid;
+    if (!change.listDefinitions.isEmpty())
+        for (const Paragraph *p : m_document->paragraphsInOrder())
+            if (change.listDefinitions.contains(p->format.listId)) {
+                relaid.append(p);
+                m_metrics.erase(p->id);
+                prefixes.insert(p->id.toString());
+            }
     for (auto it = m_contextMetrics.begin(); it != m_contextMetrics.end();) {
         const QString id = it->first.left(38);
         if (prefixes.contains(id) || change.removedParagraphs.contains(QUuid(id))) it = m_contextMetrics.erase(it);
@@ -333,14 +353,7 @@ void RichTextLayout::onContentChanged(const ChangeSet &change)
         if (const Paragraph *p = m_document->paragraph(id)) mark(p->table ? p->table->blockIndex : p->blockIndex);
     for (const QUuid &id : change.tables)
         if (const Table *t = m_document->table(id)) mark(t->blockIndex);
-    if (change.lists) {
-        // List definitions change indents without touching paragraph revisions.
-        for (const Paragraph *p : m_document->paragraphsInOrder())
-            if (!p->format.listId.isEmpty()) {
-                m_metrics.erase(p->id);
-                mark(p->table ? p->table->blockIndex : p->blockIndex);
-            }
-    }
+    for (const Paragraph *p : std::as_const(relaid)) mark(p->table ? p->table->blockIndex : p->blockIndex);
     if (dirtyFirst == std::numeric_limits<int>::max()) {
         finalizePages(pageCount());
         return;

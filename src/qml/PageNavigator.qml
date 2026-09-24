@@ -11,13 +11,15 @@ import QindaTK as Tk
 // section identity + ordinal); a recycling ListView keeps thumbnail delegates
 // bounded to the visible rows, and each thumbnail paints the page from the
 // view's layout, so no page image is loaded for pages out of view.
-// Navigating moves the view's caret to the page; the text selection of the
-// view is otherwise untouched. Sections (page-break groups) can be moved.
+// Navigating scrolls the view to the page and keeps its logical selection
+// (OFF-05); typing returns to the caret. Sections (page-break groups) can be
+// moved as one undo step.
 T.Control {
     id: control
 
-    property Item view: null
-    readonly property Tk.RichTextArea area: control.view === null ? null
+    // A RichDocumentView (anything with an `area`) or a paged Tk.RichTextArea.
+    property var view: null
+    readonly property Tk.RichTextArea area: !control.view ? null
         : control.view.area !== undefined ? control.view.area : control.view
     property string mode: "pages"            // "pages" or "outline"
     property real thumbnailWidth: Tk.Theme.size.thumbnail * 2
@@ -58,6 +60,17 @@ T.Control {
     Tk.RichTextPageModel {
         id: pageModel
         area: control.area
+    }
+
+    // Keys and activation assign currentIndex, so it follows the view's
+    // current page through this connection rather than a binding.
+    Connections {
+        target: control
+        function onCurrentPageChanged() {
+            if (control.currentPage < 0 || control.currentPage >= control.pageCount) return
+            pages.currentIndex = control.currentPage
+            pages.positionViewAtIndex(control.currentPage, ListView.Contain)
+        }
     }
 
     Keys.onPressed: event => {
@@ -137,7 +150,7 @@ T.Control {
                 cacheBuffer: 0
                 spacing: Tk.Theme.space.md
                 boundsBehavior: Flickable.StopAtBounds
-                currentIndex: control.currentPage
+                Component.onCompleted: currentIndex = control.currentPage
                 Accessible.role: Accessible.List
                 Accessible.name: qsTr("Pages")
                 delegate: Item {
@@ -198,7 +211,7 @@ T.Control {
                 objectName: "pageNavigatorOutline"
                 anchors.fill: parent
                 visible: control.mode === "outline"
-                model: control.mode === "outline" && control.area ? (pageModel.generation, pageModel.outline()) : []
+                model: control.mode === "outline" && control.area && pageModel.generation >= 0 ? pageModel.outline() : []
                 reuseItems: true
                 boundsBehavior: Flickable.StopAtBounds
                 Accessible.role: Accessible.Tree

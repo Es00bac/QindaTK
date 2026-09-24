@@ -143,7 +143,37 @@ private slots:
         QVERIFY(scene.document.insertText(scene.document.startPosition(), QStringLiteral("a\nb\nc\nd\ne\n")));
         QCOMPARE(scene.area->selectedText(), selected);
         QCOMPARE(scene.area->caretParagraphId(), target->id.toString(QUuid::WithoutBraces));
+        QCOMPARE(scene.area->layout()->caretBox(scene.area->selection().focus).page, 2);
+        // Another view's edit does not scroll this one; the current page
+        // follows the caret once it is back in view.
+        scene.area->ensureCaretVisible();
         QCOMPARE(scene.area->currentPage(), 2);
+    }
+
+    void pageNavigationKeepsTheSelection()
+    {
+        Scene scene;
+        QVERIFY(scene.create(true, {900, 700}));
+        buildLines(scene.document, 10 * LinesPerPage);
+        scene.area->layout()->paginateAll();
+        const Paragraph *target = scene.document.paragraphsInOrder().at(3);
+        scene.area->setSelection({{target->id, 0}, {target->id, 3}});
+        const QString selected = scene.area->selectedText();
+        QSignalSpy current(scene.area, &RichTextArea::currentPageChanged);
+        QVERIFY(scene.area->goToPage(7));
+        QCOMPARE(scene.area->currentPage(), 7);
+        QCOMPARE(current.count(), 1);
+        QCOMPARE(scene.area->selectedText(), selected);
+        const qreal navigated = scene.area->contentY();
+        QInputMethodEvent focusNoise; // what IBus sends when focus returns
+        QCoreApplication::sendEvent(scene.area, &focusNoise);
+        QCOMPARE(scene.area->contentY(), navigated);
+        QCOMPARE(scene.area->selectedText(), selected);
+        QVERIFY(scene.area->goToPage(9)); // the last page cannot scroll to the top
+        QCOMPARE(scene.area->currentPage(), 9);
+        scene.type(QStringLiteral("x")); // typing returns to the caret
+        QCOMPARE(scene.area->currentPage(), 0);
+        QCOMPARE(scene.document.paragraphsInOrder().at(3)->text.left(1), QStringLiteral("x"));
     }
 
     void formattingIsOneStepAndKeepsSelectionAndFocus()
@@ -207,6 +237,24 @@ private slots:
         QTest::keyClick(scene.window.get(), Qt::Key_Return); // empty item: leave the list
         QCOMPARE(scene.document.paragraphCount(), 2);
         QVERIFY(scene.document.paragraphsInOrder().last()->format.listId.isEmpty());
+    }
+
+    void advertisedShortcutsReachTheirCommands()
+    {
+        Scene scene;
+        QVERIFY(scene.create(true));
+        scene.type(QStringLiteral("before"));
+        QTest::keyClick(scene.window.get(), Qt::Key_Return, Qt::ControlModifier);
+        const auto ps = scene.document.paragraphsInOrder();
+        QCOMPARE(ps.size(), 2);
+        QVERIFY(ps.last()->format.pageBreakBefore);
+        QCOMPARE(scene.document.undoText(), QStringLiteral("Page break"));
+        QSignalSpy link(scene.area, &RichTextArea::linkRequested);
+        QTest::keyClick(scene.window.get(), Qt::Key_K, Qt::ControlModifier);
+        QCOMPARE(link.count(), 1);
+        scene.area->setReadOnly(true);
+        QTest::keyClick(scene.window.get(), Qt::Key_K, Qt::ControlModifier);
+        QCOMPARE(link.count(), 1); // nothing to edit in a read-only view
     }
 };
 

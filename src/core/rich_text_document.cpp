@@ -19,6 +19,7 @@ void ChangeSet::merge(const ChangeSet &other)
     removedParagraphs.unite(other.removedParagraphs);
     for (const QUuid &id : other.removedParagraphs) paragraphs.remove(id);
     tables.unite(other.tables);
+    listDefinitions.unite(other.listDefinitions);
     structure = structure || other.structure;
     lists = lists || other.lists;
     objects = objects || other.objects;
@@ -29,7 +30,7 @@ void ChangeSet::merge(const ChangeSet &other)
 bool ChangeSet::isEmpty() const
 {
     return paragraphs.isEmpty() && removedParagraphs.isEmpty() && tables.isEmpty()
-        && !structure && !lists && !objects && !document && !reset;
+        && listDefinitions.isEmpty() && !structure && !lists && !objects && !document && !reset;
 }
 
 RichTextDocument::RichTextDocument(QObject *parent)

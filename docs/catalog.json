@@ -8784,6 +8784,135 @@
       ]
     },
     {
+      "name": "FormatBar",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): the contextual text-format bar for a RichTextEditor, RichDocumentView or Tk.RichTextArea (`target`). Values come from the area's formatState (resolved, with mixed states); every action invokes one command ID, which is one document transaction and one undo step. Buttons never take focus and field commits return focus to the editor, so the selection survives.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/FormatBar.qml",
+      "properties": [
+        {
+          "name": "target",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "area",
+          "type": "Tk.RichTextArea",
+          "default": "!bar.target ? null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "formatState",
+          "type": "var",
+          "default": "area ? area.formatState : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fontProvider",
+          "type": "var",
+          "default": "fontCatalog",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "colors",
+          "type": "var",
+          "default": "[",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "compact",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Formatting\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editable",
+          "type": "bool",
+          "default": "formatState !== null && formatState.editable",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "linkEditorOpen",
+          "type": "bool",
+          "default": "linkPopover.opened",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "invoke",
+          "parameters": "commandId, args"
+        },
+        {
+          "name": "openLinkEditor",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "formatBarAlignment",
+        "formatBarBold",
+        "formatBarBulletList",
+        "formatBarClear",
+        "formatBarColor",
+        "formatBarFontFamily",
+        "formatBarFontMissing",
+        "formatBarFontSize",
+        "formatBarHeading",
+        "formatBarIndent",
+        "formatBarItalic",
+        "formatBarLink",
+        "formatBarLinkApply",
+        "formatBarLinkField",
+        "formatBarLinkPopover",
+        "formatBarLinkRemove",
+        "formatBarMixedMarker",
+        "formatBarNumberedList",
+        "formatBarOutdent",
+        "formatBarRedo",
+        "formatBarStrike",
+        "formatBarSubscript",
+        "formatBarSuperscript",
+        "formatBarUnderline",
+        "formatBarUndo"
+      ]
+    },
+    {
       "name": "GanttView",
       "kind": "qml",
       "base": "T.Control",
@@ -11783,6 +11912,129 @@
       "objectNames": []
     },
     {
+      "name": "PageNavigator",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): page thumbnails and a heading outline for a RichDocumentView (`view`, or a paged Tk.RichTextArea). Rows come from Tk.RichTextPageModel (stable page keys: section identity + ordinal); a recycling ListView keeps thumbnail delegates bounded to the visible rows, and each thumbnail paints the page from the view's layout, so no page image is loaded for pages out of view. Navigating moves the view's caret to the page; the text selection of the view is otherwise untouched. Sections (page-break groups) can be moved.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PageNavigator.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "area",
+          "type": "Tk.RichTextArea",
+          "default": "!control.view ? null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"pages\"            // \"pages\" or \"outline\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "thumbnailWidth",
+          "type": "real",
+          "default": "Tk.Theme.size.thumbnail * 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Pages\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentPage",
+          "type": "int",
+          "default": "area ? area.currentPage : -1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "pageModel.count",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageList",
+          "type": "alias",
+          "default": "pages",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageModel",
+          "type": "alias",
+          "default": "pageModel",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pageActivated",
+          "parameters": "int page"
+        },
+        {
+          "name": "headingActivated",
+          "parameters": "string paragraphId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "activatePage",
+          "parameters": "page"
+        },
+        {
+          "name": "moveSection",
+          "parameters": "page, delta"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "outlineRow_",
+        "pageNavigatorList",
+        "pageNavigatorMode",
+        "pageNavigatorMoveDown",
+        "pageNavigatorMoveUp",
+        "pageNavigatorOutline",
+        "pageNavigatorScrollBar",
+        "pageNavigatorStatus",
+        "pageThumbTile",
+        "pageThumb_"
+      ]
+    },
+    {
       "name": "Panel",
       "kind": "qml",
       "base": "Item",
@@ -14298,6 +14550,239 @@
         "ribbonGroup_",
         "ribbonItem_",
         "ribbonTab_"
+      ]
+    },
+    {
+      "name": "RichDocumentView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): a paginated editing surface over a Tk.RichTextDocument. Only visible pages exist as delegates (area.visiblePages); each paints through Tk.RichTextTile from the area's own layout. Pages use theme surfaces; text without an explicit document colour uses Theme text. Editing, IME, caret and accessibility live on the inner Tk.RichTextArea (objectName \"richDocumentArea\"), which takes focus when the view does.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RichDocumentView.qml",
+      "properties": [
+        {
+          "name": "document",
+          "type": "Tk.RichTextDocument",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "alias",
+          "default": "area.zoom",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "area",
+          "type": "alias",
+          "default": "area",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "formatState",
+          "type": "alias",
+          "default": "area.formatState",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentPage",
+          "type": "int",
+          "default": "area.currentPage",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "area.pageCount",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paginationComplete",
+          "type": "bool",
+          "default": "area.paginationComplete",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "linkActivated",
+          "parameters": "string href"
+        }
+      ],
+      "methods": [
+        {
+          "name": "goToPage",
+          "parameters": "page"
+        },
+        {
+          "name": "invokeCommand",
+          "parameters": "commandId, args"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "richDocumentArea",
+        "richDocumentHorizontalScrollBar",
+        "richDocumentPage_",
+        "richDocumentPagination",
+        "richDocumentTile_",
+        "richDocumentVerticalScrollBar"
+      ]
+    },
+    {
+      "name": "RichTextEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): an inline rich-text field (notes, comments, captions, mail) over a Tk.RichTextDocument: one continuous flow wrapped to the field's width. It grows with its content from `rows` lines up to `maximumHeight`, then scrolls. The same document can also be open in a RichDocumentView; each view keeps its own layout and selection. Editing happens on the inner Tk.RichTextArea (objectName \"richTextEditorArea\").",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RichTextEditor.qml",
+      "properties": [
+        {
+          "name": "document",
+          "type": "Tk.RichTextDocument",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "int",
+          "default": "3",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumHeight",
+          "type": "real",
+          "default": "Number.POSITIVE_INFINITY",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholderText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "area",
+          "type": "alias",
+          "default": "area",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "formatState",
+          "type": "alias",
+          "default": "area.formatState",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lineHeight",
+          "type": "real",
+          "default": "metrics.height",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "linkActivated",
+          "parameters": "string href"
+        }
+      ],
+      "methods": [
+        {
+          "name": "invokeCommand",
+          "parameters": "commandId, args"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "richTextEditorArea",
+        "richTextEditorFocusRing",
+        "richTextEditorPlaceholder",
+        "richTextEditorScrollBar",
+        "richTextEditorTile"
       ]
     },
     {
@@ -27968,6 +28453,965 @@
       "registrationKind": "qml_element",
       "exported": true,
       "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RichTextArea",
+      "kind": "cpp",
+      "base": "QQuickItem",
+      "description": "Interactive surface of RichTextEditor (continuous flow) and RichDocumentView (pages). It owns one RichTextLayout of the shared RichTextDocument, the selection (document-mapped anchors), keyboard/pointer/IME input, scrolling and zoom, and exposes the visible tiles that QML draws with RichTextTile. AGENT-CONTRACT (docs/rich-text.md#views): `text`, `cursorPosition`, `selectionStart` and `selectionEnd` use the accessible plain-text offsets (paragraphs joined by \"\\n\", objects as U+FFFC) that QAccessibleQuickItem reads by property name; editing goes through RichTextDocument transactions.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/rich_text_area.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::RichTextDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paged",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zoom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "padding",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pageGap",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "contentX",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "contentY",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "contentWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "contentHeight",
+          "type": "qreal",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "estimatedPageCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "paginationComplete",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "currentPage",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageSize",
+          "type": "QSizeF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "visiblePages",
+          "type": "QAbstractItemModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "formatState",
+          "type": "QindaTK::RichTextFormatState *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "text",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cursorPosition",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionStart",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectionEnd",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hasSelection",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "preeditText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "caretVisible",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cursorRectangle",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "caretParagraphId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "caretOffset",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "missingFonts",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "inkColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pageColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "linkColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedTextColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "caretColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "borderColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "objectFillColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "objectTextColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "markerColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "caretWidth",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "invokeCommand",
+          "returns": "bool",
+          "parameters": "const QString &commandId, const QVariantMap &arguments = {}"
+        },
+        {
+          "name": "commandState",
+          "returns": "QVariantMap",
+          "parameters": "const QString &commandId"
+        },
+        {
+          "name": "commandIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "registerCommands",
+          "returns": "bool",
+          "parameters": "QindaTK::CommandRegistry *registry, const QString &scopeToken"
+        },
+        {
+          "name": "insertText",
+          "returns": "bool",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "selectAll",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "goToPage",
+          "returns": "bool",
+          "parameters": "int page"
+        },
+        {
+          "name": "goToParagraph",
+          "returns": "bool",
+          "parameters": "const QString &paragraphId, int offset = 0"
+        },
+        {
+          "name": "moveSectionOfPage",
+          "returns": "bool",
+          "parameters": "int page, int targetSection"
+        },
+        {
+          "name": "ensureCaretVisible",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "pageAtY",
+          "returns": "int",
+          "parameters": "qreal itemY"
+        },
+        {
+          "name": "pageRect",
+          "returns": "QRectF",
+          "parameters": "int page"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RichTextDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Authoritative structured text model: paragraphs with interned character runs, tables, lists and object anchors, plus transactions and history. AGENT-CONTRACT: views (RichTextLayout) never mutate it directly; every edit is a transaction of RichText::Step values so undo, external history (D-050) and persistence see the same change. GUI thread only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/rich_text_document.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resetGeneration",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "paragraphCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "characterCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "externalUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageSetup",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "defaultFontFamily",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "defaultFontSize",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "applyHistoryChanges",
+          "returns": "bool",
+          "parameters": "const QString &transactionId, bool reverse, const QString &expectedRevision"
+        },
+        {
+          "name": "releaseHistoryTransaction",
+          "returns": "bool",
+          "parameters": "const QString &transactionId"
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "text",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "paragraphIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "paragraphText",
+          "returns": "QString",
+          "parameters": "const QString &paragraphId"
+        },
+        {
+          "name": "paragraphFormatMap",
+          "returns": "QVariantMap",
+          "parameters": "const QString &paragraphId"
+        },
+        {
+          "name": "missingFontFamilies",
+          "returns": "QStringList",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RichTextFormatState",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Effective formatting of the active selection for FormatBar. Values are resolved (heading and document defaults applied, a pending typing format included); toggles report Qt.CheckState values: 0 off, 1 mixed, 2 on. Refreshing is O(covered runs); a collapsed selection reads one format.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/rich_text_format_state.h",
+      "properties": [
+        {
+          "name": "editable",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "hasSelection",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fontFamily",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fontFamilyMixed",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fontMissing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fontSize",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fontSizeMixed",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "bold",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "italic",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "underline",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "strike",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "superscript",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "subscript",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "color",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "colorMixed",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "link",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "linkMixed",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "alignment",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "alignmentMixed",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "heading",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "headingMixed",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "list",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RichTextPageModel",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "All pages of an area for PageNavigator: one row per page, data computed on demand; delegates are created only for the rows the navigator shows.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/rich_text_page_model.h",
+      "properties": [
+        {
+          "name": "area",
+          "type": "QindaTK::RichTextArea *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "outline",
+          "returns": "QVariantList",
+          "parameters": "int limit = 2000"
+        },
+        {
+          "name": "sectionIndex",
+          "returns": "int",
+          "parameters": "int page"
+        },
+        {
+          "name": "sectionCount",
+          "returns": "int",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RichTextSessionAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Persists a RichTextDocument inside a host DocumentSession: the rich text is one member of the session's extensions, so Save, Save As, autosave, recovery and stale-save protection are the session's own (WP-014/019). AGENT-CONTRACT (docs/rich-text.md#persistence): every committed change is written to the session synchronously, so a save requested at any moment captures it. The live encoding reuses per-paragraph JSON by revision and the document's format pool (valid qindatk.richtext/1, not canonical); RichTextCodec::encode is the canonical form for standalone files.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/rich_text_session_adapter.h",
+      "properties": [
+        {
+          "name": "session",
+          "type": "QindaTK::DocumentSession *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "document",
+          "type": "QindaTK::RichTextDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "extensionKey",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "loaded",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "warnings",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "reload",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "flush",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RichTextTile",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "Paints `sourceRect` (page coordinates) of one laid-out page of an area, scaled to the item's size. RichDocumentView creates one per visible page; PageNavigator uses it for thumbnails (decorations off). Painting reads the area's layout, so no page image is cached beyond the item's own texture.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/rich_text_tile.h",
+      "properties": [
+        {
+          "name": "area",
+          "type": "QindaTK::RichTextArea *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pageIndex",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sourceRect",
+          "type": "QRectF",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "decorations",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paper",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paintCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "RichTextVisiblePages",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "The pages (or continuous-flow slice) a RichTextArea currently shows: only visible entries exist, so delegates stay bounded by the viewport. Rows are keyed by page identity; scrolling updates geometry in place.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/rich_text_visible_pages.h",
+      "properties": [
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
       "valueType": false,
       "bridge": false
     },

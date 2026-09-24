@@ -181,6 +181,7 @@ public:
     int estimatedPageCount() const;
     const RichText::Page &page(int index) const { return m_pages.at(index); }
     qreal flowHeight() const;         // continuous mode
+    bool isLaidOut(const RichText::Position &position) const; // without paginating
     void ensurePaginated(int pageIndex);
     void ensurePaginatedThrough(const RichText::Position &position);
     void paginateAll();
@@ -193,7 +194,7 @@ public:
     QVector<QRectF> selectionRects(int page, const RichText::Selection &selection);
     std::optional<QRectF> objectRect(const QString &objectId, int *page);
     const RichText::ParagraphMetrics *metrics(const QUuid &paragraph);
-    QString listMarker(const QUuid &paragraph) const { return m_markers.value(paragraph); }
+    QString listMarker(const QUuid &paragraph) const; // current even before pagination catches up
 
     // Navigation that needs shaping (bidi, lines).
     RichText::Position visualMove(const RichText::Position &position, bool right);
@@ -228,7 +229,7 @@ private:
     void repaginateFrom(int blockIndex, int lastDirtyBlock);
     void continuePagination(qint64 budgetNs, int stopPage);
     void finalizePages(int firstChanged, int reusedFrom = -1);
-    bool rebuildMarkers();
+    bool rebuildMarkers() const;
     void pageRange(RichText::Page &page);
     QVector<int> pagesContaining(const RichText::Paragraph *p) const;
     void paintLines(QPainter *painter, const RichText::PageItem &item, const RichText::PaintContext &context);
@@ -263,8 +264,11 @@ private:
     RichText::FlowState m_frontier;   // where progressive pagination resumes
     bool m_complete = false;
     QVector<QUuid> m_paginatedBlocks; // block IDs the current pages were built from
-    QHash<QUuid, QString> m_markers;
-    bool m_markersDirty = true;
+    // Markers derive from the document alone, so a query rebuilds them
+    // lazily; m_markersChanged tells finalizePages to re-hash every page.
+    mutable QHash<QUuid, QString> m_markers;
+    mutable bool m_markersDirty = true;
+    mutable bool m_markersChanged = false;
     RichText::Position m_preeditAt;
     QString m_preeditText;
     QList<QTextLayout::FormatRange> m_preeditFormats;

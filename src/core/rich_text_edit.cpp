@@ -315,6 +315,9 @@ OperationError RichTextDocument::applyStep(Step &step, bool forward, ChangeSet &
             if (to) m_lists.insert(s.listId, *to);
             else m_lists.remove(s.listId);
             change.lists = true;
+            // A created or removed list has no items yet or any more; only an
+            // in-place change moves the indents of the paragraphs that use it.
+            if (from && to) change.listDefinitions.insert(s.listId);
             return {};
         } else if constexpr (std::is_same_v<T, StepObject>) {
             const RichObject *current = object(s.objectId);

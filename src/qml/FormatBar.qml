@@ -2,7 +2,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Templates as T
 import QindaTK as Tk
 
 // AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): the
@@ -14,8 +13,9 @@ import QindaTK as Tk
 Item {
     id: bar
 
-    property Item target: null
-    readonly property Tk.RichTextArea area: bar.target === null ? null
+    // An item with an `area` (RichTextEditor, RichDocumentView) or the area.
+    property var target: null
+    readonly property Tk.RichTextArea area: !bar.target ? null
         : bar.target.area !== undefined ? bar.target.area : bar.target
     readonly property var formatState: area ? area.formatState : null
     property var fontProvider: fontCatalog
@@ -42,6 +42,19 @@ Item {
         const ok = bar.area.invokeCommand(commandId, args === undefined ? {} : args)
         bar.area.forceActiveFocus()
         return ok
+    }
+
+    // The link editor for the selection; Ctrl+K in the area opens it too.
+    readonly property bool linkEditorOpen: linkPopover.opened
+    function openLinkEditor() {
+        if (!bar.editable) return
+        linkField.text = bar.formatState ? bar.formatState.link : ""
+        linkPopover.open()
+    }
+
+    Connections {
+        target: bar.area
+        function onLinkRequested() { bar.openLinkEditor() }
     }
 
     Tk.FontCatalog { id: fontCatalog }
@@ -213,10 +226,7 @@ Item {
             iconName: "link"
             checked: bar.formatState !== null && bar.formatState.link.length > 0
             tooltip: qsTr("Link")
-            onClicked: {
-                linkField.text = bar.formatState ? bar.formatState.link : ""
-                linkPopover.open()
-            }
+            onClicked: bar.openLinkEditor()
         }
         Action { objectName: "formatBarUndo"; iconName: "undo-2"; commandId: "edit.undo"; tooltip: qsTr("Undo"); enabled: bar.area !== null && bar.area.document !== null && bar.area.document.canUndo }
         Action { objectName: "formatBarRedo"; iconName: "redo-2"; commandId: "edit.redo"; tooltip: qsTr("Redo"); enabled: bar.area !== null && bar.area.document !== null && bar.area.document.canRedo }

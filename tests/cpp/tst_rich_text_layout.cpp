@@ -189,6 +189,53 @@ private slots:
         QCOMPARE(layout.caretBox({p->id, 3}).rect.x() < plain.rect.x(), true);
     }
 
+    void objectsTakeTheirWidthInTheLine()
+    {
+        RichTextDocument doc;
+        doc.insertText(doc.startPosition(), QStringLiteral("ab text\ncd text"));
+        const auto ps = doc.paragraphsInOrder();
+        RichObject inlineObject;
+        inlineObject.widthPt = 30;  // 40 px
+        inlineObject.heightPt = 12;
+        QVERIFY(doc.insertObject({ps.at(0)->id, 2}, inlineObject));
+        RichObject floating;
+        floating.placement = Placement::FloatEnd;
+        floating.widthPt = 60;
+        floating.heightPt = 60;
+        QVERIFY(doc.insertObject({ps.at(1)->id, 0}, floating));
+        RichTextLayout layout;
+        layout.setDocument(&doc);
+        layout.paginateAll();
+        const qreal before = layout.caretBox({ps.at(0)->id, 2}).rect.x();
+        const qreal after = layout.caretBox({ps.at(0)->id, 3}).rect.x();
+        // Exact to Qt's 26.6 fixed-point advances (1/64 px per rounding).
+        QVERIFY2(qAbs(after - before - 30 * PxPerPt) <= 1.0 / 16, qPrintable(QString::number(after - before)));
+        // An anchored object's anchor character is zero width in its line.
+        QCOMPARE(layout.caretBox({ps.at(1)->id, 1}).rect.x(), layout.caretBox({ps.at(1)->id, 0}).rect.x());
+        QCOMPARE(layout.caretBox({ps.at(1)->id, 0}).rect.x(), layout.contentRect().left());
+    }
+
+    void renumberingRevisesReusedPages()
+    {
+        RichTextDocument doc;
+        buildLines(doc, 3 * LinesPerPage);
+        const auto ps = doc.paragraphsInOrder();
+        QVERIFY(doc.setList({ps.first()->id, 0}, {ps.last()->id, 0}, ListKind::Decimal));
+        RichTextLayout layout;
+        layout.setDocument(&doc);
+        layout.paginateAll();
+        QCOMPARE(layout.pageCount(), 3);
+        const quint64 before = layout.page(2).revision;
+        QCOMPARE(layout.listMarker(ps.last()->id), QStringLiteral("60."));
+        // Lifting the first item out of the list changes only page 0's lines,
+        // so pages 1 and 2 are reused, but every later number shifts.
+        QVERIFY(doc.setList({ps.first()->id, 0}, {ps.first()->id, 0}, std::nullopt));
+        QCOMPARE(layout.listMarker(ps.last()->id), QStringLiteral("59.")); // before pagination
+        layout.paginateAll();
+        QVERIFY(layout.stats().lastConvergedPage >= 0);
+        QVERIFY(layout.page(2).revision != before);
+    }
+
     void continuousModeIsOneFlow()
     {
         RichTextDocument doc;

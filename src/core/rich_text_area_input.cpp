@@ -27,6 +27,7 @@ void RichTextArea::setSelection(const Selection &selection, bool ensureVisible)
 
 void RichTextArea::selectionUpdated(bool ensureVisible)
 {
+    m_navigatedPage = -1;
     m_pendingFormat.reset();
     m_formatState->refresh();
     restartBlink();
@@ -104,6 +105,13 @@ void RichTextArea::keyPressEvent(QKeyEvent *event)
     if (event == QKeySequence::Bold) return invokeCommand(QStringLiteral("text.bold")), handled();
     if (event == QKeySequence::Italic) return invokeCommand(QStringLiteral("text.italic")), handled();
     if (event == QKeySequence::Underline) return invokeCommand(QStringLiteral("text.underline")), handled();
+    // The other shortcuts the command table advertises (rich_text_area_commands.cpp).
+    if (word && !shift && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter))
+        return invokeCommand(QStringLiteral("insert.pageBreak")), handled();
+    if (word && !shift && event->key() == Qt::Key_K) {
+        if (commandState(QStringLiteral("text.link")).value(QStringLiteral("enabled")).toBool()) emit linkRequested();
+        return handled();
+    }
     const Position caret = m_focus.position;
     switch (event->key()) {
     case Qt::Key_Left:
@@ -240,7 +248,8 @@ void RichTextArea::inputMethodEvent(QInputMethodEvent *event)
     for (const QInputMethodEvent::Attribute &attribute : event->attributes())
         if (attribute.type == QInputMethodEvent::Selection && event->preeditString().isEmpty()) {
             const Position caret = m_focus.position;
-            setSelection({{caret.paragraph, attribute.start}, {caret.paragraph, attribute.start + attribute.length}});
+            const Selection wanted{{caret.paragraph, attribute.start}, {caret.paragraph, attribute.start + attribute.length}};
+            if (!(wanted.anchor == m_anchor.position) || !(wanted.focus == m_focus.position)) setSelection(wanted);
         }
     if (event->preeditString() != m_preedit) {
         m_preedit = event->preeditString();
@@ -259,7 +268,10 @@ void RichTextArea::inputMethodEvent(QInputMethodEvent *event)
         emit repaintRequested(-1);
     }
     restartBlink();
-    ensureCaretVisible();
+    // AGENT-GUARD: input contexts (IBus, Fcitx) send empty events on focus
+    // changes; only real input scrolls to the caret, or a view navigated with
+    // goToPage jumps back (tst_rich_text_editing pageNavigationKeepsTheSelection).
+    if (gettingInput) ensureCaretVisible();
     QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle | Qt::ImAnchorRectangle);
     event->accept();
 }
@@ -273,6 +285,7 @@ QVariant RichTextArea::inputMethodQuery(Qt::InputMethodQuery query) const
     case Qt::ImHints: return int(Qt::ImhMultiLine);
     case Qt::ImCursorRectangle: return cursorRectangle();
     case Qt::ImAnchorRectangle: {
+        if (!m_layout->isLaidOut(m_anchor.position)) return cursorRectangle();
         const CaretBox anchor = m_layout->caretBox(m_anchor.position);
         if (anchor.page < 0) return cursorRectangle();
         return QRectF(pageOrigin(anchor.page) + anchor.rect.topLeft() * m_zoom, QSizeF(1, anchor.rect.height() * m_zoom));

@@ -29,11 +29,11 @@ class RichTextArea : public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QindaTK::RichTextDocument *document READ document WRITE setDocument NOTIFY documentChanged)
-    Q_PROPERTY(bool paged READ paged WRITE setPaged NOTIFY geometryChanged)
+    Q_PROPERTY(bool paged READ paged WRITE setPaged NOTIFY pagedChanged)
     Q_PROPERTY(bool readOnly READ readOnly WRITE setReadOnly NOTIFY readOnlyChanged)
-    Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY geometryChanged)
-    Q_PROPERTY(qreal padding READ padding WRITE setPadding NOTIFY geometryChanged)
-    Q_PROPERTY(qreal pageGap READ pageGap WRITE setPageGap NOTIFY geometryChanged)
+    Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
+    Q_PROPERTY(qreal padding READ padding WRITE setPadding NOTIFY paddingChanged)
+    Q_PROPERTY(qreal pageGap READ pageGap WRITE setPageGap NOTIFY pageGapChanged)
     Q_PROPERTY(qreal contentX READ contentX WRITE setContentX NOTIFY viewportChanged)
     Q_PROPERTY(qreal contentY READ contentY WRITE setContentY NOTIFY viewportChanged)
     Q_PROPERTY(qreal contentWidth READ contentWidth NOTIFY contentSizeChanged)
@@ -41,8 +41,8 @@ class RichTextArea : public QQuickItem {
     Q_PROPERTY(int pageCount READ pageCount NOTIFY pagesChanged)
     Q_PROPERTY(int estimatedPageCount READ estimatedPageCount NOTIFY pagesChanged)
     Q_PROPERTY(bool paginationComplete READ paginationComplete NOTIFY pagesChanged)
-    Q_PROPERTY(int currentPage READ currentPage NOTIFY caretChanged)
-    Q_PROPERTY(QSizeF pageSize READ pageSize NOTIFY geometryChanged)
+    Q_PROPERTY(int currentPage READ currentPage NOTIFY currentPageChanged)
+    Q_PROPERTY(QSizeF pageSize READ pageSize NOTIFY pageSizeChanged)
     Q_PROPERTY(QAbstractItemModel *visiblePages READ visiblePages CONSTANT)
     Q_PROPERTY(QindaTK::RichTextFormatState *formatState READ formatState CONSTANT)
     Q_PROPERTY(QString text READ accessibleText NOTIFY accessibleTextChanged)
@@ -53,7 +53,7 @@ class RichTextArea : public QQuickItem {
     Q_PROPERTY(QString selectedText READ selectedText NOTIFY selectionChanged)
     Q_PROPERTY(QString preeditText READ preeditText NOTIFY preeditChanged)
     Q_PROPERTY(bool caretVisible READ caretVisible NOTIFY caretBlinked)
-    Q_PROPERTY(QRectF cursorRectangle READ cursorRectangle NOTIFY caretChanged)
+    Q_PROPERTY(QRectF cursorRectangle READ cursorRectangle NOTIFY cursorRectangleChanged)
     Q_PROPERTY(QString caretParagraphId READ caretParagraphId NOTIFY caretChanged)
     Q_PROPERTY(int caretOffset READ caretOffset NOTIFY caretChanged)
     Q_PROPERTY(QStringList missingFonts READ missingFonts NOTIFY documentChanged)
@@ -130,7 +130,7 @@ public:
     Q_INVOKABLE bool registerCommands(QindaTK::CommandRegistry *registry, const QString &scopeToken);
     Q_INVOKABLE bool insertText(const QString &text);
     Q_INVOKABLE void selectAll();
-    Q_INVOKABLE bool goToPage(int page);
+    Q_INVOKABLE bool goToPage(int page);     // scrolls; the selection stays (OFF-05)
     Q_INVOKABLE bool goToParagraph(const QString &paragraphId, int offset = 0);
     Q_INVOKABLE bool moveSectionOfPage(int page, int targetSection);
     Q_INVOKABLE void ensureCaretVisible();
@@ -141,11 +141,17 @@ public:
 signals:
     void documentChanged();
     void readOnlyChanged();
-    void geometryChanged();
+    void pagedChanged();
+    void zoomChanged();
+    void paddingChanged();
+    void pageGapChanged();
+    void pageSizeChanged();
     void contentSizeChanged();                                // only when the size really changes
     void viewportChanged();
     void pagesChanged();
     void caretChanged();
+    void currentPageChanged();
+    void cursorRectangleChanged(); // caret moves and scrolling (item coordinates)
     void selectionChanged();
     void preeditChanged();
     void caretBlinked();
@@ -153,6 +159,7 @@ signals:
     void accessibleTextChanged();
     void repaintRequested(int firstPage);                     // -1: every tile
     void linkActivated(const QString &href);
+    void linkRequested(); // Ctrl+K: a host or FormatBar edits the selection's link
     void editRejected(const QString &message);
 
 protected:
@@ -181,6 +188,8 @@ private:
     void selectionUpdated(bool ensureVisible);
     void restartBlink();
     void schedulePagination();
+    void refreshViewState();
+    bool pageVisible(int page) const;
     bool edit(const QString &label, const QString &mergeKey,
               const std::function<std::optional<RichText::Position>(RichTextDocument &)> &operation);
     bool formatSelection(const RichText::CharFormatPatch &patch, const QString &label);
@@ -220,7 +229,10 @@ private:
     qreal m_pageGap = 16;
     qreal m_contentX = 0;
     qreal m_contentY = 0;
+    int m_navigatedPage = -1;     // goToPage target; cleared by a selection change
+    int m_lastCurrentPage = -1;
     QSizeF m_contentSize;
+    QSizeF m_pageSize;
     bool m_readOnly = false;
     bool m_caretOn = true;
     bool m_selecting = false;

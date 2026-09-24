@@ -93,8 +93,9 @@ struct ChangeSet {
     QSet<QUuid> paragraphs;         // content or format changed, still present
     QSet<QUuid> removedParagraphs;
     QSet<QUuid> tables;             // a table or its cells changed
+    QSet<QString> listDefinitions;  // definitions changed in place: their items re-lay
     bool structure = false;         // blocks inserted, removed, split or merged
-    bool lists = false;
+    bool lists = false;             // numbering may change (definitions or membership)
     bool objects = false;
     bool document = false;          // page setup or defaults
     bool reset = false;

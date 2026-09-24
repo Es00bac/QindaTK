@@ -27,6 +27,11 @@ bool paragraphIsRightToLeft(const Paragraph &p);
 QFont resolvedFont(const RichTextDocument &doc, const CharFormat &format, const ParagraphFormat &paragraph);
 QTextCharFormat resolvedFormat(const RichTextDocument &doc, const CharFormat &format,
                                const ParagraphFormat &paragraph);
+// Advance of U+FFFC under `format` before any spacing; an inline object's
+// width is a percentage of it.
 qreal objectCharAdvance(const QTextCharFormat &format);
+
+// Layout-only stand-in for the object character of a zero-width anchor.
+inline constexpr char16_t WordJoiner = 0x2060;
 
 } // namespace QindaTK::RichText::Shaping

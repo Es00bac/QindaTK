@@ -132,6 +132,27 @@ playhead in a `Stack`), and a `StatusBar`. Panels are one file each
 - Screenshot: [docs/screenshots/studio-shell.png](../docs/screenshots/studio-shell.png),
   [studio-shell-qinda-dusk.png](../docs/screenshots/studio-shell-qinda-dusk.png)
 
+## rich-document
+
+Rich text and pages (WP-050): one `Tk.RichTextDocument` shown as pages in a
+`RichDocumentView` and as a continuous draft in a `RichTextEditor`. A
+`FormatBar` follows whichever of the two has focus, and a `PageNavigator`
+shows thumbnails and an outline. `showcase.qtkrich` is a native
+`qindatk.richtext/1` file containing:
+
+- mixed scripts, lists, a link and an inline image;
+- a 30-row table that crosses a page break with a repeated header;
+- a float that moves with its anchor, and a page stamp;
+- a page-break appendix with right-to-left paragraphs.
+
+- Run: `qtk-preview examples/rich-document/Main.qml`
+  (`--dump --size 1280x800` lists `richDocumentPage_<pageKey>` for the
+  visible pages only)
+- Exercises: `RichTextDocument`, `RichDocumentView`, `RichTextEditor`,
+  `FormatBar`, `PageNavigator`, `Panel`, `StatusBar`
+- Screenshots: [compact](../docs/universal-toolkit/implementation/evidence/WP-050-compact.png),
+  [comfortable](../docs/universal-toolkit/implementation/evidence/WP-050-comfortable.png)
+
 ## office-shell
 
 A document application's window: `Tk.AppWindow` with a `MenuBar` (radio

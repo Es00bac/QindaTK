@@ -19,6 +19,7 @@ pages below are the reference.
 | [editable-grid.md](editable-grid.md) | Sparse 2D model, stable IDs, bounded visible ranges, frozen geometry and range transactions |
 | [query-pivot.md](query-pivot.md) | Typed query AST, null semantics, bounded grouping and pivots, provenance and grid/provider adapters |
 | [diff-view.md](diff-view.md) | Bounded local diff, lazy large-provider seam, stable hunk IDs and host transaction requests |
+| [rich-text.md](rich-text.md) | Structured rich-text model, `qindatk.richtext/1` persistence, per-view shaping and incremental pagination, commands, clipboard and object seams |
 | [resource-table.md](resource-table.md) | Stable resource and time-bucket identity, allocation units, conflicts and reversible edits |
 | [persistence.md](persistence.md) | Reference document sessions, versioned file format, atomic save, multi-document close and recovery behavior |
 | [format-registry.md](format-registry.md) | Operation-specific import/export providers, preflight receipts, loss acknowledgement and job lifecycle |

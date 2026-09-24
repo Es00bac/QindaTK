@@ -85,7 +85,7 @@ void RichTextPageModel::setArea(RichTextArea *area)
     endResetModel();
     if (m_area) {
         connect(m_area->layout(), &RichTextLayout::pagesChanged, this, &RichTextPageModel::onPagesChanged);
-        connect(m_area, &RichTextArea::caretChanged, this, [this] {
+        connect(m_area, &RichTextArea::currentPageChanged, this, [this] {
             const int current = m_area->currentPage();
             if (current == m_current) return;
             const int previous = m_current;

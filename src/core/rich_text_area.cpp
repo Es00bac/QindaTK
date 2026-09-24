@@ -35,6 +35,12 @@ RichTextArea::RichTextArea(QQuickItem *parent)
     connect(m_layout.get(), &RichTextLayout::layoutReset, this, &RichTextArea::schedulePagination,
             Qt::QueuedConnection);
     connect(this, &RichTextArea::colorsChanged, this, [this] { emit repaintRequested(-1); });
+    connect(this, &RichTextArea::caretChanged, this, &RichTextArea::refreshViewState);
+    connect(this, &RichTextArea::viewportChanged, this, [this] {
+        refreshViewState();
+        // The caret's item rectangle moved; keep the candidate window with it.
+        if (hasActiveFocus()) QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle | Qt::ImAnchorRectangle);
+    });
 }
 
 RichTextArea::~RichTextArea()
@@ -86,7 +92,7 @@ void RichTextArea::setPaged(bool paged)
     updateLayoutWidth();
     schedulePagination();
     clampScroll();
-    emit geometryChanged();
+    emit pagedChanged();
 }
 
 void RichTextArea::setReadOnly(bool readOnly)
@@ -109,7 +115,7 @@ void RichTextArea::setZoom(qreal zoom)
     updateLayoutWidth();
     m_contentY = centre * m_zoom - height() / 2;
     clampScroll();
-    emit geometryChanged();
+    emit zoomChanged();
     emit viewportChanged();
     updateVisible();
     emit repaintRequested(-1);
@@ -121,7 +127,7 @@ void RichTextArea::setPadding(qreal padding)
     m_padding = qMax<qreal>(0, padding);
     updateLayoutWidth();
     clampScroll();
-    emit geometryChanged();
+    emit paddingChanged();
     updateVisible();
 }
 
@@ -130,7 +136,7 @@ void RichTextArea::setPageGap(qreal gap)
     if (qFuzzyCompare(m_pageGap, gap)) return;
     m_pageGap = qMax<qreal>(0, gap);
     clampScroll();
-    emit geometryChanged();
+    emit pageGapChanged();
     updateVisible();
 }
 
@@ -204,9 +210,35 @@ int RichTextArea::pageAtY(qreal itemY) const
 
 int RichTextArea::currentPage() const
 {
+    // AGENT-GUARD: property getters never trigger pagination (it emits
+    // pagesChanged while a binding evaluates); unlaid positions fall back.
+    // AGENT-NOTE: navigation scrolls and keeps the selection (OFF-05), so the
+    // current page is the page navigated to while it is in view, else the
+    // caret's page while the caret is in view, else the page at the centre.
     if (!m_document || pageCount() == 0) return 0;
-    const int page = m_layout->caretBox(m_focus.position).page;
-    return page >= 0 ? page : pageAtY(height() / 2);
+    if (m_navigatedPage >= 0 && m_navigatedPage < pageCount() && pageVisible(m_navigatedPage))
+        return m_navigatedPage;
+    const QRectF caret = cursorRectangle();
+    if (!caret.isNull() && caret.bottom() > 0 && caret.top() < height()) {
+        const int page = m_layout->caretBox(m_focus.position).page;
+        if (page >= 0) return page;
+    }
+    return pageAtY(height() / 2);
+}
+
+bool RichTextArea::pageVisible(int page) const
+{
+    const QRectF rect = pageRect(page);
+    return rect.bottom() > 0 && rect.top() < height();
+}
+
+void RichTextArea::refreshViewState()
+{
+    emit cursorRectangleChanged();
+    const int current = currentPage();
+    if (current == m_lastCurrentPage) return;
+    m_lastCurrentPage = current;
+    emit currentPageChanged();
 }
 
 void RichTextArea::geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry)
@@ -215,7 +247,6 @@ void RichTextArea::geometryChange(const QRectF &newGeometry, const QRectF &oldGe
     if (newGeometry.size() == oldGeometry.size()) return;
     updateLayoutWidth();
     clampScroll();
-    emit geometryChanged();
     updateVisible();
 }
 
@@ -238,9 +269,13 @@ void RichTextArea::schedulePagination()
 void RichTextArea::onPagesChanged(int firstChanged, int)
 {
     clampScroll();
+    if (m_layout->pageSize() != m_pageSize) {
+        m_pageSize = m_layout->pageSize();
+        emit pageSizeChanged();
+    }
     emit pagesChanged();
-    emit geometryChanged();
     updateVisible();
+    refreshViewState();
     emit repaintRequested(firstChanged);
 }
 
@@ -341,7 +376,7 @@ void RichTextArea::focusOutEvent(QFocusEvent *event)
 
 QRectF RichTextArea::cursorRectangle() const
 {
-    if (!m_document) return {};
+    if (!m_document || !m_layout->isLaidOut(m_focus.position)) return {};
     const CaretBox caret = m_layout->caretBox(m_focus.position);
     if (caret.page < 0) return {};
     const QPointF origin = pageOrigin(caret.page);
@@ -372,9 +407,9 @@ bool RichTextArea::goToPage(int page)
     if (!m_document || page < 0) return false;
     m_layout->ensurePaginated(page);
     if (page >= pageCount()) return false;
+    m_navigatedPage = page;
     setContentY(m_contentY + pageOrigin(page).y() - m_padding);
-    const Position first = m_layout->page(page).first;
-    if (first.isValid()) setSelection({first, first}, false);
+    refreshViewState();
     return true;
 }
 
