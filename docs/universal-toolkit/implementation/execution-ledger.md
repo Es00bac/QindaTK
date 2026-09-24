@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 37 packages accepted, 37 active, none in review, and 10 planned.**
+**Execution state: 37 packages accepted, 38 active, none in review, and 9 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -114,10 +114,10 @@ as though a later fix had already passed the earlier run.
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | active | [Core, controls and live request wiring merged; raw GPU texture and merged UI gates pending](evidence/WP-077.md) |
 | [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and real PNG/PDF/WAV providers integrated; acceptance gate remains](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
-| [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | active | [PTY terminal, native code editor and script runtime merged; extension registry and merged checks underway](evidence/WP-081.md) |
-| [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | active | [Local two-client property sync merged; IPC and permissions in progress](evidence/WP-082-local-property-sync.md) |
-| [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | planned | — |
-| [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | active | [Local GeoJSON map merged; raster tiles in progress](evidence/WP-084-local-map.md) |
+| [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | active | [PTY terminal, code editor, script runtime and extension registry/manager merged; language services and broader host integration open](evidence/WP-081.md) |
+| [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | active | [Two-client sync, authenticated local IPC, permissions and ephemeral cross-process presence merged; version history open](evidence/WP-082-ipc.md) |
+| [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | active | Persistent diagram model and canvas lane underway; CAD open |
+| [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | active | [GeoJSON features, offline and opt-in network XYZ tiles merged; vector editing in progress](evidence/WP-084.md) |
 | [WP-085 — Implement scientific plotting](phase-07-integrations.md#wp-085) | 07 | Sol | active | [Numeric, uncertainty and export implementation lane underway](evidence/WP-085.md) |
 | [WP-086 — Implement image slices, volumes and transfer functions](phase-07-integrations.md#wp-086) | 07 | Sol | planned | — |
 | [WP-087 — Implement dependency and trace exploration](phase-07-integrations.md#wp-087) | 07 | Sol | planned | — |

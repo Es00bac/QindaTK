@@ -15,7 +15,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-080"></a>
 ## WP-080 — Implement detached native panels
 
-**Implementation lead:** Sol. **Status:** active (native window and DockModel integration in progress; WP-040 dependency in review). **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-018](phase-01-services.md#wp-018), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** active (native window and DockModel integration in progress; WP-040 dependency accepted). **Depends on:** [WP-014](phase-01-services.md#wp-014), [WP-018](phase-01-services.md#wp-018), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [PLT-02 DetachedPanelHost](../proposed/08-platform-integrations.md#plt-02)
 
@@ -59,7 +59,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-082"></a>
 ## WP-082 — Implement collaboration, presence and version history
 
-**Implementation lead:** Sol. **Status:** active (local two-client property sync merged; IPC transport, permissions and broader operations in progress; WP-081 remains active). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-016](phase-01-services.md#wp-016), [WP-032](phase-02-controls-data.md#wp-032), [WP-081](phase-07-integrations.md#wp-081)
+**Implementation lead:** Sol. **Status:** active (local two-client property sync, authenticated socket transport and permissions merged; cross-process presence and broader operations in progress; WP-081 remains active). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-016](phase-01-services.md#wp-016), [WP-032](phase-02-controls-data.md#wp-032), [WP-081](phase-07-integrations.md#wp-081)
 
 **Proposal scope:** [PLT-14 CollaborationAdapter](../proposed/08-platform-integrations.md#plt-14), [PLT-15 PresenceLayer](../proposed/08-platform-integrations.md#plt-15), [PLT-16 VersionBrowser](../proposed/08-platform-integrations.md#plt-16)
 
@@ -82,7 +82,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-083"></a>
 ## WP-083 — Implement diagramming and CAD surfaces
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-074](phase-06-video.md#wp-074), [WP-076](phase-06-video.md#wp-076)
+**Implementation lead:** Sol. **Status:** active (persistent diagram model, canvas and routed-edge lane underway; CAD remains open). **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-074](phase-06-video.md#wp-074), [WP-076](phase-06-video.md#wp-076)
 
 **Proposal scope:** [EXT-03 DiagramCanvas](../proposed/09-specialized-domains.md#ext-03), [EXT-04 CadViewport](../proposed/09-specialized-domains.md#ext-04)
 
@@ -105,7 +105,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-084"></a>
 ## WP-084 — Implement geographic mapping
 
-**Implementation lead:** Sol. **Status:** active (local GeoJSON map merged; raster tiles and broader mapping scope in progress; WP-040 and WP-043 remain open). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-029](phase-02-controls-data.md#wp-029), [WP-040](phase-03-authoring.md#wp-040), [WP-043](phase-03-authoring.md#wp-043)
+**Implementation lead:** Sol. **Status:** active (local GeoJSON, offline and opt-in network raster tiles merged; vector editing and broader mapping scope in progress; WP-040 accepted and WP-043 active). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-029](phase-02-controls-data.md#wp-029), [WP-040](phase-03-authoring.md#wp-040), [WP-043](phase-03-authoring.md#wp-043)
 
 **Proposal scope:** [EXT-05 MapView](../proposed/09-specialized-domains.md#ext-05)
 
