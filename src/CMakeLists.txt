@@ -176,6 +176,19 @@ qt_add_qml_module(qindatk
         core/file_asset_backend.cpp
         core/pdf_asset_backend.cpp core/pdf_asset_backend.h
         core/video_asset_backend.cpp core/video_asset_backend.h
+        core/media_source_info.cpp core/media_source_info.h
+        core/media_decoder.h core/media_ffmpeg_p.h
+        core/media_decoder_ffmpeg.cpp core/media_decoder_frames.cpp core/media_decoder_audio.cpp
+        core/media_encoder.h core/media_encoder_ffmpeg.cpp
+        core/media_backend_stub.cpp
+        core/media_program.cpp core/media_program.h core/media_program_render.cpp
+        core/media_export.cpp core/media_export.h core/media_export_jobs.cpp
+        core/media_decode_worker.cpp core/media_decode_worker.h
+        core/media_playback_engine.cpp core/media_playback_engine.h
+        core/media_player.cpp core/media_player.h
+        core/media_frame_view.cpp core/media_frame_view.h
+        core/media_catalog.cpp core/media_catalog.h core/media_catalog_jobs.cpp
+        core/media_frame_feed.cpp core/media_frame_feed.h
         core/video_scopes_model.cpp core/video_scopes_model.h
         core/caption_track_model.cpp core/caption_track_model.h
         core/caption_track_codec.cpp core/caption_track_codec.h
@@ -370,6 +383,12 @@ if(QINDATK_ENABLE_ALSA AND QINDATK_ALSA_FOUND)
     target_sources(qindatk PRIVATE core/audio_device_alsa.cpp)
     target_link_libraries(qindatk PRIVATE PkgConfig::QINDATK_ALSA)
     target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_ALSA=1)
+endif()
+# The media backend's FFmpeg headers stay inside qindatk's .cpp files and
+# media_ffmpeg_p.h, so consumers never need them (D-096).
+if(QINDATK_ENABLE_FFMPEG AND FFMPEG_FOUND)
+    target_link_libraries(qindatk PRIVATE PkgConfig::FFMPEG)
+    target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_FFMPEG=1)
 endif()
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)

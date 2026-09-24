@@ -6,7 +6,11 @@
 positions, parameters, groups, undo/redo and native topology persistence.
 Source pixels remain host-owned: after loading a graph, call
 `setSourceImage(nodeId, taggedImage)` for every source before rendering. This
-lets an application choose its own decoder, asset store and project format.
+lets an application choose its own decoder, asset store and project format;
+`MediaFrameFeed` ([media-playback.md](media-playback.md#frame-feeds)) feeds
+source nodes whose `sourceId` names a media resource from decoded frames, and
+`clearSourceImage(nodeId)` forgets a source's pixels (offline media) so the
+next render reports the source unavailable instead of drawing stale pixels.
 
 ## Nodes, ports and parameters
 

@@ -755,3 +755,71 @@ available once `artboardId` names one) and the panel shows whatever list it
 is given. Alignment to a board uses the board rectangle, like the page.
 **Consequences.** Other domains can add references without panel changes;
 the panel's default list keeps existing hosts working.
+
+## D-096 — Decode and encode media with the FFmpeg libraries as an optional private backend
+
+**Context.** WP-070 needs exact frame identity, cancellable seeks, audio
+samples and a real encoded export. The existing asset path ran the FFmpeg
+command-line tools per request (`select=eq(n,N)` decodes from the start every
+time, cannot be cancelled inside a packet and knows nothing of B-frame
+presentation order), and Qt Multimedia exposes neither presentation indices
+nor frame-accurate seeking. **Decision.** Link `libavformat`, `libavcodec`,
+`libavutil`, `libswscale` and `libswresample` (found by `pkg-config`,
+`QINDATK_ENABLE_FFMPEG` default ON) privately into `qindatk`; their headers
+stay in `media_ffmpeg_p.h` and `.cpp` files. `MediaDecoder` indexes packets
+once and seeks by key frame with an interrupt-callback cancellation;
+`MediaEncoder` writes lossless FFV1 (8-bit RGB) and PCM s16le in Matroska, the
+codecs every FFmpeg build ships. A build without the libraries keeps every
+type and reports `ErrorCode::Unsupported`; the asset backend falls back to the
+command-line tools. No Qt Multimedia dependency is added.
+**Consequences.** Consumers never need FFmpeg headers and lightweight builds
+still link. Distributors of FFmpeg-enabled builds inherit FFmpeg's licence
+terms for the configuration they ship (qualified in WP-088/WP-093).
+
+## D-097 — Identify a source frame by presentation index and derive its time from one rate policy
+
+**Context.** Monitors, trims, exports and caches must agree on which frame a
+time means, including 1000/1001 rates stored with rounded container
+timestamps, variable-rate files and B-frame streams. **Decision.** A frame is
+(resource, content revision, zero-based presentation index) over an index
+sorted by presentation timestamp. When every timestamp is within one time-base
+unit of `i / rate` for a declared rate, the stream is constant-rate and frame
+*i* starts at exactly `i / rate`; otherwise it starts at its own timestamp
+relative to the first frame. Frame starts round up to the next tick; a tick
+holds the last frame that has started; media time zero is the first video
+frame and audio positions carry the stream's offset from it.
+**Consequences.** `frameAtTicks(frameStartTicks(i)) == i` in every timebase;
+23.976 fps sources conform to a 25 fps program by holding, and exports write
+each frame's exact sample span. Duplicate timestamps and truncation are
+reported as damage instead of being guessed around.
+
+## D-098 — Make the playback engine the transport authority and present only the current target
+
+**Context.** `TransportModel` already projected acknowledged engine state, but
+no media engine existed; rapid seeks with asynchronous decoding can otherwise
+display a frame that belongs to an earlier request. **Decision.**
+`MediaPlaybackEngine` implements `TransportAdapter`: it owns the position (in
+program samples), acknowledges every command with its snapshot on the next
+event-loop turn and advances playback from a `MediaPlaybackClock`. One decode
+thread per engine renders program frames; only the result for the current
+target frame and program revision is presented, and superseded work is
+cancelled through its token. Failed targets are presented as failures and an
+empty program clears the display. `MediaFrameView` uploads each new presented
+frame once into a texture owned by its scene-graph node. Audible device output
+and a device-driven clock belong to the audio engine (WP-060).
+**Consequences.** Monitors may show a pending seek but never a superseded or
+stale frame; frame identity, playback position and audio positions share one
+clock and one sample domain.
+
+## D-099 — Keep media bins virtual over resolver resources and proxies preview-only
+
+**Context.** VID-02 requires organizing and relinking media without changing
+sequence references, with proxy/original status inspectable per clip.
+**Decision.** `MediaCatalog` assets wrap `ResourceResolver` resource IDs.
+Bins, labels and tags are catalog records; relinking changes only the
+resolver's location (only exact content-hash matches relink from a folder).
+Proxies are separate resolver resources with the original's frame count and
+rate; a player decodes pictures from an active proxy while frame identity,
+audio and exports use the original. **Consequences.** Timelines, compositions
+and graphs keep their resource IDs through any reorganization or relink, and
+a proxy can never shift a cut or change an export.

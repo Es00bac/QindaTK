@@ -58,8 +58,22 @@ snapshot and the exporter's supported objects.
 0 to 4. The provider accepts at most 64 MiB of uncompressed mono or stereo
 PCM16 at 8–192 kHz, hashes the whole source before rendering, scales and
 clips samples, and publishes `audio.wav`. Unsupported compression or a changed
-source fails without publishing output. Decoding other codecs and muxing audio
-with video are host provider responsibilities.
+source fails without publishing output.
+
+## Built-in media program export
+
+When QindaTK is built with the FFmpeg libraries, every queue also registers
+`qindatk.media-program-mkv` version `1` (format `mkv`, capability
+`media-program-mkv`). Build the snapshot with `MediaExport::queueSnapshot` or
+`MediaPlayer.exportJob(outputPath)`: `settings.program` is the
+`qindatk.media-program/1` timeline program, `settings.firstFrame` and
+`settings.frameCount` are exact decimal frames, and `settings.resources` lists
+`{resourceId, path, sha256}` for every source; `sourceRevision` is `sha256:`
+over the program and those digests. The provider re-hashes each source before
+encoding, so a changed or offline source fails the job, then publishes
+`program.mkv` (lossless FFV1 8-bit RGB with PCM s16le, the program's frame
+rate, sample rate and channels) and records frame and sample counts in the
+manifest. See [media-playback.md](media-playback.md#export-and-the-test-signal).
 
 A provider registered by C++ with `registerProvider(id, version, formats,
 RenderProvider)` receives the immutable JSON snapshot, a private staging

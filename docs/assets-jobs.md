@@ -88,12 +88,18 @@ PDFs. It supports note and highlight records with stable IDs and atomic
 matching `pdf-text` geometry. A build without Poppler Qt6 exposes an empty
 annotation capability list and a specific unsupported error.
 
-Video `metadata`, `thumbnail`, and `frame` requests use installed FFmpeg command-line
-tools in the worker. A numeric `frameId` selects that exact zero-based decoded
-frame; otherwise `timeTicks * rateDenominator / rateNumerator` selects a seek
-time and the result reports `exactFrameIndex: false`. These subprocesses have
-the same 30-second and 32 MiB output bounds. Playback/frame caching, audio
-sync and sequence export remain WP-070 backend work. The
+Video `metadata`, `thumbnail`, and `frame` requests use the FFmpeg libraries
+through `MediaDecoder` when QindaTK was built with them (D-096,
+[media-playback.md](media-playback.md)). A numeric `frameId` selects that exact
+zero-based presentation index; otherwise `timeTicks` at `rateNumerator /
+rateDenominator` ticks per second maps to the frame showing at that time under
+the source's rate policy. Both forms report `exactFrameIndex: true` with the
+resolved `frameIndex` and `framePts`; `metadata` returns the indexed stream
+description (frame count, rates, colour tags, audio). Without the libraries the
+installed command-line tools answer instead: a timestamp request then reports
+`exactFrameIndex: false`, and the subprocesses keep the 30-second and 32 MiB
+output bounds. Playback, frame caching, audio sync and sequence export are the
+media stack in [media-playback.md](media-playback.md). The
 reference adapter limits files to 256 MiB, source images to 100
 million pixels, and waveform output to 8192 columns. It reports video frame
 and filmstrip aggregation requests as unsupported; a domain backend supplies

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "video_asset_backend.h"
+#include "media_decoder.h"
 
+#include <QBuffer>
 #include <QElapsedTimer>
 #include <QImage>
 #include <QJsonArray>
@@ -91,6 +93,76 @@ AssetResult videoMetadata(const QString &path, const CancellationToken &cancel)
          json.object().value(QStringLiteral("format")).toObject().value(QStringLiteral("duration")).toString().toDouble()}};
     return result;
 }
+// AGENT-NOTE (D-096): with the FFmpeg libraries a time request maps to an
+// exact presentation index through MediaSourceInfo's rate policy, so both
+// request forms report exactFrameIndex: true and the resolved frameIndex.
+AssetResult libraryVideo(const QString &path, const AssetRequest &request, const CancellationToken &cancel,
+                         const JobProgress &progress)
+{
+    AssetResult result;
+    MediaDecoder decoder;
+    if (const OperationError error = decoder.open(path, cancel)) {
+        result.error = error;
+        return result;
+    }
+    const MediaSourceInfoPtr info = decoder.info();
+    if (request.kind == QStringLiteral("metadata")) {
+        result.metadata = info->toVariantMap();
+        result.metadata.insert(QStringLiteral("kind"), QStringLiteral("metadata"));
+        result.metadata.insert(QStringLiteral("mediaType"), info->hasVideo() ? QStringLiteral("video")
+                                                                             : QStringLiteral("audio"));
+        return result;
+    }
+    if (!info->hasVideo()) {
+        result.error = failure(ErrorCode::Unsupported, QStringLiteral("The media has no video frames"));
+        return result;
+    }
+    const auto rate = TimelineRate::normalized(request.rateNumerator, request.rateDenominator);
+    if (request.timeTicks < 0 || !rate) {
+        result.error = failure(ErrorCode::InvalidArgument, QStringLiteral("Invalid video timestamp or rate"));
+        return result;
+    }
+    bool byIndex = false;
+    qint64 index = request.frameId.toLongLong(&byIndex);
+    if (!byIndex) {
+        const auto frame = info->frameAtTicks(request.timeTicks, *rate);
+        if (!frame) {
+            result.error = failure(ErrorCode::InvalidArgument, QStringLiteral("The requested time is outside the media"));
+            return result;
+        }
+        index = *frame;
+    }
+    if (progress) progress(0.0);
+    const int limit = std::min(4096, MediaDecoder::kMaxDimension);
+    const QSize bound = request.size.width() > 0 || request.size.height() > 0
+        ? QSize(std::clamp(std::max(request.size.width(), request.size.height()), 1, limit),
+                std::clamp(std::max(request.size.width(), request.size.height()), 1, limit))
+        : QSize(limit, limit);
+    const MediaDecodedFrame decoded = decoder.decodeFrame(index, bound, cancel);
+    if (decoded.error) {
+        result.error = decoded.error;
+        return result;
+    }
+    QBuffer buffer(&result.bytes);
+    if (!buffer.open(QIODevice::WriteOnly) || !decoded.image.save(&buffer, "PNG")) {
+        result.error = failure(ErrorCode::BackendFailure, QStringLiteral("Cannot encode the video frame"));
+        result.bytes.clear();
+        return result;
+    }
+    result.mimeType = QStringLiteral("image/png");
+    result.metadata = {{QStringLiteral("kind"), request.kind},
+        {QStringLiteral("width"), decoded.image.width()}, {QStringLiteral("height"), decoded.image.height()},
+        {QStringLiteral("requestedFrameId"), request.frameId},
+        {QStringLiteral("exactFrameIndex"), true},
+        {QStringLiteral("frameIndex"), QString::number(index)},
+        {QStringLiteral("framePts"), QString::number(decoded.pts)},
+        {QStringLiteral("corrupt"), decoded.corrupt},
+        {QStringLiteral("timeTicks"), QString::number(request.timeTicks)},
+        {QStringLiteral("rateNumerator"), QString::number(request.rateNumerator)},
+        {QStringLiteral("rateDenominator"), QString::number(request.rateDenominator)}};
+    if (progress) progress(1.0);
+    return result;
+}
 } // namespace
 
 bool isVideoFileSuffix(const QString &suffix)
@@ -104,6 +176,7 @@ bool isVideoFileSuffix(const QString &suffix)
 AssetResult fetchVideoAsset(const QString &path, const AssetRequest &request,
                             const CancellationToken &cancel, const JobProgress &progress)
 {
+    if (MediaDecoder::available()) return libraryVideo(path, request, cancel, progress);
     if (request.kind == QStringLiteral("metadata")) return videoMetadata(path, cancel);
     AssetResult result;
     if (request.timeTicks < 0 || request.rateNumerator <= 0 || request.rateDenominator <= 0) {

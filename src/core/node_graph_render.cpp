@@ -53,6 +53,17 @@ bool NodeGraphModel::setSourceImage(const QString &nodeId, const QImage &image)
     return true;
 }
 
+bool NodeGraphModel::clearSourceImage(const QString &nodeId)
+{
+    const auto it = m_sources.find(nodeId);
+    if (it == m_sources.end()) return false;
+    m_sourceBytes -= it->sizeInBytes();
+    m_sources.erase(it);
+    invalidateFrom(nodeId);
+    emit changed();
+    return true;
+}
+
 QString NodeGraphModel::inputNode(const QString &nodeId, const QString &portId) const
 {
     for (const Edge &edge : m_edges)
