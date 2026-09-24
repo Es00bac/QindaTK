@@ -1410,7 +1410,7 @@
       "name": "AudioMeter",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (docs/controls.md, docs/audio-measurement.md): the measurement provider owns channel layout, dBFS calculation, hold/decay and the clip latch; this view only projects the latest bounded snapshot. Bind `meter` to a Tk.AudioMeterModel (for example AudioEngine.outputMeter) or pass provider `levels` rows directly. objectNames: \"meterRow\", \"channelTrack\", \"levelValue\", \"meterScale\", \"meterScaleLabel\", \"meterClipReset\".",
+      "description": "AGENT-CONTRACT (docs/controls.md, docs/audio-measurement.md): the measurement provider owns channel layout, dBFS calculation, hold/decay and the clip latch; this view only projects the latest bounded snapshot. Bind `meter` to a Tk.AudioMeterModel (for example AudioEngine.outputMeter) or pass provider `levels` rows directly. objectNames: \"meterRow\", \"channelTrack\", \"levelValue\", \"meterScale\", \"meterScaleLabel\", \"meterScaleUnit\", \"meterClipReset\".",
       "singleton": false,
       "attached": null,
       "file": "src/qml/AudioMeter.qml",
@@ -1580,6 +1580,18 @@
           "parameters": "db"
         },
         {
+          "name": "markText",
+          "parameters": "db"
+        },
+        {
+          "name": "labelX",
+          "parameters": "db, labelWidth"
+        },
+        {
+          "name": "labelledMarks",
+          "parameters": "marks, low, high, _trackX, _trackWidth, advance"
+        },
+        {
           "name": "readout",
           "parameters": "c"
         },
@@ -1602,7 +1614,8 @@
         "meterClipReset",
         "meterRow",
         "meterScale",
-        "meterScaleLabel"
+        "meterScaleLabel",
+        "meterScaleUnit"
       ]
     },
     {
@@ -12550,7 +12563,7 @@
       "name": "Fader",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/controls.md, docs/audio-measurement.md): the owner stores the canonical parameter. `silent` is an explicit domain state (for example -inf dB); no finite attenuation is substituted for it. Every input is ONE gesture (see Knob); with `binding` (Tk.AudioParameterBinding) each gesture is one engine transaction and the fader never assigns `value`. Pointer drags are relative: pressing never jumps the level. Scale marks and the unity mark sit where the mapper puts those values under the thumb centre. objectNames: \"faderTrack\", \"faderThumb\", \"faderScaleLabel\", \"faderUnityMark\", \"faderField\", \"faderValue\".",
+      "description": "AGENT-CONTRACT (docs/controls.md, docs/audio-measurement.md): the owner stores the canonical parameter. `silent` is an explicit domain state (for example -inf dB); no finite attenuation is substituted for it. Every input is ONE gesture (see Knob); with `binding` (Tk.AudioParameterBinding) each gesture is one engine transaction and the fader never assigns `value`. Pointer drags are relative: pressing never jumps the level. Scale marks and the unity mark sit where the mapper puts those values under the thumb centre; a label that would collide with another is dropped (its tick stays). objectNames: \"faderTrack\", \"faderThumb\", \"faderScaleLabel\", \"faderUnityMark\", \"faderField\", \"faderValue\".",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Fader.qml",
@@ -12734,7 +12747,7 @@
         {
           "name": "normalizedValue",
           "type": "real",
-          "default": "markPosition(value, silent)",
+          "default": "markPosition(_mappingRevision, value, silent)",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -12781,11 +12794,15 @@
         },
         {
           "name": "markPosition",
-          "parameters": "v, isSilent"
+          "parameters": "_revision, v, isSilent"
         },
         {
           "name": "travelCentre",
           "parameters": "position"
+        },
+        {
+          "name": "labelledMarks",
+          "parameters": "_revision, marks, low, high, unity, labelWidth, labelHeight, _travel, _vertical"
         },
         {
           "name": "beginGesture",
@@ -16639,7 +16656,7 @@
         {
           "name": "normalizedValue",
           "type": "real",
-          "default": "activeMapper ? activeMapper.positionFor(clampedValue, silent)",
+          "default": "positionOf(_mappingRevision, clampedValue, silent)",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -16675,6 +16692,10 @@
         {
           "name": "clamp",
           "parameters": "v"
+        },
+        {
+          "name": "positionOf",
+          "parameters": "_revision, v, isSilent"
         },
         {
           "name": "beginGesture",
@@ -41166,6 +41187,122 @@
       "bridge": false
     },
     {
+      "name": "CanvasAppearanceModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/vector-authoring.md#appearance, D-106): the ordered effect stack of one canvas object in AppearanceStack's record shape ({id, name, kind, enabled, supported, parameters, masked, unsupportedReason}), refreshed after every document change. Each request is one undoable document edit; a kind the reference renderer does not draw is kept with its parameters and reported unsupported.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_appearance_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "objectId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "effects",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editable",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "supportedKinds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "objectIdChanged",
+          "parameters": ""
+        },
+        {
+          "name": "effectsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "applied",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "addEffect",
+          "returns": "QString",
+          "parameters": "const QString &kind, const QVariantMap &parameters = {}"
+        },
+        {
+          "name": "removeEffect",
+          "returns": "bool",
+          "parameters": "const QString &effectId"
+        },
+        {
+          "name": "moveEffect",
+          "returns": "bool",
+          "parameters": "const QString &effectId, int index"
+        },
+        {
+          "name": "setEffectEnabled",
+          "returns": "bool",
+          "parameters": "const QString &effectId, bool enabled"
+        },
+        {
+          "name": "setEffectParameters",
+          "returns": "bool",
+          "parameters": "const QString &effectId, const QVariantMap &parameters"
+        },
+        {
+          "name": "effect",
+          "returns": "QVariantMap",
+          "parameters": "const QString &effectId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CanvasArtboardModel",
       "kind": "cpp",
       "base": "QObject",
@@ -41636,6 +41773,11 @@
           "name": "setPathContourClosed",
           "returns": "bool",
           "parameters": "qulonglong id, int contour, bool closed"
+        },
+        {
+          "name": "combinePaths",
+          "returns": "qulonglong",
+          "parameters": "const QVariantList &ids, const QString &operation"
         },
         {
           "name": "exportSvg",
@@ -42147,7 +42289,7 @@
       "name": "CanvasStyleModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Solid fill, stroke and width edits for the canvas reference document. Style panels may expose richer values; unsupported fields are rejected explicitly until a renderer and codec exist for them.",
+      "description": "AGENT-CONTRACT (docs/vector-authoring.md#style-binding): style edits for the canvas reference document and the style of `selectedIds` for binding StrokeStyleEditor (`strokeStyle`) and FillStyleEditor (`fillStyle`). Every selected object changes in one reversible document edit; an invalid or unsupported value, or a hidden or locked object, rejects the whole edit. The published styles follow every document change, undo included.",
       "singleton": false,
       "attached": null,
       "file": "src/core/canvas_style_model.h",
@@ -42165,6 +42307,48 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "selectedIds",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionStyle",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "strokeStyle",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fillStyle",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "patterns",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "blendModes",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": true
         }
       ],
       "signals": [
@@ -42179,6 +42363,14 @@
         {
           "name": "applied",
           "parameters": "int changedObjects"
+        },
+        {
+          "name": "selectedIdsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionStyleChanged",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -42196,6 +42388,21 @@
           "name": "applyGradient",
           "returns": "bool",
           "parameters": "const QVariantList &selectedIds, GradientEditorModel *gradient"
+        },
+        {
+          "name": "styleOf",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantList &ids"
+        },
+        {
+          "name": "applyStrokeStyle",
+          "returns": "bool",
+          "parameters": "const QVariantMap &descriptor"
+        },
+        {
+          "name": "applyFillStyle",
+          "returns": "bool",
+          "parameters": "const QVariantMap &descriptor"
         }
       ],
       "enums": {},
