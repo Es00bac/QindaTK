@@ -11,6 +11,8 @@ TestCase {
     width: 720
     height: 640
     SignalSpy { id: spy }
+    SignalSpy { id: cancelSpy }
+    readonly property string pixel: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
 
     function watch(target, signalName) {
         spy.target = null
@@ -35,6 +37,17 @@ TestCase {
             width: 580
             presets: [{ id: "soft", name: "Soft", tags: ["paint"] },
                       { id: "ink", name: "Ink", tags: ["line"] }]
+        }
+    }
+    Component {
+        id: manyPresetsComponent
+        Tk.BrushPresetView {
+            width: 580
+            presets: {
+                const rows = []
+                for (let i = 0; i < 40; ++i) rows.push({ id: "p" + i, name: "Preset " + i, tags: ["paint"] })
+                return rows
+            }
         }
     }
     Component {
@@ -82,6 +95,31 @@ TestCase {
         spy.target = null
     }
 
+    function test_preset_previews_are_lazy_and_canceled_off_view() {
+        const view = createTemporaryObject(manyPresetsComponent, root)
+        verify(view !== null)
+        waitForRendering(view)
+        const initial = view.pendingPreviewCount()
+        verify(initial > 0 && initial < 40) // only created delegates ask for work
+        watch(view, "previewRequested")
+        cancelSpy.target = view
+        cancelSpy.signalName = "previewCanceled"
+        cancelSpy.clear()
+        const list = findChild(view, "brushPresetList")
+        list.contentY = list.contentHeight - list.height
+        tryVerify(function() { return cancelSpy.count > 0 && spy.count > 0 })
+        compare(view.pendingPreviewCount(), initial - cancelSpy.count + spy.count)
+        verify(!view.providePreview(cancelSpy.signalArguments[0][0], root.pixel)) // canceled work is refused
+        const live = spy.signalArguments[spy.count - 1]
+        verify(view.providePreview(live[0], root.pixel))
+        compare(view.previewSources[live[1]], root.pixel)
+        const image = findChild(view, "brushPresetPreviewImage_" + live[1])
+        verify(image !== null && image.visible)
+        compare(String(image.source), root.pixel) // the live delegate shows the delivered preview
+        cancelSpy.target = null
+        spy.target = null
+    }
+
     function test_dynamics_preview_commit_and_cancel_are_bounded() {
         const editor = createTemporaryObject(dynamicsComponent, root)
         verify(editor !== null)
@@ -100,5 +138,9 @@ TestCase {
         compare(spy.signalArguments[2][2], "commit")
         compare(spy.signalArguments[4][2], "cancel")
         spy.target = null
+        const frame = findChild(editor, "brushDynamicsPreviewFrame")
+        verify(frame !== null && !frame.visible)
+        editor.previewSource = root.pixel // a host-rendered sample stroke
+        verify(frame.visible)
     }
 }

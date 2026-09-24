@@ -40,4 +40,23 @@ TestCase {
         compare(view.panX, 30)
         compare(view.panY, 20)
     }
+
+    Tk.TiledRasterDocument { id: rasterA }
+    Tk.TiledRasterDocument { id: rasterB }
+
+    function test_stale_revision_pairs_are_reported() {
+        const view = createTemporaryObject(comparison, root)
+        verify(view !== null)
+        verify(rasterA.resizeCanvas(8, 4) && rasterB.resizeCanvas(16, 8)) // same region, 2x resolution
+        view.revisionKey = "1:2"
+        verify(view.setSourcePair(rasterA.imageDataUrl, rasterB.imageDataUrl, "1:2"))
+        compare(view.lastError, "")
+        verify(!view.stale)
+        view.revisionKey = "1:3"
+        verify(!view.setSourcePair(rasterA.imageDataUrl, rasterB.imageDataUrl, "1:2"))
+        verify(view.stale)
+        compare(view.displayedRevisionKey, "1:2")
+        const status = findChild(view, "compareStatus")
+        verify(status.text.indexOf("1:3") >= 0)
+    }
 }

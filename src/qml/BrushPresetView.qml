@@ -6,6 +6,8 @@ Tk.Box {
     id: control
     objectName: "brushPresetView"
     property var presets: [] // [{id,name,tags,previewColor,shape,available}]
+    // presetId -> image URL, filled only through providePreview (CAN-15).
+    property var previewSources: ({})
     property string selectedPresetId: ""
     property string searchText: ""
     property string requestState: "idle"
@@ -13,8 +15,15 @@ Tk.Box {
     property string tooltip: qsTr("Brush presets")
     property string lastRequestId: ""
     property int _requestSerial: 0
+    property int _previewSerial: 0
+    property var _pendingPreviews: ({}) // requestId -> presetId, one per live delegate
 
     signal presetRequested(string requestId, string presetId, string action)
+    // AGENT-CONTRACT (docs/controls.md, BrushPresetView): a delegate that is
+    // created without a preview requests one; a delegate that leaves the view
+    // before delivery cancels it, and providePreview refuses canceled IDs.
+    signal previewRequested(string requestId, string presetId)
+    signal previewCanceled(string requestId, string presetId)
 
     Accessible.role: Accessible.Grouping
     Accessible.name: tooltip
@@ -34,6 +43,29 @@ Tk.Box {
         lastRequestId = requestId; requestState = "pending"; requestMessage = ""
         presetRequested(requestId, presetId, action)
         return requestId
+    }
+    function providePreview(requestId, source) {
+        const presetId = _pendingPreviews[requestId]
+        if (presetId === undefined) return false
+        delete _pendingPreviews[requestId]
+        const next = Object.assign({}, previewSources)
+        next[presetId] = String(source)
+        previewSources = next
+        return true
+    }
+    function pendingPreviewCount() { return Object.keys(_pendingPreviews).length }
+    function _requestPreview(presetId) {
+        if (previewSources[presetId]) return ""
+        const requestId = "brush-preview:" + (++_previewSerial)
+        _pendingPreviews[requestId] = presetId
+        previewRequested(requestId, presetId)
+        return requestId
+    }
+    function _cancelPreview(requestId) {
+        const presetId = _pendingPreviews[requestId]
+        if (!requestId || presetId === undefined) return
+        delete _pendingPreviews[requestId]
+        previewCanceled(requestId, presetId)
     }
     function acknowledge(requestId, state, message) {
         if (requestId !== lastRequestId || requestState !== "pending") return false
@@ -60,12 +92,17 @@ Tk.Box {
             height: Math.min(contentHeight, Tk.Theme.size.control * 8)
             implicitHeight: height
             clip: true
+            cacheBuffer: 0 // delegates leave with the view, so their preview work stops
             spacing: Tk.Theme.space.xs
             model: control.visiblePresets()
             Accessible.role: Accessible.List
             Accessible.name: qsTr("Available brush presets")
             delegate: Tk.Flex {
+                id: presetRow
                 required property var modelData
+                property string previewRequestId: ""
+                Component.onCompleted: previewRequestId = control._requestPreview(String(modelData.id))
+                Component.onDestruction: if (typeof control !== "undefined" && control) control._cancelPreview(previewRequestId)
                 width: presetList.width
                 padding: Tk.Theme.space.xs
                 direction: Tk.Flex.Row
@@ -74,17 +111,28 @@ Tk.Box {
                 Rectangle {
                     objectName: "brushPresetPreview_" + String(modelData.id)
                     Tk.Flex.shrink: 0
-                    Tk.Flex.basis: Tk.Theme.size.iconLg
-                    implicitWidth: Tk.Theme.size.iconLg
+                    Tk.Flex.basis: Tk.Theme.size.iconLg * 3
+                    implicitWidth: Tk.Theme.size.iconLg * 3
                     implicitHeight: Tk.Theme.size.iconLg
-                    width: Tk.Theme.size.iconLg
+                    width: Tk.Theme.size.iconLg * 3
                     height: Tk.Theme.size.iconLg
-                    radius: width / 2
-                    color: String(modelData.previewColor || Tk.Theme.color.accentSubtle)
+                    radius: Tk.Theme.radius.sm
+                    color: previewImage.visible ? Tk.Theme.color.canvas
+                                                : String(modelData.previewColor || Tk.Theme.color.accentSubtle)
                     border.width: Tk.Theme.size.border
                     border.color: Tk.Theme.color.controlBorder
                     Accessible.role: Accessible.Graphic
                     Accessible.name: qsTr("Preview for %1").arg(String(modelData.name || modelData.id))
+                    Image {
+                        id: previewImage
+                        objectName: "brushPresetPreviewImage_" + String(presetRow.modelData.id)
+                        anchors.fill: parent
+                        anchors.margins: Tk.Theme.size.border
+                        visible: String(source).length > 0
+                        source: control.previewSources[String(presetRow.modelData.id)] || ""
+                        fillMode: Image.PreserveAspectFit
+                        cache: false
+                    }
                 }
                 Tk.Flex {
                     direction: Tk.Flex.Column

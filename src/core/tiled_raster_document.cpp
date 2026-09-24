@@ -94,17 +94,22 @@ bool TiledRasterDocument::setMaskEnabled(const QString &layerId, bool enabled)
         setError(QStringLiteral("Layer has no editable mask.")); return false;
     }
     if (m_layers[index].maskEnabled != enabled) {
-        m_layers[index].maskEnabled = enabled; ++m_revision; m_error.clear(); updatePreview();
+        StrokeEdit edit;
+        edit.kind = StrokeEdit::MaskEnabled; edit.layerId = layerId; edit.enabled = enabled;
+        applyEdit(edit, true); pushHistory(std::move(edit));
+        ++m_revision; m_error.clear(); updatePreview();
     }
     return true;
 }
 
-QVariantMap TiledRasterDocument::brushPreset() const
+QVariantMap TiledRasterDocument::brushPreset() const { return brushMap(m_brush); }
+
+QVariantMap TiledRasterDocument::brushMap(const Brush &brush)
 {
-    return {{QStringLiteral("diameter"), m_brush.diameter}, {QStringLiteral("hardness"), m_brush.hardness},
-            {QStringLiteral("spacing"), m_brush.spacing}, {QStringLiteral("opacity"), m_brush.opacity},
-            {QStringLiteral("pressureSize"), m_brush.pressureSize},
-            {QStringLiteral("pressureOpacity"), m_brush.pressureOpacity}};
+    return {{QStringLiteral("diameter"), brush.diameter}, {QStringLiteral("hardness"), brush.hardness},
+            {QStringLiteral("spacing"), brush.spacing}, {QStringLiteral("opacity"), brush.opacity},
+            {QStringLiteral("pressureSize"), brush.pressureSize},
+            {QStringLiteral("pressureOpacity"), brush.pressureOpacity}};
 }
 
 bool TiledRasterDocument::brushFromMap(const QVariantMap &values, Brush *result) const
@@ -130,11 +135,18 @@ bool TiledRasterDocument::brushFromMap(const QVariantMap &values, Brush *result)
 bool TiledRasterDocument::updateBrushPreset(const QVariantMap &preset)
 {
     Brush brush;
-    if (m_strokeActive || !brushFromMap(preset, &brush)) {
-        setError(QStringLiteral("Brush preset is invalid or cannot change during a stroke."));
+    if (!brushFromMap(preset, &brush)) {
+        setError(QStringLiteral("Brush preset values are outside their supported finite ranges."));
         return false;
     }
-    m_brush = brush; m_error.clear(); emit changed(); return true;
+    // AGENT-GUARD (CAN-15): an active stroke keeps m_strokeBrush; a switch
+    // here only changes the saved preset used by later hosts and strokes.
+    if (!(brush == m_brush)) {
+        StrokeEdit edit;
+        edit.kind = StrokeEdit::Preset; edit.presetBefore = m_brush; edit.presetAfter = brush;
+        applyEdit(edit, true); pushHistory(std::move(edit)); ++m_revision;
+    }
+    m_error.clear(); emit changed(); return true;
 }
 
 void TiledRasterDocument::setBrushPreset(const QVariantMap &preset)
@@ -151,12 +163,17 @@ bool TiledRasterDocument::beginStroke(const QString &layerId, bool paintMask,
         setError(QStringLiteral("Stroke needs an idle document, a valid layer and color, and a mask when mask painting is selected."));
         return false;
     }
+    // AGENT-GUARD (CAN-10): never write pixels or coverage the user cannot see.
+    if (!m_layers.at(index).visible || (paintMask && !m_layers.at(index).maskEnabled)) {
+        setError(QStringLiteral("Show the layer and enable its mask before painting it; hidden data is never edited."));
+        return false;
+    }
     Brush brush;
     if (!brushFromMap(preset, &brush)) {
         setError(QStringLiteral("Brush preset values are outside their supported finite ranges.")); return false;
     }
     m_strokeActive = true; m_strokeMask = paintMask; m_strokeLayer = index;
-    m_strokeColor = color; m_brush = brush; m_strokeBefore.clear(); m_strokeError.clear();
+    m_strokeColor = color; m_strokeBrush = brush; m_strokeBefore.clear(); m_strokeError.clear();
     m_strokeStampCount = 0; m_strokePixelWork = 0;
     m_hasPrevious = false; m_error.clear(); emit changed(); return true;
 }
@@ -205,8 +222,8 @@ void TiledRasterDocument::paintTile(QImage &tile, int tileIndex, const Sample &s
             const qreal localY = (-dx * sine + dy * cosine) / ry;
             const qreal distance = std::sqrt(localX * localX + localY * localY);
             if (distance >= 1.0) continue;
-            const qreal edgeCoverage = distance <= m_brush.hardness || m_brush.hardness >= 1
-                ? 1.0 : (1.0 - distance) / qMax<qreal>(0.0001, 1.0 - m_brush.hardness);
+            const qreal edgeCoverage = distance <= m_strokeBrush.hardness || m_strokeBrush.hardness >= 1
+                ? 1.0 : (1.0 - distance) / qMax<qreal>(0.0001, 1.0 - m_strokeBrush.hardness);
             const qreal alpha = qBound<qreal>(0, opacity * edgeCoverage * source.alphaF(), 1);
             if (alpha <= 0) continue;
             const int localXPixel = x - rect.x(), localYPixel = y - rect.y();
@@ -230,8 +247,9 @@ void TiledRasterDocument::paintTile(QImage &tile, int tileIndex, const Sample &s
 
 void TiledRasterDocument::stamp(const Sample &sample)
 {
-    const qreal diameter = qMax<qreal>(1, m_brush.diameter * (1 - m_brush.pressureSize + m_brush.pressureSize * sample.pressure));
-    const qreal opacity = m_brush.opacity * (1 - m_brush.pressureOpacity + m_brush.pressureOpacity * sample.pressure);
+    const Brush &brush = m_strokeBrush;
+    const qreal diameter = qMax<qreal>(1, brush.diameter * (1 - brush.pressureSize + brush.pressureSize * sample.pressure));
+    const qreal opacity = brush.opacity * (1 - brush.pressureOpacity + brush.pressureOpacity * sample.pressure);
     const qreal tilt = qMin<qreal>(1, std::hypot(sample.tiltX, sample.tiltY) / 90.0);
     const qreal flatten = tilt * 0.65;
     const qreal angle = std::atan2(sample.tiltY, sample.tiltX);
@@ -281,7 +299,7 @@ bool TiledRasterDocument::sampleStroke(qreal x, qreal y, qreal pressure, qreal t
         const qreal dx = current.point.x() - m_previous.point.x();
         const qreal dy = current.point.y() - m_previous.point.y();
         const qreal distance = std::hypot(dx, dy);
-        const qreal step = qMax<qreal>(1, m_brush.diameter * m_brush.spacing * 0.5);
+        const qreal step = qMax<qreal>(1, m_strokeBrush.diameter * m_strokeBrush.spacing * 0.5);
         const int samples = qMax(1, int(std::ceil(distance / step)));
         for (int i = 1; i <= samples && m_strokeError.isEmpty(); ++i) {
             const qreal t = qreal(i) / samples;
@@ -297,8 +315,12 @@ bool TiledRasterDocument::sampleStroke(qreal x, qreal y, qreal pressure, qreal t
 
 void TiledRasterDocument::applyEdit(const StrokeEdit &edit, bool forward)
 {
+    if (edit.kind == StrokeEdit::Preset) { m_brush = forward ? edit.presetAfter : edit.presetBefore; return; }
     const int layer = layerIndex(edit.layerId);
     if (layer < 0) return;
+    if (edit.kind == StrokeEdit::MaskEnabled) {
+        m_layers[layer].maskEnabled = forward ? edit.enabled : !edit.enabled; return;
+    }
     QVector<QImage> &target = edit.mask ? m_layers[layer].mask : m_layers[layer].pixels;
     for (const TileChange &change : edit.tiles) {
         m_allocatedTileBytes -= target[change.index].sizeInBytes();
@@ -321,12 +343,18 @@ bool TiledRasterDocument::endStroke()
     }
     m_strokeActive = false; m_hasPrevious = false; m_strokeBefore.clear();
     if (edit.tiles.isEmpty()) { m_error.clear(); emit changed(); return true; }
+    pushHistory(std::move(edit));
+    ++m_revision; m_error.clear(); updatePreview(); return true;
+}
+
+void TiledRasterDocument::pushHistory(StrokeEdit edit)
+{
+    edit.byteCost = qMax<qsizetype>(edit.byteCost, qsizetype(sizeof(StrokeEdit)));
     while (m_history.size() > m_cursor) { m_historyBytes -= m_history.last().byteCost; m_history.removeLast(); }
-    m_history.append(edit); m_historyBytes += edit.byteCost; ++m_cursor;
+    m_historyBytes += edit.byteCost; m_history.append(std::move(edit)); ++m_cursor;
     while (m_historyBytes > MaximumUndoBytes && m_history.size() > 1) {
         m_historyBytes -= m_history.first().byteCost; m_history.removeFirst(); --m_cursor;
     }
-    ++m_revision; m_error.clear(); updatePreview(); return true;
 }
 
 void TiledRasterDocument::cancelStroke()
@@ -395,7 +423,8 @@ QString TiledRasterDocument::pngDataUrl(const QImage &image)
 }
 void TiledRasterDocument::updatePreview()
 {
-    m_imageDataUrl = pngDataUrl(composite()); emit changed();
+    if (m_livePreview) m_imageDataUrl = pngDataUrl(composite());
+    emit changed();
 }
 bool TiledRasterDocument::exportPng(const QString &path)
 {

@@ -16,6 +16,7 @@ Item {
     Tk.TiledRasterDocument { id: document }
 
     function paintDemoStroke() {
+        document.updateBrushPreset(root.brush) // the saved preset; strokes take their own
         if (!document.beginStroke("ink", false, "#44d9d0", root.brush)) {
             root.statusText = document.error
             return

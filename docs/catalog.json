@@ -2635,6 +2635,14 @@
           "required": false
         },
         {
+          "name": "previewSource",
+          "type": "url",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "editing",
           "type": "bool",
           "default": "false",
@@ -2742,6 +2750,8 @@
       "objectNames": [
         "brushDynamicsEditor",
         "brushDynamicsParameters",
+        "brushDynamicsPreview",
+        "brushDynamicsPreviewFrame",
         "brushDynamicsSlider_",
         "brushDynamicsStatus"
       ]
@@ -2759,6 +2769,14 @@
           "name": "presets",
           "type": "var",
           "default": "[] // [{id,name,tags,previewColor,shape,available}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewSources",
+          "type": "var",
+          "default": "({})",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -2816,6 +2834,14 @@
         {
           "name": "presetRequested",
           "parameters": "string requestId, string presetId, string action"
+        },
+        {
+          "name": "previewRequested",
+          "parameters": "string requestId, string presetId"
+        },
+        {
+          "name": "previewCanceled",
+          "parameters": "string requestId, string presetId"
         }
       ],
       "methods": [
@@ -2826,6 +2852,14 @@
         {
           "name": "requestPreset",
           "parameters": "presetId, action"
+        },
+        {
+          "name": "providePreview",
+          "parameters": "requestId, source"
+        },
+        {
+          "name": "pendingPreviewCount",
+          "parameters": ""
         },
         {
           "name": "acknowledge",
@@ -2842,6 +2876,7 @@
       "bridge": false,
       "objectNames": [
         "brushPresetList",
+        "brushPresetPreviewImage_",
         "brushPresetPreview_",
         "brushPresetSearch",
         "brushPresetSelect_",
@@ -6562,7 +6597,7 @@
       "name": "CompareView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: both sources use one image transform. The host supplies local images or bounded PNG data URLs; encoded-sRGB difference is visual inspection, not proofing.",
+      "description": "AGENT-CONTRACT: both sources use one image transform. The host supplies local images or bounded PNG data URLs of the same region (resolutions may differ); encoded-sRGB difference is visual inspection, not proofing. Hosts that track revisions set revisionKey and deliver pairs through setSourcePair, which refuses stale keys (docs/compare.md).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/CompareView.qml",
@@ -6640,6 +6675,30 @@
           "required": false
         },
         {
+          "name": "revisionKey",
+          "type": "alias",
+          "default": "image.revisionKey",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayedRevisionKey",
+          "type": "string",
+          "default": "image.displayedRevisionKey",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stale",
+          "type": "bool",
+          "default": "image.stale",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Compare aligned before and after images\")",
@@ -6649,7 +6708,12 @@
         }
       ],
       "signals": [],
-      "methods": [],
+      "methods": [
+        {
+          "name": "setSourcePair",
+          "parameters": "before, after, key"
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -24866,6 +24930,14 @@
           "name": "canvasTarget",
           "type": "Item",
           "default": "root",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pointMapper",
+          "type": "var",
+          "default": "null",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -48085,7 +48157,7 @@
       "name": "ImageCompareItem",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
-      "description": "Paints both sources through one viewport transform for aligned comparison.",
+      "description": "Paints both sources through one viewport transform for aligned comparison. AGENT-CONTRACT (docs/compare.md): sources may differ in resolution when they show the same region (equal aspect ratio); a tracked pair is replaced only atomically and only for the expected revisionKey, so stale previews never mix with a newer revision.",
       "singleton": false,
       "attached": null,
       "file": "src/core/image_compare_item.h",
@@ -48152,6 +48224,27 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "revisionKey",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "displayedRevisionKey",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "stale",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -48164,7 +48257,13 @@
           "parameters": ""
         }
       ],
-      "methods": [],
+      "methods": [
+        {
+          "name": "setSourcePair",
+          "returns": "bool",
+          "parameters": "const QUrl &before, const QUrl &after, const QString &revisionKey"
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
@@ -57002,6 +57101,26 @@
           "name": "layerInfo",
           "returns": "QVariantMap",
           "parameters": "const QString &layerId"
+        },
+        {
+          "name": "brushPreviewDataUrl",
+          "returns": "QString",
+          "parameters": "const QVariantMap &preset, const QColor &color, int width, int height"
+        },
+        {
+          "name": "placeOnCanvas",
+          "returns": "qulonglong",
+          "parameters": "QindaTK::CanvasDocument *canvas, qreal x, qreal y"
+        },
+        {
+          "name": "publishToCanvas",
+          "returns": "bool",
+          "parameters": "QindaTK::CanvasDocument *canvas, qulonglong objectId"
+        },
+        {
+          "name": "canvasToRaster",
+          "returns": "QPointF",
+          "parameters": "QindaTK::CanvasDocument *canvas, qulonglong objectId, qreal documentX, qreal documentY"
         }
       ],
       "enums": {},
