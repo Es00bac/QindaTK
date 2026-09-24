@@ -76,7 +76,7 @@ for a host paint gesture, and `meshPicked(worldPosition)` reports a mesh hit.
 The mesh objectName is `sceneMeshRig3D`. This adapter is available only when
 the Qt Quick 3D module is built and the view has a GPU backend.
 
-The view exposes `cameraPosition`, `cameraEulerDegrees`, `translationSnap`,
+The view exposes `cameraPosition`, `cameraEulerDegrees`, `cameraTarget`, `translationSnap`,
 `rotationSnap`, `scaleSnap`, `transformMode` (`translate`, `rotate`, `scale`),
 `transformConstraint` (`free`, axes or planes), `transformSpace` (`world`,
 `local`) and
@@ -97,6 +97,10 @@ single-axis depth gesture.
 Replacing the scene or destroying the renderer cancels its active gesture.
 Arrow keys translate the selection along world X/Y by one unit or the snap step.
 Hosts may bind camera properties to their own navigation controls.
+Right drag orbits around `cameraTarget`, middle drag pans camera and target
+together, and the wheel zooms along the sight line. The same behavior is exposed
+as `orbitCamera(dx, dy)`, `panCamera(dx, dy)` and `zoomCamera(wheelSteps)` so hosts
+can use other devices. Camera gestures are view state and do not enter scene undo.
 
 Internal objectNames: `sceneView3D`, `sceneRenderer3D`, `sceneTransformBar3D`,
 `sceneMode3D_<mode>`, `sceneAxis3D_<constraint>`, `sceneSpace3D`, and
@@ -128,7 +132,7 @@ outliner does not rename entities because the scene model has no rename command.
 
 On-object 3D gizmo handles, constrained scale and per-axis scale;
 instance and imported mesh/resource providers; material property editing and
-asynchronous material preview; camera orbit/pan controls; application document
+asynchronous material preview; application document
 session/shared undo integration; device loss and multiple-view qualification;
 Qt 6.8 validation and accessibility traversal. This slice does not claim WP-076
 acceptance, renderer-independent materials, nonuniform transforms or CAD accuracy.

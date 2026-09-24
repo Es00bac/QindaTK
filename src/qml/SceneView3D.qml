@@ -8,9 +8,43 @@ T.Control {
     objectName: "sceneView3D"
     property Tk.SceneModel3D scene: null
     property Tk.MeshRigDocument meshDocument: null
-    property string tooltip: qsTr("3D scene: select a transform mode and axis, then drag an object; Escape cancels")
+    property string tooltip: qsTr("3D scene: left drag transforms, right drag orbits, middle drag pans, wheel zooms; Escape cancels")
     property vector3d cameraPosition: Qt.vector3d(0, 120, 650)
     property vector3d cameraEulerDegrees: Qt.vector3d(-10, 0, 0)
+    property vector3d cameraTarget: Qt.vector3d(0, 0, 0)
+    function orbitCamera(dx, dy) {
+        const offset = cameraPosition.minus(cameraTarget)
+        const radius = Math.max(1, offset.length())
+        const yaw = Math.atan2(offset.x, offset.z) + dx * Math.PI / 600
+        const pitch = Math.max(-Math.PI * 0.49, Math.min(Math.PI * 0.49,
+            Math.atan2(offset.y, Math.hypot(offset.x, offset.z)) - dy * Math.PI / 600))
+        cameraPosition = Qt.vector3d(cameraTarget.x + radius * Math.sin(yaw) * Math.cos(pitch),
+                                     cameraTarget.y + radius * Math.sin(pitch),
+                                     cameraTarget.z + radius * Math.cos(yaw) * Math.cos(pitch))
+        cameraEulerDegrees = Qt.vector3d(-pitch * 180 / Math.PI, yaw * 180 / Math.PI, 0)
+    }
+    function panCamera(dx, dy) {
+        const offset = cameraPosition.minus(cameraTarget)
+        const radius = Math.max(1, offset.length())
+        const yaw = Math.atan2(offset.x, offset.z)
+        const pitch = Math.atan2(offset.y, Math.hypot(offset.x, offset.z))
+        const worldPerPixel = 2 * radius * Math.tan(Math.PI / 6) / Math.max(1, contentItem.height)
+        const right = Qt.vector3d(Math.cos(yaw), 0, -Math.sin(yaw))
+        const up = Qt.vector3d(-Math.sin(yaw) * Math.sin(pitch), Math.cos(pitch),
+                               -Math.cos(yaw) * Math.sin(pitch))
+        const shift = Qt.vector3d((-dx * right.x + dy * up.x) * worldPerPixel,
+                                  (-dx * right.y + dy * up.y) * worldPerPixel,
+                                  (-dx * right.z + dy * up.z) * worldPerPixel)
+        cameraPosition = cameraPosition.plus(shift)
+        cameraTarget = cameraTarget.plus(shift)
+    }
+    function zoomCamera(steps) {
+        const offset = cameraPosition.minus(cameraTarget)
+        const distance = Math.max(10, Math.min(1000000, offset.length() * Math.pow(2, -steps / 4)))
+        const direction = offset.normalized()
+        cameraPosition = cameraTarget.plus(Qt.vector3d(direction.x * distance,
+            direction.y * distance, direction.z * distance))
+    }
     property real translationSnap: 0
     property real rotationSnap: 0
     property real scaleSnap: 0

@@ -24836,7 +24836,7 @@
         {
           "name": "tooltip",
           "type": "string",
-          "default": "qsTr(\"3D scene: select a transform mode and axis, then drag an object; Escape cancels\")",
+          "default": "qsTr(\"3D scene: left drag transforms, right drag orbits, middle drag pans, wheel zooms; Escape cancels\")",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -24853,6 +24853,14 @@
           "name": "cameraEulerDegrees",
           "type": "vector3d",
           "default": "Qt.vector3d(-10, 0, 0)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cameraTarget",
+          "type": "vector3d",
+          "default": "Qt.vector3d(0, 0, 0)",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -24925,6 +24933,18 @@
         }
       ],
       "methods": [
+        {
+          "name": "orbitCamera",
+          "parameters": "dx, dy"
+        },
+        {
+          "name": "panCamera",
+          "parameters": "dx, dy"
+        },
+        {
+          "name": "zoomCamera",
+          "parameters": "steps"
+        },
         {
           "name": "projectWorldPosition",
           "parameters": "position"

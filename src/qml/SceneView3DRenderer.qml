@@ -63,12 +63,16 @@ Q3D.View3D {
     MouseArea {
         id: gesture
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         property bool dragging: false
+        property int cameraDragButton: Qt.NoButton
+        property real cameraX: 0
+        property real cameraY: 0
         property var gestureScene: null
         function cancel() {
             if (dragging && gestureScene && gestureScene.editing) gestureScene.cancelTransform()
             dragging = false
+            cameraDragButton = Qt.NoButton
             gestureScene = null
         }
         Component.onDestruction: cancel()
@@ -84,10 +88,17 @@ Q3D.View3D {
         property string axis: "free"
         property string space: "world"
         onPressed: function(mouse) {
-            if (!viewport.control || (!viewport.control.scene && !viewport.control.meshDocument)) return
+            if (!viewport.control) return
+            viewport.control.forceActiveFocus()
+            if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton) {
+                cameraDragButton = mouse.button
+                cameraX = mouse.x
+                cameraY = mouse.y
+                return
+            }
+            if (!viewport.control.scene && !viewport.control.meshDocument) return
             const scene = viewport.control.scene
             gestureScene = scene
-            viewport.control.forceActiveFocus()
             const hit = viewport.pick(mouse.x, mouse.y)
             const id = hit.objectHit ? hit.objectHit.entityId : ""
             if (id === meshEntity.entityId) {
@@ -108,6 +119,15 @@ Q3D.View3D {
             dragging = scene.beginTransform(id)
         }
         onPositionChanged: function(mouse) {
+            if (cameraDragButton !== Qt.NoButton) {
+                const dx = mouse.x - cameraX
+                const dy = mouse.y - cameraY
+                if (cameraDragButton === Qt.RightButton) viewport.control.orbitCamera(dx, dy)
+                else viewport.control.panCamera(dx, dy)
+                cameraX = mouse.x
+                cameraY = mouse.y
+                return
+            }
             if (!dragging || !gestureScene || !gestureScene.editing) return
             const point = viewport.mapTo3DScene(Qt.vector3d(mouse.x, mouse.y, depth))
             if (mode === "rotate") {
@@ -132,9 +152,18 @@ Q3D.View3D {
             }
         }
         onReleased: {
+            if (cameraDragButton !== Qt.NoButton) {
+                cameraDragButton = Qt.NoButton
+                return
+            }
             if (dragging && gestureScene && gestureScene.editing) gestureScene.commitTransform()
             dragging = false
             gestureScene = null
+        }
+        onWheel: function(wheel) {
+            if (!viewport.control) return
+            viewport.control.zoomCamera(wheel.angleDelta.y / 120)
+            wheel.accepted = true
         }
         onCanceled: cancel()
     }

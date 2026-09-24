@@ -56,6 +56,6 @@ Item {
                 rotationSnap: 15
             }
         }
-        Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Select in the outliner or viewport · Drag a row to reparent · Choose transform mode and axis, then drag an object · Escape cancels") }
+        Tk.Caption { text: sceneModel.lastError.length ? sceneModel.lastError : qsTr("Left drag transforms · Right drag orbits · Middle drag pans · Wheel zooms · Escape cancels") }
     }
 }

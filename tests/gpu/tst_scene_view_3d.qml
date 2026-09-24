@@ -17,6 +17,32 @@ Item {
     TestCase {
         name: "SceneView3DInteraction"
         when: windowShown
+        function test_cameraNavigation() {
+            viewport.cameraPosition = Qt.vector3d(0, 0, 600)
+            viewport.cameraEulerDegrees = Qt.vector3d(0, 0, 0)
+            viewport.cameraTarget = Qt.vector3d(0, 0, 0)
+            mousePress(viewport, 320, 240, Qt.RightButton)
+            mouseMove(viewport, 360, 220)
+            mouseRelease(viewport, 360, 220, Qt.RightButton)
+            verify(viewport.cameraPosition.x > 0, "right drag must orbit")
+            verify(viewport.cameraPosition.y > 0, "vertical drag must orbit")
+            fuzzyCompare(viewport.cameraPosition.minus(viewport.cameraTarget).length(), 600, 0.01)
+            const beforePanX = viewport.cameraTarget.x
+            const beforePanY = viewport.cameraTarget.y
+            mousePress(viewport, 320, 240, Qt.MiddleButton)
+            mouseMove(viewport, 340, 250)
+            mouseRelease(viewport, 340, 250, Qt.MiddleButton)
+            verify(Math.hypot(viewport.cameraTarget.x - beforePanX,
+                              viewport.cameraTarget.y - beforePanY) > 0, "middle drag must pan")
+            const distance = viewport.cameraPosition.minus(viewport.cameraTarget).length()
+            viewport.zoomCamera(1)
+            verify(viewport.cameraPosition.minus(viewport.cameraTarget).length() < distance,
+                   "positive wheel steps must zoom in")
+            verify(!sceneData.editing, "camera navigation must not open a scene edit")
+            viewport.cameraPosition = Qt.vector3d(0, 0, 600)
+            viewport.cameraEulerDegrees = Qt.vector3d(0, 0, 0)
+            viewport.cameraTarget = Qt.vector3d(0, 0, 0)
+        }
         function test_pickDragCancel() {
             const id = sceneData.addEntity("Cube", "cube", Qt.vector3d(0, 0, 0), "#35bbc4")
             tryVerify(function() { return viewport.pickEntity(320, 240).entityId === id })
