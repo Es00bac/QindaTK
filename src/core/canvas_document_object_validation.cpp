@@ -2,6 +2,7 @@
 #include "canvas_document_format.h"
 #include "canvas_transform.h"
 #include "canvas_managed_paint.h"
+#include "canvas_parametric.h"
 #include <cmath>
 #include <limits>
 
@@ -56,6 +57,11 @@ OperationError validateObject(const CanvasObject &o, CanvasObjectId id, const Ca
         }
     } else if (!o.pathNodes.isEmpty() || o.pathClosed || !o.extraContours.isEmpty())
         return problem(ErrorCode::Validation, QStringLiteral("Only paths own path nodes"), QStringLiteral("objects.pathNodes"));
+    if (!CanvasParametric::valid(o))
+        return problem(ErrorCode::Validation, QStringLiteral("Invalid parametric shape"), QStringLiteral("objects.parametric"));
+    if (!CanvasParametric::matchesNodes(o))
+        return problem(ErrorCode::Validation, QStringLiteral("Parametric path nodes do not match their definition"),
+                       QStringLiteral("objects.parametric"));
     if (o.fillRule != Qt::OddEvenFill && o.fillRule != Qt::WindingFill)
         return problem(ErrorCode::Validation, QStringLiteral("Invalid fill rule"), QStringLiteral("objects.fillRule"));
     if (o.strokeCap != Qt::FlatCap && o.strokeCap != Qt::RoundCap && o.strokeCap != Qt::SquareCap)

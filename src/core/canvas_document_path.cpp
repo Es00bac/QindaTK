@@ -71,7 +71,11 @@ bool CanvasDocument::movePathPart(qulonglong id, int index, const QString &part,
     } else if (part == QLatin1String("in")) node.in = to;
     else if (part == QLatin1String("out")) node.out = to;
     else return false;
-    if (after == *before) return true;
+    if (after.pathNodes == before->pathNodes) return true;
+    // AGENT-GUARD (docs/vector-authoring.md#parametric-shapes): direct node
+    // edits demote a generated shape to freeform so later parameter edits
+    // cannot erase them; validation rejects an edit that forgets to.
+    after.clearParametric();
     CanvasEdit edit;
     edit.label = tr("Move path node or handle");
     edit.changes.append({id, *before, after});
@@ -86,6 +90,7 @@ bool CanvasDocument::insertPathNode(qulonglong id, int index, const QVariantMap 
         || index < 0 || index > before->pathNodes.size() || !readNode(value, &node)) return false;
     CanvasObject after = *before;
     after.pathNodes.insert(index, node);
+    after.clearParametric();
     CanvasEdit edit;
     edit.label = tr("Insert path node");
     edit.changes.append({id, *before, after});
@@ -99,6 +104,7 @@ bool CanvasDocument::removePathNode(qulonglong id, int index)
         || index < 0 || index >= before->pathNodes.size()) return false;
     CanvasObject after = *before;
     after.pathNodes.removeAt(index);
+    after.clearParametric();
     CanvasEdit edit;
     edit.label = tr("Remove path node");
     edit.changes.append({id, *before, after});
@@ -112,6 +118,7 @@ bool CanvasDocument::setPathClosed(qulonglong id, bool closed)
     if (before->pathClosed == closed) return true;
     CanvasObject after = *before;
     after.pathClosed = closed;
+    after.clearParametric();
     CanvasEdit edit;
     edit.label = tr("Set path closure");
     edit.changes.append({id, *before, after});

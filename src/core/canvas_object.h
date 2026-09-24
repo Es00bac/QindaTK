@@ -23,6 +23,7 @@ using CanvasLayerId = quint64;
 using CanvasImageId = quint64;
 
 enum class CanvasShape : quint8 { Rect, Ellipse, Polyline, Image, Path };
+enum class CanvasParametricKind : quint8 { None, Polygon, Star, RoundedRect };
 
 // Absolute local-space controls. A control equal to its anchor gives a
 // straight endpoint. Node order and the closed flag define one contour.
@@ -52,6 +53,10 @@ struct CanvasObject {
     QVector<CanvasPathNode> pathNodes; // Path: cubic nodes in local space
     bool pathClosed = false;
     QVector<CanvasPathContour> extraContours; // additional subpaths; winding follows fillRule
+    CanvasParametricKind parametricKind = CanvasParametricKind::None;
+    quint32 parametricPoints = 0; // polygon sides or star tips
+    qreal parametricInnerRatio = 0; // star radius relative to the outer radius
+    qreal parametricCornerRadius = 0; // rounded rectangle local units
     Qt::FillRule fillRule = Qt::OddEvenFill;
     QTransform transform;     // local -> document
     QColor fill;              // invalid or transparent = no fill
@@ -76,6 +81,9 @@ struct CanvasObject {
     [[nodiscard]] bool hasFill() const { return fill.isValid() && fill.alpha() > 0
         && shape != CanvasShape::Polyline && (shape != CanvasShape::Path || hasClosedContour()); }
     [[nodiscard]] bool hasStroke() const { return stroke.isValid() && stroke.alpha() > 0; }
+    void clearParametric()
+    { parametricKind = CanvasParametricKind::None; parametricPoints = 0;
+      parametricInnerRatio = 0; parametricCornerRadius = 0; }
 };
 
 struct CanvasLayer {

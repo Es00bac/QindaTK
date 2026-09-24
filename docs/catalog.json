@@ -38712,6 +38712,21 @@
           "parameters": "const QVariantList &nodes, bool closed, const QColor &fill, const QColor &stroke, qreal strokeWidth"
         },
         {
+          "name": "addParametricShape",
+          "returns": "qulonglong",
+          "parameters": "const QString &kind, qreal x, qreal y, qreal width, qreal height, const QVariantMap &parameters, const QColor &fill, const QColor &stroke, qreal strokeWidth"
+        },
+        {
+          "name": "parametricParameters",
+          "returns": "QVariantMap",
+          "parameters": "qulonglong id"
+        },
+        {
+          "name": "setParametricParameters",
+          "returns": "bool",
+          "parameters": "qulonglong id, const QVariantMap &parameters"
+        },
+        {
           "name": "pathNodes",
           "returns": "QVariantList",
           "parameters": "qulonglong id"

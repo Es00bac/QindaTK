@@ -69,11 +69,13 @@ An object is effectively hidden or locked when it or its layer is.
 Paint order is `(layer order, z)`, ties broken by id. Picking uses the
 reverse order.
 
-`Path` stores one ordered contour of cubic nodes in local coordinates. Each
+`Path` stores ordered contours of cubic nodes in local coordinates. Each
 node has an anchor and absolute incoming/outgoing controls; coincident
 controls create straight edges. Closed paths support odd-even or nonzero
-winding fill. Strokes also carry cap, join and bounded dash settings. Node and
-handle edits are reversible `CanvasEdit` changes; see
+winding fill. Polygon, star and rounded-rectangle definitions generate
+path nodes and retain editable parameters; direct node edits make them
+freeform. Strokes also carry cap, join and bounded dash settings. Node,
+parameter and handle edits are reversible `CanvasEdit` changes; see
 [vector authoring](vector-authoring.md).
 
 `Image` objects reference a document-owned `CanvasTiledImage`: a grid of
@@ -160,8 +162,8 @@ hashes; the next edit detaches the document's copy. A worker encodes the
 state.
 
 <a id="native-format"></a>
-The file is big-endian binary: the signature `QTKCANVS`, version 4 (the reader
-also accepts versions 1 through 3), the
+The file is big-endian binary: the signature `QTKCANVS`, version 5 (the reader
+also accepts versions 1 through 4), the
 document UUID, revision and reset generation, then the exact 64-bit
 `nextObject`/`nextLayer`/`nextImage` counters and `nextZ`, the page rectangle
 and colour, an owned output RGB ICC profile (or empty for sRGB), the session
@@ -178,15 +180,18 @@ Each version 2 or newer object has a bounded managed-fill payload after its name
 Solid fills own their tagged channels and ICC bytes; gradient fills own their
 typed stop definition and stop ICC bytes. Version 3 adds path nodes, closure,
 fill rule, cap, join and dash pattern to each object. Version 4 adds
-bounded extra path contours, each with its own closure. The
-`qindatk.canvas-document.v1` session schema ID remains stable while the native
-file reader handles all four binary versions. `setOutputProfileIcc(bytes)` changes the document's output
+bounded extra path contours, each with its own closure. Version 5 adds
+polygon, star and rounded-rectangle definitions beside generated path nodes.
+The `qindatk.canvas-document.v1` session schema ID remains stable while the
+native file reader handles all five binary versions.
+`setOutputProfileIcc(bytes)` changes the document's output
 reference and is persisted; it is currently a document-setting change outside
 object undo history.
 
 Decoding validates the checksum, the version (a newer one is refused),
 identity and counters (every id below its counter, no duplicates), layer and
-image references, finite geometry, tile grids and every total before it
+image references, finite geometry, parametric definitions against their
+generated path nodes, tile grids and every total before it
 allocates decoded pixels. Only then does `adopt` build the live document.
 Each case below fails with a field path and changes nothing.
 

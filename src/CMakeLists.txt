@@ -305,6 +305,8 @@ qt_add_qml_module(qindatk
         core/canvas_document_codec.cpp
         core/canvas_document_qml.cpp
         core/canvas_document_path.cpp
+        core/canvas_parametric.cpp core/canvas_parametric.h
+        core/canvas_document_parametric.cpp
         core/canvas_document_contours.cpp
         core/canvas_native_format.cpp
         core/hit_test_service.cpp core/hit_test_service.h

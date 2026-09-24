@@ -283,6 +283,7 @@ the same reference document.
 - Run: `qtk-preview examples/vector-authoring/Main.qml --check --size 1180x820`
 - Real canvas style: `qtk-preview examples/vector-authoring/StyleWorkingScene.qml --check --size 1120x640`
 - Editable path: `qtk-preview examples/vector-authoring/PathWorkingScene.qml --check --size 1100x640`
+- Live ShapePalette and parametric paths: `qtk-preview examples/vector-authoring/ParametricWorkingScene.qml --check --size 1100x640`
 
 ## docking
 

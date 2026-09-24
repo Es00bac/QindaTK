@@ -20,7 +20,7 @@ namespace QindaTK {
 namespace CanvasDocumentFormat {
 inline constexpr char Signature[] = "QTKCANVS";
 inline constexpr qsizetype SignatureBytes = 8;
-inline constexpr quint32 Version = 4; // reader also accepts versions 1, 2 and 3
+inline constexpr quint32 Version = 5; // reader also accepts versions 1 through 4
 inline constexpr const char *SchemaId = "qindatk.canvas-document.v1";
 inline constexpr const char *FormatId = "qindatk.canvas";
 // Valid ids are 1 .. IdCeiling - 1 and valid paint orders are below

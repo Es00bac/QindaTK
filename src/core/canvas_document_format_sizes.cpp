@@ -7,8 +7,13 @@ constexpr qsizetype minimumLayerRecord = 8 + 4 + 4 + 1 + 1;
 constexpr qsizetype minimumImageRecord = 8 + 4 + 4 + 4 + 4;
 constexpr qsizetype minimumTileRecord = 4 + 4 + 4;
 constexpr qsizetype minimumObjectRecordV1 = 8 + 8 + 1 + 32 + 4 + 72 + 2 * 11 + 8 + 8 + 8 + 1 + 1 + 4;
-constexpr qsizetype minimumObjectRecord = minimumObjectRecordV1 + 4 + 12 + 4;
+constexpr qsizetype minimumObjectRecord = minimumObjectRecordV1 + 4 + 12 + 4 + 21;
 }
+bool recognizes(const QByteArray &prefix)
+{
+    return prefix.startsWith(QByteArrayView(Signature, SignatureBytes));
+}
+
 qsizetype objectRecordBytes(const CanvasObject &object)
 {
     qsizetype bytes = minimumObjectRecord + qsizetype(object.points.size()) * 16

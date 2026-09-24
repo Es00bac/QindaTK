@@ -39,6 +39,34 @@ three nodes and an open path two. `pathNodes(id)` returns the first contour.
 closed contour a hole; nonzero fill follows each contour's winding. Both
 painter and scene-graph composite render them, and hit testing respects the
 hole. `Tk.PathEditor.contourIndex` chooses which contour's handles to edit.
+
+<a id="parametric-shapes"></a>
+`CanvasDocument.addParametricShape(kind,x,y,width,height,parameters,fill,stroke,
+strokeWidth)` creates a `polygon`, `star` or `rounded-rectangle` as a closed
+one-contour path. Besides `x`/`y`/`width`/`height`, each kind takes only its
+own keys: polygon `sides` and star `points` are integers 3–64, star
+`innerRadius` is a fraction strictly between 0 and 1, and rounded rectangle
+`radius` is at most half the shorter side. Polygon and star vertices lie on
+the ellipse inscribed in the bounds, clockwise from the top centre; star inner
+vertices sit at `innerRadius` of the outer radius. Rounded corners are cubic
+quarter arcs. At full radius the two ends of a zero-length side merge into one
+smooth node (a full-radius square is a 4-node circle), so generated paths hold
+no zero-length segment. `setParametricParameters(id,patch)` changes count,
+ratio, radius or bounds as one undoable path regeneration.
+`parametricParameters(id)` returns `kind`, the bounds and the kind's
+parameters, and that map is accepted back unchanged. Invalid values, another
+kind's keys and freeform, missing or locked objects return 0/false without an
+edit. All three render, pick and SVG-export through the path backend. Native
+files retain both the definition and the generated nodes. Commits and decoding
+reject a definition whose nodes no longer match it beyond platform rounding,
+so a host edit that moves nodes must call `CanvasObject::clearParametric()`.
+`movePathPart`, `insertPathNode`, `removePathNode`, `setPathClosed` and
+`addPathContour` do so: a direct node/handle edit converts the shape to a
+freeform path, and undo restores the parametric definition. The real
+[ShapePalette scene](../examples/vector-authoring/ParametricWorkingScene.qml)
+creates and edits these shapes; `tests/qml/tst_vector_parametric_example.qml`
+drives it through the palette, the parameter fields, a node drag and undo.
+
 `Tk.PathEditor` overlays a `CanvasView`, maps the selected path through its
 object transform and view pose, previews node/handle drags, then calls the
 document edit once on release. Escape cancels the preview.
@@ -49,15 +77,16 @@ flat RGBA fill/stroke, fill rule, cap, join and dash pattern. It reports an
 explicit unsupported error for image objects, typed ICC/gradient fills and
 non-sRGB output ICC, so export cannot silently lose them. A zero-width canvas
 hairline exports as one SVG document unit at nominal zoom. Native `qtkc`
-version 4 saves path nodes, stroke styles and extra contours; the reader
-accepts versions 1 through 3. `Tk.ClipboardService.copyCanvasPaths(document,
-objectIds)` publishes the bounded native path snapshot and SVG alternative;
+version 5 saves path nodes, stroke styles, extra contours and parametric shape
+definitions; the reader also accepts versions 1 through 4.
+`Tk.ClipboardService.copyCanvasPaths(document,objectIds)` publishes the
+bounded native path snapshot and SVG alternative;
 `pasteCanvasPaths(document, offsetX, offsetY)` inserts one undoable edit with
 fresh stable object IDs into the active layer. The clipboard accepts paths
 only and does not copy image resources. The session schema ID is unchanged.
 
 Still outside this reference backend: arbitrary boolean geometry operations,
-stroke inside/outside alignment, parametric shapes beyond rect and ellipse,
-pattern fills, and appearance-stack effects.
+stroke inside/outside alignment, other parametric families, pattern fills,
+and appearance-stack effects.
 The panels keep these descriptors for a richer host and the reference model
 rejects unsupported style keys rather than dropping them.
