@@ -12,6 +12,7 @@ T.Control {
     id: control
     objectName: "codeEditor"
     property Tk.CodeDocument document: null
+    property Tk.CodeLanguageService languageService: null
     property string tooltip: qsTr("Code editor")
     property bool readOnly: false
     property bool showLineNumbers: true
@@ -118,6 +119,16 @@ T.Control {
         if (!document || readOnly || !document.applyCompletion(index, sourceEdit.cursorPosition)) return false
         sourceEdit.forceActiveFocus()
         return true
+    }
+
+    function requestLanguageCompletion() {
+        if (!document || !languageService || languageService.document !== document)
+            return false
+        const text = document.text
+        const end = sourceEdit.cursorPosition
+        let start = end
+        while (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1])) --start
+        return languageService.requestCompletion(end, start)
     }
 
     function foldSelection() {
@@ -292,6 +303,10 @@ T.Control {
                     onCursorRectangleChanged: sourceScroll.ensureVisible(cursorRectangle.x, cursorRectangle.y,
                                                                          cursorRectangle.width, cursorRectangle.height)
                     Keys.onPressed: event => {
+                        if (event.key === Qt.Key_Space && event.modifiers === Qt.ControlModifier) {
+                            event.accepted = control.requestLanguageCompletion()
+                            return
+                        }
                         if (event.key === Qt.Key_Down
                             && event.modifiers === (Qt.ControlModifier | Qt.AltModifier)) {
                             event.accepted = control.addCursorBelow()

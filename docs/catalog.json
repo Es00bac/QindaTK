@@ -5261,6 +5261,14 @@
           "required": false
         },
         {
+          "name": "languageService",
+          "type": "Tk.CodeLanguageService",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Code editor\")",
@@ -5427,6 +5435,10 @@
         {
           "name": "acceptCompletion",
           "parameters": "index"
+        },
+        {
+          "name": "requestLanguageCompletion",
+          "parameters": ""
         },
         {
           "name": "foldSelection",
@@ -41089,6 +41101,110 @@
           "name": "lineForVisualRow",
           "returns": "int",
           "parameters": "int row"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CodeLanguageService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: CodeDocument owns source/revision state; this optional adapter owns one explicitly launched local LSP process. Results may publish only for the exact document revision and LSP version they analyzed.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/code_language_service.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "CodeDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "program",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "arguments",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "languageId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "status",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorString",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "documentUri",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "statusChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "start",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "stop",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "requestCompletion",
+          "returns": "bool",
+          "parameters": "int cursorPosition, int prefixStart"
         }
       ],
       "enums": {},

@@ -104,6 +104,7 @@ target_compile_definitions(tst_asset_dependency_index PRIVATE
 qindatk_add_test(tst_job_model)
 qindatk_add_test(tst_terminal_session)
 qindatk_add_test(tst_code_document)
+qindatk_add_test(tst_code_language_service)
 qindatk_add_test(tst_render_queue_model)
 qindatk_add_test(tst_notification_model)
 qindatk_add_test(tst_expression_evaluator)

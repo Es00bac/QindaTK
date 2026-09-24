@@ -50,6 +50,7 @@ qt_add_qml_module(qindatk
     SOURCES
         ${qindatk_quick3d_sources}
         core/code_document.cpp core/code_document.h
+        core/code_language_service.cpp core/code_language_service.h
         core/geographic_feature_model.h core/geographic_feature_model.cpp
         core/geographic_feature_edit.cpp
         core/geographic_feature_index.cpp

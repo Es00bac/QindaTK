@@ -68,8 +68,52 @@ Its stable object names are `codeEditor`, `codeFindField`, `codeFindNext`,
 `codeSourceEdit`, `codeCompletionPanel`, `codeCompletionItem`, and
 `codeStatus`.
 
+## Optional local language server
+
+`Tk.CodeLanguageService` launches one explicitly configured local executable
+without a shell. It is optional; opening a `CodeEditor` never starts a
+process. Attach the same document to the editor and service:
+
+```qml
+Tk.CodeDocument { id: source }
+Tk.CodeLanguageService {
+    id: lsp
+    document: source
+    program: "clangd"
+    arguments: ["--background-index=false"]
+    languageId: "cpp"
+}
+Tk.CodeEditor { document: source; languageService: lsp }
+Tk.Button { text: "Start clangd"; onClicked: lsp.start() }
+```
+
+`start()` sends LSP `initialize`, `initialized`, and `textDocument/didOpen`.
+Initialization has a bounded timeout.
+Source edits send full `didChange` notifications with increasing document
+versions. Closing or swapping a document sends `didClose`. `stop()` cancels
+an outstanding completion, closes the document, sends `shutdown` and `exit`,
+and kills an unresponsive server after a bounded timeout. The service exposes
+`status` (`stopped`, `starting`, `ready`, `stopping`, `error`), `errorString`,
+`documentUri`, and `requestCompletion(cursorPosition,prefixStart)`. Ctrl+Space
+in `CodeEditor` requests completion when `languageService` is attached and
+ready; its prefix scan covers ASCII identifier characters. Hosts may supply
+a different prefix range through the service method.
+
+LSP positions use UTF-16, matching `CodeDocument`. Diagnostics must carry an
+LSP version matching the last sent change; an unversioned result is ignored
+because it cannot be assigned safely after a newer edit. Completion responses
+are rejected after a revision or document change, and a newer request cancels
+the older one. The adapter accepts plain completion text edits whose range
+matches the requested prefix. Snippet items, additional text edits, workspace
+operations and other server-specific features remain outside this focused
+adapter. Process stderr is drained but is not treated as protocol data.
+
+The [local clangd example](../examples/code-editor-lsp/Main.qml) starts only
+when its Start button is clicked. It demonstrates real C++ diagnostics and
+completion in the existing gutter and suggestion panel.
+
 The [live example](../examples/code-editor-live/Main.qml) publishes sample
 keyword/string/comment spans and a diagnostic against a real editable buffer.
-The LSP adapter remains host-provided. The gutter assumes a fixed monospaced line height
+The gutter assumes a fixed monospaced line height
 and disables wrapping, so fonts with unusually varied metrics may need a
 host-specific gutter implementation.

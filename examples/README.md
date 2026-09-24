@@ -23,6 +23,11 @@ syntax/diagnostic provider. It opens with a folded function, an extra caret,
 and revision-tagged completion choices. Text remains editable with Qt's IME,
 selection, undo and local save/reopen APIs.
 
+The [local language server fixture](code-editor-lsp/Main.qml) keeps clangd
+stopped until Start is clicked. It then publishes real C++ diagnostics and
+completion into `CodeEditor`; `Preview.qml` auto-starts only for a screenshot
+or focused preview run.
+
 Most examples are plain QML files run by `qtk-preview` and each standalone
 `examples/<name>/Main.qml` is a ctest smoke test (`example_<name>`). The
 `workbench` example has a C++ host and its own `--check` gate, so its QML
