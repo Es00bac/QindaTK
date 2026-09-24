@@ -19,7 +19,9 @@ T.Popup {
     property real gap: Tk.Theme.space.xs
     property var _scrollAncestors: []
 
-    parent: T.Overlay.overlay
+    // AGENT-CONTRACT: a panel's anchor may move to a native window; resolve
+    // the overlay from the anchor so this popup follows that transfer.
+    parent: anchorItem ? anchorItem.T.Overlay.overlay : T.Overlay.overlay
     modal: false
     dim: false
     focus: true

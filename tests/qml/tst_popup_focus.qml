@@ -35,6 +35,19 @@ TestCase {
         Tk.Button { text: "Popover action" }
     }
 
+    Item {
+        id: movablePanel
+        width: 120
+        height: 40
+        Tk.Button { id: movableAnchor; text: "Panel action" }
+        Tk.Popover {
+            id: movablePopover
+            anchorItem: movableAnchor
+            Tk.Label { text: "Panel popover" }
+        }
+    }
+    Window { id: secondWindow; width: 280; height: 180; visible: false }
+
     Tk.CommandPalette {
         id: palette
         commands: [
@@ -66,6 +79,23 @@ TestCase {
     function focusOrigin() {
         origin.forceActiveFocus(Qt.TabFocusReason)
         tryVerify(function() { return root.Window.window.activeFocusItem === origin })
+    }
+
+    function test_popover_follows_panel_into_native_window() {
+        secondWindow.show()
+        try {
+            movablePanel.parent = secondWindow.contentItem
+            movablePopover.open()
+            tryVerify(function() { return movablePopover.opened })
+            compare(movablePopover.parent.Window.window, secondWindow)
+            movablePopover.close()
+        } finally {
+            movablePopover.close()
+            movablePanel.parent = root
+            secondWindow.hide()
+            root.Window.window.requestActivate()
+            origin.forceActiveFocus()
+        }
     }
 
     function test_dialog_focus_entry_escape_and_return() {
