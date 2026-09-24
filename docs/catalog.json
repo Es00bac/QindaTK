@@ -19585,6 +19585,213 @@
       "objectNames": []
     },
     {
+      "name": "SpectrogramView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: the host supplies bounded, already-computed tiles and exact sample boundaries plus FFT metadata. This view draws them and requests regions; it does not run FFT, interpret normalization, or apply spectral processing.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SpectrogramView.qml",
+      "properties": [
+        {
+          "name": "sourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tiles",
+          "type": "var",
+          "default": "[] // bounded {x0, x1, lowHz, highHz, intensity}; normalized x and 0..1 intensity",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sampleBoundaries",
+          "type": "var",
+          "default": "[] // exact decimal strings, one per horizontal column boundary",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumHz",
+          "type": "real",
+          "default": "20",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumHz",
+          "type": "real",
+          "default": "20000",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frequencyScale",
+          "type": "string",
+          "default": "\"log\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fftWindow",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fftNormalization",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fftSize",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hopSize",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tileCount",
+          "type": "int",
+          "default": "root.tiles.length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectionPreviewRequested",
+          "parameters": "string gestureId, string sourceId, string channelId, string startSample, string endSample, real lowHz, real highHz"
+        },
+        {
+          "name": "selectionCommitted",
+          "parameters": "string gestureId, string sourceId, string channelId, string startSample, string endSample, real lowHz, real highHz"
+        },
+        {
+          "name": "gestureCanceled",
+          "parameters": "string gestureId"
+        },
+        {
+          "name": "zoomRequested",
+          "parameters": "string anchorSample, real anchorHz, real factor"
+        },
+        {
+          "name": "scrollRequested",
+          "parameters": "real timeFraction, real frequencyFraction"
+        }
+      ],
+      "methods": [
+        {
+          "name": "boundaryIndex",
+          "parameters": "x"
+        },
+        {
+          "name": "sampleAt",
+          "parameters": "x"
+        },
+        {
+          "name": "frequencyAt",
+          "parameters": "y"
+        },
+        {
+          "name": "beginSelectionAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "updateSelectionAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "finishSelection",
+          "parameters": ""
+        },
+        {
+          "name": "cancelSelection",
+          "parameters": ""
+        },
+        {
+          "name": "yForFrequency",
+          "parameters": "hz"
+        },
+        {
+          "name": "formatHz",
+          "parameters": "hz"
+        },
+        {
+          "name": "css",
+          "parameters": "c"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "spectrogramTileCanvas",
+        "spectrogramView"
+      ]
+    },
+    {
       "name": "Spinner",
       "kind": "qml",
       "base": "T.BusyIndicator",
@@ -24457,6 +24664,182 @@
         "waveform",
         "waveformCentreLine",
         "waveformShape"
+      ]
+    },
+    {
+      "name": "WaveformEditor",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: the host owns source samples, edits and sample indexing. `columns` carries bounded extrema and exact decimal sample boundaries; this view only requests a selection or edit gesture and never changes the source snapshot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/WaveformEditor.qml",
+      "properties": [
+        {
+          "name": "sourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "var",
+          "default": "[] // {minimum, maximum, startSample, endSample}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "regions",
+          "type": "var",
+          "default": "[] // {id, startSample, endSample, label}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rulerMarks",
+          "type": "var",
+          "default": "[] // {fraction, label}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionStartSample",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionEndSample",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "statusText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editingEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewState",
+          "type": "string",
+          "default": "root.columns.length ? \"ready\" : \"empty\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "selectionPreviewRequested",
+          "parameters": "string gestureId, string sourceId, string channelId, string startSample, string endSample"
+        },
+        {
+          "name": "selectionCommitted",
+          "parameters": "string gestureId, string sourceId, string channelId, string startSample, string endSample"
+        },
+        {
+          "name": "editRequested",
+          "parameters": "string gestureId, string sourceId, string channelId, string operation, string startSample, string endSample"
+        },
+        {
+          "name": "gestureCanceled",
+          "parameters": "string gestureId"
+        },
+        {
+          "name": "zoomRequested",
+          "parameters": "string anchorSample, real factor"
+        },
+        {
+          "name": "scrollRequested",
+          "parameters": "real fractionDelta"
+        }
+      ],
+      "methods": [
+        {
+          "name": "fractionForSample",
+          "parameters": "sample"
+        },
+        {
+          "name": "boundaryAt",
+          "parameters": "x"
+        },
+        {
+          "name": "beginSelectionAt",
+          "parameters": "x"
+        },
+        {
+          "name": "updateSelectionAt",
+          "parameters": "x"
+        },
+        {
+          "name": "finishSelection",
+          "parameters": ""
+        },
+        {
+          "name": "cancelSelection",
+          "parameters": ""
+        },
+        {
+          "name": "requestEdit",
+          "parameters": "operation"
+        },
+        {
+          "name": "cancelActiveGesture",
+          "parameters": ""
+        },
+        {
+          "name": "toCss",
+          "parameters": "c"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "waveformEditor",
+        "waveformSelectionCanvas",
+        "waveformSelectionDrag"
       ]
     },
     {

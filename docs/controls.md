@@ -244,6 +244,20 @@ subscriptions to a live editing context. `invalidateView(viewId)` makes those
 subscriptions stale, so the owner can refresh them when the view context is
 rebuilt.
 
+## Audio editing surfaces
+
+These controls present host-provided audio analysis and report exact sample
+selection/edit requests. The host remains the authority for source samples,
+index conversion, DSP, cancellation, and accepted state. Waveform columns carry
+exact decimal-string boundaries alongside reduced extrema; spectrogram tiles
+carry normalized time extents and frequency bounds with the provider's declared
+FFT metadata.
+
+| Type | Base | Properties | Signals | Notes |
+| --- | --- | --- | --- | --- |
+| `WaveformEditor` | T.Control | `sourceId`, `channelId`, `columns` (`minimum`, `maximum`, `startSample`, `endSample`), `regions` (stable `id`, exact sample range, label), `rulerMarks`, `selectionStartSample`, `selectionEndSample`, `editingEnabled`, `statusText`, `tooltip` | `selectionPreviewRequested(gestureId, sourceId, channelId, startSample, endSample)`, `selectionCommitted(...)`, `gestureCanceled(gestureId)`, `editRequested(gestureId, sourceId, channelId, operation, startSample, endSample)`, `zoomRequested(anchorSample, factor)`, `scrollRequested(fractionDelta)` | Pointer drag previews exact decimal sample bounds from the host-provided column boundaries; release commits a selection request, Escape cancels. F/G/Delete request fade/gain/trim over the committed host selection; they never alter it. Ctrl+wheel requests zoom and wheel/arrows request scrolling. objectNames `waveformEditor`, `waveformSelectionCanvas`, `waveformSelectionDrag`. |
+| `SpectrogramView` | T.Control | `sourceId`, `channelId`, `tiles` (`x0`, `x1`, `lowHz`, `highHz`, `intensity`), `sampleBoundaries` (exact decimal strings), `minimumHz`, `maximumHz`, `frequencyScale` (`linear` or `log`), `fftSize`, `hopSize`, `fftWindow`, `fftNormalization`, `statusText`, `tooltip` | `selectionPreviewRequested(gestureId, sourceId, channelId, startSample, endSample, lowHz, highHz)`, `selectionCommitted(...)`, `gestureCanceled(gestureId)`, `zoomRequested(anchorSample, anchorHz, factor)`, `scrollRequested(timeFraction, frequencyFraction)` | Draws supplied bounded time/frequency tiles and exact sample boundaries; frequency coordinates follow the declared linear/log axis. Selection and navigation are requests to the host. A draw cap limits each paint to 12,000 supplied tiles; FFT, normalization, processing, tile generation, and accepted region state belong to the host. objectNames `spectrogramView`, `spectrogramTileCanvas`. |
+
 ## Telemetry
 
 Readings over time and against a limit. `Tk.Graph` draws on the scene graph;
