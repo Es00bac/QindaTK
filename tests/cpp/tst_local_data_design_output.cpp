@@ -64,6 +64,23 @@ private slots:
         QVERIFY(bytes.startsWith("%PDF-"));
         const int pageObjects = bytes.count("/Type /Page");
         QVERIFY2(pageObjects >= 2, qPrintable(QStringLiteral("expected multiple pages, found %1").arg(pageObjects)));
+
+        QVariantMap grouped = report;
+        grouped.insert(QStringLiteral("groupField"), QStringLiteral("team"));
+        grouped.insert(QStringLiteral("sumField"), QStringLiteral("id"));
+        QVERIFY(output.build(&database, grouped).value("ok").toBool());
+        QCOMPARE(output.rowCount(), 2);
+        QVERIFY(output.document()->text().contains(QStringLiteral("sumValue")));
+        QVERIFY(output.document()->text().contains(QStringLiteral("2550")));
+        QVariantMap summedDesign = design;
+        summedDesign.insert(QStringLiteral("report"), grouped);
+        QVERIFY(store.saveToFile(designPath, summedDesign, &database).value("ok").toBool());
+        QCOMPARE(store.loadFromFile(designPath, &database).value("design").toMap()
+                     .value("report").toMap().value("sumField").toString(), QStringLiteral("id"));
+        grouped.insert(QStringLiteral("sumField"), QStringLiteral("name"));
+        QVERIFY(!output.build(&database, grouped).value("ok").toBool());
+        summedDesign.insert(QStringLiteral("report"), grouped);
+        QVERIFY(!store.validate(summedDesign, &database).value("ok").toBool());
     }
 };
 

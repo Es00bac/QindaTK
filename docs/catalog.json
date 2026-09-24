@@ -21442,6 +21442,14 @@
           "required": false
         },
         {
+          "name": "sumField",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "pageSize",
           "type": "int",
           "default": "20",
@@ -21550,6 +21558,10 @@
           "parameters": "name"
         },
         {
+          "name": "numericFields",
+          "parameters": ""
+        },
+        {
           "name": "refreshSchema",
           "parameters": ""
         },
@@ -21580,6 +21592,7 @@
         "reportPageSize",
         "reportRequestExport",
         "reportRunPreview",
+        "reportSumField",
         "reportTable"
       ]
     },

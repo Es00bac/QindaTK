@@ -49,7 +49,8 @@ Tk.AppWindow {
     function reportSnapshot() {
         return { tableName: report.tableName, headerText: report.headerText,
                  footerText: report.footerText, filterField: report.filterField,
-                 filterValue: report.filterValue, groupField: report.groupField }
+                 filterValue: report.filterValue, groupField: report.groupField,
+                 sumField: report.sumField }
     }
     function designSnapshot() {
         return {
@@ -75,6 +76,7 @@ Tk.AppWindow {
         report.filterField = data.report.filterField
         report.filterValue = data.report.filterValue
         report.groupField = data.report.groupField
+        report.sumField = data.report.sumField || ""
         workflowStatus = qsTr("Design reopened and schema binding verified · %1").arg(data.designId)
         report.runPreview()
     }

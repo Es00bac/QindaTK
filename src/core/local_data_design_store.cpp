@@ -73,7 +73,8 @@ QVariantMap LocalDataDesignStore::validateStructure(const QVariantMap &design)
     if (!report.value(QStringLiteral("tableName")).toString().isEmpty()
         && report.value(QStringLiteral("tableName")).toString() != binding.value(QStringLiteral("table")).toString())
         return failure(QStringLiteral("Report table does not match the stable binding"));
-    for (const QString &key : {QStringLiteral("filterField"), QStringLiteral("groupField")}) {
+    for (const QString &key : {QStringLiteral("filterField"), QStringLiteral("groupField"),
+                               QStringLiteral("sumField")}) {
         const QString name = report.value(key).toString();
         if (!name.isEmpty() && !fields.contains(name)) return failure(QStringLiteral("Report references an unbound field: ") + name);
     }
@@ -95,6 +96,23 @@ QVariantMap LocalDataDesignStore::validate(const QVariantMap &design,
     for (const QVariant &field : binding.value(QStringLiteral("fields")).toList()) {
         if (!actual.contains(field.toString()))
             return failure(QStringLiteral("Bound field is missing from the live schema: ") + field.toString());
+    }
+    const QVariantMap report = design.value(QStringLiteral("report")).toMap();
+    const QString sum = report.value(QStringLiteral("sumField")).toString();
+    if (!sum.isEmpty()) {
+        if (report.value(QStringLiteral("groupField")).toString().isEmpty())
+            return failure(QStringLiteral("Report total requires a group field"));
+        bool numeric = false;
+        for (const QVariant &field : schema.value(QStringLiteral("fields")).toList()) {
+            const QVariantMap entry = field.toMap();
+            if (entry.value(QStringLiteral("name")).toString() != sum) continue;
+            const QString type = entry.value(QStringLiteral("type")).toString().toUpper();
+            numeric = type.contains(QLatin1String("INT")) || type.contains(QLatin1String("REAL"))
+                || type.contains(QLatin1String("NUM")) || type.contains(QLatin1String("DEC"))
+                || type.contains(QLatin1String("FLOAT")) || type.contains(QLatin1String("DOUBLE"));
+            break;
+        }
+        if (!numeric) return failure(QStringLiteral("Report SUM field is not numeric in the live schema"));
     }
     return result;
 }

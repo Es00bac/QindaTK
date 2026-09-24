@@ -47,13 +47,25 @@ QVariantMap LocalReportDocumentModel::build(LocalDatabaseProvider *provider,
     const QVariantMap schema = provider->schema(table);
     if (!schema.value(QStringLiteral("ok")).toBool()) return failed(schema.value(QStringLiteral("error")).toString());
     QStringList fields;
-    for (const QVariant &field : schema.value(QStringLiteral("fields")).toList())
-        fields.append(field.toMap().value(QStringLiteral("name")).toString());
+    QStringList numericFields;
+    for (const QVariant &field : schema.value(QStringLiteral("fields")).toList()) {
+        const QVariantMap entry = field.toMap();
+        const QString name = entry.value(QStringLiteral("name")).toString();
+        const QString type = entry.value(QStringLiteral("type")).toString().toUpper();
+        fields.append(name);
+        if (type.contains(QLatin1String("INT")) || type.contains(QLatin1String("REAL"))
+            || type.contains(QLatin1String("NUM")) || type.contains(QLatin1String("DEC"))
+            || type.contains(QLatin1String("FLOAT")) || type.contains(QLatin1String("DOUBLE")))
+            numericFields.append(name);
+    }
     if (fields.isEmpty()) return failed(tr("Report source has no visible fields"));
     const QString filter = report.value(QStringLiteral("filterField")).toString();
     const QString group = report.value(QStringLiteral("groupField")).toString();
+    const QString sum = report.value(QStringLiteral("sumField")).toString();
     if ((!filter.isEmpty() && !fields.contains(filter)) || (!group.isEmpty() && !fields.contains(group)))
         return failed(tr("Report filter or grouping field no longer matches the live schema"));
+    if (!sum.isEmpty() && (group.isEmpty() || !numericFields.contains(sum)))
+        return failed(tr("Report total requires a group and a numeric field in the live schema"));
 
     QStringList outputColumns;
     QString sql;
@@ -64,8 +76,11 @@ QVariantMap LocalReportDocumentModel::build(LocalDatabaseProvider *provider,
         sql = QStringLiteral("SELECT ") + quoted.join(QStringLiteral(", "));
     } else {
         outputColumns = {group, QStringLiteral("rowCount")};
+        if (!sum.isEmpty()) outputColumns.append(QStringLiteral("sumValue"));
         sql = QStringLiteral("SELECT ") + quoteIdentifier(group)
             + QStringLiteral(", COUNT(*) AS rowCount");
+        if (!sum.isEmpty()) sql += QStringLiteral(", SUM(") + quoteIdentifier(sum)
+            + QStringLiteral(") AS sumValue");
     }
     sql += QStringLiteral(" FROM ") + quoteIdentifier(table);
     QVariantList bindings;
