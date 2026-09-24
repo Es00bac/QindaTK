@@ -22180,6 +22180,61 @@
       "bridge": false
     },
     {
+      "name": "CanvasStyleModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Solid fill, stroke and width edits for the canvas reference document. Style panels may expose richer values; unsupported fields are rejected explicitly until a renderer and codec exist for them.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/canvas_style_model.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::CanvasDocumentAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "applied",
+          "parameters": "int changedObjects"
+        }
+      ],
+      "methods": [
+        {
+          "name": "apply",
+          "returns": "bool",
+          "parameters": "const QVariantList &selectedIds, const QVariantMap &style"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CanvasSurface",
       "kind": "cpp",
       "base": "QQuickItem",

@@ -102,6 +102,15 @@ other while document edits prune removed or hidden objects.
 - Run: `qtk-preview examples/spatial-canvas/Main.qml --check --size 1280x800`
 - Alignment demo: `qtk-preview examples/spatial-canvas/AlignWorkingScene.qml --check --size 900x520`
 
+## vector-authoring
+
+`Main.qml` shows the stroke, fill, shape and appearance panels with a host-owned
+document. `StyleWorkingScene.qml` wires solid fill and stroke requests to real
+`CanvasDocument` objects through `CanvasStyleModel`, with one-step undo.
+
+- Run: `qtk-preview examples/vector-authoring/Main.qml --check --size 1180x820`
+- Real canvas style: `qtk-preview examples/vector-authoring/StyleWorkingScene.qml --check --size 1120x640`
+
 ## docking
 
 `Tk.DockHost` with a source bin on the left, an inspector and a
