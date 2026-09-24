@@ -524,6 +524,7 @@ and command table are in [rich-text.md](rich-text.md).
 `RichTextSessionAdapter` (`session`, `document`, `extensionKey`, `loaded`,
 `lastError`, `warnings`, `reload()`, `flush()`) keeps the document in a
 `DocumentSession`, which then handles save, recovery and stale-save checks.
+
 `RichTextEditor`, `RichDocumentView` and their inner `RichTextArea` expose
 `assetProvider`. When set, `asset:<resourceId>` image objects request a
 thumbnail through that provider and repaint after it arrives or is relinked.
@@ -912,3 +913,10 @@ mesh output.
 | Type | Base | API | Internal objectNames and behavior |
 | --- | --- | --- | --- |
 | `ExtensionManager` | `Tk.Flex` | `registry` (`Tk.ExtensionRegistry`), `tooltip`, `actionMessage`; `addDescriptor(path)`, `changeLoaded(id, shouldLoad)` | `extensionManager`, `extensionDescriptorPath`, `extensionAdd`, `extensionActionMessage`, `extensionListScroll`, `extension_<id>`, `extensionLoad_<id>`, `extensionDiagnostic_<id>`. Shows saved extensions even when their descriptor is absent, including the registry's diagnostic. Adding a descriptor reads JSON; Load is a separate explicit action that runs trusted native code. |
+
+## Local collaboration service
+
+| Type | Base | API | Behavior |
+| --- | --- | --- | --- |
+| `LocalPropertySyncService` | C++ `QObject` | `documentId`, `storagePath`, `operationCount`, `lastError`, `open()` | Bounded process-local operation routing and atomic log persistence. No visual objectNames. |
+| `LocalPropertySyncClient` | C++ `QObject` | `document`, `service`, `actorId`, `connected`, `pendingCount`, `lastError`, `connectToService()`, `disconnectFromService()`, `setValue(entityId, propertyId, typedValue)`, `setPresence(map)`; `operationLost`, `presenceChanged`, `presenceLeft` | One property replica with offline queue and ephemeral presence. No visual objectNames. See [collaboration.md](collaboration.md). |

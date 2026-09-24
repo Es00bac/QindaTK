@@ -477,3 +477,22 @@ host defines the API through snapshots and command handlers. The runtime is
 local automation, not an untrusted-code sandbox; process and memory isolation,
 extension packaging and durable macro storage remain separate work. See
 [script-runtime.md](script-runtime.md).
+
+## D-082 — Synchronize reference property values as independent operations
+
+**Context.** `UndoService` records a linear local before/after chain, while
+two clients can edit the same value offline and reconnect in either order.
+
+**Decision.** The first collaboration slice stores bounded, stable operation
+packets in a local service. Per-property maximum `(logical time, actor UUID,
+operation UUID)` wins independent of arrival order; losing operations remain
+in the log and generate a conflict signal. The service persists accepted
+operations atomically before delivery. Presence stays ephemeral. A winning
+value applies through `PropertyDocument` without entering `UndoService`, and
+invalidates stale local history.
+
+**Consequences.** Two property replicas converge from the same baseline and
+recover the service log on restart. The revision of each replica remains a
+local counter. Collaborative reversal requires a fresh operation; generic
+domain merge, permissions, version restore and durable client queues remain
+WP-082 work. See [collaboration.md](collaboration.md).

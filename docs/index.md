@@ -13,6 +13,7 @@ pages below are the reference.
 | [controls.md](controls.md) | Every control: properties, signals, sizes, objectNames (the API contract) |
 | [code-editor.md](code-editor.md) | Native text buffer, syntax/diagnostic provider contract, find/navigation and local UTF-8 save/reopen |
 | [script-runtime.md](script-runtime.md) | Bounded local JavaScript, explicit command allowlist, replay, semantic undo group and console UI |
+| [collaboration.md](collaboration.md) | First local property synchronization slice: operation identity, deterministic conflicts, offline reconnect, persistence, presence and scope limits |
 | [gantt.md](gantt.md) | Task schema, working-calendar projection, schedule transactions, dependency and grid seams |
 | [productivity.md](productivity.md) | Local calendar recurrence expansion, event identity, DST policy and host persistence boundary |
 | [control-interaction.md](control-interaction.md) | Owner state, user signals, editing states, focus and assistive action baseline |

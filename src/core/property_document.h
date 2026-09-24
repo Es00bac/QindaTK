@@ -78,6 +78,10 @@ public:
     bool isTargetAnimated(EntityId id, const QString &propertyId) const;
     OperationError validate(EntityId id, const QString &propertyId,
                             const QVariant &candidate) const;
+    // Collaboration applies a validated scalar without adding a remote step
+    // to local UndoService. Any prior local history is invalidated.
+    OperationError applySynchronizedValue(EntityId id, const QString &propertyId,
+                                          const QVariant &candidate);
 
     Q_INVOKABLE QVariant valueFor(const QString &id, const QString &propertyId) const;
     Q_INVOKABLE bool containsId(const QString &id) const;

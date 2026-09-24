@@ -271,6 +271,26 @@ OperationError PropertyDocument::validate(EntityId id, const QString &propertyId
     return {};
 }
 
+OperationError PropertyDocument::applySynchronizedValue(EntityId id,
+                                                         const QString &propertyId,
+                                                         const QVariant &candidate)
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    if (m_preview)
+        return error(ErrorCode::Unavailable, QStringLiteral("An edit preview is active"));
+    if (auto failure = validate(id, propertyId, candidate)) return failure;
+    if (equalValue(committedValue(id, propertyId), candidate)) return {};
+    // AGENT-CONTRACT (docs/collaboration.md): synchronized edits bypass
+    // UndoService. An old inverse step must never replay over a remote value.
+    m_entities[id.toString()].values.insert(propertyId, candidate);
+    ++m_revision;
+    invalidateHistory();
+    emit historyInvalidated();
+    emit propertyChanged(id.toString(), propertyId);
+    emit changed();
+    return {};
+}
+
 OperationError PropertyDocument::showPreview(const QUuid &transactionId,
                                              const QVector<PropertyChange> &changes)
 {

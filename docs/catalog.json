@@ -43762,6 +43762,169 @@
       "bridge": false
     },
     {
+      "name": "LocalPropertySyncClient",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_property_sync.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::PropertyDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "service",
+          "type": "QindaTK::LocalPropertySyncService *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "actorId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "connected",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pendingCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "operationLost",
+          "parameters": "const QString &operationId, const QString &winningOperationId"
+        },
+        {
+          "name": "presenceChanged",
+          "parameters": "const QString &actorId, const QVariantMap &presence"
+        },
+        {
+          "name": "presenceLeft",
+          "parameters": "const QString &actorId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "connectToService",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "disconnectFromService",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "setValue",
+          "returns": "bool",
+          "parameters": "const QString &entityId, const QString &propertyId, const QVariant &value"
+        },
+        {
+          "name": "setPresence",
+          "returns": "void",
+          "parameters": "const QVariantMap &presence"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "LocalPropertySyncService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "GUI-thread, process-local transport with an optional QSaveFile operation store. Clients hold distinct PropertyDocument instances with the same base snapshot. The service never owns or mutates their documents.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/local_property_sync.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "storagePath",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "operationCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "LocalReportDocumentModel",
       "kind": "cpp",
       "base": "QObject",
