@@ -34,6 +34,7 @@ CanvasSurface::~CanvasSurface()
     if (m_tools) {
         m_tools->viewDetached(m_viewId);
     }
+    QObject::disconnect(m_initializedConnection);
     QObject::disconnect(m_invalidatedConnection);
 }
 
@@ -343,17 +344,29 @@ void CanvasSurface::attachWindow(QQuickWindow *window)
     if (m_window == window) {
         return;
     }
+    const bool hadWindow = m_window;
+    QObject::disconnect(m_initializedConnection);
     QObject::disconnect(m_invalidatedConnection);
     if (m_window) {
         disconnect(m_window, nullptr, this, nullptr);
     }
     m_window = window;
+    m_graphicsInvalidated = false;
+    if (hadWindow) {
+        // A QSG texture belongs to its creating window. A live-to-live move
+        // need not invalidate either scene graph, so force this view's render
+        // generation forward while retaining its window-independent CPU tiles.
+        m_render->notifyGraphicsReset(QStringLiteral("window-change"));
+    }
     if (!window) {
         return;
     }
-    // AGENT-GUARD: emitted on the render thread while the scene graph is torn
-    // down. Only touch the atomic and post back; Qt deletes our node tree
-    // (and every texture it owns) itself.
+    // AGENT-GUARD: both lifecycle signals can arrive on the render thread.
+    // Only touch atomics and post back; the GUI thread rebuilds the immutable
+    // frame, and Qt deletes old-window nodes on its render thread.
+    m_initializedConnection = connect(window, &QQuickWindow::sceneGraphInitialized, this, [this] {
+        QMetaObject::invokeMethod(this, [this] { scheduleFrame(); }, Qt::QueuedConnection);
+    }, Qt::DirectConnection);
     m_invalidatedConnection = connect(window, &QQuickWindow::sceneGraphInvalidated, this, [this] {
         m_graphicsInvalidated = true;
         QMetaObject::invokeMethod(this, [this] { scheduleFrame(); }, Qt::QueuedConnection);

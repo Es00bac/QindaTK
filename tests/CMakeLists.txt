@@ -153,6 +153,7 @@ qindatk_add_test(tst_canvas_selection_model)
 qindatk_add_test(tst_canvas_alignment_model)
 qindatk_add_test(tst_canvas_style_model)
 qindatk_add_test(tst_canvas_render)
+qindatk_add_test(tst_canvas_render_lifecycle)
 qindatk_add_test(tst_canvas_display)
 qindatk_add_test(tst_tiled_raster_document)
 add_test(NAME tst_canvas_display_rhi COMMAND tst_canvas_display managedDisplaySceneGraph)
@@ -166,6 +167,9 @@ qindatk_add_test(tst_domain_session)
 # the geometry provider there and QSKIPs when no offscreen GPU context exists.
 add_test(NAME tst_canvas_render_rhi COMMAND tst_canvas_render sceneGraphBackend)
 set_tests_properties(tst_canvas_render_rhi PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
+add_test(NAME tst_canvas_two_windows_rhi COMMAND tst_canvas_render_lifecycle twoWindowResourceIsolation)
+set_tests_properties(tst_canvas_two_windows_rhi PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 qindatk_add_test(tst_rich_text_model)
 qindatk_add_test(tst_rich_text_codec)

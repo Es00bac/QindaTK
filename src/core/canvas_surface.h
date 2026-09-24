@@ -155,6 +155,7 @@ private:
     RenderSurfaceAdapter *m_render = nullptr;
     std::shared_ptr<const CanvasRenderFrame> m_frame;
     QPointer<QQuickWindow> m_window;
+    QMetaObject::Connection m_initializedConnection;
     QMetaObject::Connection m_invalidatedConnection;
     std::atomic_bool m_graphicsInvalidated{false};
     QString m_viewId;

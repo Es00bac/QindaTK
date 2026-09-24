@@ -356,7 +356,10 @@ The GUI-thread half of the boundary is `view.renderSurface`:
 - **Resource generation.** Any bump makes the render side delete its whole
   node tree and rebuild from the CPU cache. `simulateContextLoss(dropCaches)`
   is the test injection. Qt's `sceneGraphInvalidated` and `releaseResources`
-  bump it for real.
+  bump it for real. A canvas moving to another live window also bumps its own
+  generation; the second canvas keeps its generation and resources. Scene
+  graph initialization schedules a fresh frame so the new window can upload
+  tiles from its own CPU cache after a reset.
 - **Stats.** `stats` reports visible, rendered, pending and cached tiles,
   bytes, LOD, candidates, `renderedRevision`, `resourceGeneration` and
   `resetReason`.
