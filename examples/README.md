@@ -48,7 +48,8 @@ The [local productivity fixture](local-productivity/Main.qml) connects the
 same kinds of controls to `LocalProductivityStore` for persisted mail, drafts,
 events and task moves with local recovery and undo.
 The [form/schema/report fixture](forms-schema-report/Main.qml) uses a local
-SQLite provider and parameter-bound fields. The [motion fixture](motion-authoring/Main.qml)
+SQLite provider, parameter-bound fields, saved design bindings and paginated
+document/PDF report output. The [motion fixture](motion-authoring/Main.qml)
 evaluates exact-tick keyframes, composites local SVG artwork into source
 pixels and shows effect compatibility. These are
 toolkit examples rather than complete productivity or motion applications.
