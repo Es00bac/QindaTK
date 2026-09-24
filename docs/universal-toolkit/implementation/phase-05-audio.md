@@ -139,7 +139,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-066"></a>
 ## WP-066 — Integrate plugin hosting and plugin controls
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-060](phase-05-audio.md#wp-060), [WP-062](phase-05-audio.md#wp-062)
+**Implementation lead:** Sol. **Status:** active (plugin browser and rack integrated; ABI host and processing pending). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-060](phase-05-audio.md#wp-060), [WP-062](phase-05-audio.md#wp-062)
 
 **Proposal scope:** [AUD-17 PluginRack](../proposed/06-audio-music.md#aud-17), [AUD-18 PluginBrowser](../proposed/06-audio-music.md#aud-18), [PLT-11 PluginHostAdapter](../proposed/08-platform-integrations.md#plt-11)
 
@@ -162,7 +162,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-067"></a>
 ## WP-067 — Implement score and notation editing
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-050](phase-04-office.md#wp-050), [WP-064](phase-05-audio.md#wp-064)
+**Implementation lead:** Sol. **Status:** active (ScoreView integrated; notation layout and music model pending). **Depends on:** [WP-024](phase-02-controls-data.md#wp-024), [WP-050](phase-04-office.md#wp-050), [WP-064](phase-05-audio.md#wp-064)
 
 **Proposal scope:** [AUD-27 ScoreView](../proposed/06-audio-music.md#aud-27)
 

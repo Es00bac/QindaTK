@@ -57,6 +57,11 @@ and host-owned pattern and launch state.
 The [take-comp fixture](take-comp/Main.qml) exercises `TakeCompView` with
 sample-exact swipe requests and host-owned source and comp snapshots.
 
+The [plugin host UI fixture](plugin-host/Main.qml) exercises `PluginBrowser`
+and `PluginRack` with discover, add, reorder, bypass and state acknowledgments
+from a mock host. The [score fixture](score-view/Main.qml) exercises
+`ScoreView` with host-positioned notation and exact entry requests.
+
 ```
 P=build/dev/tools/preview/qtk-preview
 $P examples/gallery/Main.qml                       # on screen

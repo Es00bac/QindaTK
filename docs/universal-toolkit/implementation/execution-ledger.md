@@ -101,8 +101,8 @@ as though a later fix had already passed the earlier run.
 | [WP-063 — Implement waveform and spectral editing](phase-05-audio.md#wp-063) | 05 | Sol | active | [Waveform and spectrogram editor controls integrated; DSP and tile backend pending](evidence/WP-063.md) |
 | [WP-064 — Implement MIDI, patterns and clip launching](phase-05-audio.md#wp-064) | 05 | Sol | active | [Four MIDI editing/launch controls integrated; scheduling, persistence and interchange pending](evidence/WP-064.md) |
 | [WP-065 — Implement take comping](phase-05-audio.md#wp-065) | 05 | Sol | active | [TakeCompView integrated; source interval, rendering and persistence pending](evidence/WP-065.md) |
-| [WP-066 — Integrate plugin hosting and plugin controls](phase-05-audio.md#wp-066) | 05 | Sol | planned | — |
-| [WP-067 — Implement score and notation editing](phase-05-audio.md#wp-067) | 05 | Sol | planned | — |
+| [WP-066 — Integrate plugin hosting and plugin controls](phase-05-audio.md#wp-066) | 05 | Sol | active | [Plugin browser/rack integrated; ABI processing and editor host pending](evidence/WP-066.md) |
+| [WP-067 — Implement score and notation editing](phase-05-audio.md#wp-067) | 05 | Sol | active | [ScoreView integrated; notation layout, persistence and playback pending](evidence/WP-067.md) |
 | [WP-068 — Implement pitch analysis and correction editing](phase-05-audio.md#wp-068) | 05 | Sol | planned | — |
 | [WP-070 — Integrate media decoding and source/program monitors](phase-06-video.md#wp-070) | 06 | Sol | active | [Monitor/bin controls and local frame decode integrated; playback and frame lifecycle pending](evidence/WP-070.md) |
 | [WP-071 — Implement professional timeline video edits](phase-06-video.md#wp-071) | 06 | Sol | planned | — |

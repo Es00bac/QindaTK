@@ -19859,7 +19859,7 @@
       "name": "ScoreView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the notation host owns semantic score records, rhythmic interpretation, engraving coordinates, pagination, selection, and edits. `layoutSnapshot` supplies already-laid-out staff/measure/event coordinates and exact insertion tick strings. This control draws that snapshot and sends stable-ID requests; it does not infer spacing, spelling, rhythm, or playback.",
+      "description": "AGENT-CONTRACT: the notation host owns semantic score records, rhythmic interpretation, engraving coordinates, pagination, selection, and edits. `layoutSnapshot` supplies already-laid-out staff/measure/event coordinates and exact insertion tick strings. This control draws that snapshot and sends stable-ID requests; it does not infer spacing, spelling, rhythm, or playback. Snapshot coordinates (`x0`, `x1`, `top`, `lineGap`, event `x`, `staffStep`, playbackCursorX, and entry-position `x`) are normalized to this control. `staffStep` is the host's diatonic engraving step from the bottom staff line; exact insertion ticks remain strings and are never parsed as JS numbers.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ScoreView.qml",
