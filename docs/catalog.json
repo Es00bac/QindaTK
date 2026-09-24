@@ -14749,6 +14749,496 @@
       ]
     },
     {
+      "name": "PdfAnnotationTools",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Annotation identity, geometry, moderation and persistence are host-owned. Redaction here means a proposal only; final redaction is a separate job.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PdfAnnotationTools.qml",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedBounds",
+          "type": "var",
+          "default": "null // renderer page coordinates {x,y,width,height}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "annotations",
+          "type": "var",
+          "default": "[] // [{id,pageIndex,kind,text,author,status,bounds,error,canAccept,canReject}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ annotationKinds: [], canAccept: false, canReject: false,",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedAnnotationId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeTool",
+          "type": "string",
+          "default": "\"highlight\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "noteDraft",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Create and review PDF annotation requests\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestSerial",
+          "type": "int",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedAnnotation",
+          "type": "var",
+          "default": "annotationById(selectedAnnotationId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "availableTools",
+          "type": "var",
+          "default": "capabilities.annotationKinds || []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canCreate",
+          "type": "bool",
+          "default": "enabled && documentId.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "toolChangeRequested",
+          "parameters": "string kind"
+        },
+        {
+          "name": "annotationCreateRequested",
+          "parameters": "string requestId, int pageIndex, string kind, var bounds, string selectedText, string note"
+        },
+        {
+          "name": "annotationSelectionRequested",
+          "parameters": "string annotationId"
+        },
+        {
+          "name": "annotationNavigateRequested",
+          "parameters": "string annotationId, int pageIndex"
+        },
+        {
+          "name": "annotationAcceptRequested",
+          "parameters": "string annotationId"
+        },
+        {
+          "name": "annotationRejectRequested",
+          "parameters": "string annotationId"
+        },
+        {
+          "name": "annotationDeleteRequested",
+          "parameters": "string annotationId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "annotationById",
+          "parameters": "id"
+        },
+        {
+          "name": "selectAnnotation",
+          "parameters": "id"
+        },
+        {
+          "name": "createAnnotation",
+          "parameters": ""
+        },
+        {
+          "name": "navigateAnnotation",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "pdfAnnotationAccept",
+        "pdfAnnotationCreate",
+        "pdfAnnotationDelete",
+        "pdfAnnotationError",
+        "pdfAnnotationListScroll",
+        "pdfAnnotationNavigate",
+        "pdfAnnotationNote",
+        "pdfAnnotationReject",
+        "pdfAnnotationSelection",
+        "pdfAnnotationStatus",
+        "pdfAnnotationTool",
+        "pdfAnnotationUnsupported",
+        "pdfAnnotation_",
+        "pdfFormCapabilityNotice",
+        "pdfRedactionNotice"
+      ]
+    },
+    {
+      "name": "PdfView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The host supplies a bounded page window and PDF page AssetProvider. This view never parses PDF content or synthesizes text geometry.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PdfView.qml",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceRegistered",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "provider",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentPage",
+          "type": "int",
+          "default": "0 // zero-based",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "real",
+          "default": "1.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxVisiblePages",
+          "type": "int",
+          "default": "7",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visiblePages",
+          "type": "var",
+          "default": "[] // bounded [{pageIndex,pageId,pageWidth,pageHeight,rotation,state,error}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "type": "var",
+          "default": "({ canRender: true, canSearch: false, canSelectText: false, canRotate: false })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchStatus",
+          "type": "string",
+          "default": "\"idle\" // idle, running, complete, unavailable, failed",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchError",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchResults",
+          "type": "var",
+          "default": "[] // [{id,pageIndex,snippet,bounds}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "links",
+          "type": "var",
+          "default": "[] // [{id,label,target,pageIndex}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSearchResultId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Browse PDF pages and search selectable text\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "boundedPages",
+          "type": "var",
+          "default": "visiblePages.slice(0, Math.max(1, Math.min(9, maxVisiblePages)))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedResult",
+          "type": "var",
+          "default": "resultById(selectedSearchResultId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestSerial",
+          "type": "int",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pageRequested",
+          "parameters": "int pageIndex"
+        },
+        {
+          "name": "zoomChangeRequested",
+          "parameters": "real zoom"
+        },
+        {
+          "name": "rotationRequested",
+          "parameters": "int pageIndex, int deltaDegrees"
+        },
+        {
+          "name": "searchRequested",
+          "parameters": "string query, string requestId"
+        },
+        {
+          "name": "searchResultRequested",
+          "parameters": "string resultId, int pageIndex"
+        },
+        {
+          "name": "textSelectionRequested",
+          "parameters": "string resultId, int pageIndex, var bounds"
+        },
+        {
+          "name": "linkActivatedRequested",
+          "parameters": "string linkId, string target"
+        }
+      ],
+      "methods": [
+        {
+          "name": "pageAt",
+          "parameters": "index"
+        },
+        {
+          "name": "resultById",
+          "parameters": "id"
+        },
+        {
+          "name": "requestPage",
+          "parameters": "index"
+        },
+        {
+          "name": "requestZoom",
+          "parameters": "next"
+        },
+        {
+          "name": "rotateCurrent",
+          "parameters": ""
+        },
+        {
+          "name": "search",
+          "parameters": ""
+        },
+        {
+          "name": "showResult",
+          "parameters": "result"
+        },
+        {
+          "name": "selectResultText",
+          "parameters": "result"
+        },
+        {
+          "name": "activateLink",
+          "parameters": "link"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "pdfLink_",
+        "pdfLinks",
+        "pdfNextPage",
+        "pdfPageCount",
+        "pdfPageRender_",
+        "pdfPageStatus_",
+        "pdfPageWindow",
+        "pdfPage_",
+        "pdfPreviousPage",
+        "pdfRendererStatus",
+        "pdfRotate",
+        "pdfSearchInput",
+        "pdfSearchResult_",
+        "pdfSearchResultsScroll",
+        "pdfSearchStatus",
+        "pdfSearchSubmit",
+        "pdfSelectText_",
+        "pdfVisiblePageLimit",
+        "pdfZoomIn",
+        "pdfZoomOut",
+        "pdfZoomValue"
+      ]
+    },
+    {
       "name": "PillSwitcher",
       "kind": "qml",
       "base": "Item",
