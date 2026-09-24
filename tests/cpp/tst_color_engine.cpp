@@ -59,6 +59,7 @@ private slots:
     void builtinProfiles();
     void errors();
     void destinationsAndCache();
+    void proofPreview();
 };
 
 void tst_color_engine::profileOwnership()
@@ -181,7 +182,7 @@ void tst_color_engine::errors()
     QCOMPARE(engine.convert(request).error.code, ErrorCode::Validation);
     request = requestFor(source, target);
     request.operation = ColorOperation::ProofPreview;
-    QCOMPARE(engine.convert(request).error.code, ErrorCode::Unsupported);
+    QCOMPARE(engine.convert(request).error.code, ErrorCode::Unavailable);
     request.operation = ColorOperation::Output;
     QCOMPARE(engine.convert(request).error.code, ErrorCode::Unavailable);
     request = requestFor(source, target);
@@ -214,6 +215,31 @@ void tst_color_engine::destinationsAndCache()
     request.context.generation = 43;
     QCOMPARE(engine.convert(request).generation, quint64(43));
     QCOMPARE(engine.cachedTransformCount(), 1);
+}
+
+void tst_color_engine::proofPreview()
+{
+    const auto source = ColorProfile::fromIcc(fixture("srgb.icc"));
+    const auto proof = ColorProfile::fromIcc(fixture("linear-srgb.icc"));
+    QVERIFY(source.isValid());
+    QVERIFY(proof.isValid());
+    ColorEngine engine(2);
+    auto request = requestFor(source, proof, .5, .37);
+    request.operation = ColorOperation::ProofPreview;
+    request.context.display = source;
+    request.context.proof = proof;
+    const auto result = engine.convert(request);
+    QVERIFY2(result.value.has_value(), qPrintable(result.error.message));
+    QCOMPARE(result.operation, ColorOperation::ProofPreview);
+    QCOMPARE(result.value->profileId, source.id());
+    QCOMPARE(result.value->alpha, .37);
+    QVERIFY(std::abs(result.value->red - .5) < 1e-5);
+    QCOMPARE(engine.cachedTransformCount(), 1);
+    request.context.proofIntent = ColorIntent::Perceptual;
+    QCOMPARE(engine.convert(request).error.code, ErrorCode::Unsupported);
+    request.context.proofIntent = ColorIntent::RelativeColorimetric;
+    request.context.proof = {};
+    QCOMPARE(engine.convert(request).error.code, ErrorCode::Unavailable);
 }
 
 QTEST_GUILESS_MAIN(tst_color_engine)

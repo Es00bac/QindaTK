@@ -4,7 +4,7 @@
 `color_profile.h`, `color_context.h` and `color_engine.h` provide a C++ CPU
 color conversion service. It is independent of Theme and does not make the
 canvas, QColor controls or GradientEditor previews color managed by itself.
-WP-043 remains open for typed display integration, proofing and picker editing.
+WP-043 remains open for typed display and picker editing.
 The canvas has a separate bounded Qt `QColorSpace` transform after sRGB tile
 compositing; it does not yet consume `ColorEngine` or typed document values.
 
@@ -52,10 +52,13 @@ source tag.
 | `Working` | snapshot working profile | Relative colorimetric, BPC off |
 | `Display` | snapshot display profile | Same; numerical display encoding only |
 | `Output` | snapshot output profile | Same; numerical output encoding only |
-| `ProofPreview` | reserved proof/display pipeline | `Unsupported` |
+| `ProofPreview` | snapshot display profile, simulating the snapshot proof profile | Relative colorimetric soft proof, BPC off |
 
 Other rendering intents and black-point compensation return `Unsupported` in
 this slice. Proof settings never modify ordinary display/output operations.
+Proof preview requires resolved proof and display RGB profiles, uses Little
+CMS's soft-proof transform, and tags the result with the display profile. The
+proof profile and proof intent are part of the compiled-transform cache key.
 Missing selected profiles return `Unavailable`; no destination is guessed.
 Malformed values return `InvalidArgument`, encoding mismatches `Validation`,
 unsupported model/direction/policy `Unsupported`, and transform failures
@@ -114,8 +117,8 @@ invalid values/encoding tags, destination tagging and conversion after cache
 eviction. Fixture provenance and hashes are in
 [tests/fixtures/color](../tests/fixtures/color/README.md).
 
-Soft proofing needs output-profile fixtures and distinct proof/rendering intent
-semantics. CMYK needs a channel-aware value contract. Managed canvas rendering
+Additional proofing intents and gamut warnings need reference fixtures.
+CMYK needs a channel-aware value contract. Managed canvas rendering
 needs tagged object/image inputs and a declared composition space; converting
 vertex colors before blending is not equivalent to converting the composite.
 GPU/software agreement, display/compositor interpretation, gamut evaluation,
