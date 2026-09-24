@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 39 packages accepted, 37 active, none in review, and 8 planned.**
+**Execution state: 43 packages accepted, 34 active, none in review, and 7 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -32,6 +32,8 @@ numerical RGB ICC, curve and gradient evaluators, typed transaction models,
 tangent UI, managed canvas display and soft proofing. Typed canvas rendering
 and package acceptance remain open. WP-080 has a native detached-panel
 implementation accepted; mixed-scale display qualification remains in WP-088.
+WP-081 is accepted after its merged developer-surface checks; other terminal
+platforms remain in WP-088.
 WP-049 now has beat-locked clip timing, tempo and automation editing, and
 engine-facing immutable schedule snapshots; its focused Qt 6.11 and Qt 6.8
 build, test and preview checks passed. WP-061 has calibrated control visuals,
@@ -115,8 +117,8 @@ as though a later fix had already passed the earlier run.
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | active | [Core, controls and live request wiring merged; raw GPU texture and merged UI gates pending](evidence/WP-077.md) |
 | [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and real PNG/PDF/WAV providers integrated; acceptance gate remains](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | accepted | [Real native windows, state, focus, popup routing and screen fallback passed focused checks](evidence/WP-080.md) |
-| [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | active | [PTY, code editor, script runtime, local clangd LSP and explicit extension discovery merged; host integration open](evidence/WP-081.md) |
-| [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | active | [Two-client sync, authenticated IPC, mapped remote presence and synchronized version restore merged; WP-081 dependency open](evidence/WP-082-presence-layer.md) |
+| [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | accepted | [Real PTY terminal, code editor with clangd LSP, bounded script runtime with macro persistence, and explicit extension discovery and load passed merged checks](evidence/WP-081.md) |
+| [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | active | [Two-client sync, authenticated IPC, mapped remote presence and synchronized version restore merged; remote transport, domain operations and shared checkpoints open](evidence/WP-082-presence-layer.md) |
 | [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | active | [Diagram graph/flow and constrained CAD sketch merged; additional CAD output in progress](evidence/WP-083-cad.md) |
 | [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | accepted | [GeoJSON editing, raster providers, antimeridian, composed export and indexed projection switching passed merged checks](evidence/WP-084.md) |
 | [WP-085 — Implement scientific plotting](phase-07-integrations.md#wp-085) | 07 | Sol | active | [Numeric, uncertainty and export implementation lane underway](evidence/WP-085.md) |

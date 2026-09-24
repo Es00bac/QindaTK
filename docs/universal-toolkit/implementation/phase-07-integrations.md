@@ -36,7 +36,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-081"></a>
 ## WP-081 — Implement extensions, scripting and developer surfaces
 
-**Implementation lead:** Sol. **Status:** active (local clangd LSP and explicit extension discovery merged; host integration remains). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-025](phase-02-controls-data.md#wp-025), [WP-027](phase-02-controls-data.md#wp-027), [WP-032](phase-02-controls-data.md#wp-032), [WP-080](phase-07-integrations.md#wp-080)
+**Implementation lead:** Sol. **Status:** accepted (PTY terminal, code editor with clangd LSP, bounded script runtime with macro persistence, and explicit extension discovery and load; other platforms qualify in WP-088). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-025](phase-02-controls-data.md#wp-025), [WP-027](phase-02-controls-data.md#wp-027), [WP-032](phase-02-controls-data.md#wp-032), [WP-080](phase-07-integrations.md#wp-080)
 
 **Proposal scope:** [PLT-12 ExtensionRegistry](../proposed/08-platform-integrations.md#plt-12), [PLT-13 ScriptConsole](../proposed/08-platform-integrations.md#plt-13), [EXT-01 CodeEditor](../proposed/09-specialized-domains.md#ext-01), [EXT-02 TerminalView](../proposed/09-specialized-domains.md#ext-02)
 
@@ -59,7 +59,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-082"></a>
 ## WP-082 — Implement collaboration, presence and version history
 
-**Implementation lead:** Sol. **Status:** active (two-client property sync, authenticated IPC, remote presence display, named versions and synchronized restore merged; WP-081 dependency remains active). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-016](phase-01-services.md#wp-016), [WP-032](phase-02-controls-data.md#wp-032), [WP-081](phase-07-integrations.md#wp-081)
+**Implementation lead:** Sol. **Status:** active (two-client property sync, authenticated IPC, remote presence display, named versions and synchronized restore merged; remote transport, domain operations and shared checkpoints remain). **Depends on:** [WP-013](phase-01-services.md#wp-013), [WP-016](phase-01-services.md#wp-016), [WP-032](phase-02-controls-data.md#wp-032), [WP-081](phase-07-integrations.md#wp-081)
 
 **Proposal scope:** [PLT-14 CollaborationAdapter](../proposed/08-platform-integrations.md#plt-14), [PLT-15 PresenceLayer](../proposed/08-platform-integrations.md#plt-15), [PLT-16 VersionBrowser](../proposed/08-platform-integrations.md#plt-16)
 
