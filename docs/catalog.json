@@ -38394,6 +38394,130 @@
       "bridge": false
     },
     {
+      "name": "RichTextFindReplaceService",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "FindReplaceBar adapter for the structured RichTextDocument. Search offsets are UTF-16 positions in the document's visible plain-text projection; replacement uses paragraph identity and raw offsets so formatting survives.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/rich_text_find_replace_service.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "RichTextDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "composing",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "results",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "matchCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "currentMatch",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "resultsReady",
+          "parameters": "const QString &requestId, int revision, const QVariantList &results, int currentMatch, const QString &error"
+        },
+        {
+          "name": "operationFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "search",
+          "returns": "QString",
+          "parameters": "const QString &query, const QVariantMap &options = {}, const QVariantMap &scope = {}"
+        },
+        {
+          "name": "cancelSearch",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "setCurrentMatch",
+          "returns": "bool",
+          "parameters": "int index"
+        },
+        {
+          "name": "replaceCurrent",
+          "returns": "QVariantMap",
+          "parameters": "int expectedRevision, const QString &replacement"
+        },
+        {
+          "name": "replaceAll",
+          "returns": "QVariantMap",
+          "parameters": "int expectedRevision, const QString &replacement"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "RichTextFormatState",
       "kind": "cpp",
       "base": "QObject",

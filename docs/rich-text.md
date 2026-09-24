@@ -312,7 +312,7 @@ seams are typed; nothing here is a stand-in contract.
 | --- | --- |
 | WP-019 FormatRegistry | `.qtkrich` import/export is registered. HTML remains an exchange seam, not a registered provider. |
 | WP-024 FontPicker | `FontPicker` binds through `PropertyBinding`, which does not fit a selection. `FormatBar` uses `FontCatalog` with a `ComboBox`. |
-| WP-025 find/replace | No rich-text find adapter yet. Positions and `GraphemeBoundaries` are the inputs it needs. |
+| WP-025 find/replace | `RichTextFindReplaceService` connects `FindReplaceBar` to this document. It searches editor-compatible UTF-16 text within paragraphs, returns paragraph IDs and offsets, skips object-containing matches and invalid grapheme boundaries, rejects stale revisions, and commits replace-all as one undo step. Matches cannot cross paragraph boundaries. |
 | WP-033 shared framework | Not available; the controls have not been verified against it. |
 | WP-040 canvas / WP-017 assets | Object renderer seam above. `asset:` sources show a placeholder. |
 | UndoService | `PropertyDocument`-only; use `externalUndo` (D-050). |

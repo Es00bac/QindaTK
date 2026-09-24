@@ -29,3 +29,16 @@ of the document, preserving original offsets. Replacement text is literal;
 regular-expression capture substitution is not part of this adapter's
 contract. A domain editor with structured ranges can provide a separate
 search adapter with the same revision and transaction rules.
+
+`RichTextFindReplaceService` implements that interface for
+`RichTextDocument`. Set `document` to the same model used by
+`RichTextEditor` or `RichDocumentView`, then assign the service to
+`FindReplaceBar.findReplaceService`. Search works on the editor's raw UTF-16
+text projection of each paragraph, including table cells. Rows add
+`paragraphId` and `offset` to the common fields; `start` uses the same
+document-wide UTF-16 offset as `RichTextArea.selectionStart` and
+`cursorPosition`. Matches containing object anchors or crossing invalid
+grapheme boundaries are skipped. A match cannot
+cross a paragraph or table-cell boundary. Replace All commits one rich-text
+transaction, so a single document undo restores all matches. The host may
+use `paragraphId` and `offset` to reveal the current match in either view.

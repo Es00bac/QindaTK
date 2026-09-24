@@ -23,6 +23,21 @@ Rectangle {
         id: document
         Component.onCompleted: loadFromFile(Qt.resolvedUrl("showcase.qtkrich"))
     }
+    Tk.RichTextFindReplaceService {
+        id: findService
+        document: document
+        composing: !!root.activeEditor && !!root.activeEditor.area
+                   && root.activeEditor.area.preeditText.length > 0
+    }
+    Connections {
+        target: findService
+        function onStateChanged() {
+            if (findService.currentMatch < 0 || !root.activeEditor || !root.activeEditor.area)
+                return
+            const row = findService.results[findService.currentMatch]
+            if (row) root.activeEditor.area.cursorPosition = row.start
+        }
+    }
 
     Tk.Flex {
         anchors.fill: parent
@@ -31,6 +46,17 @@ Rectangle {
         Tk.FormatBar {
             objectName: "richFormatBar"
             target: root.activeEditor
+            Tk.Flex.shrink: 0
+        }
+
+        Tk.FindReplaceBar {
+            objectName: "richFindReplace"
+            findReplaceService: findService
+            width: parent.width
+            selectionStart: root.activeEditor && root.activeEditor.area
+                            ? root.activeEditor.area.selectionStart : 0
+            selectionLength: root.activeEditor && root.activeEditor.area
+                             ? root.activeEditor.area.selectionEnd - root.activeEditor.area.selectionStart : 0
             Tk.Flex.shrink: 0
         }
 

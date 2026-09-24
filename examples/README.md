@@ -209,8 +209,9 @@ playhead in a `Stack`), and a `StatusBar`. Panels are one file each
 
 Rich text and pages (WP-050): one `Tk.RichTextDocument` shown as pages in a
 `RichDocumentView` and as a continuous draft in a `RichTextEditor`. A
-`FormatBar` follows whichever of the two has focus, and a `PageNavigator`
-shows thumbnails and an outline. `showcase.qtkrich` is a native
+`FormatBar` follows whichever of the two has focus, `FindReplaceBar` uses
+`RichTextFindReplaceService` to search and replace in that same document,
+and a `PageNavigator` shows thumbnails and an outline. `showcase.qtkrich` is a native
 `qindatk.richtext/1` file containing:
 
 - mixed scripts, lists, a link and an inline image;
@@ -222,7 +223,8 @@ shows thumbnails and an outline. `showcase.qtkrich` is a native
   (`--dump --size 1280x800` lists `richDocumentPage_<pageKey>` for the
   visible pages only)
 - Exercises: `RichTextDocument`, `RichDocumentView`, `RichTextEditor`,
-  `FormatBar`, `PageNavigator`, `Panel`, `StatusBar`
+  `RichTextFindReplaceService`, `FindReplaceBar`, `FormatBar`, `PageNavigator`,
+  `Panel`, `StatusBar`
 - Screenshots: [compact](../docs/universal-toolkit/implementation/evidence/WP-050-compact.png),
   [comfortable](../docs/universal-toolkit/implementation/evidence/WP-050-comfortable.png)
 
