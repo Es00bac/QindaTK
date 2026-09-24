@@ -210,6 +210,7 @@ qt_add_qml_module(qindatk
         core/graph_mesh.cpp core/graph_mesh.h
         core/graph_nodes.cpp
         core/graph_raster.cpp core/graph_raster.h
+        core/image_compare_item.cpp core/image_compare_item.h
         core/grid_tracks.cpp core/grid_tracks.h
         core/icon.cpp core/icon.h
         core/icon_data.cpp core/icon_data.h

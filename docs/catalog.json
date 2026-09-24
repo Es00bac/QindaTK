@@ -5742,6 +5742,119 @@
       ]
     },
     {
+      "name": "CompareView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "AGENT-CONTRACT: both sources use one image transform. The host supplies local images; encoded-sRGB difference is visual inspection, not proofing.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CompareView.qml",
+      "properties": [
+        {
+          "name": "beforeSource",
+          "type": "alias",
+          "default": "image.beforeSource",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "afterSource",
+          "type": "alias",
+          "default": "image.afterSource",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "alias",
+          "default": "image.mode",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "split",
+          "type": "alias",
+          "default": "image.split",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showAfter",
+          "type": "alias",
+          "default": "image.showAfter",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "alias",
+          "default": "image.zoom",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panX",
+          "type": "alias",
+          "default": "image.panX",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "panY",
+          "type": "alias",
+          "default": "image.panY",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastError",
+          "type": "string",
+          "default": "image.lastError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Compare aligned before and after images\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "compareBlinkMode",
+        "compareBlinkSource",
+        "compareDifferenceMode",
+        "compareImage",
+        "compareSplit",
+        "compareSplitMode",
+        "compareStatus",
+        "compareView",
+        "compareViewport",
+        "compareZoom"
+      ]
+    },
+    {
       "name": "CompositionView",
       "kind": "qml",
       "base": "T.Control",
@@ -39509,6 +39622,100 @@
           "parameters": "const QString &name, const QStringList &paths"
         }
       ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ImageCompareItem",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "Paints both sources through one viewport transform for aligned comparison.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/image_compare_item.h",
+      "properties": [
+        {
+          "name": "beforeSource",
+          "type": "QUrl",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "afterSource",
+          "type": "QUrl",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "mode",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "split",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "showAfter",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zoom",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "panX",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "panY",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sourcesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "viewChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,

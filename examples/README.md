@@ -59,6 +59,8 @@ pixels and shows effect compatibility. These are
 toolkit examples rather than complete productivity or motion applications.
 The [motion overlay fixture](motion-overlays/Main.qml) draws sampled transform
 paths and neighboring composited frames for onion-skin inspection.
+The [image comparison fixture](image-compare/Main.qml) aligns two local images
+for split, blink and encoded-sRGB difference inspection.
 
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real

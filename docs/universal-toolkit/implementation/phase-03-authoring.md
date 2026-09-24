@@ -121,7 +121,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-045"></a>
 ## WP-045 — Implement raster, masks, brushes and comparison
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-019](phase-01-services.md#wp-019), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-044](phase-03-authoring.md#wp-044)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-015](phase-01-services.md#wp-015), [WP-019](phase-01-services.md#wp-019), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-044](phase-03-authoring.md#wp-044)
 
 **Proposal scope:** [CAN-10 MaskChannelPanel](../proposed/04-canvas-color.md#can-10), [CAN-15 BrushPresetView](../proposed/04-canvas-color.md#can-15), [CAN-16 BrushDynamicsEditor](../proposed/04-canvas-color.md#can-16), [CAN-23 CompareView](../proposed/04-canvas-color.md#can-23)
 

@@ -1,0 +1,8 @@
+<!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+  <rect width="800" height="450" fill="#13212c"/>
+  <path d="M0 330 L170 210 L320 310 L470 135 L650 300 L800 175 L800 450 L0 450Z" fill="#1c5969"/>
+  <circle cx="190" cy="120" r="56" fill="#e3a95f"/>
+  <rect x="550" y="190" width="108" height="95" rx="9" fill="#f3bd72"/>
+  <path d="M550 234 H658" stroke="#f8e8cb" stroke-width="7"/>
+</svg>

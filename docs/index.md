@@ -37,6 +37,7 @@ pages below are the reference.
 | [curve.md](curve.md) | Typed numerical curves, normalized knot/handle constraints, interpolation and edge semantics |
 | [color.md](color.md) | Numerical RGB ICC profiles, straight alpha, CPU transforms, precision and unsupported proof/display boundaries |
 | [canvas.md](canvas.md) | Spatial canvas: document/view/device transforms, object model, picking, tool gestures, synchronized views and the tile rendering boundary |
+| [compare.md](compare.md) | Aligned before/after image comparison, split/blink/difference modes and color limits |
 | [controls-media.md](controls-media.md) | Media controls: thumbnails, waveforms, filmstrips, time rulers and shortcut caps |
 | [caption-rendering.md](caption-rendering.md) | Burned-caption frame rendering, exact interval semantics, style limits and atomic PNG output |
 | [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |
