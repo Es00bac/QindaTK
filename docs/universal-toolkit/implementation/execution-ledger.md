@@ -111,10 +111,10 @@ as though a later fix had already passed the earlier run.
 | [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | active | [Typed graph model, editor and live rendering fixture integrated; broader operation set and qualification remain](evidence/WP-074.md) |
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | active | [Live model-to-control tracking and mask preview integrated; broader motion and qualification remain](evidence/WP-075.md) |
 | [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | active | [Persistent primitive scene and real optional Quick3D viewport merged; broader 3D editing remains](evidence/WP-076.md) |
-| [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | active | [Mesh/rig/UV/texture core merged; controls and mesh viewport remain](evidence/WP-077.md) |
+| [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | active | [Core, controls and live request wiring merged; raw GPU texture and merged UI gates pending](evidence/WP-077.md) |
 | [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and real PNG/PDF/WAV providers integrated; acceptance gate remains](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
-| [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | active | [Real PTY terminal session merged; view and other developer surfaces remain](evidence/WP-081.md) |
+| [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | active | [Real PTY terminal and view merged; editor, scripts and extensions underway](evidence/WP-081.md) |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | planned | — |
 | [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | planned | — |
 | [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | planned | — |
