@@ -117,4 +117,6 @@ semantics. CMYK needs a channel-aware value contract. Managed canvas rendering
 needs tagged object/image inputs and a declared composition space; converting
 vertex colors before blending is not equivalent to converting the composite.
 GPU/software agreement, display/compositor interpretation, gamut evaluation,
-gradient interpolation and transaction/undo integration remain unimplemented.
+and transaction/undo integration remain unimplemented. The separate
+[numerical gradient evaluator](gradient.md) supplies bounded linear-light
+interpolation; it does not connect that pipeline to rendered previews.

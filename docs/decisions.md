@@ -580,3 +580,20 @@ mutating host data. Ordered cubic controls permit a bounded monotone x solve.
 constraints and commits. Unit conversions, exact tick projection, mirrored
 tangents, adaptive sampling and undo remain explicit integration boundaries.
 See [curve.md](curve.md) for endpoints, repeat seams and numerical fixtures.
+
+
+## D-049 — Interpolate tagged gradient stops in linear light with coverage alpha
+
+**Context.** Encoded RGB interpolation darkens light-space midpoints, and
+straight-channel mixing lets hidden transparent colors tint visible samples.
+
+**Decision.** The numerical gradient evaluator converts stops through
+ColorEngine into linear sRGB, interpolates premultiplied coverage, and converts
+the straight result to an explicit RGB ICC target. Array order resolves equal
+positions; the last duplicate wins exactly. Zero-alpha output has canonical
+zero channels while stored colors and ColorEngine hidden RGB remain intact.
+
+**Consequences.** Hosts preserve stable stop IDs and tie order, own transactions,
+and explicitly integrate renderer previews. Initial policies are relative
+colorimetric/BPC off with padded edges; proofing and alternative interpolation
+spaces remain unsupported. See [gradient.md](gradient.md).

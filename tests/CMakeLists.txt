@@ -133,3 +133,16 @@ qindatk_enable_warnings(tst_curve_evaluator)
 target_include_directories(tst_curve_evaluator PRIVATE ${PROJECT_SOURCE_DIR}/src/core)
 target_link_libraries(tst_curve_evaluator PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME tst_curve_evaluator COMMAND tst_curve_evaluator)
+
+# Numerical gradient tests exercise production color/gradient sources without QML.
+qt_add_executable(tst_gradient_evaluator cpp/tst_gradient_evaluator.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/application_contracts.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/color_profile.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/color_engine.cpp
+    ${PROJECT_SOURCE_DIR}/src/core/gradient_evaluator.cpp)
+qindatk_enable_warnings(tst_gradient_evaluator)
+target_include_directories(tst_gradient_evaluator PRIVATE ${PROJECT_SOURCE_DIR}/src/core)
+target_link_libraries(tst_gradient_evaluator PRIVATE Qt6::Core Qt6::Gui Qt6::Test PkgConfig::LCMS2)
+target_compile_definitions(tst_gradient_evaluator PRIVATE
+    QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
+add_test(NAME tst_gradient_evaluator COMMAND tst_gradient_evaluator)
