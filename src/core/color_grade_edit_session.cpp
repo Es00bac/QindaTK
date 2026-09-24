@@ -220,4 +220,96 @@ bool ColorGradeEditSession::redo()
     return true;
 }
 
+QVariantMap ColorGradeEditSession::committedParameters() const
+{
+    return m_document.committedValue(m_entity, QStringLiteral("grade")).toMap();
+}
+
+QVariantList ColorGradeEditSession::wheels() const
+{
+    const QVariantMap current = parameters();
+    const QList<std::pair<QString, QString>> names{{QStringLiteral("lift"), tr("Lift")},
+                                                   {QStringLiteral("gamma"), tr("Gamma")},
+                                                   {QStringLiteral("gain"), tr("Gain")}};
+    QVariantList result;
+    for (const auto &[id, label] : names) {
+        const QVariantMap point = current.value(id).toMap();
+        result.append(QVariantMap{{QStringLiteral("id"), id}, {QStringLiteral("label"), label},
+            {QStringLiteral("x"), point.value(QStringLiteral("x")).toDouble()},
+            {QStringLiteral("y"), point.value(QStringLiteral("y")).toDouble()},
+            {QStringLiteral("minimumX"), -1.0}, {QStringLiteral("maximumX"), 1.0},
+            {QStringLiteral("minimumY"), -1.0}, {QStringLiteral("maximumY"), 1.0},
+            {QStringLiteral("stepX"), 0.01}, {QStringLiteral("stepY"), 0.01},
+            {QStringLiteral("enabled"), !m_sourceImage.isNull()}});
+    }
+    return result;
+}
+
+double ColorGradeEditSession::exposure() const
+{
+    return parameters().value(QStringLiteral("exposureEV")).toDouble();
+}
+
+QString ColorGradeEditSession::gradeSpace() const
+{
+    return tr("Linear sRGB working space; output tagged in the context's output profile. "
+              "Wheels are opponent offsets (x: red against green, y: blue against yellow) "
+              "that sum to zero across R, G and B, so they change chroma and never add luma; "
+              "exposure is the luma control.");
+}
+
+std::optional<QVariantMap> ColorGradeEditSession::withWheel(const QString &wheelId, double x, double y) const
+{
+    QVariantMap next = parameters();
+    if (wheelId == QLatin1String("exposure")) {
+        next.insert(QStringLiteral("exposureEV"), x);
+        return next;
+    }
+    if (wheelId != QLatin1String("lift") && wheelId != QLatin1String("gamma") && wheelId != QLatin1String("gain"))
+        return std::nullopt;
+    next.insert(wheelId, QVariantMap{{QStringLiteral("x"), x}, {QStringLiteral("y"), y}});
+    return next;
+}
+
+bool ColorGradeEditSession::previewWheel(const QString &gestureId, const QString &wheelId, double x, double y)
+{
+    const auto candidate = withWheel(wheelId, x, y);
+    if (!candidate) return reject(gestureId, tr("Unknown grade wheel %1").arg(wheelId));
+    if (!editing() && !beginGesture(gestureId)) return false;
+    return preview(gestureId, *candidate);
+}
+
+bool ColorGradeEditSession::finishWheel(const QString &gestureId, const QString &wheelId, double x, double y)
+{
+    if (!previewWheel(gestureId, wheelId, x, y)) return false;
+    return finishGesture(gestureId);
+}
+
+bool ColorGradeEditSession::applyNumeric(const QString &label, const QVariantMap &candidate)
+{
+    if (editing()) cancelGesture(m_gestureId);
+    const QString gestureId = QStringLiteral("numeric-%1-%2").arg(label).arg(++m_serial);
+    if (!beginGesture(gestureId) || !preview(gestureId, candidate)) return false;
+    return finishGesture(gestureId);
+}
+
+bool ColorGradeEditSession::setWheelValue(const QString &wheelId, double x, double y)
+{
+    const auto candidate = withWheel(wheelId, x, y);
+    if (!candidate || wheelId == QLatin1String("exposure"))
+        return reject(QString(), tr("Unknown grade wheel %1").arg(wheelId));
+    return applyNumeric(wheelId, *candidate);
+}
+
+bool ColorGradeEditSession::setExposure(double exposureEv)
+{
+    return applyNumeric(QStringLiteral("exposure"), *withWheel(QStringLiteral("exposure"), exposureEv, 0.0));
+}
+
+bool ColorGradeEditSession::resetWheel(const QString &wheelId)
+{
+    if (wheelId == QLatin1String("exposure")) return setExposure(0.0);
+    return setWheelValue(wheelId, 0.0, 0.0);
+}
+
 } // namespace QindaTK

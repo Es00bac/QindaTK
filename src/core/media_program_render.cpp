@@ -18,6 +18,18 @@ bool usableSize(const QSize &size)
     return size.width() >= 1 && size.height() >= 1 && size.width() <= 8192 && size.height() <= 8192;
 }
 
+// Applies the program's finishing (D-126) to a successfully rendered frame.
+void finish(const MediaProgram &program, MediaRenderedFrame &result)
+{
+    if (result.error || result.image.isNull() || !program.finishing.changesPictures()) return;
+    const auto milliseconds = program.frameStartMilliseconds(result.frame);
+    if (!milliseconds) {
+        result.error = programError(ErrorCode::Validation, QStringLiteral("Frame %1 has no program time").arg(result.frame));
+        return;
+    }
+    if (OperationError error = program.finishing.apply(&result.image, *milliseconds)) result.error = error;
+}
+
 // Letterboxed placement of a source's display size (sample aspect applied).
 QRect fitRect(const MediaSourceInfo &info, const QSize &output)
 {
@@ -60,6 +72,7 @@ MediaRenderedFrame MediaProgram::render(qint64 frame, const QSize &outputSize, M
         result.image = decoded.image;
         result.corrupt = decoded.corrupt;
         result.sources.append({QString(), source.resourceId, frame, sourceInfo->frames.at(frame).pts});
+        finish(*this, result);
         return result;
     }
     const QSize size = usableSize(outputSize) ? outputSize : frameSize;
@@ -149,6 +162,7 @@ MediaRenderedFrame MediaProgram::render(qint64 frame, const QSize &outputSize, M
     painter.end();
     result.missingResourceIds.removeDuplicates();
     result.image = image;
+    finish(*this, result);
     return result;
 }
 

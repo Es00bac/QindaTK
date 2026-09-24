@@ -71,6 +71,13 @@ MediaExportResult MediaExport::exportProgram(const MediaProgram &program, const 
     settings.sampleRate = program.sampleRate;
     settings.channels = program.channels;
     settings.gopSize = 1;
+    if (!program.finishing.embeddedCaptions.isEmpty()) {
+        // Embedded captions are timed from the export's first frame (D-126).
+        const auto offset = program.frameStartMilliseconds(firstFrame);
+        if (!offset) return fail(exportError(ErrorCode::Validation, QStringLiteral("The first frame has no program time")));
+        settings.subtitles = program.finishing.subtitlesFrom(*offset);
+        settings.subtitleLanguage = program.finishing.embeddedLanguage;
+    }
     MediaEncoder encoder;
     if (OperationError error = encoder.open(path, settings)) return fail(error);
     MediaDecoderPool videoPool;
@@ -106,6 +113,7 @@ MediaExportResult MediaExport::exportProgram(const MediaProgram &program, const 
     if (OperationError error = encoder.finish()) return fail(error);
     result.frames = encoder.videoFramesWritten();
     result.samples = encoder.audioSamplesWritten();
+    result.subtitles = encoder.subtitlesWritten();
     return result;
 }
 
@@ -142,7 +150,7 @@ RenderProduct MediaExport::renderProvider(const QJsonObject &snapshot, const QSt
     const MediaExportResult exported = exportProgram(*program, QDir(stageDirectory).filePath(name), *first, *count,
                                                      cancel, progress);
     if (exported.error) return {{}, exported.error.message};
-    return {QJsonArray{QJsonObject{{QStringLiteral("file"), name},
+    QJsonObject product{{QStringLiteral("file"), name},
         {QStringLiteral("container"), QStringLiteral("matroska")},
         {QStringLiteral("videoCodec"), QStringLiteral("ffv1")},
         {QStringLiteral("audioCodec"), QStringLiteral("pcm_s16le")},
@@ -153,7 +161,15 @@ RenderProduct MediaExport::renderProvider(const QJsonObject &snapshot, const QSt
         {QStringLiteral("sampleRate"), program->sampleRate},
         {QStringLiteral("channels"), program->channels},
         {QStringLiteral("width"), program->frameSize.width()},
-        {QStringLiteral("height"), program->frameSize.height()}}}, {}};
+        {QStringLiteral("height"), program->frameSize.height()}};
+    if (exported.subtitles > 0) {
+        product.insert(QStringLiteral("subtitleCodec"), QStringLiteral("subrip"));
+        product.insert(QStringLiteral("subtitleLanguage"), program->finishing.embeddedLanguage);
+        product.insert(QStringLiteral("subtitles"), QString::number(exported.subtitles));
+    }
+    if (program->finishing.changesPictures())
+        product.insert(QStringLiteral("finishing"), program->finishing.digest());
+    return {QJsonArray{product}, {}};
 }
 
 QVariantMap MediaExport::queueSnapshot(const MediaProgram &program, const QString &outputPath, const QString &label,

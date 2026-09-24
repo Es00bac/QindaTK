@@ -185,6 +185,9 @@ qt_add_qml_module(qindatk
         core/media_decoder.h core/media_ffmpeg_p.h
         core/media_decoder_ffmpeg.cpp core/media_decoder_frames.cpp core/media_decoder_audio.cpp
         core/media_encoder.h core/media_encoder_ffmpeg.cpp
+        core/media_captions.h core/media_captions_ffmpeg.cpp
+        core/media_finishing.cpp core/media_finishing.h
+        core/video_finishing.cpp core/video_finishing.h
         core/media_backend_stub.cpp
         core/media_program.cpp core/media_program.h core/media_program_render.cpp
         core/media_transition.cpp core/media_transition.h
@@ -198,7 +201,8 @@ qt_add_qml_module(qindatk
         core/sequence_editor.cpp core/sequence_editor.h
         core/multicam_model.cpp core/multicam_model.h
         core/video_scopes_model.cpp core/video_scopes_model.h
-        core/caption_track_model.cpp core/caption_track_model.h
+        core/video_scope_analysis.cpp core/video_scope_analysis.h
+        core/caption_track_model.cpp core/caption_track_model.h core/caption_track_edits.cpp
         core/caption_track_codec.cpp core/caption_track_codec.h
         core/caption_frame_renderer.cpp core/caption_frame_renderer.h
         core/caption_sequence_exporter.cpp core/caption_sequence_exporter.h

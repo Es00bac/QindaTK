@@ -151,6 +151,7 @@ QString MediaProgram::cacheKey() const
         for (const MediaClipSpan &span : *list)
             parts << span.clipId << span.uri << span.revision;
     }
+    parts << finishing.digest();
     return QString::fromLatin1(QCryptographicHash::hash(parts.join(QLatin1Char('|')).toUtf8(),
                                                         QCryptographicHash::Sha1).toHex());
 }
@@ -193,6 +194,15 @@ std::optional<qint64> MediaProgram::frameAtSample(qint64 sample) const
     const auto frame = TimelineTime::rescale(*relative, timebase, frameRate, TimeMap::Floor);
     if (!frame || *frame >= frameCount) return std::nullopt;
     return frame;
+}
+
+std::optional<qint64> MediaProgram::frameStartMilliseconds(qint64 frame) const
+{
+    const auto ticks = frameStartTicks(frame);
+    const auto relative = ticks ? TimelineTime::subtract(*ticks, kind == Kind::Timeline ? originTicks : 0)
+                                : std::nullopt;
+    return relative ? TimelineTime::rescale(*relative, timebase, TimelineRate{1000, 1}, TimeMap::Floor)
+                    : std::nullopt;
 }
 
 qint64 MediaProgram::endSample() const
@@ -318,7 +328,7 @@ QJsonObject MediaProgram::toJson() const
     QJsonArray videoSpans, audioSpans;
     for (const MediaClipSpan &span : video) videoSpans.append(spanJson(span));
     for (const MediaClipSpan &span : audio) audioSpans.append(spanJson(span));
-    return {{QStringLiteral("schema"), kSchema},
+    QJsonObject json{{QStringLiteral("schema"), kSchema},
             {QStringLiteral("kind"), kind == Kind::Timeline ? QStringLiteral("timeline") : QStringLiteral("unsupported")},
             {QStringLiteral("programId"), programId}, {QStringLiteral("revision"), revision},
             {QStringLiteral("timebase"), rateJson(timebase)}, {QStringLiteral("frameRate"), rateJson(frameRate)},
@@ -326,6 +336,8 @@ QJsonObject MediaProgram::toJson() const
             {QStringLiteral("originTicks"), text(originTicks)}, {QStringLiteral("frameCount"), text(frameCount)},
             {QStringLiteral("width"), frameSize.width()}, {QStringLiteral("height"), frameSize.height()},
             {QStringLiteral("video"), videoSpans}, {QStringLiteral("audio"), audioSpans}};
+    if (!finishing.isNull()) json.insert(QStringLiteral("finishing"), finishing.toJson());
+    return json;
 }
 
 std::shared_ptr<MediaProgram> MediaProgram::fromJson(const QJsonObject &json, QString *error)
@@ -369,6 +381,10 @@ std::shared_ptr<MediaProgram> MediaProgram::fromJson(const QJsonObject &json, QS
             target->append(*span);
         }
     }
+    QString finishingError;
+    const auto finishing = MediaFinishing::fromJson(json.value(QStringLiteral("finishing")).toObject(), &finishingError);
+    if (!finishing) return reject(QStringLiteral("The program's finishing is invalid: %1").arg(finishingError));
+    program->finishing = *finishing;
     return program;
 }
 

@@ -10,6 +10,17 @@
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
+// AGENT-CONTRACT (docs/caption-rendering.md "Burn-in"): the one caption painter.
+// CaptionFrameRenderer, CaptionSequenceExporter and MediaFinishing (program
+// playback and export) all draw through burn(), so a cue looks the same in a
+// PNG, the program monitor and an exported file. Cues active at `timeMs`
+// ([in, out)) stack from the upper band down in lane, in-time, ID order;
+// styleId "emphasis" draws the emphasis style and every other ID the default.
+// Returns the drawn cue IDs in that order.
+namespace CaptionBurnIn {
+QStringList burn(QImage *image, const QVector<CaptionCueRecord> &cues, qint64 timeMs);
+}
+
 // Burns committed CaptionTrackModel cues into one host-decoded video frame.
 class CaptionFrameRenderer : public QObject {
     Q_OBJECT

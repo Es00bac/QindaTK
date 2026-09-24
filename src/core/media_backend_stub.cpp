@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // The media backend without FFmpeg (D-096): every operation reports an
 // explicit capability error instead of inventing frames or samples.
+#include "media_captions.h"
 #include "media_decoder.h"
 #include "media_encoder.h"
 
@@ -57,6 +58,14 @@ OperationError MediaEncoder::finish() { return unsupported(); }
 void MediaEncoder::abort() {}
 qint64 MediaEncoder::videoFramesWritten() const { return 0; }
 qint64 MediaEncoder::audioSamplesWritten() const { return 0; }
+qint64 MediaEncoder::subtitlesWritten() const { return 0; }
+
+MediaCaptionTrack MediaCaptions::readEmbedded(const QString &, int)
+{
+    MediaCaptionTrack track;
+    track.error = unsupported();
+    return track;
+}
 
 } // namespace QindaTK
 

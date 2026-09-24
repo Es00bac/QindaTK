@@ -17,6 +17,7 @@ struct MediaExportResult {
     OperationError error;
     qint64 frames = 0;
     qint64 samples = 0;
+    qint64 subtitles = 0; // embedded caption cues written (MediaFinishing)
     QStringList missingResourceIds;
 };
 
@@ -40,7 +41,9 @@ struct MediaTestSignalSettings {
 // AGENT-CONTRACT (docs/media-playback.md "Export"): export renders the same
 // MediaProgram frames and audio mix that playback presents, one frame and
 // its exact sample span at a time, so audio written for frame f starts at
-// frameStartSample(f). Missing media fails the export; it never writes
+// frameStartSample(f). Frames carry the program's finishing (grade and
+// burned-in captions); its embedded captions become a SubRip stream timed
+// from the first exported frame. Missing media fails the export; it never writes
 // placeholder pictures or silence for an offline clip.
 namespace MediaExport {
 QString providerId();

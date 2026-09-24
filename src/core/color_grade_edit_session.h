@@ -27,6 +27,12 @@ class ColorGradeEditSession : public QObject {
     Q_PROPERTY(bool editing READ editing NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY changed)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY changed)
+    // ColorWheels descriptors built from the current parameters
+    // ({id, label, x, y, minimumX, maximumX, minimumY, maximumY, stepX, stepY,
+    // enabled}), the current exposure, and the declared grade space.
+    Q_PROPERTY(QVariantList wheels READ wheels NOTIFY changed)
+    Q_PROPERTY(double exposure READ exposure NOTIFY changed)
+    Q_PROPERTY(QString gradeSpace READ gradeSpace CONSTANT)
 public:
     explicit ColorGradeEditSession(QObject *parent = nullptr);
     QString clipId() const { return m_clipId; }
@@ -45,6 +51,12 @@ public:
     bool editing() const { return m_transaction.active(); }
     bool canUndo() const;
     bool canRedo() const;
+    QVariantList wheels() const;
+    double exposure() const;
+    QString gradeSpace() const;
+    // The last committed grade, without an open gesture's preview; exports
+    // read this so a drag in progress never reaches a file.
+    QVariantMap committedParameters() const;
 
     // Host-only profile/context configuration; a generation change cancels the
     // current gesture before the new context can render.
@@ -58,6 +70,17 @@ public:
     Q_INVOKABLE bool cancelGesture(const QString &gestureId);
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
+
+    // AGENT-CONTRACT (docs/color.md "Grade gestures"; ColorWheels): wheel
+    // drags and numeric entry build the same parameter map through
+    // withWheel(), so equal x/y give equal parameters and pixels. A drag is
+    // previewWheel()* then finishWheel() under one gesture ID (one undo
+    // step); setWheelValue/setExposure/resetWheel are one-step numeric edits.
+    Q_INVOKABLE bool previewWheel(const QString &gestureId, const QString &wheelId, double x, double y);
+    Q_INVOKABLE bool finishWheel(const QString &gestureId, const QString &wheelId, double x, double y);
+    Q_INVOKABLE bool setWheelValue(const QString &wheelId, double x, double y);
+    Q_INVOKABLE bool setExposure(double exposureEv);
+    Q_INVOKABLE bool resetWheel(const QString &wheelId);
 signals:
     void changed();
     void gestureRejected(const QString &gestureId, const QString &message);
@@ -68,6 +91,9 @@ private:
     void refresh();
     void resetForTarget();
     bool reject(const QString &gestureId, const QString &message);
+    // parameters() with one wheel (lift, gamma, gain) or "exposure" replaced.
+    std::optional<QVariantMap> withWheel(const QString &wheelId, double x, double y) const;
+    bool applyNumeric(const QString &label, const QVariantMap &candidate);
 
     PropertyDocument m_document;
     UndoService m_undo;
@@ -86,6 +112,7 @@ private:
     QVariantMap m_beforeScopes;
     QVariantMap m_afterScopes;
     OperationError m_error;
+    int m_serial = 0;
 };
 
 } // namespace QindaTK

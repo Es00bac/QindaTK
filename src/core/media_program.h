@@ -2,6 +2,7 @@
 #pragma once
 
 #include "media_decoder.h"
+#include "media_finishing.h"
 
 #include <QJsonObject>
 #include <QSize>
@@ -80,7 +81,9 @@ struct MediaAudioMix {
 //   placed at the first sample at or after each clip's start;
 //   a clip's transition (TimelineClip::transition, WP-071) extends the
 //   outgoing and incoming spans over its window and MediaTransition blends
-//   their pictures and crossfades their sound there.
+//   their pictures and crossfades their sound there;
+//   `finishing` (grade, then burned-in captions; WP-072, D-126) is applied
+//   last to every frame render() returns, for playback and export alike.
 // Sample positions and ticks share origin 0, as in TimelineModel.
 class MediaProgram {
 public:
@@ -108,6 +111,7 @@ public:
     QVector<MediaClipSpan> video; // back to front
     QVector<MediaClipSpan> audio;
     QStringList unresolved;
+    MediaFinishing finishing;
 
     bool isEmpty() const { return kind == Kind::Empty || frameCount <= 0; }
     QString cacheKey() const;
@@ -117,6 +121,9 @@ public:
     std::optional<qint64> frameAtSample(qint64 sample) const;
     qint64 endSample() const;
     QVariantMap describe() const;
+    // Whole program milliseconds at the start of `frame`, rounded down
+    // (MediaFinishing's caption clock); std::nullopt outside the program.
+    std::optional<qint64> frameStartMilliseconds(qint64 frame) const;
 
     // Worker-thread operations; `pool` belongs to the calling thread.
     MediaRenderedFrame render(qint64 frame, const QSize &outputSize, MediaDecoderPool &pool,

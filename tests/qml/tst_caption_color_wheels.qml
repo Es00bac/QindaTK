@@ -85,6 +85,19 @@ TestCase {
         verify(gesture.length > 0)
     }
 
+    function test_numeric_value_emits_the_drag_signals() {
+        lastWheel = null
+        finishedWheel = null
+        verify(wheels.requestWheelValue("gamma", 0.2, -0.9)) // y clamps to the wheel's -0.5
+        compare(lastWheel[2], "gamma")
+        compare(lastWheel[3], 0.2)
+        compare(lastWheel[4], -0.5)
+        compare(finishedWheel[0], lastWheel[0])
+        compare(finishedWheel[3], 0.2)
+        compare(finishedWheel[4], -0.5)
+        verify(!wheels.requestWheelValue("missing", 0, 0))
+    }
+
     function test_pointer_wheel_drag_emits_preview_and_finish() {
         mousePress(wheels, 113, 110)
         mouseMove(wheels, 145, 78)

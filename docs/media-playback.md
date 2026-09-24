@@ -184,6 +184,21 @@ presented identity (timecode · frame · ticks). Keys: Space play/stop, Left/Rig
 step, Home/End first/last frame. Without `player` it keeps the host-owned
 protocol.
 
+## Finishing (WP-072, D-126)
+
+`MediaPlayer.finishing` takes a `VideoFinishing`, which gathers a
+`ColorGradeEditSession`'s grade (`gradeEnabled`), and a `CaptionTrackModel`'s
+cues burned into pictures (`burnInCaptions`) and/or embedded as a subtitle
+stream (`embedCaptions`). The player copies its program with that
+`MediaFinishing` whenever the digest changes, without re-probing media, and
+the engine re-renders the presented frame under the same frame key. The stage
+runs in `MediaProgram::render`, after compositing and transitions: grade
+first, then captions at the frame's program time in whole milliseconds
+(`frameStartMilliseconds`, floor), which decides `[in, out)` exactly for
+millisecond cues. Program JSON carries the finishing, so queued exports keep
+it. See [color.md](color.md#output-grade-d-126) and
+[caption-rendering.md](caption-rendering.md#embedded-captions).
+
 ## Media catalog (D-099)
 
 `MediaCatalog` is the media bin's model. `importMedia(uri, binId, label)`
@@ -224,7 +239,10 @@ the partial file. Every `RenderQueueModel` registers the
 `qindatk.media-program-mkv` provider (format `mkv`) when the encoder is
 available; `MediaExport::queueSnapshot` (or `MediaPlayer.exportJob`) captures
 the program JSON and each source's SHA-256, and the provider re-hashes every
-source before encoding, so a changed or offline source fails the job.
+source before encoding, so a changed or offline source fails the job. A
+program with embedded captions adds a SubRip stream timed from the first
+exported frame; the product row then names `subtitleCodec`,
+`subtitleLanguage` and the cue count.
 
 `MediaCatalog.generateTestSignal(uri, options)` (C++
 `MediaExport::writeTestSignal`) writes colour bars, a 16-cell binary frame code
@@ -241,4 +259,5 @@ sources; export of a variable-rate source goes through a timeline program,
 which conforms it. Performance budgets, other platforms and Qt versions,
 screen-reader runs and output-fidelity comparison are qualification work in
 WP-088 to WP-092 and WP-089. Trim/roll/slip edits are WP-071; grading, scopes
-and captions are WP-072.
+and captions are WP-072 (above, [color.md](color.md),
+[video-scopes.md](video-scopes.md), [caption-rendering.md](caption-rendering.md)).

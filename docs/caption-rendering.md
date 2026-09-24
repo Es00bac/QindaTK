@@ -1,5 +1,83 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
-# Caption frame rendering
+# Captions: formats, edits and rendering
+
+`CaptionTrackModel` owns a caption track (stable cue IDs, exact millisecond
+`[in, out)` intervals, text, language, style, display lane);
+`CaptionEditor` draws it and requests edits. This page covers the formats a
+track reads and writes, its structural edits and warnings, and the three
+output paths: sidecar files, an embedded subtitle stream and burned-in pixels.
+
+## Formats
+
+`CaptionTrackModel.formats` lists what each format carries:
+
+| id | kind | carries | note |
+|---|---|---|---|
+| `json` | native | timing, text, language, style, lane, ID | `toJson`/`loadJson`, `saveToFile`/`loadFromFile` (atomic) |
+| `webvtt` | sidecar | timing, text, language, ID | `Language:` header names the track; a cue in another language is one `<lang tag>` span |
+| `srt` | sidecar | timing, text | no language field; the host names it on import |
+| `matroska-subrip` | embedded | timing, text, language | a SubRip stream in an exported `.mkv`; stream language = the track's BCP 47 tag |
+| `burned-in` | render | timing, text, style | pixels only; accessible text stays in the editor |
+
+WebVTT import takes the track language from an explicit argument, else from
+the `Language:` header, else `und`. Cue text is plain text: `&amp;`, `&lt;`,
+`&gt;`, `&nbsp;`, `&lrm;` and `&rlm;` are decoded on import and `&`, `<`, `>`
+escaped on export; other markup stays literal. So an export and re-import
+keeps every cue's ID, timing, text and language (`tst_caption_track_model`
+`webVttKeepsEveryLanguage`, with English, Japanese and Arabic cues).
+
+## Structural edits
+
+Each is one undo step (`undo()` restores the previous cue list); a refusal
+changes nothing and sets `error` and a `rejected` acknowledgement.
+
+- `splitCue(cueId, atMs, textPosition = -1)`: `atMs` strictly inside the cue;
+  the right part gets a new ID. The text splits at `textPosition`, or at the
+  whitespace nearest the time's proportion of the cue; text without
+  whitespace stays whole on both parts.
+- `mergeCues(first, second)`: same language only; the union interval under
+  the first ID, texts joined by a line break in time order; refused if the
+  union overlaps another cue in the lane.
+- `shiftCues(ids, deltaMs)`: a signed decimal delta for the listed cues (all
+  when empty); refused before time zero or into an overlap with an unmoved
+  cue in the same lane.
+
+## Warnings
+
+`warnings` lists `{cueId, kind, message}`; `warningText` joins the selected
+cue's messages (and the last error) for `CaptionEditor.warningText`.
+`overlap`: shown together with another cue (a different lane).
+`short`: under `kMinimumDurationMs` (833 ms). `reading-rate`: more than
+`kMaximumCharactersPerSecond` (20) characters per second, line breaks not
+counted. `line-length`: a line over `kMaximumLineLength` (42) characters.
+Warnings inform; they never block an edit.
+
+## Embedded captions
+
+With `VideoFinishing.embedCaptions`, `MediaExport` writes the committed cues
+as a Matroska SubRip (`S_TEXT/UTF8`) stream: one packet per cue, its UTF-8
+text, pts and duration in milliseconds, timed from the export's first frame
+(`MediaFinishing::subtitlesFrom`). A cue is muxed when the first frame at or
+after its start is written, so the stream interleaves with the pictures;
+cues starting after the last frame are dropped, ends are kept exactly.
+Overlapping cues are separate packets. `MediaCaptions::readEmbedded(path)`
+reads the first text subtitle stream (SubRip, plain text or WebVTT; bitmap and
+ASS streams are refused as unsupported) with its language, and
+`CaptionTrackModel.importEmbedded(path)` loads it, re-assigning lanes. An
+export and re-import keeps timing, text and the BCP 47 language tag
+(`tst_video_finishing` `burnedAndEmbeddedCaptionsReachTheExport`).
+
+## Burn-in
+
+`CaptionBurnIn::burn(image, cues, timeMs)` is the one caption painter;
+`CaptionFrameRenderer`, `CaptionSequenceExporter` and program finishing
+(`VideoFinishing.burnInCaptions`) all draw through it. On program frames the
+time is the frame's start in whole program milliseconds (floor), which decides
+`[in, out)` exactly: at 25 fps a cue `[120, 400)` is on frames 3–9. Burned-in
+frames reach the monitor and the exported file through the same
+`MediaProgram::render`.
+
+## Frame renderer
 
 `CaptionFrameRenderer` burns committed `CaptionTrackModel` cues into a
 host-decoded `QImage` at an exact non-negative decimal millisecond string.
@@ -22,8 +100,9 @@ track, time string, cue document or save path produces a visible error.
 
 `renderFixture(track, timeMilliseconds)` supplies a synthetic scene solely for
 the runnable `examples/caption-render/Main.qml` demonstration. Production
-hosts provide decoded frames to `renderFrame`; subtitle sidecar export remains
-separate from burned pixels. Accessible cue text stays available in the
+hosts provide decoded frames to `renderFrame`, or burn captions into a whole
+program through `VideoFinishing`; sidecar and embedded export stay separate
+from burned pixels. Accessible cue text stays available in the
 CaptionEditor independently of the rendered image.
 
 ## PNG sequence handoff
@@ -40,7 +119,8 @@ Output is staged in a sibling directory. Each PNG and the manifest is written
 with `QSaveFile`; the completed directory is published with a directory rename
 only after every frame succeeds. An existing target directory is rejected.
 Failure removes staging output and reports an error. The synchronous exporter
-does not encode video, mux audio, or provide mid-export cancellation. The
+does not encode video, mux audio, or provide mid-export cancellation; encoded
+video with captions goes through program finishing and `MediaExport`. The
 `exportFixtureSequence` helper and `examples/caption-sequence/Main.qml` use
 synthetic imagery only; production hosts call `exportFrames` with their decoded
 frames.

@@ -46,6 +46,32 @@ Rectangle {
             Tk.Button { text: qsTr("Save JSON"); variant: "accent"; tooltip: track.storagePath; onClicked: { const ok = track.saveToFile(); root.hostStatus = ok ? qsTr("Saved to %1").arg(track.storagePath) : track.error } }
             Tk.Button { text: qsTr("Reload JSON"); onClicked: { const ok = track.loadFromFile(); root.hostStatus = ok ? qsTr("Track reloaded from JSON storage") : track.error } }
             Tk.Button { text: qsTr("Undo"); variant: "outline"; onClicked: { root.hostStatus = track.undo() ? track.acknowledgement.message : qsTr("No edit to undo") } }
+            Tk.Button {
+                text: qsTr("Split")
+                tooltip: qsTr("Split the selected cue at its midpoint")
+                onClicked: {
+                    const middle = Math.floor((Number(track.selectedCueInMs) + Number(track.selectedCueOutMs)) / 2)
+                    track.splitCue(track.selectedCueId, String(middle))
+                    root.hostStatus = track.acknowledgement.message
+                }
+            }
+            Tk.Button {
+                text: qsTr("Merge next")
+                tooltip: qsTr("Merge the selected cue with the next cue")
+                onClicked: {
+                    const cues = track.editorCues
+                    let next = ""
+                    for (let i = 0; i + 1 < cues.length; ++i)
+                        if (String(cues[i].id) === track.selectedCueId) next = String(cues[i + 1].id)
+                    track.mergeCues(track.selectedCueId, next)
+                    root.hostStatus = track.acknowledgement.message
+                }
+            }
+            Tk.Button {
+                text: qsTr("Shift +100 ms")
+                tooltip: qsTr("Move the selected cue 100 ms later")
+                onClicked: { track.shiftCues([track.selectedCueId], "100"); root.hostStatus = track.acknowledgement.message }
+            }
         }
         Item {
             objectName: "captionModelEditorFrame"
@@ -64,7 +90,7 @@ Rectangle {
                 selectedCueStyleId: track.selectedCueStyleId
                 selectedCueLanguage: track.selectedCueLanguage
                 editAcknowledgement: track.acknowledgement
-                warningText: track.error
+                warningText: track.warningText
                 tooltip: qsTr("Caption track editor bound to a persistent host model")
                 onCueSelectionRequested: function(source, trackId, cueId) { track.selectCue(cueId) }
                 onCueEditPreviewRequested: function(requestId, source, trackId, cueId, operation, inTime, outTime, text, styleId) {

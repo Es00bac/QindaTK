@@ -820,6 +820,66 @@ audio and exports use the original. **Consequences.** Timelines, compositions
 and graphs keep their resource IDs through any reorganization or relink, and
 a proxy can never shift a cut or change an export.
 
+## D-118 — Plan NLE edits in the timeline from clip records, on frame starts
+
+**Context.** VID-03 needs roll, ripple, slip and slide that stay inside legal
+media and land on frames, including when media is offline, and must share
+the timeline's transactions and history. **Decision.** Roll, slip and slide
+are `TimelineModel` edit kinds beside WP-048's ripple trims, planned by the
+same pure planner. Every bound comes from the clip records (`sourceOffset`,
+`sourceDuration`, neighbours, minimum length), never from decoded media;
+with `frameExact` the moved edit point lands on the nearest program frame
+start inside the legal range (or does not move). `SequenceEditor` runs the
+views' previews as ordinary revision-guarded sessions. **Consequences.** An
+offline clip trims exactly like an online one and keeps its exact source
+offsets; previews, commits and undo behave like every other timeline edit;
+a clip whose recorded length is unknown has an unbounded tail.
+
+## D-119 — Link picture and sound by a shared link ID
+
+**Context.** Audio-linked selections must move, trim, split and switch
+together without a second placement store. **Decision.** Clips carry an
+optional `linkId`; a request with `linked` expands its selection to every
+clip in the selected clips' groups and applies the same edit to each (a
+roll's partners follow the side they belong to; vertical moves keep partners
+on their tracks). Split, paste and source switches give the new parts a
+group derived from the operation (UUIDv5), so new left and right parts stay
+paired. **Consequences.** Linking is document data that persists and undoes
+with the clips; a locked partner refuses a linked edit instead of letting
+picture and sound drift apart.
+
+## D-120 — Store a transition on its incoming clip and evaluate it once for playback and export
+
+**Context.** VID-05 needs transitions with explicit handle rules that
+preview and export the same frames. **Decision.** A transition is a field of
+the incoming clip: type, exact ticks before and after the cut, alignment and
+string parameters; its window moves with the cut. Setting one requires an
+outgoing clip ending at the incoming clip's start and enough head and tail
+handle. After any other edit the planner drops a transition whose cut no
+longer exists (in the same change set) and refuses an edit that leaves too
+little handle. `MediaProgram` extends both spans over the window and
+`MediaTransition` evaluates it: the weight at each frame's midpoint rounded
+once to 1/65536, an integer channel blend, and per-sample linear or
+equal-power gains for sound. **Consequences.** Transitions need no new
+record kind, history or persistence path; a 4-frame dissolve is 1/8, 3/8,
+5/8, 7/8 in the monitor, the queued export and the file; paste and split
+parts start without transitions.
+
+## D-121 — Make a multicam cut a source switch positioned by the sync map
+
+**Context.** VID-04 needs angle switching during playback with stable sync
+after reopen, and an explicit audio policy. **Decision.** `MulticamModel`
+holds the angle table (resource, sync offset, available length) over one
+program track of ordinary clips. A switch is one frame-exact `switchSource`
+transaction: the program clip is cut at the switch time and the part after
+it shows the new angle at `(T − syncStart) + syncOffset`, computed from the
+sync map rather than from the clip being cut; `audioFollowsVideo` decides
+whether the linked sound is cut and switched too. **Consequences.** Switches
+never accumulate drift, undo removes one cut at a time, the saved timeline
+plus the angle table reopens the same cuts (the angle is recovered from each
+clip's resource), and program playback and export need no multicam-specific
+rendering.
+
 ## D-100 — A held control is heard in every mode; static values are the parameter default
 
 **Context.** WP-061 controls must change real engine parameters, and one
@@ -1028,48 +1088,42 @@ another channel.
 
 ## D-118 — Plan NLE edits in the timeline from clip records, on frame starts
 
-**Context.** VID-03 needs roll, ripple, slip and slide that stay inside legal
-media and land on frames, including when media is offline, and must share
-the timeline's transactions and history. **Decision.** Roll, slip and slide
-are `TimelineModel` edit kinds beside WP-048's ripple trims, planned by the
-same pure planner. Every bound comes from the clip records (`sourceOffset`,
-`sourceDuration`, neighbours, minimum length), never from decoded media;
-with `frameExact` the moved edit point lands on the nearest program frame
-start inside the legal range (or does not move). `SequenceEditor` runs the
-views' previews as ordinary revision-guarded sessions. **Consequences.** An
-offline clip trims exactly like an online one and keeps its exact source
-offsets; previews, commits and undo behave like every other timeline edit;
-a clip whose recorded length is unknown has an unbounded tail.
+## D-126 — Grade and captions are a finishing stage of the media program
 
-## D-119 — Link picture and sound by a shared link ID
+**Context.** VID-06/08 require a grade and burned-in captions that the
+monitor previews and the export writes identically, with the grade's undo
+history and the wheel gestures of WP-072's controls, and without a second
+render path. **Decision.** `MediaFinishing` (grade parameters, burned cues,
+embedded cues and language) is plain data on `MediaProgram`, applied last in
+`MediaProgram::render` for every consumer: the grade through
+`ColorGradeProcessor` in a fixed context (frame tag into linear sRGB, output
+encoded sRGB) on 32-bit float pixels, then `CaptionBurnIn` at the frame's
+floor program millisecond. It is part of the program's cache key and JSON.
+`VideoFinishing` builds it from a `ColorGradeEditSession` and a
+`CaptionTrackModel`; `MediaPlayer.finishing` shows the live value, exports use
+the committed grade. **Consequences.** Preview and export cannot drift; a
+neutral grade is an identity; a drag re-renders the presented frame without
+re-probing media; HDR sources are graded into SDR sRGB output, and an HDR or
+wide-gamut output grade is future work.
 
-**Context.** Audio-linked selections must move, trim, split and switch
-together without a second placement store. **Decision.** Clips carry an
-optional `linkId`; a request with `linked` expands its selection to every
-clip in the selected clips' groups and applies the same edit to each (a
-roll's partners follow the side they belong to; vertical moves keep partners
-on their tracks). Split, paste and source switches give the new parts a
-group derived from the operation (UUIDv5), so new left and right parts stay
-paired. **Consequences.** Linking is document data that persists and undoes
-with the clips; a locked partner refuses a linked edit instead of letting
-picture and sound drift apart.
+## D-127 — Scopes measure the encoded signal under a stated matrix, range and space
 
-## D-120 — Store a transition on its incoming clip and evaluate it once for playback and export
+**Context.** VID-07 asks for scope values with explicit range, transfer and
+channel conventions and reference-bar verification, and for frame
+association while scrubbing without analyzing every repaint. **Decision.**
+`VideoScopeConvention` names the Y′CbCr matrix (709, 601, 2020 NCL), the 8-bit
+code mapping (full, or limited 16–235/16–240) and the analysis space (`srgb`
+converts tagged frames to encoded sRGB; `signal` measures delivered values and
+reports their transfer). Waveform, parade and histogram index 8-bit codes, and
+each snapshot carries exact per-column and frame-wide code extents and the
+convention's vectorscope targets. `VideoScopesModel` analyzes only on demand
+and, bound to a `MediaPlayer`, once per presented frame revision, naming the
+snapshot with the player's `presentedFrameKey`. **Consequences.** Known-answer
+bars give exact codes (Rec.709 limited 75% yellow Y′ 168, Cb 44, Cr 136);
+limited range describes the legal-range encoding of the decoded frame, not the
+file's original codes; linear-light and HDR nit scopes are not provided.
 
-**Context.** VID-05 needs transitions with explicit handle rules that
-preview and export the same frames. **Decision.** A transition is a field of
-the incoming clip: type, exact ticks before and after the cut, alignment and
-string parameters; its window moves with the cut. Setting one requires an
-outgoing clip ending at the incoming clip's start and enough head and tail
-handle. After any other edit the planner drops a transition whose cut no
-longer exists (in the same change set) and refuses an edit that leaves too
-little handle. `MediaProgram` extends both spans over the window and
-`MediaTransition` evaluates it: the weight at each frame's midpoint rounded
-once to 1/65536, an integer channel blend, and per-sample linear or
-equal-power gains for sound. **Consequences.** Transitions need no new
-record kind, history or persistence path; a 4-frame dissolve is 1/8, 3/8,
-5/8, 7/8 in the monitor, the queued export and the file; paste and split
-parts start without transitions.
+## D-128 — Captions interchange as plain text with BCP 47 languages
 
 ## D-121 — Make a multicam cut a source switch positioned by the sync map
 
@@ -1085,3 +1139,16 @@ never accumulate drift, undo removes one cut at a time, the saved timeline
 plus the angle table reopens the same cuts (the angle is recovered from each
 clip's resource), and program playback and export need no multicam-specific
 rendering.
+
+**Context.** VID-06's completion check round-trips a supported format with
+timing and language preserved; WebVTT and SRT carry language differently and
+the export needs an embedded path. **Decision.** Cue text is plain text. WebVTT
+writes the track language as a `Language:` header and wraps a cue in another
+language in one `<lang>` span; import takes an explicit language, else the
+header, and decodes/escapes only the entities that plain text needs. SRT
+carries no language (the host names it). Exports embed cues as a Matroska
+SubRip stream whose language is the track's BCP 47 tag, muxed as frames pass
+each cue's start; `MediaCaptions::readEmbedded` reads it back.
+**Consequences.** JSON, WebVTT and embedded round trips keep timing, text and
+language; WebVTT styling markup and SRT tags are literal text; bitmap and ASS
+subtitle streams are refused, not approximated.
