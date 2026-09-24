@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "geographic_map_canvas.h"
+#include "geographic_tile_source.h"
 #include <QJsonArray>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -47,6 +48,7 @@ void GeographicMapCanvas::setCenterLongitude(double value)
     const double next = wrap((value + 180.0) / 360.0);
     if (qFuzzyCompare(next, m_centerX)) return;
     m_centerX = next; emit viewportChanged(); update();
+    refreshTiles();
 }
 double GeographicMapCanvas::centerLatitude() const
 { return GeographicFeatureModel::geographic(m_centerX, m_centerY).y(); }
@@ -56,6 +58,7 @@ void GeographicMapCanvas::setCenterLatitude(double value)
     const double next = GeographicFeatureModel::mercator(0, value).y();
     if (qFuzzyCompare(next, m_centerY)) return;
     m_centerY = next; emit viewportChanged(); update();
+    refreshTiles();
 }
 void GeographicMapCanvas::setZoomLevel(double value)
 {
@@ -63,6 +66,7 @@ void GeographicMapCanvas::setZoomLevel(double value)
     const double next = std::clamp(value, 0.0, 18.0);
     if (qFuzzyCompare(next, m_zoom)) return;
     m_zoom = next; emit viewportChanged(); update();
+    refreshTiles();
 }
 QPointF GeographicMapCanvas::screen(double lon, double lat) const
 {
@@ -154,6 +158,7 @@ void GeographicMapCanvas::panPixels(double dx, double dy)
     m_centerX = wrap(m_centerX - dx/scale());
     m_centerY = std::clamp(m_centerY - dy/scale(), 0.0, 1.0);
     emit viewportChanged(); update();
+    refreshTiles();
 }
 void GeographicMapCanvas::zoomAt(double factor, double x, double y)
 {
@@ -167,10 +172,12 @@ void GeographicMapCanvas::zoomAt(double factor, double x, double y)
     m_centerX = wrap(worldX - (x-width()/2)/scale());
     m_centerY = std::clamp(worldY - (y-height()/2)/scale(), 0.0, 1.0);
     emit viewportChanged(); update();
+    refreshTiles();
 }
 void GeographicMapCanvas::paint(QPainter *painter)
 {
     painter->fillRect(boundingRect(), m_background);
+    paintTiles(painter);
     painter->setRenderHint(QPainter::Antialiasing);
     painter->setClipRect(boundingRect());
     painter->setPen(QPen(m_grid, m_gridWidth));

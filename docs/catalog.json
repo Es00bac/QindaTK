@@ -15090,7 +15090,7 @@
       "name": "MapView",
       "kind": "qml",
       "base": "Item",
-      "description": "Local WGS84 GeoJSON vector map. No tile provider is installed in this slice.",
+      "description": "Local WGS84 GeoJSON vector map over optional local XYZ raster tiles.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/MapView.qml",
@@ -15123,6 +15123,14 @@
           "name": "zoomLevel",
           "type": "alias",
           "default": "canvas.zoomLevel",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tileSource",
+          "type": "alias",
+          "default": "canvas.tileSource",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -15177,6 +15185,10 @@
         },
         {
           "name": "saveGeoJson",
+          "parameters": "path"
+        },
+        {
+          "name": "loadTileManifest",
           "parameters": "path"
         },
         {
@@ -41535,11 +41547,18 @@
           "constant": false
         },
         {
+          "name": "tileSource",
+          "type": "GeographicTileSource *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "tileStatus",
           "type": "QString",
           "default": "",
           "readonly": true,
-          "constant": true
+          "constant": false
         }
       ],
       "signals": [
@@ -41561,6 +41580,14 @@
         },
         {
           "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tileSourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tileStatusChanged",
           "parameters": ""
         }
       ],
@@ -41599,6 +41626,115 @@
           "name": "zoomAt",
           "returns": "void",
           "parameters": "double factor, double x, double y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "GeographicTileSource",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: GeographicMapCanvas supplies visible XYZ keys; this source owns local decoding, stale-result rejection and the bounded image cache.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/geographic_tile_source.h",
+      "properties": [
+        {
+          "name": "attribution",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "loaded",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "minZoom",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "maxZoom",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "tileSize",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cacheLimitBytes",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "cacheBytes",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cachedTileCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "cacheChanged",
+          "parameters": ""
+        },
+        {
+          "name": "tileReady",
+          "parameters": "const QString &key"
+        }
+      ],
+      "methods": [
+        {
+          "name": "loadManifest",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
         }
       ],
       "enums": {},

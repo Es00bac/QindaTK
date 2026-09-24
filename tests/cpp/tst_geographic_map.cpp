@@ -79,7 +79,7 @@ private slots:
                           Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
         QCoreApplication::sendEvent(&canvas, &wheel);
         QCOMPARE(canvas.zoomLevel(), 5.0);
-        QCOMPARE(canvas.tileStatus(), QStringLiteral("unsupported-offline-vector-only"));
+        QCOMPARE(canvas.tileStatus(), QStringLiteral("unavailable"));
         QVERIFY(!restored.loadGeoJson("https://example.org/features.geojson"));
         QCOMPARE(restored.count(), 2); // failed replacement is atomic
         QFile rejected(input);

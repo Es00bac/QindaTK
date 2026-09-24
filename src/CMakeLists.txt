@@ -52,6 +52,8 @@ qt_add_qml_module(qindatk
         core/code_document.cpp core/code_document.h
         core/geographic_feature_model.h core/geographic_feature_model.cpp
         core/geographic_map_canvas.h core/geographic_map_canvas.cpp
+        core/geographic_map_tiles.cpp
+        core/geographic_tile_source.h core/geographic_tile_source.cpp
         core/scene_model_3d.h core/scene_model_3d.cpp core/scene_model_3d_codec.cpp
         core/mesh_rig_document.h core/mesh_rig_document.cpp
         core/mesh_rig_document_persistence.cpp

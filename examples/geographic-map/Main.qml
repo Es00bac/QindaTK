@@ -11,7 +11,7 @@ Rectangle {
         direction: Tk.Flex.Column
         padding: Tk.Theme.space.md
         gap: Tk.Theme.space.sm
-        Tk.Label { text: qsTr("Front Range · local GeoJSON"); font.pixelSize: Tk.Theme.font.title }
+        Tk.Label { text: qsTr("Front Range · local GeoJSON and XYZ tiles"); font.pixelSize: Tk.Theme.font.title }
         Tk.MapView {
             id: map
             objectName: "fixtureMap"
@@ -21,9 +21,10 @@ Rectangle {
             Tk.Flex.flex: 1
             Component.onCompleted: {
                 loadGeoJson(Qt.resolvedUrl("fixtures.geojson"))
+                loadTileManifest(Qt.resolvedUrl("tiles.json"))
                 selectFeature("denver")
             }
         }
-        Tk.Label { text: qsTr("EPSG:4326 coordinates · Web Mercator display · local vectors only"); muted: true }
+        Tk.Label { text: qsTr("EPSG:4326 coordinates · Web Mercator display · offline illustrated tiles"); muted: true }
     }
 }

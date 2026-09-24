@@ -3,10 +3,11 @@
 
 `MapView` displays local GeoJSON vector features using `GeographicFeatureModel` and
 `GeographicMapCanvas`. The example in `examples/geographic-map/Main.qml` loads a
-five-feature fixture and selects Denver. No network request or tile fetch occurs.
-The [live fixture screenshot](screenshots/geographic-map.png) shows the vector features,
-selected attributes, tile state and attribution. The `tileStatus` value is `unsupported-offline-vector-only`; a blank base map is
-therefore expected, and source attribution remains visible in the bottom corner.
+five-feature fixture, selects Denver and opens a local 25-tile illustrated XYZ
+basemap. No network request occurs. The [live fixture screenshot](screenshots/geographic-map.png)
+shows the composed raster/vector map, selected attributes, tile state and both
+source attributions. A [comfortable-density capture](screenshots/geographic-map-comfortable.png)
+shows the same scene with the larger inspector and spacing.
 
 ## Coordinates and source contract
 
@@ -37,11 +38,43 @@ saving is atomic and keeps IDs, attributes and the collection `attribution`
 string. Selecting a feature exposes its ID, type and properties in
 `selectedFeature`, and the overlay inspector prints those attributes.
 
-## Scope of this slice
+## Offline XYZ raster source
 
-The renderer scans local features for painting and picking. Large spatial data
-needs a visible-region cache and spatial index. Raster and tile providers,
-source freshness, mixed layers, projection switching, geometry edits and
-annotations, and export of a composed map remain for WP-084. The current
-GeoJSON reader handles the six listed geometry types and assumes GeoJSON's
-WGS84 CRS; arbitrary CRS declarations are unsupported.
+`MapView.loadTileManifest(path)` reads a local JSON manifest into its built-in
+`GeographicTileSource`; apps may also assign a source to `MapView.tileSource`.
+The manifest uses the standard 256-unit XYZ world grid, with `z`, `x`, `y` (Y
+increases southward), `minZoom`, `maxZoom`, decoded image `tileSize` (64–1024
+square pixels), `attribution`, and explicit local
+tile entries:
+
+```json
+{
+  "tileSize": 256, "minZoom": 9, "maxZoom": 9,
+  "attribution": "Example source",
+  "tiles": [{"z": 9, "x": 106, "y": 194, "file": "tiles/106-194.png"}]
+}
+```
+
+Tile paths must be relative and cannot contain `..`. The source rejects remote
+manifests and invalid coordinates; a failed replacement leaves the prior source
+intact. Decoding happens off the UI thread. A viewport change drops pending
+requests for tiles no longer visible; late results are ignored. The decoded
+cache defaults to 16 MiB and is bounded by `cacheLimitBytes` (1–256 MiB).
+`tileStatus` reports ready, missing and failed visible tiles. Missing tiles
+show the themed vector canvas beneath them. Attribution stays on screen even
+when tiles are missing. The local fixture can be regenerated with
+`examples/geographic-map/generate_tiles.py`.
+
+The canvas draws tiles at the integer zoom level below the continuous camera
+zoom and scales them to match vector geometry. Longitude wraps and local tiles
+repeat across world copies. The manifest is deliberately sparse and offline;
+the API can be adapted to a network provider later without changing MapView's
+camera or vector contract.
+
+## Remaining WP-084 scope
+
+The vector renderer still scans local features for painting and picking. Large
+spatial data needs a visible-region cache and spatial index. Network providers,
+source freshness, layer ordering, projection switching, geometry edits,
+annotations and export of a composed map remain. The GeoJSON reader assumes
+WGS84; arbitrary CRS declarations are unsupported.

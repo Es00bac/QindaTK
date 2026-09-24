@@ -2,13 +2,14 @@
 import QtQuick
 import QindaTK as Tk
 
-// Local WGS84 GeoJSON vector map. No tile provider is installed in this slice.
+// Local WGS84 GeoJSON vector map over optional local XYZ raster tiles.
 Item {
     id: root
     property alias model: canvas.model
     property alias centerLongitude: canvas.centerLongitude
     property alias centerLatitude: canvas.centerLatitude
     property alias zoomLevel: canvas.zoomLevel
+    property alias tileSource: canvas.tileSource
     readonly property string selectedFeatureId: canvas.selectedFeatureId
     readonly property var selectedFeature: model ? model.featureById(selectedFeatureId) : ({})
     readonly property string tileStatus: canvas.tileStatus
@@ -20,6 +21,7 @@ Item {
     }
     function loadGeoJson(path) { return model.loadGeoJson(path) }
     function saveGeoJson(path) { return model.saveGeoJson(path) }
+    function loadTileManifest(path) { return tileSource ? tileSource.loadManifest(path) : false }
     function coordinateAt(x, y) { return canvas.coordinateAt(x, y) }
     function screenPosition(longitude, latitude) { return canvas.screenPosition(longitude, latitude) }
     function featureIdAt(x, y) { return canvas.featureIdAt(x, y) }
@@ -33,16 +35,18 @@ Item {
     objectName: "mapView"
     Accessible.role: Accessible.Pane
     Accessible.name: tooltip
-    Accessible.description: qsTr("WGS84 local vector map. %1 features. %2. Selected: %3")
+    Accessible.description: qsTr("WGS84 local map. %1 features. %2. %3. Selected: %4")
         .arg(model ? model.count : 0).arg(model ? model.attribution : "")
-        .arg(selectedFeatureId || qsTr("none"))
+        .arg(tileStatus).arg(selectedFeatureId || qsTr("none"))
 
     Tk.GeographicFeatureModel { id: localFeatures }
+    Tk.GeographicTileSource { id: localTiles }
     Tk.GeographicMapCanvas {
         id: canvas
         objectName: "mapCanvas"
         anchors.fill: parent
         model: localFeatures
+        tileSource: localTiles
         backgroundColor: Tk.Theme.color.canvas
         featureColor: Tk.Theme.color.accent
         selectionColor: Tk.Theme.color.focus
@@ -71,7 +75,8 @@ Item {
             id: tileLabel
             anchors.centerIn: parent
             muted: true
-            text: qsTr("Basemap tiles unavailable · offline vectors")
+            text: root.tileStatus === "unavailable" ? qsTr("Basemap tiles unavailable · offline vectors")
+                                                     : qsTr("Local tiles · %1").arg(root.tileStatus)
             font.pixelSize: Tk.Theme.font.caption
         }
     }
@@ -88,7 +93,9 @@ Item {
             id: attributionLabel
             anchors.centerIn: parent
             muted: true
-            text: model && model.attribution ? model.attribution : qsTr("Local vector data · source attribution unavailable")
+            text: [model && model.attribution ? model.attribution : "",
+                   root.tileSource && root.tileSource.attribution ? root.tileSource.attribution : ""].filter(Boolean).join(" · ")
+                  || qsTr("Local source attribution unavailable")
             font.pixelSize: Tk.Theme.font.caption
         }
     }
