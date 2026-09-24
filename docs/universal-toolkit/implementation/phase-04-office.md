@@ -97,7 +97,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-054"></a>
 ## WP-054 — Implement PDF viewing and annotation
 
-**Implementation lead:** Sol. **Status:** active (PDF controls, real page render and text extraction integrated; annotation writing pending). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-040](phase-03-authoring.md#wp-040)
+**Implementation lead:** Sol. **Status:** active (PDF controls, page render, text extraction and note/highlight save/reopen integrated; advanced annotation and forms pending). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-040](phase-03-authoring.md#wp-040)
 
 **Proposal scope:** [OFF-24 PdfView](../proposed/05-documents-office.md#off-24), [OFF-25 PdfAnnotationTools](../proposed/05-documents-office.md#off-25)
 

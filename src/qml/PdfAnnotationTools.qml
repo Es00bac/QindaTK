@@ -210,7 +210,10 @@ Item {
                 iconName: "trash-2"
                 variant: "danger"
                 tooltip: qsTr("Request removal of this annotation")
-                enabled: control.selectedAnnotation !== null && control.selectedAnnotation.status === "accepted"
+                enabled: control.selectedAnnotation !== null
+                         && (control.selectedAnnotation.status === "accepted"
+                             || control.selectedAnnotation.status === "in-document")
+                         && control.capabilities.canDelete !== false
                 onClicked: control.annotationDeleteRequested(control.selectedAnnotationId)
             }
         }

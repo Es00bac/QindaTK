@@ -2,19 +2,18 @@
 import QtQuick
 import QindaTK as Tk
 
-// A real two-page PDF fixture plus host-owned search/annotation snapshots.
-// Page parsing, render tiles, selection geometry and annotation storage are
-// supplied by the PDF provider and document host.
+// A real two-page PDF fixture. The asset provider renders and searches it;
+// PdfAnnotationDocument writes note/highlight annotations when available.
 Rectangle {
     id: root
     width: 1360
     height: 900
     color: Tk.Theme.color.bg
     readonly property string resourceId: "qindatk.example.pdf-review"
-    property string statusText: qsTr("PDF annotations are review requests; accepted changes still require a writer backend.")
+    property string statusText: qsTr("PDF page rendering and annotation writer")
     property bool pdfResourceRegistered: false
     property string activeAnnotationTool: "highlight"
-    property string selectedAnnotationId: "annot-22"
+    property string selectedAnnotationId: ""
     property int currentPage: 0
     property real zoom: 0.78
     property string searchState: "idle"
@@ -25,13 +24,6 @@ Rectangle {
     property var pageRotations: [0, 90]
     property var selectedText: ({ pageIndex: 0, text: "reversible native PDF annotations",
                                   bounds: ({ x: 72, y: 690, width: 222, height: 16 }) })
-    property var annotations: [
-        { id: "annot-17", pageIndex: 0, kind: "highlight", text: "Important finding",
-          author: "A. Rivera", status: "accepted", bounds: ({ x: 72, y: 660, width: 240, height: 16 }) },
-        { id: "annot-22", pageIndex: 1, kind: "note", text: "Confirm this wording with reviewer.",
-          author: "M. Chen", status: "pending", bounds: ({ x: 72, y: 500, width: 180, height: 20 }),
-          canAccept: true, canReject: true }
-    ]
     property var documentLinks: [
         { id: "link-3", pageIndex: 0, label: qsTr("Project glossary"), target: "https://example.invalid/glossary" }
     ]
@@ -44,11 +36,6 @@ Rectangle {
                          pageWidth: index === 0 ? 612 : 792, pageHeight: index === 0 ? 792 : 612,
                          rotation: pageRotations[index], state: "loading", error: "" })
         return pages
-    }
-    function updateAnnotation(id, patch) {
-        const next = annotations.map(function(item) { return Object.assign({}, item) })
-        const index = next.findIndex(function(item) { return item.id === id })
-        if (index >= 0) { Object.assign(next[index], patch); annotations = next }
     }
     function releaseTextRequests() {
         for (let i = 0; i < pendingTextRequests.length; ++i)
@@ -136,9 +123,19 @@ Rectangle {
         id: assets
         resolver: resolver
     }
+    Tk.PdfAnnotationDocument { id: annotationDocument }
     Component.onCompleted: {
         root.pdfResourceRegistered = resolver.registerResource(root.resourceId, Qt.resolvedUrl("fixture.pdf"))
         if (!root.pdfResourceRegistered) root.statusText = resolver.lastError
+        if (annotationDocument.open(Qt.resolvedUrl("fixture.pdf").toString())) {
+            annotationDocument.addAnnotation(0, "highlight",
+                { x: 72, y: 660, width: 240, height: 16 }, "Important finding", "A. Rivera")
+            root.selectedAnnotationId = annotationDocument.addAnnotation(1, "note",
+                { x: 72, y: 500, width: 180, height: 20 },
+                "Confirm this wording with reviewer.", "M. Chen")
+        } else {
+            root.statusText = annotationDocument.errorString
+        }
     }
     Component.onDestruction: releaseTextRequests()
 
@@ -223,38 +220,29 @@ Rectangle {
                     pageIndex: root.selectedText.pageIndex
                     selectedText: root.selectedText.text
                     selectedBounds: root.selectedText.bounds
-                    annotations: root.annotations
+                    annotations: annotationDocument.annotations
                     selectedAnnotationId: root.selectedAnnotationId
                     activeTool: root.activeAnnotationTool
-                    capabilities: ({ annotationKinds: ["highlight", "underline", "note", "redaction-proposal"],
-                                    canAccept: true, canReject: true, canEditForms: false, canApplyRedaction: false })
+                    capabilities: annotationDocument.capabilities
                     onAnnotationSelectionRequested: function(id) { root.selectedAnnotationId = id }
                     onToolChangeRequested: function(kind) { root.activeAnnotationTool = kind }
                     onAnnotationCreateRequested: function(requestId, index, kind, bounds, text, note) {
-                        const next = annotations.map(function(item) { return Object.assign({}, item) })
-                        const id = "annot-" + (next.length + 20)
-                        next.push({ id: id, pageIndex: index, kind: kind, text: note || text,
-                                    author: "You", status: "pending", bounds: bounds,
-                                    canAccept: true, canReject: true, requestId: requestId })
-                        root.annotations = next
-                        root.selectedAnnotationId = id
-                        root.statusText = qsTr("Annotation request %1 awaits review as %2.").arg(requestId).arg(id)
-                    }
-                    onAnnotationAcceptRequested: function(id) {
-                        root.updateAnnotation(id, { status: "accepted" })
-                        root.statusText = qsTr("Accepted %1 in the host-owned review model.").arg(id)
-                    }
-                    onAnnotationRejectRequested: function(id) {
-                        root.updateAnnotation(id, { status: "rejected" })
-                        root.statusText = qsTr("Rejected %1 in the host-owned review model.").arg(id)
+                        const id = annotationDocument.addAnnotation(index, kind, bounds,
+                                                                    note || text, "You")
+                        if (id.length > 0) {
+                            root.selectedAnnotationId = id
+                            root.statusText = qsTr("Annotation %1 added; save a copy to persist it.").arg(id)
+                        } else root.statusText = annotationDocument.errorString
                     }
                     onAnnotationNavigateRequested: function(id, index) {
                         root.currentPage = index
                         root.statusText = qsTr("Navigate to annotation %1 on page %2.").arg(id).arg(index + 1)
                     }
                     onAnnotationDeleteRequested: function(id) {
-                        root.annotations = root.annotations.filter(function(item) { return item.id !== id })
-                        root.statusText = qsTr("Annotation removal accepted for %1.").arg(id)
+                        if (annotationDocument.removeAnnotation(id)) {
+                            root.selectedAnnotationId = ""
+                            root.statusText = qsTr("Annotation %1 removed from the document.").arg(id)
+                        } else root.statusText = annotationDocument.errorString
                     }
                 }
             }

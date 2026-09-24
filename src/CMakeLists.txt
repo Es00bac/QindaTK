@@ -62,6 +62,7 @@ qt_add_qml_module(qindatk
         core/workspace_session.cpp core/workspace_session.h
         core/job_model.cpp core/job_model.h
         core/notification_model.cpp core/notification_model.h
+        core/pdf_annotation_document.cpp core/pdf_annotation_document.h
         core/expression_evaluator.cpp core/expression_evaluator.h
         core/find_replace_service.cpp core/find_replace_service.h
         core/diff_model.cpp core/diff_model.h
@@ -243,6 +244,10 @@ target_include_directories(qindatk PUBLIC
 target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
     PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2)
+if(POPPLER_QT6_FOUND)
+    target_link_libraries(qindatk PRIVATE PkgConfig::POPPLER_QT6)
+    target_compile_definitions(qindatk PRIVATE QINDATK_HAVE_POPPLER_QT6=1)
+endif()
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
 

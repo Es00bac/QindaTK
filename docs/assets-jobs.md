@@ -81,8 +81,14 @@ a rendered PNG for zero-based `pageIndex` and clockwise `rotation` (0, 90,
 page points for search and selection. PDF requests use Poppler's
 `pdfinfo`/`pdftoppm`/`pdftotext`
 executables in the worker process, with a 30-second timeout and 32 MiB encoded
-output limit; missing tools produce an explicit `Unsupported` result. Video
-`metadata`, `thumbnail`, and `frame` requests use installed FFmpeg command-line
+output limit; missing tools produce an explicit `Unsupported` result.
+`PdfAnnotationDocument` is a separate optional Poppler Qt6 writer for local
+PDFs. It supports note and highlight records with stable IDs and atomic
+`saveAs(path)` copies. Its bounds use unrotated page points from the top left,
+matching `pdf-text` geometry. A build without Poppler Qt6 exposes an empty
+annotation capability list and a specific unsupported error.
+
+Video `metadata`, `thumbnail`, and `frame` requests use installed FFmpeg command-line
 tools in the worker. A numeric `frameId` selects that exact zero-based decoded
 frame; otherwise `timeTicks * rateDenominator / rateNumerator` selects a seek
 time and the result reports `exactFrameIndex: false`. These subprocesses have

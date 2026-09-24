@@ -28,6 +28,8 @@ sample host-owned output issues.
 The [PDF reader and review fixture](pdf-review/Main.qml) exercises `PdfView`
 and `PdfAnnotationTools` on a two-page PDF. The default asset backend renders
 pages and extracts searchable word positions through Poppler tools.
+When Poppler Qt6 is installed, `PdfAnnotationDocument` backs the fixture's
+note/highlight requests; `saveAs(path)` persists a copy with stable IDs.
 
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real

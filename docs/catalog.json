@@ -34059,6 +34059,96 @@
       "bridge": false
     },
     {
+      "name": "PdfAnnotationDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A local PDF annotation writer. Coordinates are unrotated page points with the origin at the top left, matching pdf-text word rectangles.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/pdf_annotation_document.h",
+      "properties": [
+        {
+          "name": "sourcePath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "annotations",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "capabilities",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "dirty",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorString",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "addAnnotation",
+          "returns": "QString",
+          "parameters": "int pageIndex, const QString &kind, const QVariantMap &boundsPoints, const QString &text, const QString &author = {}"
+        },
+        {
+          "name": "removeAnnotation",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "saveAs",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "PolarDataModel",
       "kind": "cpp",
       "base": "QAbstractListModel",

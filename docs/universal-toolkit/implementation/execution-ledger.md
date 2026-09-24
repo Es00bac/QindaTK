@@ -89,7 +89,7 @@ as though a later fix had already passed the earlier run.
 | [WP-051 — Add publishing structure, styles and tables](phase-04-office.md#wp-051) | 04 | Sol | active | [Four authoring controls integrated; production document operations pending](evidence/WP-051.md) |
 | [WP-052 — Add equations, references and document review](phase-04-office.md#wp-052) | 04 | Sol | active | [Equation, reference and review request controls integrated; semantic document backend pending](evidence/WP-052.md) |
 | [WP-053 — Implement printing and publishing preflight](phase-04-office.md#wp-053) | 04 | Sol | active | [Three-page PDF export and preview/preflight controls integrated; native print jobs and backend checks pending](evidence/WP-053.md) |
-| [WP-054 — Implement PDF viewing and annotation](phase-04-office.md#wp-054) | 04 | Sol | active | [PDF controls, page rendering and text coordinates integrated; annotation writer pending](evidence/WP-054.md) |
+| [WP-054 — Implement PDF viewing and annotation](phase-04-office.md#wp-054) | 04 | Sol | active | [PDF controls, page/text backend and note/highlight save/reopen integrated; advanced operations pending](evidence/WP-054.md) |
 | [WP-055 — Implement a workbook and spreadsheet editing stack](phase-04-office.md#wp-055) | 04 | Sol | active | Isolated Opus lane; G-1–G-8 and full package scope remain under review |
 | [WP-056 — Implement slide authoring and presentation](phase-04-office.md#wp-056) | 04 | Sol | planned | — |
 | [WP-057 — Implement notebooks and structured blocks](phase-04-office.md#wp-057) | 04 | Sol | planned | — |
