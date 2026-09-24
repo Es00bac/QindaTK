@@ -449,10 +449,19 @@ job and verifies it before the automated check succeeds.
 
 ## scientific-plot
 
-`scientific-plot/Main.qml` plots a known exponential response with host-supplied
-one-sigma measurements. It uses `ScientificDataset`, `ScientificPlot`, shared
-`ChartAxis` calibration and the uncertainty renderer's PNG/SVG export path.
-Run `qtk-preview examples/scientific-plot/Main.qml --grab figure.png --size 1080x680`.
+`scientific-plot/Main.qml` shows two `ScientificPlot` figures: a known
+exponential response with asymmetric host-supplied one-sigma error bars, a gap,
+a model trace and two annotations; and a sampled Gaussian field (`ScientificGrid`,
+bilinear colour map with one missing node) under scatter probes with X and Y
+uncertainty. Run `qtk-preview examples/scientific-plot/Main.qml --grab figure.png --size 1280x680`.
+
+## scientific-plot-3d
+
+`scientific-plot-3d/Main.qml` shows `ScientificPlot3D` with a sampled saddle
+surface (a small hole of missing nodes), three 3D probe points, an
+interpolation toggle and the source table. Use `qtk-preview --gpu` for the
+Qt Quick 3D renderer; the software adaptation draws the same scene with the
+export painter.
 
 ## workbook
 

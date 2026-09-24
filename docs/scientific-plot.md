@@ -1,49 +1,160 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
-# Scientific plotting (WP-085 first slice)
+# Scientific plotting (WP-085)
 
-`Tk.ScientificDataset` accepts one-dimensional, ordered float64 samples:
-`{id, x, y, sigmaY}`. `id` is stable and unique; X values are finite and
-strictly increasing. `y` and `sigmaY` are numeric, finite, and `sigmaY` is
-nonnegative. `missingY: true` retains a row with no drawable estimate. A
-missing or null `sigmaY` means the measurement has no supplied interval; it
-still appears as a point. The toolkit does not calculate uncertainty from
-measurements. The supplied endpoints are `y ± sigmaY`, explicitly labeled
-as one standard deviation, not a confidence interval.
+Scientific plots show measured and computed float64 data with declared units,
+explicit gaps and host-supplied uncertainty, and export figures that carry
+their own provenance. Decisions: [D-138 to D-141](decisions-domains.md#d-138--scientific-data-is-float64-with-explicit-gaps-and-exact-units).
 
-Set `sourceId`, `xUnit`, `yUnit` and optional parameter map before
-`replaceSamples(rows)`. Replacement is atomic and bounded to 100,000 rows.
-`shape` reports `[N,2]`, meaning N samples with X and Y coordinates;
-`precision` reports `float64`. The model exposes every row in a virtual data
-table and full-resolution CSV, including missing Y values. Its `intervals`
-projection is an `UncertaintyModel` used by the existing renderer. This keeps
-one calibrated axis and export implementation for scientific and declared
-interval displays.
+| Type | Role |
+|---|---|
+| `ScientificDataset` | A series of samples (trace or scatter, 2D or 3D) |
+| `ScientificGrid` | A sampled surface z(x, y) on a rectilinear lattice |
+| `ScientificPlot` / `ScientificPlotRenderer` | 2D figure: series, surface colour map, annotations |
+| `ScientificFigureComposer` | Multi-panel figure export |
+| `ScientificPlot3D` / `ScientificScene3D` | 3D surface and scatter plot |
 
-`Tk.ScientificPlot` accepts that dataset, an explicit `title`, and axis domains.
-Its two `ChartAxis` objects support numeric and logarithmic coordinates. The
-units must match the dataset. `dataAt(pixelX,pixelY)` converts a point inside
-the plot to exact data coordinates and units. `projected(id)` maps a sample to
-pixels. Click or arrow-key selection retains the sample ID; the full source
-table provides the text alternative. Painting is bounded by the existing
-uncertainty renderer's visible sample limit.
+## Data semantics
 
-For a logarithmic axis, set strictly positive domain limits. Samples and
-uncertainty endpoints outside that positive domain cannot be projected and
-are omitted from the figure; they remain in the full source table and export
-metadata. Choose a linear axis when zero or signed measurements matter.
+**Precision.** Every coordinate, value and uncertainty offset is a C++
+`double` (IEEE float64) and is exported with 17 significant digits, which
+round-trips exactly. `precision` reports `float64`.
 
-`exportPng(path,size)` and `exportSvg(path,size)` use the same painter as the
-screen. The PNG text chunk `QindaTK.IntervalData` and SVG metadata element
-`qindatk-intervals` contain an embedded `figure` object with the source ID,
-units, float64 precision, shape, host parameters, all source samples and a
-SHA-256 digest of the canonical sample array. Metadata is deterministic for
-identical inputs. It also records figure title, axis kinds, domains, viewport,
-mode and output pixel size. A host can save `metadataJson()` and `csvData()` as
-sidecars. Use a fixed output size and declared font environment for visually
-reproducible exports.
+**Shape and dimensions.** A `ScientificDataset` has `dimensions` 2 (`x`, `y`)
+or 3 (`x`, `y`, `z`), declared before samples; `shape` is `[N,dimensions]`.
+A `ScientificGrid` has `shape` `[rows,columns]`: column `c` is `xs[c]`, row
+`r` is `ys[r]`, and row 0 is the **smallest** Y (unlike `HeatmapModel`,
+whose row 0 is the top). Values are row-major.
 
-This slice covers one 2D measurement series and symmetric Y uncertainty.
-Multiple series, asymmetric/X uncertainty, 3D scatter/surfaces, array chunk
-providers and figure layout composition remain WP-085 work.
+**Ordering.** `kind: Trace` requires strictly increasing X; traces are drawn
+as lines, support `Band` mode and binary-searched range reads. `kind: Scatter`
+accepts any finite X, including repeats, and is drawn as markers.
 
-Example: [scientific-plot/Main.qml](../examples/scientific-plot/Main.qml).
+**Missing values.** Input must be finite; `NaN` and infinities are rejected,
+never treated as gaps. A missing Y is declared with `missingY: true`; the
+row stays in the table, CSV and metadata, and is drawn as a gap marker on the
+X axis. It breaks a trace line and is never drawn as zero. A missing grid
+node is `null`. Interpolation that would give a missing node a nonzero weight
+returns missing, so a hole is never filled; nodes next to a hole keep their
+exact values.
+
+**Uncertainty.** The toolkit never estimates uncertainty. Offsets are
+distances from the estimate, nonnegative and finite, with finite endpoints:
+`sigmaY` (symmetric) or `sigmaYLow` + `sigmaYHigh` (asymmetric), and likewise
+`sigmaX` or `sigmaXLow` + `sigmaXHigh`. Mixing both forms, or giving only one
+side, rejects the batch. Error bars are labelled "host supplied ±1σ"; they
+are not confidence intervals. Trace samples also project to an
+`UncertaintyModel` (`intervals`) for `UncertaintyView`.
+
+**Units.** Units are strings compared exactly. The renderer never converts
+units: every series, the surface and every annotation must match the axis
+units, or `problem` names the mismatch and the figure draws only that message.
+
+**Bounds.** A dataset holds at most 100,000 samples; a grid 2–4,096 nodes per
+axis and at most 1,048,576 nodes. Replacement is atomic: any invalid row
+rejects the whole batch and leaves the previous data, metadata and model rows
+unchanged. `samplesInRange(xMin, xMax, limit)` returns at most 10,000 rows;
+`ScientificGrid.window(...)` returns at most 512 × 512 real nodes at an
+integer stride.
+
+## 2D figures
+
+```qml
+Tk.ScientificPlot {
+    dataset: measured          // series 0 (first-slice API)
+    series: [model, probes]    // more series
+    surface: field             // optional colour map (ScientificGrid)
+    annotations: notes         // ChartAnnotationModel: Point, VerticalLine, HorizontalLine
+    xLabel: "Time"; yLabel: "Response"
+    title: "Exponential decay"
+}
+```
+
+`xAxis`/`yAxis` are `ChartAxis` objects (numeric or logarithmic) whose units
+follow the first series (or the surface). Ticks are calibrated from the
+visible domain: 1/2/5 × 10ⁿ steps on linear axes; every decade on log axes,
+plus 2 and 5 multiples while fewer than three decades are visible. Axis
+titles read `Label (unit)`. On a log axis, samples with non-positive values
+cannot be projected; they are counted by `omittedCount()`, named in the
+footer and summary, and stay in the table and metadata.
+
+The surface is sampled once per raster pixel centre (raster at most
+1,024 × 1,024 pixels) with `surfaceInterpolation` (`Nearest`: nearest node,
+exact midpoints go to the lower index; `Bilinear`). Colours come from the
+theme's thermal ramp over the grid's finite Z range; the colour bar shows the
+range and Z unit. Missing nodes show the missing colour.
+
+Series colours cycle through theme roles. A legend appears with two or more
+series. Trace markers are drawn while they cannot touch (painted samples ×
+4 × point radius ≤ plot width); denser traces read as lines. Selection:
+click a marker, or Left/Right to step samples and Up/Down to move to the
+next series at the nearest X. `selectedSample` includes the
+series index and source ID. `dataAt(px, py)` returns exact data coordinates,
+units and, over a surface, the interpolated Z.
+
+**Downsampling.** At most `paintPointLimit` samples per series are painted.
+A trace larger than the limit is split into `limit / 5` equal index buckets;
+each keeps its first, minimum-Y, maximum-Y and last present sample and its
+first gap (an M4 envelope), so no peak and no gap disappears. A scatter series
+keeps every k-th sample plus the samples with extreme X and Y.
+`paintedIndices(series)` exposes the exact choice, and export metadata
+records the method and painted counts.
+
+**Textual alternative.** `showDataTable` swaps the figure for a table of the
+series chosen by `tableSource` (−1: the surface nodes). `summary` is a plain
+sentence description (axes, series, ranges, surface, notes, omissions) used
+as the accessible description. `csvData()` is a long table of every series.
+
+## 3D plots
+
+`ScientificPlot3D` shows a `ScientificGrid` surface and/or a 3D scatter
+`ScientificDataset` (`dimensions: 3`) inside the domain cube `xMinimum` …
+`zMaximum` (`fitDomain()` sets it from the data).
+
+- **Transform.** Data (x, y, z) maps to scene (X, Y, Z) = (nx, nz, −ny) ×
+  100 with n = 2(v − min)/(max − min) − 1: data Z is up. `toScene`,
+  `fromScene` and `project(x, y, z)` expose it. The scene boundary is float32;
+  data stays float64 on both sides of it.
+- **Interpolation.** The surface is resampled on an explicit
+  `resolution` × `resolution` lattice (2–256) spanning the grid, with
+  `interpolation` `Nearest` or `Bilinear`. With a resolution equal to the
+  grid size and a uniform grid, lattice nodes are the grid nodes. A cell
+  with a missing corner is a hole (`holeCount`), never a zero.
+  `latticeNode(r, c)` and `csvData()` give the displayed lattice.
+- **Camera.** An orbit camera around the cube centre: `azimuth`, `elevation`
+  (clamped to ±89°), `distance`, vertical `fieldOfView`, near/far clip. Drag
+  or arrow keys orbit; wheel or +/− zoom; click selects the nearest point.
+- **Rendering.** On RHI backends Qt Quick 3D draws the surface, points and
+  frame from `ScientificGeometry3D` with a camera bound to the scene's
+  camera properties; otherwise (and with `forceSoftware`) the software view
+  draws the same scene with the export painter.
+
+## Export and provenance
+
+`exportPng(path, size)` and `exportSvg(path, size)` (2D figure, composer and
+3D scene) paint with the same code as the screen, at an explicit pixel size
+up to 8,192². Metadata is embedded as a PNG text chunk
+(`QindaTK.ScientificFigure`, `QindaTK.ScientificComposite`,
+`QindaTK.Scientific3D`) or a base64 JSON `<metadata>` element
+(`qindatk-scientific-figure`, `qindatk-scientific-composite`,
+`qindatk-scientific-3d`). It contains every source's ID, label, kind, shape,
+precision, units, host parameters, full samples or a SHA-256 digest of the
+lattice values, and all render parameters: title, axis kinds/domains/units,
+viewport, mode, sampling method and painted counts, surface interpolation,
+colour domain and raster size, annotations, and for 3D the domain, mapping,
+lattice resolution, triangle/hole counts and full camera. Identical inputs,
+size and fonts give byte-identical files. `metadataJson(width, height)` and
+`csvData()` provide sidecars.
+
+`ScientificFigureComposer` lays out `panels` (each `plot.renderer`) in
+`columns`, labels them (a), (b), …, and embeds each panel's metadata.
+
+## Scope notes
+
+Performance measurement at scale, other platforms and Qt versions,
+screen-reader runs, translation and output-fidelity comparison belong to the
+qualification packages WP-088 to WP-094. Out-of-core arrays larger than the
+in-memory bounds above are not provided: hosts window their data into these
+models.
+
+Examples: [scientific-plot/Main.qml](../examples/scientific-plot/Main.qml),
+[scientific-plot-3d/Main.qml](../examples/scientific-plot-3d/Main.qml).
