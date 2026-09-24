@@ -20534,6 +20534,113 @@
       ]
     },
     {
+      "name": "PathEditor",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Overlay this on a CanvasView. The document owns every node edit and undo; the item only previews a drag until pointer release.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PathEditor.qml",
+      "properties": [
+        {
+          "name": "document",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "surface",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "objectId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Edit path nodes and Bézier handles\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nodes",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "objectMatrix",
+          "type": "var",
+          "default": "[1, 0, 0, 1, 0, 0]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "geometryRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "editRejected",
+          "parameters": "string message"
+        }
+      ],
+      "methods": [
+        {
+          "name": "refresh",
+          "parameters": ""
+        },
+        {
+          "name": "mapLocal",
+          "parameters": "x, y"
+        },
+        {
+          "name": "handlePoint",
+          "parameters": "index, part"
+        },
+        {
+          "name": "localFromView",
+          "parameters": "viewPoint"
+        },
+        {
+          "name": "finish",
+          "parameters": "index, part, viewPoint"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "path",
+        "pathEditor"
+      ]
+    },
+    {
       "name": "PdfAnnotationTools",
       "kind": "qml",
       "base": "Item",
@@ -38426,6 +38533,41 @@
           "name": "addPolyline",
           "returns": "qulonglong",
           "parameters": "const QVariantList &points, const QColor &stroke, qreal strokeWidth"
+        },
+        {
+          "name": "addPath",
+          "returns": "qulonglong",
+          "parameters": "const QVariantList &nodes, bool closed, const QColor &fill, const QColor &stroke, qreal strokeWidth"
+        },
+        {
+          "name": "pathNodes",
+          "returns": "QVariantList",
+          "parameters": "qulonglong id"
+        },
+        {
+          "name": "movePathPart",
+          "returns": "bool",
+          "parameters": "qulonglong id, int index, const QString &part, qreal x, qreal y"
+        },
+        {
+          "name": "insertPathNode",
+          "returns": "bool",
+          "parameters": "qulonglong id, int index, const QVariantMap &node"
+        },
+        {
+          "name": "removePathNode",
+          "returns": "bool",
+          "parameters": "qulonglong id, int index"
+        },
+        {
+          "name": "setPathClosed",
+          "returns": "bool",
+          "parameters": "qulonglong id, bool closed"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &filePath"
         },
         {
           "name": "setObjectTransform",

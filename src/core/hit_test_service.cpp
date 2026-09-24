@@ -21,6 +21,11 @@ QPolygonF grabVertices(const CanvasObject &o)
                                                           o.rect.bottomRight(), o.rect.bottomLeft()}));
     case CanvasShape::Polyline:
         return o.transform.map(QPolygonF(o.points));
+    case CanvasShape::Path: {
+        QPolygonF nodes;
+        for (const auto &node : o.pathNodes) nodes << node.anchor;
+        return o.transform.map(nodes);
+    }
     case CanvasShape::Ellipse:
         return {};
     }

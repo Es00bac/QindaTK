@@ -253,7 +253,7 @@ void TstCanvasPersistence::decoderRejectsInvalidFilesBeforeAdoption()
          ErrorCode::Unsupported, QStringLiteral("images"), CanvasDocumentLimits{.maximumImageBytes = 4096}},
         {"future version", [&] {
              QByteArray bytes = CanvasDocumentFormat::encode(valid);
-             qToBigEndian<quint32>(3, bytes.data() + CanvasDocumentFormat::SignatureBytes);
+             qToBigEndian<quint32>(4, bytes.data() + CanvasDocumentFormat::SignatureBytes);
              return resealed(bytes);
          }, ErrorCode::Unsupported, QStringLiteral("version")},
         {"checksum", [&] {

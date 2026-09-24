@@ -60,7 +60,7 @@ anchor fixed on screen. `panBy(delta)` moves content by `delta` view pixels.
 ## Object model
 
 `CanvasObject` has a stable 64-bit id that is never reused within a document,
-plus a layer, a shape (`Rect`, `Ellipse`, `Polyline`, `Image`), local
+plus a layer, a shape (`Rect`, `Ellipse`, `Polyline`, `Image`, `Path`), local
 geometry, a local→document `transform`, fill, stroke, and stroke width (in
 document units, not scaled by the object transform). It also carries
 `visible`, `locked` and `z`. Layers carry `order`, `visible` and `locked`.
@@ -68,6 +68,13 @@ An object is effectively hidden or locked when it or its layer is.
 
 Paint order is `(layer order, z)`, ties broken by id. Picking uses the
 reverse order.
+
+`Path` stores one ordered contour of cubic nodes in local coordinates. Each
+node has an anchor and absolute incoming/outgoing controls; coincident
+controls create straight edges. Closed paths support odd-even or nonzero
+winding fill. Strokes also carry cap, join and bounded dash settings. Node and
+handle edits are reversible `CanvasEdit` changes; see
+[vector authoring](vector-authoring.md).
 
 `Image` objects reference a document-owned `CanvasTiledImage`: a grid of
 immutable 256² `QImage` tiles. Renderers and GPU uploads share those tiles
@@ -78,7 +85,7 @@ Raster painting also has a focused reference backend in
 tiles and optional grayscale masks independently from CanvasObject's immutable
 image assets; the two document contracts are not yet unified.
 
-Subobject parts on a hit are `Vertex` (index = corner or polyline point),
+Subobject parts on a hit are `Vertex` (index = corner, polyline point or path anchor),
 `Segment` (index = edge), `Stroke` (ellipse outline), `Fill`, and
 `ImageTile` (index = row × columns + column).
 
@@ -153,8 +160,8 @@ hashes; the next edit detaches the document's copy. A worker encodes the
 state.
 
 <a id="native-format"></a>
-The file is big-endian binary: the signature `QTKCANVS`, version 2 (the reader
-also accepts version 1), the
+The file is big-endian binary: the signature `QTKCANVS`, version 3 (the reader
+also accepts versions 1 and 2), the
 document UUID, revision and reset generation, then the exact 64-bit
 `nextObject`/`nextLayer`/`nextImage` counters and `nextZ`, the page rectangle
 and colour, an owned output RGB ICC profile (or empty for sRGB), the session
@@ -167,11 +174,12 @@ premultiplied rows at their stored size, so pixels round-trip exactly.
 `addImage` normalizes tiles to that format. Tiles are not compressed:
 `qUncompress` does not bound its output to the declared size, so compressed
 tiles would first need a bounded inflater.
-Each version 2 object has a bounded managed-fill payload after its name.
+Each version 2 or newer object has a bounded managed-fill payload after its name.
 Solid fills own their tagged channels and ICC bytes; gradient fills own their
-typed stop definition and stop ICC bytes. The `qindatk.canvas-document.v1`
-session schema ID remains stable while the native file reader handles both
-binary versions. `setOutputProfileIcc(bytes)` changes the document's output
+typed stop definition and stop ICC bytes. Version 3 adds path nodes, closure,
+fill rule, cap, join and dash pattern to each object. The
+`qindatk.canvas-document.v1` session schema ID remains stable while the native
+file reader handles all three binary versions. `setOutputProfileIcc(bytes)` changes the document's output
 reference and is persisted; it is currently a document-setting change outside
 object undo history.
 
@@ -190,6 +198,7 @@ Each case below fails with a field path and changes nothing.
 | Decoded image pixels (all images) | 256 MiB |
 | Names / extensions JSON | 4096 characters / 16 MiB |
 | Output ICC / managed fill per object | 16 MiB / 24 MiB |
+| Path nodes / dash entries per object | 1,000,000 combined points / 4096 |
 
 The commit validator uses the same bounds. It also tracks the exact encoded
 size and refuses an edit that would grow the file past the limit while
@@ -342,6 +351,8 @@ scene-graph path keeps geometry runs for other objects. The supported output
 path is RGB and relative colorimetric, with black-point compensation off.
 Other rendering intents and soft proof requests report `colorError` explicitly;
 CMYK and arbitrary working-space painting are not supported.
+Paths and nondefault cap, join or dash strokes use the composited raster-tile
+path on the scene graph so cubic geometry and winding match software output.
 
 Both providers drop sub-pixel objects to a single device pixel, draw stroke
 widths of at least one device pixel, and flatten ellipses with

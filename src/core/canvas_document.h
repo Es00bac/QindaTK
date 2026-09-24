@@ -215,6 +215,16 @@ public:
                                       const QColor &stroke = {}, qreal strokeWidth = 0);
     Q_INVOKABLE qulonglong addPolyline(const QVariantList &points, const QColor &stroke,
                                        qreal strokeWidth);
+    // Nodes are {x,y,inX,inY,outX,outY} in local coordinates; omitted controls
+    // default to the anchor. Every gesture-end call is one undoable edit.
+    Q_INVOKABLE qulonglong addPath(const QVariantList &nodes, bool closed,
+                                  const QColor &fill, const QColor &stroke, qreal strokeWidth);
+    Q_INVOKABLE QVariantList pathNodes(qulonglong id) const;
+    Q_INVOKABLE bool movePathPart(qulonglong id, int index, const QString &part, qreal x, qreal y);
+    Q_INVOKABLE bool insertPathNode(qulonglong id, int index, const QVariantMap &node);
+    Q_INVOKABLE bool removePathNode(qulonglong id, int index);
+    Q_INVOKABLE bool setPathClosed(qulonglong id, bool closed);
+    Q_INVOKABLE bool exportSvg(const QString &filePath);
     // matrix = [m11, m12, m21, m22, dx, dy] (QTransform affine order)
     Q_INVOKABLE bool setObjectTransform(qulonglong id, const QVariantList &matrix);
     Q_INVOKABLE bool setObjectVisible(qulonglong id, bool visible);

@@ -167,7 +167,7 @@ QVariantMap CanvasDocument::objectInfo(qulonglong id) const
     if (!o) {
         return {};
     }
-    static const char *const kinds[] = {"rect", "ellipse", "polyline", "image"};
+    static const char *const kinds[] = {"rect", "ellipse", "polyline", "image", "path"};
     const QTransform &t = o->transform;
     const QRectF b = m_bounds.value(o->id);
     return {{QStringLiteral("id"), qulonglong(o->id)},

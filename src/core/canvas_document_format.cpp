@@ -22,9 +22,9 @@ constexpr qsizetype minimumLayerRecord = 8 + 4 + 4 + 1 + 1;
 constexpr qsizetype minimumImageRecord = 8 + 4 + 4 + 4 + 4;
 constexpr qsizetype minimumTileRecord = 4 + 4 + 4;
 constexpr qsizetype minimumObjectRecordV1 = 8 + 8 + 1 + 32 + 4 + 72 + 2 * colorBytes + 8 + 8 + 8 + 1 + 1 + 4;
-constexpr qsizetype minimumObjectRecord = minimumObjectRecordV1 + 4;
+constexpr qsizetype minimumObjectRecordV2 = minimumObjectRecordV1 + 4;
+constexpr qsizetype minimumObjectRecord = minimumObjectRecordV2 + 12;
 // Keeps (order << 40) in CanvasDocumentAdapter::paintKey inside 63 bits.
-constexpr int layerOrderBound = 1 << 22;
 constexpr quint64 idCeiling = IdCeiling;
 
 OperationError problem(ErrorCode code, const QString &message, const QString &field = {})
@@ -37,12 +37,6 @@ void configure(QDataStream &stream)
     stream.setVersion(QDataStream::Qt_6_0);
     stream.setByteOrder(QDataStream::BigEndian);
     stream.setFloatingPointPrecision(QDataStream::DoublePrecision);
-}
-
-bool finite(const QRectF &r)
-{
-    return std::isfinite(r.x()) && std::isfinite(r.y()) && std::isfinite(r.width())
-        && std::isfinite(r.height());
 }
 
 bool validColor(const QColor &color)
@@ -163,7 +157,8 @@ bool recognizes(const QByteArray &prefix)
 qsizetype objectRecordBytes(const CanvasObject &object)
 {
     return minimumObjectRecord + qsizetype(object.points.size()) * 16
-        + qsizetype(object.name.size()) * 2 + object.managedFill.size();
+        + qsizetype(object.name.size()) * 2 + object.managedFill.size()
+        + qsizetype(object.pathNodes.size()) * 48 + qsizetype(object.dashPattern.size()) * 8;
 }
 
 qsizetype layerRecordBytes(const CanvasLayer &layer)
@@ -184,50 +179,6 @@ qsizetype imageBytes(const CanvasTiledImage &image)
 }
 
 
-OperationError validateLayer(const CanvasLayer &layer, CanvasLayerId id, const CanvasDocumentLimits &limits)
-{
-    if (id == 0 || id >= idCeiling || layer.id != id)
-        return problem(ErrorCode::InvalidArgument, QStringLiteral("Invalid layer identity"), QStringLiteral("layers.id"));
-    if (layer.name.size() > limits.maximumNameLength)
-        return problem(ErrorCode::Unsupported, QStringLiteral("Layer name is too long"), QStringLiteral("layers.name"));
-    if (layer.order <= -layerOrderBound || layer.order >= layerOrderBound)
-        return problem(ErrorCode::Validation, QStringLiteral("Layer order is out of range"), QStringLiteral("layers.order"));
-    return {};
-}
-
-OperationError validateImage(const CanvasTiledImage &image, CanvasImageId id, const CanvasDocumentLimits &limits)
-{
-    if (id == 0 || id >= idCeiling || image.id != id)
-        return problem(ErrorCode::InvalidArgument, QStringLiteral("Invalid image identity"), QStringLiteral("images.id"));
-    if (image.size.width() < 1 || image.size.height() < 1
-        || image.size.width() > limits.maximumImageSide || image.size.height() > limits.maximumImageSide)
-        return problem(ErrorCode::Unsupported, QStringLiteral("Image dimensions exceed the limit"), QStringLiteral("images.size"));
-    if (image.tileSize < limits.minimumTileSize || image.tileSize > limits.maximumTileSize)
-        return problem(ErrorCode::Validation, QStringLiteral("Invalid image tile size"), QStringLiteral("images.tileSize"));
-    if (qint64(image.tiles.size()) != qint64(image.columns()) * image.rows())
-        return problem(ErrorCode::Validation, QStringLiteral("Image tile grid is incomplete"), QStringLiteral("images.tiles"));
-    for (int row = 0; row < image.rows(); ++row) {
-        for (int column = 0; column < image.columns(); ++column) {
-            const QRect expected = image.tileRect(column, row);
-            const QImage &tile = image.tiles.at(row * image.columns() + column);
-            if (tile.isNull() || tile.format() != QImage::Format_ARGB32_Premultiplied
-                || tile.width() < expected.width() || tile.width() > image.tileSize
-                || tile.height() < expected.height() || tile.height() > image.tileSize)
-                return problem(ErrorCode::Validation, QStringLiteral("Invalid image tile"), QStringLiteral("images.tiles"));
-        }
-    }
-    if (imageBytes(image) > limits.maximumImageBytes)
-        return problem(ErrorCode::Unsupported, QStringLiteral("Image exceeds the decoded size limit"), QStringLiteral("images.size"));
-    return {};
-}
-
-OperationError validatePage(const QRectF &rect, const QColor &color)
-{
-    if (!finite(rect) || !rect.isValid() || !color.isValid() || !validColor(color))
-        return problem(ErrorCode::Validation, QStringLiteral("Invalid page rectangle or colour"), QStringLiteral("page"));
-    return {};
-}
-
 std::optional<SnapshotHeader> inspect(const QByteArray &bytes, OperationError *error)
 {
     if (error) *error = {};
@@ -244,7 +195,7 @@ std::optional<SnapshotHeader> inspect(const QByteArray &bytes, OperationError *e
     quint64 revision = 0, generation = 0;
     if (!in.raw(signature, SignatureBytes) || !in.read(version))
         return fail(problem(ErrorCode::InvalidArgument, QStringLiteral("Truncated canvas header")));
-    if (version != 1 && version != Version)
+    if (version < 1 || version > Version)
         return fail(problem(ErrorCode::Unsupported, QStringLiteral("Unsupported canvas format version"), QStringLiteral("version")));
     if (!in.raw(uuid, 16) || !in.read(revision) || !in.read(generation))
         return fail(problem(ErrorCode::InvalidArgument, QStringLiteral("Truncated canvas header")));
@@ -306,6 +257,15 @@ QByteArray encode(const CanvasDocumentState &state, OperationError *error)
                 << quint8(o.visible) << quint8(o.locked);
         w.text(o.name);
         w.bytes(o.managedFill);
+        w.out() << quint32(o.pathNodes.size());
+        for (const auto &node : o.pathNodes)
+            w.out() << double(node.anchor.x()) << double(node.anchor.y())
+                    << double(node.in.x()) << double(node.in.y())
+                    << double(node.out.x()) << double(node.out.y());
+        w.out() << quint8(o.pathClosed) << quint8(o.fillRule)
+                << quint8(o.strokeCap) << quint8(o.strokeJoin)
+                << quint32(o.dashPattern.size());
+        for (qreal dash : o.dashPattern) w.out() << double(dash);
     }
     if (!w.ok()) {
         if (error) *error = problem(ErrorCode::BackendFailure, QStringLiteral("Canvas encoding failed"));
@@ -448,7 +408,8 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
 
     quint32 objectCount = 0;
     if (!in.read(objectCount) || qint64(objectCount)
-        * (version >= 2 ? minimumObjectRecord : minimumObjectRecordV1) > in.remaining()) return truncated();
+        * (version >= 3 ? minimumObjectRecord : version == 2 ? minimumObjectRecordV2
+                        : minimumObjectRecordV1) > in.remaining()) return truncated();
     if (objectCount > limits.maximumObjects)
         return fail(problem(ErrorCode::Unsupported, QStringLiteral("Too many canvas objects"), QStringLiteral("objects")));
     state.objects.reserve(objectCount);
@@ -477,6 +438,34 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
             || !in.text(o.name, limits.maximumNameLength))
             return truncated();
         if (version >= 2 && !in.bytes(o.managedFill, 24 * 1024 * 1024)) return truncated();
+        if (version >= 3) {
+            quint32 nodeCount = 0, dashCount = 0;
+            quint8 closed = 0, rule = 0, cap = 0, join = 0;
+            if (!in.read(nodeCount) || nodeCount > limits.maximumPointsPerObject
+                || totalPoints + nodeCount > limits.maximumTotalPoints
+                || qint64(nodeCount) * 48 > in.remaining()) return truncated();
+            totalPoints += nodeCount;
+            o.pathNodes.reserve(nodeCount);
+            for (quint32 n = 0; n < nodeCount; ++n) {
+                double ax, ay, ix, iy, ox, oy;
+                if (!in.read(ax) || !in.read(ay) || !in.read(ix) || !in.read(iy)
+                    || !in.read(ox) || !in.read(oy)) return truncated();
+                o.pathNodes.append({{ax, ay}, {ix, iy}, {ox, oy}});
+            }
+            if (!in.read(closed) || !in.read(rule) || !in.read(cap) || !in.read(join)
+                || !in.read(dashCount) || dashCount > 4096
+                || qint64(dashCount) * 8 > in.remaining()) return truncated();
+            o.pathClosed = closed;
+            o.fillRule = Qt::FillRule(rule);
+            o.strokeCap = Qt::PenCapStyle(cap);
+            o.strokeJoin = Qt::PenJoinStyle(join);
+            o.dashPattern.reserve(dashCount);
+            for (quint32 d = 0; d < dashCount; ++d) {
+                double length;
+                if (!in.read(length)) return truncated();
+                o.dashPattern.append(length);
+            }
+        }
         o.id = id;
         o.layer = layer;
         o.shape = CanvasShape(shape);

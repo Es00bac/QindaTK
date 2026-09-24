@@ -45,7 +45,9 @@ bool CanvasStyleModel::apply(const QVariantList &selectedIds, const QVariantMap 
     if (style.isEmpty()) return fail(tr("No style change was requested"));
     for (auto it = style.cbegin(); it != style.cend(); ++it) {
         if (it.key() != QLatin1String("fill") && it.key() != QLatin1String("stroke")
-            && it.key() != QLatin1String("strokeWidth"))
+            && it.key() != QLatin1String("strokeWidth")
+            && it.key() != QLatin1String("dash") && it.key() != QLatin1String("cap")
+            && it.key() != QLatin1String("join") && it.key() != QLatin1String("fillRule"))
             return fail(tr("This style property is not supported yet: %1").arg(it.key()));
     }
     QColor fill, stroke;
@@ -60,6 +62,29 @@ bool CanvasStyleModel::apply(const QVariantList &selectedIds, const QVariantMap 
                              ? style.value(QStringLiteral("strokeWidth")).toDouble(&widthOk) : 0;
     if (!widthOk || !std::isfinite(width) || width < 0)
         return fail(tr("Invalid stroke width"));
+    QVector<qreal> dash;
+    if (style.contains(QStringLiteral("dash"))) {
+        const QVariantList values = style.value(QStringLiteral("dash")).toList();
+        if (values.size() % 2 || values.size() > 4096) return fail(tr("Invalid dash pattern"));
+        for (const QVariant &value : values) {
+            bool ok = false;
+            const double length = value.toDouble(&ok);
+            if (!ok || !std::isfinite(length) || length <= 0 || length > 1e6)
+                return fail(tr("Invalid dash pattern"));
+            dash.append(length);
+        }
+    }
+    const QString cap = style.value(QStringLiteral("cap")).toString();
+    if (style.contains(QStringLiteral("cap")) && cap != QLatin1String("butt")
+        && cap != QLatin1String("round") && cap != QLatin1String("square"))
+        return fail(tr("Unsupported stroke cap"));
+    const QString join = style.value(QStringLiteral("join")).toString();
+    if (style.contains(QStringLiteral("join")) && join != QLatin1String("miter")
+        && join != QLatin1String("round") && join != QLatin1String("bevel"))
+        return fail(tr("Unsupported stroke join"));
+    const QString rule = style.value(QStringLiteral("fillRule")).toString();
+    if (style.contains(QStringLiteral("fillRule")) && rule != QLatin1String("evenodd")
+        && rule != QLatin1String("nonzero")) return fail(tr("Unsupported fill rule"));
 
     CanvasEdit edit;
     edit.label = tr("Change object style");
@@ -78,6 +103,15 @@ bool CanvasStyleModel::apply(const QVariantList &selectedIds, const QVariantMap 
         if (style.contains(QStringLiteral("fill"))) { after.fill = fill; after.managedFill.clear(); }
         if (style.contains(QStringLiteral("stroke"))) after.stroke = stroke;
         if (style.contains(QStringLiteral("strokeWidth"))) after.strokeWidth = width;
+        if (style.contains(QStringLiteral("dash"))) after.dashPattern = dash;
+        if (style.contains(QStringLiteral("cap")))
+            after.strokeCap = cap == QLatin1String("round") ? Qt::RoundCap
+                : cap == QLatin1String("square") ? Qt::SquareCap : Qt::FlatCap;
+        if (style.contains(QStringLiteral("join")))
+            after.strokeJoin = join == QLatin1String("round") ? Qt::RoundJoin
+                : join == QLatin1String("bevel") ? Qt::BevelJoin : Qt::MiterJoin;
+        if (style.contains(QStringLiteral("fillRule")))
+            after.fillRule = rule == QLatin1String("nonzero") ? Qt::WindingFill : Qt::OddEvenFill;
         if (const OperationError error = CanvasDocumentFormat::validateObject(
                 after, id, CanvasDocumentLimits{}))
             return fail(error.message);
@@ -111,7 +145,8 @@ bool CanvasStyleModel::applyManaged(const QVariantList &selectedIds, const QByte
         const CanvasObject *before = m_document->object(id);
         if (!before || !m_document->effectiveVisible(*before) || m_document->effectiveLocked(*before))
             return fail(tr("A selected object is missing, hidden or locked"));
-        if (before->shape == CanvasShape::Polyline || before->shape == CanvasShape::Image)
+        if (before->shape == CanvasShape::Polyline || before->shape == CanvasShape::Image
+            || (before->shape == CanvasShape::Path && !before->pathClosed))
             return fail(tr("Managed fills require a closed vector object"));
         CanvasObject after = *before;
         after.fill = preview;

@@ -40,7 +40,7 @@ void tst_canvas_style_model::atomicStyleEditUndoAndReopen()
     QVERIFY(!styles.apply(ids, {{QStringLiteral("fill"), QColor(Qt::green)}}));
     QCOMPARE(*document.object(first), before);
     QVERIFY(!styles.apply({QString::number(first)},
-                          {{QStringLiteral("dash"), QVariantList{2, 2}}}));
+                          {{QStringLiteral("pattern"), QVariantList{2, 2}}}));
     QVERIFY(document.setObjectLocked(second, false));
 
     ColorPickerModel picker;

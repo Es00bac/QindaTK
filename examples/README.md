@@ -266,9 +266,12 @@ other while document edits prune removed or hidden objects.
 `Main.qml` shows the stroke, fill, shape and appearance panels with a host-owned
 document. `StyleWorkingScene.qml` wires solid fill and stroke requests to real
 `CanvasDocument` objects through `CanvasStyleModel`, with one-step undo.
+`PathWorkingScene.qml` overlays the editable cubic path handles and binds
+stroke/fill panels to the reference document.
 
 - Run: `qtk-preview examples/vector-authoring/Main.qml --check --size 1180x820`
 - Real canvas style: `qtk-preview examples/vector-authoring/StyleWorkingScene.qml --check --size 1120x640`
+- Editable path: `qtk-preview examples/vector-authoring/PathWorkingScene.qml --check --size 1100x640`
 
 ## docking
 

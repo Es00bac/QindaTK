@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_geometry.h"
 #include "canvas_transform.h"
+#include "canvas_path.h"
 
 #include <QtMath>
 #include <algorithm>
@@ -16,12 +17,15 @@ bool isRenderable(const CanvasObject &object)
     if (object.shape == CanvasShape::Polyline) {
         return !object.points.isEmpty();
     }
+    if (object.shape == CanvasShape::Path)
+        return object.pathNodes.size() >= (object.pathClosed ? 3 : 2);
     return object.rect.isValid();
 }
 
 bool isClosed(const CanvasObject &object)
 {
-    return object.shape != CanvasShape::Polyline;
+    return object.shape == CanvasShape::Path ? object.pathClosed
+                                            : object.shape != CanvasShape::Polyline;
 }
 
 QPolygonF documentOutline(const CanvasObject &object, int ellipseSegments)
@@ -48,6 +52,12 @@ QPolygonF documentOutline(const CanvasObject &object, int ellipseSegments)
     case CanvasShape::Polyline:
         local = QPolygonF(object.points);
         break;
+    case CanvasShape::Path: {
+        const auto polygons = CanvasPath::local(object).toSubpathPolygons();
+        if (!polygons.isEmpty()) local = polygons.first();
+        if (local.size() > 1 && local.first() == local.last()) local.removeLast();
+        break;
+    }
     }
     return object.transform.map(local);
 }
@@ -58,7 +68,9 @@ QRectF documentBounds(const CanvasObject &object)
         return {};
     }
     QRectF bounds;
-    if (object.shape == CanvasShape::Polyline) {
+    if (object.shape == CanvasShape::Path) {
+        bounds = CanvasPath::document(object).boundingRect();
+    } else if (object.shape == CanvasShape::Polyline) {
         bounds = documentOutline(object).boundingRect();
     } else {
         // The ellipse fits inside its mapped rectangle, which is cheaper and
@@ -96,6 +108,8 @@ bool fillContains(const CanvasObject &object, QPointF documentPoint)
     }
     case CanvasShape::Polyline:
         return false;
+    case CanvasShape::Path:
+        return object.pathClosed && CanvasPath::local(object).contains(p);
     }
     return false;
 }

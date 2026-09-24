@@ -3,6 +3,7 @@
 #include "canvas_render.h"
 #include "canvas_transform.h"
 #include "canvas_managed_paint.h"
+#include "canvas_path.h"
 
 #include <QPainterPath>
 #include <algorithm>
@@ -123,18 +124,25 @@ void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &re
             continue;
         }
         const qreal radius = std::max(bounds.width(), bounds.height()) * scale / 2.0;
+        if (o->shape == CanvasShape::Path) {
+            const QPainterPath path = CanvasPath::document(*o);
+            if (o->hasFill()) painter->fillPath(path, colorError ? QBrush(o->fill) : fillBrush);
+            if (o->hasStroke()) {
+                painter->setPen(CanvasPath::pen(*o, pixel));
+                painter->setBrush(Qt::NoBrush);
+                painter->drawPath(path);
+            }
+            if (stats) ++stats->drawn;
+            continue;
+        }
         const QPolygonF outline = documentOutline(*o, ellipseSegments(radius));
         if (o->hasFill()) {
             painter->setPen(Qt::NoPen);
             painter->setBrush(colorError ? QBrush(o->fill) : fillBrush);
-            painter->drawPolygon(outline, Qt::OddEvenFill);
+            painter->drawPolygon(outline, o->fillRule);
         }
         if (o->hasStroke()) {
-            QPen pen(o->stroke, std::max(o->strokeWidth, pixel));
-            pen.setJoinStyle(Qt::MiterJoin);
-            pen.setMiterLimit(4.0);
-            pen.setCapStyle(Qt::FlatCap);
-            painter->setPen(pen);
+            painter->setPen(CanvasPath::pen(*o, pixel));
             painter->setBrush(Qt::NoBrush);
             if (isClosed(*o)) {
                 painter->drawPolygon(outline);

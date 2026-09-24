@@ -291,13 +291,17 @@ qt_add_qml_module(qindatk
         core/canvas_transform.cpp core/canvas_transform.h
         core/canvas_object.h
         core/canvas_geometry.cpp core/canvas_geometry.h
+        core/canvas_path.cpp core/canvas_path.h
+        core/canvas_svg_export.cpp core/canvas_svg_export.h
         core/canvas_document.cpp core/canvas_document.h
         core/canvas_document_state.h
         core/canvas_document_edit.cpp core/canvas_document_p.h
         core/canvas_document_format.cpp core/canvas_document_format.h
         core/canvas_document_object_validation.cpp
+        core/canvas_document_misc_validation.cpp
         core/canvas_document_codec.cpp
         core/canvas_document_qml.cpp
+        core/canvas_document_path.cpp
         core/canvas_native_format.cpp
         core/hit_test_service.cpp core/hit_test_service.h
         core/tool_controller.cpp core/tool_controller.h

@@ -180,7 +180,7 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
         if (current) {
             --layerUse[current->layer];
             if (current->shape == CanvasShape::Image) --imageUse[current->image];
-            points -= current->points.size();
+            points -= current->points.size() + current->pathNodes.size();
             encoded -= CanvasDocumentFormat::objectRecordBytes(*current);
             --objects;
         }
@@ -192,7 +192,7 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
             return failure(ErrorCode::Validation, tr("An image object references a missing image"), QStringLiteral("objects.image"));
         ++layerUse[target->layer];
         if (target->shape == CanvasShape::Image) ++imageUse[target->image];
-        points += target->points.size();
+        points += target->points.size() + target->pathNodes.size();
         encoded += CanvasDocumentFormat::objectRecordBytes(*target);
         ++objects;
     }

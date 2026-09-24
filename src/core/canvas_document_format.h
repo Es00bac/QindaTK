@@ -12,7 +12,7 @@ namespace QindaTK {
 // Big-endian binary: signature "QTKCANVS", version, identity header
 // (document UUID, revision, reset generation), exact 64-bit counters, page,
 // optional output ICC, extensions JSON, layers, images, objects (with optional
-// owned managed fills), then a SHA-256 of everything
+// owned managed fills and v3 path/stroke fields), then a SHA-256 of everything
 // before it. Records are written in ascending id order, so equal content
 // gives equal bytes. Image tiles are stored as raw ARGB32 premultiplied rows: qUncompress
 // ignores its declared size, so compressed tiles would need a bounded
@@ -20,7 +20,7 @@ namespace QindaTK {
 namespace CanvasDocumentFormat {
 inline constexpr char Signature[] = "QTKCANVS";
 inline constexpr qsizetype SignatureBytes = 8;
-inline constexpr quint32 Version = 2; // reader also accepts version 1
+inline constexpr quint32 Version = 3; // reader also accepts versions 1 and 2
 inline constexpr const char *SchemaId = "qindatk.canvas-document.v1";
 inline constexpr const char *FormatId = "qindatk.canvas";
 // Valid ids are 1 .. IdCeiling - 1 and valid paint orders are below

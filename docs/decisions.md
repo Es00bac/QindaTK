@@ -628,3 +628,22 @@ colorimetric intent with BPC off.
 ordinary sRGB objects keep the fast geometry path. A plain QColor fill clears
 the managed fill. Other rendering intents, soft proof, tagged raster sources,
 and calibrated monitor presentation remain separate work.
+
+## D-084 — Store editable cubic paths in the reference canvas
+
+**Context.** The canvas could draw open polylines but could not retain Bézier
+handles, winding or stroke descriptors through undo and save. A vector export
+must state exactly which appearances it can preserve.
+
+**Decision.** A path is one ordered contour of local-space anchors with
+absolute incoming/outgoing controls, closure and fill rule. Stroke cap, join
+and dash values live on `CanvasObject`. Native binary version 3 saves them;
+versions 1 and 2 remain readable. Every path edit is one `CanvasEdit`. The
+software painter draws the cubic directly; RHI uploads its composited tile
+when the content needs path or nondefault stroke semantics. SVG 1.1 export
+writes the flat-color vector subset and rejects image, managed ICC fill and
+output-profile cases explicitly.
+
+**Consequences.** The reference authoring backend now preserves editable
+path geometry and supported stroke appearance. Multi-contour/boolean paths,
+pattern fills and effect stacks need separate contracts.

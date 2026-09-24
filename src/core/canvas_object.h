@@ -22,7 +22,16 @@ using CanvasObjectId = quint64;
 using CanvasLayerId = quint64;
 using CanvasImageId = quint64;
 
-enum class CanvasShape : quint8 { Rect, Ellipse, Polyline, Image };
+enum class CanvasShape : quint8 { Rect, Ellipse, Polyline, Image, Path };
+
+// Absolute local-space controls. A control equal to its anchor gives a
+// straight endpoint. Node order and the closed flag define one contour.
+struct CanvasPathNode {
+    QPointF anchor;
+    QPointF in;
+    QPointF out;
+    friend bool operator==(const CanvasPathNode &, const CanvasPathNode &) = default;
+};
 
 // Subobject parts a hit can resolve to. `index` on a hit names the vertex,
 // segment or image tile; it is -1 for Fill/Stroke of a whole outline.
@@ -34,11 +43,17 @@ struct CanvasObject {
     CanvasShape shape = CanvasShape::Rect;
     QRectF rect;              // Rect, Ellipse, Image: local rectangle
     QVector<QPointF> points;  // Polyline: local vertices (open path)
+    QVector<CanvasPathNode> pathNodes; // Path: cubic nodes in local space
+    bool pathClosed = false;
+    Qt::FillRule fillRule = Qt::OddEvenFill;
     QTransform transform;     // local -> document
     QColor fill;              // invalid or transparent = no fill
     QByteArray managedFill;   // typed solid/gradient plus owned ICC bytes; see canvas_managed_paint.h
     QColor stroke;            // invalid or transparent = no stroke
     qreal strokeWidth = 0.0;  // document units; renderers floor at one device pixel
+    Qt::PenCapStyle strokeCap = Qt::FlatCap;
+    Qt::PenJoinStyle strokeJoin = Qt::MiterJoin;
+    QVector<qreal> dashPattern; // positive even count, in stroke-width units
     CanvasImageId image = 0;  // Image: the document-owned tiled image
     qint64 z = 0;             // order within the layer
     bool visible = true;
@@ -47,7 +62,8 @@ struct CanvasObject {
 
     friend bool operator==(const CanvasObject &, const CanvasObject &) = default;
 
-    [[nodiscard]] bool hasFill() const { return fill.isValid() && fill.alpha() > 0 && shape != CanvasShape::Polyline; }
+    [[nodiscard]] bool hasFill() const { return fill.isValid() && fill.alpha() > 0
+        && shape != CanvasShape::Polyline && (shape != CanvasShape::Path || pathClosed); }
     [[nodiscard]] bool hasStroke() const { return stroke.isValid() && stroke.alpha() > 0; }
 };
 

@@ -27,18 +27,38 @@ OperationError validateObject(const CanvasObject &o, CanvasObjectId id, const Ca
 {
     if (id == 0 || id >= idCeiling || o.id != id)
         return problem(ErrorCode::InvalidArgument, QStringLiteral("Invalid object identity"), QStringLiteral("objects.id"));
-    if (quint8(o.shape) > quint8(CanvasShape::Image))
+    if (quint8(o.shape) > quint8(CanvasShape::Path))
         return problem(ErrorCode::Validation, QStringLiteral("Unknown object shape"), QStringLiteral("objects.shape"));
     if (o.layer == 0)
         return problem(ErrorCode::Validation, QStringLiteral("Object has no layer"), QStringLiteral("objects.layer"));
     if (!finite(o.rect) || !CanvasTransform::isFinite(o.transform) || !std::isfinite(o.strokeWidth)
         || o.strokeWidth < 0)
         return problem(ErrorCode::Validation, QStringLiteral("Object geometry must be finite"), QStringLiteral("objects.geometry"));
-    if (o.points.size() > limits.maximumPointsPerObject)
+    if (o.points.size() + o.pathNodes.size() > limits.maximumPointsPerObject)
         return problem(ErrorCode::Unsupported, QStringLiteral("Too many points in one object"), QStringLiteral("objects.points"));
     for (const QPointF &point : o.points)
         if (!std::isfinite(point.x()) || !std::isfinite(point.y()))
             return problem(ErrorCode::Validation, QStringLiteral("Object geometry must be finite"), QStringLiteral("objects.points"));
+    if (o.shape == CanvasShape::Path) {
+        if (!o.points.isEmpty() || o.pathNodes.size() < (o.pathClosed ? 3 : 2))
+            return problem(ErrorCode::Validation, QStringLiteral("Path needs ordered nodes"), QStringLiteral("objects.pathNodes"));
+        for (const auto &node : o.pathNodes)
+            for (const QPointF &p : {node.anchor, node.in, node.out})
+                if (!std::isfinite(p.x()) || !std::isfinite(p.y()))
+                    return problem(ErrorCode::Validation, QStringLiteral("Path coordinates must be finite"), QStringLiteral("objects.pathNodes"));
+    } else if (!o.pathNodes.isEmpty() || o.pathClosed)
+        return problem(ErrorCode::Validation, QStringLiteral("Only paths own path nodes"), QStringLiteral("objects.pathNodes"));
+    if (o.fillRule != Qt::OddEvenFill && o.fillRule != Qt::WindingFill)
+        return problem(ErrorCode::Validation, QStringLiteral("Invalid fill rule"), QStringLiteral("objects.fillRule"));
+    if (o.strokeCap != Qt::FlatCap && o.strokeCap != Qt::RoundCap && o.strokeCap != Qt::SquareCap)
+        return problem(ErrorCode::Validation, QStringLiteral("Invalid stroke cap"), QStringLiteral("objects.strokeCap"));
+    if (o.strokeJoin != Qt::MiterJoin && o.strokeJoin != Qt::RoundJoin && o.strokeJoin != Qt::BevelJoin)
+        return problem(ErrorCode::Validation, QStringLiteral("Invalid stroke join"), QStringLiteral("objects.strokeJoin"));
+    if (o.dashPattern.size() > 4096 || o.dashPattern.size() % 2)
+        return problem(ErrorCode::Validation, QStringLiteral("Invalid dash pattern"), QStringLiteral("objects.dashPattern"));
+    for (qreal dash : o.dashPattern)
+        if (!std::isfinite(dash) || dash <= 0 || dash > 1e6)
+            return problem(ErrorCode::Validation, QStringLiteral("Invalid dash length"), QStringLiteral("objects.dashPattern"));
     if (o.name.size() > limits.maximumNameLength)
         return problem(ErrorCode::Unsupported, QStringLiteral("Object name is too long"), QStringLiteral("objects.name"));
     if (o.z >= PaintOrderCeiling || o.z == std::numeric_limits<qint64>::min())
@@ -48,7 +68,8 @@ OperationError validateObject(const CanvasObject &o, CanvasObjectId id, const Ca
     if (!validColor(o.fill) || !validColor(o.stroke))
         return problem(ErrorCode::Validation, QStringLiteral("Invalid object colour"), QStringLiteral("objects.colour"));
     if (!o.managedFill.isEmpty()) {
-        if (o.shape == CanvasShape::Image || o.shape == CanvasShape::Polyline)
+        if (o.shape == CanvasShape::Image || o.shape == CanvasShape::Polyline
+            || (o.shape == CanvasShape::Path && !o.pathClosed))
             return problem(ErrorCode::Unsupported, QStringLiteral("Managed fills require a closed vector object"), QStringLiteral("objects.managedFill"));
         if (const auto error = CanvasManagedPaint::validate(o.managedFill)) return error;
     }

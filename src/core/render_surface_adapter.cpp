@@ -362,13 +362,17 @@ std::shared_ptr<const CanvasRenderFrame> RenderSurfaceAdapter::prepare(CanvasRen
         if (needs && m_rendered < m_budget) {
             CanvasPaintStats ps;
             auto content = std::make_shared<CanvasTileContent>();
-            bool managedFill = false;
+            bool rasterizedVector = false;
             if (m_backend == CanvasBackend::SceneGraph && !m_color.needsDisplayTransform())
                 for (CanvasObjectId id : m_document->candidates(rect)) {
                     const CanvasObject *object = m_document->object(id);
-                    if (object && !object->managedFill.isEmpty()) { managedFill = true; break; }
+                    if (object && (object->shape == CanvasShape::Path || !object->managedFill.isEmpty()
+                        || !object->dashPattern.isEmpty() || object->strokeCap != Qt::FlatCap
+                        || object->strokeJoin != Qt::MiterJoin)) {
+                        rasterizedVector = true; break;
+                    }
                 }
-            if (m_backend == CanvasBackend::Software || m_color.needsDisplayTransform() || managedFill) {
+            if (m_backend == CanvasBackend::Software || m_color.needsDisplayTransform() || rasterizedVector) {
                 content->raster = CanvasPainter::renderTile(*m_document, rect, m_tilePixels, m_color, &ps);
                 if (content->raster.isNull()) {
                     m_colorError = QStringLiteral("Canvas display profile conversion failed");
