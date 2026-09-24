@@ -111,11 +111,19 @@ void RichTextLayout::paintLines(QPainter *painter, const PageItem &item, const P
     const Paragraph *p = m_document->paragraph(item.block);
     if (!p) return;
     ParagraphMetrics &m = itemMetrics(*p, item);
+    if (item.first + item.count > m.lines.size()) return; // pages not yet rebuilt
     const QPointF content = contentRect().topLeft();
     const QPointF origin = content + QPointF(item.x, item.y - m.lines.at(item.first).y);
     // A strict vertical clip keeps lines that belong to another page or region out.
     const QRectF clip(content.x() + item.x - 4096, content.y() + item.y + 0.25, item.width + 8192, item.height - 0.5);
+    // AGENT-NOTE: QTextLayout::draw's clip argument only skips lines, and it
+    // still draws the line just above the rectangle, so a paragraph continued
+    // in the next column or frame repeated the last line shown before it. The
+    // painter clips the item's band as well (tst_rich_text_frames, grabs).
+    painter->save();
+    painter->setClipRect(clip, Qt::IntersectClip);
     paintParagraph(painter, *p, m, origin, clip, item.first, item.count, context);
+    painter->restore();
 }
 
 void RichTextLayout::paintTable(QPainter *painter, const PageItem &item, const PaintContext &context)
@@ -124,6 +132,7 @@ void RichTextLayout::paintTable(QPainter *painter, const PageItem &item, const P
     if (!table) return;
     const auto geometry = tableGeometry(*table, item.width);
     const TableGeometry &g = *geometry;
+    if (item.first + item.count > g.rows) return; // pages not yet rebuilt
     const QPointF content = contentRect().topLeft();
     const qreal b = g.border;
     const qreal left = content.x() + item.x;
@@ -145,6 +154,8 @@ void RichTextLayout::paintTable(QPainter *painter, const PageItem &item, const P
             const qreal contentTop = y0 + b + g.padding;
             const qreal shown = cell.lines.at(visible.end - 1).bottom - shift;
             const QRectF clip(left + cell.contentX - 2, contentTop + 0.25, cell.contentWidth + 4, shown - 0.5);
+            painter->save();
+            painter->setClipRect(clip, Qt::IntersectClip); // see paintLines
             // Each paragraph paints only its lines in this box (list markers too).
             for (int l = visible.start; l < visible.end;) {
                 const int index = cell.lines.at(l).paragraph;
@@ -156,6 +167,7 @@ void RichTextLayout::paintTable(QPainter *painter, const PageItem &item, const P
                 paintParagraph(painter, *p, m, origin, clip, cell.lines.at(l).line, count, context);
                 l += count;
             }
+            painter->restore();
         }
         if (b > 0) {
             painter->fillRect(QRectF(x0, y0, x1 - x0, b), context.border);
