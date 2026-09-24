@@ -64,6 +64,35 @@ T.Control {
                     height: viewport.height
                     color: Tk.Theme.color.accent
                 }
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                    cursorShape: control.mode === "split" ? Qt.SplitHCursor
+                                 : control.mode === "difference" ? Qt.OpenHandCursor : Qt.PointingHandCursor
+                    property real lastX: 0
+                    property real lastY: 0
+                    onPressed: function(mouse) {
+                        control.forceActiveFocus()
+                        lastX = mouse.x; lastY = mouse.y
+                        if (mouse.button === Qt.LeftButton && control.mode === "split")
+                            control.split = mouse.x / viewport.width
+                        else if (mouse.button === Qt.LeftButton && control.mode === "blink")
+                            control.showAfter = !control.showAfter
+                    }
+                    onPositionChanged: function(mouse) {
+                        if (mouse.buttons & Qt.MiddleButton
+                                || (mouse.buttons & Qt.LeftButton && control.mode === "difference")) {
+                            control.panX += mouse.x - lastX
+                            control.panY += mouse.y - lastY
+                        } else if (mouse.buttons & Qt.LeftButton && control.mode === "split")
+                            control.split = mouse.x / viewport.width
+                        lastX = mouse.x; lastY = mouse.y
+                    }
+                    onWheel: function(wheel) {
+                        control.zoom *= Math.pow(1.2, wheel.angleDelta.y / 120)
+                        wheel.accepted = true
+                    }
+                }
             }
             Tk.Flex {
                 width: parent.width

@@ -9,6 +9,10 @@ sRGB; it is a visual change locator, not a calibrated proof or perceptual
 distance metric. The images and rendered viewport are bounded to 16 million
 pixels each.
 
+Drag in the viewport to move the split divider, click the blink view to swap
+sources, or drag the difference view to pan. Middle-button drag pans in any
+mode, and the mouse wheel changes the shared zoom.
+
 QML hosts set `beforeSource` and `afterSource` to local image URLs or bounded
 PNG data URLs, including `TiledRasterDocument.imageDataUrl`. C++ hosts
 can call `ImageCompareItem::setImages(QImage, QImage)` with decoded images.
