@@ -15,7 +15,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-070"></a>
 ## WP-070 — Integrate media decoding and source/program monitors
 
-**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-040](phase-03-authoring.md#wp-040), [WP-043](phase-03-authoring.md#wp-043), [WP-047](phase-03-authoring.md#wp-047), [WP-048](phase-03-authoring.md#wp-048)
+**Implementation lead:** Sol. **Status:** accepted (media decode and encode, playback engine and media catalog). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-040](phase-03-authoring.md#wp-040), [WP-043](phase-03-authoring.md#wp-043), [WP-047](phase-03-authoring.md#wp-047), [WP-048](phase-03-authoring.md#wp-048)
 
 **Proposal scope:** [VID-01 SourceProgramMonitor](../proposed/07-video-motion.md#vid-01), [VID-02 MediaBin](../proposed/07-video-motion.md#vid-02)
 
