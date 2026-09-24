@@ -563,6 +563,24 @@ Tempo/meter and parameter automation lanes on the edit timeline's time axis
 | `AutomationModel` | QObject (C++) | `parameterIds`, `revision`, `returnTicks`, `transportRunning`, `capabilities`, history; `addParameterMap`, `points`, `pointData`, `valueAt`, `sampleLane`, `formatValue`/`parseValue`, transactions, `setModeName`, `writeState`, `setModeAvailability`, `setTransportState`, `setTransportTicks`, `beginGestureAt`/`recordGestureAt`/`endGestureAt`, `toJson`/`loadJson` | `pointsChanged(parameterId)`, `modeChanged`, `writeStateChanged`, `committed`, … | Reference automation engine for read/write/touch/latch. |
 | `EngineSchedule`, `MockAutomationEngine` | QObject (C++) | `tempoModel`, `automationModel`, `generation`; C++ `acquire()` → immutable snapshot. Mock: `schedule`, `positionSample`, `playing`, `blockFrames`, `lastBlock`; `play`, `stop`, `locate`, `process`, `valuesAt`, `render`, `touch`/`move`/`release` | `published`; `processed` | Snapshots are thread-safe and hold no GUI clock; the mock opens no device. |
 
+## Audio controls
+
+Audio controls exchange canonical parameter values and immutable measurement
+snapshots with the host. They do not calculate gain laws, sample peaks, RMS,
+loudness standards, peak hold, or decay. Hosts begin one parameter transaction
+on `gestureStarted`, apply previews on `valuePreview`, commit on
+`gestureCommitted`, and restore on `gestureCanceled`.
+
+| Type | Host inputs | Requests and behavior | Accessibility and limits |
+| --- | --- | --- | --- |
+| `Knob` | `parameterId`, `value`, `from`, `to`, `defaultValue`, `stepSize`, `unit`, `taper`, `automationState`, `bipolar`, optional `mapper` | Drag, wheel, arrows, Home/End, Return reset, Escape cancel, double-click reset, and `Tk.NumberField` share the gesture signals. Shift is coarse; Alt is fine. `mapper.positionFor(value, silent)` and `mapper.valueAt(position)` own nonlinear mapping when supplied; fallback is linear within bounds. | Slider role, numeric value, name/description and an editable numeric field. `taper` describes host mapping; it does not implement log or gain-dB math itself. Signals: `gestureStarted(value,silent)`, `valuePreview(value,silent)`, `gestureCommitted(value,silent)`, `gestureCanceled(value,silent)`. |
+| `Fader` | Same parameter descriptor plus `silent`, `unityValue`, `scaleMarks`, orientation and optional mapper | Vertical by default. Tick and unity marks use canonical values; pointer, wheel, keyboard, reset, and numeric entry use the same request path. `silent` represents negative infinity explicitly without substituting a finite attenuation value. | Slider role and numeric spinbox alternative; current value, unity, taper and automation state appear in the accessible description. The owner applies the value/silence pair and records one gesture transaction. |
+| `AudioMeter` | `levels`: provider rows `{channel, peakDbfs, rmsDbfs, displayPeakDbfs, heldPeakDbfs, clipped, silent}`, `metric`, `unit`, `integrationWindow`, range and scale marks | Draws provider-supplied levels, hold and clip state. `clipResetRequested()` asks the provider to clear clip latches. The control does not reset its own snapshot or fabricate decay. | Accessible per-channel summary reports peak/RMS, units and clips. The current backend contract is dBFS and makes no LUFS claim. |
+| `LoudnessHistory` | Provider `samples` (`time`, `value`), `metricId`, `unit`, `integrationWindow`, `channelLayout`, `targetProfile`, range and optional target band | Plots the supplied readings. `resetHistoryRequested()` and `exportRequested(...)` are host requests; standards-specific measurement remains provider-owned. | Accessible summary names metric, latest numeric reading, unit, window and channel layout. Generic readings are not labeled LUFS unless the provider declares that metric and provenance. |
+
+The live fixture is `examples/audio-controls/Main.qml`; its synthetic snapshots
+are explicitly demonstration data, not measured audio.
+
 ## Size table (compact density)
 
 | Token | px | Used by |

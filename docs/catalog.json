@@ -1066,6 +1066,162 @@
       ]
     },
     {
+      "name": "AudioMeter",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Measurement provider owns channel layout, dBFS calculation, hold/decay and clip latch. This view only projects the latest bounded GUI snapshot.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AudioMeter.qml",
+      "properties": [
+        {
+          "name": "levels",
+          "type": "var",
+          "default": "[] // [{channel, peakDbfs, rmsDbfs, displayPeakDbfs, heldPeakDbfs, clipped, silent}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "default": "\"peak-rms\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "default": "\"dBFS\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "integrationWindow",
+          "type": "string",
+          "default": "\"provider-defined\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumDbfs",
+          "type": "real",
+          "default": "-60",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumDbfs",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scaleMarks",
+          "type": "var",
+          "default": "[-60, -48, -36, -24, -18, -12, -6, 0]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showRms",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showScale",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipResetEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelCount",
+          "type": "int",
+          "default": "levels ? levels.length : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasClip",
+          "type": "bool",
+          "default": "levels ? levels.some(function(c) { return c.clipped }) : false",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "summary",
+          "type": "string",
+          "default": "channelCount === 0 ? qsTr(\"No measurement snapshot\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "clipResetRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "fmt",
+          "parameters": "v"
+        },
+        {
+          "name": "position",
+          "parameters": "db"
+        },
+        {
+          "name": "resetClip",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "channelTrack",
+        "levelValue",
+        "meterRow"
+      ]
+    },
+    {
       "name": "AutomationLane",
       "kind": "qml",
       "base": "Item",
@@ -8750,6 +8906,230 @@
       ]
     },
     {
+      "name": "Fader",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "The owner stores the canonical parameter. `silent` is an explicit domain state (for example -inf dB); no finite attenuation is substituted for it.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Fader.qml",
+      "properties": [
+        {
+          "name": "parameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mapper",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "from",
+          "type": "real",
+          "default": "-60",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "to",
+          "type": "real",
+          "default": "6",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "defaultValue",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stepSize",
+          "type": "real",
+          "default": "0.1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "positionStep",
+          "type": "real",
+          "default": "0.01",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "unityValue",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scaleMarks",
+          "type": "var",
+          "default": "[-60, -30, -18, -12, -6, 0, 6]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "default": "\"dB\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "taper",
+          "type": "string",
+          "default": "\"decibel\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "automationState",
+          "type": "string",
+          "default": "\"read\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "silent",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bipolar",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "vertical",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "numericEntry",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "normalizedValue",
+          "type": "real",
+          "default": "mapper ? mapper.positionFor(value, silent)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "valueText",
+          "type": "string",
+          "default": "silent ? \"−∞ \" + unit : Number(value).toFixed(1) + \" \" + unit",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "gestureStarted",
+          "parameters": "real value, bool silent"
+        },
+        {
+          "name": "valuePreview",
+          "parameters": "real value, bool silent"
+        },
+        {
+          "name": "gestureCommitted",
+          "parameters": "real value, bool silent"
+        },
+        {
+          "name": "gestureCanceled",
+          "parameters": "real value, bool silent"
+        }
+      ],
+      "methods": [
+        {
+          "name": "clamp",
+          "parameters": "v"
+        },
+        {
+          "name": "setUserValue",
+          "parameters": "v"
+        },
+        {
+          "name": "setUserPosition",
+          "parameters": "position"
+        },
+        {
+          "name": "step",
+          "parameters": "direction, modifiers"
+        },
+        {
+          "name": "reset",
+          "parameters": ""
+        },
+        {
+          "name": "normalizedFromPosition",
+          "parameters": "pos"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": []
+    },
+    {
       "name": "FilePathField",
       "kind": "qml",
       "base": "T.Control",
@@ -11380,6 +11760,226 @@
       ]
     },
     {
+      "name": "Knob",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "Host owns the parameter and its transaction. Preview updates are transient; only gestureCommitted should enter the host's undo/automation history.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/Knob.qml",
+      "properties": [
+        {
+          "name": "parameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "value",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "silent",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mapper",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "from",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "to",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "defaultValue",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stepSize",
+          "type": "real",
+          "default": "(to - from) / 100",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "decimals",
+          "type": "int",
+          "default": "2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "taper",
+          "type": "string",
+          "default": "\"linear\" // host-defined: linear, logarithmic or custom",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "automationState",
+          "type": "string",
+          "default": "\"read\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bipolar",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showValue",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "numericEntry",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fineFactor",
+          "type": "real",
+          "default": "0.1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clampedValue",
+          "type": "real",
+          "default": "Math.max(from, Math.min(to, value))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "normalizedValue",
+          "type": "real",
+          "default": "mapper ? mapper.positionFor(clampedValue, silent)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "valueText",
+          "type": "string",
+          "default": "silent ? \"−∞\" + unit : Number(clampedValue).toFixed(decimals) + unit",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "gestureStarted",
+          "parameters": "real value, bool silent"
+        },
+        {
+          "name": "valuePreview",
+          "parameters": "real value, bool silent"
+        },
+        {
+          "name": "gestureCommitted",
+          "parameters": "real value, bool silent"
+        },
+        {
+          "name": "gestureCanceled",
+          "parameters": "real value, bool silent"
+        }
+      ],
+      "methods": [
+        {
+          "name": "clamp",
+          "parameters": "v"
+        },
+        {
+          "name": "updateUser",
+          "parameters": "v, isSilent"
+        },
+        {
+          "name": "updatePosition",
+          "parameters": "position"
+        },
+        {
+          "name": "step",
+          "parameters": "direction, modifiers"
+        },
+        {
+          "name": "reset",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": []
+    },
+    {
       "name": "Label",
       "kind": "qml",
       "base": "Text",
@@ -11630,6 +12230,154 @@
         "rowSecondary",
         "rowText"
       ]
+    },
+    {
+      "name": "LoudnessHistory",
+      "kind": "qml",
+      "base": "Item",
+      "description": "This component displays provider-supplied, time-windowed measurement snapshots. It never computes or labels generic values as standards-based LUFS.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/LoudnessHistory.qml",
+      "properties": [
+        {
+          "name": "samples",
+          "type": "var",
+          "default": "[] // [{time, value, metricId, unit, channelLayout, window}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "metricId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "integrationWindow",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelLayout",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetProfile",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimum",
+          "type": "real",
+          "default": "-60",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximum",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetMinimum",
+          "type": "real",
+          "default": "NaN",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetMaximum",
+          "type": "real",
+          "default": "NaN",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "sampleCount",
+          "type": "int",
+          "default": "samples ? samples.length : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "latestSample",
+          "type": "var",
+          "default": "sampleCount > 0 ? samples[sampleCount - 1] : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "summary",
+          "type": "string",
+          "default": "sampleCount === 0 ? qsTr(\"No history data\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "resetHistoryRequested",
+          "parameters": ""
+        },
+        {
+          "name": "exportRequested",
+          "parameters": "string metricId, string unit, string integrationWindow, string channelLayout, string targetProfile, var samples"
+        }
+      ],
+      "methods": [
+        {
+          "name": "yFor",
+          "parameters": "value"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": []
     },
     {
       "name": "MarkerLane",
