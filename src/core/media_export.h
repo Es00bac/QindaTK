@@ -22,9 +22,9 @@ struct MediaExportResult {
 
 // A bars, frame-code and sync-pop test signal (docs/media-playback.md
 // "Test signal"). Every frame carries its index as a 16-cell binary code in
-// the bottom strip; frames where index % popInterval == 0 are white above the
-// strip and their exact sample span is a 1 kHz tone at half scale; all other
-// audio is digital silence.
+// the bottom strip; pop frames (index >= popPhase and (index - popPhase) %
+// popInterval == 0) are white above the strip and their exact sample span is a
+// 1 kHz tone at half scale; all other audio is digital silence.
 struct MediaTestSignalSettings {
     QSize frameSize{320, 180};
     TimelineRate frameRate{25, 1};
@@ -32,6 +32,9 @@ struct MediaTestSignalSettings {
     int sampleRate = 48000;
     int channels = 2;     // 0 writes video only
     qint64 popInterval = 25; // 0 disables pops
+    // First pop frame. A nonzero phase keeps frame 0, the frame thumbnails and
+    // freshly opened monitors show, on colour bars instead of the white flash.
+    qint64 popPhase = 0;
 };
 
 // AGENT-CONTRACT (docs/media-playback.md "Export"): export renders the same
