@@ -999,6 +999,382 @@
       ]
     },
     {
+      "name": "AutomationLane",
+      "kind": "qml",
+      "base": "Item",
+      "description": "One parameter's automation curve on the timeline's time axis.  AGENT-CONTRACT: the curve is AutomationModel data keyed by `parameterId`; this lane hosts Tk.CurveEditor for point and handle interaction and maps its normalized plot to exact timeline ticks (TimelineViewport) and canonical values (AutomationModel). A coordinate the gesture did not move is sent back as the stored exact value, never re-derived from pixels. Each knot drag, handle drag or segment drag is one model session: release commits one undo step, Escape or a replaced model cancels. Keyboard: arrows on a focused point nudge it, Left/Right on the lane choose a point, Alt+Left/Right move it a grid step, Up/Down change it 1% of the range, I cycles its segment's interpolation, Delete removes it, Return/F2 opens numeric entry. Double-click adds a point; dragging near a segment moves both of its ends. Modes and recording belong to the model (writeState).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AutomationLane.qml",
+      "properties": [
+        {
+          "name": "viewport",
+          "type": "Tk.TimelineViewport",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "model",
+          "type": "Tk.AutomationModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "parameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentPointId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapEnabled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapGrid",
+          "type": "string",
+          "default": "\"frames\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapPixels",
+          "type": "real",
+          "default": "Tk.Theme.space.md",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayMode",
+          "type": "string",
+          "default": "\"timecode\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropFrame",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Automation\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "plotPadding",
+          "type": "real",
+          "default": "Tk.Theme.space.sm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "internal.operationId.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "parameter",
+          "type": "var",
+          "default": "lane.parameterFor(internal.revision, lane.model, lane.parameterId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "writeState",
+          "type": "var",
+          "default": "lane.writeStateFor(internal.revision, lane.model, lane.parameterId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visiblePoints",
+          "type": "var",
+          "default": "lane.pointsFor(internal.revision, lane.model, lane.viewport, lane.width)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentPoint",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "knots",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "editRejected",
+          "parameters": "string reason"
+        }
+      ],
+      "methods": [
+        {
+          "name": "parameterFor",
+          "parameters": "revision, model, id"
+        },
+        {
+          "name": "writeStateFor",
+          "parameters": "revision, model, id"
+        },
+        {
+          "name": "pointsFor",
+          "parameters": "revision, model, viewport, width"
+        },
+        {
+          "name": "samplesFor",
+          "parameters": "revision, model, viewport, width"
+        },
+        {
+          "name": "xAt",
+          "parameters": "revision, ticks"
+        },
+        {
+          "name": "report",
+          "parameters": "result"
+        },
+        {
+          "name": "plotHeight",
+          "parameters": ""
+        },
+        {
+          "name": "yForNormalized",
+          "parameters": "n"
+        },
+        {
+          "name": "normalizedAtY",
+          "parameters": "y"
+        },
+        {
+          "name": "rawValueAtY",
+          "parameters": "y"
+        },
+        {
+          "name": "snapped",
+          "parameters": "ticks"
+        },
+        {
+          "name": "beginSession",
+          "parameters": "request"
+        },
+        {
+          "name": "previewKnot",
+          "parameters": "id, nx, ny"
+        },
+        {
+          "name": "previewHandle",
+          "parameters": "id, side, nx, ny"
+        },
+        {
+          "name": "finishSession",
+          "parameters": ""
+        },
+        {
+          "name": "cancelSession",
+          "parameters": ""
+        },
+        {
+          "name": "select",
+          "parameters": "id"
+        },
+        {
+          "name": "addAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "removeCurrent",
+          "parameters": ""
+        },
+        {
+          "name": "nudgeValue",
+          "parameters": "fraction"
+        },
+        {
+          "name": "nudgeTime",
+          "parameters": "steps"
+        },
+        {
+          "name": "cycleInterpolation",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "automationCurveEditor",
+        "automationLane",
+        "automationLanePointer",
+        "automationModeBadge",
+        "automationPlayhead",
+        "automationValueReadout",
+        "automationWriteBand"
+      ]
+    },
+    {
+      "name": "AutomationPointEditor",
+      "kind": "qml",
+      "base": "Tk.Popover",
+      "description": "Numeric entry for one automation point: time, value and the interpolation of its outgoing segment.  AGENT-CONTRACT: time is shown and parsed in the owner's display mode by the TimelineModel (formatTicks/parseTicks); value in the parameter's canonical unit by the AutomationModel (formatValue/parseValue). An untouched field keeps its exact stored value. Apply submits one `setPoint` transaction guarded by the revision the editor opened at; an error keeps the popover open with the reason and changes nothing.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AutomationPointEditor.qml",
+      "properties": [
+        {
+          "name": "model",
+          "type": "Tk.AutomationModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "timeline",
+          "type": "Tk.TimelineModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "parameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pointId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "displayMode",
+          "type": "string",
+          "default": "\"timecode\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropFrame",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "interpolations",
+          "type": "var",
+          "default": "[\"step\", \"linear\", \"cubic\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "edited",
+          "parameters": "var result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "openPoint",
+          "parameters": "parameterId, pointId"
+        },
+        {
+          "name": "apply",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "automationEditorApply",
+        "automationEditorCancel",
+        "automationEditorError",
+        "automationInterpolation",
+        "automationPointEditor",
+        "automationTimeField",
+        "automationValueField"
+      ]
+    },
+    {
       "name": "Badge",
       "kind": "qml",
       "base": "Rectangle",
@@ -2566,6 +2942,14 @@
           "required": false
         },
         {
+          "name": "anchorMode",
+          "type": "string",
+          "default": "\"time\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "selected",
           "type": "bool",
           "default": "false",
@@ -2823,6 +3207,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "clipAnchorIcon",
         "clipBody",
         "clipFocusRing",
         "clipKindIcon",
@@ -3797,6 +4182,14 @@
           "name": "plotPadding",
           "type": "real",
           "default": "Tk.Theme.size.controlSm / 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "referenceLine",
+          "type": "bool",
+          "default": "true",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -11915,7 +12308,7 @@
       "name": "PageNavigator",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): page thumbnails and a heading outline for a RichDocumentView (`view`, or a paged Tk.RichTextArea). Rows come from Tk.RichTextPageModel (stable page keys: section identity + ordinal); a recycling ListView keeps thumbnail delegates bounded to the visible rows, and each thumbnail paints the page from the view's layout, so no page image is loaded for pages out of view. Navigating moves the view's caret to the page; the text selection of the view is otherwise untouched. Sections (page-break groups) can be moved.",
+      "description": "AGENT-CONTRACT (docs/controls.md#rich-text-and-paginated-documents): page thumbnails and a heading outline for a RichDocumentView (`view`, or a paged Tk.RichTextArea). Rows come from Tk.RichTextPageModel (stable page keys: section identity + ordinal); a recycling ListView keeps thumbnail delegates bounded to the visible rows, and each thumbnail paints the page from the view's layout, so no page image is loaded for pages out of view. Navigating scrolls the view to the page and keeps its logical selection (OFF-05); typing returns to the caret. Sections (page-break groups) can be moved as one undo step.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PageNavigator.qml",
@@ -16928,6 +17321,336 @@
       ]
     },
     {
+      "name": "TempoEventEditor",
+      "kind": "qml",
+      "base": "Tk.Popover",
+      "description": "Numeric entry for one tempo or meter event of a TempoLane.  AGENT-CONTRACT: the position field shows and parses bar.beat.tick through TempoMapModel, the tempo field BPM text (stored as exact microseconds per quarter), the meter fields integers. An untouched field keeps its exact value. Apply submits one `edit` transaction guarded by the revision the editor opened at; a parse error or rejection keeps the popover open with the reason and changes nothing. Escape or Cancel closes it.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TempoEventEditor.qml",
+      "properties": [
+        {
+          "name": "tempoModel",
+          "type": "Tk.TempoMapModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "eventId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "default": "\"tempo\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "edited",
+          "parameters": "var result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "openEvent",
+          "parameters": "id"
+        },
+        {
+          "name": "apply",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "tempoBpmField",
+        "tempoDenominatorField",
+        "tempoEditorApply",
+        "tempoEditorCancel",
+        "tempoEditorError",
+        "tempoEventEditor",
+        "tempoNumeratorField",
+        "tempoPositionField"
+      ]
+    },
+    {
+      "name": "TempoLane",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Tempo and meter events above timeline tracks: a meter band with the bar grid and meter changes, and a tempo band with the tempo step graph.  AGENT-CONTRACT: events are TempoMapModel records with stable IDs and exact musical ticks; x comes from the shared TimelineViewport through the TimelineModel's TimeMap, so the lane scrolls and zooms with the timeline. Every change is a model transaction: a drag is one session (release commits one undo step; Escape, a lost grab or a replaced model cancels and restores), keyboard and numeric entry apply one edit each. A horizontal drag moves an event on the beat/bar grid; a vertical drag on a tempo event or its segment changes the tempo. Keyboard: Left/Right choose an event, Alt+Left/Right move it a beat (Shift: a bar; meter changes move by bars), Up/Down change tempo by 1 BPM (Shift: 10) or the meter's beats, Delete removes it, Return/F2 opens numeric entry, T adds a tempo change and M a meter change at the playhead.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TempoLane.qml",
+      "properties": [
+        {
+          "name": "viewport",
+          "type": "Tk.TimelineViewport",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tempoModel",
+          "type": "Tk.TempoMapModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentEventId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapGrid",
+          "type": "string",
+          "default": "\"beat\" // \"beat\", \"bar\" or \"none\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "playheadTicks",
+          "type": "string",
+          "default": "\"0\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "meterBandHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.row",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Tempo and meter\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "internal.operationId.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "var",
+          "default": "lane.tempoModel ? lane.tempoModel.events : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tempoRows",
+          "type": "var",
+          "default": "lane.rows.filter(function(row) { return row.kind === \"tempo\" })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "meterRows",
+          "type": "var",
+          "default": "lane.rows.filter(function(row) { return row.kind === \"meter\" })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentEvent",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lowBpm",
+          "type": "real",
+          "default": "internal.frozen ? internal.frozenLow : lane.displayRange()[0]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "highBpm",
+          "type": "real",
+          "default": "internal.frozen ? internal.frozenHigh : lane.displayRange()[1]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewRevision",
+          "type": "int",
+          "default": "internal.viewRevision",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "eventActivated",
+          "parameters": "string eventId"
+        },
+        {
+          "name": "editRejected",
+          "parameters": "string reason"
+        }
+      ],
+      "methods": [
+        {
+          "name": "report",
+          "parameters": "result"
+        },
+        {
+          "name": "timeline",
+          "parameters": ""
+        },
+        {
+          "name": "xAt",
+          "parameters": "revision, row"
+        },
+        {
+          "name": "xOf",
+          "parameters": "row"
+        },
+        {
+          "name": "playheadX",
+          "parameters": "revision, ticks"
+        },
+        {
+          "name": "displayRange",
+          "parameters": ""
+        },
+        {
+          "name": "yForBpm",
+          "parameters": "bpm"
+        },
+        {
+          "name": "bpmAtY",
+          "parameters": "y"
+        },
+        {
+          "name": "musicalAt",
+          "parameters": "x"
+        },
+        {
+          "name": "hitEvent",
+          "parameters": "px, py"
+        },
+        {
+          "name": "segmentAt",
+          "parameters": "px"
+        },
+        {
+          "name": "select",
+          "parameters": "id"
+        },
+        {
+          "name": "step",
+          "parameters": "direction"
+        },
+        {
+          "name": "moveCurrent",
+          "parameters": "steps, bars"
+        },
+        {
+          "name": "changeValue",
+          "parameters": "delta"
+        },
+        {
+          "name": "addAt",
+          "parameters": "kind, timelineTicks"
+        },
+        {
+          "name": "removeCurrent",
+          "parameters": ""
+        },
+        {
+          "name": "openEditor",
+          "parameters": ""
+        },
+        {
+          "name": "cancelDrag",
+          "parameters": ""
+        },
+        {
+          "name": "beginDrag",
+          "parameters": "x, y"
+        },
+        {
+          "name": "updateDrag",
+          "parameters": "x, y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "tempoBarGrid",
+        "tempoFocus_",
+        "tempoGraph",
+        "tempoLane",
+        "tempoLaneError",
+        "tempoLanePointer",
+        "tempoMeterBand",
+        "tempoPlayhead"
+      ]
+    },
+    {
       "name": "TextArea",
       "kind": "qml",
       "base": "T.TextArea",
@@ -20185,6 +20908,381 @@
           "name": "clearCache",
           "returns": "void",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AutomationModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: AutomationModel owns automation curves keyed by stable parameter IDs (WP-049). Points carry exact timeline ticks and canonical unit values; AutomationLane/CurveEditor only request edits. A gesture is one session (begin -> update* -> commit | cancel) and one undo step; a record pass is one undo step. It is also the reference automation engine for read/write/touch/latch: timestamps arrive from the caller's transport clock as exact ticks, never from GUI frames. Engines consume committed curves through EngineSchedule snapshots (docs/tempo-automation.md).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/automation_model.h",
+      "properties": [
+        {
+          "name": "schemaId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "parameterIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "timebaseNumerator",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "timebaseDenominator",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "returnTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editOperationId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "historyCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "transportRunning",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "transportTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "capabilities",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "revisionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "parametersChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pointsChanged",
+          "parameters": "const QString &parameterId"
+        },
+        {
+          "name": "modeChanged",
+          "parameters": "const QString &parameterId"
+        },
+        {
+          "name": "writeStateChanged",
+          "parameters": "const QString &parameterId"
+        },
+        {
+          "name": "editStateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "transportChanged",
+          "parameters": ""
+        },
+        {
+          "name": "capabilitiesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "settingsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentReset",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &transactionId, const QString &label"
+        },
+        {
+          "name": "editInvalidated",
+          "parameters": "const QString &operationId, const QString &reason"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &reason"
+        }
+      ],
+      "methods": [
+        {
+          "name": "addParameterMap",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &parameter"
+        },
+        {
+          "name": "removeParameter",
+          "returns": "bool",
+          "parameters": "const QString &parameterId"
+        },
+        {
+          "name": "parameterData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId"
+        },
+        {
+          "name": "points",
+          "returns": "QVariantList",
+          "parameters": "const QString &parameterId"
+        },
+        {
+          "name": "pointData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId, const QString &pointId"
+        },
+        {
+          "name": "adjacentPoint",
+          "returns": "QString",
+          "parameters": "const QString &parameterId, const QString &pointId, int direction"
+        },
+        {
+          "name": "segmentAt",
+          "returns": "QString",
+          "parameters": "const QString &parameterId, const QString &ticks"
+        },
+        {
+          "name": "valueAt",
+          "returns": "double",
+          "parameters": "const QString &parameterId, const QString &ticks"
+        },
+        {
+          "name": "normalize",
+          "returns": "double",
+          "parameters": "const QString &parameterId, double value"
+        },
+        {
+          "name": "denormalize",
+          "returns": "double",
+          "parameters": "const QString &parameterId, double y"
+        },
+        {
+          "name": "formatValue",
+          "returns": "QString",
+          "parameters": "const QString &parameterId, double value"
+        },
+        {
+          "name": "parseValue",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId, const QString &text"
+        },
+        {
+          "name": "sampleLane",
+          "returns": "QVariantList",
+          "parameters": "const QString &parameterId, const QString &startTicks, const QString &endTicks, int columns"
+        },
+        {
+          "name": "beginEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &request"
+        },
+        {
+          "name": "updateEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &operationId, const QVariantMap &input"
+        },
+        {
+          "name": "commitEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &operationId"
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "bool",
+          "parameters": "const QString &operationId"
+        },
+        {
+          "name": "applyEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &request, const QVariantMap &input = {}"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clearHistory",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "setModeName",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId, const QString &mode"
+        },
+        {
+          "name": "writeState",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId"
+        },
+        {
+          "name": "setModeAvailability",
+          "returns": "void",
+          "parameters": "const QString &mode, bool available, const QString &reason = {}"
+        },
+        {
+          "name": "setTransportState",
+          "returns": "void",
+          "parameters": "bool running, const QString &ticks"
+        },
+        {
+          "name": "setTransportTicks",
+          "returns": "void",
+          "parameters": "const QString &ticks"
+        },
+        {
+          "name": "beginGestureAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId, const QString &ticks, double value"
+        },
+        {
+          "name": "recordGestureAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId, const QString &ticks, double value"
+        },
+        {
+          "name": "endGestureAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId, const QString &ticks"
+        },
+        {
+          "name": "contentMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "loadContent",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &content"
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "QVariantMap",
+          "parameters": "const QString &json"
         }
       ],
       "enums": {},
@@ -23953,6 +25051,64 @@
       "bridge": false
     },
     {
+      "name": "EngineSchedule",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Publishes a new snapshot whenever committed tempo or automation changes, or a write pass changes a live value. acquire() is safe from any thread.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/engine_schedule.h",
+      "properties": [
+        {
+          "name": "tempoModel",
+          "type": "QindaTK::TempoMapModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "automationModel",
+          "type": "QindaTK::AutomationModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "generation",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "published",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "publish",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "EventLogModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
@@ -26753,6 +27909,118 @@
       "bridge": false
     },
     {
+      "name": "MockAutomationEngine",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A MOCK engine: a deterministic sample clock that consumes EngineSchedule snapshots, reports its transport to the AutomationModel and records gestures at its own timestamps. It proves the scheduling contract; it opens no device and is not realtime. The host decides when a block runs (a test, or a timer in an example); timestamps come only from the sample counter.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/mock_automation_engine.h",
+      "properties": [
+        {
+          "name": "schedule",
+          "type": "QindaTK::EngineSchedule *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "positionSample",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "playing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "blockFrames",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastBlock",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "scheduleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "processed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "play",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "stop",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "locate",
+          "returns": "void",
+          "parameters": "const QString &sample"
+        },
+        {
+          "name": "process",
+          "returns": "QVariantMap",
+          "parameters": "int frames = 0"
+        },
+        {
+          "name": "valuesAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sample"
+        },
+        {
+          "name": "render",
+          "returns": "QVariantList",
+          "parameters": "const QString &parameterId, const QString &startSample, int frames, int stride = 1"
+        },
+        {
+          "name": "touch",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId, double value"
+        },
+        {
+          "name": "move",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId, double value"
+        },
+        {
+          "name": "release",
+          "returns": "QVariantMap",
+          "parameters": "const QString &parameterId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "NotificationModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
@@ -28746,7 +30014,96 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "readOnlyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pagedChanged",
+          "parameters": ""
+        },
+        {
+          "name": "zoomChanged",
+          "parameters": ""
+        },
+        {
+          "name": "paddingChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pageGapChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pageSizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentSizeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "viewportChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pagesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "caretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "currentPageChanged",
+          "parameters": ""
+        },
+        {
+          "name": "cursorRectangleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "preeditChanged",
+          "parameters": ""
+        },
+        {
+          "name": "caretBlinked",
+          "parameters": ""
+        },
+        {
+          "name": "colorsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "accessibleTextChanged",
+          "parameters": ""
+        },
+        {
+          "name": "repaintRequested",
+          "parameters": "int firstPage"
+        },
+        {
+          "name": "linkActivated",
+          "parameters": "const QString &href"
+        },
+        {
+          "name": "linkRequested",
+          "parameters": ""
+        },
+        {
+          "name": "editRejected",
+          "parameters": "const QString &message"
+        }
+      ],
       "methods": [
         {
           "name": "invokeCommand",
@@ -28934,7 +30291,32 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentChanged",
+          "parameters": "const QindaTK::RichText::ChangeSet &change"
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &transactionId, const QString &label"
+        },
+        {
+          "name": "historyNavigated",
+          "parameters": "const QindaTK::RichText::Selection &selection, bool undo"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &message"
+        }
+      ],
       "methods": [
         {
           "name": "undo",
@@ -29176,7 +30558,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -29219,7 +30606,20 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "areaChanged",
+          "parameters": ""
+        },
+        {
+          "name": "countChanged",
+          "parameters": ""
+        },
+        {
+          "name": "generationChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "outline",
@@ -29299,7 +30699,24 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "sessionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "extensionKeyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "reload",
@@ -29374,7 +30791,28 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "areaChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pageIndexChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sourceRectChanged",
+          "parameters": ""
+        },
+        {
+          "name": "decorationsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "painted",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -29403,7 +30841,12 @@
           "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "countChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [],
       "enums": {},
       "module": "QindaTK",
@@ -30578,6 +32021,336 @@
           "name": "csv",
           "returns": "QString",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TempoMapModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT: TempoMapModel is the single authority for tempo and meter events (WP-049). TimeMap::tempoSegments is its published projection: the model writes it on commit, undo, load and while a gesture previews, so the TimelineModel re-derives beat-locked clips and musical markers live, and cancel republishes the committed map. Nothing else may write tempoSegments on a TimeMap this model drives. Engines read the committed events through EngineSchedule snapshots, never the preview (see docs/tempo-automation.md).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/tempo_map_model.h",
+      "properties": [
+        {
+          "name": "schemaId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "timeMap",
+          "type": "QindaTK::TimeMap *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timeline",
+          "type": "QindaTK::TimelineModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "events",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "eventCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "ticksPerQuarter",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "minimumBpm",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumBpm",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editOperationId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "historyCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "capabilities",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "timeMapChanged",
+          "parameters": ""
+        },
+        {
+          "name": "timelineChanged",
+          "parameters": ""
+        },
+        {
+          "name": "revisionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "eventsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "editStateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "settingsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentReset",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &transactionId, const QString &label"
+        },
+        {
+          "name": "editInvalidated",
+          "parameters": "const QString &operationId, const QString &reason"
+        },
+        {
+          "name": "rejected",
+          "parameters": "const QString &reason"
+        }
+      ],
+      "methods": [
+        {
+          "name": "beginEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &request"
+        },
+        {
+          "name": "updateEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &operationId, const QVariantMap &input"
+        },
+        {
+          "name": "commitEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &operationId"
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "bool",
+          "parameters": "const QString &operationId"
+        },
+        {
+          "name": "applyEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &request, const QVariantMap &input = {}"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clearHistory",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "contentMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "loadContent",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &content"
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "QVariantMap",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "reset",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "eventData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "eventIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "adjacentEvent",
+          "returns": "QString",
+          "parameters": "const QString &fromId, int direction"
+        },
+        {
+          "name": "tempoAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &tick"
+        },
+        {
+          "name": "meterAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &tick"
+        },
+        {
+          "name": "formatPosition",
+          "returns": "QString",
+          "parameters": "const QString &tick"
+        },
+        {
+          "name": "parsePosition",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "formatBpm",
+          "returns": "QString",
+          "parameters": "const QString &microsecondsPerQuarter"
+        },
+        {
+          "name": "parseBpm",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "microsecondsForBpm",
+          "returns": "QString",
+          "parameters": "double bpm"
+        },
+        {
+          "name": "snapTick",
+          "returns": "QString",
+          "parameters": "const QString &tick, const QString &grid, const QString &excludeId = {}"
+        },
+        {
+          "name": "stepTick",
+          "returns": "QString",
+          "parameters": "const QString &tick, const QString &grid, int steps, const QString &excludeId = {}"
         }
       ],
       "enums": {},
@@ -32346,6 +34119,16 @@
           "name": "stepTicks",
           "returns": "QString",
           "parameters": "const QString &fromTicks, const QString &grid, int steps"
+        },
+        {
+          "name": "musicalTickAt",
+          "returns": "QString",
+          "parameters": "const QString &ticks"
+        },
+        {
+          "name": "ticksAtMusicalTick",
+          "returns": "QString",
+          "parameters": "const QString &musicalTick"
         },
         {
           "name": "snapTicks",

@@ -37,3 +37,9 @@ from 32-bit limbs; it adds no Boost or compiler-extension dependency. The
 library and tests compile on the available Linux Qt 6.8.3 and 6.11.1 runtimes.
 Windows/MSVC compilation and platform timecode application workflows remain
 qualification work; the arithmetic itself uses standard C++ and Qt types.
+
+When a `TempoMapModel` drives a TimeMap it is the only writer of
+`tempoSegments`: it publishes its committed events (and gesture previews) and
+restores them on cancel. Edit tempo through that model, not by assigning
+segments; see [tempo-automation.md](tempo-automation.md).
+
