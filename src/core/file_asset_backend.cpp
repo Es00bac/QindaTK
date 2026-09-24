@@ -254,7 +254,7 @@ AssetResult FileAssetBackend::fetch(const AssetRequest &request, const Cancellat
         return result;
     }
     const QString kind = request.kind.trimmed().toLower();
-    if (kind == QStringLiteral("pdf-page")
+    if (kind == QStringLiteral("pdf-page") || kind == QStringLiteral("pdf-text")
         || (kind == QStringLiteral("metadata")
             && info.suffix().compare(QStringLiteral("pdf"), Qt::CaseInsensitive) == 0)) {
         return fetchPdfAsset(path, request, cancel, progress);

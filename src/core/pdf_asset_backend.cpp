@@ -9,7 +9,9 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTransform>
+#include <QXmlStreamReader>
 #include <algorithm>
+#include <cmath>
 
 namespace QindaTK {
 namespace {
@@ -86,6 +88,58 @@ AssetResult pdfMetadata(const QString &path, const CancellationToken &cancel)
         {QStringLiteral("pageCount"), match.captured(1).toInt()}};
     return result;
 }
+
+AssetResult pdfText(const QString &path, const AssetRequest &request,
+                    const CancellationToken &cancel)
+{
+    AssetResult result;
+    const QString page = QString::number(request.pageIndex + 1);
+    const QByteArray bytes = runPoppler(QStringLiteral("pdftotext"),
+        {QStringLiteral("-f"), page, QStringLiteral("-l"), page,
+         QStringLiteral("-bbox-layout"), path, QStringLiteral("-")}, cancel, &result.error);
+    if (result.error) return result;
+    QXmlStreamReader xml(bytes);
+    QVariantList words;
+    QStringList text;
+    double pageWidth = 0, pageHeight = 0;
+    while (!xml.atEnd()) {
+        xml.readNext();
+        if (!xml.isStartElement()) continue;
+        const auto attributes = xml.attributes();
+        if (xml.name() == QLatin1String("page")) {
+            pageWidth = attributes.value(QStringLiteral("width")).toDouble();
+            pageHeight = attributes.value(QStringLiteral("height")).toDouble();
+        } else if (xml.name() == QLatin1String("word")) {
+            bool xOk = false, yOk = false, rightOk = false, bottomOk = false;
+            const double x = attributes.value(QStringLiteral("xMin")).toDouble(&xOk);
+            const double y = attributes.value(QStringLiteral("yMin")).toDouble(&yOk);
+            const double right = attributes.value(QStringLiteral("xMax")).toDouble(&rightOk);
+            const double bottom = attributes.value(QStringLiteral("yMax")).toDouble(&bottomOk);
+            const QString value = xml.readElementText();
+            if (!xOk || !yOk || !rightOk || !bottomOk || !std::isfinite(x)
+                || !std::isfinite(y) || !std::isfinite(right) || !std::isfinite(bottom)
+                || right < x || bottom < y || words.size() >= 200000) {
+                result.error = failure(ErrorCode::Validation, QStringLiteral("Invalid PDF text geometry"));
+                return result;
+            }
+            words.append(QVariantMap{{QStringLiteral("text"), value},
+                {QStringLiteral("rectPoints"), QVariantMap{
+                    {QStringLiteral("x"), x}, {QStringLiteral("y"), y},
+                    {QStringLiteral("width"), right - x}, {QStringLiteral("height"), bottom - y}}}});
+            text.append(value);
+        }
+    }
+    if (xml.hasError() || pageWidth <= 0 || pageHeight <= 0) {
+        result.error = failure(ErrorCode::Validation, QStringLiteral("Invalid PDF text extraction result"));
+        return result;
+    }
+    result.metadata = {{QStringLiteral("kind"), QStringLiteral("pdf-text")},
+        {QStringLiteral("pageIndex"), request.pageIndex},
+        {QStringLiteral("pageWidthPt"), pageWidth},
+        {QStringLiteral("pageHeightPt"), pageHeight},
+        {QStringLiteral("text"), text.join(u' ')}, {QStringLiteral("words"), words}};
+    return result;
+}
 } // namespace
 
 AssetResult fetchPdfAsset(const QString &path, const AssetRequest &request,
@@ -97,6 +151,7 @@ AssetResult fetchPdfAsset(const QString &path, const AssetRequest &request,
         result.error = failure(ErrorCode::InvalidArgument, QStringLiteral("PDF page index is out of range"));
         return result;
     }
+    if (request.kind == QStringLiteral("pdf-text")) return pdfText(path, request, cancel);
     if (progress) progress(0.0);
     const int pageNumber = request.pageIndex + 1;
     const int dimension = std::clamp(std::max(request.size.width(), request.size.height()), 1, 4096);

@@ -155,7 +155,8 @@ private slots:
     void pdfPageRendersAtRequestedSize()
     {
         if (QStandardPaths::findExecutable(QStringLiteral("pdftoppm")).isEmpty()
-            || QStandardPaths::findExecutable(QStringLiteral("pdfinfo")).isEmpty())
+            || QStandardPaths::findExecutable(QStringLiteral("pdfinfo")).isEmpty()
+            || QStandardPaths::findExecutable(QStringLiteral("pdftotext")).isEmpty())
             QSKIP("Poppler command-line tools are unavailable");
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
@@ -166,6 +167,7 @@ private slots:
             QPainter painter(&writer);
             QVERIFY(painter.isActive());
             painter.fillRect(QRect(100, 100, 500, 300), Qt::red);
+            painter.drawText(QPoint(100, 500), QStringLiteral("Searchable PDF word"));
         }
         FileAssetBackend backend;
         AssetRequest request;
@@ -187,8 +189,14 @@ private slots:
         QImage rotated;
         QVERIFY(rotated.loadFromData(result.bytes, "PNG"));
         QCOMPARE(rotated.size(), QSize(image.height(), image.width()));
+        request.kind = QStringLiteral("pdf-text");
+        result = backend.fetch(request, {}, {});
+        QVERIFY2(!result.error, qPrintable(result.error.message));
+        QVERIFY(result.metadata.value(QStringLiteral("text")).toString()
+                    .contains(QStringLiteral("Searchable")));
+        QVERIFY(!result.metadata.value(QStringLiteral("words")).toList().isEmpty());
     }
 };
 
-QTEST_GUILESS_MAIN(TstFileAssetBackend)
+QTEST_MAIN(TstFileAssetBackend)
 #include "tst_file_asset_backend.moc"

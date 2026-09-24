@@ -76,7 +76,9 @@ ordinary metadata, decodes/crops/scales images to PNG thumbnails, and reduces
 integer PCM RIFF/WAV samples (8/16/24/32-bit) to bounded peak columns on a
 worker. For local PDFs, `metadata` returns a page count and `pdf-page` returns
 a rendered PNG for zero-based `pageIndex` and clockwise `rotation` (0, 90,
-180 or 270 degrees). PDF rendering uses Poppler's `pdfinfo`/`pdftoppm`
+180 or 270 degrees). `pdf-text` returns UTF-8 text and word rectangles in
+page points for search and selection. PDF requests use Poppler's
+`pdfinfo`/`pdftoppm`/`pdftotext`
 executables in the worker process, with a 30-second timeout and 32 MiB encoded
 output limit; missing tools produce an explicit `Unsupported` result. The
 reference adapter limits files to 256 MiB, source images to 100

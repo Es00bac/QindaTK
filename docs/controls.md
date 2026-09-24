@@ -235,6 +235,8 @@ asset.
 For PDF pages, `Tk.AssetThumbnail` can request `"pdf-page"` with zero-based
 `requestOptions.pageIndex` and `rotation` (0/90/180/270). The default file
 backend returns a real PNG through Poppler's installed command-line tools.
+`"pdf-text"` for the same page returns extracted words with point-space
+rectangles for a host search/selection adapter.
 
 All three controls use `Tk.AssetProvider` and `Tk.ResourceResolver`; register a
 logical resource ID before requesting it. `document` and `viewId` scope
