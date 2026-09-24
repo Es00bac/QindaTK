@@ -67,3 +67,7 @@ multiple carets are point carets rather than independent selections;
 from edits, so very large files still pay a full text comparison on each edit.
 This lane was not checked against Qt 6.8. LSP process integration remains a
 host concern. This evidence does not mark WP-081 accepted.
+
+The completion lane was cherry-picked into integration as `e4f4080`.
+The merged build passed `tst_code_document` and `example_code-editor-live`
+(2/2 CTest entries) and the targeted CodeEditor QML runner (5/5).
