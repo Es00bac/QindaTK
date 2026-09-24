@@ -162,6 +162,7 @@ Rectangle {
                 OfficeSection { filter: search.text }
                 DatabaseSection { filter: search.text }
                 ProductivitySection { filter: search.text }
+                ExtensionsSection { filter: search.text }
                 RichTextSection { filter: search.text }
                 TelemetrySection { filter: search.text }
                 TimelineSection { filter: search.text }

@@ -11051,6 +11051,78 @@
       ]
     },
     {
+      "name": "ExtensionManager",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "AGENT-CONTRACT (docs/extension-registry.md): registering a local descriptor only reads JSON. Loading is always a separate, explicit user action because a native plugin runs with the host process's permissions.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ExtensionManager.qml",
+      "properties": [
+        {
+          "name": "registry",
+          "type": "Tk.ExtensionRegistry",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Manage trusted local extensions\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "actionMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entries",
+          "type": "var",
+          "default": "registry ? registry.extensions : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "addDescriptor",
+          "parameters": "path"
+        },
+        {
+          "name": "changeLoaded",
+          "parameters": "id, shouldLoad"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "extensionActionMessage",
+        "extensionAdd",
+        "extensionDescriptorPath",
+        "extensionDiagnostic_",
+        "extensionListScroll",
+        "extensionLoad_",
+        "extensionManager",
+        "extension_"
+      ]
+    },
+    {
       "name": "Fader",
       "kind": "qml",
       "base": "T.Control",

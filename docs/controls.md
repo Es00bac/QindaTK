@@ -900,3 +900,9 @@ mesh output.
 | --- | --- | --- | --- |
 | `ScriptRuntime` | C++ `QObject` | `commandRegistry`, `undoService`, `exposedCommandIds`, `documentSnapshot`, `running`, `status`, `output`, `errorString`, `lastResult`, `recordedCommands`, `maxRuntimeMs`; `execute(source)`, `cancel()`, `replay(commands)`, `replayRecorded()`, `clear()`; `finished(success)` | Runs bounded local JavaScript on a worker using plain JSON snapshots and an explicit command allowlist. Commands replay on the owner thread through `CommandRegistry`. Multi-command edit groups require active `UndoService` history. See [script runtime](script-runtime.md). |
 | `ScriptConsole` | `Tk.Flex` | `runtime`, `sourceText`, `tooltip` | `scriptConsole`, `scriptSource`, `scriptRun`, `scriptCancel`, `scriptReplay`, `scriptStatus`, `scriptOutput`. Ctrl+Enter runs; status, output and errors bind to the runtime. |
+
+## Extension manager
+
+| Type | Base | API | Internal objectNames and behavior |
+| --- | --- | --- | --- |
+| `ExtensionManager` | `Tk.Flex` | `registry` (`Tk.ExtensionRegistry`), `tooltip`, `actionMessage`; `addDescriptor(path)`, `changeLoaded(id, shouldLoad)` | `extensionManager`, `extensionDescriptorPath`, `extensionAdd`, `extensionActionMessage`, `extensionListScroll`, `extension_<id>`, `extensionLoad_<id>`, `extensionDiagnostic_<id>`. Shows saved extensions even when their descriptor is absent, including the registry's diagnostic. Adding a descriptor reads JSON; Load is a separate explicit action that runs trusted native code. |

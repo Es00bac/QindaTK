@@ -61,3 +61,11 @@ UI or hand GUI `QObject`s to workers. Native plugins run in the application's
 process with its permissions; applications needing isolation must use a
 separate process adapter behind this host boundary. QML controls supplied by
 plugins need separate application registration and accessible fallback UI.
+
+`Tk.ExtensionManager` is the reusable host panel for this registry. It accepts
+an absolute local descriptor path, lists known extensions and diagnostics, and
+has separate Load/Unload actions. A restored extension whose descriptor is
+missing remains visible with a disabled Load action. The host owns the registry
+and decides which local descriptors users may add; the panel does not scan or
+execute anything on construction. See `examples/extension-manager-live` for a
+saved-state recovery surface.

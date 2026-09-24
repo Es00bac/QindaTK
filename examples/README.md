@@ -1,6 +1,10 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Examples
 
+The [extension manager fixture](extension-manager-live/Main.qml) shows a
+restored catalog with unavailable native extensions, clear diagnostics and
+explicit descriptor and Load actions.
+
 The [live code editor fixture](code-editor-live/Main.qml) connects
 `CodeEditor` to a native `CodeDocument` buffer and revision-tagged sample
 syntax/diagnostic provider. Text remains editable with Qt's IME, selection,
