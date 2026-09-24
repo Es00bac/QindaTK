@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+#pragma once
+
+#include <QHash>
+#include <QObject>
+#include <QStringList>
+#include <QVariantList>
+#include <QtQml/qqmlregistration.h>
+
+namespace QindaTK {
+
+// A bounded trace snapshot. Raw records carry exact decimal tick strings and
+// explicit clock domains; conversion, validation and sorting run off-thread.
+class TraceIndex : public QObject {
+    Q_OBJECT
+    QML_ELEMENT
+    Q_PROPERTY(bool busy READ busy NOTIFY changed)
+    Q_PROPERTY(int count READ count NOTIFY changed)
+    Q_PROPERTY(int rejectedCount READ rejectedCount NOTIFY changed)
+    Q_PROPERTY(int truncatedCount READ truncatedCount NOTIFY changed)
+    Q_PROPERTY(QStringList threads READ threads NOTIFY changed)
+    Q_PROPERTY(QString startNs READ startNs NOTIFY changed)
+    Q_PROPERTY(QString endNs READ endNs NOTIFY changed)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
+public:
+    explicit TraceIndex(QObject *parent = nullptr) : QObject(parent) {}
+    bool busy() const { return m_busy; }
+    int count() const { return m_records.size(); }
+    int rejectedCount() const { return m_rejected; }
+    int truncatedCount() const { return m_truncated; }
+    QStringList threads() const { return m_threads; }
+    QString startNs() const { return m_records.isEmpty() ? QString{} : QString::number(m_start); }
+    QString endNs() const { return m_records.isEmpty() ? QString{} : QString::number(m_end); }
+    QString lastError() const { return m_error; }
+
+    Q_INVOKABLE bool setClockDomains(const QVariantList &domains);
+    Q_INVOKABLE QString ingestAsync(const QVariantList &records);
+    Q_INVOKABLE void clear();
+    Q_INVOKABLE QVariantMap record(const QString &id) const;
+    Q_INVOKABLE QVariantList childrenOf(const QString &spanId) const;
+    Q_INVOKABLE QStringList ancestorsOf(const QString &recordId) const;
+    Q_INVOKABLE QVariantList queryWindow(double fromFraction, double toFraction,
+                                         const QString &threadId = {},
+                                         const QString &textFilter = {},
+                                         int limit = 500) const;
+    Q_INVOKABLE QVariantList queryRangeNs(const QString &fromNs, const QString &toNs,
+                                          const QString &threadId = {},
+                                          const QString &textFilter = {},
+                                          int limit = 500) const;
+    Q_INVOKABLE QString exportJson() const;
+
+signals:
+    void changed();
+    void analysisReady(const QString &requestId, int retainedCount);
+    void analysisDiscarded(const QString &requestId);
+
+private:
+    struct ClockDomain {
+        QString id;
+        qint64 nanosPerTick = 0;
+        qint64 offsetNs = 0;
+    };
+    struct Record {
+        QString id;
+        QString kind;
+        QString name;
+        QString category;
+        QString threadId;
+        QString parentId;
+        QString clockDomain;
+        qint64 startTicks = 0;
+        qint64 endTicks = 0;
+        qint64 startNs = 0;
+        qint64 endNs = 0;
+    };
+    struct Analysis {
+        QVector<Record> records;
+        QStringList threads;
+        QString error;
+        int rejected = 0;
+        int truncated = 0;
+        qint64 start = 0;
+        qint64 end = 0;
+    };
+    static Analysis analyze(const QVariantList &input,
+                            const QHash<QString, ClockDomain> &domains);
+    QVariantMap recordMap(const Record &record) const;
+    static bool decimal(const QVariant &value, qint64 *out);
+    static bool convert(qint64 ticks, const ClockDomain &domain, qint64 *ns);
+    void publish(Analysis result, quint64 generation);
+    QHash<QString, ClockDomain> m_domains;
+    QVector<Record> m_records;
+    QHash<QString, int> m_byId;
+    QStringList m_threads;
+    QString m_error;
+    qint64 m_start = 0;
+    qint64 m_end = 0;
+    quint64 m_generation = 0;
+    int m_rejected = 0;
+    int m_truncated = 0;
+    bool m_busy = false;
+};
+
+} // namespace QindaTK

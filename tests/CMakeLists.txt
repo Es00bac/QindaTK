@@ -96,6 +96,9 @@ qindatk_add_test(tst_workspace_session)
 qindatk_add_test(tst_dock_restore)
 qindatk_add_test(tst_resource_resolver)
 qindatk_add_test(tst_asset_dependency_index)
+qindatk_add_test(tst_trace_index)
+target_compile_definitions(tst_trace_index PRIVATE
+    QINDATK_TRACE_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/trace/known_trace.json")
 target_compile_definitions(tst_asset_dependency_index PRIVATE
     QINDATK_ASSET_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/asset_dependencies")
 qindatk_add_test(tst_job_model)

@@ -1,0 +1,12 @@
+{
+  "clockDomains": [
+    {"id": "mono", "nanosPerTick": "1000", "offsetNs": "0"},
+    {"id": "device", "nanosPerTick": "100", "offsetNs": "100000"}
+  ],
+  "records": [
+    {"id": "root", "kind": "span", "name": "Render frame", "category": "render", "threadId": "ui", "clockDomain": "mono", "startTicks": "100", "endTicks": "500"},
+    {"id": "worker", "kind": "span", "name": "Composite", "category": "render", "threadId": "gpu", "parentId": "root", "clockDomain": "device", "startTicks": "2000", "endTicks": "3000"},
+    {"id": "upload", "kind": "event", "name": "Upload complete", "category": "transfer", "threadId": "gpu", "parentId": "worker", "clockDomain": "device", "startTicks": "2500"},
+    {"id": "present", "kind": "event", "name": "Present", "category": "display", "threadId": "ui", "parentId": "root", "clockDomain": "mono", "startTicks": "450"}
+  ]
+}

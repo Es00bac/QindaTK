@@ -110,6 +110,7 @@ qt_add_qml_module(qindatk
         core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h
         core/asset_dependency_index.cpp core/asset_dependency_index.h
+        core/trace_index.cpp core/trace_index.h
         core/asset_dependency_qml.cpp
         core/resource_resolver_async.cpp
         core/document_resource_links.cpp core/document_resource_links.h

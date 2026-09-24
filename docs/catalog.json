@@ -32277,6 +32277,137 @@
       "objectNames": []
     },
     {
+      "name": "TraceView",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (WP-087): TraceIndex owns exact times and bounded queries; this view only projects normalized coordinates and never edits trace data.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/TraceView.qml",
+      "properties": [
+        {
+          "name": "index",
+          "type": "Tk.TraceIndex",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Trace explorer\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "threadFilter",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "textFilter",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pan",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dataRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "windowSize",
+          "type": "real",
+          "default": "1 / zoom",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleRecords",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedRecord",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "exportRequested",
+          "parameters": "string json"
+        }
+      ],
+      "methods": [
+        {
+          "name": "zoomBy",
+          "parameters": "factor"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "traceExport",
+        "traceInspector",
+        "tracePan",
+        "traceRecord_",
+        "traceSearch",
+        "traceThreadFilter",
+        "traceTimeline",
+        "traceView",
+        "traceZoomIn",
+        "traceZoomOut"
+      ]
+    },
+    {
       "name": "TrackHeader",
       "kind": "qml",
       "base": "Item",
@@ -54652,6 +54783,143 @@
         {
           "name": "popTemporaryTool",
           "returns": "bool",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "TraceIndex",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "A bounded trace snapshot. Raw records carry exact decimal tick strings and explicit clock domains; conversion, validation and sorting run off-thread.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/trace_index.h",
+      "properties": [
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "rejectedCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "truncatedCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "threads",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "startNs",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "endNs",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "analysisReady",
+          "parameters": "const QString &requestId, int retainedCount"
+        },
+        {
+          "name": "analysisDiscarded",
+          "parameters": "const QString &requestId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setClockDomains",
+          "returns": "bool",
+          "parameters": "const QVariantList &domains"
+        },
+        {
+          "name": "ingestAsync",
+          "returns": "QString",
+          "parameters": "const QVariantList &records"
+        },
+        {
+          "name": "clear",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "record",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "childrenOf",
+          "returns": "QVariantList",
+          "parameters": "const QString &spanId"
+        },
+        {
+          "name": "ancestorsOf",
+          "returns": "QStringList",
+          "parameters": "const QString &recordId"
+        },
+        {
+          "name": "queryWindow",
+          "returns": "QVariantList",
+          "parameters": "double fromFraction, double toFraction, const QString &threadId = {}, const QString &textFilter = {}, int limit = 500"
+        },
+        {
+          "name": "queryRangeNs",
+          "returns": "QVariantList",
+          "parameters": "const QString &fromNs, const QString &toNs, const QString &threadId = {}, const QString &textFilter = {}, int limit = 500"
+        },
+        {
+          "name": "exportJson",
+          "returns": "QString",
           "parameters": ""
         }
       ],
