@@ -36,6 +36,31 @@ Each source is limited to 256 MiB and 100 million decoded pixels. The caption fr
 `frame-000000.png`, etc. The host captures source identity and all rendering
 inputs before enqueue; no live document or QML object crosses to a worker.
 
+## Built-in rich document PDF
+
+`qindatk.rich-document-pdf` version `1` accepts format `pdf` and capability
+`rich-document-pdf`. `settings.documentJson` is a committed
+`RichTextDocument.toJson()` string (at most 16 MiB). Set
+`settings.documentSha256` to its lowercase UTF-8 SHA-256 and
+`sourceRevision` to `sha256:` followed by that digest. The provider checks
+both hashes, loads a worker-local document and uses its paged PDF exporter to
+write `document.pdf` into the private stage. A malformed or changed snapshot
+fails before publication. External rich-text image assets still need a host
+provider; this built-in export covers content represented by the document
+snapshot and the exporter's supported objects.
+
+## Built-in PCM16 WAV gain
+
+`qindatk.pcm16-wav-gain` version `1` accepts format `wav` and capability
+`pcm16-wav-gain`. `settings.sourcePath` is an absolute local WAV file,
+`settings.sourceSha256` is its lowercase SHA-256, `sourceRevision` is
+`sha256:` plus the same digest, and `settings.gain` is a finite number from
+0 to 4. The provider accepts at most 64 MiB of uncompressed mono or stereo
+PCM16 at 8–192 kHz, hashes the whole source before rendering, scales and
+clips samples, and publishes `audio.wav`. Unsupported compression or a changed
+source fails without publishing output. Decoding other codecs and muxing audio
+with video are host provider responsibilities.
+
 A provider registered by C++ with `registerProvider(id, version, formats,
 RenderProvider)` receives the immutable JSON snapshot, a private staging
 directory, cancellation token and progress reporter. It writes files only
@@ -62,8 +87,9 @@ source continues to fail until the host restores the same bytes or submits a
 new job with a new snapshot and target. Journal failures are reported through
 `lastError`; hosts should surface that diagnostic.
 
-The built-in adapter produces PNG image sequences, not a muxed video, audio,
-or PDF. It does not checkpoint individual frames; interrupted work starts a
+The built-in adapters produce PNG image sequences, rich-document PDF and
+PCM16 WAV audio, not a muxed video. They do not checkpoint individual frames or
+pages; interrupted work starts a
 fresh private stage. The host owns decoding or rendering any other media
 engine and registers its own provider with explicit format and version.
 Providers must check cancellation and must not touch live QObjects. The

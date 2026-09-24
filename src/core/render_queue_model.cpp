@@ -17,6 +17,8 @@
 #include <exception>
 
 namespace QindaTK {
+RenderProduct renderPcm16WavGain(const QJsonObject &, const QString &,
+    const CancellationToken &, const JobProgress &);
 namespace {
 QString string(const QJsonObject &object, const char *key)
 { return object.value(QLatin1String(key)).toString(); }
@@ -152,6 +154,10 @@ RenderQueueModel::RenderQueueModel(QObject *parent) : QAbstractListModel(parent)
 {
     registerProvider(QStringLiteral("qindatk.caption-png-sequence"), QStringLiteral("1"),
                      {QStringLiteral("png-sequence")}, renderCaptionPngSequence);
+    registerProvider(QStringLiteral("qindatk.rich-document-pdf"), QStringLiteral("1"),
+                     {QStringLiteral("pdf")}, renderRichDocumentPdf);
+    registerProvider(QStringLiteral("qindatk.pcm16-wav-gain"), QStringLiteral("1"),
+                     {QStringLiteral("wav")}, renderPcm16WavGain);
     connect(m_jobs.get(), &JobModel::jobFinished, this, &RenderQueueModel::finish);
     connect(m_jobs.get(), &JobModel::changed, this, [this]() {
         for (int row = 0; row < m_entries.size(); ++row) {

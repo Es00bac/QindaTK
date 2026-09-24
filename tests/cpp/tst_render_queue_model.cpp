@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "../../src/core/render_queue_model.h"
+#include "../../src/core/rich_text_document.h"
 
 #include <QCryptographicHash>
 #include <QDir>
@@ -17,6 +18,97 @@ using namespace QindaTK;
 class RenderQueueModelTest : public QObject {
     Q_OBJECT
 private slots:
+    void pcm16WavGainOutput()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        QByteArray wav(52, '\0');
+        wav.replace(0, 4, "RIFF"); wav.replace(8, 4, "WAVE");
+        wav.replace(12, 4, "fmt "); wav.replace(36, 4, "data");
+        auto put16 = [&](int at, quint16 value) {
+            wav[at] = char(value & 255); wav[at + 1] = char((value >> 8) & 255);
+        };
+        auto put32 = [&](int at, quint32 value) {
+            put16(at, quint16(value & 65535)); put16(at + 2, quint16(value >> 16));
+        };
+        put32(4, 44); put32(16, 16); put16(20, 1); put16(22, 1);
+        put32(24, 48000); put32(28, 96000); put16(32, 2); put16(34, 16);
+        put32(40, 8); put16(44, 1000); put16(46, quint16(-1000));
+        put16(48, 20000); put16(50, quint16(-20000));
+        const QString sourcePath = temp.filePath(QStringLiteral("source.wav"));
+        QFile source(sourcePath);
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        QCOMPARE(source.write(wav), wav.size());
+        source.close();
+        const QString digest = QString::fromLatin1(QCryptographicHash::hash(
+            wav, QCryptographicHash::Sha256).toHex());
+        RenderQueueModel queue;
+        QVERIFY(queue.open(temp.filePath(QStringLiteral("queue.json"))));
+        const QString output = temp.filePath(QStringLiteral("wav-output"));
+        const QVariantMap snapshot{{QStringLiteral("id"), QStringLiteral("wav-job")},
+            {QStringLiteral("label"), QStringLiteral("Audio gain")},
+            {QStringLiteral("providerId"), QStringLiteral("qindatk.pcm16-wav-gain")},
+            {QStringLiteral("providerVersion"), QStringLiteral("1")},
+            {QStringLiteral("format"), QStringLiteral("wav")},
+            {QStringLiteral("capabilityId"), QStringLiteral("pcm16-wav-gain")},
+            {QStringLiteral("sourceId"), QStringLiteral("audio-a")},
+            {QStringLiteral("sourceRevision"), QStringLiteral("sha256:") + digest},
+            {QStringLiteral("outputPath"), output},
+            {QStringLiteral("resourceSlots"), 1},
+            {QStringLiteral("settings"), QVariantMap{{QStringLiteral("sourcePath"), sourcePath},
+                {QStringLiteral("sourceSha256"), digest}, {QStringLiteral("gain"), 2.0}}}};
+        QCOMPARE(queue.enqueueJob(snapshot), QStringLiteral("wav-job"));
+        QTRY_COMPARE_WITH_TIMEOUT(queue.job(QStringLiteral("wav-job")).value(QStringLiteral("state")).toString(),
+                                  QStringLiteral("succeeded"), 20000);
+        QVERIFY(queue.verifyOutput(QStringLiteral("wav-job")));
+        QFile rendered(QDir(output).filePath(QStringLiteral("audio.wav")));
+        QVERIFY(rendered.open(QIODevice::ReadOnly));
+        const QByteArray result = rendered.readAll();
+        QCOMPARE(result.size(), wav.size());
+        auto sample = [&](int at) {
+            const int value = int(quint8(result.at(at))) | (int(quint8(result.at(at + 1))) << 8);
+            return value >= 32768 ? value - 65536 : value;
+        };
+        QCOMPARE(sample(44), 2000);
+        QCOMPARE(sample(46), -2000);
+        QCOMPARE(sample(48), 32767);
+        QCOMPARE(sample(50), -32768);
+    }
+
+    void richDocumentPdfOutput()
+    {
+        QTemporaryDir temp;
+        QVERIFY(temp.isValid());
+        RichTextDocument document;
+        QVERIFY(document.insertText(document.startPosition(), QStringLiteral("Queued PDF output"))
+                    .has_value());
+        const QString json = document.toJson();
+        const QString digest = QString::fromLatin1(QCryptographicHash::hash(
+            json.toUtf8(), QCryptographicHash::Sha256).toHex());
+        RenderQueueModel queue;
+        QVERIFY(queue.open(temp.filePath(QStringLiteral("queue.json"))));
+        const QString output = temp.filePath(QStringLiteral("pdf-output"));
+        const QVariantMap snapshot{{QStringLiteral("id"), QStringLiteral("pdf-job")},
+            {QStringLiteral("label"), QStringLiteral("Rich document")},
+            {QStringLiteral("providerId"), QStringLiteral("qindatk.rich-document-pdf")},
+            {QStringLiteral("providerVersion"), QStringLiteral("1")},
+            {QStringLiteral("format"), QStringLiteral("pdf")},
+            {QStringLiteral("capabilityId"), QStringLiteral("rich-document-pdf")},
+            {QStringLiteral("sourceId"), QStringLiteral("document-a")},
+            {QStringLiteral("sourceRevision"), QStringLiteral("sha256:") + digest},
+            {QStringLiteral("outputPath"), output},
+            {QStringLiteral("resourceSlots"), 1},
+            {QStringLiteral("settings"), QVariantMap{{QStringLiteral("documentJson"), json},
+                {QStringLiteral("documentSha256"), digest}}}};
+        QCOMPARE(queue.enqueueJob(snapshot), QStringLiteral("pdf-job"));
+        QTRY_COMPARE_WITH_TIMEOUT(queue.job(QStringLiteral("pdf-job")).value(QStringLiteral("state")).toString(),
+                                  QStringLiteral("succeeded"), 20000);
+        QVERIFY(queue.verifyOutput(QStringLiteral("pdf-job")));
+        QFile pdf(QDir(output).filePath(QStringLiteral("document.pdf")));
+        QVERIFY(pdf.open(QIODevice::ReadOnly));
+        QCOMPARE(pdf.read(5), QByteArray("%PDF-"));
+    }
+
     void durableCaptionSequenceAndRetry()
     {
         QTemporaryDir temp;

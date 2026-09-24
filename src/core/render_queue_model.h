@@ -52,6 +52,8 @@ public:
     Q_INVOKABLE void start();
     static RenderProduct renderCaptionPngSequence(const QJsonObject &snapshot,
         const QString &stageDirectory, const CancellationToken &, const JobProgress &);
+    static RenderProduct renderRichDocumentPdf(const QJsonObject &snapshot,
+        const QString &stageDirectory, const CancellationToken &, const JobProgress &);
 signals:
     void changed();
     void jobFinished(const QString &id, const QString &state);

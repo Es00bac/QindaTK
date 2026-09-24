@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, 26 active, three in review, and 22 planned.**
+**Execution state: 33 packages accepted, 31 active, three in review, and 17 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -112,7 +112,7 @@ as though a later fix had already passed the earlier run.
 | [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | planned | — |
 | [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | planned | — |
 | [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | planned | — |
-| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and verified three-frame PNG output fixture integrated; more providers remain](evidence/WP-078.md) |
+| [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and real PNG/PDF/WAV providers integrated; acceptance gate remains](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
 | [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | planned | — |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | planned | — |
