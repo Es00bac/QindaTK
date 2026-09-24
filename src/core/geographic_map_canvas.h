@@ -18,6 +18,7 @@ class GeographicMapCanvas : public QQuickPaintedItem {
     Q_PROPERTY(double centerLongitude READ centerLongitude WRITE setCenterLongitude NOTIFY viewportChanged)
     Q_PROPERTY(double centerLatitude READ centerLatitude WRITE setCenterLatitude NOTIFY viewportChanged)
     Q_PROPERTY(double zoomLevel READ zoomLevel WRITE setZoomLevel NOTIFY viewportChanged)
+    Q_PROPERTY(QString displayProjection READ displayProjection WRITE setDisplayProjection NOTIFY projectionChanged)
     Q_PROPERTY(QString selectedFeatureId READ selectedFeatureId NOTIFY selectionChanged)
     Q_PROPERTY(QVariantMap selectedFeature READ selectedFeature NOTIFY selectedFeatureChanged)
     Q_PROPERTY(bool editMode READ editMode WRITE setEditMode NOTIFY editModeChanged)
@@ -44,6 +45,8 @@ public:
     void setCenterLatitude(double value);
     double zoomLevel() const { return m_zoom; }
     void setZoomLevel(double value);
+    QString displayProjection() const { return m_projection; }
+    void setDisplayProjection(const QString &value);
     QString selectedFeatureId() const { return m_selectedId; }
     QVariantMap selectedFeature() const { return m_model ? m_model->featureById(m_selectedId) : QVariantMap{}; }
     bool editMode() const { return m_editMode; }
@@ -65,6 +68,7 @@ public:
 signals:
     void modelChanged();
     void viewportChanged();
+    void projectionChanged();
     void selectionChanged();
     void selectedFeatureChanged();
     void editModeChanged();
@@ -85,6 +89,10 @@ private:
     void refreshTiles();
     void paintTiles(QPainter *painter);
     QPointF screen(double lon, double lat) const;
+    QPointF projectDisplay(double lon, double lat) const;
+    QPointF unprojectDisplay(double x, double y) const;
+    QVector<int> featureCandidates(const QRectF &pixels) const;
+    bool mercatorProjection() const { return m_projection == QLatin1String("EPSG:3857"); }
     QPainterPath featurePath(const GeographicFeatureModel::Feature &feature, int worldCopy) const;
     double scale() const;
     int worldCopies() const;
@@ -96,6 +104,7 @@ private:
     QString m_exportError;
     QColor m_background, m_feature, m_selection, m_grid;
     double m_centerX = 0.5, m_centerY = 0.5, m_zoom = 2;
+    QString m_projection = QStringLiteral("EPSG:3857");
     double m_pointRadius = 0, m_lineWidth = 0, m_gridWidth = 0, m_hitRadius = 0;
     double m_fillOpacity = 1, m_selectedFillOpacity = 1;
     QString m_selectedId;

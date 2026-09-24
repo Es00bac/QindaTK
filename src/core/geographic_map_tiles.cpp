@@ -35,7 +35,10 @@ void GeographicMapCanvas::refreshTiles()
 {
     m_visibleTiles.clear();
     QString nextStatus = QStringLiteral("unavailable");
-    if (m_tileSource && m_tileSource->loaded() && width() > 0 && height() > 0) {
+    if (m_tileSource && m_tileSource->loaded() && !mercatorProjection()) {
+        m_tileSource->setVisibleTiles({});
+        nextStatus = QStringLiteral("projection incompatible with XYZ tiles (requires EPSG:3857)");
+    } else if (m_tileSource && m_tileSource->loaded() && width() > 0 && height() > 0) {
         const int z = std::clamp(static_cast<int>(std::floor(m_zoom)),
                                  m_tileSource->minZoom(), m_tileSource->maxZoom());
         const int count = 1 << z;

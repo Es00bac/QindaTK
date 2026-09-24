@@ -5,6 +5,7 @@
 #include <QPointF>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
+#include <array>
 
 namespace QindaTK {
 // AGENT-CONTRACT: coordinates are GeoJSON WGS84 [longitude, latitude] degrees;
@@ -26,7 +27,7 @@ public:
     QString sourcePath() const { return m_sourcePath; }
     QString lastError() const { return m_error; }
     int count() const { return m_features.size(); }
-    QString crs() const { return QStringLiteral("EPSG:4326 → EPSG:3857"); }
+    QString crs() const { return QStringLiteral("EPSG:4326"); }
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
@@ -48,6 +49,8 @@ public:
     static QPointF geographic(double x, double y);
     static constexpr double latitudeLimit = 85.0511287798066;
     const QVector<Feature> &features() const { return m_features; }
+    // Unwrapped longitude interval and WGS84 latitude interval; indices retain model order.
+    QVector<int> queryFeatureIndices(double west, double east, double south, double north) const;
 signals:
     void changed();
     void errorChanged();
@@ -57,6 +60,12 @@ private:
     void setError(const QString &value);
     static QString pathFromInput(const QString &input);
     QVector<Feature> m_features;
+    struct Bounds { double west, east, south, north; };
+    void rebuildSpatialIndex() const;
+    mutable std::array<QVector<int>, 36 * 18> m_spatialCells;
+    mutable QVector<int> m_spatialOverflow;
+    mutable QVector<Bounds> m_spatialBounds;
+    mutable bool m_spatialDirty = true;
     QString m_attribution, m_sourcePath, m_error;
 };
 }

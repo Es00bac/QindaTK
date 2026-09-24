@@ -24,12 +24,15 @@ bool GeographicMapCanvas::exportPng(const QString &path, int pixelWidth, int pix
         !std::isfinite(latitude) || latitude < -90 || latitude > 90 ||
         !std::isfinite(zoomLevel) || zoomLevel < 0 || zoomLevel > 18)
         return fail(QStringLiteral("Invalid export dimensions or WGS84 viewport"));
+    if (m_tileSource && m_tileSource->loaded() && !mercatorProjection())
+        return fail(QStringLiteral("XYZ tiles require EPSG:3857 display projection"));
 
     GeographicMapCanvas snapshot;
     snapshot.setWidth(pixelWidth);
     snapshot.setHeight(pixelHeight);
     snapshot.m_centerX = wrap((longitude + 180.0) / 360.0);
-    snapshot.m_centerY = GeographicFeatureModel::mercator(0, latitude).y();
+    snapshot.m_projection = m_projection;
+    snapshot.m_centerY = snapshot.projectDisplay(0, latitude).y();
     snapshot.m_zoom = zoomLevel;
     snapshot.m_model = m_model;
     snapshot.m_tileSource = m_tileSource; // Do not replace the live source's visible requests.
@@ -80,7 +83,8 @@ bool GeographicMapCanvas::exportPng(const QString &path, int pixelWidth, int pix
                         m_tileSource ? m_tileSource->attribution() : QString{}};
     sources.removeAll(QString{});
     const QString attribution = sources.join(QStringLiteral(" · "));
-    image.setText(QStringLiteral("QindaTK/CRS"), QStringLiteral("EPSG:4326 input; EPSG:3857 display"));
+    image.setText(QStringLiteral("QindaTK/CRS"),
+                  QStringLiteral("EPSG:4326 input; %1 display").arg(m_projection));
     image.setText(QStringLiteral("QindaTK/Viewport"),
                   QStringLiteral("%1x%2 lon=%3 lat=%4 zoom=%5")
                       .arg(pixelWidth).arg(pixelHeight).arg(longitude, 0, 'g', 17)

@@ -77,6 +77,7 @@ QString GeographicFeatureModel::addFeature(const QString &type, const QVariant &
     const int row = m_features.size();
     beginInsertRows({}, row, row);
     m_features.append({id, type, geometry, properties});
+    m_spatialDirty = true;
     endInsertRows();
     setError({}); emit changed();
     return id;
@@ -93,6 +94,7 @@ bool GeographicFeatureModel::replaceGeometry(const QString &id, const QVariant &
     }
     if (feature.geometry.value("coordinates") == value) { setError({}); return true; }
     feature.geometry.insert("coordinates", value);
+    m_spatialDirty = true;
     emit dataChanged(index(row), index(row), {GeometryRole});
     setError({}); emit changed();
     return true;
@@ -138,6 +140,7 @@ bool GeographicFeatureModel::removeFeature(const QString &id)
     if (row < 0) { setError(QStringLiteral("Unknown feature ID: %1").arg(id)); return false; }
     beginRemoveRows({}, row, row);
     m_features.removeAt(row);
+    m_spatialDirty = true;
     endRemoveRows();
     setError({}); emit changed();
     return true;

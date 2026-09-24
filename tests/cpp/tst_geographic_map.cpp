@@ -19,6 +19,7 @@ private slots:
     void projection()
     {
         GeographicFeatureModel model;
+        QCOMPARE(model.crs(), QStringLiteral("EPSG:4326"));
         auto origin = model.project(0,0);
         QVERIFY(origin.value("valid").toBool());
         QCOMPARE(origin.value("x").toDouble(), 0.5);
@@ -36,6 +37,24 @@ private slots:
         QVERIFY(std::abs(canvas.centerLatitude()-GeographicFeatureModel::latitudeLimit) < 1e-8);
         QVERIFY(canvas.screenPosition(0,90).value("latitudeClamped").toBool());
         QVERIFY(canvas.coordinateAt(200,-100).value("latitudeClamped").toBool());
+        canvas.setCenterLatitude(0);
+        canvas.setZoomLevel(2);
+        const double mercatorY = canvas.screenPosition(0,45).value("y").toDouble();
+        canvas.setDisplayProjection("EPSG:4326");
+        QCOMPARE(canvas.displayProjection(), QStringLiteral("EPSG:4326"));
+        QCOMPARE(canvas.centerLatitude(), 0.0);
+        const auto equi = canvas.screenPosition(0,45);
+        QVERIFY(std::abs(equi.value("y").toDouble() - (150.0 - 256.0)) < 1e-9);
+        QVERIFY(std::abs(mercatorY - equi.value("y").toDouble()) > 50);
+        const auto picked = canvas.coordinateAt(equi.value("x").toDouble(), equi.value("y").toDouble());
+        QVERIFY(std::abs(picked.value("latitude").toDouble() - 45) < 1e-9);
+        QCOMPARE(picked.value("crs").toString(), QStringLiteral("EPSG:4326"));
+        QCOMPARE(picked.value("displayCrs").toString(), QStringLiteral("EPSG:4326"));
+        canvas.setCenterLatitude(90);
+        QCOMPARE(canvas.centerLatitude(), 90.0);
+        QVERIFY(!canvas.screenPosition(0,90).value("latitudeClamped").toBool());
+        canvas.setDisplayProjection("EPSG:3857");
+        QVERIFY(std::abs(canvas.centerLatitude()-GeographicFeatureModel::latitudeLimit) < 1e-8);
     }
     void localGeoJsonAndInteraction()
     {
@@ -211,8 +230,54 @@ private slots:
         QCOMPARE(composed.pixelColor(200,150), QColor("#00ffff"));
         QCOMPARE(composed.text("QindaTK/Attribution"), QStringLiteral("Vector author · Tile author"));
         QVERIFY(composed.text("QindaTK/CRS").contains("EPSG:3857"));
+        canvas.setDisplayProjection("EPSG:4326");
+        QVERIFY(canvas.tileStatus().startsWith("projection incompatible"));
+        QVERIFY(!canvas.exportPng(dir.filePath("incompatible.png"),400,300,-180,0,1));
+        QVERIFY(canvas.lastExportError().contains("EPSG:3857"));
+        canvas.setDisplayProjection("EPSG:3857");
         QVERIFY(!canvas.exportPng(dir.filePath("bad.png"), 400,300,0,91,1));
         QVERIFY(!canvas.lastExportError().isEmpty());
+    }
+    void indexedPickAcrossTenThousandFeatures()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QJsonArray features;
+        for (int y = 0; y < 100; ++y)
+            for (int x = 0; x < 100; ++x) {
+                const double lon = -170.0 + x * 3.4, lat = -80.0 + y * 1.6;
+                features.append(QJsonObject{{"type","Feature"},
+                    {"id",QStringLiteral("p-%1-%2").arg(x).arg(y)},
+                    {"properties",QJsonObject{}},
+                    {"geometry",QJsonObject{{"type","Point"},
+                                              {"coordinates",QJsonArray{lon,lat}}}}});
+            }
+        QFile file(dir.filePath("ten-thousand.geojson"));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QJsonDocument(QJsonObject{{"type","FeatureCollection"},
+                                         {"features",features}}).toJson(QJsonDocument::Compact));
+        file.close();
+        GeographicFeatureModel model;
+        QVERIFY(model.loadGeoJson(file.fileName()));
+        QCOMPARE(model.count(),10000);
+        QCOMPARE(model.queryFeatureIndices(-0.3,0.3,-0.3,0.3).size(),1);
+        QCOMPARE(model.queryFeatureIndices(359.7,360.3,-0.3,0.3).size(),1);
+        GeographicMapCanvas canvas;
+        canvas.setWidth(400); canvas.setHeight(300);
+        canvas.setModel(&model);
+        canvas.setProperty("pointRadius",4);
+        canvas.setProperty("hitRadius",4);
+        canvas.setCenterLongitude(0);
+        canvas.setCenterLatitude(0);
+        canvas.setZoomLevel(10);
+        QCOMPARE(canvas.featureIdAt(200,150), QStringLiteral("p-50-50"));
+        canvas.setDisplayProjection("EPSG:4326");
+        QCOMPARE(canvas.featureIdAt(200,150), QStringLiteral("p-50-50"));
+        QVERIFY(model.movePoint("p-50-50",10,10));
+        QCOMPARE(model.queryFeatureIndices(-0.3,0.3,-0.3,0.3).size(),0);
+        QCOMPARE(canvas.featureIdAt(200,150), QString());
+        canvas.setCenterLongitude(10); canvas.setCenterLatitude(10);
+        QCOMPARE(canvas.featureIdAt(200,150), QStringLiteral("p-50-50"));
     }
 };
 QTEST_MAIN(TestGeographicMap)

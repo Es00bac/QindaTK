@@ -13,17 +13,24 @@ shows the same scene with the larger inspector and spacing.
 
 Input GeoJSON coordinates are WGS84 longitude, latitude in degrees, in that order
 (`EPSG:4326`). Longitude must be in `[-180, 180]` and latitude in `[-90, 90]`.
-The displayed Web Mercator projection (`EPSG:3857`) uses normalized world X east
-and Y south, both 0–1 for the primary world. Its latitude is clamped to
+`GeographicFeatureModel.crs` reports this source CRS; its standalone
+`project()`/`unproject()` helpers still use normalized Web Mercator coordinates.
+The default Web Mercator display projection (`EPSG:3857`) uses normalized world
+X east and Y south, both 0–1 for the primary world. Its latitude is clamped to
 ±85.0511287798066°. `project()` reports `latitudeClamped`; invalid numeric or
 out-of-range coordinates return `{valid: false}`. `unproject()` wraps longitude
 into `[-180, 180)` and clamps normalized Y to `[0,1]`.
 
-`MapView.coordinateAt(screenX, screenY)` returns WGS84 longitude/latitude with a
-`crs` field and `latitudeClamped` when the screen point falls past the
-Web Mercator poles. `screenPosition(lon, lat)` returns pixels in the view and
-reports `latitudeClamped` for WGS84 latitudes beyond the projection limit. Zoom is a
-continuous Web Mercator scale, 256 × 2^zoom pixels per world, limited to 0–18.
+Set `MapView.displayProjection` to `"EPSG:3857"` (default) or `"EPSG:4326"`
+for equirectangular display. Switching preserves the geographic camera center
+where the target projection permits it. Equirectangular Y is linear from 90°N
+to 90°S and includes the poles; returning to Mercator clamps the camera at its
+latitude limit. `MapView.coordinateAt(screenX, screenY)` returns WGS84
+longitude/latitude with `crs: "EPSG:4326"`, the chosen `displayCrs`, and
+`latitudeClamped` when the screen point falls past the projection boundary.
+`screenPosition(lon, lat)` returns pixels, `displayCrs`, and reports
+`latitudeClamped` when Mercator clips a WGS84 latitude. Zoom uses a continuous
+256 × 2^zoom pixel world scale, limited to 0–18.
 Mouse drag pans, wheel zooms about the pointer, arrow keys pan, and +/- zoom.
 Longitude wraps. Each line segment takes its shortest crossing of the
 antimeridian; geometry is painted and picked in every world copy intersecting
@@ -65,6 +72,12 @@ longitude/latitude range instead of silently wrapping the geometry.
 `sourcePath`. Both serialize stable IDs, attributes and attribution; reopening
 either file reconstructs the edited geometry.
 
+The model keeps a lazily rebuilt WGS84 spatial grid (36 × 18 ten-degree cells)
+for viewport filtering and hit tests. A feature occupies at most 64 cells;
+larger extents use one overflow entry. Queries preserve source order, account
+for longitude wrapping, and rebuild after geometry add, move, replacement or
+removal. This avoids scanning every feature to paint or pick a local viewport.
+
 ## Offline XYZ raster source
 
 `MapView.loadTileManifest(path)` reads a local JSON manifest into its built-in
@@ -96,6 +109,10 @@ The canvas draws tiles at the integer zoom level below the continuous camera
 zoom and scales them to match vector geometry. Longitude wraps and local tiles
 repeat across world copies. The manifest is deliberately sparse and offline;
 the network source below uses the same camera and vector contract.
+XYZ raster tiles are Web Mercator only. Under equirectangular display they are
+hidden, pending requests are canceled, and `tileStatus` explicitly reports the
+projection mismatch; vectors and picking remain active. Switching back restores
+visible-tile loading.
 
 ## Opt-in network XYZ source
 
@@ -129,14 +146,14 @@ is rejected. `lastExportError` explains a failure. A loaded tile source must
 provide every visible tile; local tiles are read from the manifest, while
 network tiles must already be in the bounded memory or HTTP disk cache. If a
 tile is missing, export fails instead of silently writing an incomplete map.
-The PNG text metadata records the WGS84 input/Web Mercator display CRS,
+Export with loaded XYZ tiles under equirectangular display fails with a clear
+projection error; vector-only equirectangular export works. The PNG text
+metadata records the WGS84 input/chosen display CRS,
 viewport and combined attribution. No general CRS transform is implied.
 The [composed export example](screenshots/geographic-map-export.png) shows
 the offline illustrated tiles, selected vector geometry and attribution.
 
 ## Remaining WP-084 scope
 
-The vector renderer still scans local features for painting and picking. Large
-spatial data needs a visible-region cache and spatial index. Multiple tile
-providers, layer ordering, projection switching, vertex handles and annotations
-remain. The GeoJSON reader assumes WGS84; arbitrary CRS declarations are unsupported.
+Multiple tile providers, layer ordering, vertex handles and annotations remain.
+The GeoJSON reader assumes WGS84; arbitrary CRS declarations are unsupported.

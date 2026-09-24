@@ -9,6 +9,7 @@ Item {
     property alias centerLongitude: canvas.centerLongitude
     property alias centerLatitude: canvas.centerLatitude
     property alias zoomLevel: canvas.zoomLevel
+    property alias displayProjection: canvas.displayProjection
     property alias tileSource: canvas.tileSource
     property alias editMode: canvas.editMode
     readonly property string selectedFeatureId: canvas.selectedFeatureId
@@ -97,7 +98,9 @@ Item {
             anchors.centerIn: parent
             muted: true
             text: root.tileStatus === "unavailable" ? qsTr("Basemap tiles unavailable · offline vectors")
-                                                     : qsTr("Local tiles · %1").arg(root.tileStatus)
+                : root.tileStatus.startsWith("projection incompatible")
+                  ? qsTr("XYZ tiles hidden · %1").arg(root.tileStatus)
+                  : qsTr("Tiles · %1").arg(root.tileStatus)
             font.pixelSize: Tk.Theme.font.caption
         }
     }

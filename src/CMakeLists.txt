@@ -52,6 +52,7 @@ qt_add_qml_module(qindatk
         core/code_document.cpp core/code_document.h
         core/geographic_feature_model.h core/geographic_feature_model.cpp
         core/geographic_feature_edit.cpp
+        core/geographic_feature_index.cpp
         core/geographic_map_canvas.h core/geographic_map_canvas.cpp
         core/geographic_map_tiles.cpp
         core/geographic_map_export.cpp

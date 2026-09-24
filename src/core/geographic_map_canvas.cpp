@@ -48,7 +48,7 @@ double GeographicMapCanvas::scale() const { return 256.0 * std::pow(2.0, m_zoom)
 int GeographicMapCanvas::worldCopies() const
 { return std::clamp(static_cast<int>(std::ceil(width() / scale() / 2.0)) + 1, 1, 64); }
 double GeographicMapCanvas::centerLongitude() const
-{ return GeographicFeatureModel::geographic(m_centerX, m_centerY).x(); }
+{ return unprojectDisplay(m_centerX, m_centerY).x(); }
 void GeographicMapCanvas::setCenterLongitude(double value)
 {
     if (!std::isfinite(value)) return;
@@ -58,14 +58,36 @@ void GeographicMapCanvas::setCenterLongitude(double value)
     refreshTiles();
 }
 double GeographicMapCanvas::centerLatitude() const
-{ return GeographicFeatureModel::geographic(m_centerX, m_centerY).y(); }
+{ return unprojectDisplay(m_centerX, m_centerY).y(); }
 void GeographicMapCanvas::setCenterLatitude(double value)
 {
     if (!std::isfinite(value)) return;
-    const double next = GeographicFeatureModel::mercator(0, value).y();
+    const double next = projectDisplay(0, value).y();
     if (qFuzzyCompare(next, m_centerY)) return;
     m_centerY = next; emit viewportChanged(); update();
     refreshTiles();
+}
+void GeographicMapCanvas::setDisplayProjection(const QString &value)
+{
+    if ((value != QLatin1String("EPSG:3857") && value != QLatin1String("EPSG:4326")) ||
+        value == m_projection) return;
+    const double latitude = centerLatitude();
+    m_projection = value;
+    m_centerY = projectDisplay(0, latitude).y();
+    emit projectionChanged(); emit viewportChanged(); update(); refreshTiles();
+}
+QPointF GeographicMapCanvas::projectDisplay(double longitude, double latitude) const
+{
+    if (mercatorProjection()) return GeographicFeatureModel::mercator(longitude, latitude);
+    return {(std::clamp(longitude, -180.0, 180.0) + 180.0) / 360.0,
+            (90.0 - std::clamp(latitude, -90.0, 90.0)) / 180.0};
+}
+QPointF GeographicMapCanvas::unprojectDisplay(double x, double y) const
+{
+    if (mercatorProjection()) return GeographicFeatureModel::geographic(x,y);
+    double longitude = std::fmod(x * 360.0, 360.0);
+    if (longitude < 0) longitude += 360.0;
+    return {longitude - 180.0, 90.0 - 180.0 * std::clamp(y, 0.0, 1.0)};
 }
 void GeographicMapCanvas::setZoomLevel(double value)
 {
@@ -77,7 +99,7 @@ void GeographicMapCanvas::setZoomLevel(double value)
 }
 QPointF GeographicMapCanvas::screen(double lon, double lat) const
 {
-    const auto p = GeographicFeatureModel::mercator(lon, lat);
+    const auto p = projectDisplay(lon, lat);
     const double x = p.x() + std::round(m_centerX - p.x());
     return {(x - m_centerX) * scale() + width()/2, (p.y() - m_centerY) * scale() + height()/2};
 }
@@ -87,15 +109,26 @@ QVariantMap GeographicMapCanvas::screenPosition(double lon, double lat) const
         return {{"valid", false}};
     const auto p = screen(lon, lat);
     return {{"valid", true}, {"x", p.x()}, {"y", p.y()},
-            {"latitudeClamped", std::abs(lat) > GeographicFeatureModel::latitudeLimit}};
+            {"latitudeClamped", mercatorProjection() && std::abs(lat) > GeographicFeatureModel::latitudeLimit},
+            {"displayCrs", m_projection}};
 }
 QVariantMap GeographicMapCanvas::coordinateAt(double x, double y) const
 {
     if (!std::isfinite(x) || !std::isfinite(y)) return {{"valid", false}};
     const double worldY = m_centerY + (y-height()/2)/scale();
-    const auto p = GeographicFeatureModel::geographic(m_centerX + (x-width()/2)/scale(), worldY);
+    const auto p = unprojectDisplay(m_centerX + (x-width()/2)/scale(), worldY);
     return {{"valid", true}, {"longitude", p.x()}, {"latitude", p.y()},
-            {"latitudeClamped", worldY < 0 || worldY > 1}, {"crs", "EPSG:4326"}};
+            {"latitudeClamped", worldY < 0 || worldY > 1}, {"crs", "EPSG:4326"},
+            {"displayCrs", m_projection}};
+}
+QVector<int> GeographicMapCanvas::featureCandidates(const QRectF &pixels) const
+{
+    if (!m_model) return {};
+    const double west = (m_centerX + (pixels.left() - width()/2)/scale()) * 360.0 - 180.0;
+    const double east = (m_centerX + (pixels.right() - width()/2)/scale()) * 360.0 - 180.0;
+    const double north = unprojectDisplay(0, m_centerY + (pixels.top() - height()/2)/scale()).y();
+    const double south = unprojectDisplay(0, m_centerY + (pixels.bottom() - height()/2)/scale()).y();
+    return m_model->queryFeatureIndices(west, east, south, north);
 }
 QPainterPath GeographicMapCanvas::featurePath(const GeographicFeatureModel::Feature &feature, int worldCopy) const
 {
@@ -103,7 +136,7 @@ QPainterPath GeographicMapCanvas::featurePath(const GeographicFeatureModel::Feat
     const auto geometry = feature.geometry.value("coordinates");
     const auto point = [this, worldCopy](const QJsonValue &value, double previousX, bool first) {
         const auto ll = lonLat(value);
-        const auto p = GeographicFeatureModel::mercator(ll.x(), ll.y());
+        const auto p = projectDisplay(ll.x(), ll.y());
         const double reference = first ? m_centerX : previousX;
         const double x = p.x() + std::round(reference - p.x()) + worldCopy;
         return QPointF((x-m_centerX)*scale()+width()/2, (p.y()-m_centerY)*scale()+height()/2);
@@ -142,13 +175,16 @@ QString GeographicMapCanvas::featureIdAt(double x, double y) const
     if (!m_model) return {};
     const QPointF p(x,y);
     const auto &features = m_model->features();
-    for (auto it = features.crbegin(); it != features.crend(); ++it) {
+    const double radius = std::max({m_hitRadius, m_pointRadius, m_lineWidth, 1.0});
+    const auto candidates = featureCandidates(QRectF(x-radius,y-radius,2*radius,2*radius));
+    for (auto it = candidates.crbegin(); it != candidates.crend(); ++it) {
+        const auto &feature = features[*it];
         for (int copy = -worldCopies(); copy <= worldCopies(); ++copy) {
-            const auto path = featurePath(*it, copy);
-            if (path.contains(p)) return it->id;
+            const auto path = featurePath(feature, copy);
+            if (path.contains(p)) return feature.id;
             QPainterPathStroker stroker;
             stroker.setWidth(std::max(m_hitRadius * 2, m_lineWidth));
-            if (stroker.createStroke(path).contains(p)) return it->id;
+            if (stroker.createStroke(path).contains(p)) return feature.id;
         }
     }
     return {};
@@ -202,7 +238,9 @@ void GeographicMapCanvas::paint(QPainter *painter)
         if (p.y() >= 0 && p.y() <= height()) painter->drawLine(QPointF(0,p.y()), QPointF(width(),p.y()));
     }
     if (!m_model) return;
-    for (const auto &f : m_model->features()) {
+    const double pad = std::max({m_pointRadius, m_lineWidth * 2, 1.0});
+    for (int index : featureCandidates(boundingRect().adjusted(-pad,-pad,pad,pad))) {
+        const auto &f = m_model->features().at(index);
         const bool selected = f.id == m_selectedId;
         const QColor color = selected ? m_selection : m_feature;
         painter->setPen(QPen(color, selected ? m_lineWidth * 2 : m_lineWidth));

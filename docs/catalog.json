@@ -15230,6 +15230,14 @@
           "required": false
         },
         {
+          "name": "displayProjection",
+          "type": "alias",
+          "default": "canvas.displayProjection",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tileSource",
           "type": "alias",
           "default": "canvas.tileSource",
@@ -42015,6 +42023,13 @@
           "constant": false
         },
         {
+          "name": "displayProjection",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "selectedFeatureId",
           "type": "QString",
           "default": "",
@@ -42137,6 +42152,10 @@
           "parameters": ""
         },
         {
+          "name": "projectionChanged",
+          "parameters": ""
+        },
+        {
           "name": "selectionChanged",
           "parameters": ""
         },
@@ -42225,7 +42244,7 @@
       "name": "GeographicTileSource",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: GeographicMapCanvas supplies visible XYZ keys; this source owns local/network decoding, stale-result rejection and bounded caches.",
+      "description": "AGENT-CONTRACT: GeographicMapCanvas supplies visible XYZ keys; this source owns local/network decoding, stale-result rejection and bounded caches. Image export reads local or cached tiles without replacing the live visible set.",
       "singleton": false,
       "attached": null,
       "file": "src/core/geographic_tile_source.h",

@@ -118,7 +118,7 @@ bool GeographicFeatureModel::loadGeoJson(const QString &localPath)
         ids.insert(id);
         parsed.append({id, type, geometry, object.value("properties").toObject().toVariantMap()});
     }
-    beginResetModel(); m_features = std::move(parsed); endResetModel();
+    beginResetModel(); m_features = std::move(parsed); m_spatialDirty = true; endResetModel();
     m_sourcePath = path;
     m_attribution = root.value("attribution").toString();
     setError({}); emit changed();

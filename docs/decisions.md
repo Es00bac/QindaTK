@@ -605,5 +605,7 @@ offline story before tile/network integration. **Decision.** The first MapView
 slice consumes local GeoJSON only, declares WGS84 longitude/latitude at the
 provider boundary, and paints normalized Web Mercator coordinates. Tile state
 is explicitly unsupported. **Consequences.** Local features can be picked and
-round-tripped without external services. Provider caching, raster tiles,
-projection switching and edits remain separate work.
+round-tripped without external services. Later slices added bounded local and
+network XYZ caches, vector editing, a WGS84 spatial grid and selectable
+Mercator/equirectangular display. XYZ tiles remain Mercator-specific; a
+projection switch hides them with an explicit status.
