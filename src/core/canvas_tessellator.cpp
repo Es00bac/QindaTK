@@ -144,6 +144,10 @@ CanvasTileContent build(const CanvasDocumentAdapter &doc, const QRectF &rect, qr
     if (!page.isEmpty()) {
         quad(current.vertices, page, doc.pageColor());
     }
+    for (const CanvasBackdrop &backdrop : doc.backdrops()) { // artboards (D-093)
+        const QRectF board = backdrop.rect.intersected(rect);
+        if (!board.isEmpty()) quad(current.vertices, board, backdrop.color);
+    }
     const qreal pixel = 1.0 / std::max(scale, 1e-9);
     for (const CanvasObject *o : CanvasPainter::paintOrder(doc, rect, stats)) {
         const QRectF bounds = documentBounds(*o);

@@ -541,7 +541,7 @@ local automation, not an untrusted-code sandbox; process and memory isolation,
 extension packaging and durable macro storage remain separate work. See
 [script-runtime.md](script-runtime.md).
 
-## D-082 — Synchronize reference property values as independent operations
+## D-105 — Synchronize reference property values as independent operations
 
 **Context.** `UndoService` records a linear local before/after chain, while
 two clients can edit the same value offline and reconnect in either order.

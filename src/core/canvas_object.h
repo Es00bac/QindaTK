@@ -17,7 +17,8 @@ namespace QindaTK {
 // CanvasDocument, so a hit result, a selection or an undo step can outlive
 // edits to other objects. Geometry is stored in the object's LOCAL space and
 // `transform` maps local -> document. Paint order is (layer order, z);
-// larger draws later and is hit first.
+// larger draws later and is hit first; with layer groups the layer order is
+// its rank in the depth-first flattening of the layer tree.
 using CanvasObjectId = quint64;
 using CanvasLayerId = quint64;
 using CanvasImageId = quint64;
@@ -86,12 +87,20 @@ struct CanvasObject {
       parametricInnerRatio = 0; parametricCornerRadius = 0; }
 };
 
+// AGENT-CONTRACT (docs/canvas.md#layer-hierarchy, D-092): `order` ranks a
+// layer among its siblings (same `parent`, 0 = top level); larger draws
+// later. A `group` holds child layers and never objects; a content layer
+// holds objects and never child layers, so every parent is a group. Groups
+// carry no transform, opacity or blend: hierarchy edits never move geometry,
+// and visibility/lock cascade to every descendant.
 struct CanvasLayer {
     CanvasLayerId id = 0;
     QString name;
     int order = 0;
     bool visible = true;
     bool locked = false;
+    CanvasLayerId parent = 0;
+    bool group = false;
 
     friend bool operator==(const CanvasLayer &, const CanvasLayer &) = default;
 };

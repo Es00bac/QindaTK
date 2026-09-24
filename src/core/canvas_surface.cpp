@@ -24,7 +24,7 @@ CanvasSurface::CanvasSurface(QQuickItem *parent)
     setAcceptTouchEvents(true);
     setActiveFocusOnTab(true);
     m_state = m_ownState;
-    connect(m_ownState, &CanvasViewState::changed, this, &CanvasSurface::onStateChanged);
+    connect(m_ownState, &CanvasViewState::changed, this, &CanvasSurface::onPoseChanged);
     connect(m_render, &RenderSurfaceAdapter::updateRequested, this, &CanvasSurface::scheduleFrame);
 }
 
@@ -100,8 +100,9 @@ void CanvasSurface::setViewState(CanvasViewState *state)
         disconnect(m_state, nullptr, this, nullptr);
     }
     m_state = next;
-    connect(next, &CanvasViewState::changed, this, &CanvasSurface::onStateChanged);
+    connect(next, &CanvasViewState::changed, this, &CanvasSurface::onPoseChanged);
     connect(next, &QObject::destroyed, this, [this] { setViewState(nullptr); });
+    m_lastPose = next->pose();
     emit viewStateChanged();
     onStateChanged();
 }
@@ -142,7 +143,9 @@ void CanvasSurface::setFitMode(const QString &mode)
 
 void CanvasSurface::setPose(const CanvasViewPose &pose)
 {
+    m_writingPose = true;
     m_state->setPose(pose);
+    m_writingPose = false;
 }
 
 void CanvasSurface::setZoom(qreal zoom)
@@ -307,6 +310,21 @@ QVariantList CanvasSurface::hitRegion(const QRectF &viewRect, bool contain) cons
 void CanvasSurface::simulateContextLoss(bool dropCaches)
 {
     m_render->simulateContextLoss(dropCaches);
+}
+
+void CanvasSurface::onPoseChanged()
+{
+    // AGENT-GUARD (docs/canvas.md#synchronized-views): a pose change that did
+    // not come through this surface (a synchronized view, a NavigatorView,
+    // the host writing the state) is navigation and ends refitting, or the
+    // next edit or resize would refit the shared pose and undo it. The
+    // surface's own writes mark navigation where they are navigation.
+    // CanvasViewState also emits `changed` for a limit change that leaves the
+    // pose as it was; that is not navigation.
+    const CanvasViewPose current = pose();
+    if (!m_writingPose && !(current == m_lastPose)) m_userNavigated = true;
+    m_lastPose = current;
+    onStateChanged();
 }
 
 void CanvasSurface::onStateChanged()

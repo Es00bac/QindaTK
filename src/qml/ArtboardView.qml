@@ -4,16 +4,25 @@ import QindaTK as Tk
 
 // AGENT-CONTRACT (docs/canvas.md#artboards): the host owns board records and
 // commits; this layer only maps, paints, and reports document-space gestures.
+// With `artboardModel` (a Tk.CanvasArtboardModel over a CanvasDocument) the
+// records and the active board come from the document and every gesture is
+// sent to the model, which previews it and commits one undo step.
 Item {
     id: root
     objectName: "artboardView"
 
     property Item surface
+    property Tk.CanvasArtboardModel artboardModel
     // Records: { id, rect, name, background }. IDs must remain stable.
-    property var boardData: []
-    property string activeBoardId: ""
+    property var boardData: artboardModel ? artboardModel.boards : []
+    property string activeBoardId: artboardModel ? artboardModel.activeBoardId : ""
     // Enable while an artboard tool owns presses within board interiors.
     property bool captureInterior: false
+    // Enable while a board-creation tool owns canvas presses: a drag that
+    // does not start on a board frame or handle previews a new board
+    // (`pendingBoard`) and requests it on release.
+    property bool createEnabled: false
+    readonly property rect pendingBoard: creation.rect
     property string tooltip: qsTr("Artboards")
     property color frameColor: Tk.Theme.color.controlBorder
     property color activeFrameColor: Tk.Theme.color.accent
@@ -31,6 +40,22 @@ Item {
                               point currentDocumentPoint)
     signal boardResizeFinished(string boardId, point currentDocumentPoint)
     signal boardResizeCanceled(string boardId, point originalDocumentPoint)
+    signal boardCreateRequested(rect documentRect)
+
+    onBoardActivateRequested: function(boardId) { if (root.artboardModel) root.artboardModel.activate(boardId) }
+    onBoardArrangePreview: function(boardId, start, current) {
+        if (root.artboardModel) root.artboardModel.previewArrange(boardId, start, current)
+    }
+    onBoardResizePreview: function(boardId, start, current) {
+        if (root.artboardModel) root.artboardModel.previewResize(boardId, start, current)
+    }
+    onBoardArrangeFinished: function(boardId, current) { if (root.artboardModel) root.artboardModel.finish(boardId, current) }
+    onBoardResizeFinished: function(boardId, current) { if (root.artboardModel) root.artboardModel.finish(boardId, current) }
+    onBoardArrangeCanceled: function() { if (root.artboardModel) root.artboardModel.cancel() }
+    onBoardResizeCanceled: function() { if (root.artboardModel) root.artboardModel.cancel() }
+    onBoardCreateRequested: function(documentRect) {
+        if (root.artboardModel) root.artboardModel.createBoard(documentRect, "")
+    }
 
     Accessible.role: Accessible.Grouping
     Accessible.name: tooltip
@@ -133,6 +158,8 @@ Item {
     function cancelGesture() {
         if (!gesture.active || gesture.canceled) return
         gesture.canceled = true
+        creation.rect = Qt.rect(0, 0, 0, 0)
+        if (gesture.kind === "create") return
         if (gesture.dragging) {
             if (gesture.kind === "resize")
                 boardResizeCanceled(gesture.boardId, gesture.startDocumentPoint)
@@ -143,6 +170,14 @@ Item {
 
     function finishGesture(point) {
         if (!gesture.active) return
+        if (gesture.kind === "create") {
+            const created = creation.rect
+            creation.rect = Qt.rect(0, 0, 0, 0)
+            gesture.active = false
+            if (!gesture.canceled && gesture.dragging && created.width > 0 && created.height > 0)
+                boardCreateRequested(created)
+            return
+        }
         if (!gesture.canceled && gesture.dragging) {
             if (gesture.kind === "resize")
                 boardResizeFinished(gesture.boardId, point)
@@ -164,6 +199,12 @@ Item {
     onFrameColorChanged: boardFrame.requestPaint()
     onActiveFrameColorChanged: boardFrame.requestPaint()
     onLineWidthChanged: boardFrame.requestPaint()
+    onPendingBoardChanged: boardFrame.requestPaint()
+
+    QtObject {
+        id: creation
+        property rect rect: Qt.rect(0, 0, 0, 0)
+    }
 
     Canvas {
         id: boardFrame
@@ -194,6 +235,20 @@ Item {
                     context.fillRect(corner.x - half, corner.y - half,
                                      root.handleSize, root.handleSize)
                 }
+            }
+            const pending = root.pendingBoard
+            if (root.surface && pending.width > 0 && pending.height > 0) {
+                const corners = root.documentCorners(pending).map(point => {
+                    const inSurface = root.surface.mapFromDocument(point)
+                    return root.mapFromItem(root.surface, inSurface.x, inSurface.y)
+                })
+                context.beginPath()
+                context.moveTo(corners[0].x, corners[0].y)
+                for (let k = 1; k < corners.length; ++k) context.lineTo(corners[k].x, corners[k].y)
+                context.closePath()
+                context.strokeStyle = root.activeFrameColor
+                context.lineWidth = root.lineWidth
+                context.stroke()
             }
         }
     }
@@ -269,6 +324,18 @@ Item {
         hoverEnabled: true
         onPressed: function(mouse) {
             const board = root.boardAt(Qt.point(mouse.x, mouse.y))
+            if (!board && root.createEnabled && root.surface) {
+                gesture.active = true
+                gesture.canceled = false
+                gesture.dragging = false
+                gesture.boardId = ""
+                gesture.kind = "create"
+                gesture.startViewPoint = Qt.point(mouse.x, mouse.y)
+                gesture.startDocumentPoint = root.documentPoint(gesture.startViewPoint)
+                root.forceActiveFocus()
+                mouse.accepted = true
+                return
+            }
             if (!board) {
                 gesture.active = false
                 mouse.accepted = false
@@ -287,7 +354,8 @@ Item {
             mouse.accepted = true
         }
         onPositionChanged: function(mouse) {
-            if (!pressed || !gesture.active || gesture.canceled || !gesture.boardId.length)
+            if (!pressed || !gesture.active || gesture.canceled
+                    || (!gesture.boardId.length && gesture.kind !== "create"))
                 return
             const point = root.documentPoint(Qt.point(mouse.x, mouse.y))
             if (!gesture.dragging
@@ -295,6 +363,12 @@ Item {
                                   mouse.y - gesture.startViewPoint.y) < Tk.Theme.size.controlSm / 2)
                 return
             gesture.dragging = true
+            if (gesture.kind === "create") {
+                const start = gesture.startDocumentPoint
+                creation.rect = Qt.rect(Math.min(start.x, point.x), Math.min(start.y, point.y),
+                                        Math.abs(point.x - start.x), Math.abs(point.y - start.y))
+                return
+            }
             if (gesture.kind === "resize")
                 root.boardResizePreview(gesture.boardId, gesture.startDocumentPoint, point)
             else

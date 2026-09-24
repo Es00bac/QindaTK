@@ -76,6 +76,12 @@ quint64 CanvasCommand::estimate(const CanvasEdit &edit)
     if (edit.page) total += 64;
     if (edit.guides)
         total += 64 + quint64(edit.guides->before.size() + edit.guides->after.size()) * 96;
+    if (edit.artboards) {
+        total += 64;
+        for (const auto *list : {&edit.artboards->before, &edit.artboards->after})
+            for (const CanvasArtboard &board : *list)
+                total += sizeof(CanvasArtboard) + quint64(board.id.size() + board.name.size()) * 2;
+    }
     return total;
 }
 
@@ -98,6 +104,12 @@ CanvasEdit CanvasCommand::composed(const CanvasEdit &first, const CanvasEdit &se
         CanvasEdit::GuideChange guides{first.guides ? first.guides->before : second.guides->before,
                                        second.guides ? second.guides->after : first.guides->after};
         if (guides.before != guides.after) result.guides = guides;
+    }
+    if (first.artboards || second.artboards) {
+        CanvasEdit::ArtboardChange boards{
+            first.artboards ? first.artboards->before : second.artboards->before,
+            second.artboards ? second.artboards->after : first.artboards->after};
+        if (boards.before != boards.after) result.artboards = boards;
     }
     return result;
 }
@@ -141,9 +153,17 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
         if (const auto e = CanvasDocumentFormat::validateGuides(forward ? edit.guides->after : edit.guides->before, m_limits))
             return e;
     }
+    if (edit.artboards) {
+        if (m_artboards != (forward ? edit.artboards->before : edit.artboards->after))
+            return failure(ErrorCode::StaleRevision, tr("The artboards changed after this edit was built"), QStringLiteral("artboards"));
+        if (const auto e = CanvasDocumentFormat::validateArtboards(
+                forward ? edit.artboards->after : edit.artboards->before, m_limits))
+            return e;
+    }
 
     // Every target must be valid in the resulting document.
     QHash<CanvasLayerId, bool> layerAfter;
+    QHash<CanvasLayerId, const CanvasLayer *> layerTarget; // nullptr = removed
     qsizetype layers = m_layers.size();
     qsizetype encoded = m_encodedBytes;
     for (const auto &l : edit.layers) {
@@ -154,6 +174,7 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
             encoded += CanvasDocumentFormat::layerRecordBytes(*target);
         }
         layerAfter.insert(l.id, target.has_value());
+        layerTarget.insert(l.id, target ? &*target : nullptr);
         layers += int(target.has_value()) - int(m_layers.contains(l.id));
     }
     if (layers < 1) return failure(ErrorCode::Validation, tr("A canvas keeps at least one layer"), QStringLiteral("layers"));
@@ -185,6 +206,11 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
         const auto it = imageAfter.constFind(id);
         return it != imageAfter.cend() ? it.value() : m_images.contains(id);
     };
+    const auto layerIsGroup = [&](CanvasLayerId id) {
+        const auto it = layerTarget.constFind(id);
+        const CanvasLayer *l = it != layerTarget.cend() ? it.value() : layer(id);
+        return l && l->group;
+    };
     QHash<CanvasLayerId, qsizetype> layerUse;
     QHash<CanvasImageId, qsizetype> imageUse;
     qsizetype objects = m_objects.size();
@@ -203,6 +229,8 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
         if (const auto e = CanvasDocumentFormat::validateObject(*target, c.id, m_limits)) return e;
         if (!layerExists(target->layer))
             return failure(ErrorCode::Validation, tr("An object references a missing layer"), QStringLiteral("objects.layer"));
+        if (layerIsGroup(target->layer))
+            return failure(ErrorCode::Validation, tr("A layer group cannot hold objects"), QStringLiteral("objects.layer"));
         if (target->shape == CanvasShape::Image && !imageExists(target->image))
             return failure(ErrorCode::Validation, tr("An image object references a missing image"), QStringLiteral("objects.image"));
         ++layerUse[target->layer];
@@ -227,6 +255,8 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
     for (auto it = imageAfter.cbegin(); it != imageAfter.cend(); ++it)
         if (!it.value() && m_imageUse.value(it.key()) + imageUse.value(it.key()) > 0)
             return failure(ErrorCode::Validation, tr("A removed image is still referenced"), QStringLiteral("images"));
+    if (!edit.layers.isEmpty())
+        if (const auto e = prepareLayerTree(edit, forward, layerUse)) return e;
     return {};
 }
 
@@ -242,10 +272,22 @@ void CanvasDocument::applyEdit(const CanvasEdit &edit, bool forward, QVector<QRe
     for (const auto &l : edit.layers) {
         const auto &target = forward ? l.after : l.before;
         const CanvasLayer *current = layer(l.id);
-        if (!target || !current || current->order != target->order) *full = true;
-        else if (current->visible != target->visible) layerDamage(l.id, damage);
+        // Order, parent and kind change paint ranks; a group's visibility
+        // reaches every descendant, so those reset every cached tile.
+        if (!target || !current || current->order != target->order
+            || current->parent != target->parent || current->group != target->group)
+            *full = true;
+        else if (current->visible != target->visible) {
+            if (current->group) *full = true;
+            else layerDamage(l.id, damage);
+        }
         if (target) placeLayer(*target);
         else unplaceLayer(l.id);
+    }
+    if (!edit.layers.isEmpty()) refreshLayerTree();
+    if (edit.artboards) {
+        artboardDamage(*edit.artboards, damage);
+        m_artboards = forward ? edit.artboards->after : edit.artboards->before;
     }
     if (edit.page) {
         const QRectF rect = forward ? edit.page->afterRect : edit.page->beforeRect;

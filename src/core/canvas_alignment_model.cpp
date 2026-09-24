@@ -46,11 +46,67 @@ void CanvasAlignmentModel::setDocument(CanvasDocumentAdapter *document)
     if (m_document == document) return;
     if (m_document) disconnect(m_document, nullptr, this, nullptr);
     m_document = document;
-    if (document) connect(document, &QObject::destroyed, this, [this] {
-        m_document = nullptr;
-        emit documentChanged();
-    });
+    if (document) {
+        connect(document, &QObject::destroyed, this, [this] {
+            m_document = nullptr;
+            emit documentChanged();
+            emit referencesChanged();
+        });
+        // Boards come and go with edits, undo and resets.
+        connect(document, &CanvasDocumentAdapter::edited, this, &CanvasAlignmentModel::referencesChanged);
+        connect(document, &CanvasDocumentAdapter::reset, this, &CanvasAlignmentModel::referencesChanged);
+    }
     emit documentChanged();
+    emit referencesChanged();
+}
+
+void CanvasAlignmentModel::setSelectionModel(CanvasSelectionModel *model)
+{
+    if (m_selectionModel == model) return;
+    if (m_selectionModel) disconnect(m_selectionModel, nullptr, this, nullptr);
+    m_selectionModel = model;
+    if (model) {
+        connect(model, &CanvasSelectionModel::selectionChanged, this, &CanvasAlignmentModel::selectionChanged);
+        connect(model, &QObject::destroyed, this, &CanvasAlignmentModel::selectionChanged);
+    }
+    emit selectionModelChanged();
+    emit selectionChanged();
+}
+
+QStringList CanvasAlignmentModel::selectedIds() const
+{
+    QStringList ids;
+    if (m_selectionModel)
+        for (const CanvasObjectId id : m_selectionModel->selection()) ids << QString::number(id);
+    return ids;
+}
+
+void CanvasAlignmentModel::setArtboardId(const QString &id)
+{
+    if (m_artboardId == id) return;
+    m_artboardId = id;
+    emit referencesChanged();
+}
+
+const CanvasArtboard *CanvasAlignmentModel::referenceBoard() const
+{
+    const auto *canvas = qobject_cast<const CanvasDocument *>(m_document.data());
+    return canvas ? canvas->artboard(m_artboardId) : nullptr;
+}
+
+QVariantList CanvasAlignmentModel::referenceOptions() const
+{
+    const auto option = [](const QString &value, const QString &text, bool available) {
+        return QVariantMap{{QStringLiteral("value"), value}, {QStringLiteral("text"), text},
+                           {QStringLiteral("available"), available}};
+    };
+    QVariantList options{option(QStringLiteral("selection"), tr("Selection"), true),
+                         option(QStringLiteral("keyObject"), tr("Key object"), true),
+                         option(QStringLiteral("page"), tr("Page"), true)};
+    const auto *canvas = qobject_cast<const CanvasDocument *>(m_document.data());
+    if (canvas && canvas->artboardCount() > 0)
+        options << option(QStringLiteral("artboard"), tr("Artboard"), referenceBoard() != nullptr);
+    return options;
 }
 
 bool CanvasAlignmentModel::fail(const QString &message)
@@ -80,7 +136,8 @@ bool CanvasAlignmentModel::apply(const QString &operation, const QVariantList &s
         return fail(tr("Unknown alignment operation"));
     if (referenceMode != QLatin1String("selection")
         && referenceMode != QLatin1String("page")
-        && referenceMode != QLatin1String("keyObject"))
+        && referenceMode != QLatin1String("keyObject")
+        && referenceMode != QLatin1String("artboard"))
         return fail(tr("Unknown alignment reference"));
 
     QVector<Entry> entries;
@@ -106,7 +163,11 @@ bool CanvasAlignmentModel::apply(const QString &operation, const QVariantList &s
     CanvasObjectId keyId = 0;
     if (referenceMode == QLatin1String("selection")) reference = unionBounds(entries);
     else if (referenceMode == QLatin1String("page")) reference = m_document->pageRect();
-    else {
+    else if (referenceMode == QLatin1String("artboard")) {
+        const CanvasArtboard *board = referenceBoard();
+        if (!board) return fail(tr("Choose an artboard to align to"));
+        reference = board->rect;
+    } else {
         bool ok = false;
         keyId = keyObjectId.toULongLong(&ok);
         const CanvasObject *key = ok ? m_document->object(keyId) : nullptr;

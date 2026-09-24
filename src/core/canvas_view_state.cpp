@@ -30,6 +30,13 @@ void CanvasViewState::setCenterY(qreal y)
     setPose(p);
 }
 
+void CanvasViewState::setCenter(qreal x, qreal y)
+{
+    CanvasViewPose p = m_pose;
+    p.center = QPointF(x, y);
+    setPose(p);
+}
+
 void CanvasViewState::setZoom(qreal zoom)
 {
     CanvasViewPose p = m_pose;

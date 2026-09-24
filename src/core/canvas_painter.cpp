@@ -97,6 +97,11 @@ void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &re
     if (!page.isEmpty()) {
         painter->fillRect(page, doc.pageColor());
     }
+    // Artboard backgrounds are document data below every object (D-093).
+    for (const CanvasBackdrop &backdrop : doc.backdrops()) {
+        const QRectF board = backdrop.rect.intersected(rect);
+        if (!board.isEmpty()) painter->fillRect(board, backdrop.color);
+    }
     const qreal pixel = 1.0 / std::max(scale, 1e-9);
     std::unique_ptr<ColorEngine> engine;
     for (const CanvasObject *o : paintOrder(doc, rect, stats)) {
