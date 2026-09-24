@@ -100,10 +100,32 @@ decide whether those coordinates remain valid after an edit.
   change notifications, and idle presence expiry beyond socket disconnect.
 - Generic domain operations, concurrent object deletion and rich text merge.
   Structural changes to the reference document currently stop synchronization.
-- A version browser with immutable previews, compare, branch and restore as a
-  new collaborative operation. The log is evidence for this future service,
-  not a version browser.
+- Shared checkpoint metadata across clients, branch requests, rich previews,
+  checkpoint migration/compaction and domain-specific restore policies. The
+  first version history store is local to its owner; restore itself travels as
+  a synchronized operation to all property replicas.
 - Domain-aware undo/redo, conflict resolution UI, bounded log compaction and
   migration, presence expiry and selection rebasing.
 
 The package remains **in progress** against the full WP-082 acceptance gate.
+
+## Named versions and restore
+
+`PropertyVersionHistory` binds a `LocalPropertySyncClient` and a writable
+checkpoint path. Call `open()`, then `checkpoint(name)` to save the committed
+document as an immutable snapshot with actor UUID, local revision, UTC time
+and operation-count provenance. `versions` lists newest first; `inspect(id)`
+returns typed values; `diff(a,b)` and `diffCurrent(a)` compare immutable
+snapshots with the current committed document. `Tk.VersionBrowser` displays
+these records and lets a user create, inspect and restore a selected version.
+
+`restore(id)` first saves the current committed state as a named safety
+checkpoint. It then submits **one** bounded restore operation containing the
+selected snapshot; the existing service persists that packet and broadcasts
+it. Each replica validates the same entity/property shape and publishes all
+winning values as one document revision. The operation participates in the
+same Lamport ordering per property as scalar edits, so a newer concurrent edit
+can still win for its property. The old state and the restore packet remain
+available; restore does not erase previous history. Checkpoint snapshots are
+limited to 40 KiB and the store to 64 checkpoints/4 MiB. Structural schema
+changes and larger documents require a domain-specific version backend.

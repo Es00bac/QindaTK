@@ -177,6 +177,7 @@ Rectangle {
                 RasterSection { filter: search.text }
                 QuerySection { filter: search.text }
                 DiffSection { filter: search.text }
+                VersionSection { filter: search.text }
                 HeatmapSection { filter: search.text }
                 DistributionSection { filter: search.text }
                 FinancialSection { filter: search.text }

@@ -33516,6 +33516,93 @@
       ]
     },
     {
+      "name": "VersionBrowser",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Local immutable checkpoints. Restore saves a safety checkpoint and submits a new collaboration operation through PropertyVersionHistory.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/VersionBrowser.qml",
+      "properties": [
+        {
+          "name": "history",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Inspect and restore document versions\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedInfo",
+          "type": "var",
+          "default": "history && selectedId ? history.inspect(selectedId) : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentDiff",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "createCheckpoint",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "versionBrowser",
+        "versionCreate",
+        "versionDiffSummary",
+        "versionDifference_",
+        "versionEmpty",
+        "versionError",
+        "versionListScroll",
+        "versionName",
+        "versionProvenance",
+        "versionRestore",
+        "version_"
+      ]
+    },
+    {
       "name": "VideoScopes",
       "kind": "qml",
       "base": "T.Control",
@@ -44397,6 +44484,11 @@
           "parameters": "const QString &entityId, const QString &propertyId, const QVariant &value"
         },
         {
+          "name": "restoreVersion",
+          "returns": "bool",
+          "parameters": "const QByteArray &snapshot"
+        },
+        {
           "name": "setPresence",
           "returns": "void",
           "parameters": "const QVariantMap &presence"
@@ -46807,6 +46899,99 @@
         },
         {
           "name": "containsId",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PropertyVersionHistory",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Bounded local checkpoint store for one synchronized PropertyDocument. Checkpoints are immutable QSaveFile snapshots; restore emits one new typed collaboration operation and first saves the current state as a checkpoint.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/property_version_history.h",
+      "properties": [
+        {
+          "name": "client",
+          "type": "QindaTK::LocalPropertySyncClient *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "storagePath",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "versions",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "checkpoint",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "inspect",
+          "returns": "QVariantMap",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "diff",
+          "returns": "QVariantList",
+          "parameters": "const QString &fromId, const QString &toId"
+        },
+        {
+          "name": "diffCurrent",
+          "returns": "QVariantList",
+          "parameters": "const QString &fromId"
+        },
+        {
+          "name": "restore",
           "returns": "bool",
           "parameters": "const QString &id"
         }

@@ -187,6 +187,20 @@ QVariant PropertyDocument::committedValue(EntityId id, const QString &propertyId
     return entity->values.value(propertyId);
 }
 
+QVector<PropertyChange> PropertyDocument::committedValues() const
+{
+    QVector<PropertyChange> result;
+    QStringList entities = m_entities.keys();
+    entities.sort();
+    QStringList properties = m_descriptors.keys();
+    properties.sort();
+    for (const QString &entity : entities)
+        for (const QString &property : properties)
+            result.append({EntityId::parse(entity), property, {},
+                           m_entities.value(entity).values.value(property)});
+    return result;
+}
+
 QVariant PropertyDocument::value(EntityId id, const QString &propertyId) const
 {
     if (m_preview)
@@ -287,6 +301,38 @@ OperationError PropertyDocument::applySynchronizedValue(EntityId id,
     invalidateHistory();
     emit historyInvalidated();
     emit propertyChanged(id.toString(), propertyId);
+    emit changed();
+    return {};
+}
+
+OperationError PropertyDocument::applySynchronizedValues(
+    const QVector<PropertyChange> &changes)
+{
+    Q_ASSERT(thread() == QThread::currentThread());
+    if (m_preview)
+        return error(ErrorCode::Unavailable, QStringLiteral("An edit preview is active"));
+    QSet<QString> seen;
+    for (const auto &change : changes) {
+        const QString key = change.target.toString() + QLatin1Char('/') + change.propertyId;
+        if (seen.contains(key))
+            return error(ErrorCode::InvalidArgument, QStringLiteral("Duplicate synchronized property"));
+        seen.insert(key);
+        if (auto failure = validate(change.target, change.propertyId, change.after)) return failure;
+    }
+    QVector<PropertyChange> changedValues;
+    for (const auto &change : changes)
+        if (!equalValue(committedValue(change.target, change.propertyId), change.after))
+            changedValues.append(change);
+    if (changedValues.isEmpty()) return {};
+    // AGENT-GUARD: publish all restored values before notifying bindings;
+    // a checkpoint restore is one synchronized revision, never a partial UI.
+    for (const auto &change : changedValues)
+        m_entities[change.target.toString()].values.insert(change.propertyId, change.after);
+    ++m_revision;
+    invalidateHistory();
+    emit historyInvalidated();
+    for (const auto &change : changedValues)
+        emit propertyChanged(change.target.toString(), change.propertyId);
     emit changed();
     return {};
 }

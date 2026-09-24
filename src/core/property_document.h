@@ -72,6 +72,7 @@ public:
     bool resetModel(const QVector<QPair<EntityId, QVariantMap>> &entities);
     QVariant value(EntityId id, const QString &propertyId) const;
     QVariant committedValue(EntityId id, const QString &propertyId) const;
+    QVector<PropertyChange> committedValues() const;
     bool setTargetWritable(EntityId id, const QString &propertyId, bool writable);
     bool setTargetAnimated(EntityId id, const QString &propertyId, bool animated);
     bool isTargetWritable(EntityId id, const QString &propertyId) const;
@@ -82,6 +83,7 @@ public:
     // to local UndoService. Any prior local history is invalidated.
     OperationError applySynchronizedValue(EntityId id, const QString &propertyId,
                                           const QVariant &candidate);
+    OperationError applySynchronizedValues(const QVector<PropertyChange> &changes);
 
     Q_INVOKABLE QVariant valueFor(const QString &id, const QString &propertyId) const;
     Q_INVOKABLE bool containsId(const QString &id) const;

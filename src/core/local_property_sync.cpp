@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "local_property_sync.h"
+#include "reference_document_codec.h"
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -97,18 +98,22 @@ std::optional<QJsonObject> encode(const PropertySyncOperation &op)
 {
     const auto value = encodeValue(op.value);
     if (!value) return std::nullopt;
-    return QJsonObject{{QStringLiteral("document"), op.documentId},
+    QJsonObject result{{QStringLiteral("document"), op.documentId},
                        {QStringLiteral("id"), op.operationId},
                        {QStringLiteral("actor"), op.actorId},
                        {QStringLiteral("time"), QString::number(op.logicalTime)},
                        {QStringLiteral("entity"), op.entityId},
                        {QStringLiteral("property"), op.propertyId},
                        {QStringLiteral("value"), *value}};
+    if (op.kind == PropertySyncOperation::Kind::Restore)
+        result.insert(QStringLiteral("kind"), QStringLiteral("restore"));
+    return result;
 }
 
 std::optional<PropertySyncOperation> decode(const QJsonObject &object)
 {
-    if (object.size() != 7 || !object.value(QStringLiteral("value")).isObject())
+    if ((object.size() != 7 && object.size() != 8)
+        || !object.value(QStringLiteral("value")).isObject())
         return std::nullopt;
     PropertySyncOperation op;
     op.documentId = object.value(QStringLiteral("document")).toString();
@@ -126,6 +131,18 @@ std::optional<PropertySyncOperation> decode(const QJsonObject &object)
         || op.propertyId.isEmpty() || op.propertyId.size() > 256 || !value)
         return std::nullopt;
     op.value = *value;
+    if (object.size() == 8) {
+        if (object.value(QStringLiteral("kind")).toString() != QStringLiteral("restore")
+            || op.entityId != op.documentId
+            || op.propertyId != QStringLiteral("__qtk.restore.v1")
+            || op.value.metaType() != QMetaType::fromType<QByteArray>()
+            || op.value.toByteArray().size() > 40 * 1024)
+            return std::nullopt;
+        const auto snapshot = ReferenceDocumentCodec::decode(op.value.toByteArray());
+        if (!snapshot || snapshot->document->documentIdString() != op.documentId)
+            return std::nullopt;
+        op.kind = PropertySyncOperation::Kind::Restore;
+    }
     return op;
 }
 
@@ -134,7 +151,8 @@ bool sameOperation(const PropertySyncOperation &a, const PropertySyncOperation &
     return a.documentId == b.documentId && a.operationId == b.operationId
         && a.actorId == b.actorId && a.logicalTime == b.logicalTime
         && a.entityId == b.entityId && a.propertyId == b.propertyId
-        && a.value.metaType() == b.value.metaType() && a.value == b.value;
+        && a.value.metaType() == b.value.metaType() && a.value == b.value
+        && a.kind == b.kind;
 }
 }
 
@@ -392,6 +410,8 @@ bool LocalPropertySyncClient::receive(const PropertySyncOperation &operation)
     if (m_document->revision().value != m_expectedRevision
         || m_document->resetGeneration() != m_resetGeneration)
         return fail(QStringLiteral("Document changed outside synchronization"));
+    if (operation.kind == PropertySyncOperation::Kind::Restore)
+        return receiveRestore(operation);
     const QString key = keyOf(operation);
     const auto winner = m_winners.constFind(key);
     if (winner == m_winners.cend() || outranks(operation, winner.value())) {

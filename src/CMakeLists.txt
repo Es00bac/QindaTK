@@ -165,8 +165,9 @@ qt_add_qml_module(qindatk
         core/recovery_journal.cpp core/recovery_journal.h
         core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h
-        core/local_property_sync.cpp core/local_property_sync.h
+        core/local_property_sync.cpp core/local_property_sync_restore.cpp core/local_property_sync.h
         core/property_sync_socket.cpp core/property_sync_socket.h
+        core/property_version_history.cpp core/property_version_history.h
         core/reference_document_codec.cpp core/reference_document_codec.h
         core/reference_collection_value.cpp core/reference_collection_value.h
         core/rich_text_types.cpp core/rich_text_types.h core/rich_text_spans.h

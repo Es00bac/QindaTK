@@ -38,7 +38,7 @@ final focused build and CTest pass with both test cases in the runner.
 
 Remaining WP-082: remote-network transport, secret provisioning/rotation,
 idle presence expiry, domain-specific structural operations,
-version browser, branch/restore, domain-aware undo and conflict UI, log
+shared version metadata, branching, domain-aware undo and conflict UI, log
 compaction and migrations. A rejected local offline edit remains in that
 client's local store; the host must discard/reload the replica or provide a
 permission-aware editor before reconnecting it. This slice is not full

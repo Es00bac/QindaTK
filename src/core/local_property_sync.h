@@ -13,6 +13,7 @@ namespace QindaTK {
 // A bounded operation packet. IDs are canonical UUID strings; logicalTime is
 // decimal on disk and in QML to avoid JavaScript's 53-bit precision limit.
 struct PropertySyncOperation {
+    enum class Kind { Set, Restore };
     QString documentId;
     QString operationId;
     QString actorId;
@@ -20,6 +21,7 @@ struct PropertySyncOperation {
     QString entityId;
     QString propertyId;
     QVariant value;
+    Kind kind = Kind::Set;
 };
 
 // The bounded, type-preserving wire/store representation shared by local and
@@ -92,6 +94,7 @@ public:
     Q_INVOKABLE void disconnectFromService();
     Q_INVOKABLE bool setValue(const QString &entityId, const QString &propertyId,
                              const QVariant &value);
+    Q_INVOKABLE bool restoreVersion(const QByteArray &snapshot);
     Q_INVOKABLE void setPresence(const QVariantMap &presence);
     // Public for protocol adapters and deterministic duplicate/reorder tests.
     bool receive(const PropertySyncOperation &operation);
@@ -106,6 +109,7 @@ private:
     friend class PropertySyncSocketClient;
     bool fail(const QString &message);
     bool flush();
+    bool receiveRestore(const PropertySyncOperation &operation);
     void receivePresence(const QString &actorId, const QVariantMap &presence);
     void receivePresenceLeft(const QString &actorId);
     QPointer<PropertyDocument> m_document;
