@@ -19,6 +19,8 @@ The [caption model fixture](caption-model/Main.qml) connects `CaptionEditor`
 to exact-millisecond cue edits, undo, local JSON and WebVTT/SRT sidecars.
 The [caption render fixture](caption-render/Main.qml) burns active cues into
 actual frame pixels at exact millisecond positions.
+The [caption sequence fixture](caption-sequence/Main.qml) writes ordered PNG
+frames and an exact-timing manifest for a host encoder.
 
 The [publishing workbench](document-publishing/Main.qml) exercises
 `StyleManager`, `PageSetupDialog`, `TextFrameEditor`, and `TableEditor` with
@@ -51,6 +53,8 @@ same kinds of controls to `LocalProductivityStore` for persisted mail, drafts,
 events and task moves with local recovery and undo.
 The [attachment fixture](local-attachment-store/Main.qml) imports and rereads
 actual local payload bytes alongside a draft's stable attachment metadata.
+The [local calendar projection fixture](local-calendar-projection/Main.qml)
+expands stored recurring events into navigable seven-day ranges.
 The [form/schema/report fixture](forms-schema-report/Main.qml) uses a local
 SQLite provider, parameter-bound fields, saved design bindings and paginated
 document/PDF report output. The [motion fixture](motion-authoring/Main.qml)
