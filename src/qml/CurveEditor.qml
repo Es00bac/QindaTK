@@ -15,6 +15,9 @@ Item {
     property string accessibleName: qsTr("Curve editor")
     property string selectedKnotId: ""
     property real plotPadding: Tk.Theme.size.controlSm / 2
+    // The identity diagonal suits transfer curves; a time-axis host such as
+    // AutomationLane turns it off (WP-049).
+    property bool referenceLine: true
     readonly property rect plotRect: Qt.rect(plotPadding, plotPadding,
                                               Math.max(0, width - 2 * plotPadding),
                                               Math.max(0, height - 2 * plotPadding))
@@ -190,10 +193,12 @@ Item {
             const ctx = getContext("2d")
             ctx.reset()
             ctx.clearRect(0, 0, width, height)
-            ctx.strokeStyle = Tk.Theme.color.divider
-            ctx.lineWidth = Tk.Theme.size.border
-            ctx.beginPath()
-            ctx.moveTo(0, height); ctx.lineTo(width, 0); ctx.stroke()
+            if (root.referenceLine) {
+                ctx.strokeStyle = Tk.Theme.color.divider
+                ctx.lineWidth = Tk.Theme.size.border
+                ctx.beginPath()
+                ctx.moveTo(0, height); ctx.lineTo(width, 0); ctx.stroke()
+            }
             const points = root.samples || []
             if (points.length) {
                 ctx.beginPath()
