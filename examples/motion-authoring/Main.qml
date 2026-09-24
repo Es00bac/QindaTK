@@ -9,7 +9,7 @@ Item {
     width: 1480
     height: 1060
     property string playheadTicks: "0"
-    property var evaluated: ({ok: false, layers: []})
+    property var rendered: ({ok: false, drawnLayers: 0})
     property var exposureRows: [
         {layerId: "layer-ink", label: "Ink · 24 fps", exposures: [
             {exposureId: "exposure-1", startTicks: "0", endTicks: "70560000", artworkId: "drawing-a", label: "A"},
@@ -21,7 +21,7 @@ Item {
         {effectId: "camera-blur", label: "Camera Blur", categoryId: "blur", category: "Blur", description: "Depth-aware optical blur.", compatible: false, reason: "The current composition has no depth channel."},
         {effectId: "trail", label: "Motion Trail", categoryId: "motion", category: "Motion", description: "Echo previous evaluated transforms.", compatible: true}]
     property var compositionLayers: [
-        {layerId: "scene-root", parentLayerId: "", sourceId: "canvas", zIndex: 0, visible: true,
+        {layerId: "scene-root", parentLayerId: "", sourceId: "", zIndex: 0, visible: true,
          transform: ({x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1, opacity: 1})},
         {layerId: "layer-box", parentLayerId: "scene-root", sourceId: "box-art", zIndex: 1, visible: true,
          transform: ({x: 70, y: 76, rotation: 0, scaleX: 1, scaleY: 1, opacity: 1}),
@@ -31,8 +31,7 @@ Item {
          animatedProperties: ({x: "layer-orbit/x", y: "layer-orbit/y", rotation: "layer-orbit/rotation"})}]
 
     function evaluateFrame() {
-        root.evaluated = composition.evaluate(root.playheadTicks)
-        preview.requestPaint()
+        root.rendered = frameRenderer.render(root.playheadTicks, 560, 360)
     }
     function addCurve(parameterId, name, min, max, initial, keys) {
         const result = animation.addParameterMap({id: parameterId, name: name, dimension: parameterId.indexOf("rotation") >= 0 ? "angle" : "length",
@@ -98,6 +97,15 @@ Item {
         animationModel: animation
         layers: root.compositionLayers
     }
+    Tk.MotionFrameRenderer {
+        id: frameRenderer
+        composition: composition
+        Component.onCompleted: {
+            loadSource("box-art", Qt.resolvedUrl("box.svg"))
+            loadSource("orbit-art", Qt.resolvedUrl("orbit.svg"))
+            root.evaluateFrame()
+        }
+    }
 
     Tk.Flex {
         anchors.fill: parent
@@ -140,41 +148,17 @@ Item {
                         width: parent.width
                         height: parent.height
                         Tk.Flex.grow: 1
-                        Rectangle { anchors.fill: parent; color: Tk.Theme.color.canvas; radius: Tk.Theme.radius.sm }
-                        Canvas {
-                            id: preview
-                            objectName: "motionTransformPreview"
+                        Tk.CompositionView {
                             anchors.fill: parent
-                            onPaint: {
-                                const ctx = getContext("2d"); ctx.reset()
-                                ctx.fillStyle = Tk.Theme.color.textMuted; ctx.font = Tk.Theme.font.micro + "px \"" + Tk.Theme.font.family + "\""
-                                ctx.fillText("Transform preview from MotionComposition · no source pixels", Tk.Theme.space.md, Tk.Theme.space.lg)
-                                if (!root.evaluated.ok) return
-                                const scale = Math.min((width - Tk.Theme.space.xl * 2) / 560, (height - Tk.Theme.size.controlLg * 2) / 360)
-                                ctx.save(); ctx.translate(Tk.Theme.space.lg, Tk.Theme.size.controlLg * 2); ctx.scale(scale, scale)
-                                const paintData = [
-                                    {id: "layer-box", x: -34, y: -24, width: 68, height: 48, fill: "#22d3ee"},
-                                    {id: "layer-orbit", x: -21, y: -21, width: 42, height: 42, fill: "#a78bfa"}]
-                                for (let i = 0; i < root.evaluated.layers.length; ++i) {
-                                    const row = root.evaluated.layers[i]
-                                    const art = paintData.find(function(item) { return item.id === row.layerId })
-                                    if (!art || !row.visible) continue
-                                    const m = row.matrix
-                                    ctx.save(); ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5])
-                                    ctx.globalAlpha = row.opacity; ctx.fillStyle = art.fill
-                                    ctx.fillRect(art.x, art.y, art.width, art.height)
-                                    ctx.strokeStyle = Tk.Theme.color.text; ctx.lineWidth = 2; ctx.strokeRect(art.x, art.y, art.width, art.height)
-                                    ctx.restore()
-                                }
-                                ctx.restore()
-                            }
+                            renderer: frameRenderer
+                            tooltip: qsTr("Exact-tick composited source artwork")
                         }
                         Tk.Caption {
                             anchors.right: parent.right
                             anchors.bottom: parent.bottom
                             anchors.margins: Tk.Theme.space.sm
-                            text: root.evaluated.ok ? qsTr("%1 evaluated layers").arg(root.evaluated.layers.length) : String(root.evaluated.error || "")
-                            color: root.evaluated.ok ? Tk.Theme.color.textMuted : Tk.Theme.color.warning
+                            text: root.rendered.ok ? qsTr("%1 source layers rendered").arg(root.rendered.drawnLayers) : String(root.rendered.error || "")
+                            color: root.rendered.ok ? Tk.Theme.color.textMuted : Tk.Theme.color.warning
                         }
                     }
                     Tk.Caption { text: qsTr("Parent matrices compose deterministically; key values come from exact-tick step/linear/cubic curves."); color: Tk.Theme.color.textMuted; wrapMode: Text.WordWrap }

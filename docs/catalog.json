@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-23",
+  "generated": "2026-09-24",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -5739,6 +5739,47 @@
       "objectNames": [
         "paletteInput",
         "paletteList"
+      ]
+    },
+    {
+      "name": "CompositionView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CompositionView.qml",
+      "properties": [
+        {
+          "name": "renderer",
+          "type": "Tk.MotionFrameRenderer",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Composited motion frame\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "compositionFrame",
+        "compositionView"
       ]
     },
     {
@@ -39598,6 +39639,110 @@
           "name": "evaluate",
           "returns": "QVariantMap",
           "parameters": "const QString &timeTicks"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "MotionFrameItem",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/motion_frame_renderer.h",
+      "properties": [
+        {
+          "name": "renderer",
+          "type": "QindaTK::MotionFrameRenderer *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "rendererChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "MotionFrameRenderer",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "CPU source-over compositor for MotionComposition's evaluated 2D layers. Hosts supply decoded QImages; loadSource is a local-file convenience.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/motion_frame_renderer.h",
+      "properties": [
+        {
+          "name": "composition",
+          "type": "QindaTK::MotionComposition *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "compositionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "frameChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "loadSource",
+          "returns": "bool",
+          "parameters": "const QString &sourceId, const QUrl &url"
+        },
+        {
+          "name": "removeSource",
+          "returns": "void",
+          "parameters": "const QString &sourceId"
+        },
+        {
+          "name": "render",
+          "returns": "QVariantMap",
+          "parameters": "const QString &timeTicks, int width, int height"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QUrl &url"
         }
       ],
       "enums": {},

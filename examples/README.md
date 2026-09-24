@@ -40,7 +40,8 @@ calendar, recurrence and task controls. Its recurrence preview uses
 `RecurrenceService`; message and task records remain sample snapshots.
 The [form/schema/report fixture](forms-schema-report/Main.qml) uses a local
 SQLite provider and parameter-bound fields. The [motion fixture](motion-authoring/Main.qml)
-evaluates exact-tick keyframes and shows effect compatibility. These are
+evaluates exact-tick keyframes, composites local SVG artwork into source
+pixels and shows effect compatibility. These are
 toolkit examples rather than complete productivity or motion applications.
 
 The [device settings panel](device-settings-panel.qml) exercises pending
