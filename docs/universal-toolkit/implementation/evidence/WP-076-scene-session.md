@@ -28,6 +28,9 @@ The live QML example also instantiated under Wayland/OpenGL and produced the
 the outliner at 260×622, scene viewport at 548×622 and material inspector at
 280×622; the Save As, Reopen, Undo and Redo actions were visible above them.
 The screenshot shows the seeded cube and its shaded material sphere.
+On the combined integration tree, the configured build and focused CTest
+(`tst_scene_model_3d`, `tst_canvas_vector_authoring`, and three vector/scene
+examples) passed **5/5**.
 
 Remaining WP-076 scope includes imported mesh/resource providers, shared
 material assets and texture maps, full on-object gizmos, FormatRegistry scene
