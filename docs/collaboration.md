@@ -94,6 +94,17 @@ only while connected, and never enters the operation log, document revision or
 undo history. The map can carry a name and stable selection ID; views must
 decide whether those coordinates remain valid after an edit.
 
+`Tk.PresenceLayer` is a passive overlay for that stream. Bind `client` to a
+`LocalPropertySyncClient` or `PropertySyncSocketClient`; each remote packet
+may contain `label`, `activity`, and `cursor`/`selection` anchors, for example
+`{objectId: "scene/title"}` or `{position: 42}`. Supply `mapper(anchor, kind,
+packet)`, returning `{x,y,width,height}` in overlay coordinates, and increment
+`viewRevision` when a scroll, zoom or layout change alters that mapping. The
+control shows readable names and activity alongside its coloured marks; it
+removes actors on leave/disconnect, client replacement or `staleAfterMs` idle
+timeout. Unknown anchors are omitted. It never writes the document or local
+selection. The host still owns selection rebasing and anchor validity.
+
 ## Remaining WP-082 scope
 
 - Remote-network transport, credential provisioning/rotation, permission
@@ -105,7 +116,7 @@ decide whether those coordinates remain valid after an edit.
   first version history store is local to its owner; restore itself travels as
   a synchronized operation to all property replicas.
 - Domain-aware undo/redo, conflict resolution UI, bounded log compaction and
-  migration, presence expiry and selection rebasing.
+  migration, transport-level idle expiry and selection rebasing.
 
 The package remains **in progress** against the full WP-082 acceptance gate.
 

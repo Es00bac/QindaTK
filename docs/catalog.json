@@ -21254,6 +21254,107 @@
       ]
     },
     {
+      "name": "PresenceLayer",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (WP-082): presence anchors are stable document IDs or positions. The host maps them to this overlay's coordinates and increments viewRevision whenever scrolling, zoom or layout changes that mapping.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PresenceLayer.qml",
+      "properties": [
+        {
+          "name": "client",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mapper",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "viewRevision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "staleAfterMs",
+          "type": "int",
+          "default": "Tk.Theme.motion.toastTimeout * 6",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Remote collaborators\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "peers",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mappedPeers",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "resolve",
+          "parameters": "anchor, kind, presence"
+        },
+        {
+          "name": "updatePeer",
+          "parameters": "actorId, presence"
+        },
+        {
+          "name": "removePeer",
+          "parameters": "actorId"
+        },
+        {
+          "name": "expireStale",
+          "parameters": "now"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "presenceLayer",
+        "presencePeer_",
+        "remoteActivity",
+        "remoteCursor",
+        "remoteSelection"
+      ]
+    },
+    {
       "name": "PresenterView",
       "kind": "qml",
       "base": "Item",
