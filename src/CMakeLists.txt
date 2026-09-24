@@ -136,7 +136,8 @@ qt_add_qml_module(qindatk
         core/motion_effect_registry.cpp core/motion_effect_registry.h
         core/motion_frame_renderer.cpp core/motion_frame_renderer.h
         core/tracking_roto_model.cpp core/tracking_roto_mask.cpp core/tracking_roto_codec.cpp core/tracking_roto_model.h
-        core/node_graph_model.cpp core/node_graph_render.cpp core/node_graph_codec.cpp core/node_graph_model.h
+        core/node_graph_model.cpp core/node_graph_types.cpp core/node_graph_groups.cpp
+        core/node_graph_render.cpp core/node_graph_codec.cpp core/node_graph_model.h
         core/diagram_document.cpp core/diagram_document_io.cpp core/diagram_document_layout.cpp
         core/diagram_document.h
         core/cad_document.cpp core/cad_document_solver.cpp core/cad_document_io.cpp

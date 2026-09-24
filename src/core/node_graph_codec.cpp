@@ -14,6 +14,8 @@
 namespace QindaTK {
 namespace {
 constexpr qint64 kMaxGraphBytes = 4 * 1024 * 1024;
+// Version 2 added groups; version 1 files load with no groups.
+constexpr int kGraphVersion = 2;
 }
 
 bool NodeGraphModel::saveToFile(const QString &path)
@@ -36,11 +38,18 @@ bool NodeGraphModel::saveToFile(const QString &path)
             {QStringLiteral("toNodeId"), edge.toNode},
             {QStringLiteral("toPortId"), edge.toPort}});
     }
+    QJsonArray groupsJson;
+    for (const Group &group : m_groups) {
+        groupsJson.append(QJsonObject{{QStringLiteral("groupId"), group.id},
+            {QStringLiteral("title"), group.title},
+            {QStringLiteral("nodeIds"), QJsonArray::fromStringList(group.nodeIds)}});
+    }
     const QByteArray bytes = QJsonDocument(QJsonObject{
         {QStringLiteral("format"), QStringLiteral("qindatk.node-graph")},
-        {QStringLiteral("version"), 1},
+        {QStringLiteral("version"), kGraphVersion},
         {QStringLiteral("revision"), QString::number(m_revision)},
-        {QStringLiteral("nodes"), nodesJson}, {QStringLiteral("edges"), edgesJson}})
+        {QStringLiteral("nodes"), nodesJson}, {QStringLiteral("edges"), edgesJson},
+        {QStringLiteral("groups"), groupsJson}})
         .toJson(QJsonDocument::Compact);
     if (bytes.size() > kMaxGraphBytes) {
         setError(QStringLiteral("Graph exceeds the 4 MiB file bound")); return false;
@@ -66,11 +75,13 @@ bool NodeGraphModel::loadFromFile(const QString &path)
         setError(QStringLiteral("Graph JSON is invalid")); return false;
     }
     const QJsonObject root = document.object();
+    const int version = root.value(QStringLiteral("version")).toInt();
     if (root.value(QStringLiteral("format")).toString() != QLatin1String("qindatk.node-graph")
-        || root.value(QStringLiteral("version")).toInt() != 1
+        || version < 1 || version > kGraphVersion
         || !root.value(QStringLiteral("nodes")).isArray()
-        || !root.value(QStringLiteral("edges")).isArray()) {
-        setError(QStringLiteral("Unsupported graph format")); return false;
+        || !root.value(QStringLiteral("edges")).isArray()
+        || (version >= 2 && !root.value(QStringLiteral("groups")).isArray())) {
+        setError(QStringLiteral("Unsupported graph format or version")); return false;
     }
     bool revisionOk = false;
     const quint64 revision = root.value(QStringLiteral("revision")).toString()
@@ -139,8 +150,31 @@ bool NodeGraphModel::loadFromFile(const QString &path)
             setError(QStringLiteral("Graph contains a cycle")); return false;
         }
     }
+    QVector<Group> groups;
+    QSet<QString> groupIds, groupedNodes;
+    const QJsonArray groupRecords = root.value(QStringLiteral("groups")).toArray();
+    for (const QJsonValue &value : groupRecords) {
+        const QJsonObject item = value.toObject();
+        const QJsonArray members = item.value(QStringLiteral("nodeIds")).toArray();
+        Group group{item.value(QStringLiteral("groupId")).toString(),
+                    item.value(QStringLiteral("title")).toString(), {}};
+        bool valid = value.isObject() && !group.id.isEmpty() && group.id.size() <= 128
+            && !groupIds.contains(group.id) && group.title.size() <= 128 && !members.isEmpty();
+        for (const QJsonValue &member : members) {
+            const QString nodeId = member.toString();
+            valid = valid && ids.contains(nodeId) && !groupedNodes.contains(nodeId);
+            groupedNodes.insert(nodeId);
+            group.nodeIds.append(nodeId);
+        }
+        if (!valid) { setError(QStringLiteral("Invalid group record or node membership")); return false; }
+        groupIds.insert(group.id);
+        groups.append(group);
+    }
     m_nodes = std::move(nodes);
     m_edges = std::move(edges);
+    m_groups = std::move(groups);
+    m_editing = false;
+    m_editRedo.clear();
     m_revision = revision;
     m_sources.clear();
     m_sourceBytes = 0;

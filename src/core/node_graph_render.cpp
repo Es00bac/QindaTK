@@ -18,6 +18,18 @@ QImage blank(const QSize &size)
     image.fill(Qt::transparent);
     return image;
 }
+
+QPainter::CompositionMode compositionMode(const QString &mode)
+{
+    if (mode == QLatin1String("multiply")) return QPainter::CompositionMode_Multiply;
+    if (mode == QLatin1String("screen")) return QPainter::CompositionMode_Screen;
+    if (mode == QLatin1String("overlay")) return QPainter::CompositionMode_Overlay;
+    if (mode == QLatin1String("darken")) return QPainter::CompositionMode_Darken;
+    if (mode == QLatin1String("lighten")) return QPainter::CompositionMode_Lighten;
+    if (mode == QLatin1String("difference")) return QPainter::CompositionMode_Difference;
+    if (mode == QLatin1String("add")) return QPainter::CompositionMode_Plus;
+    return QPainter::CompositionMode_SourceOver;
+}
 }
 
 bool NodeGraphModel::setSourceImage(const QString &nodeId, const QImage &image)
@@ -58,7 +70,11 @@ QImage NodeGraphModel::evaluate(const QString &nodeId, const QSize &size,
         return {};
     }
     visiting->insert(nodeId);
+    m_evaluated.append(nodeId);
     const Node node = m_nodes.at(index);
+    const auto value = [&](const char *parameterId) {
+        return parameter(node.type, node.parameters, QString::fromLatin1(parameterId));
+    };
     const auto input = [&](const QString &portId) -> QImage {
         const QString source = inputNode(nodeId, portId);
         if (source.isEmpty()) {
@@ -79,27 +95,48 @@ QImage NodeGraphModel::evaluate(const QString &nodeId, const QSize &size,
         }
     } else if (node.type == QLatin1String("solid")) {
         result = blank(size);
-        result.fill(QColor(node.parameters.value(QStringLiteral("color"),
-                                  QStringLiteral("transparent")).toString()));
+        result.fill(QColor(value("color").toString()));
+    } else if (node.type == QLatin1String("mask")) {
+        result = blank(size);
+        QPainter painter(&result);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(Qt::white);
+        const QRectF area(value("x").toDouble(), value("y").toDouble(),
+                          value("width").toDouble(), value("height").toDouble());
+        if (value("shape").toString() == QLatin1String("ellipse")) painter.drawEllipse(area);
+        else painter.drawRect(area);
     } else if (node.type == QLatin1String("transform")) {
         const QImage source = input(QStringLiteral("image"));
         if (!source.isNull()) {
+            // Scale and rotate about the canvas centre, then translate.
+            const QPointF centre(size.width() / 2.0, size.height() / 2.0);
+            const double scale = value("scale").toDouble();
             result = blank(size);
             QPainter painter(&result);
-            painter.translate(node.parameters.value(QStringLiteral("x"), 0).toDouble(),
-                              node.parameters.value(QStringLiteral("y"), 0).toDouble());
-            const double scale = node.parameters.value(QStringLiteral("scale"), 1).toDouble();
+            painter.setRenderHint(QPainter::SmoothPixmapTransform);
+            painter.translate(centre + QPointF(value("x").toDouble(), value("y").toDouble()));
+            painter.rotate(value("rotation").toDouble());
             painter.scale(scale, scale);
+            painter.translate(-centre);
             painter.drawImage(QPoint(0, 0), source);
         }
     } else if (node.type == QLatin1String("blend")) {
         const QImage background = input(QStringLiteral("background"));
-        const QImage foreground = input(QStringLiteral("foreground"));
-        if (!background.isNull() && !foreground.isNull()) {
+        QImage foreground = input(QStringLiteral("foreground"));
+        const bool masked = !inputNode(nodeId, QStringLiteral("mask")).isEmpty();
+        const QImage mask = masked ? input(QStringLiteral("mask")) : QImage();
+        if (!background.isNull() && !foreground.isNull() && (!masked || !mask.isNull())) {
+            if (masked) {
+                QPainter cut(&foreground);
+                cut.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+                cut.drawImage(QPoint(0, 0), mask);
+            }
             result = blank(size);
             QPainter painter(&result);
             painter.drawImage(QPoint(0, 0), background);
-            painter.setOpacity(node.parameters.value(QStringLiteral("opacity"), 1).toDouble());
+            painter.setCompositionMode(compositionMode(value("mode").toString()));
+            painter.setOpacity(value("opacity").toDouble());
             painter.drawImage(QPoint(0, 0), foreground);
         }
     } else if (node.type == QLatin1String("output")) {
@@ -130,6 +167,7 @@ QVariantMap NodeGraphModel::render(const QString &outputNodeId, int width, int h
     const QSize size(width, height);
     if (m_cacheSize != size) { invalidateAll(); m_cacheSize = size; }
     setError({});
+    m_evaluated.clear();
     QSet<QString> visiting;
     const QImage candidate = evaluate(outputNodeId, size, &visiting);
     if (candidate.isNull())
@@ -145,7 +183,8 @@ QVariantMap NodeGraphModel::render(const QString &outputNodeId, int width, int h
     emit frameChanged();
     return {{QStringLiteral("ok"), true}, {QStringLiteral("imageDataUrl"), m_imageDataUrl},
             {QStringLiteral("width"), width}, {QStringLiteral("height"), height},
-            {QStringLiteral("revision"), QVariant::fromValue<qulonglong>(m_revision)}};
+            {QStringLiteral("revision"), QVariant::fromValue<qulonglong>(m_revision)},
+            {QStringLiteral("evaluatedNodeIds"), m_evaluated}};
 }
 
 } // namespace QindaTK
