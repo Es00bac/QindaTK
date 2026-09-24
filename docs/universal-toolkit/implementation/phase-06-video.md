@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Phase 06 — Video, motion and 3D workflows
 
-**IN PROGRESS — WP-070 monitor and bin controls are implemented; decoding remains open.**
+**IN PROGRESS — WP-070 monitor and bin controls and local asset-frame decoding are implemented; playback and sequence output remain open.**
 
 [Plan](README.md) · [Ledger](execution-ledger.md) · [Delegation rules](orchestration.md) · [Acceptance](acceptance.md)
 

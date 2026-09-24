@@ -38,7 +38,7 @@ Item {
     signal linkActivatedRequested(string linkId, string target)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 3
-    implicitHeight: content.implicitHeight
+    implicitHeight: Math.max(content.implicitHeight, Tk.Theme.size.panelMinHeight * 7)
     Accessible.role: Accessible.Pane
     Accessible.name: tooltip
     Accessible.description: pageCount > 0 ? qsTr("Page %1 of %2 at %3 percent zoom")
@@ -87,6 +87,7 @@ Item {
     Tk.Flex {
         id: content
         width: control.width > 0 ? control.width : implicitWidth
+        height: control.height > 0 ? control.height : implicitHeight
         direction: Tk.Flex.Column
         align: Tk.Flex.Stretch
         gap: Tk.Theme.space.sm
@@ -246,6 +247,8 @@ Item {
         Tk.Scroll {
             objectName: "pdfPageWindow"
             implicitHeight: Math.max(Tk.Theme.size.panelMinWidth * 2.4, Math.min(pageColumn.implicitHeight, Tk.Theme.size.panelMinWidth * 5))
+            Tk.Flex.grow: 1
+            Tk.Flex.basis: 0
             overflowY: Tk.Scroll.Auto
             Tk.Flex {
                 id: pageColumn
@@ -272,7 +275,10 @@ Item {
                             provider: control.provider
                             resourceId: control.resourceId
                             requestKind: "pdf-page"
-                            requestOptions: ({ pageIndex: modelData.pageIndex, rotation: modelData.rotation || 0 })
+                            requestOptions: ({ pageIndex: modelData.pageIndex,
+                                               rotation: modelData.rotation || 0,
+                                               size: { width: Math.max(1, Math.ceil(pageImage.width)),
+                                                       height: Math.max(1, Math.ceil(pageImage.height)) } })
                             document: control.document
                             viewId: control.viewId
                             tooltip: qsTr("Rendered PDF page %1").arg(modelData.pageIndex + 1)

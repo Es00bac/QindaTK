@@ -25,6 +25,10 @@ The [print and preflight workbench](print-preflight/Main.qml) exercises
 `PrintPreview` and `PreflightPanel` with a live rich-document preview and
 sample host-owned output issues.
 
+The [PDF reader and review fixture](pdf-review/Main.qml) exercises `PdfView`
+and `PdfAnnotationTools` on a two-page PDF. The default asset backend renders
+pages and extracts searchable word positions through Poppler tools.
+
 The [device settings panel](device-settings-panel.qml) exercises pending
 audio configuration and explicit host accept/reject acknowledgments. A real
 device engine must supply enumeration and apply the settings.
