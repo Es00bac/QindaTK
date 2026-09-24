@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
+#include "document_model.h"
 #include <QObject>
 #include <QColor>
+#include <QJsonObject>
 #include <QQuaternion>
 #include <QVector3D>
 #include <QVariantList>
@@ -9,9 +11,11 @@
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
+class UndoService;
+class SceneDocumentCodec;
 // Scene coordinates are right-handed world units. Uniform positive scales make
 // hierarchical rotations and keep-world reparenting exact without hidden shear.
-class SceneModel3D : public QObject {
+class SceneModel3D : public QObject, public DocumentModel {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QVariantList entities READ entities NOTIFY changed)
@@ -20,14 +24,21 @@ class SceneModel3D : public QObject {
     Q_PROPERTY(bool editing READ editing NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY changed)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY changed)
+    Q_PROPERTY(QString documentId READ documentId CONSTANT)
+    Q_PROPERTY(QString revision READ revision NOTIFY committedChanged)
+    Q_PROPERTY(QindaTK::UndoService *undoService READ undoService NOTIFY historyChanged)
 public:
-    explicit SceneModel3D(QObject *parent = nullptr) : QObject(parent) {}
+    explicit SceneModel3D(QObject *parent = nullptr);
+    ~SceneModel3D() override;
     QVariantList entities() const;
     QString selectedId() const { return m_selected; }
     QString lastError() const { return m_error; }
     bool editing() const { return !m_editId.isEmpty(); }
-    bool canUndo() const { return !m_undo.isEmpty() && !editing(); }
-    bool canRedo() const { return !m_redo.isEmpty() && !editing(); }
+    bool canUndo() const;
+    bool canRedo() const;
+    QString documentId() const { return m_documentId; }
+    QString revision() const { return QString::number(m_revision); }
+    UndoService *undoService() const;
     Q_INVOKABLE QString addEntity(const QString &name, const QString &primitive,
                                   const QVector3D &position, const QColor &color);
     Q_INVOKABLE bool removeEntity(const QString &id);
@@ -60,11 +71,24 @@ public:
     Q_INVOKABLE bool fromJson(const QString &json);
     Q_INVOKABLE bool saveToFile(const QString &path);
     Q_INVOKABLE bool loadFromFile(const QString &path);
+    // DocumentModel: the private standalone history moves into a session.
+    QObject *modelObject() const override { return const_cast<SceneModel3D *>(this); }
+    DocumentId modelId() const override { return DocumentId::parse(m_documentId); }
+    QString modelKind() const override { return QStringLiteral("scene3d"); }
+    SnapshotHeader modelHeader() const override;
+    QMetaObject::Connection connectModelChanged(QObject *receiver, std::function<void()> slot) override;
+    OperationError prepareCommand(const DocumentCommand &command, bool forward) const override;
+    void publishCommand(const DocumentCommand &command, bool forward) override;
+    DocumentCommandPtr composeCommands(const DocumentCommand &first,
+                                       const DocumentCommand &second) const override;
 signals:
     void changed();
+    void committedChanged();
+    void historyChanged();
     void selectionChanged();
     void errorChanged();
 private:
+    friend class SceneDocumentCodec;
     struct Entity {
         QString id, parent, name, primitive;
         QVector3D position;
@@ -83,12 +107,24 @@ private:
     bool validWorld() const;
     bool effectivelyVisible(int i) const;
     bool fail(const QString &message);
+    struct SceneCommand;
+    UndoService *history() const;
+    void historyAttached(UndoService *service) override;
+    bool commitState(const QVector<Entity> &before, const QVector<Entity> &after,
+                     const QString &label);
     void remember();
-    void notify();
+    bool notify();
     void restore(const QVector<Entity> &state);
+    static bool decodeNative(const QByteArray &bytes, QVector<Entity> *entities,
+                             SnapshotHeader *header, QJsonObject *extensions, QString *problem);
     bool previewWorldTransform(const Transform &target);
-    QVector<Entity> m_entities, m_before;
-    QVector<QVector<Entity>> m_undo, m_redo;
+    QVector<Entity> m_entities, m_before, m_pendingBefore;
+    bool m_pending = false;
+    UndoService *m_localHistory = nullptr;
+    QMetaObject::Connection m_historyConnection;
+    QString m_documentId;
+    quint64 m_revision = 1;
+    quint64 m_resetGeneration = 0;
     QString m_selected, m_editId, m_error;
     Transform m_startWorld;
 };

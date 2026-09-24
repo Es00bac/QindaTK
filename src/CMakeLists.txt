@@ -60,6 +60,7 @@ qt_add_qml_module(qindatk
         core/geographic_tile_source.h core/geographic_tile_source.cpp
         core/geographic_tile_network.cpp
         core/scene_model_3d.h core/scene_model_3d.cpp core/scene_model_3d_codec.cpp
+        core/scene_model_3d_history.cpp core/scene_model_3d_parse.cpp core/scene_document_codec.cpp
         core/mesh_rig_document.h core/mesh_rig_document.cpp
         core/mesh_rig_document_persistence.cpp
         core/application_contracts.cpp core/application_contracts.h

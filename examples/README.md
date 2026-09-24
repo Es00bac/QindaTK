@@ -124,6 +124,8 @@ persistent `SceneModel3D` hierarchy and routes stable-ID reparent requests with
 an explicit keep-world/local transform choice. `MaterialPreview` edits the
 selected primitive's persisted material while the actual Qt Quick 3D scene
 updates its shading.
+The [3D scene session fixture](scene-session/Main.qml) creates a scene through
+`DocumentManager` and provides visible Save As, Reopen and shared Undo/Redo.
 The [live mesh workbench](mesh-rig-live/Main.qml) wires `RigEditor`, `UVEditor`
 and `TexturePaintView` to one `MeshRigDocument`. The GPU viewport displays the
 same posed, painted triangles and supplies camera rays for paint gestures.

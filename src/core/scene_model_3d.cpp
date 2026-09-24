@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "scene_model_3d.h"
+#include "undo_service.h"
 #include <QUuid>
 #include <cmath>
 
 namespace QindaTK {
+SceneModel3D::SceneModel3D(QObject *parent) : QObject(parent)
+{
+    m_documentId = DocumentId::create().toString();
+    m_localHistory = new UndoService(this);
+    m_localHistory->setMemoryLimit(quint64(1) << 30);
+    m_localHistory->addModel(this);
+    m_localHistory->setStepLimit(this, 64);
+}
+SceneModel3D::~SceneModel3D() = default;
 namespace {
 bool finite(const QVector3D &v) {
     return std::isfinite(v.x()) && std::isfinite(v.y()) && std::isfinite(v.z())
@@ -65,11 +75,19 @@ QVariantList SceneModel3D::entities() const {
     return out;
 }
 bool SceneModel3D::fail(const QString &message) { m_error = message; emit errorChanged(); return false; }
-void SceneModel3D::notify() { m_error.clear(); emit errorChanged(); emit changed(); }
+bool SceneModel3D::notify() {
+    if (m_pending) {
+        m_pending = false;
+        auto before = std::move(m_pendingBefore);
+        m_pendingBefore.clear();
+        const auto after = m_entities;
+        return commitState(before, after, QStringLiteral("Edit 3D scene"));
+    }
+    m_error.clear(); emit errorChanged(); emit changed(); return true;
+}
 void SceneModel3D::remember() {
-    m_undo.append(m_entities);
-    if (m_undo.size() > 64) m_undo.removeFirst();
-    m_redo.clear();
+    m_pendingBefore = m_entities;
+    m_pending = true;
 }
 void SceneModel3D::restore(const QVector<Entity> &state) {
     m_entities = state;
@@ -86,7 +104,7 @@ QString SceneModel3D::addEntity(const QString &name, const QString &primitive,
     Entity e;
     e.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     e.name = name; e.primitive = primitive; e.position = position; e.color = color;
-    m_entities.append(e); notify(); return e.id;
+    m_entities.append(e); return notify() ? e.id : QString{};
 }
 bool SceneModel3D::select(const QString &id) {
     if (!id.isEmpty() && index(id) < 0) return fail("Unknown entity");
@@ -98,8 +116,7 @@ bool SceneModel3D::removeEntity(const QString &id) {
     if (i < 0 || editing()) return fail("Unknown entity or active transform");
     for (const auto &e : m_entities) if (e.parent == id) return fail("Reparent children before removal");
     remember(); m_entities.removeAt(i);
-    if (m_selected == id) { m_selected.clear(); emit selectionChanged(); }
-    notify(); return true;
+    return notify();
 }
 bool SceneModel3D::setTransform(const QString &id, const QVector3D &position,
                               const QVector3D &eulerDegrees, float scale) {
@@ -112,13 +129,13 @@ bool SceneModel3D::setTransform(const QString &id, const QVector3D &position,
     e.rotation = QQuaternion::fromEulerAngles(eulerDegrees); e.scale = scale;
     if (!validWorld()) { m_entities = before; return fail("World transform exceeds supported range"); }
     const auto after = m_entities; m_entities = before; remember(); m_entities = after;
-    notify(); return true;
+    return notify();
 }
 bool SceneModel3D::setAppearance(const QString &id, const QColor &color, bool visible) {
     int i = index(id);
     if (i < 0 || editing() || !color.isValid()) return fail("Invalid appearance or active transform");
     remember(); m_entities[i].color = color; m_entities[i].visible = visible;
-    notify(); return true;
+    return notify();
 }
 QVariantMap SceneModel3D::material(const QString &id) const {
     const int i = index(id);
@@ -141,7 +158,7 @@ bool SceneModel3D::setMaterial(const QString &id, const QColor &baseColor,
     auto &edited = m_entities[i];
     edited.color = baseColor; edited.roughness = roughness;
     edited.metalness = metalness; edited.emissiveColor = emissiveColor;
-    notify(); return true;
+    return notify();
 }
 bool SceneModel3D::reparent(const QString &id, const QString &parentId, bool keepWorld) {
     int i = index(id), p = index(parentId);
@@ -171,7 +188,7 @@ bool SceneModel3D::reparent(const QString &id, const QString &parentId, bool kee
     }
     if (!validWorld()) { m_entities = before; return fail("World transform exceeds supported range"); }
     const auto after = m_entities; m_entities = before; remember(); m_entities = after;
-    notify(); return true;
+    return notify();
 }
 bool SceneModel3D::beginTransform(const QString &id) {
     int i = index(id);
@@ -267,10 +284,10 @@ bool SceneModel3D::previewUniformScale(float factor, float snap) {
 bool SceneModel3D::commitTransform() {
     if (!editing()) return false;
     if (m_entities != m_before) {
-        m_undo.append(m_before); if (m_undo.size() > 64) m_undo.removeFirst();
-        m_redo.clear();
+        m_pendingBefore = m_before;
+        m_pending = true;
     }
-    m_before.clear(); m_editId.clear(); notify(); return true;
+    m_before.clear(); m_editId.clear(); return notify();
 }
 bool SceneModel3D::cancelTransform() {
     if (!editing()) return false;
@@ -278,10 +295,12 @@ bool SceneModel3D::cancelTransform() {
 }
 bool SceneModel3D::undo() {
     if (!canUndo()) return false;
-    m_redo.append(m_entities); restore(m_undo.takeLast()); return true;
+    const auto error = history()->undo(this);
+    return error ? fail(error.message) : true;
 }
 bool SceneModel3D::redo() {
     if (!canRedo()) return false;
-    m_undo.append(m_entities); restore(m_redo.takeLast()); return true;
+    const auto error = history()->redo(this);
+    return error ? fail(error.message) : true;
 }
 } // namespace QindaTK

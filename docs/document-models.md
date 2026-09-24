@@ -29,6 +29,7 @@ text or workbook engine joins the same way; see
 | `qindatk.property-document.v1` | `property` | `PropertyDocument` | `qindatk.reference-property-document` JSON, version 2 (version 1 migrates) | `qtk` | 64 MiB |
 | `qindatk.canvas-document.v1` | `canvas` | `CanvasDocument` | `qindatk.canvas` binary, version 1 ([canvas](canvas.md#native-format)) | `qtkc` | 320 MiB (`CanvasDocumentLimits`) |
 | `qindatk.workbook.v1` | `workbook` | `Workbook` | `qindatk.workbook` JSON, version 2 with the session header (version 1 and header-less files open as revision 1; [workbook](workbook.md#native-file-format)) | `qtkwb` | 64 MiB (`Workbook::MaxFileBytes`) |
+| `qindatk.scene3d.v1` | `scene3d` | `SceneModel3D` | `QindaTK.Scene3D` JSON, version 3 with session header; direct native version 1/2 files migrate on open ([scene](scene-3d.md#persistence-and-verification)) | `qtkscene` | 4 MiB |
 
 The reference format also stores a `QVariantList` property as an
 `objectCollection`: at most 4,096 object rows with unique stable UUID `id`
@@ -96,6 +97,11 @@ retains about 600 bytes
 `Workbook` records `WorkbookCommand`s: the mutations one operation or
 transaction applied and their exact inverses. A step holds only the cells,
 feature sets and names it changed ([workbook](workbook.md#transactions-history-and-revision)).
+`SceneModel3D` records bounded before/after scene snapshots (at most 512
+primitives) through the same service. A standalone scene owns a private
+64-step service; a session adopts it. Gesture previews remain transient and
+commit as one step. This snapshot representation is suitable for the bounded
+primitive model, not a large imported mesh.
 
 ## One live history per model
 

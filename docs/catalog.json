@@ -52824,11 +52824,40 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
         {
           "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "committedChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
           "parameters": ""
         },
         {

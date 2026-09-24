@@ -54,6 +54,12 @@ parent's inverse transform. `commitTransform()` creates one history step;
 `cancelTransform()` restores the exact initial scene. Structural and numeric
 edits are rejected during a gesture. `undo()` and `redo()` hold up to 64 snapshots.
 `canUndo`, `canRedo`, `editing` and `lastError` expose state to the host.
+Standalone scenes use a private `UndoService`; when `DocumentManager` creates
+or opens a `qindatk.scene3d.v1` session, the same history moves to the shared
+service. The session handles dirty state, asynchronous save, recovery, reopen
+and workspace document identity. All committed entity/material edits and
+transform gestures enter that one history. Previews do not change the
+document revision or trigger autosave.
 
 `previewConstrainedTranslation(delta, constraint, space, snap)` projects a
 world-space drag delta onto `x`, `y`, `z`, `xy`, `xz`, or `yz` axes; `free` retains
@@ -129,6 +135,12 @@ Saving during a preview writes the committed state. `saveToFile(path)` uses
 atomic replacement; `loadFromFile(path)` rejects files larger than 4 MiB.
 Failed parsing leaves the current scene/history intact. Successful loading is
 undoable. This native scene format is not a general mesh interchange format.
+The shared `sceneDocumentCodec()` reads these existing files by content,
+assigning a stable identity derived from legacy file bytes, then writes version
+3 with document UUID, revision, reset generation and session extensions.
+Direct `saveToFile` remains version 2 for existing consumers; a managed
+`DocumentSession.requestSaveAs` writes version 3. The live
+`examples/scene-session/Main.qml` shows save, reopen and shared undo.
 
 Run `QT_QPA_PLATFORM=xcb qtk-preview examples/scene-3d/Main.qml --gpu --grab scene.png` to see the
 actual renderer. `tst_scene_model_3d` covers rotated/scaled parent reparenting,
@@ -146,7 +158,7 @@ outliner does not rename entities because the scene model has no rename command.
 On-object 3D gizmo handles, constrained scale and per-axis scale;
 instance and imported mesh/resource providers; shared material assets,
 texture maps and procedural shaders; application document
-session/shared undo integration; device loss and multiple-view qualification;
+session UX and format-provider export integration; device loss and multiple-view qualification;
 Qt 6.8 validation and accessibility traversal. This slice does not claim WP-076
 acceptance, renderer-independent materials, nonuniform transforms or CAD accuracy.
 

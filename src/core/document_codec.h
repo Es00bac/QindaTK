@@ -84,6 +84,7 @@ private:
 DocumentCodecPtr referenceDocumentCodec();
 DocumentCodecPtr canvasDocumentCodec();
 DocumentCodecPtr workbookDocumentCodec(); // qindatk.workbook.v1 (docs/workbook.md#sessions)
+DocumentCodecPtr sceneDocumentCodec(); // qindatk.scene3d.v1 (docs/scene-3d.md)
 
 // Empty result when `actual` names the same schema, document, revision and
 // reset generation as `expected`; otherwise the first mismatch.

@@ -516,7 +516,10 @@ The software adaptation reports unavailable. A later slice added per-entity
 base color, roughness, metalness and emission to scene history and version 2
 native persistence, with a GPU material preview. One material belongs to one
 entity in this bounded model; shared material assets and textures remain future
-work. Mesh providers, nonuniform scale, shared document history and full gizmos
+work. A later slice connected the bounded primitive scene to `DocumentModel`
+and `DocumentSession`: standalone and managed scenes share one `UndoService`
+history, and version 3 scene JSON carries session identity while version 1/2
+native files remain readable. Mesh providers, nonuniform scale and full gizmos
 remain separate WP-076 scope.
 See [scene-3d.md](scene-3d.md).
 

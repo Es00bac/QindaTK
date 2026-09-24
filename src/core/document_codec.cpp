@@ -129,6 +129,7 @@ std::shared_ptr<DocumentCodecRegistry> DocumentCodecRegistry::withBuiltins()
     registry->registerCodec(referenceDocumentCodec());
     registry->registerCodec(canvasDocumentCodec());
     registry->registerCodec(workbookDocumentCodec());
+    registry->registerCodec(sceneDocumentCodec());
     return registry;
 }
 

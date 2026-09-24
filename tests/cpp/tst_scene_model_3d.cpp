@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "scene_model_3d.h"
+#include "document_manager.h"
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -9,6 +11,79 @@ using namespace QindaTK;
 class SceneModel3DTest : public QObject {
     Q_OBJECT
 private slots:
+    void managedSessionSaveReopenAndRecover() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath("scene.qtkscene");
+        const QString recovery = dir.filePath("recovery");
+        QString documentId;
+        QString cube;
+        {
+            DocumentManager manager;
+            manager.recoveryManager()->setDirectory(recovery);
+            auto *session = manager.createDocument("qindatk.scene3d.v1");
+            QVERIFY2(session, qPrintable(manager.lastError()));
+            session->setAutosaveDelayMs(600000);
+            auto *scene = qobject_cast<SceneModel3D *>(session->modelObject());
+            QVERIFY(scene);
+            QCOMPARE(scene->undoService(), manager.undoService());
+            cube = scene->addEntity("Cube", "cube", {0, 0, 0}, QColor("#35bbc4"));
+            QVERIFY(!cube.isEmpty());
+            QVERIFY(scene->setMaterial(cube, QColor("#35bbc4"), .22f, .75f, QColor("#080d10")));
+            QVERIFY(scene->canUndo());
+            QVERIFY(manager.undoService()->undo());
+            QCOMPARE(scene->material(cube).value("metalness").toFloat(), 0.f);
+            QVERIFY(manager.undoService()->redo());
+            QCOMPARE(scene->material(cube).value("metalness").toFloat(), .75f);
+            QSignalSpy finished(session, &DocumentSession::saveFinished);
+            QVERIFY(session->requestSaveAs(path));
+            QVERIFY(finished.wait(10000));
+            QVERIFY(finished.first().first().toBool());
+            QVERIFY(!session->isDirty());
+            QVERIFY(scene->beginTransform(cube));
+            QVERIFY(scene->previewWorldTranslation({20, 0, 0}));
+            QVERIFY(!session->isDirty()); // gesture previews never enter the saved document
+            QVERIFY(scene->cancelTransform());
+            documentId = session->documentId();
+            QVERIFY(scene->setAppearance(cube, QColor("#ea8844"), true));
+            QVERIFY(session->isDirty());
+            QVERIFY(session->autosaveNow());
+            QCOMPARE(manager.recoveryManager()->inspectId(documentId).value("schemaId").toString(),
+                     QStringLiteral("qindatk.scene3d.v1"));
+        }
+        DocumentManager restarted;
+        restarted.recoveryManager()->setDirectory(recovery);
+        auto *restored = restarted.restoreRecovered(documentId, path);
+        QVERIFY2(restored, qPrintable(restarted.lastError()));
+        auto *scene = qobject_cast<SceneModel3D *>(restored->modelObject());
+        QVERIFY(scene);
+        QCOMPARE(scene->material(cube).value("baseColor").value<QColor>(), QColor("#ea8844"));
+        QVERIFY(restored->recovered() && restored->isDirty());
+        QSignalSpy saved(restored, &DocumentSession::saveFinished);
+        QVERIFY(restored->requestSave());
+        QVERIFY(saved.wait(10000));
+        QVERIFY(saved.first().first().toBool());
+        QVERIFY(!restored->isDirty());
+        QVERIFY(restarted.closeDocument(documentId, DocumentManager::ClosePolicy::Discard));
+        auto *reopened = restarted.openDocument(path);
+        QVERIFY2(reopened, qPrintable(restarted.lastError()));
+        QCOMPARE(reopened->documentId(), documentId);
+        auto *openedScene = qobject_cast<SceneModel3D *>(reopened->modelObject());
+        QVERIFY(openedScene);
+        QCOMPARE(openedScene->material(cube).value("baseColor").value<QColor>(), QColor("#ea8844"));
+        QVERIFY(openedScene->canUndo() == false);
+
+        // Existing direct native files still open through the same codec.
+        SceneModel3D legacy;
+        const QString legacyId = legacy.addEntity("Old", "sphere", {0, 0, 0}, QColor("#4488cc"));
+        const QString legacyPath = dir.filePath("old-scene.json");
+        QVERIFY(legacy.saveToFile(legacyPath));
+        auto *legacySession = restarted.openDocument(legacyPath);
+        QVERIFY2(legacySession, qPrintable(restarted.lastError()));
+        auto *oldScene = qobject_cast<SceneModel3D *>(legacySession->modelObject());
+        QVERIFY(oldScene);
+        QCOMPARE(oldScene->material(legacyId).value("baseColor").value<QColor>(), QColor("#4488cc"));
+    }
     void materialEditsShadeSnapshotUndoAndRoundTrip() {
         SceneModel3D scene;
         const auto id = scene.addEntity("Sample", "sphere", {0, 0, 0}, QColor("#6699cc"));
