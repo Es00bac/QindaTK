@@ -92,12 +92,26 @@ TestCase {
         const finish = createTemporaryObject(spyComponent, this,
             { target: picker, signalName: "editFinished" })
         const alpha = findChild(picker, "colorPickerAlpha")
+        const fullHeight = picker.implicitHeight
         picker.color = "#80204060"
         picker.alphaEnabled = false
         wait(0)
         verify(Qt.colorEqual(picker.previewColor, picker.color))
         verify(!alpha.visible)
+        compare(picker.implicitHeight,
+                fullHeight - Tk.Theme.size.controlSm - Tk.Theme.space.sm)
         compare(finish.count, 0)
+    }
+
+    function test_hue_keyboard_wraps_across_red() {
+        const picker = createTemporaryObject(pickerComponent, this)
+        const hue = findChild(picker, "colorPickerHue")
+        const finish = createTemporaryObject(spyComponent, this,
+            { target: picker, signalName: "editFinished" })
+        hue.forceActiveFocus()
+        keyClick(Qt.Key_Left)
+        compare(finish.count, 1)
+        fuzzyCompare(finish.signalArguments[0][0].hsvHue, 0.99, 0.001)
     }
 
     function test_normalized_green_blue_hue_marker_and_channel_requests() {

@@ -3208,6 +3208,10 @@
           "parameters": "x, w"
         },
         {
+          "name": "nudgeHue",
+          "parameters": "delta"
+        },
+        {
           "name": "updateAlpha",
           "parameters": "x, w"
         }

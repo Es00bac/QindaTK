@@ -27,7 +27,8 @@ Item {
     signal editCanceled(color restoredColor)
 
     implicitWidth: Tk.Theme.size.panelMinWidth
-    implicitHeight: implicitWidth + Tk.Theme.size.controlSm * 2 + Tk.Theme.space.sm * 2
+    implicitHeight: implicitWidth
+                    + (alphaEnabled ? 2 : 1) * (Tk.Theme.size.controlSm + Tk.Theme.space.sm)
     Accessible.role: Accessible.Grouping
     Accessible.name: picker.tooltip
     Accessible.description: qsTr("sRGB preview colour %1").arg(picker.previewColor)
@@ -110,6 +111,14 @@ Item {
                     _gestureStartColor.hsvValue, _gestureStartColor.a))
     }
 
+    function nudgeHue(delta) {
+        begin("hue")
+        preview(hsv(normalizedHue(_gestureStartColor) + delta,
+                    _gestureStartColor.hsvSaturation,
+                    _gestureStartColor.hsvValue, _gestureStartColor.a))
+        finish()
+    }
+
     function updateAlpha(x, w) {
         const a = Math.max(0, Math.min(1, x / Math.max(1, w)))
         preview(hsv(normalizedHue(_gestureStartColor),
@@ -161,6 +170,8 @@ Item {
                     ctx.fillStyle = picker.hsv(hue, 1, 1, 1).toString()
                     ctx.fillRect(0, 0, width, height)
                     let gradient = ctx.createLinearGradient(0, 0, width, 0)
+                    // AGENT-NOTE: White, black and transparency represent the
+                    // fixed sRGB saturation/value domain, not themed chrome.
                     gradient.addColorStop(0, "white")
                     gradient.addColorStop(1, "transparent")
                     ctx.fillStyle = gradient
@@ -228,8 +239,8 @@ Item {
             Accessible.description: qsTr("%1 degrees").arg(Math.round(picker.hue * 360))
             Accessible.focusable: picker.enabled
             Accessible.focused: activeFocus
-            Accessible.onIncreaseAction: { picker.begin("hue"); picker.updateHue((picker.hue+0.01)*width,width); picker.finish() }
-            Accessible.onDecreaseAction: { picker.begin("hue"); picker.updateHue((picker.hue-0.01)*width,width); picker.finish() }
+            Accessible.onIncreaseAction: picker.nudgeHue(0.01)
+            Accessible.onDecreaseAction: picker.nudgeHue(-0.01)
             Rectangle {
                 anchors.fill: parent
                 radius: Tk.Theme.radius.sm
@@ -295,8 +306,8 @@ Item {
                 onReleased: picker.finish()
                 onCanceled: picker.cancel()
             }
-            Keys.onLeftPressed: function(event) { picker.begin("hue"); picker.updateHue((picker.hue-0.01)*width,width); picker.finish(); event.accepted=true }
-            Keys.onRightPressed: function(event) { picker.begin("hue"); picker.updateHue((picker.hue+0.01)*width,width); picker.finish(); event.accepted=true }
+            Keys.onLeftPressed: function(event) { picker.nudgeHue(-0.01); event.accepted=true }
+            Keys.onRightPressed: function(event) { picker.nudgeHue(0.01); event.accepted=true }
             Keys.onEscapePressed: function(event) { picker.cancel(); event.accepted = true }
         }
 
