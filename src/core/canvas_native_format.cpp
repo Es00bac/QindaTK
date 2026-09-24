@@ -57,7 +57,7 @@ QVariantMap CanvasNativeFormat::metadata() const
     return {{"formatId", QString::fromLatin1(formatId)},
             {"title", QStringLiteral("QindaTK canvas document")},
             {"mimeTypes", QStringList{QStringLiteral("application/vnd.qindatk.canvas")}},
-            {"extensions", QStringList{QStringLiteral("qtkc")}}, {"version", 1},
+            {"extensions", QStringList{QStringLiteral("qtkc")}}, {"version", 2},
             {"operations", QStringList{QStringLiteral("import"), QStringLiteral("export"),
                                         QStringLiteral("roundtrip")}},
             {"editableImport", true}, {"renderOnly", false}, {"roundtrip", true},

@@ -20,6 +20,10 @@ QString CanvasColorContext::description() const
 
 QString CanvasColorContext::validationError() const
 {
+    if (intent != ColorIntent::RelativeColorimetric || blackPointCompensation)
+        return QStringLiteral("Canvas output supports relative colorimetric intent without BPC only");
+    if (proofRequested)
+        return QStringLiteral("Canvas soft proof output is unsupported; use the ColorEngine proof-preview operation");
     if (working != QColorSpace(QColorSpace::SRgb))
         return QStringLiteral("Canvas QColor document values require an sRGB working space");
     if (!display.isValid() || !display.isValidTarget()
@@ -125,6 +129,12 @@ void RenderSurfaceAdapter::setDocument(CanvasDocumentAdapter *document)
     }
     m_document = document;
     clearCache();
+    m_documentOutputIcc.clear();
+    if (!m_explicitColorContext) {
+        m_color.display = QColorSpace(QColorSpace::SRgb);
+        ++m_color.generation;
+        m_colorError = m_color.validationError();
+    }
     if (document) {
         connect(document, &CanvasDocumentAdapter::damaged, this, &RenderSurfaceAdapter::onDamaged);
         connect(document, &CanvasDocumentAdapter::reset, this, &RenderSurfaceAdapter::onReset);
@@ -134,6 +144,20 @@ void RenderSurfaceAdapter::setDocument(CanvasDocumentAdapter *document)
         });
     }
     emit updateRequested();
+}
+
+void RenderSurfaceAdapter::syncDocumentOutputProfile()
+{
+    if (m_explicitColorContext) return;
+    const QByteArray bytes = m_document ? m_document->outputProfileIcc() : QByteArray{};
+    if (bytes == m_documentOutputIcc) return;
+    m_documentOutputIcc = bytes;
+    m_color.display = bytes.isEmpty() ? QColorSpace(QColorSpace::SRgb)
+                                      : QColorSpace::fromIccProfile(bytes);
+    ++m_color.generation;
+    m_colorError = m_color.validationError();
+    clearCache();
+    emit configurationChanged();
 }
 
 QString RenderSurfaceAdapter::effectiveBackend() const
@@ -216,6 +240,7 @@ void RenderSurfaceAdapter::setCacheLimitMiB(int mebibytes)
 
 void RenderSurfaceAdapter::setColorContext(const CanvasColorContext &context)
 {
+    m_explicitColorContext = true;
     const quint64 generation = m_color.generation + 1;
     m_color = context;
     m_color.generation = generation;
@@ -308,6 +333,7 @@ void RenderSurfaceAdapter::evict(quint64 frame)
 
 std::shared_ptr<const CanvasRenderFrame> RenderSurfaceAdapter::prepare(CanvasRenderRequest request)
 {
+    syncDocumentOutputProfile();
     request.color = m_color;
     auto frame = std::make_shared<CanvasRenderFrame>();
     frame->request = request;
@@ -336,7 +362,13 @@ std::shared_ptr<const CanvasRenderFrame> RenderSurfaceAdapter::prepare(CanvasRen
         if (needs && m_rendered < m_budget) {
             CanvasPaintStats ps;
             auto content = std::make_shared<CanvasTileContent>();
-            if (m_backend == CanvasBackend::Software || m_color.needsDisplayTransform()) {
+            bool managedFill = false;
+            if (m_backend == CanvasBackend::SceneGraph && !m_color.needsDisplayTransform())
+                for (CanvasObjectId id : m_document->candidates(rect)) {
+                    const CanvasObject *object = m_document->object(id);
+                    if (object && !object->managedFill.isEmpty()) { managedFill = true; break; }
+                }
+            if (m_backend == CanvasBackend::Software || m_color.needsDisplayTransform() || managedFill) {
                 content->raster = CanvasPainter::renderTile(*m_document, rect, m_tilePixels, m_color, &ps);
                 if (content->raster.isNull()) {
                     m_colorError = QStringLiteral("Canvas display profile conversion failed");

@@ -2,10 +2,12 @@
 // Software rendering provider: document -> QPainter -> tile images.
 #include "canvas_render.h"
 #include "canvas_transform.h"
+#include "canvas_managed_paint.h"
 
 #include <QPainterPath>
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 namespace QindaTK::CanvasPainter {
 
@@ -95,8 +97,13 @@ void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &re
         painter->fillRect(page, doc.pageColor());
     }
     const qreal pixel = 1.0 / std::max(scale, 1e-9);
+    std::unique_ptr<ColorEngine> engine;
     for (const CanvasObject *o : paintOrder(doc, rect, stats)) {
         const QRectF bounds = documentBounds(*o);
+        OperationError colorError;
+        if (!o->managedFill.isEmpty() && !engine) engine = std::make_unique<ColorEngine>();
+        const QBrush fillBrush = o->managedFill.isEmpty() ? QBrush(o->fill)
+            : CanvasManagedPaint::brush(o->managedFill, bounds, *engine, &colorError);
         if (o->shape == CanvasShape::Image) {
             paintImage(painter, doc, *o, rect, base);
             if (stats) {
@@ -119,7 +126,7 @@ void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &re
         const QPolygonF outline = documentOutline(*o, ellipseSegments(radius));
         if (o->hasFill()) {
             painter->setPen(Qt::NoPen);
-            painter->setBrush(o->fill);
+            painter->setBrush(colorError ? QBrush(o->fill) : fillBrush);
             painter->drawPolygon(outline, Qt::OddEvenFill);
         }
         if (o->hasStroke()) {

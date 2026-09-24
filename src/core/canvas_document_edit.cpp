@@ -202,7 +202,7 @@ OperationError CanvasDocument::prepareEdit(const CanvasEdit &edit, bool forward)
     // room for the largest allowed extensions JSON. Edits that shrink the
     // file stay possible even when a loaded file is already near the limit.
     if (encoded > m_encodedBytes
-        && CanvasDocumentFormat::FixedBytes + encoded + m_limits.maximumExtensionBytes
+        && CanvasDocumentFormat::FixedBytes + encoded + m_outputProfileIcc.size() + m_limits.maximumExtensionBytes
                > m_limits.maximumEncodedBytes)
         return failure(ErrorCode::Unsupported, tr("The canvas would exceed its saved-file size limit"),
                        QStringLiteral("encodedBytes"));

@@ -36,6 +36,7 @@ struct CanvasObject {
     QVector<QPointF> points;  // Polyline: local vertices (open path)
     QTransform transform;     // local -> document
     QColor fill;              // invalid or transparent = no fill
+    QByteArray managedFill;   // typed solid/gradient plus owned ICC bytes; see canvas_managed_paint.h
     QColor stroke;            // invalid or transparent = no stroke
     qreal strokeWidth = 0.0;  // document units; renderers floor at one device pixel
     CanvasImageId image = 0;  // Image: the document-owned tiled image

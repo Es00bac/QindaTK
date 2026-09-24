@@ -11,7 +11,8 @@ namespace QindaTK {
 // AGENT-CONTRACT (docs/canvas.md#native-format): the canvas native file.
 // Big-endian binary: signature "QTKCANVS", version, identity header
 // (document UUID, revision, reset generation), exact 64-bit counters, page,
-// extensions JSON, layers, images, objects, then a SHA-256 of everything
+// optional output ICC, extensions JSON, layers, images, objects (with optional
+// owned managed fills), then a SHA-256 of everything
 // before it. Records are written in ascending id order, so equal content
 // gives equal bytes. Image tiles are stored as raw ARGB32 premultiplied rows: qUncompress
 // ignores its declared size, so compressed tiles would need a bounded
@@ -19,7 +20,7 @@ namespace QindaTK {
 namespace CanvasDocumentFormat {
 inline constexpr char Signature[] = "QTKCANVS";
 inline constexpr qsizetype SignatureBytes = 8;
-inline constexpr quint32 Version = 1;
+inline constexpr quint32 Version = 2; // reader also accepts version 1
 inline constexpr const char *SchemaId = "qindatk.canvas-document.v1";
 inline constexpr const char *FormatId = "qindatk.canvas";
 // Valid ids are 1 .. IdCeiling - 1 and valid paint orders are below
@@ -42,7 +43,7 @@ inline constexpr qint64 PaintOrderCeiling = std::numeric_limits<qint64>::max() -
 // Exact encoded sizes, so commits can keep every document saveable: a file
 // is FixedBytes + its records + the extensions JSON. Names are UTF-16 code
 // units, so any QString (a leading U+FEFF, an unpaired surrogate) is exact.
-inline constexpr qsizetype FixedBytes = SignatureBytes + 4 + 16 + 8 + 8 + 4 * 8 + 4 * 8 + 11
+inline constexpr qsizetype FixedBytes = SignatureBytes + 4 + 16 + 8 + 8 + 4 * 8 + 4 * 8 + 11 + 4
     + 4 + 4 + 4 + 4 + 32;
 [[nodiscard]] qsizetype objectRecordBytes(const CanvasObject &object);
 [[nodiscard]] qsizetype layerRecordBytes(const CanvasLayer &layer);

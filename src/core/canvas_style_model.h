@@ -2,6 +2,8 @@
 #pragma once
 
 #include "canvas_document.h"
+#include "color_picker_model.h"
+#include "gradient_editor_model.h"
 #include <QPointer>
 #include <QVariantList>
 #include <QVariantMap>
@@ -25,12 +27,16 @@ public:
     // style keys: fill, stroke, strokeWidth. Null colour clears that channel.
     // Every selected object changes together in one reversible document edit.
     Q_INVOKABLE bool apply(const QVariantList &selectedIds, const QVariantMap &style);
+    Q_INVOKABLE bool applyPicker(const QVariantList &selectedIds, ColorPickerModel *picker);
+    Q_INVOKABLE bool applyGradient(const QVariantList &selectedIds, GradientEditorModel *gradient);
 signals:
     void documentChanged();
     void errorChanged();
     void applied(int changedObjects);
 private:
     bool fail(const QString &message);
+    bool applyManaged(const QVariantList &selectedIds, const QByteArray &payload,
+                      const QColor &preview);
     QPointer<CanvasDocumentAdapter> m_document;
     QString m_lastError;
 };

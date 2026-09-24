@@ -80,6 +80,7 @@ public:
     [[nodiscard]] virtual QRectF contentBounds() const = 0;
     // Paper colour behind the page rectangle (document data, not chrome).
     [[nodiscard]] virtual QColor pageColor() const { return QColor(Qt::white); }
+    [[nodiscard]] virtual QByteArray outputProfileIcc() const { return {}; }
     [[nodiscard]] virtual const CanvasObject *object(CanvasObjectId id) const = 0;
     [[nodiscard]] virtual const CanvasLayer *layer(CanvasLayerId id) const = 0;
     [[nodiscard]] virtual CanvasTiledImagePtr image(CanvasImageId id) const = 0;
@@ -127,6 +128,7 @@ class CanvasDocument : public CanvasDocumentAdapter, public DocumentModel, publi
     Q_PROPERTY(QRectF pageRect READ pageRect WRITE setPageRect NOTIFY changed)
     Q_PROPERTY(QRectF contentBounds READ contentBounds NOTIFY changed)
     Q_PROPERTY(QColor pageColor READ pageColor WRITE setPageColor NOTIFY changed)
+    Q_PROPERTY(QByteArray outputProfileIcc READ outputProfileIcc NOTIFY changed)
     Q_PROPERTY(qulonglong activeLayer READ activeLayer WRITE setActiveLayer NOTIFY changed)
     Q_PROPERTY(QVariantList layers READ layerList NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
@@ -151,6 +153,8 @@ public:
     void setPageRect(const QRectF &rect);
     QColor pageColor() const override { return m_pageColor; }
     void setPageColor(const QColor &color);
+    QByteArray outputProfileIcc() const override { return m_outputProfileIcc; }
+    Q_INVOKABLE bool setOutputProfileIcc(const QByteArray &bytes);
     QRectF contentBounds() const override;
     const CanvasObject *object(CanvasObjectId id) const override;
     const CanvasLayer *layer(CanvasLayerId id) const override;
@@ -288,6 +292,7 @@ private:
     QString m_lastError;
     QRectF m_pageRect{0, 0, 1024, 768};
     QColor m_pageColor{Qt::white};
+    QByteArray m_outputProfileIcc;
     quint64 m_revision = 1;
     quint64 m_resetGeneration = 0;
     qsizetype m_totalPoints = 0;

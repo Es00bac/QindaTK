@@ -38,6 +38,7 @@ struct CanvasDocumentState {
     quint64 resetGeneration = 0;
     QRectF pageRect;
     QColor pageColor;
+    QByteArray outputProfileIcc; // empty = sRGB; owned RGB ICC bytes in native v2
     CanvasObjectId nextObject = 1;
     CanvasLayerId nextLayer = 1;
     CanvasImageId nextImage = 1;

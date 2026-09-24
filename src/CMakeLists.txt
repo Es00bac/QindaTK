@@ -73,6 +73,7 @@ qt_add_qml_module(qindatk
         core/curve_validation.cpp core/curve_evaluator_p.h
         core/curve_editor_model.cpp core/curve_editor_model.h
         core/gradient_evaluator.cpp core/gradient_evaluator.h
+        core/canvas_managed_paint.cpp core/canvas_managed_paint.h
         core/gradient_editor_model.cpp core/gradient_editor_model.h
         core/capability_registry.cpp core/capability_registry.h
         core/extension_registry.cpp core/extension_registry.h core/extension_provider.h
@@ -275,6 +276,7 @@ qt_add_qml_module(qindatk
         core/canvas_document_state.h
         core/canvas_document_edit.cpp core/canvas_document_p.h
         core/canvas_document_format.cpp core/canvas_document_format.h
+        core/canvas_document_object_validation.cpp
         core/canvas_document_codec.cpp
         core/canvas_document_qml.cpp
         core/canvas_native_format.cpp

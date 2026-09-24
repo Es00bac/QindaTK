@@ -165,9 +165,14 @@ qindatk_add_test(tst_canvas_style_model)
 qindatk_add_test(tst_canvas_render)
 qindatk_add_test(tst_canvas_render_lifecycle)
 qindatk_add_test(tst_canvas_display)
+target_compile_definitions(tst_canvas_display PRIVATE
+    QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
 qindatk_add_test(tst_tiled_raster_document)
 add_test(NAME tst_canvas_display_rhi COMMAND tst_canvas_display managedDisplaySceneGraph)
 set_tests_properties(tst_canvas_display_rhi PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
+add_test(NAME tst_canvas_typed_output_rhi COMMAND tst_canvas_display typedOutputProfileRhi)
+set_tests_properties(tst_canvas_typed_output_rhi PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 qindatk_add_test(tst_canvas_tile_limits)
 qindatk_add_test(tst_canvas_input)

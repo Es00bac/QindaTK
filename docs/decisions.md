@@ -609,3 +609,22 @@ round-tripped without external services. Later slices added bounded local and
 network XYZ caches, vector editing, a WGS84 spatial grid and selectable
 Mercator/equirectangular display. XYZ tiles remain Mercator-specific; a
 projection switch hides them with an explicit status.
+
+## D-083 — Own typed canvas fills and composite before output conversion
+
+**Context.** QColor alone drops typed ICC identities and gradient stops.
+Converting individual vertices before blending does not match a converted
+composite, and a reopened document must resolve its own colors.
+
+**Decision.** Closed vector objects may carry a bounded managed fill with
+owned RGB ICC bytes and tagged solid channels or a typed gradient definition.
+The reference canvas composites managed fills in sRGB tiles on either backend,
+then converts the full tile to the persisted RGB output profile. Native binary
+version 2 adds the output ICC and object payloads; its reader accepts version 1
+and the session schema ID stays stable. Rendering explicitly supports relative
+colorimetric intent with BPC off.
+
+**Consequences.** Managed objects take the raster tile path even on RHI;
+ordinary sRGB objects keep the fast geometry path. A plain QColor fill clears
+the managed fill. Other rendering intents, soft proof, tagged raster sources,
+and calibrated monitor presentation remain separate work.

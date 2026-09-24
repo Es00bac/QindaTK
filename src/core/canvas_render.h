@@ -3,6 +3,7 @@
 
 #include "canvas_document.h"
 #include "canvas_transform.h"
+#include "color_context.h"
 
 #include <QColorSpace>
 #include <QHash>
@@ -20,12 +21,15 @@ namespace QindaTK {
 
 enum class CanvasBackend : quint8 { Software, SceneGraph };
 
-// Document QColor values are authored in sRGB. After compositing a tile, the
-// supported display path converts it to a valid RGB QColorSpace. Other working
-// spaces and proof/output operations require a separate document-color path.
+// Plain document QColor values and the composition tile are sRGB. Managed
+// fills resolve their owned ICC values before composition; a valid RGB output
+// profile converts the complete tile. Proof output remains unsupported.
 struct CanvasColorContext {
     QColorSpace working{QColorSpace::SRgb};
     QColorSpace display{QColorSpace::SRgb};
+    ColorIntent intent = ColorIntent::RelativeColorimetric;
+    bool blackPointCompensation = false;
+    bool proofRequested = false;
     quint64 generation = 1;
     [[nodiscard]] QString description() const;
     [[nodiscard]] QString validationError() const;

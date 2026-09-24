@@ -2,8 +2,10 @@
 #include "canvas_document.h"
 #include "canvas_document_format.h"
 #include "canvas_transform.h"
+#include "color_profile.h"
 #include "undo_service.h"
 
+#include <QColorSpace>
 #include <QUuid>
 #include <algorithm>
 
@@ -58,6 +60,7 @@ std::unique_ptr<CanvasDocument> CanvasDocument::fromState(const CanvasDocumentSt
     document->m_documentId = state.documentId.toString();
     document->m_pageRect = state.pageRect;
     document->m_pageColor = state.pageColor;
+    document->m_outputProfileIcc = state.outputProfileIcc;
     for (const CanvasLayer &layer : state.layers) document->placeLayer(layer);
     for (auto it = state.images.cbegin(); it != state.images.cend(); ++it)
         document->placeImage(it.key(), it.value());
@@ -194,6 +197,7 @@ CanvasDocumentState CanvasDocument::state() const
     captured.resetGeneration = m_resetGeneration;
     captured.pageRect = m_pageRect;
     captured.pageColor = m_pageColor;
+    captured.outputProfileIcc = m_outputProfileIcc;
     captured.nextObject = m_nextId;
     captured.nextLayer = m_nextLayer;
     captured.nextImage = m_nextImage;
@@ -401,6 +405,31 @@ void CanvasDocument::finishChange(const QVector<QRectF> &damage, bool full)
     }
     emit edited(m_revision);
     emit changed();
+}
+
+bool CanvasDocument::setOutputProfileIcc(const QByteArray &bytes)
+{
+    if (bytes == m_outputProfileIcc) return true;
+    if (!bytes.isEmpty()) {
+        OperationError error;
+        if (!ColorProfile::fromIcc(bytes, &error).isValid()) {
+            m_lastError = error.message; emit historyChanged(); return false;
+        }
+        const QColorSpace space = QColorSpace::fromIccProfile(bytes);
+        if (!space.isValid() || !space.isValidTarget() || space.colorModel() != QColorSpace::ColorModel::Rgb) {
+            m_lastError = tr("Output ICC profile is not a supported RGB Qt output space");
+            emit historyChanged(); return false;
+        }
+    }
+    if (CanvasDocumentFormat::FixedBytes + m_encodedBytes + m_limits.maximumExtensionBytes
+            + bytes.size() > m_limits.maximumEncodedBytes) {
+        m_lastError = tr("Output ICC profile would exceed the saved-file limit");
+        emit historyChanged(); return false;
+    }
+    m_outputProfileIcc = bytes;
+    m_lastError.clear();
+    finishChange({}, true);
+    return true;
 }
 
 void CanvasDocument::layerDamage(CanvasLayerId id, QVector<QRectF> *damage) const

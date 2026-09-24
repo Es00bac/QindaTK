@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_surface.h"
+#include "canvas_style_model.h"
+#include "canvas_document_format.h"
 
+#include <QFile>
 #include <QQuickItemGrabResult>
 #include <QQuickWindow>
 #include <QSignalSpy>
@@ -42,6 +45,7 @@ private slots:
     void softwarePixelsKnownAnswer();
     void managedDisplayTransform();
     void managedDisplaySceneGraph();
+    void typedOutputProfileRhi();
 };
 
 void TstCanvasDisplay::softwarePixelsKnownAnswer()
@@ -138,6 +142,63 @@ void TstCanvasDisplay::managedDisplaySceneGraph()
     if (!capturePath.isEmpty())
         QVERIFY(grabImage(&view).save(capturePath + QStringLiteral("-software.png")));
     QVERIFY(view.renderSurface()->colorError().isEmpty());
+}
+
+void TstCanvasDisplay::typedOutputProfileRhi()
+{
+    if (qEnvironmentVariable("QT_QUICK_BACKEND") != QLatin1String("rhi"))
+        QSKIP("typed output readback runs on the RHI registration");
+    QFile fixture(QStringLiteral(QINDATK_COLOR_FIXTURES) + QStringLiteral("/linear-srgb.icc"));
+    QVERIFY(fixture.open(QIODevice::ReadOnly));
+    const QByteArray icc = fixture.readAll();
+    CanvasDocument doc;
+    doc.setPageRect(QRectF(0,0,100,100));
+    QVERIFY(doc.setOutputProfileIcc(icc));
+    const CanvasObjectId target = box(doc, QRectF(0,0,100,100), Qt::white);
+    ColorPickerModel picker;
+    QVERIFY(picker.previewSrgb(QColor(128,128,128)));
+    QVERIFY(picker.commitEdit());
+    CanvasStyleModel styles;
+    styles.setDocument(&doc);
+    QVERIFY(styles.applyPicker({QString::number(target)}, &picker));
+    OperationError error;
+    const auto reopened = CanvasDocumentFormat::decode(CanvasDocumentFormat::encode(doc.state()), {}, &error);
+    QVERIFY2(reopened.has_value(), qPrintable(error.message));
+    QCOMPARE(reopened->outputProfileIcc, icc);
+    QCOMPARE(reopened->objects.value(target).managedFill, doc.object(target)->managedFill);
+
+    CanvasColorContext context;
+    context.display = QColorSpace::fromIccProfile(icc);
+    const QImage reference = CanvasPainter::renderTile(doc, QRectF(0,0,100,100), 100, context);
+    QVERIFY(!reference.isNull());
+    QVERIFY(std::abs(reference.pixelColor(50,50).red() - 55) <= 4);
+    QQuickWindow window;
+    window.resize(300,300);
+    CanvasSurface view(window.contentItem());
+    view.setSize(QSizeF(300,300));
+    view.setDocument(&doc);
+    view.setFitMode(QStringLiteral("page"));
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    if (window.rendererInterface()->graphicsApi() == QSGRendererInterface::Software
+        || window.rendererInterface()->graphicsApi() == QSGRendererInterface::Null)
+        QSKIP("no hardware-backed RHI available");
+    QTRY_COMPARE(view.renderSurface()->effectiveBackend(), QStringLiteral("scenegraph"));
+    const QPointF probe = view.mapFromDocument(QPointF(50,50));
+    QTRY_VERIFY(itemPixelAt(&view, probe).isValid());
+    const QColor gpu = itemPixelAt(&view, probe);
+    QVERIFY(std::abs(gpu.red() - reference.pixelColor(50,50).red()) <= 4);
+    const QString capture = qEnvironmentVariable("QINDATK_WP043_CAPTURE");
+    if (!capture.isEmpty()) QVERIFY(grabImage(&view).save(capture + QStringLiteral("-rhi.png")));
+    view.setBackend(QStringLiteral("software"));
+    QTRY_VERIFY(std::abs(itemPixelAt(&view, probe).red() - gpu.red()) <= 2);
+    if (!capture.isEmpty()) QVERIFY(grabImage(&view).save(capture + QStringLiteral("-software.png")));
+    CanvasColorContext unsupported;
+    unsupported.intent = ColorIntent::Perceptual;
+    QVERIFY(unsupported.validationError().contains("relative colorimetric"));
+    unsupported.intent = ColorIntent::RelativeColorimetric;
+    unsupported.proofRequested = true;
+    QVERIFY(unsupported.validationError().contains("unsupported"));
 }
 
 QTEST_MAIN(TstCanvasDisplay)

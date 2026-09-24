@@ -2,6 +2,7 @@
 #include <QtTest>
 #include "canvas_style_model.h"
 #include "canvas_document_format.h"
+#include "canvas_render.h"
 
 using namespace QindaTK;
 
@@ -40,6 +41,26 @@ void tst_canvas_style_model::atomicStyleEditUndoAndReopen()
     QCOMPARE(*document.object(first), before);
     QVERIFY(!styles.apply({QString::number(first)},
                           {{QStringLiteral("dash"), QVariantList{2, 2}}}));
+    QVERIFY(document.setObjectLocked(second, false));
+
+    ColorPickerModel picker;
+    QVERIFY(picker.previewSrgb(QColor(128,128,128)));
+    QVERIFY(picker.commitEdit());
+    QVERIFY(styles.applyPicker({QString::number(first)}, &picker));
+    QVERIFY(!document.object(first)->managedFill.isEmpty());
+    GradientEditorModel gradient;
+    QVERIFY(styles.applyGradient({QString::number(second)}, &gradient));
+    QVERIFY(!document.object(second)->managedFill.isEmpty());
+    const QByteArray typed = CanvasDocumentFormat::encode(document.state(), &error);
+    const auto restored = CanvasDocumentFormat::decode(typed, {}, &error);
+    QVERIFY2(restored.has_value(), qPrintable(error.message));
+    QCOMPARE(restored->objects.value(first).managedFill, document.object(first)->managedFill);
+    QCOMPARE(restored->objects.value(second).managedFill, document.object(second)->managedFill);
+    const QImage rendered = CanvasPainter::renderTile(document, QRectF(0,0,128,128), 128, {});
+    QVERIFY(std::abs(rendered.pixelColor(15,15).red() - 128) <= 2);
+    QVERIFY(rendered.pixelColor(51,10).red() < rendered.pixelColor(67,10).red());
+    QVERIFY(document.undo());
+    QVERIFY(document.object(second)->managedFill.isEmpty());
 }
 
 QTEST_MAIN(tst_canvas_style_model)

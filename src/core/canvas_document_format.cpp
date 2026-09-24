@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_document_format.h"
 #include "canvas_transform.h"
+#include "color_profile.h"
 #include <QCryptographicHash>
+#include <QColorSpace>
 #include <QDataStream>
 #include <QIODevice>
 #include <QJsonDocument>
@@ -19,7 +21,8 @@ constexpr qsizetype colorBytes = 11; // QDataStream: spec + alpha + four channel
 constexpr qsizetype minimumLayerRecord = 8 + 4 + 4 + 1 + 1;
 constexpr qsizetype minimumImageRecord = 8 + 4 + 4 + 4 + 4;
 constexpr qsizetype minimumTileRecord = 4 + 4 + 4;
-constexpr qsizetype minimumObjectRecord = 8 + 8 + 1 + 32 + 4 + 72 + 2 * colorBytes + 8 + 8 + 8 + 1 + 1 + 4;
+constexpr qsizetype minimumObjectRecordV1 = 8 + 8 + 1 + 32 + 4 + 72 + 2 * colorBytes + 8 + 8 + 8 + 1 + 1 + 4;
+constexpr qsizetype minimumObjectRecord = minimumObjectRecordV1 + 4;
 // Keeps (order << 40) in CanvasDocumentAdapter::paintKey inside 63 bits.
 constexpr int layerOrderBound = 1 << 22;
 constexpr quint64 idCeiling = IdCeiling;
@@ -159,7 +162,8 @@ bool recognizes(const QByteArray &prefix)
 
 qsizetype objectRecordBytes(const CanvasObject &object)
 {
-    return minimumObjectRecord + qsizetype(object.points.size()) * 16 + qsizetype(object.name.size()) * 2;
+    return minimumObjectRecord + qsizetype(object.points.size()) * 16
+        + qsizetype(object.name.size()) * 2 + object.managedFill.size();
 }
 
 qsizetype layerRecordBytes(const CanvasLayer &layer)
@@ -179,32 +183,6 @@ qsizetype imageBytes(const CanvasTiledImage &image)
     return total;
 }
 
-OperationError validateObject(const CanvasObject &o, CanvasObjectId id, const CanvasDocumentLimits &limits)
-{
-    if (id == 0 || id >= idCeiling || o.id != id)
-        return problem(ErrorCode::InvalidArgument, QStringLiteral("Invalid object identity"), QStringLiteral("objects.id"));
-    if (quint8(o.shape) > quint8(CanvasShape::Image))
-        return problem(ErrorCode::Validation, QStringLiteral("Unknown object shape"), QStringLiteral("objects.shape"));
-    if (o.layer == 0)
-        return problem(ErrorCode::Validation, QStringLiteral("Object has no layer"), QStringLiteral("objects.layer"));
-    if (!finite(o.rect) || !CanvasTransform::isFinite(o.transform) || !std::isfinite(o.strokeWidth)
-        || o.strokeWidth < 0)
-        return problem(ErrorCode::Validation, QStringLiteral("Object geometry must be finite"), QStringLiteral("objects.geometry"));
-    if (o.points.size() > limits.maximumPointsPerObject)
-        return problem(ErrorCode::Unsupported, QStringLiteral("Too many points in one object"), QStringLiteral("objects.points"));
-    for (const QPointF &point : o.points)
-        if (!std::isfinite(point.x()) || !std::isfinite(point.y()))
-            return problem(ErrorCode::Validation, QStringLiteral("Object geometry must be finite"), QStringLiteral("objects.points"));
-    if (o.name.size() > limits.maximumNameLength)
-        return problem(ErrorCode::Unsupported, QStringLiteral("Object name is too long"), QStringLiteral("objects.name"));
-    if (o.z >= PaintOrderCeiling || o.z == std::numeric_limits<qint64>::min())
-        return problem(ErrorCode::Validation, QStringLiteral("Object paint order is out of range"), QStringLiteral("objects.z"));
-    if ((o.shape == CanvasShape::Image) != (o.image != 0))
-        return problem(ErrorCode::Validation, QStringLiteral("Only image objects reference an image"), QStringLiteral("objects.image"));
-    if (!validColor(o.fill) || !validColor(o.stroke))
-        return problem(ErrorCode::Validation, QStringLiteral("Invalid object colour"), QStringLiteral("objects.colour"));
-    return {};
-}
 
 OperationError validateLayer(const CanvasLayer &layer, CanvasLayerId id, const CanvasDocumentLimits &limits)
 {
@@ -266,7 +244,7 @@ std::optional<SnapshotHeader> inspect(const QByteArray &bytes, OperationError *e
     quint64 revision = 0, generation = 0;
     if (!in.raw(signature, SignatureBytes) || !in.read(version))
         return fail(problem(ErrorCode::InvalidArgument, QStringLiteral("Truncated canvas header")));
-    if (version != Version)
+    if (version != 1 && version != Version)
         return fail(problem(ErrorCode::Unsupported, QStringLiteral("Unsupported canvas format version"), QStringLiteral("version")));
     if (!in.raw(uuid, 16) || !in.read(revision) || !in.read(generation))
         return fail(problem(ErrorCode::InvalidArgument, QStringLiteral("Truncated canvas header")));
@@ -288,6 +266,7 @@ QByteArray encode(const CanvasDocumentState &state, OperationError *error)
             << quint64(state.nextLayer) << quint64(state.nextImage) << qint64(state.nextZ);
     w.rect(state.pageRect);
     w.out() << state.pageColor;
+    w.bytes(state.outputProfileIcc);
     w.bytes(QJsonDocument(state.extensions).toJson(QJsonDocument::Compact));
     const auto layerIds = sortedKeys(state.layers);
     w.out() << quint32(layerIds.size());
@@ -326,6 +305,7 @@ QByteArray encode(const CanvasDocumentState &state, OperationError *error)
         w.out() << o.fill << o.stroke << double(o.strokeWidth) << quint64(o.image) << qint64(o.z)
                 << quint8(o.visible) << quint8(o.locked);
         w.text(o.name);
+        w.bytes(o.managedFill);
     }
     if (!w.ok()) {
         if (error) *error = problem(ErrorCode::BackendFailure, QStringLiteral("Canvas encoding failed"));
@@ -351,6 +331,7 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
     const auto header = inspect(bytes, &headerError);
     if (!header) return fail(headerError);
     const qsizetype body = bytes.size() - digestBytes;
+    const quint32 version = qFromBigEndian<quint32>(bytes.constData() + SignatureBytes);
     const QByteArray digest = QCryptographicHash::hash(QByteArrayView(bytes.constData(), body),
                                                        QCryptographicHash::Sha256);
     if (QByteArrayView(digest) != QByteArrayView(bytes.constData() + body, digestBytes))
@@ -367,6 +348,18 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
         || nextImage < 1 || nextImage > idCeiling || nextZ > PaintOrderCeiling)
         return fail(problem(ErrorCode::Validation, QStringLiteral("Canvas identity counters are out of range"), QStringLiteral("counters")));
     if (const auto e = validatePage(state.pageRect, state.pageColor)) return fail(e);
+    if (version >= 2) {
+        if (!in.bytes(state.outputProfileIcc, 16 * 1024 * 1024)) return truncated();
+        if (!state.outputProfileIcc.isEmpty()) {
+            OperationError profileError;
+            const ColorProfile profile = ColorProfile::fromIcc(state.outputProfileIcc, &profileError);
+            const QColorSpace space = QColorSpace::fromIccProfile(state.outputProfileIcc);
+            if (!profile.isValid() || !space.isValid() || !space.isValidTarget()
+                || space.colorModel() != QColorSpace::ColorModel::Rgb)
+                return fail(problem(ErrorCode::Validation, QStringLiteral("Invalid output ICC profile"),
+                                    QStringLiteral("outputProfileIcc")));
+        }
+    }
     QByteArray extensionBytes;
     if (!in.bytes(extensionBytes, limits.maximumExtensionBytes)) return truncated();
     QJsonParseError parse{};
@@ -454,7 +447,8 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
     }
 
     quint32 objectCount = 0;
-    if (!in.read(objectCount) || qint64(objectCount) * minimumObjectRecord > in.remaining()) return truncated();
+    if (!in.read(objectCount) || qint64(objectCount)
+        * (version >= 2 ? minimumObjectRecord : minimumObjectRecordV1) > in.remaining()) return truncated();
     if (objectCount > limits.maximumObjects)
         return fail(problem(ErrorCode::Unsupported, QStringLiteral("Too many canvas objects"), QStringLiteral("objects")));
     state.objects.reserve(objectCount);
@@ -482,6 +476,7 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
             || !in.read(image) || !in.read(z) || !in.flag(o.visible) || !in.flag(o.locked)
             || !in.text(o.name, limits.maximumNameLength))
             return truncated();
+        if (version >= 2 && !in.bytes(o.managedFill, 24 * 1024 * 1024)) return truncated();
         o.id = id;
         o.layer = layer;
         o.shape = CanvasShape(shape);

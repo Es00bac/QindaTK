@@ -105,10 +105,13 @@ private:
     void resolveBackend();
     void clearCache();
     void evict(quint64 frame);
+    void syncDocumentOutputProfile();
 
     QPointer<CanvasDocumentAdapter> m_document;
     QHash<CanvasTileKey, Tile> m_cache;
     CanvasColorContext m_color;
+    QByteArray m_documentOutputIcc;
+    bool m_explicitColorContext = false;
     QString m_colorError;
     QString m_requested = QStringLiteral("auto");
     QString m_fallbackReason;

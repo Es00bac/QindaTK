@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "canvas_style_model.h"
 #include "canvas_document_format.h"
+#include "canvas_managed_paint.h"
 
 #include <QSet>
 #include <cmath>
@@ -74,7 +75,7 @@ bool CanvasStyleModel::apply(const QVariantList &selectedIds, const QVariantMap 
         if (!m_document->effectiveVisible(*before) || m_document->effectiveLocked(*before))
             return fail(tr("A selected object is hidden or locked"));
         CanvasObject after = *before;
-        if (style.contains(QStringLiteral("fill"))) after.fill = fill;
+        if (style.contains(QStringLiteral("fill"))) { after.fill = fill; after.managedFill.clear(); }
         if (style.contains(QStringLiteral("stroke"))) after.stroke = stroke;
         if (style.contains(QStringLiteral("strokeWidth"))) after.strokeWidth = width;
         if (const OperationError error = CanvasDocumentFormat::validateObject(
@@ -91,6 +92,61 @@ bool CanvasStyleModel::apply(const QVariantList &selectedIds, const QVariantMap 
     }
     emit applied(edit.changes.size());
     return true;
+}
+
+bool CanvasStyleModel::applyManaged(const QVariantList &selectedIds, const QByteArray &payload,
+                                    const QColor &preview)
+{
+    if (!m_document) return fail(tr("No canvas document"));
+    if (payload.isEmpty() || !preview.isValid()) return fail(tr("Invalid managed fill"));
+    CanvasEdit edit;
+    edit.label = tr("Change managed fill");
+    QSet<CanvasObjectId> seen;
+    for (const QVariant &value : selectedIds) {
+        bool ok = false;
+        const CanvasObjectId id = value.toString().toULongLong(&ok);
+        if (!ok || id == 0) return fail(tr("Invalid selected object ID"));
+        if (seen.contains(id)) continue;
+        seen.insert(id);
+        const CanvasObject *before = m_document->object(id);
+        if (!before || !m_document->effectiveVisible(*before) || m_document->effectiveLocked(*before))
+            return fail(tr("A selected object is missing, hidden or locked"));
+        if (before->shape == CanvasShape::Polyline || before->shape == CanvasShape::Image)
+            return fail(tr("Managed fills require a closed vector object"));
+        CanvasObject after = *before;
+        after.fill = preview;
+        after.managedFill = payload;
+        if (const OperationError error = CanvasDocumentFormat::validateObject(after, id, CanvasDocumentLimits{}))
+            return fail(error.message);
+        if (after != *before) edit.changes.append({id, *before, after});
+    }
+    if (seen.isEmpty()) return fail(tr("Select an object first"));
+    if (!edit.isEmpty() && !m_document->commit(edit)) return fail(tr("Document changed before the fill could commit"));
+    if (!m_lastError.isEmpty()) { m_lastError.clear(); emit errorChanged(); }
+    emit applied(edit.changes.size());
+    return true;
+}
+
+bool CanvasStyleModel::applyPicker(const QVariantList &selectedIds, ColorPickerModel *picker)
+{
+    if (!picker || picker->targetIds().isEmpty()) return fail(tr("Select a typed picker color"));
+    OperationError error;
+    const QByteArray payload = CanvasManagedPaint::solid(
+        picker->colorValue(picker->targetIds().constFirst()), picker->colorContext().document, &error);
+    if (error) return fail(error.message);
+    ColorEngine engine;
+    const QBrush brush = CanvasManagedPaint::brush(payload, QRectF(0,0,1,1), engine, &error);
+    return error ? fail(error.message) : applyManaged(selectedIds, payload, brush.color());
+}
+
+bool CanvasStyleModel::applyGradient(const QVariantList &selectedIds, GradientEditorModel *gradient)
+{
+    if (!gradient) return fail(tr("Select a typed gradient"));
+    OperationError error;
+    const QByteArray payload = CanvasManagedPaint::gradient(gradient->definition(), &error);
+    if (error) return fail(error.message);
+    const QColor preview(gradient->previewSamples().value(gradient->previewSamples().size()/2).toString());
+    return applyManaged(selectedIds, payload, preview);
 }
 
 } // namespace QindaTK

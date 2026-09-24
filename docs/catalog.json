@@ -36130,6 +36130,13 @@
           "constant": false
         },
         {
+          "name": "outputProfileIcc",
+          "type": "QByteArray",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "activeLayer",
           "type": "qulonglong",
           "default": "",
@@ -36204,6 +36211,11 @@
         }
       ],
       "methods": [
+        {
+          "name": "setOutputProfileIcc",
+          "returns": "bool",
+          "parameters": "const QByteArray &bytes"
+        },
         {
           "name": "addLayerNamed",
           "returns": "qulonglong",
@@ -36508,6 +36520,16 @@
           "name": "apply",
           "returns": "bool",
           "parameters": "const QVariantList &selectedIds, const QVariantMap &style"
+        },
+        {
+          "name": "applyPicker",
+          "returns": "bool",
+          "parameters": "const QVariantList &selectedIds, ColorPickerModel *picker"
+        },
+        {
+          "name": "applyGradient",
+          "returns": "bool",
+          "parameters": "const QVariantList &selectedIds, GradientEditorModel *gradient"
         }
       ],
       "enums": {},

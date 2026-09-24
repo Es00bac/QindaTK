@@ -153,10 +153,12 @@ hashes; the next edit detaches the document's copy. A worker encodes the
 state.
 
 <a id="native-format"></a>
-The file is big-endian binary: the signature `QTKCANVS`, version 1, the
+The file is big-endian binary: the signature `QTKCANVS`, version 2 (the reader
+also accepts version 1), the
 document UUID, revision and reset generation, then the exact 64-bit
 `nextObject`/`nextLayer`/`nextImage` counters and `nextZ`, the page rectangle
-and colour, the session extensions (JSON), layers, images and objects in
+and colour, an owned output RGB ICC profile (or empty for sRGB), the session
+extensions (JSON), layers, images and objects in
 ascending id order, and finally a SHA-256 of everything before it. Equal
 content therefore gives equal bytes. Names are stored as UTF-16 code units,
 so every `QString` round-trips exactly; UTF-8 would drop a leading U+FEFF or
@@ -165,6 +167,13 @@ premultiplied rows at their stored size, so pixels round-trip exactly.
 `addImage` normalizes tiles to that format. Tiles are not compressed:
 `qUncompress` does not bound its output to the declared size, so compressed
 tiles would first need a bounded inflater.
+Each version 2 object has a bounded managed-fill payload after its name.
+Solid fills own their tagged channels and ICC bytes; gradient fills own their
+typed stop definition and stop ICC bytes. The `qindatk.canvas-document.v1`
+session schema ID remains stable while the native file reader handles both
+binary versions. `setOutputProfileIcc(bytes)` changes the document's output
+reference and is persisted; it is currently a document-setting change outside
+object undo history.
 
 Decoding validates the checksum, the version (a newer one is refused),
 identity and counters (every id below its counter, no duplicates), layer and
@@ -180,6 +189,7 @@ Each case below fails with a field path and changes nothing.
 | Image side / tile size | 65,536 px / 16–4096 px |
 | Decoded image pixels (all images) | 256 MiB |
 | Names / extensions JSON | 4096 characters / 16 MiB |
+| Output ICC / managed fill per object | 16 MiB / 24 MiB |
 
 The commit validator uses the same bounds. It also tracks the exact encoded
 size and refuses an edit that would grow the file past the limit while
@@ -322,10 +332,16 @@ Two providers sit behind one adapter contract:
 
 For an explicit non-sRGB RGB display space, both backends use a fully
 composited `QImage` tile converted by Qt after painting. The scene graph then
-uploads that same encoded raster as a texture. The raw sRGB scene-graph path
-keeps its geometry runs. This bounded path is for sRGB-authored QColor
-documents and valid RGB display profiles representable by `QColorSpace`;
-proofing, CMYK and arbitrary working-space painting are not supported.
+uploads that same encoded raster as a texture. A document's output ICC is the
+default display/output reference; an explicit `setColorContext` call overrides
+it. Managed solid and gradient fills also take this composited tile path on
+the scene graph, so they blend before output conversion. Their typed ICC
+values are converted to sRGB for composition; gradients are sampled at 65
+positions across each object's document-space bounding box. The raw sRGB
+scene-graph path keeps geometry runs for other objects. The supported output
+path is RGB and relative colorimetric, with black-point compensation off.
+Other rendering intents and soft proof requests report `colorError` explicitly;
+CMYK and arbitrary working-space painting are not supported.
 
 Both providers drop sub-pixel objects to a single device pixel, draw stroke
 widths of at least one device pixel, and flatten ellipses with

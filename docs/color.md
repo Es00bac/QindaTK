@@ -127,6 +127,20 @@ profile; this codec does not embed ICC resources. Color values remain straight
 alpha, and conversion errors are exposed as `errorMessage` rather than
 clamping or guessing.
 
+`CanvasStyleModel.applyPicker(selectedCanvasIds, picker)` copies the first
+selected picker's committed typed value and its document ICC into one atomic
+canvas edit for the selected closed vector objects. `applyGradient(ids, model)`
+similarly copies the committed `GradientEditorModel` definition, including
+each stop's ICC resource. These fills are owned by the native canvas document,
+reopen without an external profile registry, and participate in object undo.
+A plain QColor fill replaces a managed fill. The renderer samples gradients
+across the document-space object bounds and composites managed fills in sRGB
+before converting the tile to the document output RGB ICC. The native output
+ICC is persisted and becomes the default render display profile; a host can
+set an explicit display context. The output path supports relative colorimetric
+intent with BPC off and rejects other intents and soft proof requests through
+`colorError`.
+
 ## Ownership, cache and build
 
 `ColorEngine` is synchronous, noncopyable and safe for serialized concurrent
@@ -164,10 +178,8 @@ eviction. Fixture provenance and hashes are in
 [tests/fixtures/color](../tests/fixtures/color/README.md).
 
 Additional proofing intents and gamut warnings need reference fixtures.
-CMYK needs a channel-aware value contract. Managed canvas rendering
-needs tagged object/image inputs and a declared composition space; converting
-vertex colors before blending is not equivalent to converting the composite.
-GPU/software agreement, display/compositor interpretation, gamut evaluation,
-and transaction/undo integration remain unimplemented. The separate
-[numerical gradient evaluator](gradient.md) supplies bounded linear-light
-interpolation; it does not connect that pipeline to rendered previews.
+CMYK needs a channel-aware value contract. Managed canvas solids and gradients
+are rendered and saved; tagged image-object inputs, calibrated display/
+compositor interpretation and gamut evaluation remain open. The reference
+curve adapter's host constraint callback remains the boundary for
+domain-specific transfer-curve policies (see [curve.md](curve.md)).
