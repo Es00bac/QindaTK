@@ -44,4 +44,9 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
                 --check --size 760x640)
     set_tests_properties(example_device_settings_panel PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    add_test(NAME example_mixer_routing
+        COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/mixer-routing.qml"
+                --check --size 1280x740)
+    set_tests_properties(example_mixer_routing PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()

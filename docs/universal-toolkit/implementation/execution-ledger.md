@@ -33,8 +33,8 @@ and package acceptance remain open. WP-080 has a native detached-panel
 implementation in progress.
 WP-049 now has beat-locked clip timing, tempo and automation editing, and
 engine-facing immutable schedule snapshots; its focused Qt 6.11 and Qt 6.8
-build, test and preview checks passed. WP-061 has a first peak/RMS meter model;
-its control visuals and real-engine integration are underway.
+build, test and preview checks passed. WP-061 has calibrated control visuals,
+a peak/RMS meter model and parameter taper; real-engine integration remains.
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -96,7 +96,7 @@ as though a later fix had already passed the earlier run.
 | [WP-058 — Implement mail, calendars and task workflows](phase-04-office.md#wp-058) | 04 | Sol | planned | — |
 | [WP-059 — Implement forms, schemas and report design](phase-04-office.md#wp-059) | 04 | Sol | planned | — |
 | [WP-060 — Integrate a real audio engine and device settings](phase-05-audio.md#wp-060) | 05 | Sol | active | [Host-acknowledged device panel integrated; real audio engine pending](evidence/WP-060.md) |
-| [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | active | [Peak/RMS model integrated; controls and engine binding pending](evidence/WP-061.md) |
+| [WP-061 — Implement calibrated audio controls and meters](phase-05-audio.md#wp-061) | 05 | Sol | active | [Control visuals, peak/RMS model and parameter taper integrated; engine binding pending](evidence/WP-061.md) |
 | [WP-062 — Implement mixing, panning and routing](phase-05-audio.md#wp-062) | 05 | Sol | active | [Four mixer/routing controls integrated; real DSP and graph operations pending](evidence/WP-062.md) |
 | [WP-063 — Implement waveform and spectral editing](phase-05-audio.md#wp-063) | 05 | Sol | planned | — |
 | [WP-064 — Implement MIDI, patterns and clip launching](phase-05-audio.md#wp-064) | 05 | Sol | planned | — |

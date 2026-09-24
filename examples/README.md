@@ -33,6 +33,9 @@ The [mixer and routing fixture](mixer-routing.qml) exercises `ChannelStrip`,
 `MixerView`, `PanningControl`, and `RoutingMatrix` against a host-owned model.
 The audio graph and DSP remain a host/backend integration task.
 
+The [calibrated audio controls fixture](audio-controls/Main.qml) exercises
+`Knob`, `Fader`, `AudioMeter`, and `LoudnessHistory` with provider snapshots.
+
 ```
 P=build/dev/tools/preview/qtk-preview
 $P examples/gallery/Main.qml                       # on screen
