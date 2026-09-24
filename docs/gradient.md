@@ -7,9 +7,10 @@ premultiplied alpha, padded edges, and an explicit target RGB ICC profile.
 The evaluator borrows a caller-owned [ColorEngine](color.md) for conversions;
 it has no live document, preview, cancellation or transaction state.
 
-This backend is not connected to GradientEditor's QML preview. It does not
-make canvas or GPU output color managed. Hosts must supply an explicit
-adapter before presenting its samples or committing edits.
+`GradientEditorModel` connects this evaluator to `GradientEditor`'s QML
+preview and one-gesture document transactions. It does not make canvas or
+GPU output color managed; a rendering host must explicitly consume typed
+gradient definitions and select its composition/output profile.
 
 ## Stop identity and ordering
 

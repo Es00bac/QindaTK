@@ -2,9 +2,10 @@
 # Numerical document color
 
 `color_profile.h`, `color_context.h` and `color_engine.h` provide a C++ CPU
-color conversion service. It is independent of Theme and does not make the
-canvas, QColor controls or GradientEditor previews color managed by itself.
-WP-043 remains open for typed display and picker editing.
+color conversion service. It is independent of Theme. `ColorPickerModel`
+converts picker previews into typed document values; `GradientEditorModel`
+uses the numerical gradient evaluator for its preview. Neither adapter
+changes arbitrary QColor controls or canvas object painting by itself.
 The canvas has a separate bounded Qt `QColorSpace` transform after sRGB tile
 compositing; it does not yet consume `ColorEngine` or typed document values.
 

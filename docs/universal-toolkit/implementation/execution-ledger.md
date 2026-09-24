@@ -20,15 +20,17 @@ after its time-axis and host-media boundaries were reconciled with D-045;
 both full integrated suites and its installed consumers pass. WP-050 is
 integrated and in review; WP-055 remains active in an isolated Opus worktree.
 WP-033 has a dual-Qt editable, sortable and filterable two-document
-workbench plus installed lifecycle consumers; its remaining end-to-end gates
+workbench, installed lifecycle consumers and the merged domain-session,
+canvas persistence, recovery and shared-undo stack; its remaining end-to-end gates
 are recorded in its evidence. WP-041 now has a document-space snap query,
 guide layer, lasso and reference-canvas group move/resize/rotation controller, while
 WP-042 has layer, navigator, alignment and artboard presentation.
 Both spatial packages still have model, command and acceptance gates open.
 WP-043 has CurveEditor, GradientEditor and ColorPicker presentation plus
-numerical RGB ICC, curve and gradient evaluators, tangent UI, managed canvas
-display and soft proofing. Typed transaction and UI-to-model integration remain
-open. WP-080 has a native detached-panel implementation in progress.
+numerical RGB ICC, curve and gradient evaluators, typed transaction models,
+tangent UI, managed canvas display and soft proofing. Typed canvas rendering
+and package acceptance remain open. WP-080 has a native detached-panel
+implementation in progress.
 
 Record details in one package evidence file per WP using the
 [evidence template](task-templates.md#evidence-record). Create those files when
@@ -72,7 +74,7 @@ as though a later fix had already passed the earlier run.
 | [WP-040 — Build the spatial canvas and rendering boundary](phase-03-authoring.md#wp-040) | 03 | Sol | review | [Integrated renderer and installed consumer; dual-Qt 102/102; WP-033 dependency open](evidence/WP-040.md) |
 | [WP-041 — Implement spatial selection, snapping and transforms](phase-03-authoring.md#wp-041) | 03 | Sol | active | [Lasso, snap, guides, shared selection and reference group transforms; persistence still open](evidence/WP-041.md) |
 | [WP-042 — Add artboards, layers and document navigation](phase-03-authoring.md#wp-042) | 03 | Luna | active | [Layer tree, navigator, alignment and artboard views; model integration open](evidence/WP-042.md) |
-| [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [Curve, tangent, gradient and picker presentation; ICC, curve and gradient backends; bounded canvas display; integration gates open](evidence/WP-043.md) |
+| [WP-043 — Implement document color and curve editing](phase-03-authoring.md#wp-043) | 03 | Sol | active | [Typed curve, gradient and picker models; ICC/evaluator backends; bounded canvas display; output integration open](evidence/WP-043.md) |
 | [WP-044 — Implement vector authoring and appearance](phase-03-authoring.md#wp-044) | 03 | Sol | planned | — |
 | [WP-045 — Implement raster, masks, brushes and comparison](phase-03-authoring.md#wp-045) | 03 | Sol | planned | — |
 | [WP-046 — Implement exact time and tempo conversions](phase-03-authoring.md#wp-046) | 03 | Sol | accepted | [Dual-Qt exact arithmetic and timecode evidence](evidence/WP-046.md) |
