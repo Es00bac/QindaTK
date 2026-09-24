@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Execution ledger
 
-**Execution state: 33 packages accepted, 31 active, three in review, and 17 planned.**
+**Execution state: 33 packages accepted, 35 active, three in review, and 13 planned.**
 Sol updates this ledger during execution. Use `planned`, `ready`, `active`,
 `review`, `accepted`, or `blocked`.
 A blocked row names the missing prerequisite and unblock action in its evidence
@@ -109,12 +109,12 @@ as though a later fix had already passed the earlier run.
 | [WP-072 — Implement captions, scopes and grading controls](phase-06-video.md#wp-072) | 06 | Sol | active | [Caption model, burned PNG sequence, scopes and grade edit history integrated; video encoding and fidelity work remain](evidence/WP-072.md) |
 | [WP-073 — Implement motion composition and keyframe editing](phase-06-video.md#wp-073) | 06 | Sol | active | [Exact-tick composition, persistence, ordered effects and rendered frame output integrated; external assets, cache and export coverage remain](evidence/WP-073.md) |
 | [WP-074 — Implement node-based compositing](phase-06-video.md#wp-074) | 06 | Sol | active | [Typed graph model, editor and live rendering fixture integrated; broader operation set and qualification remain](evidence/WP-074.md) |
-| [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | planned | — |
-| [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | planned | — |
-| [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | planned | — |
+| [WP-075 — Implement tracking and rotoscoping](phase-06-video.md#wp-075) | 06 | Sol | active | [Tracking/mask core and controls merged; live wiring and broader tracking remain](evidence/WP-075.md) |
+| [WP-076 — Implement 3D scene rendering and manipulation](phase-06-video.md#wp-076) | 06 | Sol | active | [Persistent primitive scene and real optional Quick3D viewport merged; broader 3D editing remains](evidence/WP-076.md) |
+| [WP-077 — Implement rig, UV and texture authoring](phase-06-video.md#wp-077) | 06 | Sol | active | [Rig/UV/texture geometry core lane underway](evidence/WP-077.md) |
 | [WP-078 — Implement durable render queues](phase-06-video.md#wp-078) | 06 | Sol | active | [Queue view, durable core and real PNG/PDF/WAV providers integrated; acceptance gate remains](evidence/WP-078.md) |
 | [WP-080 — Implement detached native panels](phase-07-integrations.md#wp-080) | 07 | Sol | active | [Native window and DockModel integration in progress](evidence/WP-080.md) |
-| [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | planned | — |
+| [WP-081 — Implement extensions, scripting and developer surfaces](phase-07-integrations.md#wp-081) | 07 | Sol | active | [Real PTY terminal backend lane underway; other developer surfaces remain](evidence/WP-081.md) |
 | [WP-082 — Implement collaboration, presence and version history](phase-07-integrations.md#wp-082) | 07 | Sol | planned | — |
 | [WP-083 — Implement diagramming and CAD surfaces](phase-07-integrations.md#wp-083) | 07 | Sol | planned | — |
 | [WP-084 — Implement geographic mapping](phase-07-integrations.md#wp-084) | 07 | Sol | planned | — |

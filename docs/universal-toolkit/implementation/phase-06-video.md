@@ -116,7 +116,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-075"></a>
 ## WP-075 — Implement tracking and rotoscoping
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-070](phase-06-video.md#wp-070), [WP-073](phase-06-video.md#wp-073)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-044](phase-03-authoring.md#wp-044), [WP-070](phase-06-video.md#wp-070), [WP-073](phase-06-video.md#wp-073)
 
 **Proposal scope:** [VID-15 TrackingPanel](../proposed/07-video-motion.md#vid-15), [VID-16 RotoscopeEditor](../proposed/07-video-motion.md#vid-16)
 
@@ -137,7 +137,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-076"></a>
 ## WP-076 — Implement 3D scene rendering and manipulation
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-040](phase-03-authoring.md#wp-040), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-073](phase-06-video.md#wp-073)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-040](phase-03-authoring.md#wp-040), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-073](phase-06-video.md#wp-073)
 
 **Proposal scope:** [VID-19 SceneView3D](../proposed/07-video-motion.md#vid-19), [VID-20 SceneOutliner](../proposed/07-video-motion.md#vid-20), [VID-21 TransformGizmo3D](../proposed/07-video-motion.md#vid-21), [VID-22 MaterialPreview](../proposed/07-video-motion.md#vid-22)
 
@@ -158,7 +158,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-077"></a>
 ## WP-077 — Implement rig, UV and texture authoring
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-045](phase-03-authoring.md#wp-045), [WP-073](phase-06-video.md#wp-073), [WP-076](phase-06-video.md#wp-076)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-045](phase-03-authoring.md#wp-045), [WP-073](phase-06-video.md#wp-073), [WP-076](phase-06-video.md#wp-076)
 
 **Proposal scope:** [VID-18 RigEditor](../proposed/07-video-motion.md#vid-18), [VID-23 UVEditor](../proposed/07-video-motion.md#vid-23), [VID-24 TexturePaintView](../proposed/07-video-motion.md#vid-24)
 

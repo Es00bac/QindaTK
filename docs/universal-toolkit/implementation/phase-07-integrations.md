@@ -36,7 +36,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-081"></a>
 ## WP-081 — Implement extensions, scripting and developer surfaces
 
-**Implementation lead:** Sol. **Status:** planned. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-025](phase-02-controls-data.md#wp-025), [WP-027](phase-02-controls-data.md#wp-027), [WP-032](phase-02-controls-data.md#wp-032), [WP-080](phase-07-integrations.md#wp-080)
+**Implementation lead:** Sol. **Status:** active. **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-025](phase-02-controls-data.md#wp-025), [WP-027](phase-02-controls-data.md#wp-027), [WP-032](phase-02-controls-data.md#wp-032), [WP-080](phase-07-integrations.md#wp-080)
 
 **Proposal scope:** [PLT-12 ExtensionRegistry](../proposed/08-platform-integrations.md#plt-12), [PLT-13 ScriptConsole](../proposed/08-platform-integrations.md#plt-13), [EXT-01 CodeEditor](../proposed/09-specialized-domains.md#ext-01), [EXT-02 TerminalView](../proposed/09-specialized-domains.md#ext-02)
 
