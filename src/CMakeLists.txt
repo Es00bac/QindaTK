@@ -109,6 +109,7 @@ qt_add_qml_module(qindatk
         core/desktop_integration.cpp core/desktop_integration.h
         core/format_registry.cpp core/format_registry.h
         core/format_io.cpp core/format_io.h
+        core/rich_text_native_format.cpp core/rich_text_native_format.h
         core/native_reference_format.cpp
         core/plain_text_format.cpp
         core/asset_provider.cpp core/asset_provider.h

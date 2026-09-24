@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "format_registry.h"
 #include "format_io.h"
+#include "rich_text_native_format.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QCryptographicHash>
@@ -79,6 +80,7 @@ FormatRegistry::FormatRegistry(QObject *parent)
 {
     registerProvider(std::make_shared<NativeReferenceFormat>());
     registerProvider(std::make_shared<PlainTextFormat>());
+    registerProvider(makeRichTextNativeFormat());
 }
 bool FormatRegistry::registerProvider(FormatProviderPtr provider)
 {

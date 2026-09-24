@@ -2,8 +2,8 @@
 # Format registry and import/export jobs
 
 `Tk.FormatRegistry` is the operation-specific format broker for document
-sessions. It ships two providers, `qindatk.reference.v2` and `text.utf8`, for
-the reference property schema. An application with canvas documents
+sessions. It ships three providers, `qindatk.reference.v2`, `text.utf8` and
+`qindatk.richtext.v1`, for the reference property schema. An application with canvas documents
 registers a third, `CanvasNativeFormat` (`qindatk.canvas.v1`):
 `registry.registerProvider(std::make_shared<CanvasNativeFormat>())`.
 None of these providers recognizes or edits Adobe, Office, audio, video or
@@ -67,6 +67,7 @@ model.
 | --- | --- | --- |
 | `qindatk.reference.v2` | Validated import and export of the version 2 `PropertyDocument` reference schema; typed values and `extensions` roundtrip | This is a reference model, not a generic creative or office document interchange format |
 | `text.utf8` | Strict UTF-8 import with optional BOM; export a single text value with selected BOM and line-ending policy | Properties or entities outside the representable text body are reported as losses and need explicit acknowledgement |
+| `qindatk.richtext.v1` | Validated `.qtkrich` import into a session's `org.qindatk.richtext` extension; export from that extension into canonical rich-text JSON | Other reference properties/extensions are reported as losses and require `allowLossy`; HTML import/export is separate and not registered here |
 | `qindatk.canvas.v1` (opt-in) | Validated import, export and roundtrip of the [canvas native file](canvas.md#native-format); preview reports object, layer and image counts | Canvas sessions only; the file is recognized by its `QTKCANVS` signature, never by the `.qtkc` name |
 
 Malformed or oversized source files fail preflight. A file with an unrelated

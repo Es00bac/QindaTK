@@ -65,6 +65,12 @@ byte-identical. `tst_rich_text_codec` checks this on a document that has a
 heading, a bold run, a link, a numbered list, inline, float and page
 objects, a table with a header row, Hebrew text and a page break.
 
+`FormatRegistry` registers `qindatk.richtext.v1` for `.qtkrich` import and
+export. Import wraps the validated rich-text payload in a reference session's
+`org.qindatk.richtext` extension; export reads that extension and emits
+canonical `RichTextCodec` bytes. Other session data requires explicit lossy
+export acknowledgment.
+
 ```json
 { "schema": "qindatk.richtext", "version": 1, "documentId": "<uuid>",
   "page": { "widthPt": 595.276, "heightPt": 841.89, "marginsPt": [72, 72, 72, 72] },
@@ -304,7 +310,7 @@ seams are typed; nothing here is a stand-in contract.
 
 | Dependency | State and seam |
 | --- | --- |
-| WP-019 FormatRegistry | No provider is registered for `.qtkrich` or HTML. `RichTextCodec` and `RichTextHtml` are the encode/decode functions a provider wraps. |
+| WP-019 FormatRegistry | `.qtkrich` import/export is registered. HTML remains an exchange seam, not a registered provider. |
 | WP-024 FontPicker | `FontPicker` binds through `PropertyBinding`, which does not fit a selection. `FormatBar` uses `FontCatalog` with a `ComboBox`. |
 | WP-025 find/replace | No rich-text find adapter yet. Positions and `GraphemeBoundaries` are the inputs it needs. |
 | WP-033 shared framework | Not available; the controls have not been verified against it. |

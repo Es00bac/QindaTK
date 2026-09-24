@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "format_registry.h"
 #include "format_io.h"
+#include "rich_text_codec.h"
+#include "rich_text_native_format.h"
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -80,15 +82,41 @@ public:
 class TstFormatRegistry final : public QObject {
     Q_OBJECT
 private slots:
+    void richTextProviderRoundtrip()
+    {
+        RichTextDocument rich;
+        rich.insertText(rich.startPosition(), QStringLiteral("A saved paragraph\nSecond line"));
+        const QByteArray source = RichTextCodec::encode(rich);
+        const auto provider = makeRichTextNativeFormat();
+        FormatRegistry registry;
+        QCOMPARE(registry.formatsForOperation(QStringLiteral("roundtrip")).size(), 2);
+        QVERIFY(provider->recognizes(source.left(4096), QUrl::fromLocalFile(QStringLiteral("/tmp/example.qtkrich"))));
+        const auto inspected = provider->preflightImport(source, {});
+        QVERIFY2(!inspected.error, qPrintable(inspected.error.message));
+        const auto imported = provider->importDocument(source, {}, {}, {});
+        QVERIFY2(!imported.error, qPrintable(imported.error.message));
+        OperationError error;
+        const auto decoded = ReferenceDocumentCodec::decode(imported.bytes, &error);
+        QVERIFY2(decoded.has_value(), qPrintable(error.message));
+        const auto snapshot = ReferenceDocumentCodec::capture(*decoded->document, decoded->extensions, &error);
+        QVERIFY2(snapshot != nullptr, qPrintable(error.message));
+        const auto exportPlan = provider->preflightExport(snapshot, {});
+        QVERIFY2(!exportPlan.error, qPrintable(exportPlan.error.message));
+        QVERIFY(exportPlan.losses.isEmpty());
+        const auto exported = provider->exportDocument(snapshot, {}, {}, {});
+        QVERIFY2(!exported.error, qPrintable(exported.error.message));
+        QCOMPARE(exported.bytes, source);
+    }
+
     void metadataIsOperationSpecific()
     {
         FormatRegistry formats;
         const auto entries = formats.formats();
-        QCOMPARE(entries.size(), 2);
-        QCOMPARE(formats.formatsForOperation(QStringLiteral("import")).size(), 2);
-        QCOMPARE(formats.formatsForOperation(QStringLiteral("export")).size(), 2);
+        QCOMPARE(entries.size(), 3);
+        QCOMPARE(formats.formatsForOperation(QStringLiteral("import")).size(), 3);
+        QCOMPARE(formats.formatsForOperation(QStringLiteral("export")).size(), 3);
         const auto roundtrip = formats.formatsForOperation(QStringLiteral("roundtrip"));
-        QCOMPARE(roundtrip.size(), 1);
+        QCOMPARE(roundtrip.size(), 2);
         QCOMPARE(roundtrip.first().toMap().value(QStringLiteral("formatId")).toString(),
                  QStringLiteral("qindatk.reference.v2"));
         QCOMPARE(formats.formatsForOperation(QStringLiteral("render")).size(), 0);
