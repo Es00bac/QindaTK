@@ -7,8 +7,9 @@ Rectangle {
     width: 900
     height: 600
     color: Tk.Theme.color.bg
-    property color hostPreview: "#ff4b9a"
-    property color committedColor: hostPreview
+    Tk.ColorPickerModel {
+        id: colorModel
+    }
 
     Tk.Flex {
         anchors.fill: parent
@@ -19,7 +20,7 @@ Rectangle {
 
         Tk.Overline { title: qsTr("COLOR PICKER PRESENTATION"); objectName: "colorPickerSceneTitle" }
         Tk.Caption {
-            text: qsTr("Host-owned sRGB preview. Profile conversion and undo belong to the host.")
+            text: qsTr("Typed document color. Picker previews convert through the active document profile.")
             wrapMode: Text.WordWrap
         }
         Item {
@@ -29,17 +30,19 @@ Rectangle {
             Tk.ColorPicker {
                 objectName: "colorPickerSceneControl"
                 anchors.fill: parent
-                color: scene.hostPreview
+                color: colorModel.previewColor
                 tooltip: qsTr("Choose a display-referred sRGB preview colour")
-                onPreviewRequested: function(next) { scene.hostPreview = next }
-                onEditFinished: function(next) { scene.committedColor = next }
-                onEditCanceled: function(restored) { scene.hostPreview = restored }
+                onPreviewRequested: function(next) { colorModel.previewSrgb(next) }
+                onEditFinished: function(next) { colorModel.commitEdit() }
+                onEditCanceled: colorModel.cancelEdit()
             }
         }
         Tk.Caption {
             objectName: "colorPickerSceneStatus"
-            text: qsTr("Host preview %1 · committed %2")
-                  .arg(scene.hostPreview).arg(scene.committedColor)
+            text: qsTr("Document RGB %1 · alpha %2 · profile %3")
+                  .arg(Number(colorModel.typedValue.red).toFixed(3))
+                  .arg(Number(colorModel.typedValue.alpha).toFixed(3))
+                  .arg(String(colorModel.typedValue.profileId).slice(0, 24))
             mono: true
         }
     }

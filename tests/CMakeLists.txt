@@ -46,6 +46,7 @@ qindatk_add_test(tst_application_contracts)
 qindatk_add_test(tst_color_engine)
 target_compile_definitions(tst_color_engine PRIVATE
     QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")
+qindatk_add_test(tst_color_picker_model)
 qindatk_add_test(tst_capability_registry)
 qindatk_add_test(tst_command_context)
 qindatk_add_test(tst_focus_manager)

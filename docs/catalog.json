@@ -22099,6 +22099,104 @@
       "bridge": false
     },
     {
+      "name": "ColorPickerModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Owns typed document color targets while Tk.ColorPicker owns only gestures.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/color_picker_model.h",
+      "properties": [
+        {
+          "name": "targetIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "previewColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "typedValue",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "errorMessage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "previewSrgb",
+          "returns": "bool",
+          "parameters": "const QColor &color"
+        },
+        {
+          "name": "commitEdit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "saveJson",
+          "returns": "QByteArray",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "bool",
+          "parameters": "const QByteArray &bytes"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "CommandBinding",
       "kind": "cpp",
       "base": "QObject",

@@ -29,4 +29,9 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
                 --check --size 920x620)
     set_tests_properties(example_platform_services PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    add_test(NAME example_color_picker_model
+        COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/spatial-canvas/ColorPickerScene.qml"
+                --check --size 520x640)
+    set_tests_properties(example_color_picker_model PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
 endif()

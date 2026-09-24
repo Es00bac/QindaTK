@@ -69,6 +69,7 @@ struct ColorValue {
     QString profileId;
     QString transferId;
     bool isValid() const;
+    friend bool operator==(const ColorValue &, const ColorValue &) = default;
 };
 
 enum class ErrorCode {
@@ -166,3 +167,4 @@ Q_DECLARE_METATYPE(QindaTK::EntityId)
 Q_DECLARE_METATYPE(QindaTK::DocumentId)
 Q_DECLARE_METATYPE(QindaTK::RevisionId)
 Q_DECLARE_METATYPE(QindaTK::SnapshotHeader)
+Q_DECLARE_METATYPE(QindaTK::ColorValue)

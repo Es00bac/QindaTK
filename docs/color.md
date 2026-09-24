@@ -81,6 +81,27 @@ verified for the supplied matrix/TRC fixtures. Nonfinite results fail.
 `[0,1]`. `gamut` is always `Unknown`: neither nominal range nor successful
 conversion establishes profile gamut, and this slice makes no clipping claim.
 
+## Picker model and edits
+
+`ColorPickerModel` is the QML-facing adapter for `Tk.ColorPicker`. It owns
+typed `ColorValue` properties in a `PropertyDocument`, a selection of target
+IDs and an `UndoService` history. Picker `QColor` previews are interpreted as
+sRGB, converted by `ColorEngine` into the snapshot document profile, then
+shown as transient `EditTransaction` previews. Finish commits the gesture as
+one undo entry; cancel drops it. Multi-target previews apply the same
+document-profile value to every selected target. Hosts can replace the default
+sRGB snapshot with `setColorContext`; selection IDs must identify targets
+owned by this model.
+
+Every preview records the context generation. A changed generation cancels
+the open gesture, and results whose generation no longer matches are refused.
+`saveJson()` / `loadJson()` use the small `qindatk.color-picker/1` codec and
+preserve typed channel values, alpha and profile/transfer IDs. ICC profile
+bytes remain host-owned and must be resolved before loading a different
+profile; this codec does not embed ICC resources. Color values remain straight
+alpha, and conversion errors are exposed as `errorMessage` rather than
+clamping or guessing.
+
 ## Ownership, cache and build
 
 `ColorEngine` is synchronous, noncopyable and safe for serialized concurrent
