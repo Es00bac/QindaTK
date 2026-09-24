@@ -2,6 +2,7 @@
 #pragma once
 
 #include "rich_text_publishing.h"
+#include "rich_text_review.h"
 #include "rich_text_types.h"
 #include <QJsonArray>
 #include <QJsonObject>
@@ -97,5 +98,16 @@ bool stylesFromJson(const QJsonArray &array, StyleSheet *styles, PublishingError
 bool frameSetFromJson(const QJsonObject &o, FrameSet *frames, PublishingError *error,
                       QStringList *warnings = nullptr);  // paths start at "textFrames"
 std::optional<quint32> overrideBits(const QJsonValue &names);
+
+// WP-052 members (rich_text_codec_review.cpp, D-117): "fields", "sources",
+// "comments" and "changes" arrays sorted by ID (each only when non-empty),
+// and the format marks "field", "comments", "insertion" and "deletion".
+void insertAnnotationMembers(const Annotations &annotations, QJsonObject *root);
+bool annotationsFromJson(const QJsonObject &root, Annotations *annotations, PublishingError *error,
+                         QStringList *warnings = nullptr);
+void insertMarks(const CharFormat &format, QJsonObject *json);
+// With `known`, a mark naming no record of its kind is dropped with a warning.
+bool readMarks(const QJsonObject &json, const Annotations *known, CharFormat *format, const QString &path,
+               PublishingError *error, QStringList *warnings = nullptr);
 
 } // namespace QindaTK::RichText::Codec

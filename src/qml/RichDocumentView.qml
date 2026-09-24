@@ -73,6 +73,9 @@ T.Control {
             markerColor: Tk.Theme.color.textMuted
             frameGuideColor: Tk.Theme.color.accent
             oversetColor: Tk.Theme.color.danger
+            insertionColor: Tk.Theme.color.success
+            deletionColor: Tk.Theme.color.danger
+            commentColor: Tk.Theme.color.accentSubtle
             caretWidth: Tk.Theme.size.border
             onLinkActivated: href => control.linkActivated(href)
 

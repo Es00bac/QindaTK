@@ -197,8 +197,14 @@ qt_add_qml_module(qindatk
         core/rich_text_table_spans.cpp core/rich_text_style_edit.cpp core/rich_text_frames.cpp
         core/rich_text_publishing.cpp core/rich_text_publishing.h
         core/rich_text_page_setup_mm.cpp
+        core/rich_text_review.cpp core/rich_text_review.h core/rich_text_review_edit.cpp
+        core/rich_text_review_snapshots.cpp core/rich_text_fields.cpp core/rich_text_fields_p.h
+        core/rich_text_fields_snapshots.cpp
+        core/rich_text_equation.cpp core/rich_text_equation.h core/rich_text_equation_text.cpp
+        core/rich_text_equation_layout.cpp core/rich_text_equation_edit.cpp
         core/rich_text_pdf_export.cpp
         core/rich_text_codec.cpp core/rich_text_codec_read.cpp core/rich_text_codec_publishing.cpp
+        core/rich_text_codec_review.cpp
         core/rich_text_codec.h core/rich_text_codec_p.h
         core/rich_text_layout.h core/rich_text_layout_p.h core/rich_text_shaping_p.h
         core/rich_text_shaping.cpp core/rich_text_pagination.cpp core/rich_text_table_flow.cpp

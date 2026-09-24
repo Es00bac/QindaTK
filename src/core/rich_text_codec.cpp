@@ -29,6 +29,7 @@ QJsonObject charFormatJson(const CharFormat &f)
         o.insert(QStringLiteral("verticalAlign"), verticalAlignNames().at(int(f.verticalAlign)));
     if (!f.objectId.isEmpty()) o.insert(QStringLiteral("object"), f.objectId);
     if (!f.styleId.isEmpty()) o.insert(QStringLiteral("style"), f.styleId);
+    insertMarks(f, &o);
     return o;
 }
 
@@ -224,6 +225,7 @@ int RichTextCodec::requiredVersion(const RichTextDocument &document)
 {
     const PageSetup page = document.pageSetupValue();
     if (!document.styleSheet().isEmpty() || !document.frameSet().frames.isEmpty()
+        || !document.annotations().isEmpty() // WP-052 fields, sources, comments, changes (D-117)
         || page.columns != PageSetup{}.columns || page.columnGapPt != PageSetup{}.columnGapPt)
         return 2;
     for (const Block &block : document.blocks())
@@ -258,6 +260,7 @@ QJsonObject RichTextCodec::toJsonObject(const RichTextDocument &document)
     if (!document.styleSheet().isEmpty()) root.insert(QStringLiteral("styles"), stylesJson(document.styleSheet()));
     if (!document.frameSet().frames.isEmpty())
         root.insert(QStringLiteral("textFrames"), frameSetJson(document.frameSet()));
+    insertAnnotationMembers(document.annotations(), &root);
     return root;
 }
 
@@ -275,6 +278,7 @@ QJsonObject RichTextCodec::fragmentToJson(const Fragment &fragment)
     const QJsonArray blocks = writer.blocks(fragment.blocks);
     bool version2 = !fragment.styles.isEmpty();
     for (const Block &block : fragment.blocks) version2 = version2 || (block.table && usesVersion2(*block.table));
+    for (const CharFormat &format : fragment.formats) version2 = version2 || format.hasMarks();
     QJsonObject root{{QStringLiteral("schema"), fragmentSchemaId()},
                      {QStringLiteral("version"), version2 ? 2 : 1},
                      {QStringLiteral("openStart"), fragment.openStart},

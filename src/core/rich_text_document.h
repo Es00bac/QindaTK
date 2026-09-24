@@ -3,6 +3,7 @@
 
 #include "application_contracts.h"
 #include "rich_text_publishing.h"
+#include "rich_text_review.h"
 #include "rich_text_types.h"
 #include <QHash>
 #include <QJsonObject>
@@ -99,9 +100,16 @@ struct StepFrames {                       // the whole frame set (frames are few
     FrameSet before;
     FrameSet after;
 };
+// Creates (no `before`), replaces or removes (no `after`) one annotation
+// record (WP-052). The marks in the text change through StepSpans/StepText.
+struct StepAnnotation {
+    QString id;
+    std::optional<Annotation> before;
+    std::optional<Annotation> after;
+};
 using Step = std::variant<StepText, StepSpans, StepParagraphFormat, StepSplit, StepMerge,
                           StepBlocks, StepMove, StepList, StepObject, StepDocument, StepTable,
-                          StepStyle, StepFrames>;
+                          StepStyle, StepFrames, StepAnnotation>;
 
 struct Transaction {
     QUuid id;
@@ -123,6 +131,7 @@ struct ChangeSet {
     bool lists = false;             // numbering may change (definitions or membership)
     bool objects = false;
     bool document = false;          // page setup or defaults
+    bool annotations = false;       // fields, sources, comments or tracked changes (records)
     bool reset = false;
     void merge(const ChangeSet &other);
     bool isEmpty() const;
@@ -175,6 +184,17 @@ class RichTextDocument : public QObject {
     Q_PROPERTY(QStringList styleKinds READ styleKinds CONSTANT)
     Q_PROPERTY(QVariantList frames READ frameSnapshots NOTIFY changed)
     Q_PROPERTY(QString storyFrameId READ storyFrameId NOTIFY changed)
+    Q_PROPERTY(QString lastErrorCode READ lastErrorCode NOTIFY changed)
+    // WP-052 (docs/references-review.md): equations, reference fields and review.
+    Q_PROPERTY(QVariantList equations READ equationSnapshots NOTIFY changed)
+    Q_PROPERTY(QVariantList equationSymbols READ equationSymbols CONSTANT)
+    Q_PROPERTY(QVariantList references READ referenceSnapshots NOTIFY changed)
+    Q_PROPERTY(QVariantList referenceTargets READ referenceTargets NOTIFY changed)
+    Q_PROPERTY(QStringList referenceTypes READ referenceTypes CONSTANT)
+    Q_PROPERTY(QVariantList sources READ sourceSnapshots NOTIFY changed)
+    Q_PROPERTY(QVariantList reviewItems READ reviewItems NOTIFY changed)
+    Q_PROPERTY(bool trackChanges READ trackChanges WRITE setTrackChanges NOTIFY changed)
+    Q_PROPERTY(QString reviewAuthor READ reviewAuthor WRITE setReviewAuthor NOTIFY changed)
 public:
     static constexpr int MaximumHistory = 512;
     static constexpr quint64 MaximumHistoryBytes = 64ull * 1024 * 1024;
@@ -195,6 +215,7 @@ public:
     bool readOnly() const { return m_readOnly; }
     void setReadOnly(bool readOnly);
     QString lastError() const { return m_lastError; }
+    QString lastErrorCode() const { return m_lastErrorCode; } // e.g. "unsupported", "invalidArgument"
 
     // --- structure (read)
     const QVector<RichText::Block> &blocks() const { return m_blocks; }
@@ -321,13 +342,59 @@ public:
     Q_INVOKABLE bool removeTextFrame(const QString &frameId);
     bool setFrameSet(const RichText::FrameSet &frames, const QString &label);
 
+    // --- semantic annotations (WP-052, docs/references-review.md). Marks in
+    // character formats refer to these records; each request is one transaction.
+    const RichText::Annotations &annotations() const { return m_annotations; }
+    bool trackChanges() const { return m_trackChanges; }
+    void setTrackChanges(bool enabled);
+    QString reviewAuthor() const { return m_reviewAuthor; }
+    void setReviewAuthor(const QString &author);
+    // Equations (rich_text_equation_edit.cpp): inline objects of kind "equation"
+    // whose `source` is the TeX-subset source and `altText` its linear text.
+    QVariantList equationSnapshots() const;
+    QVariantList equationSymbols() const;
+    Q_INVOKABLE QVariantMap equationSnapshot(const QString &equationId) const;
+    Q_INVOKABLE QVariantMap validateEquation(const QString &source) const;
+    Q_INVOKABLE QString insertEquation(const QString &paragraphId, int offset, const QString &source);
+    Q_INVOKABLE bool setEquationSource(const QString &equationId, const QString &source);
+    Q_INVOKABLE QString equationSourceWithSymbol(const QString &source, int cursor, const QString &symbolId) const;
+    std::optional<RichText::Position> insertEquationAt(const RichText::Position &at, const QString &source,
+                                                       QString *equationId = nullptr);
+    // Reference fields (rich_text_fields.cpp): caption, cross-reference, citation, bibliography.
+    QVariantList referenceSnapshots() const;
+    QVariantList referenceTargets() const;
+    QStringList referenceTypes() const;
+    QVariantList sourceSnapshots() const;
+    Q_INVOKABLE QString insertReference(const QString &paragraphId, int offset, const QString &type,
+                                        const QString &targetId);
+    Q_INVOKABLE bool editReference(const QString &referenceId, const QVariantMap &patch);
+    Q_INVOKABLE bool removeReference(const QString &referenceId);
+    Q_INVOKABLE QString addSource(const QVariantMap &source);
+    Q_INVOKABLE bool updateSource(const QString &sourceId, const QVariantMap &patch);
+    Q_INVOKABLE bool removeSource(const QString &sourceId);
+    Q_INVOKABLE bool updateFields();
+    std::optional<RichText::Position> insertField(const RichText::Position &at, RichText::ReferenceField field);
+    // Review (rich_text_review_edit.cpp): comments and tracked changes.
+    QVariantList reviewItems() const;
+    Q_INVOKABLE QString addComment(const QString &startParagraphId, int startOffset,
+                                   const QString &endParagraphId, int endOffset, const QString &body);
+    QString addCommentAt(const RichText::Position &a, const RichText::Position &b, const QString &body);
+    Q_INVOKABLE bool replyToComment(const QString &threadId, const QString &body);
+    Q_INVOKABLE bool resolveComment(const QString &threadId, bool resolved = true);
+    Q_INVOKABLE bool removeComment(const QString &threadId);
+    Q_INVOKABLE bool acceptChange(const QString &changeId);
+    Q_INVOKABLE bool rejectChange(const QString &changeId);
+    Q_INVOKABLE QString reviewContextAt(const QString &paragraphId, int offset) const;
+    // The first position at or after `position` that is not tracked-deleted text.
+    RichText::Position afterTrackedDeletion(const RichText::Position &position) const;
+
     // --- content replacement (loading); clears history, bumps reset generation
     void resetContent(QVector<RichText::Block> blocks, QVector<RichText::CharFormat> formats,
                       QHash<QString, RichText::ListDefinition> lists,
                       QHash<QString, RichText::RichObject> objects,
                       const RichText::PageSetup &page, const RichText::DocumentDefaults &defaults,
                       const DocumentId &id = {}, RichText::StyleSheet styles = {},
-                      RichText::FrameSet frames = {});
+                      RichText::FrameSet frames = {}, RichText::Annotations annotations = {});
     void clear();
 
     // --- history
@@ -393,6 +460,16 @@ private:
     bool knownCharacterStyles(const QVector<RichText::Span> &spans, int mark = -1) const;
     OperationError applyFrames(const RichText::StepFrames &step, bool forward, RichText::ChangeSet &change);
     bool commitStyle(const QString &label, std::optional<RichText::NamedStyle> after, const QString &styleId);
+    OperationError applyAnnotation(const RichText::StepAnnotation &step, bool forward, RichText::ChangeSet &change);
+    // Rewrites stale generated field results as steps of the open transaction (commit calls it).
+    bool reconcileFields();
+    // The insertion change typed text at `at` joins or starts ("" without
+    // tracking); nullopt when the record could not be created.
+    std::optional<QString> trackedInsertionId(const RichText::Position &at);
+    RichText::Position outsideField(const RichText::Position &position) const; // end of a field it is inside
+    void expandOverFields(RichText::Position *start, RichText::Position *end) const;
+    bool markDeleted(const RichText::Position &start, const RichText::Position &end);
+    bool resolveChange(const QString &changeId, bool accept);
     QVector<RichText::Block> *bodyOrNull(const RichText::ContainerSpec &spec);
     QVector<RichText::ParagraphPtr> *cellParagraphs(const RichText::ContainerSpec &spec);
     void registerBlock(const RichText::Block &block);
@@ -423,6 +500,10 @@ private:
     RichText::DocumentDefaults m_defaults;
     RichText::StyleSheet m_styles;
     RichText::FrameSet m_frames;
+    RichText::Annotations m_annotations;
+    bool m_trackChanges = false;
+    QString m_reviewAuthor;
+    QString m_lastErrorCode;
     mutable QHash<QString, RichText::CharFormatPatch> m_resolvedCharacter; // cleared by style steps
     mutable QVector<RichText::Paragraph *> m_flat;
     mutable bool m_orderDirty = true;
