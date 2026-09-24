@@ -1,28 +1,33 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
-# Reference document sessions, persistence and recovery
+# Document sessions, persistence and recovery
 
-QindaTK supplies a reference document lifecycle for applications built on
-`PropertyDocument`. Domain applications can implement `DocumentStore` and their
-own versioned serializer while keeping the session and recovery rules. A
-reference document file is JSON; it is not a format for arbitrary image,
-audio, video or office project data.
+QindaTK supplies one document lifecycle for any registered domain model:
+the reference `PropertyDocument`, the spatial `CanvasDocument`, or an
+application domain that implements the
+[model, command and codec contracts](document-models.md). The reference
+document file is JSON; the canvas file is the
+[canvas native format](canvas.md#native-format). Neither is a format for
+arbitrary image, audio, video or office project data.
 
 ## Services and ownership
 
 | Type | Responsibility | Thread and ownership |
 | --- | --- | --- |
-| `ReferenceDocumentCodec` | Capture immutable versioned bytes and decode a complete property document | Capture/decode on the caller's thread; do not touch a live QObject from a worker. |
+| `DocumentCodec` | Schema identity; capture an immutable `DocumentCapture`; bounded `inspect`/`decode`; `create`/`adopt` a live model | Capture/adopt on the GUI thread; encode, inspect and decode on any thread. `ReferenceDocumentCodec` stays the reference JSON codec behind it. |
 | `DocumentStore` | Load bytes or commit an immutable save request and return a revision-tagged receipt | `save` runs on a worker; inject a store for fault tests or another backend. |
-| `AtomicDocumentStore` | Local-file adapter with SHA-256 baseline checks and `QSaveFile` replacement | Its `save` method receives only copied values and `SnapshotPtr`. Direct-write fallback is disabled. |
-| `DocumentSession` | One document, URI/title, dirty/saving/read-only/external-change state, Save/Save As, autosave coordination | GUI thread; owns its `PropertyDocument`, shares the manager's `UndoService`. |
-| `DocumentManager` | Open/create/activate, duplicate view identities, close negotiation and Save All | GUI thread; owns sessions, undo and recovery manager. |
-| `RecoveryManager` | Append validated snapshot frames, compact into checkpoints, inspect/restore/discard | Currently synchronous on the GUI thread; callers should use a suitable debounce for large documents. |
+| `AtomicDocumentStore` | Local-file adapter with SHA-256 baseline checks and `QSaveFile` replacement | Checks the payload's header through the request's codec. Its `save` method receives only copied values and `SnapshotPtr`. Direct-write fallback is disabled. |
+| `DocumentSession` | One model and codec, URI/title, dirty/saving/read-only/external-change state, Save/Save As, autosave coordination | GUI thread; owns its model (`model`, `kind`, `schemaId`; `document` is the `PropertyDocument` or null) and moves its single history into the manager's `UndoService`. |
+| `DocumentManager` | Create/open/restore any registered kind, activate, duplicate view identities, close negotiation and Save All | GUI thread; owns sessions, undo, recovery manager and the codec registry it uses. |
+| `RecoveryManager` | Validated snapshot frames of any registered schema, compaction, inspect/restore/discard | GUI facade over a thread-safe `RecoveryJournal`; save and autosave workers append through that journal. |
 
 `DocumentManager::createReferenceDocument()` creates a blank reference model.
 Applications generally define descriptors and entities on its
-`PropertyDocument` before the first save. `openReferenceDocument(path)` checks
-the canonical local path and document UUID, so reopening an active file selects
-the existing session. `duplicateView(id)` returns another stable view UUID for
+`PropertyDocument` before the first save. `createDocument(schemaId)` creates a
+blank session of any registered kind. `openDocument(path, schemaId)`
+recognizes the file by content, decodes it with full validation and checks
+the canonical local path and document UUID, so reopening an active file
+selects the existing session; `openReferenceDocument(path)` does the same for
+the reference schema only. `duplicateView(id)` returns another stable view UUID for
 the same session; it does not duplicate the document or undo history.
 `removeView(documentId, viewId)` removes a non-last view identity without
 closing a dirty session; the final view closes through `closeDocument` and its
@@ -39,13 +44,17 @@ are advisory because replacement can remove a watch.
 
 ## Snapshot and completion rule
 
-On the GUI thread, a save captures a `SnapshotHeader` (document UUID, revision,
-reset generation) and complete immutable bytes. The worker writes that
-snapshot to a `QSaveFile` temporary file and commits it by replacement. The
-result identifies the saved revision. On the GUI thread, the session updates
-the saved URI/hash/revision after success, but marks undo clean and discards
-recovery data only if the live revision and extension generation still match
-the captured state. Edits made while the worker was writing stay dirty.
+On the GUI thread, a save captures an immutable `DocumentCapture` whose
+`SnapshotHeader` names the schema, document UUID, revision and reset
+generation. A worker encodes it, appends the recovery frame, writes a
+`QSaveFile` temporary file and commits it by replacement. The receipt
+identifies the saved header and must match the capture. On the GUI thread
+the session updates the saved URI/hash/revision after success. It marks undo
+clean and discards recovery data only if the live revision, reset generation
+and extension generation still match the capture. A later (stale) receipt
+marks clean only the history position it captured, so undoing back to exactly
+that position is clean and edits made while the worker was writing stay
+dirty ([clean marks](document-models.md#saving)).
 
 An in-progress save can be cancelled before its commit check. A cancellation
 request after the commit boundary cannot undo a successful replacement. A
@@ -84,23 +93,35 @@ application data belongs in `extensions`, which roundtrips unchanged.
 The manager's recovery directory defaults to its application data location;
 apps may set `recoveryManager.directory`. Recovery files use the document UUID
 as their name and never replace the user's document file. Each append-only
-journal frame has a magic/version, byte length, revision, SHA-256 and a full
-reference snapshot. Inspection scans the valid prefix, validating both hash
-and decoded document identity/revision. A truncated or corrupt tail is ignored
+journal frame is version 2: the schema ID, document UUID, revision, reset
+generation, payload length and payload SHA-256, protected by a header
+SHA-256, then the complete snapshot ([layout](document-models.md#recovery-frames)).
+Version-1 reference frames written by older builds stay readable. Inspection
+scans the valid prefix and checks both hashes, the document identity, one
+schema per journal, monotonic revisions and, through the registered codec,
+that the payload's own header matches the frame. A truncated or corrupt tail is ignored
 and reported as `truncatedTail`; a newer valid checkpoint or journal revision
-is offered. Compaction writes a checkpoint atomically before replacing the
-journal with an empty file, so interruption at either step leaves a validated
-revision available. Journal entry retention defaults to 32 and can be set via
+is offered. A frame whose schema has no registered codec is still offered with
+`codecAvailable: false` but cannot be restored by that build. Compaction
+writes a checkpoint atomically before replacing the journal with an empty
+file, so interruption at either step leaves a validated revision available.
+When no valid frame remains, the damaged files are kept as `.corrupt` copies.
+Journal entry retention defaults to 32 and can be set via
 `maxJournalEntries`; `maxJournalBytes` controls the size threshold. Each
 session's `autosaveDelayMs` controls its quiet-period debounce (100 ms to ten
-minutes).
+minutes); the timed autosave encodes and appends on a worker, while
+`autosaveNow()` records synchronously.
 
-`inspectId(id)` exposes a recovery choice without mutating the saved document.
-`restoreRecovered(id, originalPath)` creates a dirty session from the latest
-valid revision. If the original path still has the same document UUID and no
-newer revision, it becomes the session's save baseline; otherwise Save As is
-required or a normal Save reports conflict. `discardId(id)` removes recovery files. Restore never
-overwrites the original file, and an invalid recovery entry cannot be used as
-a document revision. Autosave records after a two-second quiet period and at
+`inspectId(id)` exposes a recovery choice (schema, revision, reset
+generation, `truncatedTail`, `codecAvailable`, `validEntries`) without
+mutating the saved document. `restoreRecovered(id, originalPath)` decodes the
+latest valid revision with its schema's codec and creates a dirty session. If
+the original path still holds the same schema and document UUID at an older
+revision, or exactly the recovered bytes, it becomes the session's save
+baseline; otherwise Save As is required or a normal Save reports conflict.
+`discardId(id)` removes recovery files. Restore never overwrites the original
+file, an invalid recovery entry cannot be used as a document revision, and a
+failed restore (no codec, a decode or bounds failure) leaves the files for a
+capable build. Autosave records after a two-second quiet period and at
 the beginning of an explicit save; edits made immediately before a process
 crash can fall inside that debounce window.

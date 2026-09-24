@@ -203,7 +203,9 @@ qulonglong CanvasDocument::populateFixture(int count, int seed, bool withImage)
                 image.tiles << fixtureTile(column, row, image.tileSize, image.size);
             }
         }
-        imageId = addImage(std::move(image));
+        imageId = m_nextImage;
+        image.id = imageId;
+        placeImage(imageId, std::make_shared<const CanvasTiledImage>(std::move(image)));
         CanvasObject o;
         o.shape = CanvasShape::Image;
         o.layer = imageLayer;
@@ -219,7 +221,12 @@ qulonglong CanvasDocument::populateFixture(int count, int seed, bool withImage)
         QVector<QRectF> ignored;
         place(o, &ignored);
     }
-    const CanvasLayerId shapes = addLayer(tr("Shapes"));
+    CanvasLayer shapeLayer;
+    shapeLayer.id = m_nextLayer;
+    shapeLayer.name = tr("Shapes");
+    shapeLayer.order = nextLayerOrder();
+    placeLayer(shapeLayer);
+    const CanvasLayerId shapes = shapeLayer.id;
     for (int i = 0; i < count; ++i) {
         const int cx = i % columns;
         const int cy = i / columns;
@@ -251,8 +258,7 @@ qulonglong CanvasDocument::populateFixture(int count, int seed, bool withImage)
         place(o, &ignored);
     }
     m_activeLayer = shapes;
-    m_history.clear();
-    m_cursor = 0;
+    resetModel();
     finishChange({}, true);
     return imageId;
 }

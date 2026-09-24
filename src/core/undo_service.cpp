@@ -1,81 +1,42 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+// Active-document facade over the generic history engine (undo_history.cpp).
 #include "undo_service.h"
 #include <QThread>
-#include <QUuid>
-#include <limits>
 
 namespace QindaTK {
-namespace {
-QVector<PropertyChange> joined(const QVector<PropertyChange> &first,
-                               const QVector<PropertyChange> &second)
+
+DocumentModel *UndoService::activeModel() const
 {
-    QVector<PropertyChange> result = first;
-    for (const auto &change : second) {
-        bool found = false;
-        for (auto &existing : result) {
-            if (existing.target != change.target || existing.propertyId != change.propertyId) continue;
-            existing.after = change.after;
-            found = true;
-            break;
-        }
-        if (!found) result.append(change);
-    }
-    return result;
-}
+    const auto *state = activeHistory();
+    return state ? state->model : nullptr;
 }
 
-UndoService::History *UndoService::history(PropertyDocument *document)
+QObject *UndoService::activeModelObject() const
 {
-    if (!document) return nullptr;
-    auto it = m_histories.find(document->documentIdString());
-    return it != m_histories.end() && it->document == document ? &it.value() : nullptr;
+    return activeHistory() ? m_activeObject.data() : nullptr;
 }
 
-const UndoService::History *UndoService::activeHistory() const
+PropertyDocument *UndoService::activeDocument() const
 {
-    if (!m_active) return nullptr;
-    auto it = m_histories.constFind(m_active->documentIdString());
-    return it != m_histories.cend() && it->document == m_active ? &it.value() : nullptr;
+    return qobject_cast<PropertyDocument *>(activeModelObject());
 }
 
-bool UndoService::addDocument(PropertyDocument *document)
+void UndoService::setActiveModel(DocumentModel *model)
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    if (!document || document->thread() != thread()) return false;
-    const QString id = document->documentIdString();
-    if (m_histories.contains(id)) return history(document) != nullptr;
-    History state;
-    state.document = document;
-    state.cleanRevision = document->revision().value;
-    m_histories.insert(id, state);
-    connect(document, &PropertyDocument::historyInvalidated, this,
-            [this, id] { clearDocument(id); });
-    connect(document, &QObject::destroyed, this, [this, id] {
-        m_histories.remove(id);
-        if (!m_active) emit changed();
-    });
-    if (!m_active) m_active = document;
+    if (model && !historyFor(model) && !addModel(model)) return;
+    const QString key = model ? model->m_historyKey : QString{};
+    if (key == m_activeKey && activeModel() == model) return;
+    m_activeKey = key;
+    m_activeObject = model ? model->modelObject() : nullptr;
     emit changed();
-    return true;
 }
 
-bool UndoService::removeDocument(PropertyDocument *document)
+void UndoService::setActiveModelObject(QObject *object)
 {
-    Q_ASSERT(thread() == QThread::currentThread());
-    if (!history(document)) return false;
-    m_histories.remove(document->documentIdString());
-    if (m_active == document) m_active = nullptr;
-    emit changed();
-    return true;
-}
-
-void UndoService::setActiveDocument(PropertyDocument *document)
-{
-    Q_ASSERT(thread() == QThread::currentThread());
-    if (document && !history(document) && !addDocument(document)) return;
-    if (m_active == document) return;
-    m_active = document;
-    emit changed();
+    auto *model = dynamic_cast<DocumentModel *>(object);
+    if (object && !model) return;
+    setActiveModel(model);
 }
 
 bool UndoService::canUndo() const
@@ -108,13 +69,6 @@ bool UndoService::isClean() const
     return state && state->macroLabel.isEmpty() && state->cleanCursor == state->cursor;
 }
 
-bool UndoService::isClean(PropertyDocument *document) const
-{
-    auto it = m_histories.constFind(document ? document->documentIdString() : QString{});
-    return it != m_histories.cend() && it->document == document
-        && it->macroLabel.isEmpty() && it->cleanCursor == it->cursor;
-}
-
 QString UndoService::cleanRevision() const
 {
     const auto *state = activeHistory();
@@ -128,9 +82,9 @@ QVariantList UndoService::historyEntries() const
     if (!state) return result;
     result.reserve(state->steps.size());
     for (qsizetype i = 0; i < state->steps.size(); ++i) {
-        const auto &step = state->steps[i];
-        result.append(QVariantMap{{QStringLiteral("entryId"), step.id},
-                                  {QStringLiteral("label"), step.label},
+        const auto &entry = state->steps[i];
+        result.append(QVariantMap{{QStringLiteral("entryId"), entry.id},
+                                  {QStringLiteral("label"), entry.label},
                                   {QStringLiteral("index"), int(i + 1)},
                                   {QStringLiteral("applied"), i < state->cursor},
                                   {QStringLiteral("clean"), i + 1 == state->cleanCursor}});
@@ -179,50 +133,14 @@ bool UndoService::fail(const QString &message)
     return false;
 }
 
-quint64 UndoService::cost(const QVector<PropertyChange> &changes)
-{
-    quint64 total = 0;
-    for (const auto &change : changes) {
-        const auto valueBytes = [](const QVariant &value) -> quint64 {
-            if (value.metaType().id() == QMetaType::QByteArray)
-                return static_cast<quint64>(value.toByteArray().size());
-            return static_cast<quint64>(value.toString().size()) * 2 + 32;
-        };
-        total += 128 + static_cast<quint64>(change.propertyId.size()) * 2
-            + valueBytes(change.before) + valueBytes(change.after);
-    }
-    return total;
-}
-
-bool UndoService::canRecord(PropertyDocument *document,
-                            const QVector<PropertyChange> &changes) const
-{
-    auto it = m_histories.constFind(document ? document->documentIdString() : QString{});
-    if (it == m_histories.cend() || it->document != document) return false;
-    const QVector<PropertyChange> combined = it->macroLabel.isEmpty()
-        ? changes : joined(it->macroChanges, changes);
-    return cost(combined) <= m_memoryLimit;
-}
-
 void UndoService::setMemoryLimit(quint64 bytes)
 {
     Q_ASSERT(thread() == QThread::currentThread());
     if (bytes < 1024 || bytes == m_memoryLimit) return;
     for (auto it = m_histories.cbegin(); it != m_histories.cend(); ++it)
-        if (!it->macroLabel.isEmpty() && cost(it->macroChanges) > bytes) return;
+        if (it->macroCommand && it->macroCommand->retainedBytes() > bytes) return;
     m_memoryLimit = bytes;
-    for (auto it = m_histories.begin(); it != m_histories.end(); ++it) {
-        auto &state = it.value();
-        quint64 used = 0;
-        for (const auto &step : state.steps) used += step.bytes;
-        while (used > m_memoryLimit && !state.steps.isEmpty()) {
-            used -= state.steps.front().bytes;
-            state.steps.removeFirst();
-            if (state.cursor > 0) --state.cursor;
-            if (state.cleanCursor > 0) --state.cleanCursor;
-            else state.cleanCursor = -1;
-        }
-    }
+    for (auto it = m_histories.begin(); it != m_histories.end(); ++it) enforceLimits(it.value());
     emit changed();
 }
 
@@ -233,70 +151,11 @@ void UndoService::setMemoryLimitString(const QString &bytes)
     if (ok && QString::number(parsed) == bytes) setMemoryLimit(parsed);
 }
 
-bool UndoService::record(PropertyDocument *document, const QString &label,
-                         const QString &mergeKey, const QVector<PropertyChange> &changes)
-{
-    Q_ASSERT(thread() == QThread::currentThread());
-    auto *state = history(document);
-    if (!state || label.isEmpty() || !canRecord(document, changes)) return false;
-    if (changes.isEmpty()) return true;
-    if (!state->macroLabel.isEmpty()) {
-        state->macroChanges = joined(state->macroChanges, changes);
-        emit changed();
-        return true;
-    }
-    if (state->cursor < state->steps.size()) {
-        state->steps.resize(state->cursor);
-        if (state->cleanCursor > state->cursor) state->cleanCursor = -1;
-    }
-    if (!mergeKey.isEmpty() && state->cursor > 0 && state->cleanCursor != state->cursor
-        && state->steps[state->cursor - 1].mergeKey == mergeKey
-        && cost(joined(state->steps[state->cursor - 1].changes, changes)) <= m_memoryLimit) {
-        auto &prior = state->steps[state->cursor - 1];
-        prior.changes = joined(prior.changes, changes);
-        prior.bytes = cost(prior.changes);
-        prior.label = label;
-    } else {
-        state->steps.append({QUuid::createUuid().toString(QUuid::WithoutBraces),
-                             label, mergeKey, changes, cost(changes)});
-        ++state->cursor;
-    }
-    quint64 used = 0;
-    for (const auto &step : state->steps) used += step.bytes;
-    while (used > m_memoryLimit && !state->steps.isEmpty()) {
-        used -= state->steps.front().bytes;
-        state->steps.removeFirst();
-        if (state->cursor > 0) --state->cursor;
-        if (state->cleanCursor > 0) --state->cleanCursor;
-        else state->cleanCursor = -1;
-    }
-    m_lastError.clear();
-    emit changed();
-    return true;
-}
-
-void UndoService::clearDocument(const QString &id)
-{
-    auto it = m_histories.find(id);
-    if (it == m_histories.end()) return;
-    it->steps.clear();
-    it->cursor = 0;
-    it->cleanCursor = -1;
-    it->macroLabel.clear();
-    it->macroChanges.clear();
-    emit changed();
-}
-
 bool UndoService::undo()
 {
     Q_ASSERT(thread() == QThread::currentThread());
     if (!canUndo()) return fail(QStringLiteral("No edit to undo"));
-    auto *state = history(m_active);
-    const auto result = m_active->applyCommitted(state->steps[state->cursor - 1].changes, false);
-    if (result) return fail(result.message);
-    --state->cursor;
-    m_lastError.clear();
-    emit changed();
+    if (const auto problem = step(activeModel(), false)) return fail(problem.message);
     return true;
 }
 
@@ -304,69 +163,69 @@ bool UndoService::redo()
 {
     Q_ASSERT(thread() == QThread::currentThread());
     if (!canRedo()) return fail(QStringLiteral("No edit to redo"));
-    auto *state = history(m_active);
-    const auto result = m_active->applyCommitted(state->steps[state->cursor].changes, true);
-    if (result) return fail(result.message);
-    ++state->cursor;
-    m_lastError.clear();
-    emit changed();
+    if (const auto problem = step(activeModel(), true)) return fail(problem.message);
     return true;
 }
 
 void UndoService::markClean()
 {
-    markClean(m_active);
-}
-
-void UndoService::markClean(PropertyDocument *document)
-{
-    Q_ASSERT(thread() == QThread::currentThread());
-    auto *state = history(document);
-    if (!state || !state->macroLabel.isEmpty()) return;
-    state->cleanCursor = state->cursor;
-    state->cleanRevision = document->revision().value;
-    emit changed();
+    markModelClean(activeModel());
 }
 
 bool UndoService::beginMacro(const QString &label)
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    auto *state = history(m_active);
-    if (!state || label.isEmpty() || !state->macroLabel.isEmpty()) return false;
+    DocumentModel *model = activeModel();
+    auto *state = historyFor(model);
+    if (!state || state->busy || label.isEmpty() || !state->macroLabel.isEmpty()) return false;
     state->macroLabel = label;
-    state->macroChanges.clear();
-    emit changed();
+    state->macroCommand.reset();
+    notify(model->m_historyKey);
     return true;
 }
 
 bool UndoService::endMacro()
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    auto *state = history(m_active);
-    if (!state || state->macroLabel.isEmpty()) return false;
+    DocumentModel *model = activeModel();
+    auto *state = historyFor(model);
+    if (!state || state->busy || state->macroLabel.isEmpty()) return false;
     const QString label = state->macroLabel;
-    const auto changes = state->macroChanges;
+    const DocumentCommandPtr command = state->macroCommand;
     state->macroLabel.clear();
-    state->macroChanges.clear();
-    if (changes.isEmpty()) {
-        emit changed();
-        return true;
-    }
-    return record(m_active, label, {}, changes);
+    state->macroCommand.reset();
+    // Grouped edits that cancel out leave no step behind.
+    if (command && !command->isNoOp()) recordStep(*state, model, label, {}, command);
+    m_lastError.clear();
+    notify(model->m_historyKey);
+    return true;
 }
 
 bool UndoService::cancelMacro()
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    auto *state = history(m_active);
-    if (!state || state->macroLabel.isEmpty()) return false;
-    if (!state->macroChanges.isEmpty()) {
-        const auto result = m_active->applyCommitted(state->macroChanges, false);
-        if (result) return fail(result.message);
+    DocumentModel *model = activeModel();
+    auto *state = historyFor(model);
+    if (!state || state->busy || state->macroLabel.isEmpty()) return false;
+    const DocumentCommandPtr command = state->macroCommand;
+    const QString key = model->m_historyKey;
+    if (command && !command->isNoOp()) {
+        if (const auto problem = model->prepareCommand(*command, false)) return fail(problem.message);
+        state->macroLabel.clear();
+        state->macroCommand.reset();
+        state->busy = true;
+        const QPointer<QObject> alive = model->modelObject();
+        model->publishCommand(*command, false);
+        if (alive) {
+            if (auto *after = historyFor(model)) after->busy = false;
+        }
+    } else {
+        // Nothing grouped, or edits that cancel out: the model is already
+        // back where the macro began.
+        state->macroLabel.clear();
+        state->macroCommand.reset();
     }
-    state->macroLabel.clear();
-    state->macroChanges.clear();
-    emit changed();
+    notify(key);
     return true;
 }
 

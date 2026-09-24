@@ -54,7 +54,11 @@ contain UUID and URI references only. View records contain a stable UUID,
 document UUID, window ID and application-owned `state` object. Window records
 contain window ID, screen ID, `geometry` (x/y/width/height), `maximized`,
 `activeViewId` and `dockLayoutId`. `dockState` is the serialized DockModel
-arrangement. No document content or undo history is in this file. Unknown
+arrangement. `capture` writes each document record as `{documentId, uri,
+schemaId}`. `restore` reopens it through `DocumentManager::openDocument`, so
+any registered document kind returns. A recorded `schemaId` must match the
+file; a record without one (written before schemas were recorded) accepts
+any registered kind. No document content or undo history is in this file. Unknown
 fields in workspace records and the top level survive a load/save; unknown
 panel IDs remain pending in DockModel until that plugin registers a panel.
 Version 1 migrates missing optional window fields to defaults. Invalid

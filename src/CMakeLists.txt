@@ -49,6 +49,8 @@ qt_add_qml_module(qindatk
         core/command_context.cpp core/command_context.h
         core/command_registry.cpp core/command_registry.h
         core/edit_transaction.cpp core/edit_transaction.h
+        core/document_model.h
+        core/document_codec.cpp core/document_codec.h
         core/document_store.cpp core/document_store.h
         core/document_session.cpp core/document_session.h
         core/document_manager.cpp core/document_manager.h
@@ -101,6 +103,7 @@ qt_add_qml_module(qindatk
         core/plain_text_format.cpp
         core/asset_provider.cpp core/asset_provider.h
         core/file_asset_backend.cpp
+        core/recovery_journal.cpp core/recovery_journal.h
         core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h
         core/reference_document_codec.cpp core/reference_document_codec.h
@@ -126,6 +129,7 @@ qt_add_qml_module(qindatk
         core/rich_text_session_adapter.cpp core/rich_text_session_adapter.h
         core/property_binding.cpp core/property_binding.h
         core/undo_service.cpp core/undo_service.h
+        core/undo_history.cpp
         core/validation_model.cpp core/validation_model.h
         core/selection_model.cpp core/selection_model.h
         core/editable_grid_model.cpp core/editable_grid_model.h
@@ -187,7 +191,12 @@ qt_add_qml_module(qindatk
         core/canvas_object.h
         core/canvas_geometry.cpp core/canvas_geometry.h
         core/canvas_document.cpp core/canvas_document.h
+        core/canvas_document_state.h
+        core/canvas_document_edit.cpp core/canvas_document_p.h
+        core/canvas_document_format.cpp core/canvas_document_format.h
+        core/canvas_document_codec.cpp
         core/canvas_document_qml.cpp
+        core/canvas_native_format.cpp
         core/hit_test_service.cpp core/hit_test_service.h
         core/tool_controller.cpp core/tool_controller.h
         core/canvas_selection_model.cpp core/canvas_selection_model.h

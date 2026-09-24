@@ -11,7 +11,7 @@ and PLT-10 RenderSurfaceAdapter. Evidence:
 | Type | Kind | Role |
 | --- | --- | --- |
 | `Tk.CanvasView` | QML over C++ `CanvasSurface` | Input, navigation, rendering host, overlay slot |
-| `Tk.CanvasDocument` | C++ | Reference in-memory spatial document (`CanvasDocumentAdapter`) |
+| `Tk.CanvasDocument` | C++ | Reference spatial document (`CanvasDocumentAdapter`, `DocumentModel`); opens, saves and recovers as a `DocumentSession` |
 | `Tk.CanvasViewState` | C++ | Shareable navigation pose; views that share one are synchronized |
 | `Tk.SnapModel` | C++ | Pure spatial snapping query over guides, visible object geometry and grid |
 | `Tk.ToolController` | C++ | Active/temporary tools and the one-gesture state machine |
@@ -82,43 +82,107 @@ Subobject parts on a hit are `Vertex` (index = corner or polyline point),
 
 Views, tools, picking and renderers use only `CanvasDocumentAdapter`. It is
 read-only except for `commit(CanvasEdit)`, which applies all of an edit or
-none of it. Each change in an edit lists `before` and `after`; an insert has
-no `before` and a remove has no `after`. `commit` rejects the whole edit when
-any `before` differs from the current object. That makes a stale edit (built
-against an older revision) harmless. Each commit increments `revision` and
-emits `damaged(regions, revision)` with the old and new document bounds of
-every touched object. It also emits `edited(revision)`. `reset(revision)`
-invalidates everything (load, clear, layer order).
+none of it. Each object change in an edit lists `before` and `after`; an
+insert has no `before` and a remove has no `after`. An edit may also carry
+layer, image (shared `CanvasTiledImagePtr`, null = absent) and page deltas
+under the same rule. `commit` rejects the whole edit when any target appears
+twice, or any `before` differs from the current state. That makes a stale
+edit (built against an older revision) harmless. It also rejects the edit
+when the resulting document would be invalid: non-finite geometry, a missing
+layer or image reference, a removed layer that still holds objects, a removed
+image still referenced, the last layer removed, or a limit
+(`CanvasDocumentLimits`) exceeded. An edit that names
+`baseResetGeneration` is stale after a reset. `commitEdit` returns the
+reason. A rejected commit changes nothing and emits nothing: no revision,
+damage, history step or notification. Each accepted commit increments
+`revision` and emits `damaged(regions, revision)` with the old and new
+document bounds of every touched object. It also emits `edited(revision)`.
+`reset(revision)` invalidates everything (load, clear, layer order).
 
-`CanvasDocument` is the reference implementation. It keeps a bounded undo
-history (`historyLimit`, default 256 edits) and a uniform-grid spatial index
-(512-unit cells; objects spanning more than 256 cells go in a flat list).
+`CanvasDocument` is the reference implementation and a
+[`DocumentModel`](document-models.md). The applied edit is its recorded undo
+step, so history holds touched-object deltas and shared image pointers and
+never a copy of the scene. Standalone, the document keeps a private
+`UndoService` (`historyLimit`, default 256 steps). A `DocumentSession` moves
+that single history into the application's shared `UndoService`, where
+`manager.undoService` and `document.undo()` drive the same steps under the
+shared byte budget. Page size and colour, layer add/remove/visibility/lock
+and image add/remove are recorded steps too; every content change
+increments the revision. `insert(object, false)` still validates, but
+unrecorded content makes a saved clean state unreachable. `clear()` and
+`populateFixture(count, seed, withImage)` are loads: they increment
+`resetGeneration` and discard the history. The active layer is editor state:
+it changes no revision, is not saved, and a loaded document starts on its
+top layer. Values declared on a `Tk.CanvasDocument` in QML set up the
+document without creating undo steps. The uniform-grid spatial index uses
+512-unit cells; objects spanning more than 256 cells go in a flat list.
 Cell-span arithmetic uses 64-bit endpoint differences, including for finite
-bounds that cross both clamped index limits. `populateFixture(count, seed,
-withImage)` loads a deterministic fixture without history.
+bounds that cross both clamped index limits.
 
 <a id="open-seams"></a>
 ### Open seams (not claimed)
 
-- **WP-033 session.** WP-033 (shared application framework) is active. The
-  shared `DocumentSession` and `UndoService` are built around
-  a `PropertyDocument`. A canvas document therefore owns its own history
-  behind the adapter. A later session adapter will bind
-  `commit`/`undo`/`redo` to the shared services and persistence without
-  changing any caller.
 - **GestureRouter.** `ToolController` arbitrates gestures for its canvases
   itself. The router's Edit intent needs a PropertyDocument
-  `EditTransaction`, so bridging canvas edits into it is part of the same
-  seam.
+  `EditTransaction`, so bridging canvas edits into it is still open. Canvas
+  sessions, persistence, recovery and shared undo are provided through the
+  [domain model boundary](document-models.md).
 - **WP-041.** `SnapModel` supplies one-point guide/object/grid queries, and
   `CanvasSelectionModel` shares stable selected IDs between controllers for one
-  document. Group transform edits exist on the reference canvas; guide
-  persistence and shared-session history still belong to WP-041. Its `SelectionOverlay` presentation
-  slice maps a host-supplied selection and reports handle gestures. The canvas
-  exposes the contracts that the remaining work needs:
+  document. Group transform edits exist on the reference canvas. Guide
+  persistence and inspector wiring remain open. Its `SelectionOverlay`
+  presentation maps a host-supplied selection and reports handle gestures.
+  The canvas exposes these contracts:
   `CanvasToolPreview`, `ToolController.selection`, `HitTestService`,
   `CanvasSurface::mapFromDocument` and the `canvasOverlaySlot` item. It
   does not itself store selection or calculate snaps.
+
+<a id="persistence"></a>
+## Persistence and native format
+
+`canvasDocumentCodec()` (schema `qindatk.canvas-document.v1`, suffix
+`qtkc`) lets `DocumentManager` create, open, save, recover and restore canvas
+sessions like any other document. A save captures `CanvasDocument::state()`
+on the GUI thread. That is an O(1) share of the object, layer and image
+hashes; the next edit detaches the document's copy. A worker encodes the
+state.
+
+<a id="native-format"></a>
+The file is big-endian binary: the signature `QTKCANVS`, version 1, the
+document UUID, revision and reset generation, then the exact 64-bit
+`nextObject`/`nextLayer`/`nextImage` counters and `nextZ`, the page rectangle
+and colour, the session extensions (JSON), layers, images and objects in
+ascending id order, and finally a SHA-256 of everything before it. Equal
+content therefore gives equal bytes. Names are stored as UTF-16 code units,
+so every `QString` round-trips exactly; UTF-8 would drop a leading U+FEFF or
+an unpaired surrogate. Image tiles are raw ARGB32
+premultiplied rows at their stored size, so pixels round-trip exactly.
+`addImage` normalizes tiles to that format. Tiles are not compressed:
+`qUncompress` does not bound its output to the declared size, so compressed
+tiles would first need a bounded inflater.
+
+Decoding validates the checksum, the version (a newer one is refused),
+identity and counters (every id below its counter, no duplicates), layer and
+image references, finite geometry, tile grids and every total before it
+allocates decoded pixels. Only then does `adopt` build the live document.
+Each case below fails with a field path and changes nothing.
+
+| Bound (`CanvasDocumentLimits`) | Default |
+| --- | --- |
+| Encoded file | 320 MiB |
+| Objects / layers / images | 2,000,000 / 4096 / 4096 |
+| Points per object / in total | 1,000,000 / 16,000,000 |
+| Image side / tile size | 65,536 px / 16–4096 px |
+| Decoded image pixels (all images) | 256 MiB |
+| Names / extensions JSON | 4096 characters / 16 MiB |
+
+The commit validator uses the same bounds. It also tracks the exact encoded
+size and refuses an edit that would grow the file past the limit while
+leaving room for the largest allowed extensions JSON, so every committed
+canvas can be saved and reopened. Edits that shrink a file always remain
+possible. `makeCanvasDocumentCodec(limits)` registers a codec with
+other bounds. `CanvasNativeFormat` offers the same file to `FormatRegistry`
+for import and export when an application registers it.
 
 <a id="hit-testing"></a>
 ## Hit testing

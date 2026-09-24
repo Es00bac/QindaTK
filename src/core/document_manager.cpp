@@ -14,6 +14,7 @@ DocumentManager::DocumentManager(QObject *parent)
 {
     m_recovery->setDirectory(QDir(QStandardPaths::writableLocation(
         QStandardPaths::AppDataLocation)).filePath(QStringLiteral("recovery")));
+    m_recovery->setCodecRegistry(m_codecs);
 }
 
 QVariantList DocumentManager::sessions() const
@@ -29,6 +30,22 @@ void DocumentManager::setStore(DocumentStorePtr store)
     m_store = std::move(store);
 }
 
+bool DocumentManager::setCodecRegistry(std::shared_ptr<DocumentCodecRegistry> registry)
+{
+    if (!m_sessions.isEmpty() || !registry) return false;
+    m_codecs = std::move(registry);
+    m_recovery->setCodecRegistry(m_codecs);
+    emit changed();
+    return true;
+}
+
+QVariantList DocumentManager::documentTypes() const
+{
+    QVariantList result;
+    for (const auto &codec : m_codecs->codecs()) result.append(codec->info());
+    return result;
+}
+
 QString DocumentManager::canonicalPath(const QString &path)
 {
     const QFileInfo info(path);
@@ -40,15 +57,23 @@ DocumentSession *DocumentManager::findSession(const QString &documentId) const
 {
     const DocumentId id = DocumentId::parse(documentId);
     if (!id.isValid()) return nullptr;
+    const QString key = id.toString();
     for (auto *session : m_sessions)
-        if (session->document()->documentId() == id) return session;
+        if (session->documentId() == key) return session;
     return nullptr;
 }
 
-DocumentSession *DocumentManager::adopt(std::unique_ptr<PropertyDocument> document)
+DocumentSession *DocumentManager::failWith(const OperationError &error)
 {
-    if (!document || findSession(document->documentIdString())) return nullptr;
-    auto *session = new DocumentSession(std::move(document), m_undo, m_store, this);
+    m_lastError = error.message;
+    emit changed();
+    return nullptr;
+}
+
+DocumentSession *DocumentManager::adopt(std::unique_ptr<DocumentModel> model, DocumentCodecPtr codec)
+{
+    if (!model || !codec || findSession(model->modelId().toString())) return nullptr;
+    auto *session = new DocumentSession(std::move(model), std::move(codec), m_undo, m_store, this);
     session->m_pathAvailable = [this, session](const QString &path) {
         const QString candidate = canonicalPath(path);
         for (auto *other : m_sessions)
@@ -69,42 +94,98 @@ DocumentSession *DocumentManager::adopt(std::unique_ptr<PropertyDocument> docume
 
 DocumentSession *DocumentManager::create(std::unique_ptr<PropertyDocument> document)
 {
-    return adopt(std::move(document));
+    if (!document) return nullptr;
+    DocumentCodecPtr codec = m_codecs->codec(document->header().schemaId);
+    if (!codec) codec = referenceDocumentCodec();
+    return adopt(std::move(document), std::move(codec));
+}
+
+DocumentSession *DocumentManager::create(std::unique_ptr<DocumentModel> model)
+{
+    if (!model) return nullptr;
+    const QString schema = model->modelHeader().schemaId;
+    DocumentCodecPtr codec = m_codecs->codec(schema);
+    if (!codec)
+        return failWith({ErrorCode::Unsupported,
+                         QStringLiteral("No codec is registered for schema %1").arg(schema), {}, {}});
+    return adopt(std::move(model), std::move(codec));
 }
 
 DocumentSession *DocumentManager::createReferenceDocument()
 {
-    return adopt(std::make_unique<PropertyDocument>());
+    return create(std::make_unique<PropertyDocument>());
+}
+
+DocumentSession *DocumentManager::createDocument(const QString &schemaId)
+{
+    const DocumentCodecPtr codec = m_codecs->codec(schemaId);
+    if (!codec)
+        return failWith({ErrorCode::Unsupported,
+                         QStringLiteral("No codec is registered for schema %1").arg(schemaId), {}, {}});
+    return adopt(codec->create(), codec);
+}
+
+DocumentSession *DocumentManager::adoptBytes(const QByteArray &bytes, OperationError *error)
+{
+    const auto fail = [&](const OperationError &problem) {
+        if (error) *error = problem;
+        return failWith(problem);
+    };
+    if (error) *error = {};
+    const DocumentCodecPtr codec = m_codecs->detect(bytes);
+    if (!codec) return fail({ErrorCode::Unsupported, QStringLiteral("Unrecognized document format"), {}, {}});
+    OperationError problem;
+    const DecodedDocumentPtr decoded = codec->decode(bytes, &problem);
+    if (!decoded) return fail(problem);
+    if (findSession(decoded->header().documentId.toString()))
+        return fail({ErrorCode::Conflict, QStringLiteral("Document identity is already open"), {}, {}});
+    auto model = codec->adopt(*decoded, &problem);
+    if (!model) return fail(problem);
+    auto *session = adopt(std::move(model), codec);
+    if (!session) return fail({ErrorCode::Conflict, QStringLiteral("Document identity is already open"), {}, {}});
+    session->setExtensions(decoded->extensions());
+    m_lastError.clear();
+    emit changed();
+    return session;
 }
 
 DocumentSession *DocumentManager::openReferenceDocument(const QString &path)
+{
+    return openDocument(path, QString::fromLatin1(PropertyDocument::SchemaId));
+}
+
+DocumentSession *DocumentManager::openDocument(const QString &path, const QString &schemaId)
 {
     if (path.isEmpty()) return nullptr;
     const QString canonical = canonicalPath(path);
     for (auto *session : m_sessions)
         if (!session->uri().isEmpty() && canonicalPath(session->uri()) == canonical) {
+            if (!schemaId.isEmpty() && session->schemaId() != schemaId)
+                return failWith({ErrorCode::Conflict,
+                                 QStringLiteral("The open document at this path has another schema"), {}, {}});
             activate(session->documentId());
             return session;
         }
     const auto loaded = m_store->load(canonical);
-    if (!loaded) {
-        m_lastError = loaded.error.message;
-        emit changed();
-        return nullptr;
-    }
+    if (!loaded) return failWith(loaded.error);
+    const DocumentCodecPtr codec = m_codecs->detect(loaded.bytes);
+    if (!codec)
+        return failWith({ErrorCode::Unsupported, QStringLiteral("Unrecognized document format"), canonical, {}});
+    if (!schemaId.isEmpty() && codec->schemaId() != schemaId)
+        return failWith({ErrorCode::Unsupported, QStringLiteral("The file holds another document kind"),
+                         canonical, {}});
     OperationError error;
-    auto decoded = ReferenceDocumentCodec::decode(loaded.bytes, &error);
-    if (!decoded || findSession(decoded->document->documentIdString())) {
-        m_lastError = decoded ? QStringLiteral("Document identity is already open")
-                              : error.message;
-        emit changed();
-        return nullptr;
-    }
-    const QJsonObject extensions = decoded->extensions;
-    auto *session = adopt(std::move(decoded->document));
-    session->initializeLoaded(canonical, loaded.sha256,
-                              session->document()->revision().value,
-                              extensions, false);
+    const DecodedDocumentPtr decoded = codec->decode(loaded.bytes, &error);
+    if (!decoded) return failWith(error);
+    if (findSession(decoded->header().documentId.toString()))
+        return failWith({ErrorCode::Conflict, QStringLiteral("Document identity is already open"), {}, {}});
+    auto model = codec->adopt(*decoded, &error);
+    if (!model) return failWith(error);
+    if (const auto mismatch = compareSnapshotHeaders(model->modelHeader(), decoded->header()))
+        return failWith(mismatch);
+    auto *session = adopt(std::move(model), codec);
+    session->initializeLoaded(canonical, loaded.sha256, decoded->header().revision.value,
+                              decoded->extensions(), false);
     m_lastError.clear();
     emit changed();
     return session;
@@ -116,31 +197,30 @@ DocumentSession *DocumentManager::restoreRecovered(const QString &documentId,
     const DocumentId id = DocumentId::parse(documentId);
     if (!id.isValid() || findSession(id.toString())) return nullptr;
     OperationError error;
-    auto restored = m_recovery->restore(id, &error);
-    if (!restored) {
-        m_lastError = error.message;
-        emit changed();
-        return nullptr;
-    }
+    const auto restored = m_recovery->restoreDocument(id, &error);
+    if (!restored) return failWith(error);
+    auto model = restored->codec->adopt(*restored->decoded, &error);
+    if (!model) return failWith(error);
+    const SnapshotHeader &recovered = restored->snapshot->header;
     QByteArray baseline;
     quint64 baselineRevision = 0;
     QString path;
     if (!originalPath.isEmpty()) {
         path = canonicalPath(originalPath);
         const auto saved = m_store->load(path);
-        if (saved) {
-            auto original = ReferenceDocumentCodec::decode(saved.bytes);
-            if (original && original->document->documentId() == id
-                && original->document->revision().value
-                       <= restored->document->revision().value) {
-                baseline = saved.sha256;
-                baselineRevision = original->document->revision().value;
-            }
+        const auto header = saved && restored->codec->recognizes(saved.bytes)
+            ? restored->codec->inspect(saved.bytes) : std::nullopt;
+        // The saved file is a baseline only while it holds the same document
+        // at an older revision, or exactly the recovered bytes.
+        if (header && header->schemaId == recovered.schemaId && header->documentId == id
+            && (header->revision.value < recovered.revision.value
+                || saved.bytes == restored->snapshot->payload)) {
+            baseline = saved.sha256;
+            baselineRevision = header->revision.value;
         }
     }
-    const QJsonObject extensions = restored->extensions;
-    auto *session = adopt(std::move(restored->document));
-    session->initializeLoaded(path, baseline, baselineRevision, extensions, true);
+    auto *session = adopt(std::move(model), restored->codec);
+    session->initializeLoaded(path, baseline, baselineRevision, restored->decoded->extensions(), true);
     m_lastError.clear();
     emit changed();
     return session;
@@ -151,7 +231,7 @@ bool DocumentManager::activate(const QString &documentId)
     auto *session = findSession(documentId);
     if (!session) return false;
     m_active = session;
-    m_undo->setActiveDocument(session->document());
+    m_undo->setActiveModel(session->model());
     emit changed();
     return true;
 }
@@ -251,7 +331,7 @@ bool DocumentManager::remove(DocumentSession *session)
         if (!m_views.contains(m_viewOrder[i])) m_viewOrder.removeAt(i);
     if (m_active == session) {
         m_active = m_sessions.isEmpty() ? nullptr : m_sessions.last();
-        m_undo->setActiveDocument(m_active ? m_active->document() : nullptr);
+        m_undo->setActiveModel(m_active ? m_active->model() : nullptr);
     }
     delete session;
     emit changed();

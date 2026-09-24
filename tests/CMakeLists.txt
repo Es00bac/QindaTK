@@ -112,6 +112,8 @@ set_tests_properties(tst_canvas_display_rhi PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 qindatk_add_test(tst_canvas_tile_limits)
 qindatk_add_test(tst_canvas_input)
+qindatk_add_test(tst_canvas_persistence)
+qindatk_add_test(tst_domain_session)
 # The same binary again on the RHI adaptation: sceneGraphBackend() exercises
 # the geometry provider there and QSKIPs when no offscreen GPU context exists.
 add_test(NAME tst_canvas_render_rhi COMMAND tst_canvas_render sceneGraphBackend)

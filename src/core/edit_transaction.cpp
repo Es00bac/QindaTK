@@ -144,7 +144,7 @@ bool EditTransaction::begin(const QVector<EntityId> &targets,
 {
     Q_ASSERT(thread() == QThread::currentThread());
     if (m_active) { reject(failure(ErrorCode::Unavailable, QStringLiteral("Edit already active")), false); return false; }
-    if (!m_document || !m_undo || !m_undo->history(m_document)
+    if (!m_document || !m_undo || !m_undo->hasModel(m_document)
         || targets.isEmpty() || propertyId.isEmpty() || label.isEmpty()) {
         reject(failure(ErrorCode::InvalidArgument, QStringLiteral("Edit configuration is incomplete")), false);
         return false;
@@ -265,8 +265,8 @@ OperationError EditTransaction::commitEdit()
     if (m_validator) {
         if (auto error = m_validator(effective)) return reject(error, true);
     }
-    if (!m_undo->canRecord(m_document, effective))
-        return reject(failure(ErrorCode::Unavailable, QStringLiteral("Edit exceeds undo memory limit")), true);
+    const auto command = std::make_shared<const PropertyCommand>(effective);
+    if (auto error = m_undo->canRecord(m_document, *command)) return reject(error, true);
     const QString completedId = transactionId();
     const QVector<PropertyChange> presentationChanges = m_changes;
     {
@@ -280,7 +280,7 @@ OperationError EditTransaction::commitEdit()
                 return reject(error, true);
             // canRecord preflight and blocked reentrant observers keep this
             // deterministic on the GUI thread.
-            const bool recorded = m_undo->record(m_document, m_label, m_mergeKey, effective);
+            const bool recorded = m_undo->record(m_document, m_label, m_mergeKey, command);
             Q_ASSERT(recorded);
             Q_UNUSED(recorded)
         }
@@ -294,7 +294,10 @@ OperationError EditTransaction::commitEdit()
         emit m_document->propertyChanged(change.target.toString(), change.propertyId);
     }
     if (m_document) emit m_document->changed();
-    if (!effective.isEmpty() && m_undo) emit m_undo->changed();
+    if (!effective.isEmpty() && m_undo) {
+        if (m_document) emit m_undo->historyChanged(m_document->documentIdString());
+        emit m_undo->changed();
+    }
     emit stateChanged();
     emit committed(completedId);
     return {};

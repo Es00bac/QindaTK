@@ -82,7 +82,8 @@ std::vector<std::unique_ptr<CanvasTool>> createStandardCanvasTools();
 // AGENT-NOTE: ToolController is the per-canvas gesture arbiter. It does not
 // claim through GestureRouter because the router's Edit intent is bound to a
 // PropertyDocument EditTransaction (WP-012); bridging spatial edits into it
-// belongs to the WP-033 session seam (docs/canvas.md#open-seams).
+// is still open (docs/canvas.md#open-seams). Committed edits already reach
+// the shared session history through CanvasDocument::commit.
 class ToolController : public QObject {
     Q_OBJECT
     QML_ELEMENT

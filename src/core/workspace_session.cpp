@@ -152,7 +152,9 @@ std::optional<QVariantMap> WorkspaceSession::normalize(const QVariantMap &input,
         const QVariantMap record = value.toMap();
         const QString id = record.value(QStringLiteral("documentId")).toString();
         if (!DocumentId::parse(id).isValid() || documentIds.contains(id)
-            || record.value(QStringLiteral("uri")).metaType().id() != QMetaType::QString) {
+            || record.value(QStringLiteral("uri")).metaType().id() != QMetaType::QString
+            || (record.contains(QStringLiteral("schemaId"))
+                && record.value(QStringLiteral("schemaId")).metaType().id() != QMetaType::QString)) {
             invalid(error, QStringLiteral("documents")); return std::nullopt;
         }
         documentIds.insert(id);
@@ -314,7 +316,8 @@ bool WorkspaceSession::capture(DocumentManager *documents, DockModel *dock,
         auto *session = value.value<DocumentSession *>();
         if (!session) continue;
         documentRecords.append(QVariantMap{{QStringLiteral("documentId"), session->documentId()},
-            {QStringLiteral("uri"), session->uri()}});
+            {QStringLiteral("uri"), session->uri()},
+            {QStringLiteral("schemaId"), session->schemaId()}});
         if (viewRecords.isEmpty())
             for (const QString &viewId : documents->viewsFor(session->documentId()))
                 allViews.append(QVariantMap{{QStringLiteral("viewId"), viewId},
@@ -356,9 +359,13 @@ bool WorkspaceSession::restore(DocumentManager *documents, DockModel *dock)
         const QVariantMap record = value.toMap();
         const QString id = record.value(QStringLiteral("documentId")).toString();
         const QString uri = record.value(QStringLiteral("uri")).toString();
+        // An absent schemaId (records written before schemas were recorded)
+        // accepts any registered kind; a present one must match the file.
+        const QString schema = record.value(QStringLiteral("schemaId")).toString();
         DocumentSession *session = documents->findSession(id);
-        if (!session && !uri.isEmpty()) session = documents->openReferenceDocument(uri);
-        if (!session || session->documentId() != id) unavailable.append(id);
+        if (!session && !uri.isEmpty()) session = documents->openDocument(uri, schema);
+        if (!session || session->documentId() != id
+            || (!schema.isEmpty() && session->schemaId() != schema)) unavailable.append(id);
     }
     for (const QVariant &value : this->documents()) {
         const QString id = value.toMap().value(QStringLiteral("documentId")).toString();

@@ -16,7 +16,7 @@ connecting to the controls. The public headers are
 | --- | --- | --- |
 | `PropertyDocument` | Document UUID, monotonic revision/reset generation, typed property descriptors, entity values and one transient preview | Stores by `EntityId`, not row or delegate; committed values change only atomically. Set descriptors before adding entities. |
 | `EditTransaction` | One begin → preview updates → validate → commit/cancel operation | Controllers own it across a gesture. Preview does not increment revision or history; Escape or lost grab calls `cancel()`. |
-| `UndoService` | Independent histories keyed by document ID, active-document facade, clean cursor/revision, merge keys, macro groups and byte budget | The application registers documents, sets the active document and marks clean only after a successful save. |
+| `UndoService` | Independent histories keyed by document ID for any [domain model](document-models.md), active-document facade, clean cursor/revision, merge keys, macro groups and byte budget | The application registers documents, sets the active document and marks clean only after a successful save. A model has one live history: a second service cannot record it. |
 | `PropertyBinding` | Inspector projection for one descriptor and stable target IDs: value, mixed/default, writable, animated, error and edit methods | Owner refresh and document synchronization emit `changed`, never `userEditAccepted`. User requests go through `EditTransaction`. |
 | `SelectionModel` | Selected/current/anchor entity IDs and reset generation | View order is supplied only for a range operation; sorting and filtering never rewrite IDs. |
 | `ValidationModel` | Snapshot-tagged pending/error/warning/info issues and first relevant target/path | Results from an old run, revision or reset generation cannot replace current feedback. |
@@ -108,29 +108,43 @@ do not own document undo history.
 
 ## Undo, clean state and structural changes
 
-`UndoService` keeps one history per registered `PropertyDocument` and exposes
-`canUndo`, `canRedo`, `undoText`, `redoText`, `clean`, `cleanRevision`,
-`memoryLimit` and `lastError` for the active document. `undo()` and `redo()`
-apply inverse values by stable ID. `markClean()` stores the current history
-cursor and revision after a successful save. Returning to that cursor through
-undo makes the document clean even though its monotonic revision has advanced.
-Branching after undo discards redo steps; a discarded saved cursor stays dirty.
+`UndoService` keeps one history per registered document, keyed by its
+document UUID. The model is a `PropertyDocument`, a `CanvasDocument` or any
+[domain model](document-models.md#commands). It exposes `canUndo`, `canRedo`,
+`undoText`, `redoText`, `clean`, `cleanRevision`, `memoryLimit` and
+`lastError` for the active model: `activeDocument` when that is a
+`PropertyDocument`, and `activeModel` for any kind. `undo()` and `redo()`
+validate the recorded step against the model before anything changes, so a
+refused step leaves values, revision and cursor untouched. `markClean()`
+stores the current history cursor and revision after a successful save.
+Returning to that cursor through undo makes the document clean, even though
+its monotonic revision has advanced. Branching after undo discards redo
+steps; a discarded saved cursor stays dirty. A save that finishes after newer
+edits marks clean only the history position it captured.
+
+`addDocument`/`addModel` refuse a document whose live history already
+belongs to another `UndoService`; `adoptModel` moves it instead. A
+`DocumentSession` does this. Two services recording one document would each
+replay inverse data the other had already changed.
 
 A nonempty `mergeKey` coalesces adjacent edits with the same key when they do
-not cross the clean cursor. `beginMacro(label)`/`endMacro()` group consecutive
-edits into one step; `cancelMacro()` rolls them back. The byte budget defaults
+not cross the clean cursor. The merged entry keeps its `entryId`. Macros
+(`beginMacro(label)`/`endMacro()`) group consecutive edits into one step;
+`cancelMacro()` rolls them back. The byte budget defaults
 to 8 MiB and can be set with an exact decimal `memoryLimit` string or C++
 `setMemoryLimit(bytes)`. Oversized edits are rejected before commit so an edit
 is never silently nonundoable. Old entries are evicted first when the budget
 is reduced or a new step is recorded; evicting the saved cursor invalidates
-clean tracking. The byte count is an estimate based on inverse values rather
-than a serialized size guarantee.
+clean tracking. The byte count is an estimate of what each step keeps alive
+beyond the live document (inverse values, removed resources), not a
+serialized size guarantee.
 
 Adding/removing entities, resetting the model and changing target writable or
 animation metadata invalidate this reference history and its clean cursor.
 This conservative rule prevents undo from targeting a deleted/recreated ID or
 replaying inverse data against a different schema. A richer domain model may
-record structural edits as first-class inverse steps instead. `removeDocument`
+record structural edits as first-class inverse steps instead; the canvas
+records layer, image and page changes that way. `removeDocument`
 and QObject destruction retire a history; the active document must be set to
 another live session by the application.
 

@@ -20217,7 +20217,7 @@
       "name": "CanvasDocument",
       "kind": "cpp",
       "base": "CanvasDocumentAdapter",
-      "description": "",
+      "description": "The reference spatial document. It is a DocumentModel: every commit is validated whole (prepare) before anything changes, then applied and recorded as one step (publish). Standalone it keeps a private UndoService; a DocumentSession moves that single history into the shared service. Page, layer and image changes are recorded steps too, and every content change bumps the revision.",
       "singleton": false,
       "attached": null,
       "file": "src/core/canvas_document.h",
@@ -20237,6 +20237,13 @@
           "constant": false
         },
         {
+          "name": "resetGeneration",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "objectCount",
           "type": "int",
           "default": "",
@@ -20245,6 +20252,13 @@
         },
         {
           "name": "layerCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "imageCount",
           "type": "int",
           "default": "",
           "readonly": true,
@@ -20307,16 +20321,41 @@
           "constant": false
         },
         {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "historyLimit",
           "type": "int",
           "default": "",
           "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
           "constant": false
         }
       ],
       "signals": [
         {
           "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
           "parameters": ""
         }
       ],
@@ -20377,6 +20416,11 @@
           "parameters": "qulonglong id, bool locked"
         },
         {
+          "name": "removeLayerById",
+          "returns": "bool",
+          "parameters": "qulonglong id"
+        },
+        {
           "name": "objectInfo",
           "returns": "QVariantMap",
           "parameters": "qulonglong id"
@@ -20416,7 +20460,7 @@
       "name": "CanvasDocumentAdapter",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT (docs/canvas.md#document-adapter): the document side of the canvas boundary. Views, hit testing, tools and renderers read documents only through this interface, and change them only through commit(). An application with its own scene model implements it; CanvasDocument is the in-memory reference implementation used by tests and examples.  AGENT-NOTE: WP-033's shared session (DocumentSession + UndoService over a PropertyDocument) is not yet proven for spatial documents, so this seam owns its own bounded history. When WP-033 lands, a session adapter binds commit()/undo()/redo() to the shared services without changing callers.",
+      "description": "AGENT-CONTRACT (docs/canvas.md#document-adapter): the document side of the canvas boundary. Views, hit testing, tools and renderers read documents only through this interface, and change them only through commit(). An application with its own scene model implements it; CanvasDocument is the in-memory reference implementation used by tests and examples.  AGENT-NOTE: CanvasDocument records commit/undo/redo through UndoService (docs/document-models.md), the same engine DocumentSession shares; an adapter with its own model does the same by implementing DocumentModel.",
       "singleton": false,
       "attached": null,
       "file": "src/core/canvas_document.h",
@@ -23268,7 +23312,7 @@
       "name": "DocumentManager",
       "kind": "cpp",
       "base": "QObject",
-      "description": "",
+      "description": "Owns sessions of any registered document kind. Opening, restoring and adopting go through the codec registry: bytes are recognized by content, decoded with identity/bounds validation, then adopted on the GUI thread.",
       "singleton": false,
       "attached": null,
       "file": "src/core/document_manager.h",
@@ -23314,6 +23358,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "documentTypes",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -23337,9 +23388,19 @@
           "parameters": ""
         },
         {
+          "name": "createDocument",
+          "returns": "DocumentSession *",
+          "parameters": "const QString &schemaId"
+        },
+        {
           "name": "openReferenceDocument",
           "returns": "DocumentSession *",
           "parameters": "const QString &path"
+        },
+        {
+          "name": "openDocument",
+          "returns": "DocumentSession *",
+          "parameters": "const QString &path, const QString &schemaId = {}"
         },
         {
           "name": "restoreRecovered",
@@ -23482,7 +23543,7 @@
       "name": "DocumentSession",
       "kind": "cpp",
       "base": "QObject",
-      "description": "GUI-thread lifecycle facade for a single authoritative reference document. Save inputs are immutable; only the file adapter runs on a worker thread.",
+      "description": "GUI-thread lifecycle facade for one authoritative domain document: a DocumentModel plus the DocumentCodec of its schema. Save and autosave capture an immutable snapshot on the GUI thread; encoding, the recovery journal and the file replacement run on a worker; the receipt returns to the GUI thread. `document` is the PropertyDocument when the model is one and null otherwise; generic code uses model/kind/schemaId/capture.",
       "singleton": false,
       "attached": null,
       "file": "src/core/document_session.h",
@@ -23490,6 +23551,27 @@
         {
           "name": "document",
           "type": "QindaTK::PropertyDocument *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "model",
+          "type": "QObject *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "kind",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "schemaId",
+          "type": "QString",
           "default": "",
           "readonly": true,
           "constant": true
@@ -23524,6 +23606,13 @@
         },
         {
           "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resetGeneration",
           "type": "QString",
           "default": "",
           "readonly": true,
@@ -25006,7 +25095,7 @@
       "name": "FormatRegistry",
       "kind": "cpp",
       "base": "QObject",
-      "description": "GUI-thread broker for operation-specific providers and cancellable jobs. Import jobs yield native reference bytes; adoptImport creates the live DocumentSession only after a successful job and explicit caller decision.",
+      "description": "GUI-thread broker for operation-specific providers and cancellable jobs. Import jobs yield native bytes of a registered document schema; adoptImport creates the live DocumentSession only after a successful job and explicit caller decision. A provider's `schemas` metadata lists the document schemas it can export; any other snapshot is refused before it runs.",
       "singleton": false,
       "attached": null,
       "file": "src/core/format_registry.h",
@@ -28273,7 +28362,7 @@
       "name": "RecoveryManager",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Autosave bytes are stored separately from the user's document file. A journal scan accepts only complete, hashed, schema-valid frames.",
+      "description": "Autosave bytes are stored separately from the user's document file. A journal scan accepts only complete, hashed, identity-checked frames; any registered DocumentCodec's schema can be recorded and restored. Inspecting or restoring never modifies recovery files.",
       "singleton": false,
       "attached": null,
       "file": "src/core/recovery_manager.h",
@@ -33329,7 +33418,7 @@
       "name": "ToolController",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-NOTE: ToolController is the per-canvas gesture arbiter. It does not claim through GestureRouter because the router's Edit intent is bound to a PropertyDocument EditTransaction (WP-012); bridging spatial edits into it belongs to the WP-033 session seam (docs/canvas.md#open-seams).",
+      "description": "AGENT-NOTE: ToolController is the per-canvas gesture arbiter. It does not claim through GestureRouter because the router's Edit intent is bound to a PropertyDocument EditTransaction (WP-012); bridging spatial edits into it is still open (docs/canvas.md#open-seams). Committed edits already reach the shared session history through CanvasDocument::commit.",
       "singleton": false,
       "attached": null,
       "file": "src/core/tool_controller.h",
@@ -34141,7 +34230,7 @@
       "name": "UndoService",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Per-document histories share one active-document facade. A structural removal/reset invalidates the affected history, so inverse data never resolves to a replacement row or recycled delegate.",
+      "description": "Per-document histories keyed by document identity, behind one active-document facade. Every model kind records DocumentCommand steps through the same engine; a structural removal/reset invalidates the affected history, so inverse data never resolves to a replacement row, recycled delegate or recreated object.",
       "singleton": false,
       "attached": null,
       "file": "src/core/undo_service.h",
@@ -34149,6 +34238,13 @@
         {
           "name": "activeDocument",
           "type": "QindaTK::PropertyDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "activeModel",
+          "type": "QObject *",
           "default": "",
           "readonly": false,
           "constant": false
@@ -34239,6 +34335,10 @@
         {
           "name": "rejected",
           "parameters": "const QString &message"
+        },
+        {
+          "name": "historyChanged",
+          "parameters": "const QString &documentId"
         }
       ],
       "methods": [

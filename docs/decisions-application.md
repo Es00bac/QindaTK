@@ -383,3 +383,40 @@ detached panel with a missing screen uses an available screen and clamps the
 logical rectangle to reachable bounds. Apps provide one DetachedPanelHost
 and WindowHost alongside DockHost. Content stays model-bound and is not
 duplicated when it crosses windows. See [docking.md](docking.md).
+
+## D-046 — Compose domain documents through a model, a codec and one history engine
+
+**Context.** Sessions, undo, atomic save, recovery, workspace restore and
+format import/export were written around `PropertyDocument` and its JSON
+codec. The spatial canvas kept a separate local history, and storing a canvas
+as one PropertyDocument byte value would copy the whole scene into history on
+every gesture and overrun the 8 MiB undo budget. Rich text and workbook
+engines carry their own histories too.
+
+**Decision.** A domain joins through `DocumentModel` (identity, kind, header,
+change notification, and two-phase `prepareCommand`/`publishCommand` of
+immutable `DocumentCommand` steps) and a `DocumentCodec` registered by stable
+`schemaId`. The codec captures on the GUI thread, then encodes, inspects and
+decodes (bounded) on any thread, and adopts on the GUI thread. `UndoService`
+becomes the single engine: histories are keyed by document UUID, commits
+record before they publish, rejections are returned without side effects, and
+a model has exactly one live history (`addModel` refuses a second service;
+`adoptModel` moves it). `DocumentSession` holds a model plus its codec and
+keeps the PropertyDocument API. A save captures on the GUI thread; a worker
+encodes, journals and replaces the file, and a stale receipt marks clean only
+the history position it captured. Recovery frames carry the schema and the
+complete header under a header hash, and version-1 frames stay readable. The
+canvas records `CanvasEdit` deltas with shared image pointers, and page,
+layer and image changes are recorded steps. Its binary native format keeps
+exact 64-bit identities and counters and is validated before adoption.
+
+**Consequences.** Existing PropertyDocument code and reference files are
+unchanged. Generic code must use `model`/`kind`/`schemaId`/`capture`, because
+`DocumentSession::document` is null for other kinds. Adding a domain takes a
+model adapter, a codec and optional format providers declaring `schemas`.
+Recovery frames written by this version cannot be read by older builds.
+Full-document snapshots remain the unit of save and recovery. Canvas tiles
+are stored uncompressed until a bounded inflater exists, because
+`qUncompress` does not bound its output. This decision number is provisional
+until the integration owner merges the concurrent lanes. See
+[document-models.md](document-models.md).
