@@ -165,7 +165,7 @@ its frame opacity, offset and scale, rotated about its centre; text through
 painted here. A running show's presenter ink and pointer are drawn over
 the current slide ([Annotations](#annotations)). A `fade` transition draws the outgoing slide complete and
 the incoming one over it; `push` slides both. `SlideFrameView`,
-`SlideDeck.renderFrame`, `previewDataUrl`, the sorter thumbnails and `exportPdf` all use it, so a
+`SlideDeck.renderFrame`, `previewDataUrl`, the sorter thumbnails, the `SlideCanvas` object images (`renderObjectImage`, the same object code), and `exportPdf` all use it, so a
 sampled frame, the audience window and the export agree pixel for pixel.
 `exportPdf(path, includeNotes)` writes one page per shown slide with every
 build complete (0.75 pt per slide pixel); with notes, a notes page (slide

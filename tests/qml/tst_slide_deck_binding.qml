@@ -163,6 +163,27 @@ TestCase {
         verify(!show.pointerVisible)
     }
 
+    Component { id: canvasComponent; Tk.SlideCanvas { width: 700; height: 460 } }
+
+    // From work/wp056-fix, adapted to the WP-042 canvas: the page colour and
+    // every object image come from the audience painter (renderObjectImage),
+    // not from theme-coloured delegates.
+    function test_canvas_paints_the_audience_render_under_chrome() {
+        const deck = createTemporaryObject(deckComponent, this)
+        const slide = deck.slideIds[0]
+        verify(deck.setMasterBackground("master-default", "#10202c", "#eef6fa"))
+        const canvas = createTemporaryObject(canvasComponent, this, { deck: deck, slideId: slide })
+        const doc = canvas.canvasDocument
+        compare(doc.objectCount, deck.objects(slide).length)
+        verify(Qt.colorEqual(doc.pageColor, "#10202c"), String(doc.pageColor))
+        verify(doc.imageRenders >= doc.objectCount)
+        const view = findChild(canvas, "slideCanvasView")
+        verify(view !== null)
+        compare(view.document, doc)
+        verify(deck.setMasterBackground("master-default", "#203040", "#eef6fa"))
+        verify(Qt.colorEqual(doc.pageColor, "#203040"), String(doc.pageColor))
+    }
+
     function test_sorter_reorders_the_deck_with_undo() {
         const deck = createTemporaryObject(deckComponent, this)
         verify(deck !== null)

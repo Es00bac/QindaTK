@@ -18,6 +18,15 @@ Tk.Box {
     readonly property int depth: block.depth || 0
     readonly property var previous: editor && index > 0 ? editor.presentedBlocks[index - 1] : null
     readonly property var contentItem_: content.item
+    // Header label: the block kind, plus its title or language when it has one.
+    readonly property string typeLabel: {
+        const names = { text: qsTr("Text"), heading: qsTr("Heading"), quote: qsTr("Quote"), list: qsTr("List item"),
+                        todo: qsTr("To-do"), code: qsTr("Code"), table: qsTr("Table"), chart: qsTr("Chart"),
+                        image: qsTr("Image"), embed: qsTr("Embed"), ink: qsTr("Ink"), divider: qsTr("Divider") }
+        const name = names[block.type] || String(block.type || "")
+        const detail = block.data ? (block.data.title || block.data.language || "") : ""
+        return detail.length > 0 ? qsTr("%1 · %2").arg(name).arg(detail) : name
+    }
 
     objectName: "notebookBlock_" + blockId
     color: selected ? Tk.Theme.color.panelAlt : Tk.Theme.color.panel
@@ -40,15 +49,12 @@ Tk.Box {
             direction: Tk.Flex.Row
             align: Tk.Flex.Center
             gap: Tk.Theme.space.xs
-            Tk.Button {
-                objectName: "blockSelect_" + card.blockId
-                text: card.block.data && (card.block.data.title || card.block.data.language) || card.block.type
-                tooltip: qsTr("Select %1 block").arg(card.block.type)
-                variant: card.selected ? "accent" : "ghost"
-                onClicked: {
-                    if (card.editor.notebook) card.editor.selectedBlockId = card.blockId
-                    card.editor.blockSelectionRequested(card.blockId)
-                }
+            Tk.Label {
+                objectName: "blockType_" + card.blockId
+                text: card.typeLabel
+                muted: !card.selected
+                accent: card.selected
+                horizontalAlignment: Text.AlignLeft
                 Tk.Flex.grow: 1
                 Tk.Flex.basis: 0
             }

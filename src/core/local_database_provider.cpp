@@ -45,6 +45,22 @@ QVariantMap result(bool ok, const QString &error = {})
 {
     return {{QStringLiteral("ok"), ok}, {QStringLiteral("error"), error}};
 }
+
+// The copy step of a table rebuild (SQLite's documented 12-step ALTER):
+// INSERT INTO <table> [(columns)] SELECT ..., into a table the same plan
+// created. Other data writes stay out of migration plans.
+QString rebuildCopyTarget(const QString &sql)
+{
+    static const QRegularExpression copy(QStringLiteral("^\\s*INSERT\\s+INTO\\s+\"?(\\w+)\"?\\s*(\\([^)]*\\))?\\s*SELECT\\b"),
+                                         QRegularExpression::CaseInsensitiveOption);
+    return copy.match(sql).captured(1);
+}
+QString createdTable(const QString &sql)
+{
+    static const QRegularExpression create(QStringLiteral("^\\s*CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?\"?(\\w+)\"?"),
+                                           QRegularExpression::CaseInsensitiveOption);
+    return create.match(sql).captured(1);
+}
 } // namespace
 
 LocalDatabaseProvider::LocalDatabaseProvider(QObject *parent) : QObject(parent) {}
@@ -258,14 +274,18 @@ QVariantMap LocalDatabaseProvider::runMigrationPlan(const QStringList &statement
         sqlite3_free(sqliteError);
         return failure(message);
     }
+    const QMap<QString, QVariantMap> relationsBefore = relationshipIndex();
     QStringList operations;
+    QStringList created;
     bool destructive = false;
     for (const QString &sql : statements) {
         const QString keyword = firstKeyword(sql);
+        if (keyword == QLatin1String("CREATE") && !createdTable(sql).isEmpty()) created.append(createdTable(sql).toLower());
+        const bool copy = keyword == QLatin1String("INSERT") && created.contains(rebuildCopyTarget(sql).toLower());
         if (keyword != QLatin1String("CREATE") && keyword != QLatin1String("ALTER")
-            && keyword != QLatin1String("DROP")) {
+            && keyword != QLatin1String("DROP") && !copy) {
             sqlite3_exec(m_db, "ROLLBACK", nullptr, nullptr, nullptr);
-            return failure(tr("Migration plans accept only CREATE, ALTER and DROP statements"));
+            return failure(tr("Migration plans accept only CREATE, ALTER, DROP and INSERT ... SELECT into a table the plan creates"));
         }
         sqlite3_stmt *statement = nullptr;
         QString error;
@@ -288,6 +308,14 @@ QVariantMap LocalDatabaseProvider::runMigrationPlan(const QStringList &statement
         operations.append(keyword.toLower());
         destructive |= keyword == QLatin1String("DROP");
     }
+    // The plan's relationship diff, read inside the transaction (OFF-34):
+    // every foreign key the plan adds or removes, by child table and column.
+    const QMap<QString, QVariantMap> relationsAfter = relationshipIndex();
+    QVariantList added, removed;
+    for (auto it = relationsAfter.cbegin(); it != relationsAfter.cend(); ++it)
+        if (!relationsBefore.contains(it.key())) added.append(it.value());
+    for (auto it = relationsBefore.cbegin(); it != relationsBefore.cend(); ++it)
+        if (!relationsAfter.contains(it.key())) removed.append(it.value());
     // AGENT-GUARD: SQLite DDL is transactional. Preview must roll back the
     // whole executed plan; otherwise dependent statements cannot be checked.
     const char *finish = commit ? "COMMIT" : "ROLLBACK";
@@ -306,7 +334,29 @@ QVariantMap LocalDatabaseProvider::runMigrationPlan(const QStringList &statement
     return {{QStringLiteral("ok"), true}, {QStringLiteral("operations"), operations},
             {QStringLiteral("statements"), statements},
             {QStringLiteral("previewOnly"), !commit},
+            {QStringLiteral("relationshipChanges"), QVariantMap{{QStringLiteral("added"), added},
+                                                                {QStringLiteral("removed"), removed}}},
             {QStringLiteral("warning"), destructive ? tr("Plan includes a DROP statement") : QString()}};
+}
+
+QMap<QString, QVariantMap> LocalDatabaseProvider::relationshipIndex() const
+{
+    QMap<QString, QVariantMap> index;
+    for (const QVariant &table : tables()) {
+        const QString name = table.toString();
+        for (const QVariant &entry : schema(name).value(QStringLiteral("relationships")).toList()) {
+            const QVariantMap r = entry.toMap();
+            const QVariantMap relation{{QStringLiteral("table"), name}, {QStringLiteral("from"), r.value(QStringLiteral("from"))},
+                                       {QStringLiteral("target"), r.value(QStringLiteral("table"))},
+                                       {QStringLiteral("to"), r.value(QStringLiteral("to"))},
+                                       {QStringLiteral("onUpdate"), r.value(QStringLiteral("onUpdate"))},
+                                       {QStringLiteral("onDelete"), r.value(QStringLiteral("onDelete"))}};
+            QStringList key;
+            for (const QVariant &part : relation) key.append(part.toString());
+            index.insert(key.join(QChar(0x1f)), relation);
+        }
+    }
+    return index;
 }
 
 bool LocalDatabaseProvider::prepareOne(const QString &sql, sqlite3_stmt **statement, QString *error) const

@@ -246,6 +246,14 @@ public:
     void paintPage(QPainter *painter, int page, const RichText::PaintContext &context,
                    const QRectF &clip = {});
 
+    // A running page region of `page` (PageSetup::headerText or footerText)
+    // with `{page}` and `{pages}` expanded; empty in continuous mode. Until
+    // pagination completes `{pages}` reads estimatedPageCount().
+    // AGENT-GUARD: preview tiles, print sheets and PDF pages all paint the
+    // regions through paintPage; finalizePages re-stamps every page's
+    // revision when a completed count changes, or tiles keep "of 3".
+    QString pageRegionText(int page, bool footer) const;
+
     const RichText::LayoutStats &stats() const { return m_stats; }
     void resetStats();
     QStringList missingFontFamilies() const;
@@ -282,6 +290,7 @@ private:
     // page follows (end of the story, or the last frame page).
     bool buildPage(int index, const RichText::FlowState &start, RichText::Page *page, RichText::FlowState *next);
     void paintFrames(QPainter *painter, int page, const RichText::PaintContext &context);
+    void paintRegions(QPainter *painter, int page, const RichText::PaintContext &context);
     bool rebuildMarkers() const;
     void pageRange(RichText::Page &page);
     QVector<int> pagesContaining(const RichText::Paragraph *p) const;
@@ -315,6 +324,7 @@ private:
     qreal m_flowHeight = 0;
     RichText::FlowState m_frontier;   // where progressive pagination resumes (with frames: the overset start)
     bool m_complete = false;
+    int m_regionTotal = -1;           // page count the regions were stamped with (-1: none)
     QVector<QUuid> m_paginatedBlocks; // block IDs the current pages were built from
     // Markers derive from the document alone, so a query rebuilds them
     // lazily; m_markersChanged tells finalizePages to re-hash every page.

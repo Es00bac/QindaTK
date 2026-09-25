@@ -87,6 +87,12 @@ built-in devices. Test fixtures pass ALSA configuration text to
 `createAlsaAudioBackend()` (for example a `file` PCM with an `infile`) to
 exercise real alsa-lib I/O silently.
 
+`AudioEngine.backends` reports which device backends this build and this
+engine offer: `[{id: "builtin" | "alsa", available, reason}]`. Without ALSA
+support the `alsa` entry says "QindaTK was built without the ALSA backend";
+after `setBackends()` without it, "The application did not enable the ALSA
+backend" ([D-203](decisions.md#d-203--an-omitted-device-backend-is-reported-not-hidden)).
+
 `AudioEngine.applyConfiguration(requestId, configuration)` always answers with
 `configurationApplied(requestId, state, activeConfiguration, message)`:
 
