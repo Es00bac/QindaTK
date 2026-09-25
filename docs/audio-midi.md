@@ -60,7 +60,7 @@ Quantize is exact integer arithmetic: a position moves by
 `round((line − position) · strength / 100)` toward the nearest grid line.
 Snapshots: `noteRows(pattern, start, end)` (PianoRoll `notes`),
 `tickBoundaries(start, end, grid)`, `controllerEvents(pattern, controller,
-start, end)`, `stepRows(pattern)`, `patternData(pattern)`.
+start, end)`, `stepRows(pattern)`; `patternData(pattern)` is the committed pattern.
 
 The session saves the content as its `midi` part
 (`schema: qindatk.midi/1`, ticks as decimal strings, a different PPQ is
