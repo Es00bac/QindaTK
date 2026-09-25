@@ -4,6 +4,7 @@
 #include "document_model.h"
 #include "slide_deck_types.h"
 
+#include <QHash>
 #include <QImage>
 #include <QObject>
 #include <QPointer>
@@ -44,6 +45,7 @@ class SlideDeck : public QObject, public DocumentModel {
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
 public:
     static constexpr int HistorySteps = 128;
+    static constexpr int PreviewWidth = 160;
     explicit SlideDeck(QObject *parent = nullptr);
     ~SlideDeck() override;
 
@@ -172,6 +174,19 @@ private:
     std::pair<int, int> locateObject(const Slides::DeckState &state, const QString &objectId) const;
     std::pair<int, int> locateEffect(const Slides::DeckState &state, const QString &effectId) const;
     void adoptLoaded(Slides::DeckState state, const SnapshotHeader &header);
+    // Sorter thumbnail (PNG data URL, PreviewWidth wide) rendered with the
+    // shared painter; reused while the slide, its master and the slide size
+    // are unchanged. prunePreviews drops entries of deleted slides, so the
+    // cache never outgrows the deck (at most MaximumSlides entries).
+    QString cachedPreview(const Slides::Slide &slide) const;
+    void prunePreviews() const;
+    struct PreviewEntry {
+        Slides::Slide slide;
+        Slides::Master master;
+        QSizeF size;
+        QString url;
+    };
+    mutable QHash<QString, PreviewEntry> m_previews;
 
     Slides::DeckState m_state;
     QString m_documentId;

@@ -101,11 +101,17 @@ the slide's aspect ratio: master background, then each visible object with
 its frame opacity, offset and scale; text through `QTextDocument` from the
 fragment's HTML. A `fade` transition draws the outgoing slide complete and
 the incoming one over it; `push` slides both. `SlideFrameView`,
-`SlideDeck.renderFrame`, `previewDataUrl` and `exportPdf` all use it, so a
+`SlideDeck.renderFrame`, `previewDataUrl`, the sorter thumbnails and `exportPdf` all use it, so a
 sampled frame, the audience window and the export agree pixel for pixel.
 `exportPdf(path, includeNotes)` writes one page per shown slide with every
 build complete (0.75 pt per slide pixel); with notes, a notes page (slide
 thumbnail and notes) follows each slide.
+
+Each `slides` summary carries `previewUrl`: a 160 px wide PNG data URL of
+the slide with every build complete, for `SlideSorter`. The deck caches one
+per slide and reuses it while the slide, its master and the slide size are
+unchanged; entries of deleted slides are dropped, so the cache never holds
+more than the deck's slides.
 
 ## Playback
 
