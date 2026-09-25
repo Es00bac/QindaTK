@@ -204,10 +204,19 @@ void AudioRenderGraph::playPlacement(const MidiPlacement &placement, qint64 star
 int AudioRenderGraph::midiEvents(const QString &channelId, qint64 start, int frames, MidiScheduledEvent *out,
                                  int capacity, const MidiLaunchState *launch) const
 {
-    const Node *node = nullptr;
     for (const Node &candidate : m_nodes)
-        if (candidate.midi && candidate.channelId == channelId) node = &candidate;
-    if (!node || frames <= 0) return 0;
+        if (candidate.midi && candidate.channelId == channelId)
+            return nodeMidiEvents(candidate, start, frames, out, capacity, launch);
+    return 0;
+}
+
+// Realtime-safe (plugin instruments read their notes here on the device
+// thread): no allocation; std::sort sorts in place.
+int AudioRenderGraph::nodeMidiEvents(const Node &channel, qint64 start, int frames, MidiScheduledEvent *out,
+                                     int capacity, const MidiLaunchState *launch) const noexcept
+{
+    const Node *node = &channel;
+    if (frames <= 0) return 0;
     const qint64 stop = start + frames;
     int count = 0;
     const auto push = [&](const MidiScheduledEvent &event) {

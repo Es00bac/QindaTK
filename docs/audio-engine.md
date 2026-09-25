@@ -181,8 +181,9 @@ Hardware/OS matrices (PipeWire native, JACK, WASAPI, CoreAudio, real
 interfaces, driver hot-plug notifications) are WP-088 platform qualification;
 formats beyond WAV belong to format adapters; resampling at playback time,
 crossfades between media clips and per-clip gain are not modelled (comp
-crossfades are, [audio-comping.md](audio-comping.md)); plugins belong to
-WP-066. Source edits (trim, fades, gain, spectral processing) are
+crossfades are, [audio-comping.md](audio-comping.md)); plugin inserts,
+their latency compensation and the plugin host processes are in
+[audio-plugins.md](audio-plugins.md) (WP-066). Source edits (trim, fades, gain, spectral processing) are
 `AudioSession.edits` ([audio-editing.md](audio-editing.md), WP-063): the
 graph plays the edited buffers. Sends, buses and per-track and bus meters are in
 [audio-mixer.md](audio-mixer.md).

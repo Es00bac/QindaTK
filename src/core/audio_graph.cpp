@@ -276,6 +276,8 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
             node.routes.push_back(graph->converted(node, route));
         }
     }
+    graph->m_offline = sources.offline;
+    graph->compilePlugins(sources);
     graph->m_work.assign(graph->m_lanes * std::size_t(kChunk), 0.0);
     return graph;
 }

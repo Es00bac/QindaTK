@@ -3,6 +3,7 @@
 
 #include "audio_media.h"
 #include "audio_mixer_types.h"
+#include "audio_plugin_processor.h"
 #include "audio_take_comp.h"
 #include "engine_schedule.h"
 #include "midi_program.h"
@@ -51,6 +52,10 @@ public:
         // MIDI patterns and launcher slots (WP-064). MIDI tracks play the
         // patterns their clips name through the built-in test instrument.
         const MidiContent *midi = nullptr;
+        // Plugin inserts (WP-066, docs/audio-plugins.md): each channel's chain
+        // runs pre-fader in slot order; reported latency is compensated on
+        // every route so all paths reach a destination aligned (D-192).
+        const AudioPluginInserts *plugins = nullptr;
         // Take comps (WP-065): an audio clip whose resourceId starts with
         // "comp:" plays what this returns for it (invalid: missing).
         std::function<AudioCompPlayback(const QString &compId)> comp;
@@ -86,6 +91,14 @@ public:
     int meterSlots() const { return int(m_meterChannels.size()); }
     // Routes that play nothing because their port is not available.
     QStringList problems() const { return m_problems; }
+    // The compensated plugin latency at the outputs, in frames: the device
+    // hears the mix that much late; a file render reads that far ahead and
+    // drops the first frames, so the file lines up with the timeline.
+    int pluginLatency() const { return m_pluginLatency; }
+    // Frames a channel's own inserts delay it, and frames its output route
+    // waits (compensation). -1: no such channel. GUI and tests.
+    int insertLatency(const QString &channelId) const;
+    int compensation(const QString &channelId) const;
 
     // AGENT-CONTRACT: realtime-safe. Adds the signal for [start, start + frames)
     // into `out` (interleaved, `channels` wide; frames <= kMaxBlock). `scratch`
@@ -144,6 +157,9 @@ private:
         int port = -1;          // m_ports index when node < 0
         int level = -1;         // send level curve; -1 is unity
         bool preFader = false;
+        int delay = 0;          // latency compensation, frames (D-192)
+        std::size_t delayBuffer = 0; // first sample in m_delay
+        std::size_t delaySlot = 0;   // cursor in m_delayCursor
         // A surround source's fixed conversion (AudioMixer::surroundMatrix).
         std::array<double, AudioMixer::kMaxLanes * AudioMixer::kMaxLanes> matrix{};
     };
@@ -163,6 +179,27 @@ private:
         quint64 midiLane = 0;    // Midi::key(track id)
         std::size_t placementFirst = 0;
         std::size_t placementCount = 0;
+        std::size_t insertFirst = 0;  // m_inserts range, slot order
+        std::size_t insertCount = 0;
+        int insertLatency = 0;        // frames the inserts delay this channel
+        bool pluginInstrument = false; // a plugin plays the MIDI instead of the test instrument
+    };
+    struct Insert {
+        AudioPluginProcessorPtr processor; // null: missing plugin, the insert passes dry
+        bool bypassed = false;
+        bool notes = false;           // receives the channel's MIDI
+        int latency = 0;
+        // Lanes past the front pair of a surround channel bypass a stereo
+        // plugin and wait its latency in m_delay (0 lanes: nothing to delay).
+        int extraLanes = 0;
+        std::size_t extraBuffer = 0;
+        std::size_t extraSlot = 0;
+        std::size_t parameterFirst = 0; // m_insertParameters range
+        std::size_t parameterCount = 0;
+    };
+    struct InsertParameter {
+        int index = -1;               // the processor's parameter index
+        int curve = -1;
     };
     struct PortTarget {
         QString id;
@@ -198,6 +235,17 @@ private:
     void mixChunk(qint64 start, int frames, float *out, int channels, double *scratch,
                   AudioChannelMeterSink *meters, const MidiLaunchState *launch) const noexcept;
     void writePorts(int frames, float *out, int channels) const noexcept;
+    int nodeMidiEvents(const Node &node, qint64 start, int frames, MidiScheduledEvent *out, int capacity,
+                       const MidiLaunchState *launch) const noexcept;
+    // Plugins (audio_graph_plugins.cpp).
+    void compilePlugins(const Sources &sources);
+    void runInserts(const Node &node, qint64 start, int frames, double *const in[],
+                    const MidiLaunchState *launch) const noexcept;
+    void delayRoute(const Route &route, int lanes, double *const in[], double *const out[], int frames) const noexcept;
+    // Delays `lanes` lanes by `delay` frames through m_delay[buffer...]; in
+    // and out may be the same lanes.
+    void delayLines(std::size_t buffer, std::size_t slot, int delay, int lanes, double *const in[],
+                    double *const out[], int frames) const noexcept;
 
     quint64 m_generation = 0;
     int m_sampleRate = 48000;
@@ -224,6 +272,14 @@ private:
     double m_midiPhase[128] = {};
     int m_attack = 1;
     int m_release = 1;
+    // Plugins: inserts, their mapped parameters, and the compensation delay
+    // lines (one per delayed route, lanes x delay samples, zeroed at compile).
+    bool m_offline = false;
+    int m_pluginLatency = 0;
+    std::vector<Insert> m_inserts;
+    std::vector<InsertParameter> m_insertParameters;
+    mutable std::vector<double> m_delay;
+    mutable std::vector<int> m_delayCursor;
 };
 using AudioRenderGraphPtr = std::shared_ptr<const AudioRenderGraph>;
 

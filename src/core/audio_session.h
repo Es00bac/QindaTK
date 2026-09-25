@@ -5,6 +5,7 @@
 #include "audio_graph.h"
 #include "audio_media.h"
 #include "audio_mixer_model.h"
+#include "audio_plugin_host.h"
 #include "audio_session_history.h"
 #include "audio_source_edit_model.h"
 #include "audio_take_comp_model.h"
@@ -58,6 +59,7 @@ class AudioSession : public QObject {
     // A recording that wrapped a loop becomes one take per pass in a comp
     // (default); false keeps the whole recording as one linear clip.
     Q_PROPERTY(bool passTakes READ passTakes WRITE setPassTakes NOTIFY passTakesChanged)
+    Q_PROPERTY(QindaTK::AudioPluginHost *plugins READ plugins CONSTANT)
     Q_PROPERTY(QindaTK::AudioEngine *engine READ engine WRITE setEngine NOTIFY engineChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
     Q_PROPERTY(QString mediaDirectory READ mediaDirectory WRITE setMediaDirectory NOTIFY mediaDirectoryChanged)
@@ -85,6 +87,8 @@ public:
     AudioTakeCompModel *comps() const { return m_comps; }
     bool passTakes() const { return m_passTakes; }
     void setPassTakes(bool enabled);
+    // Plugin inserts of the mixer channels (WP-066, docs/audio-plugins.md).
+    AudioPluginHost *plugins() const { return m_plugins; }
     AudioEngine *engine() const { return m_engine; }
     void setEngine(AudioEngine *engine);
     QString filePath() const { return m_filePath; }
@@ -193,6 +197,7 @@ private:
     bool m_meterRebuildQueued = false;
     AudioTakeCompModel *m_comps = nullptr;
     bool m_passTakes = true;
+    AudioPluginHost *m_plugins = nullptr;
     QPointer<AudioEngine> m_engine;
     QList<QMetaObject::Connection> m_engineConnections;
     QHash<QString, AudioBufferPtr> m_decoded;

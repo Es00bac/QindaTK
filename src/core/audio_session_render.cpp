@@ -49,6 +49,8 @@ AudioRenderGraphPtr AudioSession::compileGraph(int sampleRate, bool offline)
     sources.midi = &m_midi->content();
     // Exports play the committed comps, never a preview or an audition (D-176).
     sources.comp = [this, offline](const QString &id) { return m_comps->playback(id, offline); };
+    const AudioPluginInsertsPtr inserts = m_plugins ? m_plugins->inserts() : nullptr; // alive until compile() returns
+    sources.plugins = inserts.get();
     // Device ports play on the stream that runs now; a rate or device change
     // emits formatChanged and recompiles (docs/audio-mixer.md, D-112).
     if (m_engine && !offline && m_engine->streamFormat().outputChannels > 0) {
@@ -63,6 +65,9 @@ QVariantMap AudioSession::renderToFile(const QString &file, const QString &start
 {
     clearError();
     const int rate = sampleRate > 0 ? sampleRate : this->sampleRate();
+    // Plugins run for this render only, at its rate (D-192); the device
+    // passes them dry until the claim ends with this function.
+    const auto plugins = m_plugins->beginOffline(rate);
     const AudioRenderGraphPtr graph = compileGraph(rate, true);
     const TimelineRate timebase = m_timeline->timebase();
     const auto toSamples = [&](const QString &ticks) -> std::optional<qint64> {
@@ -84,11 +89,17 @@ QVariantMap AudioSession::renderToFile(const QString &file, const QString &start
     }
     std::vector<float> block(size_t(AudioRenderGraph::kMaxBlock) * channels);
     std::vector<double> scratch(AudioRenderGraph::kMaxBlock);
-    for (qint64 at = *start; at < *end;) {
-        const int count = int(std::min<qint64>(AudioRenderGraph::kMaxBlock, *end - at));
+    // Latency compensation delays the whole mix by the plugins' latency: the
+    // render runs that far past the end and drops as many leading frames.
+    const qint64 latency = graph->pluginLatency();
+    qint64 skip = latency;
+    for (qint64 at = *start; at < *end + latency;) {
+        const int count = int(std::min<qint64>(AudioRenderGraph::kMaxBlock, *end + latency - at));
         std::fill_n(block.begin(), size_t(count) * channels, 0.0f);
         graph->render(at, count, block.data(), channels, scratch.data());
-        writer.write(block.data(), count);
+        const qint64 dropped = std::min<qint64>(skip, count);
+        if (dropped < count) writer.write(block.data() + size_t(dropped) * channels, count - dropped);
+        skip -= dropped;
         at += count;
     }
     if (!writer.finish(&error)) {
@@ -101,7 +112,8 @@ QVariantMap AudioSession::renderToFile(const QString &file, const QString &start
             {QStringLiteral("startSample"), QString::number(*start)},
             {QStringLiteral("sampleRate"), rate},
             {QStringLiteral("channels"), channels},
-            {QStringLiteral("missingMedia"), graph->missingResources()}};
+            {QStringLiteral("missingMedia"), graph->missingResources()},
+            {QStringLiteral("pluginLatency"), int(latency)}};
 }
 
 } // namespace QindaTK

@@ -5,14 +5,20 @@ import QindaTK as Tk
 
 // Registry metadata and scan results are snapshots from the host. Search and
 // filtering are local presentation state; add/preview actions remain requests.
+// AGENT-CONTRACT (WP-066, AudioPluginHost, docs/audio-plugins.md): with `host`
+// set (session.plugins) the rows and scan status come from the real registry,
+// and an add goes to host.rackAction("add") on `targetChannelId` and is
+// acknowledged with its answer. addRequested is still emitted first.
 T.Control {
     id: root
-    property var plugins: [] // {pluginId,name,vendor,category,kind,layouts,available,state,reason,presets}
+    property Tk.AudioPluginHost host: null
+    property string targetChannelId: ""
+    property var plugins: root.host ? root.host.browserPlugins : [] // {pluginId,name,vendor,category,kind,layouts,available,state,reason,presets}
     property string query: ""
     property string kindFilter: "All"
     property string categoryFilter: "All"
-    property string scanState: "idle"
-    property string scanMessage: ""
+    property string scanState: root.host ? root.host.registry.scanState : "idle"
+    property string scanMessage: root.host ? root.host.registry.scanMessage : ""
     property string tooltip: ""
     property string _serial: "0"
     property string _lastRequestId: ""
@@ -76,6 +82,12 @@ T.Control {
         root._requestState = "pending"
         root._requestMessage = qsTr("Waiting for host instantiation")
         root.addRequested(id, String(pluginId), String(presetId || ""))
+        if (root.host) {
+            const answer = root.host.rackAction("add", "", {channelId: root.targetChannelId, pluginId: String(pluginId)},
+                                                root.Window.window)
+            root.acknowledgeAdd(id, answer.state, answer.state === "accepted"
+                                ? qsTr("Added %1").arg(String(plugin.name || pluginId)) : answer.message)
+        }
         return id
     }
     function acknowledgeAdd(requestId, state, message) {

@@ -238,6 +238,9 @@ holds.
 | `tst_audio_control_surface` | touch/move/release is one transaction on the strip's binding; feedback follows undo and a strip; no feedback to a held fader; untouched and V-Pot bursts; buttons and LEDs; banks wait for a held fader; the ALSA sequencer port both ways |
 | `tst_mixer_views.qml` | RoutingMatrix keyboard routing keeps the row, delegate and focused editor by ID through accepted routes, reorders and inserts; host arrays re-find rows by ID; Fader, Knob and PanningControl drop a gesture when their binding or channel changes or they are destroyed; MixerView group mute/solo, compact/detail and Home/End/Page keys; a large mix meters the strips on screen; the spatial pad maps known positions and matches the depth field |
 
-Not covered here: plugin inserts and `PluginRack` (WP-066); parameter
-de-zippering (output fidelity, WP-089, deferred by the user); performance
-measurement, screen-reader runs, other platforms (WP-088…WP-094).
+Plugin inserts run pre-fader in each channel's chain, with their latency
+compensated on every route ([audio-plugins.md](audio-plugins.md), WP-066).
+
+Not covered here: parameter de-zippering (output fidelity, WP-089, deferred
+by the user); performance measurement, screen-reader runs, other platforms
+(WP-088…WP-094).

@@ -19,6 +19,9 @@ if(QINDATK_BUILD_TOOLS AND BUILD_TESTING)
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
         endif()
     endforeach()
+    # The live plugin host example scans the test CLAP plugins (tests/plugins).
+    set_tests_properties(example_plugin-host PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;CLAP_PATH=${CMAKE_BINARY_DIR}/tests/clap-fixtures")
     add_test(NAME example_document_lifecycle
         COMMAND qtk-preview "${CMAKE_CURRENT_SOURCE_DIR}/document-lifecycle.qml"
                 --check --size 1120x720)

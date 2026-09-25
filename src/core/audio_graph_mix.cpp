@@ -202,8 +202,9 @@ void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channe
         double *in[AudioMixer::kMaxLanes] = {};
         for (int l = 0; l < AudioMixer::kMaxLanes; ++l) in[l] = lane(node.buffer, std::min(l, node.lanes - 1));
         if (!node.clips.empty()) addClips(node, start, frames, in);
-        if (node.midi) addMidi(node, start, frames, in, launch);
+        if (node.midi && !node.pluginInstrument) addMidi(node, start, frames, in, launch);
         if (!node.audible) continue; // muted: feeds nothing, and its meter reads silence
+        if (node.insertCount) runInserts(node, start, frames, in, launch); // pre-fader (WP-066)
         evaluate(node.gain, 1.0, start, frames, gain);
         if (meters && node.meterSlot >= 0)
             for (int l = 0; l < node.lanes; ++l) meters->add(node.meterSlot, l, in[l], gain, frames);
@@ -213,7 +214,17 @@ void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channe
         evaluate(node.depth, 1.0, start, frames, depth);
         for (const Route &route : node.routes) {
             evaluate(route.level, 1.0, start, frames, level);
-            mix(node, route, in, frames, controls);
+            if (route.delay <= 0) {
+                mix(node, route, in, frames, controls);
+                continue;
+            }
+            // Latency compensation (D-192): this route waits for slower paths.
+            // Chunks 0-4 of scratch hold the controls; the delayed lanes follow.
+            double *delayed[AudioMixer::kMaxLanes] = {};
+            for (int l = 0; l < AudioMixer::kMaxLanes; ++l)
+                delayed[l] = l < node.lanes ? scratch + (5 + l) * kChunk : delayed[node.lanes - 1];
+            delayRoute(route, node.lanes, in, delayed, frames);
+            mix(node, route, delayed, frames, controls);
         }
     }
     writePorts(frames, out, channels);

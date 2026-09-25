@@ -25709,15 +25709,31 @@
       "name": "PluginBrowser",
       "kind": "qml",
       "base": "T.Control",
-      "description": "Registry metadata and scan results are snapshots from the host. Search and filtering are local presentation state; add/preview actions remain requests.",
+      "description": "Registry metadata and scan results are snapshots from the host. Search and filtering are local presentation state; add/preview actions remain requests. AGENT-CONTRACT (WP-066, AudioPluginHost, docs/audio-plugins.md): with `host` set (session.plugins) the rows and scan status come from the real registry, and an add goes to host.rackAction(\"add\") on `targetChannelId` and is acknowledged with its answer. addRequested is still emitted first.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PluginBrowser.qml",
       "properties": [
         {
+          "name": "host",
+          "type": "Tk.AudioPluginHost",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetChannelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "plugins",
           "type": "var",
-          "default": "[] // {pluginId,name,vendor,category,kind,layouts,available,state,reason,presets}",
+          "default": "root.host ? root.host.browserPlugins : [] // {pluginId,name,vendor,category,kind,layouts,available,state,reason,presets}",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -25749,7 +25765,7 @@
         {
           "name": "scanState",
           "type": "string",
-          "default": "\"idle\"",
+          "default": "root.host ? root.host.registry.scanState : \"idle\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -25757,7 +25773,7 @@
         {
           "name": "scanMessage",
           "type": "string",
-          "default": "\"\"",
+          "default": "root.host ? root.host.registry.scanMessage : \"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -25875,15 +25891,23 @@
       "name": "PluginRack",
       "kind": "qml",
       "base": "T.Control",
-      "description": "`instances` is an ordered host snapshot. Every button, switch and drag emits a request; the rack waits for host acknowledgement and a new snapshot.",
+      "description": "`instances` is an ordered host snapshot. Every button, switch and drag emits a request; the rack waits for host acknowledgement and a new snapshot. A parameter row that carries a `binding` (AudioParameterBinding) edits the automation parameter directly with a Knob (WP-066, docs/audio-plugins.md). AGENT-CONTRACT (WP-066, AudioPluginHost::rackAction, docs/audio-plugins.md): with `host` set (session.plugins) the rack is wired to the real plugin host: `instances` follows host.instances(channelId) on every host revision, and each request is answered by host.rackAction() and acknowledged at once. Requests are still emitted first, so an app can observe them.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PluginRack.qml",
       "properties": [
         {
+          "name": "host",
+          "type": "Tk.AudioPluginHost",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "instances",
           "type": "var",
-          "default": "[] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters,editorAvailable}",
+          "default": "root.host ? root.hostInstances(root.host.revision, root.channelId) : [] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters{parameterId,name,displayValue,available,binding?},editorAvailable}",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -25977,6 +26001,10 @@
           "parameters": "instanceId, action, payload"
         },
         {
+          "name": "hostInstances",
+          "parameters": "revision, channel"
+        },
+        {
           "name": "acknowledgeAction",
           "parameters": "requestId, state, message"
         },
@@ -25999,6 +26027,18 @@
         {
           "name": "requestEditor",
           "parameters": "instanceId"
+        },
+        {
+          "name": "requestReload",
+          "parameters": "instanceId"
+        },
+        {
+          "name": "parameterRowHeight",
+          "parameters": "parameter"
+        },
+        {
+          "name": "parametersHeight",
+          "parameters": "parameters"
         },
         {
           "name": "requestParameterEdit",
@@ -26027,11 +26067,13 @@
       "bridge": false,
       "objectNames": [
         "pluginBypass_",
+        "pluginParameter_",
         "pluginRack",
         "pluginRackDropTarget",
         "pluginRackInstances",
         "pluginRackListFrame",
         "pluginRackStatus",
+        "pluginReload_",
         "pluginSlot_"
       ]
     },
@@ -46191,6 +46233,329 @@
       "bridge": false
     },
     {
+      "name": "AudioPluginHost",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (WP-066, D-190..D-193, docs/audio-plugins.md): the plugin inserts of one AudioSession (session.plugins). Each mixer channel (track:<uuid>, bus:<uuid>, master) has an ordered chain of instances (\"plugin:<uuid>\"), processed pre-fader in chain order by the session's AudioRenderGraph, with the plugins' reported latency compensated across the mix. Every instance runs in its own qindatk-plugin-host process. Parameters that a host may write are AutomationModel parameters \"<instance>/<CLAP id>\" (D-191): knobs, automation lanes, undo and the plugin's own editor all go through them. The session saves the chains as its \"plugins\" part; a plugin that is not installed, or that fails, keeps its identity, bypass flag, parameter IDs and saved state (PLT-11), plays dry, and can be reloaded later. PluginBrowser and PluginRack are views: browserPlugins, instances(channel) and rackAction() are their host side.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_plugin_host.h",
+      "properties": [
+        {
+          "name": "registry",
+          "type": "QindaTK::AudioPluginRegistry *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "formats",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "browserPlugins",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "instanceIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "requestTimeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "realtimeTimeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "offlineTimeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hangTimeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "contentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "browserChanged",
+          "parameters": ""
+        },
+        {
+          "name": "timeoutsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "instanceFailed",
+          "parameters": "const QString &instanceId, const QString &message"
+        },
+        {
+          "name": "editorChanged",
+          "parameters": "const QString &instanceId, bool open"
+        }
+      ],
+      "methods": [
+        {
+          "name": "addPlugin",
+          "returns": "QVariantMap",
+          "parameters": "const QString &channelId, const QString &pluginId, int index = -1"
+        },
+        {
+          "name": "removePlugin",
+          "returns": "QVariantMap",
+          "parameters": "const QString &instanceId"
+        },
+        {
+          "name": "movePlugin",
+          "returns": "QVariantMap",
+          "parameters": "const QString &instanceId, int index, const QString &channelId = {}"
+        },
+        {
+          "name": "setBypassed",
+          "returns": "QVariantMap",
+          "parameters": "const QString &instanceId, bool bypassed"
+        },
+        {
+          "name": "reload",
+          "returns": "QVariantMap",
+          "parameters": "const QString &instanceId"
+        },
+        {
+          "name": "chain",
+          "returns": "QStringList",
+          "parameters": "const QString &channelId"
+        },
+        {
+          "name": "instances",
+          "returns": "QVariantList",
+          "parameters": "const QString &channelId"
+        },
+        {
+          "name": "instance",
+          "returns": "QVariantMap",
+          "parameters": "const QString &instanceId"
+        },
+        {
+          "name": "parameterId",
+          "returns": "QString",
+          "parameters": "const QString &instanceId, int clapParameterId"
+        },
+        {
+          "name": "parameterBinding",
+          "returns": "QindaTK::AudioParameterBinding *",
+          "parameters": "const QString &instanceId, int clapParameterId"
+        },
+        {
+          "name": "openEditor",
+          "returns": "QVariantMap",
+          "parameters": "const QString &instanceId, QWindow *owner = nullptr"
+        },
+        {
+          "name": "closeEditor",
+          "returns": "QVariantMap",
+          "parameters": "const QString &instanceId"
+        },
+        {
+          "name": "rackAction",
+          "returns": "QVariantMap",
+          "parameters": "const QString &action, const QString &instanceId, const QVariantMap &payload, QWindow *owner = nullptr"
+        },
+        {
+          "name": "refreshStates",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "unloadAll",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AudioPluginRegistry",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (WP-066, D-190, docs/audio-plugins.md): plugin discovery. Every *.clap binary under the search paths is scanned by qindatk-plugin-host --scan in its own process with a time limit, so a binary that crashes, hangs or refuses to load becomes an unavailable row with its reason and never takes the application down. Results are cached by path, size and modification time (cacheFile): an unchanged binary is not scanned again, including one that failed, until scan(true). `plugins` is the PluginBrowser row list; AudioPluginHost only instantiates plugins found here (a session file never names a binary to load).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_plugin_registry.h",
+      "properties": [
+        {
+          "name": "searchPaths",
+          "type": "QStringList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "cacheFile",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "scanTimeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "plugins",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "binaries",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "scanState",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "scanMessage",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "formats",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "hostExecutable",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [
+        {
+          "name": "searchPathsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "cacheFileChanged",
+          "parameters": ""
+        },
+        {
+          "name": "scanTimeoutMsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pluginsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "scanStateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "scanFinished",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "scan",
+          "returns": "void",
+          "parameters": "bool force = false"
+        },
+        {
+          "name": "scanNow",
+          "returns": "bool",
+          "parameters": "bool force = false"
+        },
+        {
+          "name": "descriptorData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &pluginId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "AudioSession",
       "kind": "cpp",
       "base": "QObject",
@@ -46296,6 +46661,13 @@
           "default": "",
           "readonly": false,
           "constant": false
+        },
+        {
+          "name": "plugins",
+          "type": "QindaTK::AudioPluginHost *",
+          "default": "",
+          "readonly": true,
+          "constant": true
         },
         {
           "name": "engine",

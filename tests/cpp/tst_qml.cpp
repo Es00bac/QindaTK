@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include <QQmlEngine>
 #include <QQmlContext>
+#include <QFileInfo>
+#include <QTemporaryDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QtQuickTest/quicktest.h>
@@ -194,7 +196,15 @@ public slots:
                                                    new InspectorFixtures(engine));
         engine->rootContext()->setContextProperty(QStringLiteral("preferencesFixtures"),
                                                    new PreferencesFixtures(engine));
+        // WP-066: the real test CLAP plugins for tst_plugin_host_session.qml,
+        // scanned into a cache of this run's own.
+        engine->rootContext()->setContextProperty(QStringLiteral("pluginFixtures"), QVariantMap{
+            {QStringLiteral("clapDirectory"), QFileInfo(QStringLiteral(QINDATK_TEST_CLAP)).absolutePath()},
+            {QStringLiteral("cacheFile"), m_pluginCache.filePath(QStringLiteral("plugin-cache.json"))}});
     }
+
+private:
+    QTemporaryDir m_pluginCache;
 };
 
 QUICK_TEST_MAIN_WITH_SETUP(qindatk_qml, Setup)

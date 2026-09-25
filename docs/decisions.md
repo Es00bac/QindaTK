@@ -1659,6 +1659,78 @@ is the current buffer plus at most the budget; an undo past dropped
 spectral patches re-runs their STFT on the GUI thread (bounded by each
 edit's range).
 
+## D-190 — Plugins run as CLAP in one host process per instance
+
+**Context.** WP-066 needs real plugin processing, state and editors, and a
+plugin that crashes or hangs must not take the session down (PLT-11,
+ENG-16). No plugin SDK is installed on the build machines; CLAP is a
+header-only MIT ABI, LV2 needs lilv, VST3 needs its SDK. **Decision.** The
+supported format is CLAP 1.2.9, its headers vendored in `third_party/clap`
+and used only by `qindatk-plugin-host` and the test plugins; the library
+never loads plugin code. Scanning runs `--scan` per binary and hosting runs
+`--serve` per instance, each in its own process with a time limit. Control
+travels as JSON lines over the process's stdin/stdout (the protocol uses a
+private copy of fd 1; the plugin's stdout goes to stderr); audio travels
+through one shared memory block per instance (`memfd`, inherited by that
+child only) with futex request/response words. Instances start only from
+plugins the registry found, never from a path in a session file. LV2 and
+VST3 are declared unavailable with their reasons. **Consequences.** A crash
+or hang kills one process; the session, the device and other plugins
+continue. Each instance costs a process and a context switch per block. A
+format adapter added later brings its own scan and serve paths behind the
+same protocol and its own evidence.
+
+## D-191 — Plugin parameters are automation parameters
+
+**Context.** Knobs, automation lanes, undo and the plugin's own editor must
+agree on one value, as they do for the mixer (D-100, D-110). **Decision.**
+Every automatable, visible, writable plugin parameter is the
+`AutomationModel` parameter `<instance>/<CLAP id>` (plain range, unit
+`plain`, step 1 when stepped), created with the plugin's value when the
+instance is added and never removed. The automation is the source of
+truth: the graph sends each value at block starts when it changes and
+resends all after an activation, a flush carries changes while nothing
+plays, and editor changes come back as binding transactions (gesture begin,
+previews, commit). Read-only, hidden and bypass parameters stay the
+plugin's. **Consequences.** Parameter IDs survive moves, bypass, failure,
+save/reopen and reload; a recalled session plays its automation whatever
+the plugin's state held. Automation resolution inside a plugin is one block
+(at most 256 frames), not per sample.
+
+## D-192 — Late, failed and bypassed inserts pass dry audio aligned to their latency
+
+**Context.** The device thread must not block indefinitely on another
+process, and a plugin that stops answering, crashes or is bypassed must not
+shift the mix. **Decision.** An insert waits for its block at most 50 ms on
+the device (5 s offline), watching the host's pidfd. Without a usable answer
+it plays its input delayed by its reported latency (the processor keeps a
+dry delay line fed at all times), sends nothing new until a late block is
+answered, and after 2 s of audio time is declared hung and its process is
+killed. Latency is compensated per route at graph compile: every route into
+a destination waits for the latest one. Offline renders claim the processors
+(the device passes them dry), reactivate them at the render rate, reset them
+before and after, and drop the leading `pluginLatency` frames so the file
+lines up with the timeline. **Consequences.** A hang costs one late period
+once; bypass and failure never move other tracks. The device hears the mix
+`pluginLatency` frames late (no look-ahead). Delay lines restart from
+silence when the graph is recompiled.
+
+## D-193 — The toolkit owns the plugin editor's window
+
+**Context.** A plugin editor runs in the plugin's process but must behave
+like a window of the application (ownership, closing, stacking).
+**Decision.** Under xcb the toolkit creates an `AudioPluginEditorWindow`,
+transient for the requesting window, and the plugin embeds its x11 child in
+it (`clap.gui`, not floating); the offscreen and minimal platforms take the
+same path so the lifecycle is testable. The toolkit owns title, position,
+transient parent, closing and lifetime; the plugin owns its child and that
+child's keyboard focus. Closing the window closes the editor first and then
+deletes the window; a failed plugin closes it. Where an x11 child cannot be
+embedded (Wayland), the plugin shows a floating window of its own.
+**Consequences.** Editors follow the application's window ownership on X11;
+on Wayland they are separate windows until a Wayland embedding protocol is
+supported.
+
 ## D-194 — Pitch is analysed by YIN on a 5 ms grid in MIDI cents
 
 **Context.** AUD-28/ENG-12 need an actual, declared pitch detector with
