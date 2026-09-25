@@ -5,7 +5,9 @@
 #include "slide_timeline.h"
 
 #include <QHash>
+#include <QJsonDocument>
 #include <QUuid>
+#include <utility>
 
 // SlideDeck edits: each builds a candidate DeckState and commits it as one
 // undo step through commitState (validation first, no partial change).
@@ -195,6 +197,49 @@ bool SlideDeck::moveObject(const QString &objectId, const QVariantMap &bounds)
     return commitState(next, QStringLiteral("Move object"));
 }
 
+bool SlideDeck::editObjects(const QString &label, const QVector<ObjectGeometry> &geometry,
+                            const QStringList &removed)
+{
+    if (geometry.isEmpty() && removed.isEmpty()) return true;
+    DeckState next = m_state;
+    for (const ObjectGeometry &g : geometry) {
+        const auto [s, o] = locateObject(next, g.id);
+        if (s < 0) return fail(QStringLiteral("Unknown object %1").arg(g.id));
+        SlideObject &object = next.slides[s].objects[o];
+        if (object.locked) return fail(QStringLiteral("The object is locked"));
+        object.bounds = g.bounds;
+        object.rotation = g.rotation;
+        object.ownBounds = true;
+    }
+    for (const QString &id : removed) {
+        const auto [s, o] = locateObject(next, id);
+        if (s < 0) return fail(QStringLiteral("Unknown object %1").arg(id));
+        Slide &slide = next.slides[s];
+        if (slide.objects.at(o).locked) return fail(QStringLiteral("The object is locked"));
+        slide.objects.removeAt(o);
+        slide.effects.removeIf([&id](const Effect &e) { return e.targetId == id; });
+    }
+    return commitState(next, label);
+}
+
+bool SlideDeck::transformObjects(const QVariantList &edits)
+{
+    QVector<ObjectGeometry> geometry;
+    for (const QVariant &v : edits) {
+        const QVariantMap edit = v.toMap();
+        const auto rect = rectFrom(edit.value("bounds").toMap());
+        if (!rect) return fail(QStringLiteral("Invalid bounds"));
+        geometry.append({edit.value("id").toString(), *rect, edit.value("rotation", 0.0).toDouble()});
+    }
+    return editObjects(QStringLiteral("Transform objects"), geometry, {});
+}
+
+bool SlideDeck::removeObjects(const QStringList &objectIds)
+{
+    return editObjects(objectIds.size() == 1 ? QStringLiteral("Delete object") : QStringLiteral("Delete objects"),
+                       {}, objectIds);
+}
+
 bool SlideDeck::setObjectText(const QString &objectId, const QString &text)
 {
     DeckState next = m_state;
@@ -211,13 +256,29 @@ bool SlideDeck::setObjectText(const QString &objectId, const QString &text)
 
 bool SlideDeck::setObjectFill(const QString &objectId, const QString &fill)
 {
+    return setObjectsFill({objectId}, fill);
+}
+
+bool SlideDeck::setObjectsFill(const QStringList &objectIds, const QString &fill)
+{
     DeckState next = m_state;
-    const auto [s, o] = locateObject(next, objectId);
-    if (s < 0) return fail(QStringLiteral("Unknown object"));
-    SlideObject &object = next.slides[s].objects[o];
-    object.fill = fill;
-    object.ownFill = true;
+    for (const QString &objectId : objectIds) {
+        const auto [s, o] = locateObject(next, objectId);
+        if (s < 0) return fail(QStringLiteral("Unknown object"));
+        SlideObject &object = next.slides[s].objects[o];
+        if (object.locked) return fail(QStringLiteral("The object is locked"));
+        object.fill = fill;
+        object.ownFill = true;
+    }
     return commitState(next, QStringLiteral("Set fill"));
+}
+
+QString SlideDeck::objectTextJson(const QString &objectId) const
+{
+    const auto [s, o] = locateObject(m_state, objectId);
+    if (s < 0) return {};
+    const QJsonObject rich = resolveObjects(m_state, m_state.slides.at(s)).at(o).text.rich;
+    return QString::fromUtf8(QJsonDocument(rich).toJson(QJsonDocument::Compact));
 }
 
 RichTextDocument *SlideDeck::beginTextEdit(const QString &objectId)
@@ -237,6 +298,8 @@ RichTextDocument *SlideDeck::beginTextEdit(const QString &objectId)
     }
     m_textDocument = document;
     m_textObjectId = objectId;
+    m_textBaseline = RichTextCodec::fragmentToJson(
+        document->extractFragment(document->startPosition(), document->endPosition()));
     emit textEditChanged();
     emit historyChanged();
     return document;
@@ -249,14 +312,24 @@ bool SlideDeck::commitTextEdit()
     if (document->inTransaction()) return fail(QStringLiteral("Finish the text edit transaction first"));
     const RichText::Fragment fragment = document->extractFragment(document->startPosition(), document->endPosition());
     const QString objectId = m_textObjectId;
+    const QJsonObject baseline = std::exchange(m_textBaseline, {});
+    const QJsonObject edited = RichTextCodec::fragmentToJson(fragment);
     m_textObjectId.clear();
     m_textDocument = nullptr;
     document->deleteLater();
     emit textEditChanged();
     emit historyChanged();
-    const auto content = TextContent::fromFragmentJson(RichTextCodec::fragmentToJson(fragment));
+    const auto content = TextContent::fromFragmentJson(edited);
     const auto [s, o] = locateObject(m_state, objectId);
     if (!content || s < 0) return fail(QStringLiteral("The edited text box no longer exists"));
+    // AGENT-GUARD (D-158): only a deliberate change becomes an override.
+    // Opening and committing an inherited placeholder without typing must
+    // leave it inheriting, or later master edits stop reaching the slide.
+    if (edited == baseline || resolveObjects(m_state, m_state.slides.at(s)).at(o).text == *content) {
+        m_error.clear();
+        emit errorChanged();
+        return true;
+    }
     DeckState next = m_state;
     SlideObject &object = next.slides[s].objects[o];
     object.text = *content;
@@ -270,6 +343,7 @@ void SlideDeck::cancelTextEdit()
     if (m_textDocument) m_textDocument->deleteLater();
     m_textDocument = nullptr;
     m_textObjectId.clear();
+    m_textBaseline = {};
     emit textEditChanged();
     emit historyChanged();
 }

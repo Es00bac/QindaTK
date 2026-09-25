@@ -84,9 +84,11 @@ qt_add_qml_module(qindatk
         core/raster_brush_p.h
         core/slide_deck_types.h core/slide_deck_types.cpp
         core/slide_deck.h core/slide_deck.cpp core/slide_deck_edit.cpp core/slide_deck_codec.cpp
+        core/slide_deck_limits.cpp core/slide_canvas_document.h core/slide_canvas_document.cpp
         core/slide_timeline.h core/slide_timeline.cpp
         core/slide_render.h core/slide_render.cpp
-        core/slide_show.h core/slide_show.cpp
+        core/slide_show.h core/slide_show.cpp core/slide_show_annotations.cpp
+        core/slide_preview.h core/slide_preview.cpp
         core/slide_frame_view.h core/slide_frame_view.cpp
         core/presentation_windows.h core/presentation_windows.cpp
         core/application_contracts.cpp core/application_contracts.h

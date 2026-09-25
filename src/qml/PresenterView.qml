@@ -4,6 +4,10 @@ import QindaTK as Tk
 
 // The presenter UI and audience surface are distinct: notes and controls only
 // appear in the presenter pane; audienceContent is a separate slot.
+// With stepsBuilds, Previous/Next report stepRequested(-1/+1) (a playback
+// engine steps builds, then slides) and follow canGoPrevious/canGoNext;
+// otherwise they report slideNavigationRequested with the adjacent slide.
+// annotationRequested reports "pointer", "pen", "highlight" or "clear".
 Item {
     id: control
     property string documentId: ""
@@ -21,6 +25,10 @@ Item {
     property string selectedDisplayId: ""
     property var displays: [] // [{id,label,connected,role}]
     property bool blackedOut: false
+    property bool stepsBuilds: false
+    property bool canGoNext: currentIndex + 1 < slideCount
+    property bool canGoPrevious: currentIndex > 0
+    property string annotationTool: "pointer"
     property var capabilities: ({ canNavigate: true, canControlTimer: true, canBlank: true, canSelectDisplay: true })
     property string tooltip: qsTr("Control a live presentation")
     default property alias audienceContent: audienceSlot.data
@@ -31,6 +39,7 @@ Item {
     signal displaySelectionRequested(string displayId)
     signal annotationRequested(string slideId, string tool)
     signal reconnectRequested(string displayId)
+    signal stepRequested(int direction)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 4
     implicitHeight: Tk.Theme.size.panelMinHeight * 2
@@ -42,6 +51,14 @@ Item {
     function navigate(nextIndex, id) {
         if (enabled && capabilities.canNavigate && nextIndex >= 0 && nextIndex < slideCount)
             slideNavigationRequested(id, nextIndex)
+    }
+    function step(direction) {
+        if (!enabled || !capabilities.canNavigate) return
+        if (stepsBuilds) {
+            if (direction > 0 ? canGoNext : canGoPrevious) stepRequested(direction)
+        } else {
+            navigate(currentIndex + direction, direction > 0 ? nextSlideId : previousSlideId)
+        }
     }
 
     Tk.Flex {
@@ -137,18 +154,18 @@ Item {
                         objectName: "presenterPrevious"
                         text: qsTr("Previous")
                         iconName: "chevron-left"
-                        tooltip: qsTr("Go to previous slide")
-                        enabled: control.currentIndex > 0 && control.capabilities.canNavigate
-                        onClicked: control.navigate(control.currentIndex - 1, control.previousSlideId)
+                        tooltip: control.stepsBuilds ? qsTr("Previous build or slide") : qsTr("Go to previous slide")
+                        enabled: control.canGoPrevious && control.capabilities.canNavigate
+                        onClicked: control.step(-1)
                     }
                     Tk.Caption { text: qsTr("%1 / %2").arg(control.currentIndex + 1).arg(control.slideCount); mono: true }
                     Tk.Button {
                         objectName: "presenterNext"
                         text: qsTr("Next")
                         iconName: "chevron-right"
-                        tooltip: qsTr("Go to next slide")
-                        enabled: control.currentIndex + 1 < control.slideCount && control.capabilities.canNavigate
-                        onClicked: control.navigate(control.currentIndex + 1, control.nextSlideId)
+                        tooltip: control.stepsBuilds ? qsTr("Next build or slide") : qsTr("Go to next slide")
+                        enabled: control.canGoNext && control.capabilities.canNavigate
+                        onClicked: control.step(1)
                     }
                 }
                 Tk.Box {
@@ -207,10 +224,17 @@ Item {
                     Tk.ComboBox {
                         objectName: "presenterAnnotationTool"
                         model: [qsTr("Pointer"), qsTr("Pen"), qsTr("Highlight")]
+                        currentIndex: Math.max(0, ["pointer", "pen", "highlight"].indexOf(control.annotationTool))
                         tooltip: qsTr("Choose a live audience annotation tool")
                         onActivated: function(index) { control.annotationRequested(control.currentSlideId, ["pointer", "pen", "highlight"][index]) }
                         Tk.Flex.grow: 1
                         Tk.Flex.basis: 0
+                    }
+                    Tk.IconButton {
+                        objectName: "presenterClearInk"
+                        iconName: "eraser"
+                        tooltip: qsTr("Clear the ink on this slide")
+                        onClicked: control.annotationRequested(control.currentSlideId, "clear")
                     }
                 }
             }

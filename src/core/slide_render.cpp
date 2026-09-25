@@ -6,10 +6,12 @@
 
 #include <QAbstractTextDocumentLayout>
 #include <QBuffer>
+#include <QDir>
 #include <QPageSize>
 #include <QPainter>
 #include <QSet>
 #include <QPdfWriter>
+#include <QtMath>
 #include <QTextDocument>
 #include <algorithm>
 
@@ -45,6 +47,22 @@ void paintText(QPainter &painter, const TextContent &text, const QRectF &box, do
     painter.restore();
 }
 
+// Fill, then text, in object-local coordinates (0, 0, width, height). The
+// prompt is painted only for the editing canvas (showPrompt) and only while
+// the resolved text is empty.
+void paintContent(QPainter &painter, const ResolvedObject &object, const QColor &foreground, bool showPrompt)
+{
+    const QRectF local(QPointF(0, 0), object.bounds.size());
+    if (!object.fill.isEmpty()) painter.fillRect(local, colorOr(object.fill, Qt::transparent));
+    if (showPrompt && object.text.plain.isEmpty() && !object.prompt.isEmpty()) {
+        QColor muted = foreground;
+        muted.setAlphaF(0.45);
+        paintText(painter, TextContent::fromPlain(object.prompt), local, object.fontSize, muted);
+    } else if (object.kind == QStringLiteral("text") || !object.text.plain.isEmpty()) {
+        paintText(painter, object.text, local, object.fontSize, foreground);
+    }
+}
+
 // Paints one slide into `rect` (slide aspect) with the given object states.
 void paintSlide(QPainter &painter, const DeckState &deck, const QString &slideId,
                 const QVector<ObjectFrame> &states, const QRectF &rect, qreal opacity)
@@ -70,14 +88,37 @@ void paintSlide(QPainter &painter, const DeckState &deck, const QString &slideId
         painter.save();
         painter.setOpacity(opacity * state.opacity);
         painter.translate(state.dx, state.dy);
-        const QPointF centre = object.bounds.center();
-        painter.translate(centre);
+        painter.translate(object.bounds.center());
         painter.scale(state.scale, state.scale);
-        painter.translate(-centre);
-        if (!object.fill.isEmpty()) painter.fillRect(object.bounds, colorOr(object.fill, Qt::transparent));
-        if (object.kind == QStringLiteral("text") || !object.text.plain.isEmpty())
-            paintText(painter, object.text, object.bounds, object.fontSize, foreground);
+        painter.rotate(object.rotation);
+        painter.translate(-object.bounds.width() / 2, -object.bounds.height() / 2);
+        paintContent(painter, object, foreground, false);
         painter.restore();
+    }
+    painter.restore();
+}
+
+// Presenter ink and pointer over the current slide (slide pixels).
+// Colours are output content like a master's, not chrome theme roles.
+void paintAnnotations(QPainter &painter, const DeckState &deck, const SlideFrame &frame, const QRectF &rect)
+{
+    if (frame.annotations.isEmpty() && !frame.pointerVisible) return;
+    painter.save();
+    painter.setClipRect(rect, Qt::IntersectClip);
+    painter.translate(rect.topLeft());
+    painter.scale(rect.width() / deck.size.width(), rect.height() / deck.size.height());
+    for (const AnnotationStroke &stroke : frame.annotations) {
+        const bool highlight = stroke.tool == QStringLiteral("highlight");
+        QPen pen(highlight ? QColor(255, 212, 0, 110) : QColor(224, 64, 58), highlight ? 18 : 4,
+                 Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        painter.setPen(pen);
+        if (stroke.points.size() == 1) painter.drawPoint(stroke.points.first());
+        else painter.drawPolyline(stroke.points.constData(), int(stroke.points.size()));
+    }
+    if (frame.pointerVisible) {
+        painter.setPen(QPen(Qt::white, 2));
+        painter.setBrush(QColor(224, 32, 32));
+        painter.drawEllipse(frame.pointer, 8, 8);
     }
     painter.restore();
 }
@@ -113,8 +154,28 @@ void paintFrame(QPainter &painter, const DeckState &deck, const SlideFrame &fram
         } else {
             paintSlide(painter, deck, frame.slideId, frame.objects, rect, 1);
         }
+        paintAnnotations(painter, deck, frame, rect);
     }
     painter.restore();
+}
+
+QImage renderObjectImage(const DeckState &deck, const QString &slideId, const ResolvedObject &object,
+                         qreal scale, bool showPrompt)
+{
+    const int index = slideIndex(deck, slideId);
+    const QSize size(std::max(1, qCeil(object.bounds.width() * scale)),
+                     std::max(1, qCeil(object.bounds.height() * scale)));
+    if (index < 0 || !(scale > 0) || size.width() > 8192 || size.height() > 8192) return {};
+    const Master *master = findMaster(deck, deck.slides.at(index).masterId);
+    QImage image(size, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter painter(&image);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::TextAntialiasing);
+    painter.scale(qreal(size.width()) / object.bounds.width(), qreal(size.height()) / object.bounds.height());
+    paintContent(painter, object, colorOr(master ? master->foreground : QString(), Qt::black), showPrompt);
+    painter.end();
+    return image;
 }
 
 QImage renderImage(const DeckState &deck, const SlideFrame &frame, const QSize &size)
@@ -196,6 +257,26 @@ QImage SlideDeck::renderFrame(const QString &slideId, int step, const QString &t
     const auto parsed = TimelineTime::parseDecimal(ticks.isEmpty() ? QStringLiteral("0") : ticks);
     if (!parsed || Slides::slideIndex(m_state, slideId) < 0) return {};
     return Slides::renderImage(m_state, Slides::evaluate(m_state, slideId, step, *parsed), QSize(width, height));
+}
+
+int SlideDeck::exportPlayback(const QString &slideId, const QString &directory, int framesPerSecond, int width)
+{
+    if (textEditing()) return fail(QStringLiteral("Finish the text box edit first")), -1;
+    const QVector<Slides::PlaybackPosition> positions = Slides::playbackPositions(m_state, slideId, framesPerSecond);
+    if (positions.isEmpty()) return fail(QStringLiteral("Unknown slide, frame rate outside 1-240 or too many frames")), -1;
+    const int w = width > 0 ? std::min(width, 4096) : qRound(m_state.size.width());
+    const QSize size(w, std::max(1, qRound(w * m_state.size.height() / m_state.size.width())));
+    const QDir dir(directory);
+    if (!dir.exists() && !QDir().mkpath(directory)) return fail(QStringLiteral("Cannot create %1").arg(directory)), -1;
+    for (int i = 0; i < positions.size(); ++i) {
+        const QImage image = Slides::renderImage(m_state, Slides::evaluate(m_state, slideId, positions.at(i).step,
+                                                                           positions.at(i).ticks), size);
+        const QString path = dir.filePath(QStringLiteral("frame-%1.png").arg(i, 5, 10, QLatin1Char('0')));
+        if (image.isNull() || !image.save(path, "PNG")) return fail(QStringLiteral("Cannot write %1").arg(path)), -1;
+    }
+    m_error.clear();
+    emit errorChanged();
+    return int(positions.size());
 }
 
 QString SlideDeck::cachedPreview(const Slides::Slide &slide) const
