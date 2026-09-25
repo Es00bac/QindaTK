@@ -308,3 +308,75 @@ each panel's full metadata under its (a), (b) label.
 **Consequences.** A figure file alone identifies and verifies its data.
 Large series make large files, since every sample is embedded; hosts that
 need small files export `csvData()`/`metadataJson()` sidecars instead.
+
+## D-158 — Slide placeholders inherit per property with explicit override flags
+
+**Context.** WP-056 needs master and layout edits to reach dependent slides
+while a deliberate per-slide change survives them (OFF-21). Copying master
+values into slides loses the link; a single "overridden" flag per object
+throws away inheritance of the parts nobody touched.
+
+**Decision.** A slide object bound to a placeholder role stores its own
+bounds, text and fill plus three flags (`ownBounds`, `ownText`, `ownFill`).
+Resolution takes bounds from the slide's layout, else the master
+placeholder, and text, fill, kind and font size from the master, unless the
+matching flag is set. Moving, editing text and setting a fill set the flag;
+`resetOverride` clears all three; applying a master keeps them.
+
+**Consequences.** Master and layout edits are one small change that every
+inheriting slide reflects immediately, and the editor can count overrides
+per placeholder. Other properties (lock, visibility) are always per object.
+
+## D-159 — Slide timing is exact ticks; only eased progress is a double
+
+**Context.** Presentation playback must be deterministic (WP-056 item 3):
+the same position has to give the same frame in the audience window, in a
+test sample and in an export. Seconds as doubles accumulate error and differ
+between a live clock and a sampled one.
+
+**Decision.** Delays, durations, transitions and positions are signed 64-bit
+ticks in the shared 705,600,000-per-second timebase. QML seconds round to the
+millisecond once on entry. A position is (slide, build step, ticks into the
+step); the evaluator is a pure function of it. The only double is progress
+`(t − start) / duration`, eased linearly or through `CurveEvaluator` cubic
+Béziers. The live clock converts monotonic nanoseconds to ticks with one
+rounding per run.
+
+**Consequences.** Frames sampled at exact ticks are reproducible bit for bit
+and tests compare exact values. Sub-millisecond seconds entered from QML are
+rounded; exact tick strings remain available.
+
+## D-160 — One slide painter for every output
+
+**Context.** Slides appear in the presenter preview, the audience window,
+thumbnails, sampled test images and PDF export. Separate QML and C++
+renderers would drift.
+
+**Decision.** `Slides::paintFrame` (C++, `QPainter`) is the only slide
+renderer. `SlideFrameView` paints through it, and `renderFrame`,
+`previewDataUrl` and `exportPdf` call it on images and PDF pages. Text goes
+through `QTextDocument` from the rich-text fragment's HTML.
+
+**Consequences.** The audience output equals the export for the same
+position, which the tests check pixel for pixel. The slide canvas used for
+editing is still the QML `SlideCanvas`; it shows plain text and geometry,
+not the evaluated animation frame.
+
+## D-161 — Audience and presenter are separate native windows with a keep-alive audience
+
+**Context.** OFF-23 requires disconnecting and reconnecting a display
+without exposing notes on the audience output, while timing and navigation
+stay controllable.
+
+**Decision.** `PresentationWindows` creates the two windows through
+`WindowHost`. The audience window contains only a `SlideFrameView`, which has
+no notes input; notes are bound only in the presenter delegate. The audience
+display is chosen by screen name. When it disappears, the audience window
+is not closed: it becomes a normal window on the presenter's display with
+status `waiting`, and it returns full screen when a display with that name
+is added. Closing the presenter ends the presentation.
+
+**Consequences.** Unplugging a projector never ends the show or reveals the
+notes, and plugging it back in needs no action. The status is visible to the
+presenter (`audienceStatus`, `displays`). Behaviour on real window managers
+and monitors is left to platform qualification.
