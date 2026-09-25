@@ -5,6 +5,10 @@ import QindaTK as Tk
 
 // Introspection is live; migration actions remain proposals until the host
 // explicitly executes them through LocalDatabaseProvider migration methods.
+// AGENT-GUARD (OFF-34): schemaSnapshot is only ever re-read from the
+// provider, never patched from a plan, so a failed commit (acknowledged
+// "failed") leaves the fields and relationships the database really has.
+// The previewed plan lists the foreign keys it adds and removes.
 Tk.Box {
     id: control
     objectName: "databaseSchemaView"
@@ -19,6 +23,12 @@ Tk.Box {
     property string lastRequestId: ""
     property int _requestSerial: 0
     property var schemaSnapshot: ({ ok: false, fields: [], relationships: [] })
+    // Foreign keys the previewed plan adds and removes: [{change, table, from, target, to}].
+    readonly property var planRelationships: {
+        const changes = migrationPlan.relationshipChanges || ({})
+        return (changes.added || []).map(entry => Object.assign({ change: "added" }, entry))
+            .concat((changes.removed || []).map(entry => Object.assign({ change: "removed" }, entry)))
+    }
     signal migrationPreviewRequested(string requestId, var plan)
     signal migrationCommitRequested(string requestId, var plan)
 
@@ -45,7 +55,12 @@ Tk.Box {
         migrationCommitRequested(id, Object.assign({}, migrationPlan))
         return id
     }
-    function acknowledge(id, state, message) { if (id !== lastRequestId || requestState !== "pending") return false; requestState = state; requestMessage = message || ""; return true }
+    function acknowledge(id, state, message) {
+        if (id !== lastRequestId || requestState !== "pending") return false
+        requestState = state; requestMessage = message || ""
+        refreshSchema() // what the database holds now, whatever the outcome
+        return true
+    }
 
     onMigrationSqlChanged: migrationPlan = ({ ok: false })
     onMigrationStatementsChanged: migrationPlan = ({ ok: false })
@@ -103,6 +118,18 @@ Tk.Box {
         }
         Tk.Overline { title: qsTr("MIGRATION PREVIEW"); wide: true }
         Tk.TextArea { objectName: "schemaMigrationSql"; width: parent.width; rows: 2; text: control.migrationSql; placeholderText: qsTr("CREATE INDEX ..."); tooltip: qsTr("SQL migration draft"); Accessible.name: tooltip; onTextChanged: { if (text !== control.migrationSql) { control.migrationSql = text; control.migrationStatements = [] } } }
+        Repeater {
+            model: control.planRelationships
+            delegate: Tk.Label {
+                required property var modelData
+                required property int index
+                objectName: "schemaPlanRelation_" + String(modelData.change) + "_" + index
+                text: (modelData.change === "added" ? qsTr("adds %1.%2 → %3.%4") : qsTr("removes %1.%2 → %3.%4"))
+                    .arg(modelData.table).arg(modelData.from).arg(modelData.target).arg(modelData.to)
+                mono: true; Accessible.role: Accessible.StaticText
+            }
+        }
+        Tk.Notice { objectName: "schemaMigrationFailed"; visible: control.requestState === "failed" || control.requestState === "rejected"; variant: "danger"; title: qsTr("Migration not applied"); text: control.requestMessage }
         Tk.Caption { visible: control.migrationStatements.length > 0; text: qsTr("%1 ordered schema steps; preview rolls all back").arg(control.migrationStatements.length); muted: true }
         Tk.Flex {
             direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center

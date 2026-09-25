@@ -31,6 +31,7 @@ text or workbook engine joins the same way; see
 | `qindatk.workbook.v1` | `workbook` | `Workbook` | `qindatk.workbook` JSON, version 2 with the session header (version 1 and header-less files open as revision 1; [workbook](workbook.md#native-file-format)) | `qtkwb` | 64 MiB (`Workbook::MaxFileBytes`) |
 | `qindatk.scene3d.v1` | `scene3d` | `SceneModel3D` | `QindaTK.Scene3D` JSON, version 3 with session header; direct native version 1/2 files migrate on open ([scene](scene-3d.md#persistence-and-verification)) | `qtkscene` | 4 MiB |
 | `qindatk.slides.v1` | `slides` | `SlideDeck` | `qindatk.slides` JSON, version 1 with session header ([slides](slides.md#persistence)) | `qtkslides` | 64 MiB |
+| `qindatk.local-data-design.v1` | `data-design` | `LocalDataDesignDocument` | `qindatk.local-data-design` JSON, version 2 with a `session` header; version 1 files open with an identity derived from `designId` ([forms and reports](forms-reports.md#design-document)) | `qtkdata` | 4 MiB |
 | `qindatk.notebook.v1` | `notebook` | `NotebookDocument` | `QindaTK.Notebook` JSON, version 1 with the session header ([notebooks](notebooks.md#format)) | `qtknb` | 64 MiB (`Notebook::Limits::MaxFileBytes`) |
 
 The reference format also stores a `QVariantList` property as an

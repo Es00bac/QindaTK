@@ -11,9 +11,19 @@
 file(GLOB qindatk_qml_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.qml")
 # Scene data stays renderer-independent. SDKs without Quick3D still expose
 # SceneView3D, which reports its renderer unavailable through the lazy Loader.
-find_package(Qt6Quick3D 6.8 QUIET)
+if(QINDATK_ENABLE_QUICK3D)
+    find_package(Qt6Quick3D 6.8 QUIET)
+endif()
+# AGENT-GUARD: test QINDATK_WITH_QUICK3D, never TARGET Qt6::Quick3D alone;
+# another package may define the target while the option is OFF (D-201).
+if(QINDATK_ENABLE_QUICK3D AND TARGET Qt6::Quick3D)
+    set(QINDATK_WITH_QUICK3D TRUE)
+else()
+    set(QINDATK_WITH_QUICK3D FALSE)
+endif()
+set(QINDATK_WITH_QUICK3D ${QINDATK_WITH_QUICK3D} PARENT_SCOPE)
 set(qindatk_quick3d_sources)
-if(NOT TARGET Qt6::Quick3D)
+if(NOT QINDATK_WITH_QUICK3D)
     list(FILTER qindatk_qml_files EXCLUDE REGEX "(SceneView3DRenderer|MaterialPreviewRenderer|ScientificPlot3DRenderer)\\.qml$")
     message(STATUS "QindaTK: optional SceneView3D renderer unavailable (Qt Quick 3D not installed)")
 else()
@@ -136,6 +146,11 @@ qt_add_qml_module(qindatk
         core/midi_types.cpp core/midi_types.h core/midi_program.cpp core/midi_program.h
         core/midi_sequence_model.cpp core/midi_sequence_edit.cpp core/midi_sequence_ops.cpp core/midi_sequence_model.h
         core/midi_smf.cpp core/midi_smf.h core/midi_launcher_model.cpp core/midi_launcher_model.h
+        core/score_types.cpp core/score_rhythm.cpp core/score_codec.cpp core/score_types.h
+        core/score_layout.cpp core/score_layout_notes.cpp core/score_render.cpp core/score_layout.h
+        core/score_model.cpp core/score_model_structure.cpp core/score_model_edit.cpp core/score_model.h
+        core/score_musicxml_write.cpp core/score_musicxml_read.cpp
+        core/score_midi.cpp core/score_midi.h core/score_playback.cpp core/score_playback.h
         core/audio_channel_meters.cpp core/audio_channel_meters.h
         core/audio_mixer_types.cpp core/audio_mixer_codec.cpp core/audio_mixer_types.h
         core/audio_mixer_model.cpp core/audio_mixer_ops.cpp core/audio_mixer_model.h
@@ -326,6 +341,10 @@ qt_add_qml_module(qindatk
         core/local_database_provider.cpp core/local_database_provider.h
         core/local_data_design_store.cpp core/local_data_design_store.h
         core/local_report_document_model.cpp core/local_report_document_model.h
+        core/local_report_spec.cpp core/local_report_spec.h core/local_report_engine.cpp
+        core/sqlite_query_source.cpp core/sqlite_query_source.h
+        core/local_data_design_document.cpp core/local_data_design_document.h
+        core/local_data_design_edits.cpp core/local_data_design_codec.cpp
         core/recurrence_service.cpp core/recurrence_service.h
         core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h
         core/density.cpp core/density.h
@@ -458,7 +477,7 @@ target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network
     PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2 SQLite3::SQLite3
     PUBLIC PkgConfig::VTERM)
-if(TARGET Qt6::Quick3D)
+if(QINDATK_WITH_QUICK3D)
     target_link_libraries(qindatk PRIVATE Qt6::Quick3D)
 endif()
 # GPU volume raycasting (D-147) is optional. Without Qt Shader Tools the
@@ -466,8 +485,12 @@ endif()
 # and draws the reference path. 3D samplers need GLSL 300 es / 330.
 # AGENT-CONTRACT (core/volume_render_node.cpp): PREFIX + file path is the
 # resource path the node loads, ":/qindatk/shaders/volume_raycast.*.qsb".
-find_package(Qt6ShaderTools 6.8 QUIET)
-if(TARGET Qt6::ShaderTools)
+if(QINDATK_ENABLE_SHADER_TOOLS)
+    find_package(Qt6ShaderTools 6.8 QUIET)
+endif()
+set(QINDATK_WITH_SHADER_TOOLS FALSE PARENT_SCOPE)
+if(QINDATK_ENABLE_SHADER_TOOLS AND TARGET Qt6::ShaderTools)
+    set(QINDATK_WITH_SHADER_TOOLS TRUE PARENT_SCOPE)
     qt_add_shaders(qindatk "qindatk_volume_shaders"
         PREFIX "/qindatk"
         GLSL "300es,330"
@@ -518,7 +541,7 @@ set_source_files_properties(core/audio_plugin_types.cpp PROPERTIES COMPILE_DEFIN
     "QINDATK_PLUGIN_HOST_BUILD_PATH=\"$<TARGET_FILE:qindatk-plugin-host>\";QINDATK_PLUGIN_HOST_INSTALL_PATH=\"${CMAKE_INSTALL_FULL_LIBEXECDIR}/qindatk/qindatk-plugin-host\"")
 add_dependencies(qindatk qindatk-plugin-host)
 
-if(TARGET Qt6::Widgets)
+if(QINDATK_ENABLE_WIDGETS AND TARGET Qt6::Widgets)
     add_library(qindatk_widgets STATIC
         platform_widgets/native_file_dialog_backend.cpp
         platform_widgets/native_file_dialog_backend.h)
@@ -531,7 +554,7 @@ if(TARGET Qt6::Widgets)
     target_link_libraries(qindatk_widgets PUBLIC qindatk Qt6::Widgets)
     # AGENT-NOTE (WP-053): the native print backend needs Qt PrintSupport,
     # which depends on Widgets; base qindatk keeps only the PDF writer.
-    if(TARGET Qt6::PrintSupport)
+    if(QINDATK_ENABLE_NATIVE_PRINT AND TARGET Qt6::PrintSupport)
         target_sources(qindatk_widgets PRIVATE
             platform_widgets/native_print_backend.cpp
             platform_widgets/native_print_backend.h)
@@ -565,11 +588,37 @@ qt_add_qml_module(qindatk_qindaqt
 target_link_libraries(qindatk_qindaqt PRIVATE Qt6::Qml)
 
 # ---- install -------------------------------------------------------------
+# AGENT-NOTE (D-202): installing into Qt's own prefix (a distro package)
+# puts the modules on Qt's default import path. Any other prefix keeps them
+# inside that prefix, relative, so a staged install can be moved; the
+# WP-088 relocation check (tools/qualify) runs a consumer from the moved stage.
 if(NOT DEFINED QINDATK_QML_INSTALL_DIR)
-    set(QINDATK_QML_INSTALL_DIR "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_QML}" CACHE PATH
-        "Root QML import directory to install the QindaTK modules into")
+    cmake_path(COMPARE "${CMAKE_INSTALL_PREFIX}" EQUAL "${QT6_INSTALL_PREFIX}" qindatk_into_qt_prefix)
+    if(qindatk_into_qt_prefix)
+        set(qindatk_default_qml_dir "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_QML}")
+    else()
+        set(qindatk_default_qml_dir "${CMAKE_INSTALL_LIBDIR}/qml")
+    endif()
+    set(QINDATK_QML_INSTALL_DIR "${qindatk_default_qml_dir}" CACHE PATH
+        "Root QML import directory to install the QindaTK modules into (relative: under the install prefix)")
 endif()
 set(QINDATK_QML_INSTALL_DIR "${QINDATK_QML_INSTALL_DIR}" PARENT_SCOPE)
+
+# AGENT-GUARD (D-202): the QML plugins live in <qml>/QindaTK and
+# <qml>/QindaTK/QindaQt, not in bindir, so Qt's standard install RPATH
+# ($ORIGIN/../lib) does not reach libqindatk from them. A QML-only
+# application (one that does not link qindatk itself) then fails to load the
+# plugin from any prefix outside the linker's default path. Each plugin gets
+# an $ORIGIN-relative RUNPATH to the library directory instead.
+cmake_path(ABSOLUTE_PATH QINDATK_QML_INSTALL_DIR BASE_DIRECTORY "${CMAKE_INSTALL_PREFIX}"
+    NORMALIZE OUTPUT_VARIABLE qindatk_abs_qml_dir)
+cmake_path(ABSOLUTE_PATH CMAKE_INSTALL_LIBDIR BASE_DIRECTORY "${CMAKE_INSTALL_PREFIX}"
+    NORMALIZE OUTPUT_VARIABLE qindatk_abs_lib_dir)
+file(RELATIVE_PATH qindatk_plugin_to_lib "${qindatk_abs_qml_dir}/QindaTK" "${qindatk_abs_lib_dir}")
+file(RELATIVE_PATH qindatk_bridge_to_lib "${qindatk_abs_qml_dir}/QindaTK/QindaQt" "${qindatk_abs_lib_dir}")
+set_target_properties(qindatkplugin PROPERTIES INSTALL_RPATH "$ORIGIN/${qindatk_plugin_to_lib}")
+set_target_properties(qindatk_qindaqt qindatk_qindaqtplugin PROPERTIES
+    INSTALL_RPATH "$ORIGIN;$ORIGIN/${qindatk_bridge_to_lib}")
 
 install(TARGETS qindatk EXPORT QindaTKTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

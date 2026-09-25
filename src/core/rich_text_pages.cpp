@@ -111,7 +111,15 @@ void RichTextLayout::finalizePages(int firstChanged, int reusedFrom)
 {
     if (!m_document) return;
     if (m_markersDirty) rebuildMarkers();
-    const bool markersChanged = m_markersChanged;
+    // A `{pages}` region re-stamps every page once the count is known
+    // (and whenever a completed count changes), not on every estimate.
+    const PageSetup setup = m_document->pageSetupValue();
+    const bool hasRegions = !setup.headerText.isEmpty() || !setup.footerText.isEmpty();
+    const bool countsPages = setup.headerText.contains(QLatin1String("{pages}"))
+        || setup.footerText.contains(QLatin1String("{pages}"));
+    const int regionTotal = countsPages && m_complete ? pageCount() : -1;
+    const bool markersChanged = m_markersChanged || regionTotal != m_regionTotal;
+    m_regionTotal = regionTotal;
     m_markersChanged = false;
     const int start = markersChanged ? 0 : qBound(0, firstChanged, pageCount());
     const auto &blocks = m_document->blocks();
@@ -139,6 +147,8 @@ void RichTextLayout::finalizePages(int firstChanged, int reusedFrom)
             if (!page.first.isValid())
                 page.first = page.last = i > 0 ? m_pages.at(i - 1).last : m_document->startPosition();
             page.contentHash = hashItems(*m_document, page, m_markers, i, frameMode());
+            if (hasRegions)
+                page.contentHash = qHashMulti(page.contentHash, pageRegionText(i, false), pageRegionText(i, true));
             const auto previous = m_revisions.constFind(page.key);
             page.revision = previous != m_revisions.constEnd() && previous->first == page.contentHash
                 ? previous->second : ++m_revisionCounter;
@@ -159,6 +169,18 @@ void RichTextLayout::finalizePages(int firstChanged, int reusedFrom)
     m_stats.shapedLayoutsCached = m_shapedCount;
     m_stats.metricsCached = int(m_metrics.size() + m_contextMetrics.size());
     emit pagesChanged(qMin(start, pageCount()), pageCount());
+}
+
+QString RichTextLayout::pageRegionText(int page, bool footer) const
+{
+    if (!m_document || m_mode != Mode::Paged || page < 0) return {};
+    const PageSetup setup = m_document->pageSetupValue();
+    QString text = footer ? setup.footerText : setup.headerText;
+    if (text.isEmpty()) return text;
+    // "{page}" never matches inside "{pages}": the brace closes it.
+    text.replace(QLatin1String("{page}"), QString::number(page + 1));
+    text.replace(QLatin1String("{pages}"), QString::number(estimatedPageCount()));
+    return text;
 }
 
 QVector<int> RichTextLayout::pagesContaining(const Paragraph *p) const

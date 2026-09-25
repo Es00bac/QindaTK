@@ -3,12 +3,14 @@
 
 #include <QPointingDevice>
 #include <QPointer>
+#include <QScopeGuard>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickItem>
 #include <QQuickView>
 #include <QSignalSpy>
 #include <QtGui/private/qpointingdevice_p.h>
+#include <QtGui/qpa/qwindowsysteminterface_p.h>
 #include <QtTest>
 #include <qpa/qwindowsysteminterface.h>
 
@@ -278,6 +280,37 @@ private slots:
                            QPointF(100, 100), QPointF(130, 110), 0.8, 0.0);
 
             QCOMPARE(began.count() + competitorBegan.count(), 1);
+        }
+    }
+
+    // WP-088: xcb and wayland leave mouse synthesis for unaccepted tablet
+    // events to QGuiApplication, which sends the mouse event with the pen's
+    // own device and source MouseEventNotSynthesized. The offscreen platform
+    // claims to synthesize it itself, so this path is forced here; before the
+    // fix the denied handler's un-accept produced a second stroke.
+    void competingHandlersEmitOneBeganWhenQtSynthesizesMouse()
+    {
+        const bool platformSynthesizes =
+            QWindowSystemInterfacePrivate::TabletEvent::platformSynthesizesMouse;
+        QWindowSystemInterfacePrivate::TabletEvent::setPlatformSynthesizesMouse(false);
+        const auto restore = qScopeGuard([platformSynthesizes] {
+            QWindowSystemInterfacePrivate::TabletEvent::setPlatformSynthesizesMouse(platformSynthesizes);
+        });
+        for (const bool competitorFirst : {false, true}) {
+            auto scene = makeScene({}, true, competitorFirst);
+            QVERIFY(scene->handler != nullptr);
+            QVERIFY(scene->competitor != nullptr);
+            QVERIFY(QTest::qWaitForWindowExposed(&scene->view));
+            QSignalSpy began(scene->handler, &StylusHandler::began);
+            QSignalSpy competitorBegan(scene->competitor, &StylusHandler::began);
+            QSignalSpy ended(scene->handler, &StylusHandler::ended);
+            QSignalSpy competitorEnded(scene->competitor, &StylusHandler::ended);
+
+            tabletSequence(&scene->view, m_stylus,
+                           QPointF(100, 100), QPointF(130, 110), 0.8, 0.0);
+
+            QCOMPARE(began.count() + competitorBegan.count(), 1);
+            QCOMPARE(ended.count() + competitorEnded.count(), 1);
         }
     }
 

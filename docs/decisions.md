@@ -1556,3 +1556,55 @@ embedded (Wayland), the plugin shows a floating window of its own.
 **Consequences.** Editors follow the application's window ownership on X11;
 on Wayland they are separate windows until a Wayland embedding protocol is
 supported.
+
+## D-201 — Optional engines are explicit build switches with a resolved-feature summary
+
+**Context.** Qt Quick 3D, Qt Shader Tools, Qt Widgets and Qt PrintSupport
+were used whenever `find_package` happened to find them. A package could not
+omit them (Gentoo forbids such automagic dependencies), and the WP-088
+harness could not build the "engine omitted" variants. **Decision.** Every
+optional engine has a `QINDATK_ENABLE_*` switch, default ON:
+`POPPLER_QT6`, `ALSA`, `FFMPEG`, `QUICK3D`, `SHADER_TOOLS`, `WIDGETS` and
+`NATIVE_PRINT`. OFF means the package is not even searched for, and CMake
+code tests `QINDATK_WITH_*`, not bare `TARGET` checks. Configure writes
+`qindatk-features.json` with what the build resolved. **Consequences.**
+`tools/qualify` builds each omission and compares the installed consumer's
+capability report with that file ([qualification](qualification.md)).
+Packagers can map USE flags one to one.
+
+## D-202 — Installed QindaTK is relocatable: relative QML directory and $ORIGIN RUNPATHs
+
+**Context.** The WP-088 relocation check found three developer-path
+assumptions:
+- `qtk-preview` compiled in the build tree's absolute QML directory and
+  searched it first, even when installed;
+- setting its QindaQt RUNPATH replaced Qt's `$ORIGIN/../lib64`, so an
+  installed copy outside `/usr` could not find `libqindatk`;
+- the QML plugins in `<qml>/QindaTK` inherited Qt's bindir-relative RUNPATH,
+  so a QML-only application could not load the plugin from a moved prefix.
+
+Also, the default QML directory pointed into Qt's prefix even when
+installing elsewhere. **Decision.**
+- Installing into Qt's prefix keeps Qt's QML directory. Any other prefix
+  uses the relative `${CMAKE_INSTALL_LIBDIR}/qml`.
+- Each plugin gets `$ORIGIN/<relative path to libdir>`.
+- `qtk-preview` finds its import root relative to its own executable (the
+  build tree is recognized by its `CMakeFiles/` sibling) and appends to
+  `CMAKE_INSTALL_RPATH`.
+
+**Consequences.** A staged install can be moved, and consumers run from it
+with no source, build or old-stage path. `tools/qualify` checks this
+with `QML_IMPORT_TRACE`, `LD_DEBUG`, `ldd` and `strings`. Distro installs
+(`QINDATK_QML_INSTALL_DIR` set by the ebuild) are unchanged.
+
+## D-203 — An omitted device backend is reported, not hidden
+
+**Context.** Without ALSA, `AudioEngine` just listed fewer devices, so an
+application could not tell "no sound card" from "built without ALSA".
+FFmpeg and Poppler already answered with a capability error. **Decision.**
+`AudioEngine.backends` lists every backend the toolkit knows (`builtin`,
+`alsa`) with `available` and a reason: "QindaTK was built without the ALSA
+backend", or "The application did not enable the ALSA backend" after
+`setBackends`. **Consequences.** Device settings and the qualification
+consumer can show why a backend is missing. A new backend adds its entry
+here.

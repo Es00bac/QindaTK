@@ -145,7 +145,9 @@ TestCase {
         editor.storeDraft(ids[0], "Edited but not committed", 8, "Block 0")
         editor.listView.positionViewAtEnd()
         tryVerify(function() { return visibleChild(editor, "blockText_" + ids[119]) !== null })
-        verify(visibleChild(editor, "blockText_" + ids[0]) === null)
+        // Still virtualized at the far end; block 0's card was released.
+        verify(countVisible(editor, "notebookBlock_") < 40)
+        verify(editor.listView.contentY > editor.listView.height)
         editor.listView.positionViewAtBeginning()
         tryVerify(function() {
             const field = visibleChild(editor, "blockText_" + ids[0])
