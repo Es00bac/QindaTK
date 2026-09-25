@@ -273,7 +273,7 @@ private slots:
         QVERIFY2(doc.evaluateBlock(code, &runtime), qPrintable(doc.lastError()));
         QVERIFY(evaluated.wait(5000));
         QCOMPARE(evaluated.first().at(0).toString(), code);
-        QCOMPARE(evaluated.first().at(1).toBool(), true);
+        QVERIFY2(evaluated.first().at(1).toBool(), qPrintable(runtime.errorString()));
         const QVariantMap data = doc.block(code).value("data").toMap();
         QCOMPARE(data.value("status").toString(), QStringLiteral("completed"));
         QCOMPARE(data.value("output").toString(), QStringLiteral("2"));
