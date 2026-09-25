@@ -35140,7 +35140,7 @@
       "name": "ShapePalette",
       "kind": "qml",
       "base": "Item",
-      "description": "Shape definitions and factories belong to the document host. This palette only requests insertion by stable definition ID and passes default params.",
+      "description": "Shape definitions and factories belong to the document host. This palette only requests insertion by stable definition ID and passes default params.  AGENT-CONTRACT (docs/controls.md ShapePalette, D-302): a definition with an `imageSource` is drawn as a tile (the host's own thumbnail over a caption), one without keeps the icon button. With `dragEnabled`, dragging a tile or button reports shapeDragStarted/Moved/Finished in SCENE coordinates (the window content item's space); the host maps the point into its canvas, draws its own drop preview and inserts on finish — the palette never creates, previews or places a shape itself.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ShapePalette.qml",
@@ -35148,7 +35148,7 @@
         {
           "name": "definitions",
           "type": "var",
-          "default": "[] // [{id, label, category, iconName, parameters, enabled, description}]",
+          "default": "[] // [{id, label, category, iconName, imageSource, parameters, enabled, description}]",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -35194,6 +35194,38 @@
           "required": false
         },
         {
+          "name": "categoryPicker",
+          "type": "string",
+          "default": "\"segmented\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "searchAllCategories",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragEnabled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tileSize",
+          "type": "real",
+          "default": "Tk.Theme.size.thumbnailHeight",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "categories",
           "type": "var",
           "default": "collectCategories()",
@@ -35208,12 +35240,36 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "draggingShapeId",
+          "type": "string",
+          "default": "dragState.shapeId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
         {
           "name": "shapeRequested",
           "parameters": "string shapeId, var parameters"
+        },
+        {
+          "name": "shapeDragStarted",
+          "parameters": "string shapeId"
+        },
+        {
+          "name": "shapeDragMoved",
+          "parameters": "string shapeId, point scenePoint"
+        },
+        {
+          "name": "shapeDragFinished",
+          "parameters": "string shapeId, var parameters, point scenePoint"
+        },
+        {
+          "name": "shapeDragCanceled",
+          "parameters": "string shapeId"
         }
       ],
       "methods": [
@@ -35222,12 +35278,36 @@
           "parameters": ""
         },
         {
+          "name": "categoryLabel",
+          "parameters": "value"
+        },
+        {
           "name": "filterDefinitions",
           "parameters": ""
         },
         {
+          "name": "remember",
+          "parameters": "shape"
+        },
+        {
           "name": "requestInsert",
           "parameters": "shape"
+        },
+        {
+          "name": "beginDrag",
+          "parameters": "shape"
+        },
+        {
+          "name": "moveDrag",
+          "parameters": "scenePoint"
+        },
+        {
+          "name": "finishDrag",
+          "parameters": "shape, scenePoint"
+        },
+        {
+          "name": "cancelDrag",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -35239,10 +35319,13 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "shapeCaption",
         "shapeCategories",
+        "shapeCategoryMenu",
         "shapeGrid",
+        "shapeNoMatch",
         "shapeSearch",
-        "shape_"
+        "shapeThumbnail"
       ]
     },
     {

@@ -123,6 +123,13 @@ freeform path, and undo restores the parametric definition. The real
 creates and edits these shapes; `tests/qml/tst_vector_parametric_example.qml`
 drives it through the palette, the parameter fields, a node drag and undo.
 
+A host with drawn stencils (a diagram editor) gives each definition an
+`imageSource` thumbnail and turns on `dragEnabled`: tiles then report
+`shapeDragStarted`/`shapeDragMoved`/`shapeDragFinished` with scene points,
+which the host maps through `CanvasView.mapToDocument` to drop the shape
+where it was released. `categoryPicker: "menu"` and `searchAllCategories`
+suit a narrow side panel with many stencils (D-302).
+
 `Tk.PathEditor` overlays a `CanvasView`, maps the selected path through its
 object transform and view pose, previews node/handle drags, then calls the
 document edit once on release. Escape cancels the preview.
