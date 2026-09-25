@@ -9,6 +9,8 @@
 #include <QMap>
 #include <QObject>
 #include <QPointF>
+#include <QSize>
+#include <QStringList>
 #include <QUrl>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -36,6 +38,9 @@ class TrackingRotoModel : public QObject {
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY changed)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY changed)
 public:
+    // Accepted points per track; the loader refuses more, so accept and
+    // correct refuse to exceed it (AGENT-CONTRACT with tracking_roto_codec.cpp).
+    static constexpr int kMaxTrackPoints = 4096;
     explicit TrackingRotoModel(QObject *parent = nullptr);
     ~TrackingRotoModel() override;
     QVariantList tracks() const;
@@ -58,6 +63,9 @@ public:
     Q_INVOKABLE QString addTrack(const QString &label, int referenceFrame,
                                  double x, double y, int radius = 5, int searchRadius = 16);
     Q_INVOKABLE bool removeTrack(const QString &trackId);
+    // motion is "translation" or "similarity" (rotation and uniform scale).
+    Q_INVOKABLE bool setTrackOptions(const QString &trackId, int radius, int searchRadius,
+                                     const QString &motion);
     // endFrame < startFrame tracks backwards. occlusionFrames is how many
     // consecutive lost frames the worker searches through before stopping.
     Q_INVOKABLE bool startAnalysis(const QString &trackId, int startFrame, int endFrame,
@@ -80,6 +88,16 @@ public:
                                                 int targetFrame, const QString &trackId) const;
     Q_INVOKABLE QVariantMap applyTrackToMask(const QString &maskId, int sourceFrame,
                                              const QString &trackId, int fromFrame, int toFrame);
+    // One track moves the path by its translation (and rotation/scale); four
+    // tracks corner-pin it with the perspective map of their quad. Preview
+    // returns the generated keys without editing; apply commits them as
+    // "generated" keys in one undo step and never overwrites a user key.
+    Q_INVOKABLE QVariantMap previewPropagation(const QString &maskId, int sourceFrame,
+                                               const QStringList &trackIds,
+                                               int fromFrame, int toFrame) const;
+    Q_INVOKABLE QVariantMap applyPropagation(const QString &maskId, int sourceFrame,
+                                             const QStringList &trackIds,
+                                             int fromFrame, int toFrame);
     QImage applyMask(const QString &maskId, int frame, const QImage &source);
     Q_INVOKABLE bool exportMaskedPng(const QString &maskId, int frame, const QUrl &url);
     Q_INVOKABLE bool undo();
@@ -101,6 +119,8 @@ private:
         double x = 0;
         double y = 0;
         double confidence = 0;
+        double rotation = 0; // degrees clockwise, relative to the first reference
+        double scale = 1;
         QString state;
         QString source;
     };
@@ -112,16 +132,27 @@ private:
         double seedY = 0;
         int radius = 5;
         int searchRadius = 16;
+        QString motion = QStringLiteral("translation");
+        double referenceRotation = 0; // pose of the reference patch (rebase)
+        double referenceScale = 1;
         QString state = QStringLiteral("idle");
         QMap<int, Point> points;
         QMap<int, Point> preview;
+        // AGENT-GUARD: frame -> m_frameVersions value the preview was measured
+        // on; acceptAnalysis refuses a preview whose frames were replaced.
+        QHash<int, quint64> previewInputs;
     };
     struct PathPoint { QString id; double x = 0; double y = 0; };
+    struct MaskKey {
+        QVector<PathPoint> points;
+        QString source = QStringLiteral("user"); // "user" or "generated"
+        QStringList trackIds;                    // tracks that generated it
+    };
     struct Mask {
         QString id;
         QString label;
         double feather = 0;
-        QMap<int, QVector<PathPoint>> keys;
+        QMap<int, MaskKey> keys;
     };
     struct State { QVector<Track> tracks; QVector<Mask> masks; };
     struct Analysis {
@@ -144,18 +175,29 @@ private:
     int trackIndex(const QString &id) const;
     int maskIndex(const QString &id) const;
     void remember();
+    void restore(const State &state);
+    bool previewCurrent(const Track &track) const;
+    void discardStaleResults(int frame);
     void setError(const QString &error);
-    void onAnalysisSample(quint64 job, int frame, double x, double y, double confidence, bool lost);
+    void onAnalysisSample(quint64 job, const Point &point);
     void onAnalysisFinished(quint64 job, bool lost);
-    void onFrameLoaded(quint64 job, int frame, const QImage &proxy);
+    void onFrameLoaded(quint64 job, int frame, const QImage &proxy, QSize sourceSize);
     void onLoadFinished(quint64 job, const QString &error);
-    bool storeProxy(int frame, const QImage &proxy);
-    bool translatedPath(const QString &maskId, int sourceFrame, const Track &track,
-                        int targetFrame, QVector<PathPoint> *path, QString *error) const;
+    bool storeProxy(int frame, const QImage &proxy, QSize sourceSize);
+    bool mappedPath(const QString &maskId, int sourceFrame, const QVector<const Track *> &tracks,
+                    int targetFrame, QVector<PathPoint> *path, QString *error) const;
+    struct Propagation {
+        QMap<int, MaskKey> keys; // the mask's keys with the generated ones merged
+        QVariantList keyed, skipped, kept, generated;
+    };
+    bool propagate(const QString &maskId, int sourceFrame, const QStringList &trackIds,
+                   int fromFrame, int toFrame, Propagation *result, QString *error) const;
     static QVariantMap pointMap(const Point &point);
     static QVariantList pathList(const QVector<PathPoint> &points);
     static bool parsePath(const QVariantList &value, QVector<PathPoint> *points);
     QVariantMap contentMap() const;
+    static bool parseContent(const QVariantMap &content, QVector<Track> *tracks,
+                             QVector<Mask> *masks);
     bool loadContent(const QVariantMap &content);
 
     QVector<Track> m_tracks;
@@ -163,6 +205,9 @@ private:
     QVector<State> m_undo;
     QVector<State> m_redo;
     QHash<int, QImage> m_frames;
+    QHash<int, QSize> m_frameSource;      // source size each proxy was made from
+    QHash<int, quint64> m_frameVersions;  // bumped whenever a frame is stored
+    quint64 m_frameSerial = 0;
     qsizetype m_frameBytes = 0;
     quint64 m_jobSerial = 0;
     Analysis m_analysis;

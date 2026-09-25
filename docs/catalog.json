@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-24",
+  "generated": "2026-09-25",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -29285,6 +29285,22 @@
           "required": false
         },
         {
+          "name": "propagationFrom",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "propagationTo",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Edit the selected mask path on this source frame\")",
@@ -29333,6 +29349,30 @@
           "required": false
         },
         {
+          "name": "keySource",
+          "type": "string",
+          "default": "keyframe.frame === undefined ? \"\" : String(keyframe.source || \"user\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rangePreview",
+          "type": "bool",
+          "default": "Boolean(propagationPreview.keys) && propagationPreview.keys.length !== undefined",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previewPath",
+          "type": "var",
+          "default": "rangePreview",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "previewVisible",
           "type": "bool",
           "default": "generatedPreview || propagationPreview.state === \"preview\"",
@@ -29353,6 +29393,14 @@
         {
           "name": "acceptPreviewRequested",
           "parameters": "string maskId, string frame, var points"
+        },
+        {
+          "name": "propagateRangeRequested",
+          "parameters": "string maskId, string sourceFrame, string fromFrame, string toFrame, string trackId"
+        },
+        {
+          "name": "acceptRangeRequested",
+          "parameters": "string maskId, string sourceFrame, string fromFrame, string toFrame, var trackIds"
         },
         {
           "name": "cancelPreviewRequested",
@@ -29409,6 +29457,10 @@
           "parameters": ""
         },
         {
+          "name": "requestRangePropagation",
+          "parameters": ""
+        },
+        {
           "name": "acceptPreview",
           "parameters": ""
         },
@@ -29435,11 +29487,14 @@
         "rotoCanvas",
         "rotoFeather",
         "rotoFrameSurface",
+        "rotoKeySource",
         "rotoMaskSelect",
         "rotoPath",
         "rotoPoint_",
         "rotoPropagate",
+        "rotoPropagateRange",
         "rotoRemoveKeyframe",
+        "rotoStatus",
         "rotoscopeEditor"
       ]
     },
@@ -38511,6 +38566,86 @@
           "required": false
         },
         {
+          "name": "analysisProgress",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "loadingFrames",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frameLoadProgress",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targets",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetMaskId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maskSourceFrame",
+          "type": "string",
+          "default": "startFrame",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "offsetX",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "offsetY",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "running",
+          "type": "bool",
+          "default": "track.state === \"running\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "target",
+          "type": "var",
+          "default": "targets.find(function(item) { return String(item.maskId) === control.targetMaskId }) || ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "track",
           "type": "var",
           "default": "tracks.find(function(item) { return String(item.trackId) === control.selectedTrackId }) || ({})",
@@ -38563,6 +38698,26 @@
         {
           "name": "correctionRequested",
           "parameters": "string trackId, string frame, real x, real y"
+        },
+        {
+          "name": "optionsChangeRequested",
+          "parameters": "string trackId, int radius, int searchRadius, string motion"
+        },
+        {
+          "name": "rebaseRequested",
+          "parameters": "string trackId, string frame"
+        },
+        {
+          "name": "offsetRequested",
+          "parameters": "string trackId, real dx, real dy, string fromFrame, string toFrame"
+        },
+        {
+          "name": "targetSelected",
+          "parameters": "string maskId"
+        },
+        {
+          "name": "applyToMaskRequested",
+          "parameters": "string trackId, string maskId, string sourceFrame, string fromFrame, string toFrame"
         }
       ],
       "methods": [
@@ -38581,6 +38736,22 @@
         {
           "name": "correctPoint",
           "parameters": "frame, x, y"
+        },
+        {
+          "name": "setOptions",
+          "parameters": "radius, searchRadius, motion"
+        },
+        {
+          "name": "rebase",
+          "parameters": ""
+        },
+        {
+          "name": "offset",
+          "parameters": "dx, dy"
+        },
+        {
+          "name": "applyToMask",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -38593,13 +38764,32 @@
       "bridge": false,
       "objectNames": [
         "trackingAccept",
+        "trackingApplyMask",
+        "trackingApplyRow",
         "trackingCancel",
+        "trackingEdits",
+        "trackingEndFrame",
         "trackingFeatureList",
         "trackingFeature_",
+        "trackingMotion",
+        "trackingOcclusion",
+        "trackingOffset",
+        "trackingOffsetX",
+        "trackingOffsetY",
+        "trackingOptions",
         "trackingPanel",
+        "trackingPatchRadius",
         "trackingPointState_",
+        "trackingProgress",
+        "trackingProgressRow",
+        "trackingProgressText",
+        "trackingRange",
+        "trackingRebase",
         "trackingRun",
+        "trackingSearchRadius",
+        "trackingStartFrame",
         "trackingStatus",
+        "trackingTargetSelect",
         "trackingTrackSelect"
       ]
     },
@@ -70616,6 +70806,11 @@
           "parameters": "const QString &trackId"
         },
         {
+          "name": "setTrackOptions",
+          "returns": "bool",
+          "parameters": "const QString &trackId, int radius, int searchRadius, const QString &motion"
+        },
+        {
           "name": "startAnalysis",
           "returns": "bool",
           "parameters": "const QString &trackId, int startFrame, int endFrame, int occlusionFrames = 0"
@@ -70684,6 +70879,16 @@
           "name": "applyTrackToMask",
           "returns": "QVariantMap",
           "parameters": "const QString &maskId, int sourceFrame, const QString &trackId, int fromFrame, int toFrame"
+        },
+        {
+          "name": "previewPropagation",
+          "returns": "QVariantMap",
+          "parameters": "const QString &maskId, int sourceFrame, const QStringList &trackIds, int fromFrame, int toFrame"
+        },
+        {
+          "name": "applyPropagation",
+          "returns": "QVariantMap",
+          "parameters": "const QString &maskId, int sourceFrame, const QStringList &trackIds, int fromFrame, int toFrame"
         },
         {
           "name": "exportMaskedPng",
