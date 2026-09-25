@@ -16050,7 +16050,7 @@
       "name": "ImageSliceView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "One calibrated principal plane of a Tk.VoxelVolume: a header (plane, slice n / N, previous/next), the slice fitted by physical spacing with the shared crosshair, and a voxel/value readout. Click moves the shared cursor; wheel, Page Up/Down, Home/End and the chevrons change slice; arrow keys move the crosshair one voxel within the plane. AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one VolumeCursor in voxel coordinates; the provider owns physical transforms.",
+      "description": "One calibrated principal plane of a Tk.VoxelVolume, or an oblique world reslice through the cursor (plane Oblique, resliceOrientation): a header (plane, slice n / N, previous/next), the slice fitted by physical spacing with the shared crosshair, and a voxel/value readout. Click moves the shared cursor; wheel, Page Up/Down, Home/End and the chevrons change slice; arrow keys move the crosshair one voxel within the plane. AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one VolumeCursor in voxel coordinates; the provider owns physical transforms.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ImageSliceView.qml",
@@ -16128,10 +16128,26 @@
           "required": false
         },
         {
+          "name": "resliceOrientation",
+          "type": "alias",
+          "default": "slice.resliceOrientation",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Image slice\")",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "oblique",
+          "type": "bool",
+          "default": "plane === Tk.ImageSliceItem.Oblique",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         },
@@ -16146,7 +16162,7 @@
         {
           "name": "sliceCount",
           "type": "int",
-          "default": "!volume ? 0 : plane === Tk.ImageSliceItem.Axial ? volume.sizeZ",
+          "default": "!volume ? 0 : oblique ? slice.sliceCount",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -16154,7 +16170,7 @@
         {
           "name": "sliceIndex",
           "type": "int",
-          "default": "!cursor ? Math.max(0, Math.round((sliceCount - 1) / 2))",
+          "default": "oblique ? slice.sliceIndex",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -19389,9 +19405,25 @@
           "required": false
         },
         {
-          "name": "stripWidth",
+          "name": "baseStripWidth",
           "type": "real",
           "default": "detail ? Tk.Theme.size.panelMinWidth : Tk.Theme.size.fieldWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bankSize",
+          "type": "int",
+          "default": "Math.max(1, Math.floor((strips.width + strips.spacing) / (baseStripWidth + strips.spacing)))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stripWidth",
+          "type": "real",
+          "default": "Math.max(1, (strips.width - (bankSize - 1) * strips.spacing) / bankSize)",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -19400,14 +19432,6 @@
           "name": "channelCount",
           "type": "int",
           "default": "strips.count",
-          "readonly": true,
-          "defaultProperty": false,
-          "required": false
-        },
-        {
-          "name": "bankSize",
-          "type": "int",
-          "default": "Math.max(1, Math.floor((strips.width + strips.spacing) / (stripWidth + strips.spacing)))",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -19451,6 +19475,10 @@
         {
           "name": "step",
           "parameters": "direction"
+        },
+        {
+          "name": "syncBank",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -23138,7 +23166,7 @@
       "name": "PianoRoll",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: note records and tick boundaries are immutable host snapshots. Every edit request names a stable note ID and carries exact decimal tick strings; the MIDI model owns duration math, validation, preview state, commit, and undo.",
+      "description": "AGENT-CONTRACT: note records and tick boundaries are immutable host snapshots. Every edit request names a stable note ID and carries exact decimal tick strings; the MIDI model owns duration math, validation, preview state, commit, and undo. AGENT-GUARD (AUD-22, WP-064): every auditionRequested is matched by one auditionReleased — on finish, cancel, a pitch change, disabling and destruction — so a host wired to AudioEngine.auditionNoteOn/Off never leaves a note sounding.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PianoRoll.qml",
@@ -23214,12 +23242,28 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "auditionEnabled",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
         {
           "name": "noteSelected",
           "parameters": "string noteId"
+        },
+        {
+          "name": "auditionRequested",
+          "parameters": "int pitch, real velocity"
+        },
+        {
+          "name": "auditionReleased",
+          "parameters": "int pitch"
         },
         {
           "name": "notePreviewRequested",
@@ -23266,6 +23310,14 @@
         {
           "name": "noteAt",
           "parameters": "x, y"
+        },
+        {
+          "name": "auditionPitch",
+          "parameters": "pitch, velocity"
+        },
+        {
+          "name": "releaseAudition",
+          "parameters": ""
         },
         {
           "name": "beginEditAt",
@@ -24993,6 +25045,63 @@
         "remoteActivity",
         "remoteCursor",
         "remoteSelection"
+      ]
+    },
+    {
+      "name": "PresenterConsole",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Presenter window content bound to a running Tk.SlideShow and, when given, the Tk.PresentationWindows that host it (docs/slides.md#windows). The audience preview is a Tk.SlideFrameView of the same frame the audience window paints; speaker notes are bound only here. AGENT-CONTRACT: Tk.PresentationWindows.presenterDelegate instantiates this with the initial properties `show` and `windows`; keep both names.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/PresenterConsole.qml",
+      "properties": [
+        {
+          "name": "show",
+          "type": "Tk.SlideShow",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "windows",
+          "type": "Tk.PresentationWindows",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Presenter console\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "live",
+          "type": "bool",
+          "default": "!!control.show && control.show.running",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "presenterConsoleView",
+        "presenterCurrentFrame"
       ]
     },
     {
@@ -28101,7 +28210,7 @@
       "name": "RigEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: consumes MeshRigDocument.bones/vertices snapshots and emits stable bone/vertex IDs; the host commits pose and weight edits.",
+      "description": "AGENT-CONTRACT: consumes MeshRigDocument.bones/vertices snapshots and emits stable bone/vertex/constraint IDs; the host commits pose, weight, constraint, key and frame edits. Sliders edit `sourcePose` (the static pose or the keyed value at the frame), never the constrained `evaluatedPose`, so the editor cannot bake constraint output into the rig (docs/mesh-rig.md).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/RigEditor.qml",
@@ -28147,6 +28256,22 @@
           "required": false
         },
         {
+          "name": "currentFrame",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "constraintInfluence",
+          "type": "real",
+          "default": "1.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Rig editor: orthographic skeleton projection and pose controls\")",
@@ -28166,6 +28291,14 @@
           "name": "selectedVertex",
           "type": "var",
           "default": "vertexById(selectedVertexId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "constraintTargets",
+          "type": "var",
+          "default": "(bones || []).filter(b => String(b.boneId) !== selectedBoneId)",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -28191,6 +28324,26 @@
         {
           "name": "resetPoseRequested",
           "parameters": ""
+        },
+        {
+          "name": "constraintAddRequested",
+          "parameters": "string boneId, string type, string targetId, real influence"
+        },
+        {
+          "name": "constraintRemoveRequested",
+          "parameters": "string constraintId"
+        },
+        {
+          "name": "poseKeyRequested",
+          "parameters": "string boneId, int frame, vector3d eulerDegrees"
+        },
+        {
+          "name": "poseKeyRemoveRequested",
+          "parameters": "string boneId, int frame"
+        },
+        {
+          "name": "frameRequested",
+          "parameters": "int frame"
         }
       ],
       "methods": [
@@ -28207,6 +28360,10 @@
           "parameters": "id"
         },
         {
+          "name": "editablePose",
+          "parameters": ""
+        },
+        {
           "name": "axisValue",
           "parameters": "axis"
         },
@@ -28217,6 +28374,22 @@
         {
           "name": "setPoseAxis",
           "parameters": "axis, value"
+        },
+        {
+          "name": "hasKeyAtFrame",
+          "parameters": ""
+        },
+        {
+          "name": "requestKey",
+          "parameters": ""
+        },
+        {
+          "name": "requestKeyRemoval",
+          "parameters": ""
+        },
+        {
+          "name": "requestCopyRotation",
+          "parameters": "targetId"
         },
         {
           "name": "requestBoneWeight",
@@ -28232,10 +28405,17 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "rigAddConstraint",
         "rigBone_",
+        "rigConstraintTarget",
+        "rigConstraint_",
         "rigEditMode",
         "rigEditor",
+        "rigEvaluatedPose",
+        "rigFrame",
+        "rigKey",
         "rigProjection",
+        "rigRemoveKey",
         "rigSelectedWeight",
         "rigVertex_"
       ]
@@ -29177,6 +29357,14 @@
           "required": false
         },
         {
+          "name": "cameraFieldOfView",
+          "type": "real",
+          "default": "60",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "translationSnap",
           "type": "real",
           "default": "0",
@@ -29249,6 +29437,10 @@
         {
           "name": "meshPicked",
           "parameters": "vector3d worldPosition"
+        },
+        {
+          "name": "meshFacePicked",
+          "parameters": "string faceId, point uv"
         }
       ],
       "methods": [
@@ -29282,6 +29474,10 @@
         },
         {
           "name": "meshRay",
+          "parameters": "x, y"
+        },
+        {
+          "name": "pickMeshFace",
           "parameters": "x, y"
         }
       ],
@@ -35686,7 +35882,7 @@
       "name": "TexturePaintView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the host supplies camera picking through rayProvider and routes one requested stroke to MeshRigDocument.beginPaint/paintRay/endPaint.",
+      "description": "AGENT-CONTRACT: the host supplies camera picking through rayProvider and routes one requested stroke to MeshRigDocument.beginPaint(channel) / paintRay / endPaint. SceneView3D.meshRay is the reference provider: a CPU perspective ray matching the GPU camera (docs/mesh-rig.md#camera-rays).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TexturePaintView.qml",
@@ -35695,6 +35891,22 @@
           "name": "textureDataUrl",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channels",
+          "type": "var",
+          "default": "[\"baseColor\", \"roughness\", \"metalness\"]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channel",
+          "type": "string",
+          "default": "\"baseColor\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -35717,6 +35929,14 @@
         },
         {
           "name": "brushOpacity",
+          "type": "real",
+          "default": "1.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "brushHardness",
           "type": "real",
           "default": "1.0",
           "readonly": false,
@@ -35751,11 +35971,11 @@
       "signals": [
         {
           "name": "strokeBegan",
-          "parameters": ""
+          "parameters": "string channel"
         },
         {
           "name": "paintRayRequested",
-          "parameters": "vector3d origin, vector3d direction, color color, int radiusPixels, real opacity"
+          "parameters": "vector3d origin, vector3d direction, color color, int radiusPixels, real opacity, real hardness"
         },
         {
           "name": "strokeFinished",
@@ -35764,9 +35984,21 @@
         {
           "name": "strokeCancelled",
           "parameters": ""
+        },
+        {
+          "name": "channelSelected",
+          "parameters": "string channel"
         }
       ],
       "methods": [
+        {
+          "name": "channelLabel",
+          "parameters": "name"
+        },
+        {
+          "name": "selectChannel",
+          "parameters": "name"
+        },
         {
           "name": "sendRay",
           "parameters": "point"
@@ -35785,6 +36017,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "texturePaintChannels",
         "texturePaintSurface",
         "texturePaintView",
         "texturePreview"
@@ -37518,7 +37751,7 @@
       "name": "TransferFunctionEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "Edits a Tk.TransferFunctionModel: measured-value stops on a gradient over the model's domain (click the track to add at the current mapping, drag or arrow-key a stop to move it, Delete or right-click to remove) plus the selected stop's exact value, opacity and color. Sized to its content. AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer settings model. Voxel source data and its revision are never changed here.",
+      "description": "Edits a Tk.TransferFunctionModel: measured-value stops on a gradient over the model's domain (click the track to add at the current mapping, drag or arrow-key a stop to move it, Delete or right-click to remove) plus the selected stop's exact value, opacity and color. Sized to its content. A drag or slider press is one undoable step (Escape cancels a drag); Ctrl+Z / Ctrl+Shift+Z and the header buttons undo and redo. AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer settings model. Voxel source data and its revision are never changed here. Gestures use the model's beginEdit/commitEdit/cancelEdit transaction (D-148), so previews repaint views but only the committed step is recorded.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TransferFunctionEditor.qml",
@@ -37562,7 +37795,16 @@
           "parameters": "string pointId"
         }
       ],
-      "methods": [],
+      "methods": [
+        {
+          "name": "undo",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -37576,7 +37818,9 @@
         "transferGradient",
         "transferPointColor",
         "transferPointOpacity",
-        "transferPointValue"
+        "transferPointValue",
+        "transferRedo",
+        "transferUndo"
       ]
     },
     {
@@ -38654,6 +38898,38 @@
           "required": false
         },
         {
+          "name": "stitchMode",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "packPreview",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "packMargin",
+          "type": "real",
+          "default": "0.02",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "packHovered",
+          "type": "bool",
+          "default": "packButton.hovered",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"UV editor: drag a corner, or drag a face to move its island\")",
@@ -38710,6 +38986,22 @@
         {
           "name": "seamToggleRequested",
           "parameters": "string vertexA, string vertexB"
+        },
+        {
+          "name": "seamStitchRequested",
+          "parameters": "string vertexA, string vertexB"
+        },
+        {
+          "name": "uvIslandTransformRequested",
+          "parameters": "string faceId, point translation, real rotationDegrees, real scale"
+        },
+        {
+          "name": "uvUnwrapRequested",
+          "parameters": "string faceId"
+        },
+        {
+          "name": "uvPackRequested",
+          "parameters": "real margin"
         }
       ],
       "methods": [
@@ -38738,6 +39030,10 @@
           "parameters": "point"
         },
         {
+          "name": "rotateSelectedIsland",
+          "parameters": "degrees"
+        },
+        {
           "name": "visibleUv",
           "parameters": "face, index"
         }
@@ -38753,7 +39049,11 @@
       "objectNames": [
         "uvEditMode",
         "uvEditor",
-        "uvSurface"
+        "uvPack",
+        "uvRotate",
+        "uvStitchMode",
+        "uvSurface",
+        "uvUnwrap"
       ]
     },
     {
@@ -39901,6 +40201,267 @@
       ]
     },
     {
+      "name": "VolumeView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "Direct volume rendering of a Tk.VoxelVolume: a header (title, Composite / MIP, render-path badge, reset), the rendered volume and a camera readout. Drag orbits, the wheel zooms, a click without a drag picks the voxel under the pointer into the shared cursor. Arrow keys orbit, +/- zoom, Home resets and Escape cancels an orbit drag back to where it started. AGENT-CONTRACT (docs/volume-imaging.md#volume-rendering): the camera, mode, sampling and clip box are view settings (saveSettings/restoreSettings); the view never writes voxels, and the GPU or reference choice is reported in renderPath/fallbackReason by Tk.VolumeViewItem.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/VolumeView.qml",
+      "properties": [
+        {
+          "name": "volume",
+          "type": "alias",
+          "default": "rendered.volume",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cursor",
+          "type": "alias",
+          "default": "rendered.cursor",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "transfer",
+          "type": "alias",
+          "default": "rendered.transfer",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channel",
+          "type": "alias",
+          "default": "rendered.channel",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "frame",
+          "type": "alias",
+          "default": "rendered.frame",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "interpolation",
+          "type": "alias",
+          "default": "rendered.interpolation",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "alias",
+          "default": "rendered.mode",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "yaw",
+          "type": "alias",
+          "default": "rendered.yaw",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pitch",
+          "type": "alias",
+          "default": "rendered.pitch",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoom",
+          "type": "alias",
+          "default": "rendered.zoom",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "samplingRate",
+          "type": "alias",
+          "default": "rendered.samplingRate",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipLow",
+          "type": "alias",
+          "default": "rendered.clipLow",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipHigh",
+          "type": "alias",
+          "default": "rendered.clipHigh",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "windowCenter",
+          "type": "alias",
+          "default": "rendered.windowCenter",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "windowWidth",
+          "type": "alias",
+          "default": "rendered.windowWidth",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "renderer",
+          "type": "alias",
+          "default": "rendered.renderer",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumTextureBytes",
+          "type": "alias",
+          "default": "rendered.maximumTextureBytes",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "renderPath",
+          "type": "string",
+          "default": "rendered.renderPath",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fallbackReason",
+          "type": "string",
+          "default": "rendered.fallbackReason",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "orbiting",
+          "type": "bool",
+          "default": "_drag.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "qsTr(\"Volume\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Volume rendering\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "orbitStep",
+          "type": "real",
+          "default": "5",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "orbitDegreesPerPixel",
+          "type": "real",
+          "default": "0.5",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zoomStep",
+          "type": "real",
+          "default": "1.25",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pointSelected",
+          "parameters": "var voxelPoint"
+        }
+      ],
+      "methods": [
+        {
+          "name": "saveSettings",
+          "parameters": ""
+        },
+        {
+          "name": "restoreSettings",
+          "parameters": "settings"
+        },
+        {
+          "name": "resetView",
+          "parameters": ""
+        },
+        {
+          "name": "orbit",
+          "parameters": "deltaYaw, deltaPitch"
+        },
+        {
+          "name": "pickAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "cancelOrbit",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "volumeView",
+        "volumeViewItem",
+        "volumeViewMode",
+        "volumeViewPointer",
+        "volumeViewReadout",
+        "volumeViewRenderPath",
+        "volumeViewReset",
+        "volumeViewViewport"
+      ]
+    },
+    {
       "name": "Waveform",
       "kind": "qml",
       "base": "Item",
@@ -41009,6 +41570,20 @@
           "default": "",
           "readonly": false,
           "constant": false
+        },
+        {
+          "name": "auditionVoices",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "launchedClips",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -41039,6 +41614,18 @@
         {
           "name": "recordingFinished",
           "parameters": "const QVariantMap &take"
+        },
+        {
+          "name": "midiStateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "midiLaunchEvent",
+          "parameters": "int kind, quint64 serial, quint64 lane, quint64 slot, qint64 sample, int code"
+        },
+        {
+          "name": "midiReset",
+          "parameters": "const QString &reason"
         }
       ],
       "methods": [
@@ -41066,6 +41653,21 @@
           "name": "channelMeter",
           "returns": "QindaTK::AudioMeterModel *",
           "parameters": "const QString &channelId"
+        },
+        {
+          "name": "auditionNoteOn",
+          "returns": "bool",
+          "parameters": "int pitch, double velocity = 0.8"
+        },
+        {
+          "name": "auditionNoteOff",
+          "returns": "bool",
+          "parameters": "int pitch"
+        },
+        {
+          "name": "allNotesOff",
+          "returns": "bool",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -42152,7 +42754,7 @@
       "name": "AudioSession",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md). It owns the accepted domain models — TimelineModel (clips, edits, undo), TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver (media identity, availability, relink) — and AudioMixerModel (buses, routing, sends, groups; WP-062) and AudioSourceEditModel (sample, fade and spectral edits of each source; WP-063), and compiles them into an AudioRenderGraph for its engine and for offline renders. It persists as \"qindatk.audio-session/1\" JSON with media paths relative to the session.",
+      "description": "AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md). It owns the accepted domain models — TimelineModel (clips, edits, undo), TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver (media identity, availability, relink) — and AudioMixerModel (buses, routing, sends, groups; WP-062) and AudioSourceEditModel (sample, fade and spectral edits of each source; WP-063), MidiSequenceModel (patterns, scenes and slots; WP-064) with its MidiLauncherModel, and compiles them into an AudioRenderGraph for its engine and for offline renders. It persists as \"qindatk.audio-session/1\" JSON with media paths relative to the session.",
       "singleton": false,
       "attached": null,
       "file": "src/core/audio_session.h",
@@ -42209,6 +42811,20 @@
         {
           "name": "edits",
           "type": "QindaTK::AudioSourceEditModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "midi",
+          "type": "QindaTK::MidiSequenceModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "launcher",
+          "type": "QindaTK::MidiLauncherModel *",
           "default": "",
           "readonly": true,
           "constant": true
@@ -42332,6 +42948,21 @@
           "name": "relinkMedia",
           "returns": "bool",
           "parameters": "const QString &resourceId, const QString &file"
+        },
+        {
+          "name": "addMidiTrack",
+          "returns": "QString",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "exportMidi",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QString &file"
+        },
+        {
+          "name": "importMidi",
+          "returns": "QVariantMap",
+          "parameters": "const QString &file"
         }
       ],
       "enums": {},
@@ -53091,7 +53722,7 @@
       "name": "ImageSliceItem",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
-      "description": "Paints one principal voxel-index plane of a VoxelVolume, fitted by physical spacing, with the shared VolumeCursor crosshair. AGENT-CONTRACT (docs/volume-imaging.md, D-086): the target rectangle spans whole voxel cells (size × spacing), so its edges are continuous indices −0.5 and size−0.5. sliceImage, voxelAt, positionForVoxel and the crosshair share that one mapping; change them together.",
+      "description": "Paints one principal voxel-index plane of a VoxelVolume, fitted by physical spacing, or an oblique world-space reslice (plane Oblique), with the shared VolumeCursor crosshair. AGENT-CONTRACT (docs/volume-imaging.md, D-086): the target rectangle spans whole voxel cells (size × spacing), so its edges are continuous indices −0.5 and size−0.5. sliceImage, voxelAt, positionForVoxel and the crosshair share that one mapping; change them together. Oblique planes use the square reslice frame of D-149 (image_slice_reslice.cpp) in all four instead.",
       "singleton": false,
       "attached": null,
       "file": "src/core/image_slice_item.h",
@@ -53179,15 +53810,57 @@
           "default": "",
           "readonly": false,
           "constant": false
+        },
+        {
+          "name": "resliceOrientation",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sliceCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sliceIndex",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
         {
           "name": "changed",
           "parameters": ""
+        },
+        {
+          "name": "sliceChanged",
+          "parameters": ""
         }
       ],
       "methods": [
+        {
+          "name": "stepSlice",
+          "returns": "bool",
+          "parameters": "int steps"
+        },
+        {
+          "name": "moveCrosshair",
+          "returns": "bool",
+          "parameters": "int dh, int dv"
+        },
         {
           "name": "voxelAt",
           "returns": "QVariantList",
@@ -55033,7 +55706,7 @@
       "name": "MeshRigDocument",
       "kind": "cpp",
       "base": "QObject",
-      "description": "A bounded triangle-mesh document. Vertex, face, UV-corner and bone IDs are stable across pose/UV edits, undo, OBJ export and native save/reopen. AGENT-CONTRACT: SceneView3D's optional Quick 3D adapter reads only the public posed/UV snapshots; this model owns the editable mesh and exports posed OBJ geometry plus texture PNG independently of the renderer. See docs/mesh-rig.md and docs/scene-3d.md.",
+      "description": "A bounded triangle-mesh document. Vertex, face, UV-corner, bone and constraint IDs are stable across pose/UV edits, undo, OBJ export and native save/reopen. See docs/mesh-rig.md. AGENT-CONTRACT: SceneView3D's optional Quick 3D adapter (MeshRigGeometry) reads only the public posed/UV snapshots and texture(channel); this model owns the editable mesh, rig, animation keys and texture channels, and exports posed OBJ geometry plus channel PNGs independently of the renderer. AGENT-CONTRACT (docs/document-models.md#commands): every committed edit is one DocumentCommand in a single UndoService history; a private service is used until a host adopts the model into a shared one (D-157).",
       "singleton": false,
       "attached": null,
       "file": "src/core/mesh_rig_document.h",
@@ -55074,6 +55747,20 @@
           "constant": false
         },
         {
+          "name": "textureDataUrls",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textureChannels",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
           "name": "textureWidth",
           "type": "int",
           "default": "",
@@ -55083,6 +55770,20 @@
         {
           "name": "textureHeight",
           "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "currentFrame",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "painting",
+          "type": "bool",
           "default": "",
           "readonly": true,
           "constant": false
@@ -55102,6 +55803,27 @@
           "constant": false
         },
         {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "lastError",
           "type": "QString",
           "default": "",
@@ -55112,6 +55834,14 @@
       "signals": [
         {
           "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "committedChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
           "parameters": ""
         },
         {
@@ -55146,6 +55876,11 @@
           "parameters": "const QString &faceId"
         },
         {
+          "name": "setVertexWeights",
+          "returns": "bool",
+          "parameters": "const QString &vertexId, const QVariantMap &weights"
+        },
+        {
           "name": "setUV",
           "returns": "bool",
           "parameters": "const QString &faceId, int corner, const QPointF &uv"
@@ -55159,6 +55894,31 @@
           "name": "translateUvIsland",
           "returns": "bool",
           "parameters": "const QString &faceId, const QPointF &delta"
+        },
+        {
+          "name": "transformUvIsland",
+          "returns": "bool",
+          "parameters": "const QString &faceId, const QPointF &translation, qreal rotationDegrees, qreal scale"
+        },
+        {
+          "name": "stitchSeam",
+          "returns": "bool",
+          "parameters": "const QString &v0, const QString &v1"
+        },
+        {
+          "name": "unwrapUvIsland",
+          "returns": "bool",
+          "parameters": "const QString &faceId"
+        },
+        {
+          "name": "packUvLayout",
+          "returns": "QVariantList",
+          "parameters": "qreal margin = 0.02"
+        },
+        {
+          "name": "packUvIslands",
+          "returns": "bool",
+          "parameters": "qreal margin = 0.02"
         },
         {
           "name": "addBone",
@@ -55181,9 +55941,29 @@
           "parameters": ""
         },
         {
-          "name": "setVertexWeights",
+          "name": "addConstraint",
+          "returns": "QString",
+          "parameters": "const QString &boneId, const QString &type, const QString &targetId, qreal influence = 1.0"
+        },
+        {
+          "name": "removeConstraint",
           "returns": "bool",
-          "parameters": "const QString &vertexId, const QVariantMap &weights"
+          "parameters": "const QString &constraintId"
+        },
+        {
+          "name": "setPoseKey",
+          "returns": "bool",
+          "parameters": "const QString &boneId, int frame, const QVector3D &eulerDegrees"
+        },
+        {
+          "name": "removePoseKey",
+          "returns": "bool",
+          "parameters": "const QString &boneId, int frame"
+        },
+        {
+          "name": "evaluatedPose",
+          "returns": "QVector3D",
+          "parameters": "const QString &boneId"
         },
         {
           "name": "resizeTexture",
@@ -55193,12 +55973,12 @@
         {
           "name": "beginPaint",
           "returns": "bool",
-          "parameters": ""
+          "parameters": "const QString &channel = QStringLiteral(\"baseColor\""
         },
         {
           "name": "paintRay",
           "returns": "bool",
-          "parameters": "const QVector3D &origin, const QVector3D &direction, const QColor &color, int radiusPixels = 4, qreal opacity = 1.0"
+          "parameters": "const QVector3D &origin, const QVector3D &direction, const QColor &color, int radiusPixels = 4, qreal opacity = 1.0, qreal hardness = 1.0"
         },
         {
           "name": "endPaint",
@@ -55211,6 +55991,26 @@
           "parameters": ""
         },
         {
+          "name": "pickFace",
+          "returns": "QVariantMap",
+          "parameters": "const QVector3D &origin, const QVector3D &direction"
+        },
+        {
+          "name": "cameraRay",
+          "returns": "QVariantMap",
+          "parameters": "const QVector3D &cameraPosition, const QVector3D &cameraEulerDegrees, qreal verticalFieldOfViewDegrees, const QSizeF &viewportSize, const QPointF &point"
+        },
+        {
+          "name": "texture",
+          "returns": "QImage",
+          "parameters": "const QString &channel = QStringLiteral(\"baseColor\""
+        },
+        {
+          "name": "channelDataUrl",
+          "returns": "QString",
+          "parameters": "const QString &channel"
+        },
+        {
           "name": "undo",
           "returns": "bool",
           "parameters": ""
@@ -55221,11 +56021,6 @@
           "parameters": ""
         },
         {
-          "name": "texture",
-          "returns": "QImage",
-          "parameters": ""
-        },
-        {
           "name": "exportObj",
           "returns": "bool",
           "parameters": "const QString &path"
@@ -55233,7 +56028,7 @@
         {
           "name": "exportTexturePng",
           "returns": "bool",
-          "parameters": "const QString &path"
+          "parameters": "const QString &path, const QString &channel = QStringLiteral(\"baseColor\""
         },
         {
           "name": "toJson",
@@ -55270,7 +56065,7 @@
       "name": "MeshRigGeometry",
       "kind": "cpp",
       "base": "QQuick3DGeometry",
-      "description": "AGENT-CONTRACT: MeshRigDocument owns stable mesh/UV/pose state; this optional Quick 3D adapter only uploads its current posed triangle snapshot to the GPU.",
+      "description": "AGENT-CONTRACT: MeshRigDocument owns stable mesh/UV/pose/texture state; this optional Quick 3D adapter only uploads its current posed triangle snapshot and its three texture channels to the GPU. The upload bytes come from the public static pack functions, which the headless tests (tst_mesh_rig_paint) compare against the document's CPU state byte for byte (D-154), so the GPU draws exactly the data the software reference checks.",
       "singleton": false,
       "attached": null,
       "file": "src/core/mesh_rig_geometry.h",
@@ -55291,6 +56086,20 @@
         },
         {
           "name": "textureData",
+          "type": "QQuick3DTextureData *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "roughnessData",
+          "type": "QQuick3DTextureData *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "metalnessData",
           "type": "QQuick3DTextureData *",
           "default": "",
           "readonly": true,
@@ -55456,6 +56265,436 @@
         }
       ],
       "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "MidiLauncherModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (D-153): the clip launcher of an AudioSession (`session.launcher`, WP-064, docs/audio-midi.md). Slots come from the MIDI model; launch and stop requests go to the engine, which quantizes them on the device thread. Slot states change only from engine events: \"queued\" when the engine accepted a launch for a boundary, \"playing\" when that boundary was rendered, \"ready\" when it stopped. `slotList` is the ClipLauncher `slots` snapshot; launchAcknowledged carries the one answer to each request (accepted | rejected | canceled) for acknowledgeLaunch().",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/midi_launcher_model.h",
+      "properties": [
+        {
+          "name": "slotList",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "playingSlots",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "queuedSlots",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "quantization",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "slotListChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "launchAcknowledged",
+          "parameters": "const QString &requestId, const QString &state, const QString &message"
+        },
+        {
+          "name": "slotStarted",
+          "parameters": "const QString &slotId, const QString &sample"
+        },
+        {
+          "name": "slotStopped",
+          "parameters": "const QString &slotId, const QString &sample"
+        }
+      ],
+      "methods": [
+        {
+          "name": "launch",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &slotId, const QString &quantization = {}"
+        },
+        {
+          "name": "stop",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &slotId, const QString &quantization = {}"
+        },
+        {
+          "name": "stopAll",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &quantization = {}"
+        },
+        {
+          "name": "slotState",
+          "returns": "QVariantMap",
+          "parameters": "const QString &slotId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "MidiSequenceModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (D-150): the MIDI authority of an AudioSession (`session.midi`, WP-064, docs/audio-midi.md). It owns patterns (notes, controller and per-note events, step rows), scenes and launcher slots. Every accepted change is validated whole and recorded as one step of the model's own history (per-owner undo, like the mixer and source edits); undo restores the complete previous content exactly. A refused change changes nothing and records nothing. PianoRoll, MidiControllerLane and StepSequencer requests map one-to-one onto the invokables below; a drag is previewed (the snapshots show it, the engine keeps the committed content) and becomes one step when it finishes.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/midi_sequence_model.h",
+      "properties": [
+        {
+          "name": "schemaId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "ticksPerQuarter",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "patterns",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "scenes",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "quantization",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "controllers",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "capabilities",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "ticksPerQuarterChanged",
+          "parameters": ""
+        },
+        {
+          "name": "contentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &label"
+        }
+      ],
+      "methods": [
+        {
+          "name": "addPattern",
+          "returns": "QVariantMap",
+          "parameters": "const QString &name, const QString &lengthTicks = {}"
+        },
+        {
+          "name": "removePattern",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId"
+        },
+        {
+          "name": "setPattern",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QVariantMap &fields"
+        },
+        {
+          "name": "patternData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId"
+        },
+        {
+          "name": "insertNote",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QVariantMap &note"
+        },
+        {
+          "name": "setNote",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QString &noteId, const QVariantMap &fields"
+        },
+        {
+          "name": "moveNotes",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QStringList &noteIds, const QString &deltaTicks, int deltaPitch = 0"
+        },
+        {
+          "name": "deleteNotes",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QStringList &noteIds"
+        },
+        {
+          "name": "quantizeNotes",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QStringList &noteIds, const QString &gridTicks, int strengthPercent = 100, bool ends = false"
+        },
+        {
+          "name": "setEvent",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QVariantMap &event"
+        },
+        {
+          "name": "deleteEvents",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QStringList &eventIds"
+        },
+        {
+          "name": "previewNoteEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &requestId, const QString &patternId, const QString &noteId, const QString &operation, const QString &targetTicks, int targetPitch"
+        },
+        {
+          "name": "previewEventEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &requestId, const QString &patternId, const QString &controllerId, const QString &eventId, const QString &ticks, double value"
+        },
+        {
+          "name": "finishEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "addRow",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QVariantMap &row"
+        },
+        {
+          "name": "setRow",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QString &rowId, const QVariantMap &fields"
+        },
+        {
+          "name": "removeRow",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QString &rowId"
+        },
+        {
+          "name": "setStep",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QString &rowId, const QString &stepId, const QString &field, const QVariant &value"
+        },
+        {
+          "name": "addScene",
+          "returns": "QVariantMap",
+          "parameters": "const QString &name"
+        },
+        {
+          "name": "removeScene",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sceneId"
+        },
+        {
+          "name": "setSlot",
+          "returns": "QVariantMap",
+          "parameters": "const QString &trackId, const QString &sceneId, const QString &patternId, const QString &label = {}"
+        },
+        {
+          "name": "clearSlot",
+          "returns": "QVariantMap",
+          "parameters": "const QString &slotId"
+        },
+        {
+          "name": "noteRows",
+          "returns": "QVariantList",
+          "parameters": "const QString &patternId, const QString &startTicks, const QString &endTicks"
+        },
+        {
+          "name": "tickBoundaries",
+          "returns": "QStringList",
+          "parameters": "const QString &startTicks, const QString &endTicks, const QString &gridTicks"
+        },
+        {
+          "name": "controllerEvents",
+          "returns": "QVariantList",
+          "parameters": "const QString &patternId, const QString &controllerId, const QString &startTicks, const QString &endTicks"
+        },
+        {
+          "name": "controllerDescriptor",
+          "returns": "QVariantMap",
+          "parameters": "const QString &controllerId"
+        },
+        {
+          "name": "stepRows",
+          "returns": "QVariantList",
+          "parameters": "const QString &patternId"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clearHistory",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "contentMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "loadContent",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &content"
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "QVariantMap",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "exportMidiFile",
+          "returns": "QVariantMap",
+          "parameters": "const QString &patternId, const QString &file, const QVariantList &tempo = {}"
+        },
+        {
+          "name": "importMidiFile",
+          "returns": "QVariantMap",
+          "parameters": "const QString &file"
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
@@ -57263,6 +58502,162 @@
           "name": "exportSvg",
           "returns": "bool",
           "parameters": "const QString &path, const QSize &size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PresentationWindows",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Two real native windows for a running SlideShow (docs/slides.md#windows): an audience window holding only a SlideFrameView, and a presenter window holding `presenterDelegate` (typically Tk.PresenterConsole). Windows are created through WindowHost with the roles \"slide-audience\" and \"slide-presenter\". Displays are chosen by stable screen name (QScreen::name).  audienceStatus: closed     no audience window (not opened, or closed by the user) connected  full screen on the chosen display (or, with none chosen, on a display other than the presenter's) shared     only one display: the audience window is a normal window on the presenter's display waiting    the chosen display is missing (never connected or unplugged); the audience window stays open as a window on the presenter's display and returns to the chosen display when it reappears AGENT-CONTRACT (D-161): audience content never receives the notes; the presenter window is the only place speakerNotes are bound.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/presentation_windows.h",
+      "properties": [
+        {
+          "name": "show",
+          "type": "QindaTK::SlideShow *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "windowHost",
+          "type": "QindaTK::WindowHost *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "presenterDelegate",
+          "type": "QQmlComponent *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "audienceScreenId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "presenterScreenId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fullScreen",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "audienceStatus",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "audienceWindowId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "presenterWindowId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "audienceScreen",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "displays",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configurationChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "audienceDisconnected",
+          "parameters": "const QString &screenId"
+        },
+        {
+          "name": "audienceReconnected",
+          "parameters": "const QString &screenId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "open",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "close",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "reconnect",
+          "returns": "bool",
+          "parameters": "const QString &screenId = {}"
+        },
+        {
+          "name": "swapDisplays",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "reconcile",
+          "returns": "void",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -61761,6 +63156,13 @@
           "default": "",
           "readonly": false,
           "constant": false
+        },
+        {
+          "name": "summary",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -61787,6 +63189,10 @@
         {
           "name": "pointSelected",
           "parameters": "const QString &id"
+        },
+        {
+          "name": "summaryChanged",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -61819,6 +63225,11 @@
           "name": "fitDomain",
           "returns": "bool",
           "parameters": ""
+        },
+        {
+          "name": "axisLabels",
+          "returns": "QVariantList",
+          "parameters": "double width, double height"
         },
         {
           "name": "hitPoint",
@@ -62790,6 +64201,698 @@
           "name": "cancelChord",
           "returns": "void",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SlideDeck",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Persistent slide deck (schema qindatk.slides.v1, docs/slides.md): masters with layouts and placeholder defaults, slides with placeholder-bound or free objects, rich-text text boxes and notes, transitions and effects. AGENT-CONTRACT (docs/document-models.md#commands): every edit is one bounded whole-state DocumentCommand recorded by UndoService; a standalone deck keeps a private history that a DocumentSession adopts. Object and effect IDs are unique in the deck, so their methods need no slide ID. The QML snapshots match the SlideSorter, SlideCanvas, SlideMasterEditor and AnimationPane inputs (docs/controls.md#slide-authoring-and-presentation).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/slide_deck.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "slideSize",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "slides",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "slideIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "masters",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textEditing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "textEditObjectId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "textEditChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "slide",
+          "returns": "QVariantMap",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "indexOfSlide",
+          "returns": "int",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "objects",
+          "returns": "QVariantList",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "effects",
+          "returns": "QVariantList",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "targetChoices",
+          "returns": "QVariantList",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "masterChoices",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "placeholderOverrides",
+          "returns": "QVariantList",
+          "parameters": "const QString &masterId"
+        },
+        {
+          "name": "notes",
+          "returns": "QString",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "schedule",
+          "returns": "QVariantMap",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "frame",
+          "returns": "QVariantMap",
+          "parameters": "const QString &slideId, int step, const QString &ticks"
+        },
+        {
+          "name": "insertSlide",
+          "returns": "QString",
+          "parameters": "const QString &afterSlideId = {}, const QString &layoutId = {}"
+        },
+        {
+          "name": "duplicateSlide",
+          "returns": "QString",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "moveSlide",
+          "returns": "bool",
+          "parameters": "const QString &slideId, int targetIndex"
+        },
+        {
+          "name": "removeSlide",
+          "returns": "bool",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "setSlideHidden",
+          "returns": "bool",
+          "parameters": "const QString &slideId, bool hidden"
+        },
+        {
+          "name": "setSlideSection",
+          "returns": "bool",
+          "parameters": "const QString &slideId, const QString &section"
+        },
+        {
+          "name": "setSlideTitle",
+          "returns": "bool",
+          "parameters": "const QString &slideId, const QString &title"
+        },
+        {
+          "name": "setNotes",
+          "returns": "bool",
+          "parameters": "const QString &slideId, const QString &text"
+        },
+        {
+          "name": "setTransition",
+          "returns": "bool",
+          "parameters": "const QString &slideId, const QString &kind, double seconds"
+        },
+        {
+          "name": "insertObject",
+          "returns": "QString",
+          "parameters": "const QString &slideId, const QString &kind, const QVariantMap &bounds, const QString &text = {}"
+        },
+        {
+          "name": "removeObject",
+          "returns": "bool",
+          "parameters": "const QString &objectId"
+        },
+        {
+          "name": "moveObject",
+          "returns": "bool",
+          "parameters": "const QString &objectId, const QVariantMap &bounds"
+        },
+        {
+          "name": "setObjectText",
+          "returns": "bool",
+          "parameters": "const QString &objectId, const QString &text"
+        },
+        {
+          "name": "setObjectFill",
+          "returns": "bool",
+          "parameters": "const QString &objectId, const QString &fill"
+        },
+        {
+          "name": "beginTextEdit",
+          "returns": "QindaTK::RichTextDocument *",
+          "parameters": "const QString &objectId"
+        },
+        {
+          "name": "commitTextEdit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTextEdit",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "createMaster",
+          "returns": "QString",
+          "parameters": "const QString &title"
+        },
+        {
+          "name": "setMasterBackground",
+          "returns": "bool",
+          "parameters": "const QString &masterId, const QString &background, const QString &foreground = {}"
+        },
+        {
+          "name": "setPlaceholderDefault",
+          "returns": "bool",
+          "parameters": "const QString &masterId, const QString &role, const QString &text"
+        },
+        {
+          "name": "setPlaceholderBounds",
+          "returns": "bool",
+          "parameters": "const QString &masterId, const QString &layoutId, const QString &role, const QVariantMap &bounds"
+        },
+        {
+          "name": "applyMaster",
+          "returns": "bool",
+          "parameters": "const QString &masterId, const QStringList &slideIds, const QString &layoutId = {}"
+        },
+        {
+          "name": "resetOverride",
+          "returns": "bool",
+          "parameters": "const QString &slideId, const QString &role"
+        },
+        {
+          "name": "addEffect",
+          "returns": "QString",
+          "parameters": "const QString &targetId, const QString &kind = QStringLiteral(\"fade-in\""
+        },
+        {
+          "name": "editEffect",
+          "returns": "bool",
+          "parameters": "const QString &effectId, const QVariantMap &patch"
+        },
+        {
+          "name": "moveEffect",
+          "returns": "bool",
+          "parameters": "const QString &effectId, int targetIndex"
+        },
+        {
+          "name": "removeEffect",
+          "returns": "bool",
+          "parameters": "const QString &effectId"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "fromJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "exportPdf",
+          "returns": "bool",
+          "parameters": "const QString &path, bool includeNotes = false"
+        },
+        {
+          "name": "renderFrame",
+          "returns": "QImage",
+          "parameters": "const QString &slideId, int step, const QString &ticks, int width, int height"
+        },
+        {
+          "name": "previewDataUrl",
+          "returns": "QString",
+          "parameters": "const QString &slideId, int width"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SlideFrameView",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "Paints slide output with the shared slide painter (slide_render.h). With `show` set it follows the live presentation frame (audience output and presenter preview); otherwise it paints `deck` at `slideId`/`step`/ `ticks` (a static preview; step -1 means every build complete). AGENT-GUARD: this item paints only what a SlideFrame carries; it has no notes property, so an audience window built from it cannot leak notes.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/slide_frame_view.h",
+      "properties": [
+        {
+          "name": "show",
+          "type": "QindaTK::SlideShow *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "deck",
+          "type": "QindaTK::SlideDeck *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "slideId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "step",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "ticks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "displayedSlideId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "paintCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "painted",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "grabFrame",
+          "returns": "QImage",
+          "parameters": "int width, int height"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SlideShow",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Deterministic presentation playback over a SlideDeck (docs/slides.md#playback). The position is (slide, build step, ticks into the step); frame() is a pure evaluation of that position, so the same position always gives the same audience output. Time only moves through advance(): a live show (liveClock) calls it from a frame timer with measured monotonic time, a test or an exporter calls it with exact tick counts. Navigation skips hidden slides; goToSlide can still show one explicitly. AGENT-CONTRACT: audience outputs read frame()/currentFrame() only; the presenter additionally reads speakerNotes. A frame never carries notes.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/slide_show.h",
+      "properties": [
+        {
+          "name": "deck",
+          "type": "QindaTK::SlideDeck *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "running",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "ended",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "blackedOut",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "liveClock",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "currentSlideId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "currentIndex",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "slideCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previousSlideId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "nextSlideId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "currentTitle",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "nextTitle",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "speakerNotes",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "buildStep",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "buildCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "stepTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "animating",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frame",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "elapsedTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "elapsedText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "timerState",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "deckChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "positionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "frameChanged",
+          "parameters": ""
+        },
+        {
+          "name": "clockChanged",
+          "parameters": ""
+        },
+        {
+          "name": "finished",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "start",
+          "returns": "bool",
+          "parameters": "const QString &slideId = {}"
+        },
+        {
+          "name": "stop",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "next",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "previous",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "goToSlide",
+          "returns": "bool",
+          "parameters": "const QString &slideId"
+        },
+        {
+          "name": "goToIndex",
+          "returns": "bool",
+          "parameters": "int index"
+        },
+        {
+          "name": "advance",
+          "returns": "bool",
+          "parameters": "const QString &ticks"
+        },
+        {
+          "name": "advanceMilliseconds",
+          "returns": "bool",
+          "parameters": "int milliseconds"
+        },
+        {
+          "name": "timerAction",
+          "returns": "bool",
+          "parameters": "const QString &action"
+        },
+        {
+          "name": "renderFrame",
+          "returns": "QImage",
+          "parameters": "int width, int height"
         }
       ],
       "enums": {},
@@ -66998,7 +69101,7 @@
       "name": "TransferFunctionModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Measured scalar value → color and opacity for image and volume views. Stops have stable IDs, strictly increasing values and endpoints pinned to the domain; RGB and opacity interpolate linearly between neighbouring stops.",
+      "description": "Measured scalar value → color and opacity for image and volume views. Stops have stable IDs, strictly increasing values and endpoints pinned to the domain; RGB and opacity interpolate linearly between neighbouring stops. AGENT-CONTRACT (docs/volume-imaging.md#transfer-functions, D-148): every committed stop edit is one typed, undoable history step (before/after stop lists) in the model's UndoService; a host session may adopt that history. Between beginEdit() and commitEdit() edits are previews: views update but nothing is recorded, and cancelEdit() restores the state at beginEdit(). configure() and restoreSettings() are loads: they reset the history.",
       "singleton": false,
       "attached": null,
       "file": "src/core/transfer_function_model.h",
@@ -67044,6 +69147,48 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "editing",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -67053,6 +69198,18 @@
         },
         {
           "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "editingChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
           "parameters": ""
         }
       ],
@@ -67121,6 +69278,31 @@
           "name": "opacityAt",
           "returns": "double",
           "parameters": "double value"
+        },
+        {
+          "name": "beginEdit",
+          "returns": "bool",
+          "parameters": "const QString &label"
+        },
+        {
+          "name": "commitEdit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -68520,6 +70702,243 @@
           "name": "setWorldPoint",
           "returns": "bool",
           "parameters": "double x, double y, double z"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "VolumeViewItem",
+      "kind": "cpp",
+      "base": "QQuickItem",
+      "description": "Direct volume rendering of a VoxelVolume: orthographic orbit camera, composite or maximum-intensity projection, clip box, transfer function (or window ramp) and picking into the shared VolumeCursor. AGENT-CONTRACT (docs/volume-imaging.md#volume-rendering, D-146/D-147): the GPU path (VolumeRenderNode) and the reference path (VolumeRaycaster) draw the same algorithm; updatePaintNode picks one per frame and publishes the choice as renderPath/fallbackReason. Camera, mode, sampling and clip are view settings (saveSettings/restoreSettings); they never touch voxels.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/volume_view_item.h",
+      "properties": [
+        {
+          "name": "volume",
+          "type": "QindaTK::VoxelVolume *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "cursor",
+          "type": "QindaTK::VolumeCursor *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "transfer",
+          "type": "QindaTK::TransferFunctionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "channel",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "frame",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "interpolation",
+          "type": "QindaTK::VoxelVolume::Interpolation",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "mode",
+          "type": "Mode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yaw",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pitch",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zoom",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "samplingRate",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "clipLow",
+          "type": "QVector3D",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "clipHigh",
+          "type": "QVector3D",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "windowCenter",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "windowWidth",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "renderer",
+          "type": "Renderer",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumTextureBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "renderPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "fallbackReason",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "referenceSize",
+          "type": "QSize",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "settingsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "appearanceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "renderPathChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "picked",
+          "parameters": "const QVariantList &voxel"
+        }
+      ],
+      "methods": [
+        {
+          "name": "orbit",
+          "returns": "void",
+          "parameters": "double deltaYaw, double deltaPitch"
+        },
+        {
+          "name": "resetView",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "pick",
+          "returns": "QVariantList",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "setCursorFromPick",
+          "returns": "bool",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "renderReference",
+          "returns": "QImage",
+          "parameters": "int width, int height"
+        },
+        {
+          "name": "saveSettings",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "restoreSettings",
+          "returns": "bool",
+          "parameters": "const QVariantMap &settings"
         }
       ],
       "enums": {},
