@@ -1,23 +1,33 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
-# Packaging the numerical color backend
+# Gentoo packaging
 
-A new ebuild revision pinned to a commit containing the WP-043 color engine
-must add `>=media-libs/lcms-2.14:2` to `RDEPEND` (and inherited `DEPEND`), and
-`virtual/pkgconfig` to `BDEPEND`. CMake finds `lcms2 >= 2.14` through pkg-config
-and links it privately into the shared qindatk library. No LCMS development
-headers leak into the installed public API. The tested backend is LCMS 2.19.
+`dev-libs/qindatk/` mirrors the package in the `qindaqt` overlay
+(QindaGentoo, hub `qinda:~/git/QindaGentoo.git`). Each revision pins
+`EGIT_COMMIT` to a commit on the hub; older revisions stay as immutable pins.
+Copy a new revision here and into the overlay together.
 
-The existing 0.1.0 and r2 ebuilds remain immutable source pins predating this
-backend; this source change does not repin or deploy those historical packages.
-The next packaging revision must include these dependencies when updating its
-source pin. Use the configured Portage MAKEOPTS unchanged.
+Revision `0.1.0-r6` is the first pin of the finished universal toolkit and
+declares every library the build uses:
 
-## Optional FFmpeg media backend (WP-070, D-096)
+| Always | Why |
+|---|---|
+| `dev-qt/qtbase[concurrent,gui,network]`, `qtdeclarative`, `qtsvg` (>= 6.8, slot operator: QuickPrivate ties the build to one Qt) | toolkit and QML module |
+| `dev-db/sqlite:3` | project, mail and notebook stores |
+| `media-libs/lcms:2` (>= 2.14) | numerical colour engine (WP-043) |
+| `dev-libs/libvterm` (>= 0.3) | terminal emulation; the CMake package config asks consumers for it too |
+| `dev-qt/qtshadertools` (build) | GPU volume raycasting shaders (D-147) |
 
-Sources from WP-070 on link the FFmpeg libraries privately when CMake finds
-them (`QINDATK_ENABLE_FFMPEG`, default ON). To keep that dependency explicit
-rather than automagic, the next ebuild revision should add `IUSE="ffmpeg"`,
-`ffmpeg? ( media-video/ffmpeg:= )` to `RDEPEND`, and
-`-DQINDATK_ENABLE_FFMPEG=$(usex ffmpeg)` to `mycmakeargs`. Without the flag the
-media types still build and report that the backend is unavailable; the
-tests that need it skip.
+| USE flag | CMake switch | Adds |
+|---|---|---|
+| `alsa` | `QINDATK_ENABLE_ALSA` | real PCM devices (`media-libs/alsa-lib`) |
+| `ffmpeg` | `QINDATK_ENABLE_FFMPEG` | media decode/encode (`media-video/ffmpeg`, D-096) |
+| `pdf` | `QINDATK_ENABLE_POPPLER_QT6` | PDF rendering (`app-text/poppler[qt6]`) |
+| `quick3d` | `QINDATK_ENABLE_QUICK3D` | 3D views (`dev-qt/qtquick3d`) |
+| `widgets` | `QINDATK_ENABLE_WIDGETS` | native file dialog adapters (`qtbase[widgets]`) |
+| `cups` | `QINDATK_ENABLE_NATIVE_PRINT` | native print backend with CUPS (`net-print/cups`); needs `widgets` |
+| `qindaqt` | `QINDATK_PREVIEW_QINDAQT` | `qtk-preview --qst` (`gui-wm/qindaqt-desktop`, which itself depends on qindatk: disable for a first install) |
+| `examples` | `QINDATK_BUILD_EXAMPLES` | QML examples under `/usr/share/qindatk` |
+| `test` | `BUILD_TESTING` | headless suite in `src_test` |
+
+The vendored CLAP headers (`third_party/clap`) are MIT, so `LICENSE` carries
+`LGPL-3+ ISC MIT`. Portage's configured MAKEOPTS apply unchanged.

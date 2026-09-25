@@ -14,6 +14,13 @@
 		config, the QindaTK.QindaQt token bridge, and the qtk-preview tool.
 	</longdescription>
 	<use>
+		<flag name="alsa">Real Linux PCM devices for the audio engine via <pkg>media-libs/alsa-lib</pkg> (built-in silent devices otherwise)</flag>
+		<flag name="cups">Native print backend (Qt PrintSupport) with CUPS job submission via <pkg>net-print/cups</pkg></flag>
 		<flag name="examples">Install the QML examples under /usr/share/qindatk</flag>
+		<flag name="ffmpeg">Media decode, compositing input and encode via <pkg>media-video/ffmpeg</pkg></flag>
+		<flag name="pdf">PDF page rendering via <pkg>app-text/poppler</pkg> (Qt 6 bindings)</flag>
+		<flag name="qindaqt">Let qtk-preview render under installed QindaQt desktop themes (--qst) via <pkg>gui-wm/qindaqt-desktop</pkg>; that package depends on qindatk, so disable this for a first install</flag>
+		<flag name="quick3d">Qt Quick 3D renderers (SceneView3D, material and 3D plot views) via <pkg>dev-qt/qtquick3d</pkg></flag>
+		<flag name="widgets">qindatk_widgets adapters (native file dialog) via Qt Widgets</flag>
 	</use>
 </pkgmetadata>

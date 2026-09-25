@@ -105,9 +105,10 @@ this machine) as `QindaTK/` and `QindaTK/QindaQt/`, and `qtk-preview` in
 From the build tree, import with `-I build/dev/qml` (or
 `QML_IMPORT_PATH=build/dev/qml`); `qtk-preview` adds that path itself.
 
-Gentoo: `packaging/gentoo/dev-libs/qindatk/` holds an ebuild and
-`metadata.xml` for the `qindaqt` overlay (USE `examples` installs the QML
-examples under `/usr/share/qindatk`, USE `test` runs the headless suite).
+Gentoo: `packaging/gentoo/dev-libs/qindatk/` holds the ebuild and
+`metadata.xml` for the `qindaqt` overlay. The optional engines map to USE
+flags (`alsa`, `ffmpeg`, `pdf`, `quick3d`, `widgets`, `cups`, `qindaqt`,
+`examples`, `test`); `packaging/gentoo/README.md` lists every dependency.
 
 ## The verification tool
 
