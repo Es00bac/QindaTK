@@ -50,6 +50,13 @@ target_link_libraries(tst_geographic_tiles PRIVATE Qt6::Network)
 qindatk_add_test(tst_scientific_plot)
 qindatk_add_test(tst_volume_imaging)
 qindatk_add_test(tst_volume_slices)
+qindatk_add_test(tst_volume_render)
+qindatk_add_test(tst_volume_edit)
+# The same binary on the RHI adaptation: gpuPathMatchesReference compares the
+# GPU raycaster with the reference image and QSKIPs without a hardware RHI.
+add_test(NAME tst_volume_render_rhi COMMAND tst_volume_render gpuPathMatchesReference)
+set_tests_properties(tst_volume_render_rhi PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 qindatk_add_test(tst_application_contracts)
 qindatk_add_test(tst_color_engine)
 qindatk_add_test(tst_color_grade_processor)

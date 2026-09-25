@@ -19,8 +19,8 @@ void ImageSliceItem::setVolume(VoxelVolume *volume)
     if (m_volume == volume) return;
     if (m_volume) disconnect(m_volume, nullptr, this, nullptr);
     m_volume = volume;
-    if (volume) connect(volume, &VoxelVolume::changed, this, &ImageSliceItem::invalidate);
-    invalidate(); emit changed();
+    if (volume) connect(volume, &VoxelVolume::changed, this, [this] { invalidate(); emit sliceChanged(); });
+    invalidate(); emit changed(); emit sliceChanged();
 }
 void ImageSliceItem::setCursor(VolumeCursor *cursor)
 {
@@ -29,8 +29,8 @@ void ImageSliceItem::setCursor(VolumeCursor *cursor)
     m_cursor = cursor;
     // A cursor move always repaints the crosshair; paint() regenerates the
     // slice image only when this plane's slice coordinate changed.
-    if (cursor) connect(cursor, &VolumeCursor::changed, this, [this] { update(); });
-    invalidate(); emit changed();
+    if (cursor) connect(cursor, &VolumeCursor::changed, this, [this] { update(); emit sliceChanged(); });
+    invalidate(); emit changed(); emit sliceChanged();
 }
 void ImageSliceItem::setTransfer(TransferFunctionModel *transfer)
 {
@@ -43,7 +43,7 @@ void ImageSliceItem::setTransfer(TransferFunctionModel *transfer)
 void ImageSliceItem::setPlane(Plane plane)
 {
     if (m_plane == plane) return;
-    m_plane = plane; invalidate(); emit changed();
+    m_plane = plane; invalidate(); emit changed(); emit sliceChanged();
 }
 void ImageSliceItem::setChannel(int channel)
 {
@@ -106,6 +106,7 @@ double ImageSliceItem::verticalSpacing() const
 double ImageSliceItem::currentSlice() const
 {
     if (!m_volume) return 0;
+    if (m_plane == Oblique) return obliqueFrame().offset;
     if (!m_cursor) {
         // Without a cursor the view shows the middle slice.
         const int count = m_plane == Axial ? m_volume->sizeZ()
@@ -116,6 +117,12 @@ double ImageSliceItem::currentSlice() const
 }
 QRectF ImageSliceItem::targetRect() const
 {
+    if (m_plane == Oblique) {
+        // The oblique frame is square in world units.
+        const double side = std::min(width(), height());
+        if (!m_volume || m_volume->sizeX() < 1 || side <= 0) return {};
+        return {(width() - side) / 2, (height() - side) / 2, side, side};
+    }
     const double physicalWidth = horizontalSize() * horizontalSpacing();
     const double physicalHeight = verticalSize() * verticalSpacing();
     if (physicalWidth <= 0 || physicalHeight <= 0 || width() <= 0 || height() <= 0) return {};
@@ -127,6 +134,7 @@ QVariantList ImageSliceItem::voxelAt(double px, double py) const
 {
     const QRectF rect = targetRect();
     if (!m_volume || rect.isEmpty() || !rect.contains(QPointF(px, py))) return {};
+    if (m_plane == Oblique) return obliqueVoxelAt(rect, px, py);
     const double h = (px - rect.left()) / rect.width() * horizontalSize() - 0.5;
     const double v = (py - rect.top()) / rect.height() * verticalSize() - 0.5;
     const double slice = currentSlice();
@@ -139,6 +147,7 @@ QVariantList ImageSliceItem::positionForVoxel(double x, double y, double z) cons
     const QRectF rect = targetRect();
     if (!m_volume || rect.isEmpty() || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
         return {};
+    if (m_plane == Oblique) return obliquePosition(rect, x, y, z);
     const double h = m_plane == Sagittal ? y : x;
     const double v = m_plane == Axial ? y : z;
     return {rect.left() + (h + 0.5) / horizontalSize() * rect.width(),
@@ -154,6 +163,7 @@ QRgb ImageSliceItem::colorFor(double value) const
 }
 QImage ImageSliceItem::sliceImage(int columns, int rows) const
 {
+    if (m_plane == Oblique) return obliqueImage(columns, rows);
     if (!m_volume || horizontalSize() < 1 || verticalSize() < 1) return {};
     columns = std::clamp(columns, 1, MaximumImageSide);
     rows = std::clamp(rows, 1, MaximumImageSide);
@@ -188,7 +198,9 @@ void ImageSliceItem::paint(QPainter *painter)
     // repaint costs voxels, not view pixels. Linear
     // interpolates values before the transfer or window mapping (a painter
     // blend would interpolate colors instead), so it samples per item pixel.
-    const bool nearest = m_interpolation == VoxelVolume::Nearest;
+    // An oblique plane crosses voxels at any angle: always one sample per
+    // item pixel (still capped), so no whole-voxel shortcut applies.
+    const bool nearest = m_interpolation == VoxelVolume::Nearest && m_plane != Oblique;
     const int pixelColumns = int(std::ceil(rect.width())), pixelRows = int(std::ceil(rect.height()));
     const int columns = std::clamp(nearest ? std::min(pixelColumns, horizontalSize()) : pixelColumns,
                                    1, MaximumImageSide);

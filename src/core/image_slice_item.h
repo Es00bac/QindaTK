@@ -13,11 +13,13 @@
 
 namespace QindaTK {
 // Paints one principal voxel-index plane of a VoxelVolume, fitted by physical
-// spacing, with the shared VolumeCursor crosshair.
+// spacing, or an oblique world-space reslice (plane Oblique), with the shared
+// VolumeCursor crosshair.
 // AGENT-CONTRACT (docs/volume-imaging.md, D-086): the target rectangle spans
 // whole voxel cells (size × spacing), so its edges are continuous indices
 // −0.5 and size−0.5. sliceImage, voxelAt, positionForVoxel and the crosshair
-// share that one mapping; change them together.
+// share that one mapping; change them together. Oblique planes use the square
+// reslice frame of D-149 (image_slice_reslice.cpp) in all four instead.
 class ImageSliceItem : public QQuickPaintedItem {
     Q_OBJECT
     QML_ELEMENT
@@ -36,8 +38,12 @@ class ImageSliceItem : public QQuickPaintedItem {
     Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY changed)
     Q_PROPERTY(QColor crosshairColor READ crosshairColor WRITE setCrosshairColor NOTIFY changed)
     Q_PROPERTY(double crosshairWidth READ crosshairWidth WRITE setCrosshairWidth NOTIFY changed)
+    Q_PROPERTY(QVariantList resliceOrientation READ resliceOrientation WRITE setResliceOrientation NOTIFY changed)
+    Q_PROPERTY(int sliceCount READ sliceCount NOTIFY sliceChanged)
+    Q_PROPERTY(int sliceIndex READ sliceIndex NOTIFY sliceChanged)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
 public:
-    enum Plane { Axial = 0, Coronal = 1, Sagittal = 2 };
+    enum Plane { Axial = 0, Coronal = 1, Sagittal = 2, Oblique = 3 };
     Q_ENUM(Plane)
     // AGENT-GUARD: the generated slice image is capped per side and scaled
     // into the target rectangle; lifting the cap makes one repaint cost up to
@@ -68,13 +74,46 @@ public:
     void setCrosshairColor(const QColor &color);
     double crosshairWidth() const { return m_crosshairWidth; }
     void setCrosshairWidth(double width);
+    // Row-major 3×3 orthonormal world matrix whose columns are the oblique
+    // image's right, down and normal directions (identity: world X right,
+    // world Y down, normal world Z). Rejected matrices set lastError.
+    QVariantList resliceOrientation() const;
+    void setResliceOrientation(const QVariantList &matrix);
+    QString lastError() const { return m_error; }
+    // Principal planes count voxel slices; an oblique plane counts steps of
+    // the smallest spacing along its normal across the volume diagonal.
+    int sliceCount() const;
+    int sliceIndex() const;
+    // Moves the shared cursor `steps` slices along the plane normal, or by
+    // (dh, dv) within the plane (voxels, or smallest-spacing steps when
+    // oblique). False without a cursor or when clamping leaves it in place.
+    Q_INVOKABLE bool stepSlice(int steps);
+    Q_INVOKABLE bool moveCrosshair(int dh, int dv);
     Q_INVOKABLE QVariantList voxelAt(double px, double py) const;
     Q_INVOKABLE QVariantList positionForVoxel(double x, double y, double z) const;
     QImage sliceImage(int columns, int rows) const;
     void paint(QPainter *painter) override;
 signals:
     void changed();
+    void sliceChanged();
 private:
+    // D-149: an oblique plane passes through the cursor, is centred on the
+    // volume centre's projection and spans the volume diagonal on each side.
+    struct ObliqueFrame {
+        bool valid = false;
+        double u[3], v[3], w[3];
+        double centre[3];      // world point at the image centre
+        double side = 0;       // world units across the square image
+        double step = 1;       // smallest voxel spacing
+        double offset = 0;     // signed distance of the plane from the volume centre
+        double voxelCentre[3]; // continuous index of `centre`
+        double voxelU[3], voxelV[3]; // index delta per world unit along u, v
+    };
+    ObliqueFrame obliqueFrame() const;
+    QVariantList obliqueVoxelAt(const QRectF &rect, double px, double py) const;
+    QVariantList obliquePosition(const QRectF &rect, double x, double y, double z) const;
+    QImage obliqueImage(int columns, int rows) const;
+    bool moveCursorWorld(const double delta[3]);
     int horizontalSize() const;
     int verticalSize() const;
     double horizontalSpacing() const;
@@ -92,6 +131,8 @@ private:
     double m_windowCenter = 128, m_windowWidth = 256;
     QColor m_background = Qt::transparent, m_crosshair = Qt::transparent;
     double m_crosshairWidth = 0;
+    double m_reslice[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+    QString m_error;
     QImage m_image;
     double m_imageSlice = 0;
     bool m_dirty = true;

@@ -232,3 +232,94 @@ Orphaned comments and cut fields keep their identity across a save. A
 WP-051 version-2 reader reports the new members as ignored and loses them;
 both readers ship in the same round. See
 [references-review.md](references-review.md#persistence).
+
+## D-146 — One raycasting algorithm, specified by a CPU reference
+
+**Context.** `VolumeView` must draw real volumes on the GPU, yet every
+automated check runs on Qt's software scene graph, which has no shaders and
+no 3D textures. A GPU-only renderer would be untested; two independent
+renderers would drift apart.
+
+**Decision.** `VolumeRaycaster` (C++) defines the algorithm and the GPU
+fragment shader re-implements it line for line: an orthographic orbit camera
+(yaw about world Y, pitch about the camera's right axis; yaw 0, pitch 0 looks
+down world −Z with +X right and +Y up), zoom 1 fitting the volume diagonal to
+the shorter view side, rays through pixel centres clipped to the (clip) box
+of whole cells in continuous voxel indices, samples at
+`t = tNear + (k + ½)·step` with `step = smallest spacing / samplingRate`,
+values interpolated before classification (D-086), a 256-entry RGBA8
+transfer table looked up linearly, opacity correction
+`1 − (1 − α)^(1 / samplingRate)`, front-to-back compositing with early
+termination at 0.99, and a maximum-intensity mode that classifies the
+largest sample. Missing samples contribute nothing. Picking marches the same
+ray to 0.5 accumulated opacity (or the maximum sample).
+
+**Consequences.** Tests pin exact pixel values of known phantoms on the
+reference path, and a GPU run compares against the same image within
+filtering precision. A change to how a volume looks must land in
+`volume_raycast.cpp` and `volume_raycast.frag`; AGENT-CONTRACT markers in both
+say so. The transfer table quantizes colours to 8 bits, so volume colours can
+differ from `colorAt` by one level. Perspective projection, shading and
+gradient lighting are not part of this contract.
+
+## D-147 — The GPU volume path falls back to the reference image, and says why
+
+**Context.** The GPU path needs an RHI scene graph, the compiled shaders
+(Qt Shader Tools is optional), 3D textures, a sampleable voxel format and a
+texture within the device's size and a memory budget. Provider volumes may
+also have missing chunks, which a texture cannot represent.
+
+**Decision.** Each frame `VolumeViewItem` probes these in a fixed order and
+draws the GPU node only when all hold; otherwise it draws the CPU reference
+image, capped at 192² rays and scaled up, and publishes `renderPath`
+(`gpu` or `reference`) and a one-sentence `fallbackReason`. `renderer:
+Reference` forces the reference path. The upload packs one channel and frame
+chunk by chunk through the volume's bounded read cache into R8, R16 or R32F
+texels (value = texel × 255, 65535 or 1) and drops its staging copy after the
+upload; `maximumTextureBytes` (256 MiB) bounds that copy and the texture.
+Every QRhi resource lives in `VolumeRenderNode` on the render thread.
+
+**Consequences.** Headless tests always see the reference path, with its
+reason, and the item stays usable on any backend. The 3D texture side is
+capped at 2048 because QRhi reports only the 2D limit. Qualifying the GPU
+path across drivers and its performance are WP-088 to WP-094 work.
+
+## D-148 — Transfer edits are typed history steps; gestures are transactions
+
+**Context.** Transfer functions are view settings, but users expect a stop
+drag or an opacity slide to undo as one action, Escape to cancel a drag, and
+a document session to own the history like any other model.
+
+**Decision.** `TransferFunctionModel` is a `DocumentModel`. Every committed
+edit records one immutable step holding the stop lists before and after (at
+most 256 stops), keyed by the model's document ID and reset generation, in
+its own `UndoService` until a session adopts it. `beginEdit(label)` opens a
+gesture: later edits publish `changed()` for live views but record nothing,
+`commitEdit()` records one step from the gesture's start and `cancelEdit()`
+restores that start without a step. `configure()` and `restoreSettings()` are
+loads and reset the history. The editor maps drags, keyboard nudges and
+slider presses onto gestures.
+
+**Consequences.** Views repaint during a drag at no history cost, undo never
+lands mid-gesture, and a stale step cannot apply after a reload. `committed()`
+tells persistence when a real change happened.
+
+## D-149 — Oblique reslices are square world frames through the cursor
+
+**Context.** Principal planes show voxel-index order, so a rotated or
+reflected volume, or an arbitrary cut, needs a world-space reslice with its
+own geometry for clicks, the crosshair and navigation.
+
+**Decision.** `ImageSliceItem.plane: Oblique` samples the plane through the
+shared cursor whose right, down and normal directions are the columns of
+`resliceOrientation` (an orthonormal world matrix; identity shows world X
+right and world Y down). The image is a square one volume diagonal wide,
+centred on the volume centre projected onto the plane, fitted into the item
+and sampled once per item pixel with the view's interpolation. Slices step
+by the smallest voxel spacing along the normal; arrow keys move the cursor
+by that step within the plane.
+
+**Consequences.** In-plane cursor moves never pan the image, so the image
+depends only on the plane's offset and is cached on it. The frame covers the
+whole volume at any angle, leaving blank corners for thin volumes. Principal
+planes keep their whole-cell geometry (D-086).

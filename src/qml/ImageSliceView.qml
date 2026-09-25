@@ -3,9 +3,10 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// One calibrated principal plane of a Tk.VoxelVolume: a header (plane, slice
-// n / N, previous/next), the slice fitted by physical spacing with the shared
-// crosshair, and a voxel/value readout. Click moves the shared cursor; wheel,
+// One calibrated principal plane of a Tk.VoxelVolume, or an oblique world
+// reslice through the cursor (plane Oblique, resliceOrientation): a header
+// (plane, slice n / N, previous/next), the slice fitted by physical spacing
+// with the shared crosshair, and a voxel/value readout. Click moves the shared cursor; wheel,
 // Page Up/Down, Home/End and the chevrons change slice; arrow keys move the
 // crosshair one voxel within the plane.
 // AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one
@@ -22,12 +23,19 @@ T.Control {
     property alias interpolation: slice.interpolation
     property alias windowCenter: slice.windowCenter
     property alias windowWidth: slice.windowWidth
+    property alias resliceOrientation: slice.resliceOrientation
     property string tooltip: qsTr("Image slice")
+    readonly property bool oblique: plane === Tk.ImageSliceItem.Oblique
     readonly property string planeName: plane === Tk.ImageSliceItem.Axial ? qsTr("Axial")
-        : plane === Tk.ImageSliceItem.Coronal ? qsTr("Coronal") : qsTr("Sagittal")
-    readonly property int sliceCount: !volume ? 0 : plane === Tk.ImageSliceItem.Axial ? volume.sizeZ
+        : plane === Tk.ImageSliceItem.Coronal ? qsTr("Coronal")
+        : oblique ? qsTr("Oblique") : qsTr("Sagittal")
+    // AGENT-NOTE: an oblique plane steps by the smallest voxel spacing along
+    // its normal; ImageSliceItem owns that count and index (D-149).
+    readonly property int sliceCount: !volume ? 0 : oblique ? slice.sliceCount
+        : plane === Tk.ImageSliceItem.Axial ? volume.sizeZ
         : plane === Tk.ImageSliceItem.Coronal ? volume.sizeY : volume.sizeX
-    readonly property int sliceIndex: !cursor ? Math.max(0, Math.round((sliceCount - 1) / 2))
+    readonly property int sliceIndex: oblique ? slice.sliceIndex
+        : !cursor ? Math.max(0, Math.round((sliceCount - 1) / 2))
         : Math.round(plane === Tk.ImageSliceItem.Axial ? cursor.z
                      : plane === Tk.ImageSliceItem.Coronal ? cursor.y : cursor.x)
     readonly property var selectedSample: {
@@ -42,6 +50,7 @@ T.Control {
     function setSliceIndex(index) {
         if (!cursor || !volume || sliceCount < 1) return false
         const next = Math.max(0, Math.min(sliceCount - 1, Math.round(index)))
+        if (oblique) return next !== sliceIndex && slice.stepSlice(next - sliceIndex)
         if (plane === Tk.ImageSliceItem.Axial) return cursor.setVoxelPoint(cursor.x, cursor.y, next)
         if (plane === Tk.ImageSliceItem.Coronal) return cursor.setVoxelPoint(cursor.x, next, cursor.z)
         return cursor.setVoxelPoint(next, cursor.y, cursor.z)
@@ -50,6 +59,7 @@ T.Control {
     // and downward vertical (dv) axes, snapping the point to voxel centres.
     function moveCrosshair(dh, dv) {
         if (!cursor || !volume) return false
+        if (oblique) return slice.moveCrosshair(dh, dv)
         const x = Math.round(cursor.x), y = Math.round(cursor.y), z = Math.round(cursor.z)
         if (plane === Tk.ImageSliceItem.Axial) return cursor.setVoxelPoint(x + dh, y + dv, z)
         if (plane === Tk.ImageSliceItem.Coronal) return cursor.setVoxelPoint(x + dh, y, z + dv)

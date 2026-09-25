@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "transfer_function_model.h"
+#include "undo_service.h"
 #include <QSet>
 #include <QUuid>
 #include <algorithm>
@@ -29,7 +30,12 @@ TransferFunctionModel::TransferFunctionModel(QObject *parent) : QObject(parent)
 {
     m_points = {{QStringLiteral("low"), 0, QColor(Qt::black), 0},
                 {QStringLiteral("high"), 255, QColor(Qt::white), 1}};
+    m_documentId = DocumentId::create().toString();
+    m_localHistory = new UndoService(this);
+    m_localHistory->addModel(this);
+    m_localHistory->setStepLimit(this, 128);
 }
+TransferFunctionModel::~TransferFunctionModel() = default;
 void TransferFunctionModel::fail(const QString &message)
 {
     if (m_error == message) return;
@@ -67,9 +73,16 @@ bool TransferFunctionModel::configure(double minimum, double maximum, const QStr
     m_min = minimum; m_max = maximum; m_unit = unit;
     m_points = {{QStringLiteral("low"), minimum, QColor(Qt::black), 0},
                 {QStringLiteral("high"), maximum, QColor(Qt::white), 1}};
-    publish(); return true;
+    resetHistory(); publish(); emit committed(); return true;
 }
 bool TransferFunctionModel::replacePoints(const QVariantList &points)
+{
+    QVector<Point> parsed;
+    if (!parsePoints(points, m_min, m_max, &parsed)) return false;
+    return apply(std::move(parsed), tr("Replace transfer points"));
+}
+bool TransferFunctionModel::parsePoints(const QVariantList &points, double min, double max,
+                                        QVector<Point> *out)
 {
     if (points.size() < 2 || points.size() > 256) {
         fail(QStringLiteral("Transfer function needs 2–256 points")); return false;
@@ -85,16 +98,16 @@ bool TransferFunctionModel::replacePoints(const QVariantList &points)
         const QColor color = colorFrom(map.value(QStringLiteral("color")));
         if (id.isEmpty() || ids.contains(id) || !valueOk || !opacityOk
             || !std::isfinite(value) || !std::isfinite(opacity) || !color.isValid()
-            || opacity < 0 || opacity > 1 || value < m_min || value > m_max
+            || opacity < 0 || opacity > 1 || value < min || value > max
             || (!parsed.isEmpty() && value <= parsed.last().value)) {
             fail(QStringLiteral("Invalid transfer point or order")); return false;
         }
         ids.insert(id); parsed.append({id, value, opaque(color), opacity});
     }
-    if (parsed.first().value != m_min || parsed.last().value != m_max) {
+    if (parsed.first().value != min || parsed.last().value != max) {
         fail(QStringLiteral("Transfer endpoints must equal domain bounds")); return false;
     }
-    m_points = std::move(parsed); publish(); return true;
+    *out = std::move(parsed); return true;
 }
 QString TransferFunctionModel::addPoint(double value, const QColor &color, double opacity)
 {
@@ -102,13 +115,16 @@ QString TransferFunctionModel::addPoint(double value, const QColor &color, doubl
         || !std::isfinite(opacity) || opacity < 0 || opacity > 1 || m_points.size() >= 256) {
         fail(QStringLiteral("Invalid transfer point")); return {};
     }
-    auto at = std::lower_bound(m_points.begin(), m_points.end(), value,
-                               [](const Point &point, double v) { return point.value < v; });
-    if (at != m_points.end() && at->value == value) {
+    const auto at = std::lower_bound(m_points.cbegin(), m_points.cend(), value,
+                                     [](const Point &point, double v) { return point.value < v; });
+    if (at != m_points.cend() && at->value == value) {
         fail(QStringLiteral("A transfer point already has this value")); return {};
     }
+    const qsizetype position = at - m_points.cbegin();
     const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_points.insert(at, {id, value, opaque(color), opacity}); publish(); return id;
+    QVector<Point> after = m_points;
+    after.insert(position, {id, value, opaque(color), opacity});
+    return apply(std::move(after), tr("Add transfer point")) ? id : QString();
 }
 bool TransferFunctionModel::movePoint(const QString &id, double value)
 {
@@ -120,7 +136,9 @@ bool TransferFunctionModel::movePoint(const QString &id, double value)
         || value >= m_points[index + 1].value) {
         fail(QStringLiteral("A transfer point must stay between its neighbours")); return false;
     }
-    m_points[index].value = value; publish(); return true;
+    QVector<Point> after = m_points;
+    after[index].value = value;
+    return apply(std::move(after), tr("Move transfer point"));
 }
 bool TransferFunctionModel::setPointColor(const QString &id, const QColor &color)
 {
@@ -128,7 +146,9 @@ bool TransferFunctionModel::setPointColor(const QString &id, const QColor &color
     if (index < 0 || !color.isValid()) {
         fail(QStringLiteral("Unknown transfer point or invalid color")); return false;
     }
-    m_points[index].color = opaque(color); publish(); return true;
+    QVector<Point> after = m_points;
+    after[index].color = opaque(color);
+    return apply(std::move(after), tr("Change transfer color"));
 }
 bool TransferFunctionModel::setPointOpacity(const QString &id, double opacity)
 {
@@ -136,7 +156,9 @@ bool TransferFunctionModel::setPointOpacity(const QString &id, double opacity)
     if (index < 0 || !std::isfinite(opacity) || opacity < 0 || opacity > 1) {
         fail(QStringLiteral("Unknown transfer point or opacity outside 0–1")); return false;
     }
-    m_points[index].opacity = opacity; publish(); return true;
+    QVector<Point> after = m_points;
+    after[index].opacity = opacity;
+    return apply(std::move(after), tr("Change transfer opacity"));
 }
 bool TransferFunctionModel::removePoint(const QString &id)
 {
@@ -144,7 +166,9 @@ bool TransferFunctionModel::removePoint(const QString &id)
     if (index <= 0 || index >= m_points.size() - 1) {
         fail(QStringLiteral("Only an inner transfer point can be removed")); return false;
     }
-    m_points.removeAt(index); publish(); return true;
+    QVector<Point> after = m_points;
+    after.removeAt(index);
+    return apply(std::move(after), tr("Remove transfer point"));
 }
 TransferFunctionModel::Segment TransferFunctionModel::segmentAt(double value) const
 {
@@ -194,19 +218,18 @@ QVariantMap TransferFunctionModel::saveSettings() const
 }
 bool TransferFunctionModel::restoreSettings(const QVariantMap &settings)
 {
-    const double oldMin = m_min, oldMax = m_max;
-    const QString oldUnit = m_unit;
     bool minOk = false, maxOk = false;
     const double min = settings.value(QStringLiteral("domainMin")).toDouble(&minOk);
     const double max = settings.value(QStringLiteral("domainMax")).toDouble(&maxOk);
     if (!minOk || !maxOk || !std::isfinite(min) || !std::isfinite(max) || min >= max) {
         fail(QStringLiteral("Transfer domain must be finite and increasing")); return false;
     }
-    // replacePoints validates against the domain being restored and leaves
-    // m_points untouched on failure; only the domain needs rolling back.
+    // Validated against the domain being restored; nothing changes on failure.
+    QVector<Point> parsed;
+    if (!parsePoints(settings.value(QStringLiteral("points")).toList(), min, max, &parsed)) return false;
     m_min = min; m_max = max; m_unit = settings.value(QStringLiteral("unit")).toString();
-    if (replacePoints(settings.value(QStringLiteral("points")).toList())) return true;
-    m_min = oldMin; m_max = oldMax; m_unit = oldUnit;
-    return false;
+    m_points = std::move(parsed);
+    resetHistory(); publish(); emit committed();
+    return true;
 }
 } // namespace QindaTK
