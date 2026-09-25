@@ -196,6 +196,7 @@ void walk(const QMultiMap<QByteArray, QByteArray> &headers, const QByteArray &bo
     part.charset = charset;
     part.size = decoded.size();
     part.attachment = true;
+    part.data = decoded;
     parsed->attachments.append(part);
 }
 

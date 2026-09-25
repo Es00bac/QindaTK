@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Mail, calendar and task providers
 
-Three protocol providers connect the local productivity store
+Four protocol providers connect the local productivity store
 ([productivity-store.md](productivity-store.md)) to standard servers. The
 views (`MailView`, `RichMailComposer`, `CalendarView`, `RecurrenceEditor`,
 `TaskBoard`) only emit correlated requests; the host calls a provider and
@@ -12,6 +12,7 @@ message)` (see [Wiring the views](#wiring-the-views)).
 | --- | --- | --- |
 | `Tk.SmtpMailProvider` | SMTP submission (RFC 5321: EHLO, STARTTLS, AUTH PLAIN/LOGIN/XOAUTH2, MAIL/RCPT/DATA) | draft records + `LocalAttachmentStore` bytes |
 | `Tk.ImapMailProvider` | IMAP4rev1 (RFC 3501; SASL-IR, UIDPLUS, MOVE when offered) | `messages` records + attachment bytes on demand |
+| `Tk.Pop3MailProvider` | POP3 (RFC 1939: USER/PASS, UIDL, LIST, RETR, TOP, DELE, RSET, QUIT; RFC 2449 CAPA; RFC 2595 STLS; RFC 5034 AUTH PLAIN/XOAUTH2) | `messages` records that *are* the mailbox (D-298) + attachment bytes |
 | `Tk.CalDavProvider` | CalDAV over WebDAV (RFC 4791/4918: PROPFIND Depth 1, GET, PUT/DELETE with If-Match) and iCalendar (RFC 5545 subset) | `events` (VEVENT) and `tasks` (VTODO) |
 
 Nothing here talks to a hosted service's private API. Every provider runs
@@ -59,13 +60,17 @@ place and lists the server version in `CalDavProvider.conflicts`, which the
 board shows with "Keep mine" and "Use server". Local-only records are
 acknowledged after the local save.
 
+A POP3 account takes the same three `MailView` requests to
+`Pop3MailProvider.sync`, `applyAction` and `fetchAttachment`; its results
+have the same shape, so the view needs nothing POP3-specific.
+
 ## Credentials
 
 `setSecret(secret, mechanism)` keeps the password or token in memory only.
 There is no property to read it back, it is never written to a result,
 transcript, store record or log, and any echo in server text is redacted
-(`tst_smtp_mail_provider`, `tst_imap_mail_provider` and
-`tst_caldav_provider` check results, captured log output and the saved store
+(`tst_smtp_mail_provider`, `tst_imap_mail_provider`,
+`tst_pop3_mail_provider` and `tst_caldav_provider` check results, captured log output and the saved store
 file). Persisting a secret is the host's job, normally through the desktop
 keyring. Credentials are sent only over TLS (`security: "tls"` or
 `"starttls"`, `https:` for CalDAV), to a loopback endpoint (local bridges and
@@ -73,11 +78,14 @@ the tests), or when the host sets `allowInsecureAuth` explicitly. A requested
 STARTTLS that the server does not offer fails; the providers never fall back
 to plain text (D-187). Certificates are verified against the system trust
 store (hosts add a private CA to `QSslConfiguration::defaultConfiguration()`).
-`tst_provider_tls` runs implicit TLS and STARTTLS for SMTP and IMAP and HTTPS
+`tst_provider_tls` runs implicit TLS and STARTTLS for SMTP and IMAP, implicit
+TLS and STLS for POP3, and HTTPS
 for CalDAV against local servers with a test CA (`tests/fixtures/tls`): with
 the CA trusted the exchange succeeds and every credential line arrives inside
 TLS; without it the handshake fails before anything is sent. It also covers
-IMAP `xoauth2` (including the error challenge of an expired token) and
+IMAP and POP3 `xoauth2` (`tst_pop3_mail_provider` covers POP3's expired-token
+error challenge and the RFC 5034 continuation for tokens too long for the
+AUTH line) and
 CalDAV `bearer`.
 
 ## SMTP delivery
@@ -125,6 +133,59 @@ With `autoSave` (default) each accepted operation saves the store. If
 another writer saved the file first, the result is `conflict`; reload the
 store and sync again. Sync is idempotent because it derives what is new from
 the stored UIDs.
+
+## POP3 download
+
+Set `host`, `port` (995), `security` (`tls`; `starttls` means STLS on port
+110; `none` is refused for credentials unless the host is loopback or
+`allowInsecureAuth` is set), `userName`, `accountId`, `store` and
+`attachmentStore`. The mechanism is `auto` (SASL PLAIN when CAPA offers it,
+else USER/PASS), `user` (USER/PASS; `login` is an alias), `plain` or
+`xoauth2`. POP3 has one mailbox and no server flags, so the local store *is*
+the mailbox (D-298):
+
+- `sync(requestId)` lists `UIDL` and `LIST` and downloads every message
+  whose UIDL is not stored yet (at most the newest `fetchLimit`, newest
+  first). Each becomes a record with
+  `id == messageId == "pop3:<accountId>:<UIDL>"` (the UIDL percent-encoded,
+  so `:`, `/` and `%` never appear raw), the same fields as an IMAP record
+  (`internetMessageId`, `threadId` by the same rule, sender, recipients, UTC
+  `date`, `snippet`, `bodyPlain`, attachment metadata with a `section`,
+  `unread: true`) plus `remoteAccount`, `remoteMailbox: "INBOX"`,
+  `remoteUidl`, `remoteSize`, `remoteFetchedAt` (UTC download time),
+  `remoteOnServer` and `localMailbox: "INBOX"`. A message larger than
+  `maximumMessageBytes` is read with `TOP n 0` (headers only,
+  `bodyTruncated`). Multi-line responses are dot-unstuffed and bounded
+  (RETR at twice `maximumMessageBytes`, listings at 32 MiB).
+- Messages deleted on the server by another client are **not** removed
+  locally; they get `remoteOnServer: false`. The result's `removedCount` is
+  always 0 and `updatedCount` counts those marks.
+- **Server deletion.** With `leaveOnServer: false` every downloaded message
+  leaves the server; with `leaveOnServer: true` and `deleteAfterDays > 0`
+  the ones downloaded more than that many days ago (by `remoteFetchedAt`)
+  do. A server copy is deleted only when the local copy is complete and
+  saved: the body was downloaded (not `bodyTruncated`), every attachment's
+  bytes are in the attachment store (sync imports them first, re-reading a
+  stored message once if needed), and this provider's own `autoSave` save
+  succeeded. Only then does a second session `DELE` those UIDLs and `QUIT`
+  (which commits them). With `autoSave: false` sync never deletes. The
+  result adds `deletedCount`, `keptOnServerCount` (due but incomplete),
+  `deleteState` and, when the second session failed, `deleteError`; the
+  download itself stays `accepted` and the next sync retries the deletion.
+- `applyAction(requestId, messageId, action)`: `read`, `unread`, `flag`,
+  `unflag` and `archive` (`localMailbox: "Archive"`) are local store edits,
+  accepted after the save without connecting. `delete` DELEs the server copy
+  by UIDL when `remoteOnServer` is true (`removedFromServer` in the result)
+  and then removes the local record; if the server is offline the local
+  record stays. `reply`/`forward` are host actions and are rejected.
+- `fetchAttachment(requestId, messageId, attachmentId)` re-reads the server
+  copy (`RETR` by UIDL), imports the part's decoded bytes into the attachment
+  store and marks it `local`. A message no longer on the server is rejected
+  with that reason.
+
+A `-ERR [IN-USE]` or `[SYS/TEMP]` reply (a maildrop locked by another
+session) is `rejected` with `retryable: true`. The store stale-writer case is
+`conflict`, as for IMAP, and no server copy is deleted after a conflict.
 
 ## CalDAV events and tasks
 
@@ -185,7 +246,7 @@ A host adapter owns (D-189):
 
 1. **Sign-in.** OAuth or app-password flows, token refresh and keyring
    storage. It passes the current token with `setSecret(token, "xoauth2")`
-   (SMTP/IMAP) or `setSecret(token, "bearer")` (CalDAV) before each request
+   (SMTP/IMAP/POP3) or `setSecret(token, "bearer")` (CalDAV) before each request
    and retries once after a `rejected` authentication result.
 2. **Discovery.** Hostnames, ports, the CalDAV collection URL and special
    mailboxes (for example a provider's archive folder name).
@@ -202,6 +263,11 @@ The toolkit ships no hosted-service adapter and no client IDs.
 
 - Mailbox names must be printable ASCII (no modified UTF-7); addresses must be
   ASCII (no SMTPUTF8).
+- POP3: no APOP (use TLS), no `UIDL`-less servers (sync is rejected), and a
+  headers-only message (`bodyTruncated`) stays on the server; there is no
+  "download the rest" action yet. Attachments of a message that leaves the
+  server count against the attachment store's 8 MiB per-payload bound; one
+  that does not fit keeps its message on the server.
 - IMAP sync reads the whole message source of new mail (bounded by
   `maximumMessageBytes`) to compute bodies and attachment metadata; the
   attachment bytes are stored only when requested.

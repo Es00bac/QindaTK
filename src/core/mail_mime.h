@@ -55,6 +55,9 @@ struct Part {
     QString charset;
     qint64 size = 0;              // decoded bytes
     bool attachment = false;
+    // Decoded payload (implicitly shared with the parse). POP3 has no
+    // partial fetch, so Pop3MailProvider takes attachment bytes from here.
+    QByteArray data;
 };
 
 struct Parsed {

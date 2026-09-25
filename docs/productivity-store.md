@@ -5,7 +5,7 @@
 drafts, calendar events and tasks. It stores the snapshots consumed by the
 mail, calendar and task QML controls; it does not send mail, sync an account,
 expand recurrence rules or perform time-zone calculations. Delivery and
-account sync are the SMTP, IMAP and CalDAV providers in
+account sync are the SMTP, IMAP, POP3 and CalDAV providers in
 [productivity-providers.md](productivity-providers.md), which read and write
 these records.
 

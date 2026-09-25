@@ -171,7 +171,7 @@ bool Channel::waitForData()
     return true;
 }
 
-bool Channel::readLine(QByteArray *line)
+bool Channel::readLine(QByteArray *line, bool record)
 {
     if (!m_socket || m_failure != Failure::None) return false;
     for (;;) {
@@ -180,7 +180,7 @@ bool Channel::readLine(QByteArray *line)
             *line = m_buffer.left(end);
             m_buffer.remove(0, end + 1);
             if (line->endsWith('\r')) line->chop(1);
-            note(QStringLiteral("S: ") + QString::fromUtf8(*line));
+            if (record) note(QStringLiteral("S: ") + QString::fromUtf8(*line));
             return true;
         }
         if (m_buffer.size() > MaximumLine) {

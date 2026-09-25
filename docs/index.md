@@ -18,7 +18,7 @@ pages below are the reference.
 | [collaboration.md](collaboration.md) | Collaboration: operation identity, deterministic conflicts, object deletes, text merge, own-step undo, local and network transport, live permissions, presence, shared versions and restore |
 | [gantt.md](gantt.md) | Task schema, working-calendar projection, schedule transactions, dependency and grid seams |
 | [productivity.md](productivity.md) | Local calendar recurrence expansion, event identity, DST policy and host persistence boundary |
-| [productivity-providers.md](productivity-providers.md) | SMTP delivery, IMAP mailbox sync and CalDAV event/task sync over the local store: result states, credentials, conflicts and host adapters |
+| [productivity-providers.md](productivity-providers.md) | SMTP delivery, IMAP mailbox sync, POP3 download and CalDAV event/task sync over the local store: result states, credentials, conflicts and host adapters |
 | [control-interaction.md](control-interaction.md) | Owner state, user signals, editing states, focus and assistive action baseline |
 | [application-contracts.md](application-contracts.md) | Strong IDs, revisions, exact QML values, snapshots, cancellation and capability discovery |
 | [extension-registry.md](extension-registry.md) | Explicit local extension discovery, descriptor and dependency diagnostics, trusted native load/unload, capability publication and preserved state |
