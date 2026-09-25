@@ -363,7 +363,11 @@ void AudioPluginHost::pollHung()
         if (!instance->live()) continue;
         any = true;
         const AudioPluginProcessorPtr processor = instance->processor();
-        if (processor && processor->hung() && !processor->dead())
+        // AGENT-GUARD: a plugin that crashed also stops answering. An exit
+        // the event loop has not delivered yet is collected first, so it is
+        // reported as a crash, not a hang. (A process still writing a core
+        // dump has not exited; the test plugins crash without one.)
+        if (processor && processor->hung() && !processor->dead() && !instance->exited())
             instance->fail(tr("%1 stopped responding (no answer within %2 ms); its saved state is kept")
                                .arg(instance->descriptor().name)
                                .arg(m_timeouts.hangMs));

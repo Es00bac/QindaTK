@@ -24850,15 +24850,31 @@
       "name": "PluginBrowser",
       "kind": "qml",
       "base": "T.Control",
-      "description": "Registry metadata and scan results are snapshots from the host. Search and filtering are local presentation state; add/preview actions remain requests.",
+      "description": "Registry metadata and scan results are snapshots from the host. Search and filtering are local presentation state; add/preview actions remain requests. AGENT-CONTRACT (WP-066, AudioPluginHost, docs/audio-plugins.md): with `host` set (session.plugins) the rows and scan status come from the real registry, and an add goes to host.rackAction(\"add\") on `targetChannelId` and is acknowledged with its answer. addRequested is still emitted first.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PluginBrowser.qml",
       "properties": [
         {
+          "name": "host",
+          "type": "Tk.AudioPluginHost",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "targetChannelId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "plugins",
           "type": "var",
-          "default": "[] // {pluginId,name,vendor,category,kind,layouts,available,state,reason,presets}",
+          "default": "root.host ? root.host.browserPlugins : [] // {pluginId,name,vendor,category,kind,layouts,available,state,reason,presets}",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -24890,7 +24906,7 @@
         {
           "name": "scanState",
           "type": "string",
-          "default": "\"idle\"",
+          "default": "root.host ? root.host.registry.scanState : \"idle\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -24898,7 +24914,7 @@
         {
           "name": "scanMessage",
           "type": "string",
-          "default": "\"\"",
+          "default": "root.host ? root.host.registry.scanMessage : \"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -25016,15 +25032,23 @@
       "name": "PluginRack",
       "kind": "qml",
       "base": "T.Control",
-      "description": "`instances` is an ordered host snapshot. Every button, switch and drag emits a request; the rack waits for host acknowledgement and a new snapshot. With AudioPluginHost (session.plugins.instances(channel), rackAction()) a parameter row that carries a `binding` (AudioParameterBinding) edits the automation parameter directly with a Knob (WP-066, docs/audio-plugins.md).",
+      "description": "`instances` is an ordered host snapshot. Every button, switch and drag emits a request; the rack waits for host acknowledgement and a new snapshot. A parameter row that carries a `binding` (AudioParameterBinding) edits the automation parameter directly with a Knob (WP-066, docs/audio-plugins.md). AGENT-CONTRACT (WP-066, AudioPluginHost::rackAction, docs/audio-plugins.md): with `host` set (session.plugins) the rack is wired to the real plugin host: `instances` follows host.instances(channelId) on every host revision, and each request is answered by host.rackAction() and acknowledged at once. Requests are still emitted first, so an app can observe them.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PluginRack.qml",
       "properties": [
         {
+          "name": "host",
+          "type": "Tk.AudioPluginHost",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "instances",
           "type": "var",
-          "default": "[] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters{parameterId,name,displayValue,available,binding?},editorAvailable}",
+          "default": "root.host ? root.hostInstances(root.host.revision, root.channelId) : [] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters{parameterId,name,displayValue,available,binding?},editorAvailable}",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -25116,6 +25140,10 @@
         {
           "name": "requestAction",
           "parameters": "instanceId, action, payload"
+        },
+        {
+          "name": "hostInstances",
+          "parameters": "revision, channel"
         },
         {
           "name": "acknowledgeAction",

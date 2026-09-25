@@ -8,13 +8,29 @@
 #include <clap/clap.h>
 
 #include <climits>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#if defined(__linux__)
+#include <sys/prctl.h>
+#endif
 
 namespace QindaTKTestPlugins {
+
+// A deliberate crash, without a core dump: systemd-coredump would keep the
+// dying process alive while it writes one (long enough, under load, that the
+// host sees a hang first) and would fill the journal with test crashes.
+[[noreturn]] inline void crash()
+{
+#if defined(__linux__)
+    ::prctl(PR_SET_DUMPABLE, 0, 0, 0, 0);
+#endif
+    std::raise(SIGSEGV);
+    std::abort();
+}
 
 // Appends "<event>[ <text>][ <number>]" to $QINDATK_TEST_PLUGIN_LOG (if
 // set): the tests read the calls a plugin received, in order, across processes.

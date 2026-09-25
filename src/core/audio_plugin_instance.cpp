@@ -275,6 +275,15 @@ void AudioPluginInstance::fail(const QString &message)
     emit changed();
 }
 
+bool AudioPluginInstance::exited()
+{
+    if (!m_process) return m_state == State::Failed;
+    // Collects an exit the event loop has not delivered yet; processFinished()
+    // then fails the instance with the real cause.
+    if (m_process->state() != QProcess::NotRunning) m_process->waitForFinished(0);
+    return !m_process || m_process->state() == QProcess::NotRunning;
+}
+
 void AudioPluginInstance::processFinished()
 {
     if (m_unloading || !m_process) return;

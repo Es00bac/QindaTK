@@ -211,10 +211,20 @@ missing plugin is saved again unchanged.
 
 ## Views
 
+Both views take `host: session.plugins`, which does this wiring for them
+(`examples/plugin-host`, `tst_plugin_host_session.qml`):
+
 | View | Host side |
 | --- | --- |
-| `PluginBrowser` | `plugins: session.plugins.browserPlugins` (registry rows plus missing session plugins), `scanState`/`scanMessage` from `session.plugins.registry`; `addRequested` → `rackAction("add", "", {channelId, pluginId})` → `acknowledgeAdd` |
+| `PluginBrowser` | `plugins: session.plugins.browserPlugins` (registry rows plus missing session plugins), `scanState`/`scanMessage` from `session.plugins.registry`; `addRequested` → `rackAction("add", "", {channelId: targetChannelId, pluginId})` → `acknowledgeAdd` |
 | `PluginRack` | `instances: session.plugins.revision, session.plugins.instances(channelId)`; `pluginActionRequested(requestId, instanceId, action, payload)` → `rackAction(action, instanceId, payload, Window.window)` → `acknowledgeAction(requestId, result.state, result.message)` |
+
+`rackAction` actions: `add` (`channelId`, `pluginId`, optional `index`),
+`reorder` (`targetIndex`, optional `channelId` to move to another channel),
+`bypass` (`bypassed`), `remove`, `reload`, `open-editor`, `close-editor`,
+`edit-parameter` (`parameterId` = `<instance>/<CLAP id>` of that instance,
+and `value` or a numeric `displayValue`). Anything else is rejected with a
+message and changes nothing.
 
 Rack rows carry `binding` per parameter (drawn as a `Knob`) and a failed or
 missing instance shows **Reload** (`pluginReload_<instanceId>`).
@@ -225,7 +235,9 @@ missing instance shows **Reload** (`pluginReload_<instanceId>`).
 | --- | --- |
 | `tst_audio_plugin_host` | scan and cache of the test binary; a binary that crashes while scanned and a non-plugin file stay listed with reasons; capability declaration per format; lifecycle (process, parameters as automation, a knob edit reaching the plugin's state, removal ends the process); a latency change restarts the plugin; `init` failure and an activation time-out leave nothing; a crash inside an offline render is contained (dry audio) and reloaded with its state; a hang inside an offline render is cut; the editor lifecycle (embedding, resize, an editor change as an automation transaction, close order, a crash with the editor open); session recall with the plugin installed, missing (identity and state kept, saved again unchanged) and installed later; shutdown ends every process cleanly |
 | `tst_audio_plugin_engine` | processed samples exact (gain, bypass); latency compensation across two tracks and under bypass, with a file aligned to the timeline; an instrument's notes on their exact samples; no device-thread allocation with an effect and an instrument; a crash and a hang during playback leave the session playing; unloading while the engine plays |
+| `tst_audio_plugin_chain` | reordering within a channel and to another channel changes the order the graph processes the inserts (exact samples) and keeps the instance's process, parameter IDs, automation points and state; the reordered chain is saved, reopened with the same order and samples, and reorders again; every `rackAction` action and its refusals; a plugin parameter's automation curve reaching the plugin at every 256-frame block start (exact samples) |
 | `tst_plugin_host_controls.qml` | parameter rows with a binding draw a Knob; a failed instance offers Reload |
+| `tst_plugin_host_session.qml` | `PluginBrowser` and `PluginRack` with `host: session.plugins` of a real session: rows from the scan of the test plugins, **Add** clicked, add/reorder/bypass/parameter edit/reload/remove through the host, refusals acknowledged |
 
 The test plugins (`tests/plugins`, built as `qindatk-test.clap` and
 `qindatk-test-broken.clap`) are real CLAP binaries: `org.qindatk.test.gain`

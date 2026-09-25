@@ -228,7 +228,8 @@ private slots:
         QVERIFY(rig.play());
         QVERIFY(rig.set(crash, 1, 1.0)); // sent with the next block: SIGSEGV
         QTRY_COMPARE(rig.state(crash), QStringLiteral("failed"));
-        QVERIFY(rig.plugins->instance(crash).value(QStringLiteral("error")).toString().contains(QStringLiteral("crashed")));
+        const QString crashError = rig.plugins->instance(crash).value(QStringLiteral("error")).toString();
+        QVERIFY2(crashError.contains(QStringLiteral("crashed")), qPrintable(crashError));
         QVERIFY(rig.transport->playing());
         QVERIFY(rig.set(hang, 2, 1.0)); // process() never returns
         QTRY_COMPARE_WITH_TIMEOUT(rig.state(hang), QStringLiteral("failed"), 10000);

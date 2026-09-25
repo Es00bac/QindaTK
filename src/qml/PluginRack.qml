@@ -5,12 +5,17 @@ import QindaTK as Tk
 
 // `instances` is an ordered host snapshot. Every button, switch and drag
 // emits a request; the rack waits for host acknowledgement and a new snapshot.
-// With AudioPluginHost (session.plugins.instances(channel), rackAction()) a
-// parameter row that carries a `binding` (AudioParameterBinding) edits the
+// A parameter row that carries a `binding` (AudioParameterBinding) edits the
 // automation parameter directly with a Knob (WP-066, docs/audio-plugins.md).
+// AGENT-CONTRACT (WP-066, AudioPluginHost::rackAction, docs/audio-plugins.md):
+// with `host` set (session.plugins) the rack is wired to the real plugin host:
+// `instances` follows host.instances(channelId) on every host revision, and
+// each request is answered by host.rackAction() and acknowledged at once.
+// Requests are still emitted first, so an app can observe them.
 T.Control {
     id: root
-    property var instances: [] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters{parameterId,name,displayValue,available,binding?},editorAvailable}
+    property Tk.AudioPluginHost host: null
+    property var instances: root.host ? root.hostInstances(root.host.revision, root.channelId) : [] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters{parameterId,name,displayValue,available,binding?},editorAvailable}
     property string channelId: ""
     property string tooltip: ""
     property string emptyText: qsTr("Drop a plugin here or add one from the browser")
@@ -68,7 +73,15 @@ T.Control {
         root._statusState = "pending"
         root._status = qsTr("Waiting for host · %1").arg(action)
         root.pluginActionRequested(id, String(instanceId || ""), String(action), payload || ({}))
+        if (root.host) {
+            const answer = root.host.rackAction(String(action), String(instanceId || ""), payload || ({}),
+                                                root.Window.window)
+            root.acknowledgeAction(id, answer.state, answer.message)
+        }
         return id
+    }
+    function hostInstances(revision, channel) {
+        return root.host && String(channel).length ? root.host.instances(String(channel)) : []
     }
     function acknowledgeAction(requestId, state, message) {
         const key = String(requestId || ""), pending = root._pendingActions[key]

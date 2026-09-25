@@ -179,7 +179,7 @@ foreach(fixture IN ITEMS qindatk_test_clap qindatk_test_broken_clap)
     set_target_properties(${fixture} PROPERTIES PREFIX "" SUFFIX ".clap" AUTOMOC OFF CXX_VISIBILITY_PRESET hidden)
     target_include_directories(${fixture} PRIVATE "${PROJECT_SOURCE_DIR}/third_party/clap/include")
 endforeach()
-foreach(test IN ITEMS tst_audio_plugin_host tst_audio_plugin_engine)
+foreach(test IN ITEMS tst_audio_plugin_host tst_audio_plugin_engine tst_audio_plugin_chain)
     qindatk_add_test(${test})
     add_dependencies(${test} qindatk-plugin-host qindatk_test_clap qindatk_test_broken_clap)
     target_compile_definitions(${test} PRIVATE
@@ -341,7 +341,10 @@ qt_add_executable(tst_qml cpp/tst_qml.cpp)
 target_link_libraries(tst_qml PRIVATE qindatk Qt6::QuickTest Qt6::Quick)
 target_compile_definitions(tst_qml PRIVATE
     QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/qml"
-    QINDATK_BUILD_QML_DIR="${CMAKE_BINARY_DIR}/qml")
+    QINDATK_BUILD_QML_DIR="${CMAKE_BINARY_DIR}/qml"
+    QINDATK_TEST_CLAP="$<TARGET_FILE:qindatk_test_clap>")
+# tst_plugin_host_session.qml drives the real CLAP host with the test plugins.
+add_dependencies(tst_qml qindatk-plugin-host qindatk_test_clap)
 add_test(NAME tst_qml COMMAND tst_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/qml")
 set_tests_properties(tst_qml PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")

@@ -93,6 +93,9 @@ public:
     void beginUnload();
     void finishUnload(int deadlineMs);
     void fail(const QString &message);
+    // True when the process has ended, which is then reported as it is
+    // (crash or exit) before anyone calls the plugin hung.
+    bool exited();
 
     // Editor (D-193). `owner` becomes the transient parent of the editor window.
     bool editorAvailable() const;

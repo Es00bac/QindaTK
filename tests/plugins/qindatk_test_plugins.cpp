@@ -257,7 +257,7 @@ struct Faulty : Base {
         applyEvents(process->in_events, process->out_events);
         if (values[0] >= 0.5) {
             trace("faulty.crash");
-            std::raise(SIGSEGV);
+            crash();
         }
         if (values[1] >= 0.5) {
             trace("faulty.hang");

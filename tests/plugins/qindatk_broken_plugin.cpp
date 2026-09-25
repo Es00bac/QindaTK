@@ -6,11 +6,17 @@
 #include <clap/clap.h>
 
 #include <csignal>
+#if defined(__linux__)
+#include <sys/prctl.h>
+#endif
 
 namespace {
 
 bool crashingInit(const char *)
 {
+#if defined(__linux__)
+    ::prctl(PR_SET_DUMPABLE, 0, 0, 0, 0); // no core dump for a deliberate crash
+#endif
     std::raise(SIGSEGV);
     return false;
 }
