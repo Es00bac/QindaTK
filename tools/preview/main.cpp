@@ -294,14 +294,19 @@ int main(int argc, char **argv)
         }
         return 1;
     }
-    // AGENT-GUARD: the scene is destroyed before `app`, in this order: root
-    // first (backends such as JobModel and MediaPlayer cancel and join their
-    // worker threads in their destructors), then a window we created. Leaking
-    // them let workers keep painting while QGuiApplication was torn down,
-    // which crashed --check at random (tests/fixtures/preview_teardown_jobs.qml).
-    std::unique_ptr<QQuickWindow> ownedWindow;
     QObject *root = component.create();
-    std::unique_ptr<QObject> ownedRoot(root);
+    // AGENT-GUARD: the root, and a window made for it, are destroyed here,
+    // while the engine and the application still exist. Toolkit objects
+    // finish worker threads in their destructors (JobModel waits for its
+    // pool); a leaked root left MediaCatalog's test-signal job painting
+    // during static teardown, and --check crashed with SIGSEGV
+    // (example_grading-scopes-live, which starts that job on load; see also
+    // the preview_teardown_jobs ctest, tests/fixtures/preview_teardown_jobs.qml).
+    struct RootCleanup {
+        QObject *root = nullptr;
+        QQuickWindow *window = nullptr;
+        ~RootCleanup() { delete root; delete window; }
+    } cleanup{root, nullptr};
     if (root == nullptr || component.isError()) {
         for (const QQmlError &error : component.errors()) {
             fprintf(stderr, "%s\n", qPrintable(error.toString()));
@@ -328,8 +333,8 @@ int main(int argc, char **argv)
             fprintf(stderr, "qtk-preview: the root object is neither a Window nor an Item\n");
             return 1;
         }
-        ownedWindow = std::make_unique<QQuickWindow>();
-        window = ownedWindow.get();
+        window = new QQuickWindow();
+        cleanup.window = window;
         window->setColor(theme->color()->bg());
         window->setTitle(QStringLiteral("qtk-preview: ") + info.fileName());
         if (!parser.isSet(QStringLiteral("size"))) {

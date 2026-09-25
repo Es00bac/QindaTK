@@ -42737,6 +42737,10 @@
         {
           "name": "codeY",
           "parameters": "code, height"
+        },
+        {
+          "name": "targetLabelPlacement",
+          "parameters": "tx, ty, box, textWidth, centerX, centerY, canvasWidth"
         }
       ],
       "enums": {},

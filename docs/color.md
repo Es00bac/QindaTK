@@ -144,7 +144,12 @@ previews in `ColorGradeProcessor::programContext()` (the same context
 `MediaFinishing` grades with; the host's generation is kept) whatever output
 profile the host's context names, because program frames and the lossless
 export are encoded sRGB (D-096); a `FrameGrade` still keeps the host's output
-profile. `tst_video_finishing_paths` checks the grade surviving new frames,
+profile. A `ProgramGrade` session needs no host frame to be edited: a QML
+host cannot call `setFrame` (`MediaPlayer` exposes no image), so its wheels
+are enabled and its gestures accepted without one, and only the before/after
+stills stay empty; a frame or clip grade still requires the frame
+(`tst_media_finishing_live`, `examples/grading-scopes-live`).
+`tst_video_finishing_paths` checks the grade surviving new frames,
 save/load, a Display P3 host context previewing the program's pixels, and
 `exportJob` → program JSON → `MediaExport::renderProvider` writing the
 committed grade and the embedded captions while a drag is open. The
