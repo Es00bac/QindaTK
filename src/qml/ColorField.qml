@@ -72,7 +72,11 @@ T.Control {
 
     onColorChanged: {
         if (!hexInput.activeFocus) {
-            hexInput.text = control.hexText
+            // AGENT-GUARD: read the colour itself, not hexText: this handler can
+            // run before the hexText binding re-evaluates, and assigning that
+            // stale text also cut the text's binding (the hex froze while the
+            // swatch followed an owner's colour).
+            hexInput.text = control.color.toString()
             invalidDraft = false
         }
     }

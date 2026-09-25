@@ -96,8 +96,8 @@ void writePaint(QXmlStreamWriter &xml, const CanvasObject &o, const Placement &p
         xml.writeAttribute(QStringLiteral("stroke-linejoin"), o.strokeJoin == Qt::RoundJoin
             ? QStringLiteral("round") : o.strokeJoin == Qt::BevelJoin
             ? QStringLiteral("bevel") : QStringLiteral("miter"));
-        if (o.appearance.miterLimit != 4)
-            xml.writeAttribute(QStringLiteral("stroke-miterlimit"), num(o.appearance.miterLimit));
+        if (o.appearance->miterLimit != 4)
+            xml.writeAttribute(QStringLiteral("stroke-miterlimit"), num(o.appearance->miterLimit));
         if (!o.dashPattern.isEmpty()) {
             QStringList values;
             for (qreal dash : o.dashPattern) values << num(dash * visible / placement.scale);
@@ -164,7 +164,7 @@ void writeRect(QXmlStreamWriter &xml, const QRectF &r, const QString &fill, cons
 // shapes the painter draws, rotated about the local origin (D-109).
 void writePattern(QXmlStreamWriter &xml, const CanvasObject &o, const Placement &placement)
 {
-    const CanvasPattern &p = o.appearance.pattern;
+    const CanvasPattern &p = o.appearance->pattern;
     const qreal s = p.spacing, w = p.weight;
     xml.writeStartElement(QStringLiteral("pattern"));
     xml.writeAttribute(QStringLiteral("id"), reference(QStringLiteral("canvas-pattern"), o));
@@ -224,9 +224,9 @@ void writePattern(QXmlStreamWriter &xml, const CanvasObject &o, const Placement 
 // area (white), outside keeps everything but it.
 void writeStrokeMask(QXmlStreamWriter &xml, const CanvasObject &o, const Placement &placement)
 {
-    const qreal reach = std::max(o.strokeWidth, 1.0) * std::max(o.appearance.miterLimit, 1.0) + 1;
+    const qreal reach = std::max(o.strokeWidth, 1.0) * std::max(o.appearance->miterLimit, 1.0) + 1;
     const QRectF region = CanvasGeometry::documentBounds(o).adjusted(-reach, -reach, reach, reach);
-    const bool outside = o.appearance.strokeAlignment == CanvasStrokeAlignment::Outside;
+    const bool outside = o.appearance->strokeAlignment == CanvasStrokeAlignment::Outside;
     xml.writeStartElement(QStringLiteral("mask"));
     xml.writeAttribute(QStringLiteral("id"), reference(QStringLiteral("canvas-stroke-mask"), o));
     xml.writeAttribute(QStringLiteral("maskUnits"), QStringLiteral("userSpaceOnUse"));
@@ -259,7 +259,7 @@ void writeFilter(QXmlStreamWriter &xml, const CanvasObject &o)
     };
     QString source = QStringLiteral("SourceGraphic");
     int step = 0;
-    for (const CanvasEffect &effect : o.appearance.effects) {
+    for (const CanvasEffect &effect : o.appearance->effects) {
         if (!effect.enabled || !CanvasAppearanceRules::supportedEffect(effect.kind)) continue;
         const QString result = QStringLiteral("fx%1").arg(step++);
         if (effect.kind == QLatin1String("drop-shadow")) {
@@ -294,7 +294,7 @@ void writeFilter(QXmlStreamWriter &xml, const CanvasObject &o)
 void writeObject(QXmlStreamWriter &xml, const CanvasObject &o, const CanvasDocument &document)
 {
     const Placement placement = placementOf(o);
-    const CanvasAppearance &a = o.appearance;
+    const CanvasAppearance &a = *o.appearance;
     const bool aligned = o.hasStroke() && o.closesArea() && a.strokeAlignment != CanvasStrokeAlignment::Center;
     const bool effects = CanvasAppearanceRules::hasRenderedEffects(o);
     if (o.hasPattern() || aligned || effects) {
@@ -361,7 +361,7 @@ QByteArray encodeRegion(const CanvasDocument &document, const QRectF &region,
         if (!CanvasGeometry::isRenderable(*o))
             return fail(unsupported(QStringLiteral("SVG export cannot represent a degenerate canvas object"),
                                     QStringLiteral("objects.geometry")));
-        for (const CanvasEffect &effect : o->appearance.effects)
+        for (const CanvasEffect &effect : o->appearance->effects)
             if (effect.enabled && !CanvasAppearanceRules::supportedEffect(effect.kind))
                 return fail(unsupported(QStringLiteral("SVG export cannot represent the \"%1\" appearance effect; bypass it to export")
                                             .arg(effect.kind),

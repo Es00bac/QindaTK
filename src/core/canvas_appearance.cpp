@@ -278,7 +278,7 @@ qreal blurRadius(const CanvasEffect &effect)
 
 OperationError validate(const CanvasObject &o)
 {
-    const CanvasAppearance &a = o.appearance;
+    const CanvasAppearance &a = *o.appearance;
     const bool closedVector = o.shape != CanvasShape::Image && o.closesArea();
     if (quint8(a.strokeAlignment) > quint8(CanvasStrokeAlignment::Outside))
         return problem(ErrorCode::Validation, QStringLiteral("Invalid stroke alignment"), QStringLiteral("strokeAlignment"));
@@ -343,19 +343,19 @@ qreal strokeReach(const CanvasObject &o)
 {
     if (!o.hasStroke()) return 0;
     const qreal width = std::max(o.strokeWidth, 0.0);
-    return o.appearance.strokeAlignment == CanvasStrokeAlignment::Center ? width / 2 : width;
+    return o.appearance->strokeAlignment == CanvasStrokeAlignment::Center ? width / 2 : width;
 }
 
 qreal strokeOutset(const CanvasObject &o)
 {
-    if (!o.hasStroke() || o.appearance.strokeAlignment == CanvasStrokeAlignment::Inside) return 0;
+    if (!o.hasStroke() || o.appearance->strokeAlignment == CanvasStrokeAlignment::Inside) return 0;
     return strokeReach(o);
 }
 
 QMarginsF effectMargins(const CanvasObject &o)
 {
     qreal left = 0, top = 0, right = 0, bottom = 0;
-    for (const CanvasEffect &effect : o.appearance.effects) {
+    for (const CanvasEffect &effect : o.appearance->effects) {
         if (!effect.enabled) continue;
         if (effect.kind == QLatin1String("drop-shadow")) {
             // The shadow is everything painted so far, shifted and blurred.
@@ -379,7 +379,7 @@ QMarginsF effectMargins(const CanvasObject &o)
 qreal effectInputReach(const CanvasObject &o)
 {
     qreal reach = 0;
-    for (const CanvasEffect &effect : o.appearance.effects) {
+    for (const CanvasEffect &effect : o.appearance->effects) {
         if (!effect.enabled) continue;
         if (effect.kind == QLatin1String("drop-shadow")) {
             const Shadow s = shadow(effect);
@@ -393,13 +393,13 @@ qreal effectInputReach(const CanvasObject &o)
 
 bool hasRenderedEffects(const CanvasObject &o)
 {
-    return std::any_of(o.appearance.effects.cbegin(), o.appearance.effects.cend(),
+    return std::any_of(o.appearance->effects.cbegin(), o.appearance->effects.cend(),
                        [](const CanvasEffect &e) { return e.enabled && supportedEffect(e.kind); });
 }
 
 bool needsLayer(const CanvasObject &o)
 {
-    const CanvasAppearance &a = o.appearance;
+    const CanvasAppearance &a = *o.appearance;
     return a.opacity < 1 || a.blend != CanvasBlendMode::Normal || hasRenderedEffects(o)
         || (o.hasStroke() && a.strokeAlignment != CanvasStrokeAlignment::Center);
 }

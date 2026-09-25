@@ -37,7 +37,7 @@ QVariantMap describe(const CanvasObject &o)
 {
     QVariantList dash;
     for (qreal length : o.dashPattern) dash.append(length);
-    const CanvasAppearance &a = o.appearance;
+    const CanvasAppearance &a = *o.appearance;
     return {{QStringLiteral("fill"), colorValue(o.fill)},
             {QStringLiteral("stroke"), colorValue(o.stroke)},
             {QStringLiteral("strokeWidth"), o.strokeWidth},

@@ -79,7 +79,7 @@ QPainterPath inkPath(const CanvasPattern &p, int i0, int i1, int j0, int j1)
 // document-space fill area. Only cells meeting the visible area are built.
 void paintPattern(QPainter *painter, const CanvasObject &o, const QPainterPath &area, qreal scale)
 {
-    const CanvasPattern &p = o.appearance.pattern;
+    const CanvasPattern &p = o.appearance->pattern;
     QTransform rotation;
     rotation.rotate(p.angle);
     const QTransform toDocument = rotation * o.transform;
@@ -133,7 +133,7 @@ void alignedStroke(QPainter *painter, const CanvasObject &o, const QPainterPath 
         band.setPen(pen);
         band.setBrush(Qt::NoBrush);
         band.drawPath(area);
-        if (o.appearance.strokeAlignment == CanvasStrokeAlignment::Outside) {
+        if (o.appearance->strokeAlignment == CanvasStrokeAlignment::Outside) {
             band.setCompositionMode(QPainter::CompositionMode_DestinationOut);
             band.fillPath(area, Qt::black);
         } else {
@@ -172,7 +172,7 @@ void paintVector(QPainter *painter, const CanvasObject &o, const QBrush &fillBru
         outline = CanvasGeometry::documentOutline(o, CanvasPainter::ellipseSegments(radius));
     }
     const bool aligned = o.hasStroke() && o.closesArea()
-        && o.appearance.strokeAlignment != CanvasStrokeAlignment::Center;
+        && o.appearance->strokeAlignment != CanvasStrokeAlignment::Center;
     if (!path && (o.hasPattern() || aligned)) {
         area.setFillRule(o.fillRule);
         area.addPolygon(outline);
@@ -203,7 +203,7 @@ void paintVector(QPainter *painter, const CanvasObject &o, const QBrush &fillBru
 void paintLayered(QPainter *painter, const CanvasObject &o, const QRectF &documentRect,
                   qreal scale, const LayerContent &content)
 {
-    if (o.appearance.opacity <= 0) return;
+    if (o.appearance->opacity <= 0) return;
     const QTransform base = painter->transform();
     const auto toDocument = CanvasTransform::invert(base);
     if (!toDocument) return;
@@ -228,7 +228,7 @@ void paintLayered(QPainter *painter, const CanvasObject &o, const QRectF &docume
                                   * QTransform::fromScale(factor, factor));
         content(&layerPainter, toDocument->mapRect(QRectF(area)), pixels);
     }
-    for (const CanvasEffect &effect : o.appearance.effects) {
+    for (const CanvasEffect &effect : o.appearance->effects) {
         if (!effect.enabled) continue;
         if (effect.kind == QLatin1String("drop-shadow")) {
             const CanvasAppearanceRules::Shadow s = CanvasAppearanceRules::shadow(effect);
@@ -242,8 +242,8 @@ void paintLayered(QPainter *painter, const CanvasObject &o, const QRectF &docume
     }
     painter->save();
     painter->resetTransform();
-    painter->setOpacity(painter->opacity() * o.appearance.opacity);
-    painter->setCompositionMode(CanvasAppearanceRules::compositionMode(o.appearance.blend));
+    painter->setOpacity(painter->opacity() * o.appearance->opacity);
+    painter->setCompositionMode(CanvasAppearanceRules::compositionMode(o.appearance->blend));
     if (factor < 1) {
         painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
         painter->drawImage(QRectF(area), layer);
