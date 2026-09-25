@@ -37,6 +37,15 @@ Rectangle {
         pitchSnapCents: 0
     }
     Connections {
+        target: pitch
+        // Until a gesture reports something, the status line follows the analysis.
+        function onStateChanged() {
+            if (root.ack.message.length) return
+            if (pitch.state === "ready") root.status = qsTr("Analysis ready · %1 notes").arg(pitch.noteCount)
+            else if (pitch.state === "failed") root.status = pitch.error
+        }
+    }
+    Connections {
         target: session.edits
         function onPreviewReady(requestId, summary) { root.status = qsTr("Preview ready · %1").arg(summary.label) }
         function onPreviewFailed(requestId, error) { root.ack = { status: "rejected", message: error }; root.status = error }
