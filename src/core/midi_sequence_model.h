@@ -75,6 +75,7 @@ public:
     Q_INVOKABLE QVariantMap removePattern(const QString &patternId);
     // fields: name, length (decimal ticks), seed (0..2^32-1)
     Q_INVOKABLE QVariantMap setPattern(const QString &patternId, const QVariantMap &fields);
+    // The committed pattern (never a drag preview).
     Q_INVOKABLE QVariantMap patternData(const QString &patternId) const;
 
     // ---- notes and controller events (midi_sequence_edit.cpp) ----

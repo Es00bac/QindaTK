@@ -90,7 +90,8 @@ QVariantMap MidiSequenceModel::setPattern(const QString &patternId, const QVaria
 
 QVariantMap MidiSequenceModel::patternData(const QString &patternId) const
 {
-    const MidiPattern *source = viewPattern(QUuid::fromString(patternId));
+    // The committed pattern (what plays and saves); the snapshots below show a drag preview.
+    const MidiPattern *source = pattern(QUuid::fromString(patternId));
     if (!source) return {};
     QVariantList notes, events;
     for (const MidiNote &note : source->notes)
