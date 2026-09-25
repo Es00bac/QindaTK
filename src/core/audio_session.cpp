@@ -53,14 +53,13 @@ AudioSession::AudioSession(QObject *parent)
       m_edits(new AudioSourceEditModel(this)),
       m_midi(new MidiSequenceModel(this)),
       m_launcher(new MidiLauncherModel(m_midi, this)),
+      m_midiInput(new MidiInputPort(this)),
       m_comps(new AudioTakeCompModel(this))
 {
     m_comps->setSourceLookup([this](const QString &id) { return m_decoded.contains(id) ? m_edits->buffer(id) : nullptr; });
     connect(m_comps, &AudioTakeCompModel::changed, this, &AudioSession::rebuild);
     connect(this, &AudioSession::mediaChanged, m_comps, &AudioTakeCompModel::sourcesChanged);
-    m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter());
-    connect(m_timeMap, &TimeMap::changed, m_midi, [this] { m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter()); });
-    connect(m_midi, &MidiSequenceModel::contentChanged, this, &AudioSession::rebuild);
+    connectMidi();
     m_timeline->setTimeMap(m_timeMap);
     m_tempo->setTimeMap(m_timeMap);
     m_tempo->setTimeline(m_timeline);
@@ -90,6 +89,11 @@ AudioSession::AudioSession(QObject *parent)
 
 AudioSession::~AudioSession()
 {
+    // AGENT-GUARD (WP-064, D-153): a session destroyed while its engine lives
+    // on (an app-level engine, a page torn down) leaves nothing playing, like
+    // setEngine(nullptr): launched clips, audition notes and a MIDI take end.
+    m_midiInput->setEngine(nullptr);
+    if (m_engine) m_engine->releaseMidi();
     // AGENT-GUARD: the mixer's shared bindings release open gestures through
     // the automation model, so the mixer goes before the models it uses.
     delete m_mixer;
@@ -105,10 +109,10 @@ void AudioSession::setEngine(AudioEngine *engine)
     if (m_engine) {
         // AGENT-GUARD (WP-064): nothing this session started keeps sounding
         // on an engine it leaves: audition notes and launched clips stop.
-        m_engine->allNotesOff();
-        m_engine->postLaunchStop(0, MidiQuantize::None, nullptr);
+        m_engine->releaseMidi();
         m_engine->setGraph({});
     }
+    m_midiInput->setEngine(engine);
     m_launcher->setEngine(engine);
     // A detached engine no longer runs this session's automation clock.
     if (m_automation->transportRunning()) m_automation->transportStopped(m_forwardedTicks);

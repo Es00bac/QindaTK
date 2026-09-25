@@ -170,6 +170,13 @@ qindatk_add_test(tst_audio_take_comp_engine)
 qindatk_add_test(tst_midi_model)
 qindatk_add_test(tst_midi_schedule)
 qindatk_add_test(tst_midi_engine)
+if(QINDATK_ENABLE_ALSA AND QINDATK_ALSA_FOUND)
+    # The test plays notes into session.midiInput from its own ALSA client.
+    target_link_libraries(tst_midi_engine PRIVATE PkgConfig::QINDATK_ALSA)
+    target_compile_definitions(tst_midi_engine PRIVATE QINDATK_HAVE_ALSA=1)
+endif()
+# Launcher and recording on the device thread, driven block by block (loop wraps, seeks).
+qindatk_add_test(tst_midi_launch)
 # WP-067 notation: score model and rhythm, layout/pagination/output, MusicXML and MIDI playback.
 qindatk_add_test(tst_score_model)
 qindatk_add_test(tst_score_layout)

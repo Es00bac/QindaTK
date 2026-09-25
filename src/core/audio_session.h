@@ -9,6 +9,7 @@
 #include "audio_source_edit_model.h"
 #include "audio_take_comp_model.h"
 #include "automation_model.h"
+#include "midi_input_port.h"
 #include "midi_launcher_model.h"
 #include "midi_sequence_model.h"
 #include "engine_schedule.h"
@@ -52,6 +53,7 @@ class AudioSession : public QObject {
     Q_PROPERTY(QindaTK::AudioSourceEditModel *edits READ edits CONSTANT)
     Q_PROPERTY(QindaTK::MidiSequenceModel *midi READ midi CONSTANT)
     Q_PROPERTY(QindaTK::MidiLauncherModel *launcher READ launcher CONSTANT)
+    Q_PROPERTY(QindaTK::MidiInputPort *midiInput READ midiInput CONSTANT)
     Q_PROPERTY(QindaTK::AudioTakeCompModel *comps READ comps CONSTANT)
     // A recording that wrapped a loop becomes one take per pass in a comp
     // (default); false keeps the whole recording as one linear clip.
@@ -79,6 +81,7 @@ public:
     AudioSourceEditModel *edits() const { return m_edits; }
     MidiSequenceModel *midi() const { return m_midi; }
     MidiLauncherModel *launcher() const { return m_launcher; }
+    MidiInputPort *midiInput() const { return m_midiInput; }
     AudioTakeCompModel *comps() const { return m_comps; }
     bool passTakes() const { return m_passTakes; }
     void setPassTakes(bool enabled);
@@ -159,6 +162,7 @@ signals:
     void takeRecorded(const QString &clipId, const QString &resourceId, const QVariantMap &take);
 
 private:
+    void connectMidi(); // audio_session_midi.cpp
     void rebuild();
     void engineFormatChanged();
     void forwardTransport();
@@ -185,6 +189,7 @@ private:
     AudioSourceEditModel *m_edits = nullptr;
     MidiSequenceModel *m_midi = nullptr;
     MidiLauncherModel *m_launcher = nullptr;
+    MidiInputPort *m_midiInput = nullptr;
     bool m_meterRebuildQueued = false;
     AudioTakeCompModel *m_comps = nullptr;
     bool m_passTakes = true;

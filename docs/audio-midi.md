@@ -66,6 +66,15 @@ The session saves the content as its `midi` part
 (`schema: qindatk.midi/1`, ticks as decimal strings, a different PPQ is
 refused); a session without it opens empty.
 
+**Cross-model guards.** A pattern that a timeline clip places
+(`pattern:<uuid>`) cannot leave the content: `removePattern`, and an `undo`
+or `redo` that would drop it (undoing "Add pattern" after `insertPattern`),
+are refused with the track named, and nothing changes — no clip is left
+without its notes. A session PPQ change (`timeMap.ticksPerQuarter`) rescales
+every stored tick — the content and every history step — so notes keep
+their beat; when a position is not exact at the new PPQ the TimeMap refuses
+the change (`rejected`) and nothing moves.
+
 ## Scheduling (D-152)
 
 `session.addMidiTrack(name)` adds a `midi` track: a mixer channel like an
@@ -84,10 +93,22 @@ chunk and the **built-in test instrument** (a cosine at the pitch, level
 note alone. It is stateless: any block size, a seek, a loop or a recompile
 gives identical samples, the device equals the offline render, and a note
 is silent from `end + release − 1`. Overlapping notes (also on one key)
-sum. `graph.midiEvents(channel, start, frames, …)` returns the same
-schedule as events (note-offs, controllers, note-ons, then per-note
-controllers at one sample) — the stream WP-066 instruments receive; the
-test instrument uses notes only.
+sum. A played note lasts at most its pattern's length (a longer one would
+overlap its own repeat; the stored duration is kept), so a render looks
+back at most one pass and the device thread's work per block does not grow
+with playback time; step rows look back one gate.
+
+**Controllers the test instrument plays.** Within a placement, from the
+pattern origin on (a trimmed clip chases earlier values): `cc:7` volume ×
+`cc:11` expression scale the level (value 0–1; 1 without an event), channel
+`pitchBend` bends ±2 semitones and a note's `noteBend` ±48 (MIDI 2.0
+default), with continuous phase: a bent note integrates its phase from its
+own start over the same change ticks in every render, so it stays
+stateless. Other controllers (`cc:*`, `channelPressure`, `notePressure`)
+are scheduled but have no parameter in the test instrument.
+`graph.midiEvents(channel, start, frames, …)` returns the full schedule as
+events (note-offs, controllers, note-ons, then per-note controllers at one
+sample) for any other instrument.
 
 **Probability (D-151).** Step *s* of a row plays on pass *n* (counted from
 the placement origin) when SplitMix64(seed, row, s, n) < probability. The
@@ -112,6 +133,13 @@ rejected | canceled, message)` feeds `ClipLauncher.acknowledgeLaunch`.
 | Canceled | a waiting request replaced by a later one on the track, or ended by a transport stop |
 | Rejected | no graph yet, slot not on a MIDI track of the graph, or 32 launching tracks |
 
+**Transport jumps.** Launcher state lives in device samples, so a loop wrap
+or a seek re-bases it on the device thread: a playing clip keeps its
+musical progress and is heard from the new position (notes sounding across
+the jump are cut); a waiting launch or stop is re-quantized from the new
+position and reported again (Queued / StopQueued, same request). A boundary
+at or past the loop end therefore fires right after the wrap.
+
 Launching while the transport is stopped queues the clip; it starts when
 playback reaches its boundary. Launched clips and the arrangement sum on a
 track; a file render is the arrangement. At most 32 launcher requests wait
@@ -123,11 +151,36 @@ for their answer.
 `allNotesOff()`: up to 16 test-instrument voices on the first two outputs
 (a cue path, not the mixer), with the transport running or stopped;
 `auditionVoices` and `launchedClips` report what sounds. A transport stop,
-a device stop or loss (`midiReset`), a reconfiguration and detaching the
-session from the engine release every audition note and launched clip;
-nothing resumes on recovery. `PianoRoll` pairs every `auditionRequested(pitch,
-velocity)` with `auditionReleased(pitch)` — on finish, cancel, a pitch
-change, disabling and destruction.
+a device stop or loss (`midiReset`), a reconfiguration, detaching the
+session from the engine and destroying the session (`releaseMidi`, one
+reset command that is not a counted request) release every audition note,
+launched clip and MIDI take; nothing resumes on recovery. `PianoRoll` pairs
+every `auditionRequested(pitch, velocity)` with `auditionReleased(pitch)` —
+on finish, cancel, a pitch change, disabling and destruction.
+
+## MIDI input and recording
+
+`session.midiInput` (MidiInputPort) is one ALSA sequencer input port
+(`openPort(name)`, `connectPort("client:port")`, `closePort`; `available`
+is false in a build without ALSA, where a host calls `receiveNote(pitch,
+velocity7)` itself). Note-on/off become audition notes on the session's
+engine (16-bit velocity by MIDI 2.0 scaling); closing the port or losing the
+engine releases what it holds (`heldNotes`). Device *configuration*
+(DeviceSettingsPanel, PLT-19) is WP-060's; MIDI output is not declared.
+
+`session.launcher.record(requestId, slot, quantization)` arms one take: the
+device thread computes its start boundary (answer: `Records from sample …`)
+and, while the transport plays past it, stamps every audition note it
+applies with a take-relative tick (the period's position, so accuracy is one
+device period; a loop wrap keeps the take counting forward).
+`stopRecording(requestId, quantization)` ends it and rounds its length up
+to the grid. The notes (FIFO note-off pairing, held notes ending with the
+take) become a new pattern that replaces the slot's pattern — one undo step,
+"Record clip"; `recordingFinished(slot, pattern, notes)` reports it and the
+slot's state is `recording` meanwhile (ClipLauncher `requestRecord` /
+`recordRequested`). A transport stop, device loss or detach ends the take
+and keeps what was played. `capabilities.midiDevices` declares `input`
+(ALSA sequencer) and `output` (false).
 
 ## Interchange
 
@@ -137,7 +190,8 @@ pattern's notes, CC, pitch bend, channel pressure and per-note pressure (as
 polyphonic key pressure). MIDI 1.0 limits are reported, never silent:
 `reducedVelocities`, `reducedValues`, `droppedNoteBends` (no MIDI 1.0
 message), `droppedSteps` (step rows are not exported), `ambiguousOverlaps`
-(nested notes of one key, which FIFO pairing re-pairs on import).
+(nested notes of one key, which FIFO pairing re-pairs on import; counted
+in O(n log n) with a sparse table, `MidiFile::nestedNotes`).
 `session.importMidi(file)` reads formats 0 and 1 (running status, note-on
 velocity 0, FIFO note pairing, key pressure attached to the sounding note)
 into one pattern per track (one undo step), rescales to the session PPQ
@@ -149,16 +203,21 @@ reports tempo and meter events (`tempo`) without changing the tempo map.
 
 | Test | Checks |
 | --- | --- |
-| `tst_midi_model` | scaling and 32-bit lane precision; insert, move, resize, delete with attached expression; refusals; undo to the exact content; quantize strengths; drag preview and one-step commit; polymetric rows and undo; JSON roundtrip and PPQ refusal; SMF roundtrip with reports; running status and division rescale |
-| `tst_midi_schedule` | event samples at 120 BPM and after a tempo change (matching the schedule snapshot) and after undo; first sample exactly at the note start, block-size and seek independence, overlapping notes, silence after the release; 3-against-4 rows; seeded probability, re-roll and undo; launched slot from its boundary and its cut; session save/reopen |
-| `tst_midi_engine` | three launches from a stalled GUI all quantized to the beat, each started at its queued sample, the last winning, queued reported before playing; a quantized stop on the grid; audition, note-off, all-notes-off and transport stop; device loss and recovery leave nothing sounding; detaching the session stops its clips; zero device-thread allocations |
-| `tst_midi_session.qml` | PianoRoll insert, previewed drag and undo through `session.midi`; paired audition signals including destruction mid-gesture; StepSequencer toggle and undo; ClipLauncher without a device refuses with an explanation |
+| `tst_midi_model` | scaling and 32-bit lane precision; insert, move, resize, delete with attached expression; refusals; undo to the exact content; quantize strengths; drag preview and one-step commit; CC and per-note event drags (re-clamped inside the note), cancel and `deleteEvents`; polymetric rows and undo; JSON roundtrip and PPQ refusal; SMF roundtrip with reports; running status and division rescale; nested-note count equal to the pairwise definition and linear on 65,536 notes |
+| `tst_midi_schedule` | event samples at 120 BPM and after a tempo change (matching the schedule snapshot) and after undo; first sample exactly at the note start, block-size and seek independence, overlapping notes, silence after the release; 3-against-4 rows; seeded probability, re-roll and undo; launched slot from its boundary and its cut; CC7 level, channel and per-note pitch bend (frequency, continuous phase, block and seek independence); bounded look-back for a 2^30-tick note; clips keep their pattern (remove and undo refused); PPQ rescale with history, inexact PPQ refused; session save/reopen |
+| `tst_midi_launch` | device-thread processor block by block: a launch and a stop quantized to the loop end fire after the wrap; a playing clip follows a backward seek; a stop before the boundary cancels the launch ("nothing was playing"); take-relative note stamps, forward through a loop wrap, stop sized to the bar |
+| `tst_midi_engine` | three launches from a stalled GUI all quantized to the beat, each started at its queued sample, the last winning, queued reported before playing; a quantized stop on the grid; explicit cancel acknowledged; audition, note-off, all-notes-off and transport stop; device loss and recovery leave nothing sounding; detaching or destroying the session stops its clips; a take from the MIDI input path becomes the slot's pattern (one undo step); an ALSA client plays and records through `session.midiInput`; zero device-thread allocations |
+| `tst_midi_session.qml` | PianoRoll insert, previewed drag and undo through `session.midi`; paired audition signals including destruction mid-gesture; StepSequencer toggle and undo; MidiControllerLane drag, cancel, set and delete through `session.midi`; ClipLauncher launch and record requests without a device are refused with an explanation |
 
 ## Not covered here
 
-Plugin instruments and their event input are WP-066 (they consume
-`midiEvents`). MIDI device input/output and MIDI recording are not part of
-the reference engine (`capabilities.midiDevices`). MIDI clip lengths are
+No planned package hosts plugin *instruments*: WP-066 (items 1–5) covers
+plugin ABI hosting, processing and state without a MIDI event input, so
+`midiEvents` is offered as the stream such a host would take and the
+built-in test instrument is the declared player. MIDI output ports are not
+declared (`capabilities.midiDevices.output` is false). MIDI clip lengths are
 absolute timeline ticks (a clip does not stretch with tempo; the notes in
-it follow the beat). Performance measurement, other platforms, screen-reader
-runs and output-fidelity comparison are WP-088…WP-094.
+it follow the beat). A timeline undo that restores a clip whose pattern was
+removed afterwards leaves that clip silent (the MIDI history can restore the
+pattern). Performance measurement, other platforms, screen-reader runs and
+output-fidelity comparison are WP-088…WP-094.
