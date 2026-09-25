@@ -85,7 +85,26 @@ bool CadDocument::solve(State *state, const QString &lockedPointId, QString *dia
         return c.kind == QLatin1String("coincident") ? separation
             : std::abs(separation - c.value);
     };
-    for (int iteration = 0; iteration < 256; ++iteration) {
+    // AGENT-GUARD (docs/cad.md): residuals are checked before each projection
+    // pass, so an already-satisfied candidate is returned bit for bit. Reopen
+    // relies on this to accept exactly the sketches that edits commit.
+    for (int iteration = 0; ; ++iteration) {
+        double largest = 0;
+        const Constraint *worst = nullptr;
+        for (const Constraint &constraint : state->constraints) {
+            const double error = residual(constraint);
+            if (error > largest) { largest = error; worst = &constraint; }
+        }
+        if (largest <= kToleranceMm) return validGeometry(*state, diagnostic);
+        if (iteration == 256) {
+            *diagnostic = QStringLiteral("Unsatisfiable %1 constraint %2: residual %3 %4")
+                .arg(worst ? worst->kind : QStringLiteral("unknown"),
+                     worst ? worst->id : QStringLiteral("unknown"),
+                     QString::number(largest, 'g', 8),
+                     worst && worst->kind == QLatin1String("angle")
+                         ? QStringLiteral("deg") : QStringLiteral("mm"));
+            return false;
+        }
         for (const Constraint &constraint : state->constraints) {
             if (constraint.kind == QLatin1String("tangent")) {
                 const Segment &s = state->segments.at(segmentIndex(*state, constraint.first));
@@ -147,24 +166,7 @@ bool CadDocument::solve(State *state, const QString &lockedPointId, QString *dia
                 }
             }
         }
-        double largest = 0;
-        const Constraint *worst = nullptr;
-        for (const Constraint &constraint : state->constraints) {
-            const double error = residual(constraint);
-            if (error > largest) { largest = error; worst = &constraint; }
-        }
-        if (largest <= kToleranceMm) return validGeometry(*state, diagnostic);
-        if (iteration == 255) {
-            *diagnostic = QStringLiteral("Unsatisfiable %1 constraint %2: residual %3 %4")
-                .arg(worst ? worst->kind : QStringLiteral("unknown"),
-                     worst ? worst->id : QStringLiteral("unknown"),
-                     QString::number(largest, 'g', 8),
-                     worst && worst->kind == QLatin1String("angle")
-                         ? QStringLiteral("deg") : QStringLiteral("mm"));
-            return false;
-        }
     }
-    return false;
 }
 
 } // namespace QindaTK

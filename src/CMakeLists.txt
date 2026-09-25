@@ -195,9 +195,10 @@ qt_add_qml_module(qindatk
         core/node_graph_render.cpp core/node_graph_codec.cpp core/node_graph_model.h
         core/diagram_document.cpp core/diagram_document_io.cpp core/diagram_document_layout.cpp
         core/diagram_document_flow.cpp core/diagram_document_route.cpp core/diagram_document_export.cpp
+        core/diagram_document_edit.cpp
         core/diagram_document.h
         core/cad_document.cpp core/cad_document_solver.cpp core/cad_document_io.cpp
-        core/cad_document_export.cpp
+        core/cad_document_export.cpp core/cad_document_edit.cpp
         core/cad_document.h
         core/motion_onion_skin_item.cpp core/motion_onion_skin_item.h
         core/engine_schedule.cpp core/engine_schedule.h

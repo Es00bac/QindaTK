@@ -3848,6 +3848,119 @@
       "objectNames": []
     },
     {
+      "name": "CadInspector",
+      "kind": "qml",
+      "base": "Rectangle",
+      "description": "AGENT-NOTE (docs/cad.md): CadViewport's property strip. It edits the selection through the viewport's document, so every commit is one undo step and a rejected edit (unsatisfiable solve) restores the field from the document. It keeps no state of its own.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CadInspector.qml",
+      "properties": [
+        {
+          "name": "viewport",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "document",
+          "type": "var",
+          "default": "viewport.document",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ids",
+          "type": "var",
+          "default": "viewport.selection",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "default": "ids.length === 1 ? Commands.entityKind(document, ids[0]) : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entity",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "relations",
+          "type": "var",
+          "default": "document && document.revision >= 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kindNames",
+          "type": "var",
+          "default": "({",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kindKeys",
+          "type": "var",
+          "default": "({",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "rebind",
+          "parameters": ""
+        },
+        {
+          "name": "setRadius",
+          "parameters": "value"
+        },
+        {
+          "name": "setArcAngles",
+          "parameters": "start, sweep"
+        },
+        {
+          "name": "relationText",
+          "parameters": "relation"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "cadArcStartEditor",
+        "cadArcSweepEditor",
+        "cadConstrain_",
+        "cadConstraintBar",
+        "cadConstraintLabel_",
+        "cadGeometryFields",
+        "cadInspector",
+        "cadRadiusEditor",
+        "cadRemoveConstraint_"
+      ]
+    },
+    {
       "name": "CadViewport",
       "kind": "qml",
       "base": "Item",
@@ -3881,9 +3994,25 @@
           "required": false
         },
         {
-          "name": "pendingPointId",
-          "type": "string",
-          "default": "\"\"",
+          "name": "selectedEntityIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pending",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inspectorVisible",
+          "type": "bool",
+          "default": "true",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -3969,6 +4098,22 @@
           "required": false
         },
         {
+          "name": "selection",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "constraintOptions",
+          "type": "var",
+          "default": "Commands.constraintOptions(document, selection)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "statusText",
           "type": "string",
           "default": "document && document.lastError ? document.lastError",
@@ -4016,12 +4161,28 @@
           "parameters": "position"
         },
         {
-          "name": "ensurePoint",
-          "parameters": "snap"
+          "name": "isSelected",
+          "parameters": "id"
+        },
+        {
+          "name": "select",
+          "parameters": "id, toggle"
+        },
+        {
+          "name": "applyConstraint",
+          "parameters": "kind"
+        },
+        {
+          "name": "removeSelection",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTool",
+          "parameters": ""
         },
         {
           "name": "handleTap",
-          "parameters": "position"
+          "parameters": "position, toggle"
         },
         {
           "name": "zoomAt",
@@ -9463,6 +9624,14 @@
           "required": false
         },
         {
+          "name": "stencils",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Diagram canvas\")",
@@ -9490,6 +9659,14 @@
           "name": "selectedEdgeId",
           "type": "alias",
           "default": "graph.selectedEdgeId",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedGroupId",
+          "type": "alias",
+          "default": "graph.selectedGroupId",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -9543,6 +9720,22 @@
           "required": false
         },
         {
+          "name": "selectionCount",
+          "type": "int",
+          "default": "graph.selectionIds().length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "arrangeCommands",
+          "type": "var",
+          "default": "[",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "selectedEdge",
           "type": "var",
           "default": "document && document.revision >= 0 && selectedEdgeId",
@@ -9574,6 +9767,46 @@
           "parameters": ""
         },
         {
+          "name": "report",
+          "parameters": "ok, done"
+        },
+        {
+          "name": "addStencil",
+          "parameters": "type, x, y"
+        },
+        {
+          "name": "addPort",
+          "parameters": "direction"
+        },
+        {
+          "name": "selectionIds",
+          "parameters": ""
+        },
+        {
+          "name": "alignSelection",
+          "parameters": "edge"
+        },
+        {
+          "name": "distributeSelection",
+          "parameters": "axis"
+        },
+        {
+          "name": "groupById",
+          "parameters": "groupId"
+        },
+        {
+          "name": "groupSelection",
+          "parameters": "nodeIds"
+        },
+        {
+          "name": "ungroup",
+          "parameters": "groupId"
+        },
+        {
+          "name": "moveGroup",
+          "parameters": "groupId, dx, dy"
+        },
+        {
           "name": "groupFor",
           "parameters": "nodeId"
         },
@@ -9603,6 +9836,9 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "diagramAddInput",
+        "diagramAddOutput",
+        "diagramArrange_",
         "diagramCanvas",
         "diagramFlowEditor",
         "diagramGraph",
@@ -45229,6 +45465,26 @@
           "parameters": "const QString &entityId"
         },
         {
+          "name": "removeConstraint",
+          "returns": "bool",
+          "parameters": "const QString &constraintId"
+        },
+        {
+          "name": "beginTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "commitTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
           "name": "changeUnits",
           "returns": "bool",
           "parameters": "const QString &units"
@@ -49885,6 +50141,13 @@
           "constant": false
         },
         {
+          "name": "groups",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "revision",
           "type": "qulonglong",
           "default": "",
@@ -49973,6 +50236,41 @@
           "name": "setEdgeFlow",
           "returns": "bool",
           "parameters": "const QString &edgeId, double flow"
+        },
+        {
+          "name": "addGroup",
+          "returns": "QString",
+          "parameters": "const QStringList &nodeIds, const QString &title = QStringLiteral(\"Group\""
+        },
+        {
+          "name": "removeGroup",
+          "returns": "bool",
+          "parameters": "const QString &groupId"
+        },
+        {
+          "name": "alignNodes",
+          "returns": "bool",
+          "parameters": "const QStringList &nodeIds, const QString &edge"
+        },
+        {
+          "name": "distributeNodes",
+          "returns": "bool",
+          "parameters": "const QStringList &nodeIds, const QString &axis"
+        },
+        {
+          "name": "beginTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "commitTransaction",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTransaction",
+          "returns": "bool",
+          "parameters": ""
         },
         {
           "name": "autoLayout",

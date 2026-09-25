@@ -35,9 +35,19 @@ bool DiagramDocument::saveToFile(const QString &path)
             {QStringLiteral("fromNode"), edge.fromNode}, {QStringLiteral("fromPort"), edge.fromPort},
             {QStringLiteral("toNode"), edge.toNode}, {QStringLiteral("toPort"), edge.toPort},
             {QStringLiteral("flow"), edge.flow}});
-    const QByteArray bytes = QJsonDocument(QJsonObject{{QStringLiteral("format"), QStringLiteral("qindatk.diagram/1")},
+    QJsonObject root{{QStringLiteral("format"), QStringLiteral("qindatk.diagram/1")},
         {QStringLiteral("version"), 1},
-        {QStringLiteral("nodes"), nodeArray}, {QStringLiteral("edges"), edgeArray}}).toJson();
+        {QStringLiteral("nodes"), nodeArray}, {QStringLiteral("edges"), edgeArray}};
+    // Optional: files without groups keep their exact version-1 bytes.
+    if (!m_state.groups.isEmpty()) {
+        QJsonArray groupArray;
+        for (const Group &group : m_state.groups)
+            groupArray.append(QJsonObject{{QStringLiteral("id"), group.id},
+                {QStringLiteral("title"), group.title},
+                {QStringLiteral("nodes"), QJsonArray::fromStringList(group.nodeIds)}});
+        root.insert(QStringLiteral("groups"), groupArray);
+    }
+    const QByteArray bytes = QJsonDocument(root).toJson();
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
         setError(QStringLiteral("Could not save diagram")); return false;
@@ -127,6 +137,28 @@ bool DiagramDocument::decode(const QByteArray &bytes, State *result)
         connections.insert(key);
         result->edges.append(std::move(edge));
     }
+    const QJsonValue groups = root.value(QStringLiteral("groups"));
+    if (groups.isUndefined()) return true;
+    if (!groups.isArray() || groups.toArray().size() > 500) return false;
+    QSet<QString> groupIds, grouped;
+    for (const QJsonValue &entry : groups.toArray()) {
+        if (!entry.isObject()) return false;
+        const QJsonObject g = entry.toObject();
+        Group group{g.value(QStringLiteral("id")).toString(),
+                    g.value(QStringLiteral("title")).toString(), {}};
+        const QJsonValue members = g.value(QStringLiteral("nodes"));
+        if (group.id.isEmpty() || groupIds.contains(group.id) || group.title.trimmed().isEmpty()
+            || group.title.size() > 128 || !members.isArray() || members.toArray().isEmpty())
+            return false;
+        for (const QJsonValue &member : members.toArray()) {
+            const QString id = member.toString();
+            if (!nodeIds.contains(id) || grouped.contains(id)) return false;
+            grouped.insert(id);
+            group.nodeIds.append(id);
+        }
+        groupIds.insert(group.id);
+        result->groups.append(std::move(group));
+    }
     return true;
 }
 
@@ -143,6 +175,8 @@ bool DiagramDocument::loadFromFile(const QString &path)
     m_state = std::move(decoded);
     m_undo.clear();
     m_redo.clear();
+    m_transactionDepth = 0;
+    m_transactionRecorded = false;
     ++m_revision;
     setError({});
     emit changed();
