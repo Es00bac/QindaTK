@@ -38,8 +38,30 @@ TestCase {
     Component { id: textFieldSmall; Tk.TextField { small: true } }
     Component { id: search; Tk.SearchField { debounce: 0 } }
     Component { id: textArea; Tk.TextArea { rows: 3; width: 200 } }
-    Component { id: number; Tk.NumberField { value: 50; from: 0; to: 100; stepSize: 5 } }
-    Component { id: numberMixed; Tk.NumberField { value: 40; defaultValue: 25; mixed: true; from: 0; to: 100 } }
+    // NumberField never writes `value`/`mixed` (D-198); these fixtures are
+    // their own host and echo each user edit back.
+    Component { id: number; Tk.NumberField { value: 50; from: 0; to: 100; stepSize: 5; onValueModified: (v) => value = v } }
+    Component { id: numberMixed; Tk.NumberField { value: 40; defaultValue: 25; mixed: true; from: 0; to: 100; onValueModified: (v) => { value = v; mixed = false } } }
+    Component { id: numberBare; Tk.NumberField { value: 50; from: 0; to: 100 } }
+    Component {
+        id: numberBound
+        Item {
+            id: numberHost
+            property real model: 50
+            property alias field: boundField
+            width: 200
+            height: 40
+            Tk.NumberField {
+                id: boundField
+                width: 160
+                from: 0
+                to: 100
+                decimals: 1
+                value: numberHost.model
+                onValueModified: function(next) { numberHost.model = next }
+            }
+        }
+    }
     Component { id: numberReadOnly; Tk.NumberField { value: 50; from: 0; to: 100; editable: false } }
     Component { id: numberSmall; Tk.NumberField { small: true } }
     Component {
@@ -50,6 +72,7 @@ TestCase {
     Component { id: sliderSmall; Tk.Slider { small: true; width: 100 } }
     Component { id: combo; Tk.ComboBox { model: ["One", "Two", "Three"] } }
     Component { id: comboSmall; Tk.ComboBox { model: ["One"]; small: true } }
+    Component { id: comboLong; Tk.ComboBox { model: ["Fit to paper width", "Actual size"]; width: 70 } }
     Component { id: colorField; Tk.ColorField { color: "#112233" } }
 
     function make(component) {
@@ -284,19 +307,25 @@ TestCase {
         compare(spy.signalArguments[spy.count - 1][0], "a")
     }
 
-    function test_numberfield_clamps_and_steps() {
+    function test_numberfield_clamps_for_display_and_steps() {
         const item = make(number)
+        const input = findChild(item, "numberInput")
+        verify(input !== null)
+        // Clamping is display-only: `value` keeps what the host assigned.
         item.value = 500
-        compare(item.value, 100)
+        compare(item.value, 500)
+        compare(item.clampedValue, 100)
+        compare(input.text, "100")
         item.value = -3
-        compare(item.value, 0)
+        compare(item.value, -3)
+        compare(item.clampedValue, 0)
+        compare(input.text, "0")
         spy.target = item
         spy.signalName = "valueModified"
         spy.clear()
         item.value = 50
         compare(spy.count, 0)
-        const input = findChild(item, "numberInput")
-        verify(input !== null)
+        compare(input.text, "50")
         input.forceActiveFocus()
         keyClick(Qt.Key_Up)
         compare(item.value, 55)
@@ -306,6 +335,100 @@ TestCase {
         compare(input.text, "5")
         keyClick(Qt.Key_Escape)
         compare(input.text, "5")
+    }
+
+    function test_numberfield_keeps_host_binding() {
+        const host = make(numberBound)
+        const field = host.field
+        const input = findChild(field, "numberInput")
+        verify(input !== null)
+        // A clamp or rounding that changes the shown number leaves the binding.
+        host.model = 250
+        compare(field.value, 250)
+        compare(field.clampedValue, 100)
+        compare(input.text, "100.0")
+        host.model = 12.34
+        compare(field.value, 12.34)
+        compare(field.clampedValue, 12.3)
+        compare(input.text, "12.3")
+        // A user edit reaches the host through the signal and comes back
+        // through the binding, which is still live afterwards.
+        input.forceActiveFocus()
+        input.selectAll()
+        keyClick(Qt.Key_4)
+        keyClick(Qt.Key_2)
+        keyClick(Qt.Key_0)
+        keyClick(Qt.Key_Return)
+        compare(host.model, 100)
+        compare(field.value, 100)
+        compare(input.text, "100.0")
+        host.model = 7
+        compare(field.value, 7)
+        compare(input.text, "7.0")
+        field.step(1, Qt.NoModifier)
+        compare(host.model, 8)
+        host.model = 3
+        compare(field.value, 3)
+        compare(input.text, "3.0")
+    }
+
+    function test_numberfield_never_writes_value_or_mixed() {
+        const item = make(numberBare)
+        const input = findChild(item, "numberInput")
+        spy.target = item
+        spy.signalName = "valueModified"
+        spy.clear()
+        input.forceActiveFocus()
+        input.selectAll()
+        keyClick(Qt.Key_7)
+        keyClick(Qt.Key_2)
+        keyClick(Qt.Key_Return)
+        compare(spy.count, 1)
+        compare(spy.signalArguments[0][0], 72)
+        // No host applied the edit, so the field shows `value` again.
+        compare(item.value, 50)
+        compare(input.text, "50")
+        item.step(1, Qt.NoModifier)
+        compare(spy.count, 2)
+        compare(spy.signalArguments[1][0], 51)
+        compare(item.value, 50)
+        compare(input.text, "50")
+        item.commit(250)
+        compare(spy.count, 3)
+        compare(spy.signalArguments[2][0], 100)
+        compare(item.value, 50)
+        item.mixed = true
+        item.commit(30)
+        compare(spy.count, 4)
+        verify(item.mixed)
+        compare(item.value, 50)
+    }
+
+    function test_combobox_elides_label_and_keeps_full_implicit_width() {
+        const item = make(comboLong)
+        waitForRendering(item)
+        const label = findChild(item, "comboDisplayText")
+        verify(label !== null)
+        verify(label.visible)
+        compare(label.text, "Fit to paper width")
+        compare(label.elide, Text.ElideRight)
+        compare(label.width, item.contentItem.width)
+        verify(label.truncated)
+        // The input keeps the full text (glyphs hidden) and measures it.
+        compare(item.contentItem.text, "Fit to paper width")
+        compare(item.contentItem.color.a, 0)
+        const implicitAtNarrow = item.implicitWidth
+        verify(implicitAtNarrow > item.width)
+        item.width = 400
+        waitForRendering(item)
+        verify(!label.truncated)
+        compare(item.implicitWidth, implicitAtNarrow)
+        item.width = 70
+        compare(item.implicitWidth, implicitAtNarrow)
+        // Editable mode is the plain text input, unchanged.
+        item.editable = true
+        verify(!label.visible)
+        verify(item.contentItem.color.a > 0)
     }
 
     function test_numberfield_step_buttons() {

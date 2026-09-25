@@ -1419,3 +1419,39 @@ only to the exact state it was recorded against. **Consequences.** Hosts get
 one history across mesh, scene and canvas models, undo text and clean
 tracking; a paint stroke is never split. A native session codec for the mesh
 schema is not registered yet; hosts save through `saveToFile`.
+
+## D-198 — NumberField never writes its own value
+
+**Context.** NumberField clamped by assigning `value` and applied user edits
+the same way. Either write silently ended a host binding such as
+`value: model.xMm`: WP-051's millimetre fields froze at X 0.0 and Width 1.0
+once rounding changed the number, and hosts grew workarounds (Binding
+elements, `onShownChanged: value = shown`, re-asserting after a refusal).
+**Decision.** The host owns `value` and `mixed`; the field never assigns
+either. It shows `clampedValue` (`value` clamped to `from`..`to`, rounded to
+`decimals`), steps and scrubs from it, and reports every user edit and
+`reset()` only through `valueModified(clamped)`. The display follows `value`
+when the host applies an edit and snaps back when it refuses. A field with no
+model echoes the edit itself (`onValueModified: (v) => value = v`).
+**Consequences.** Plain bindings on `value` are the normal way to connect a
+field, and WP-051's copy-in workarounds and the Knob/Fader Binding elements
+are gone. A host that ignores `valueModified` now shows an unchanged field,
+and one that clears `mixed` late shows the placeholder until it does.
+
+## D-199 — Qt modules come only from the Qt in use
+
+**Context.** Optional modules were found with `find_package(Qt6Quick3D 6.8)`
+and `find_package(Qt6ShaderTools 6.8)`, which search every default prefix
+and accept any newer version. Configuring against the Qt 6.8 SDK loaded the
+system Qt 6.11 module configs and failed ("Unknown CMake command
+`_qt_internal_should_include_targets`"), so round builds had to pass
+`CMAKE_DISABLE_FIND_PACKAGE_Qt6Quick3D/ShaderTools`. **Decision.** Every Qt
+module outside the required `find_package(Qt6 ... COMPONENTS ...)` call goes
+through the root `qindatk_find_qt_module(<Module> QUIET|REQUIRED)` macro. It
+searches only the directory that holds `Qt6_DIR` (`NO_DEFAULT_PATH`), requires
+exactly `Qt6_VERSION`, and drops a cached `Qt6<Module>_DIR` that points into
+another Qt. **Consequences.** A module missing from the Qt in use is reported
+unavailable instead of being borrowed from another Qt; Qt add-on modules
+installed in a separate prefix are not picked up; a bare
+`find_package(Qt6<Module>)` is a defect.
+

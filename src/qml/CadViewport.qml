@@ -297,11 +297,9 @@ Item {
                     ? dimension.modelData.distanceValue : dimension.modelData.angleValue
                 suffix: dimension.modelData.distanceConstraintId ? root.document.units : "°"
                 tooltip: qsTr("Edit constrained dimension")
-                onValueModified: function(next) {
-                    if (!root.document.setDimension(dimension.constraintId, next))
-                        editor.value = dimension.modelData.distanceConstraintId
-                            ? dimension.modelData.distanceValue : dimension.modelData.angleValue
-                }
+                // A refused edit changes nothing: the field keeps showing the
+                // bound model value (NumberField never writes `value`).
+                onValueModified: function(next) { root.document.setDimension(dimension.constraintId, next) }
             }
         }
     }

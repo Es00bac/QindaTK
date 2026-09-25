@@ -199,12 +199,8 @@ Item {
             from: 0
             stepSize: control.spacingStep
             decimals: 1
-            Binding {
-                target: spacingField
-                property: "value"
-                value: control.spacing
-            }
-            onValueModified: control.spacing = value
+            value: control.spacing
+            onValueModified: function(next) { control.spacing = next }
         }
     }
 

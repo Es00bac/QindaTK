@@ -21,6 +21,8 @@ TestCase {
             from: 0
             to: 20
             tooltip: "Gain"
+            // The field never writes `value` itself (D-198); echo the edit.
+            onValueModified: (v) => value = v
         }
     }
     SignalSpy { id: changed; signalName: "valueModified" }

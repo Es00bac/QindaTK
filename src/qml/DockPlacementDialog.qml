@@ -127,6 +127,9 @@ Tk.Dialog {
             visible: dialog.selected.kind === "move"
             tooltip: qsTr("Horizontal position")
             label: qsTr("Horizontal position")
+            // The field is the dialog's draft: it echoes the user's edit
+            // into its own value (NumberField itself never writes `value`).
+            onValueModified: function(next) { horizontal.value = next }
             from: 0
             to: Math.max(0, dialog.host.width - (dialog.host.panelInfo(dialog.panelId).width || 0))
             stepSize: Tk.Theme.space.lg
@@ -138,6 +141,9 @@ Tk.Dialog {
             visible: dialog.selected.kind === "move"
             tooltip: qsTr("Vertical position")
             label: qsTr("Vertical position")
+            // The field is the dialog's draft: it echoes the user's edit
+            // into its own value (NumberField itself never writes `value`).
+            onValueModified: function(next) { vertical.value = next }
             from: 0
             to: Math.max(0, dialog.host.height - (dialog.host.panelInfo(dialog.panelId).height || 0))
             stepSize: Tk.Theme.space.lg

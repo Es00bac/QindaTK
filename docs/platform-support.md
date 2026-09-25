@@ -38,6 +38,17 @@ official SDK contains the private pointer-handler header and defines
 `Qt6QuickPrivateConfig.cmake`. The top-level build now accepts either Qt
 package layout.
 
+Configure against the SDK with only `-DCMAKE_PREFIX_PATH=<sdk>/gcc_64`; no
+`CMAKE_DISABLE_FIND_PACKAGE_*` flags are needed. Every Qt module beyond the
+required core set (Quick3D, ShaderTools, Widgets, PrintSupport, and
+QuickPrivate where it is a separate package) goes through
+`qindatk_find_qt_module()`, which searches only the directory holding
+`Qt6_DIR` at exactly `Qt6_VERSION`
+([D-199](decisions.md#d-199--qt-modules-come-only-from-the-qt-in-use)). The
+SDK has no Quick3D or Shader Tools, so configure reports the SceneView3D
+renderer and the GPU volume shaders unavailable instead of loading the system
+Qt's module configs.
+
 ## Qt upgrade and qualification procedure
 
 1. Install a matching Qt runtime and private development package in an

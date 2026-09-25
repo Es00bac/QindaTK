@@ -11,7 +11,7 @@
 file(GLOB qindatk_qml_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.qml")
 # Scene data stays renderer-independent. SDKs without Quick3D still expose
 # SceneView3D, which reports its renderer unavailable through the lazy Loader.
-find_package(Qt6Quick3D 6.8 QUIET)
+qindatk_find_qt_module(Quick3D QUIET)
 set(qindatk_quick3d_sources)
 if(NOT TARGET Qt6::Quick3D)
     list(FILTER qindatk_qml_files EXCLUDE REGEX "(SceneView3DRenderer|MaterialPreviewRenderer|ScientificPlot3DRenderer)\\.qml$")
@@ -453,7 +453,7 @@ endif()
 # and draws the reference path. 3D samplers need GLSL 300 es / 330.
 # AGENT-CONTRACT (core/volume_render_node.cpp): PREFIX + file path is the
 # resource path the node loads, ":/qindatk/shaders/volume_raycast.*.qsb".
-find_package(Qt6ShaderTools 6.8 QUIET)
+qindatk_find_qt_module(ShaderTools QUIET)
 if(TARGET Qt6::ShaderTools)
     qt_add_shaders(qindatk "qindatk_volume_shaders"
         PREFIX "/qindatk"

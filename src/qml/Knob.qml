@@ -271,6 +271,7 @@ T.Control {
         anchors.top: dial.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         width: Tk.Theme.size.fieldWidth
+        value: control.value
         from: control.from; to: control.to; defaultValue: control.defaultValue
         stepSize: control.stepSize; decimals: control.decimals; suffix: control.unit
         tooltip: control.tooltip; Accessible.name: control.Accessible.name
@@ -289,10 +290,6 @@ T.Control {
         color: Tk.Theme.color.textMuted
         font.pixelSize: Tk.Theme.font.caption
     }
-    // AGENT-GUARD: NumberField assigns its own `value` on a typed commit,
-    // which would break a plain binding; the Binding element re-asserts the
-    // knob's value after every change, so the field never goes stale.
-    Binding { target: field; property: "value"; value: control.value }
     onNormalizedValueChanged: dialCanvas.requestPaint()
     onEnabledChanged: dialCanvas.requestPaint()
     Tk.ToolTip { text: control.tooltip; visible: control.tooltip.length > 0 && control.hovered && !control._dragging }

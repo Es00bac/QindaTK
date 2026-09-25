@@ -21,6 +21,27 @@ option(QINDATK_ENABLE_ALSA "Enable the optional ALSA audio device backend" ON)
 option(QINDATK_ENABLE_FFMPEG "Enable the optional FFmpeg media decode/encode backend" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg Concurrent Network)
+# AGENT-NOTE (D-199): every other Qt module, optional or not, is looked up
+# with qindatk_find_qt_module(): only in the Qt6 installation this build uses
+# (the directory holding Qt6_DIR) and only at exactly its version. A plain
+# find_package(Qt6Quick3D 6.8) also searches the system prefixes, so a build
+# against the Qt 6.8 SDK loaded the system Qt 6.11 Quick3D config and failed
+# with "Unknown CMake command _qt_internal_should_include_targets".
+# AGENT-GUARD: never add a bare find_package(Qt6<Module> ...) in this tree;
+# `-DCMAKE_PREFIX_PATH=<Qt 6.8 SDK>` alone must configure (docs/platform-support.md).
+get_filename_component(QINDATK_QT_CMAKE_DIR "${Qt6_DIR}/.." ABSOLUTE)
+macro(qindatk_find_qt_module module)
+    # A Qt6<module>_DIR cached from another Qt would win over PATHS; drop it.
+    if(Qt6${module}_DIR)
+        string(FIND "${Qt6${module}_DIR}" "${QINDATK_QT_CMAKE_DIR}/" _qindatk_qt_dir_at)
+        if(NOT _qindatk_qt_dir_at EQUAL 0)
+            unset(Qt6${module}_DIR CACHE)
+            unset(Qt6${module}_DIR)
+        endif()
+    endif()
+    find_package(Qt6${module} ${Qt6_VERSION} EXACT ${ARGN} CONFIG
+        PATHS "${QINDATK_QT_CMAKE_DIR}" NO_DEFAULT_PATH)
+endmacro()
 find_package(SQLite3 REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LCMS2 REQUIRED IMPORTED_TARGET lcms2>=2.14)
@@ -79,16 +100,16 @@ if(QINDATK_ENABLE_FFMPEG)
     endif()
 endif()
 # Native QFileDialog is an optional adapter; base qindatk stays QtQuick-only.
-find_package(Qt6 6.8 QUIET COMPONENTS Widgets)
+qindatk_find_qt_module(Widgets QUIET)
 # The native print backend (WP-053) joins qindatk_widgets when PrintSupport exists.
-find_package(Qt6 6.8 QUIET COMPONENTS PrintSupport)
+qindatk_find_qt_module(PrintSupport QUIET)
 # AGENT-NOTE: QuickPrivate serves layout_info.cpp (anchor/explicit size
 # detection) and StylusHandler's implementation-only tablet event path (D-015).
 # Official Qt SDKs define Qt6::QuickPrivate from the Qt6Quick package;
 # distro Qt packages may instead provide a separate Qt6QuickPrivate config.
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
 if(NOT TARGET Qt6::QuickPrivate)
-    find_package(Qt6QuickPrivate 6.8 REQUIRED)
+    qindatk_find_qt_module(QuickPrivate REQUIRED)
 endif()
 if(BUILD_TESTING)
     find_package(Qt6 6.8 REQUIRED COMPONENTS Test QuickTest)

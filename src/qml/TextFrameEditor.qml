@@ -127,10 +127,8 @@ Item {
                 label: qsTr("X")
                 Tk.NumberField {
                     objectName: "textFrameX"
-                    // NumberField clamps by assigning `value`, which would drop a binding.
                     readonly property real shown: control.currentFrame ? control.display(control.currentFrame.xMm) : 0
-                    onShownChanged: value = shown
-                    Component.onCompleted: value = shown
+                    value: shown
                     from: -100000
                     to: 100000
                     stepSize: 1
@@ -144,10 +142,8 @@ Item {
                 label: qsTr("Y")
                 Tk.NumberField {
                     objectName: "textFrameY"
-                    // NumberField clamps by assigning `value`, which would drop a binding.
                     readonly property real shown: control.currentFrame ? control.display(control.currentFrame.yMm) : 0
-                    onShownChanged: value = shown
-                    Component.onCompleted: value = shown
+                    value: shown
                     from: -100000
                     to: 100000
                     stepSize: 1
@@ -161,10 +157,8 @@ Item {
                 label: qsTr("Width")
                 Tk.NumberField {
                     objectName: "textFrameWidth"
-                    // NumberField clamps by assigning `value`, which would drop a binding.
                     readonly property real shown: control.currentFrame ? control.display(control.currentFrame.widthMm) : 1
-                    onShownChanged: value = shown
-                    Component.onCompleted: value = shown
+                    value: shown
                     from: 1
                     to: 100000
                     stepSize: 1
@@ -178,10 +172,8 @@ Item {
                 label: qsTr("Height")
                 Tk.NumberField {
                     objectName: "textFrameHeight"
-                    // NumberField clamps by assigning `value`, which would drop a binding.
                     readonly property real shown: control.currentFrame ? control.display(control.currentFrame.heightMm) : 1
-                    onShownChanged: value = shown
-                    Component.onCompleted: value = shown
+                    value: shown
                     from: 1
                     to: 100000
                     stepSize: 1
@@ -201,10 +193,8 @@ Item {
                 label: qsTr("Columns")
                 Tk.NumberField {
                     objectName: "textFrameColumns"
-                    // NumberField clamps by assigning `value`, which would drop a binding.
                     readonly property real shown: control.currentFrame ? control.currentFrame.columns || 1 : 1
-                    onShownChanged: value = shown
-                    Component.onCompleted: value = shown
+                    value: shown
                     from: 1
                     to: 24
                     stepSize: 1
@@ -217,10 +207,8 @@ Item {
                 label: qsTr("Gap")
                 Tk.NumberField {
                     objectName: "textFrameGutter"
-                    // NumberField clamps by assigning `value`, which would drop a binding.
                     readonly property real shown: control.currentFrame ? control.display(control.currentFrame.gutterMm || 0) : 0
-                    onShownChanged: value = shown
-                    Component.onCompleted: value = shown
+                    value: shown
                     from: 0
                     to: 100000
                     stepSize: 1
@@ -234,10 +222,8 @@ Item {
                 label: qsTr("Inset")
                 Tk.NumberField {
                     objectName: "textFrameInset"
-                    // NumberField clamps by assigning `value`, which would drop a binding.
                     readonly property real shown: control.currentFrame ? control.display(control.currentFrame.insetMm || 0) : 0
-                    onShownChanged: value = shown
-                    Component.onCompleted: value = shown
+                    value: shown
                     from: 0
                     to: 100000
                     stepSize: 1
