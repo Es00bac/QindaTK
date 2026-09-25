@@ -132,6 +132,7 @@ std::shared_ptr<DocumentCodecRegistry> DocumentCodecRegistry::withBuiltins()
     registry->registerCodec(sceneDocumentCodec());
     registry->registerCodec(slideDeckDocumentCodec());
     registry->registerCodec(notebookDocumentCodec());
+    registry->registerCodec(meshRigDocumentCodec());
     return registry;
 }
 

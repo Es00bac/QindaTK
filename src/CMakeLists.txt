@@ -69,6 +69,8 @@ qt_add_qml_module(qindatk
         core/mesh_rig_document.h core/mesh_rig_document.cpp
         core/mesh_rig_document_persistence.cpp core/mesh_rig_history.cpp
         core/mesh_rig_pose.cpp core/mesh_rig_uv.cpp core/mesh_rig_paint.cpp
+        core/mesh_rig_animation.cpp core/mesh_rig_authoring.cpp core/mesh_rig_camera.cpp
+        core/mesh_rig_document_codec.cpp
         core/raster_brush_p.h
         core/slide_deck_types.h core/slide_deck_types.cpp
         core/slide_deck.h core/slide_deck.cpp core/slide_deck_edit.cpp core/slide_deck_codec.cpp

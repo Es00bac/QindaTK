@@ -23,8 +23,13 @@ Rectangle {
         return false
     }
 
+    // The WP-073 keyframe engine: bound bone rotations are lanes here, so a
+    // KeyframeTimeline or DopeSheet on this model shows and edits rig keys.
+    Tk.AutomationModel { id: animation }
+
     Tk.MeshRigDocument {
         id: mesh
+        animationModel: animation
         Component.onCompleted: {
             const a = addVertex(Qt.vector3d(-105, -105, 0))
             const b = addVertex(Qt.vector3d(105, -105, 0))
@@ -64,6 +69,7 @@ Rectangle {
             setPoseKey(driver, 24, Qt.vector3d(0, 0, 20))
             addConstraint(root.boneId, "copyRotation", driver, 0.5)
             setBonePose(root.boneId, Qt.vector3d(0, 0, 4))
+            bindBoneAnimation(driver) // copies its keys into timeline lanes
             currentFrame = 12
         }
     }
@@ -110,6 +116,17 @@ Rectangle {
                         mesh.setVertexWeights(id, weights)
                     }
                     onResetPoseRequested: mesh.resetPose()
+                    onEditGestureStarted: mesh.beginEditGesture()
+                    onEditGestureFinished: mesh.endEditGesture()
+                    onBoneAddRequested: function(name, parentId, head, tail) {
+                        const id = mesh.addBone(name, parentId, head, tail)
+                        if (id.length) root.boneId = id
+                    }
+                    onBoneRemoveRequested: function(id) { mesh.removeBone(id) }
+                    onBoneRenameRequested: function(id, name) { mesh.renameBone(id, name) }
+                    onBoneParentRequested: function(id, parentId) { mesh.setBoneParent(id, parentId) }
+                    onBoneRestRequested: function(id, head, tail) { mesh.setBoneRest(id, head, tail) }
+                    onBoneLimitsRequested: function(id, minimum, maximum) { mesh.setBoneLimits(id, minimum, maximum) }
                 }
                 Tk.UVEditor {
                     id: uvEditor
@@ -150,10 +167,31 @@ Rectangle {
                     width: parent.width
                     Tk.Flex.grow: 1
                     meshDocument: mesh
+                    meshTool: "select"
                     cameraPosition: Qt.vector3d(0, 80, 520)
                     cameraEulerDegrees: Qt.vector3d(-8, 0, 0)
-                    // Selection synchronization: a mesh click selects its face in the UV editor.
+                    // Selection synchronization both ways: clicks select the
+                    // face/bone in the editors; their selection highlights here.
+                    selectedMeshFaceId: root.faceId
+                    selectedBoneId: root.boneId
                     onMeshFacePicked: function(id, uv) { root.faceId = id }
+                    onMeshBonePicked: function(id) { root.boneId = id }
+                    // Camera painting uses the texture view's brush and channel.
+                    onMeshStrokeBegan: mesh.beginPaint(painter.channel)
+                    onMeshPaintRayRequested: function(origin, direction) {
+                        mesh.paintRay(origin, direction, painter.brushColor, painter.brushRadius,
+                                      painter.brushOpacity, painter.brushHardness)
+                    }
+                    onMeshStrokeFinished: mesh.endPaint()
+                    onMeshStrokeCancelled: mesh.cancelPaint()
+                }
+                Tk.KeyframeTimeline {
+                    objectName: "liveRigTimeline"
+                    width: parent.width
+                    height: Tk.Theme.size.controlLg * 3
+                    model: animation
+                    timeBoundaries: ["0", "6", "12", "18", "24"]
+                    playheadTicks: mesh.timeTicks
                 }
                 Tk.TexturePaintView {
                     id: painter
@@ -161,14 +199,13 @@ Rectangle {
                     width: parent.width
                     height: Tk.Theme.size.panelMinWidth * 1.2
                     textureDataUrl: mesh.textureDataUrls[painter.channel] || ""
+                    textureWidth: mesh.textureWidth
+                    textureHeight: mesh.textureHeight
                     brushHardness: 0.8
-                    rayProvider: function(position) {
-                        return viewport.meshRay(position.x * viewport.width,
-                                                position.y * viewport.height)
-                    }
+                    paintEnabled: true
                     onStrokeBegan: function(channel) { mesh.beginPaint(channel) }
-                    onPaintRayRequested: function(origin, direction, color, radius, opacity, hardness) {
-                        mesh.paintRay(origin, direction, color, radius, opacity, hardness)
+                    onPaintUvRequested: function(uv, color, radius, opacity, hardness) {
+                        mesh.paintUv(uv, color, radius, opacity, hardness)
                     }
                     onStrokeFinished: mesh.endPaint()
                     onStrokeCancelled: mesh.cancelPaint()

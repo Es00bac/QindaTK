@@ -293,6 +293,26 @@ void MeshRigRigTest::versionTwoPersistence()
     QCOMPARE(legacy.texture(QStringLiteral("roughness")).pixel(0, 0), qRgb(204, 204, 204));
     QVERIFY(legacy.bones()[1].toMap().value("constraints").toList().isEmpty());
     QVERIFY(legacy.bones()[0].toMap().value("keys").toList().isEmpty());
+
+    // A version 1 file without its texture is refused: loading it used to
+    // give null channels whose saved file could never be reopened.
+    QJsonObject noTexture = v1;
+    noTexture.remove("texturePng");
+    MeshRigDocument refused;
+    const QString untouched = refused.toJson();
+    QVERIFY(!refused.fromJson(QString::fromUtf8(QJsonDocument(noTexture).toJson())));
+    QVERIFY(refused.lastError().contains("texture"));
+    QCOMPARE(refused.toJson(), untouched);
+    // A version 2 file missing one channel is refused the same way.
+    QJsonObject missing = root;
+    QJsonObject channels = root.value("textures").toObject();
+    channels.remove("metalness");
+    missing.insert("textures", channels);
+    QVERIFY(!refused.fromJson(QString::fromUtf8(QJsonDocument(missing).toJson())));
+    // Everything the document saves reopens.
+    MeshRigDocument roundTrip;
+    QVERIFY(roundTrip.fromJson(legacy.toJson()));
+    QCOMPARE(roundTrip.texture(), legacy.texture());
 }
 
 QTEST_GUILESS_MAIN(MeshRigRigTest)
