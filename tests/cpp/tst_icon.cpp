@@ -3,6 +3,7 @@
 #include "icon_data.h"
 #include "svg_path.h"
 
+#include <QSet>
 #include <QtTest>
 
 using namespace QindaTK;
@@ -56,6 +57,26 @@ private slots:
             QVERIFY2(registry->has(name), qPrintable(name));
             const QVector<QPainterPath> *paths = registry->paths(name);
             QVERIFY2(paths != nullptr && !paths->isEmpty(), qPrintable(name));
+        }
+    }
+    void toolkitIconsAreBuiltIn()
+    {
+        // AGENT-CONTRACT: src/qml controls and examples name these icons;
+        // tools/scripts/gen_icons.py must keep them in its curated list.
+        IconRegistry *registry = IconRegistry::instance();
+        for (const char *name : {"combine", "corner-up-left", "file-json", "globe", "key-round",
+                                 "list-minus", "list-plus", "monitor-off", "more-horizontal",
+                                 "presentation", "scan-eye", "split", "square-round-corner"}) {
+            QVERIFY2(registry->has(QString::fromLatin1(name)), name);
+        }
+    }
+    void builtinNamesAreUnique()
+    {
+        QSet<QString> seen;
+        for (const IconData::BuiltinIcon &icon : IconData::builtinIcons()) {
+            const QString name = QString::fromLatin1(icon.name);
+            QVERIFY2(!seen.contains(name), icon.name);
+            seen.insert(name);
         }
     }
     void customIcons()

@@ -47,6 +47,8 @@ square-check square-dashed square-pen stamp star step-back step-forward striketh
 table tag target terminal text text-cursor text-cursor-input timer toggle-left toggle-right trash trash-2 triangle
 type underline undo undo-2 ungroup unlink unlock upload user users video volume-2 volume-x wand wand-sparkles waypoints
 wind workflow wrap-text wrench x zap zoom-in zoom-out bring-to-front send-to-back square-stack layout-list
+combine corner-up-left file-json globe key-round list-minus list-plus monitor-off more-horizontal presentation
+scan-eye split square-round-corner
 between-horizontal-start between-vertical-start align-horizontal-justify-center align-vertical-justify-center
 align-start-horizontal align-start-vertical align-end-horizontal align-end-vertical align-center-horizontal align-center-vertical
 align-horizontal-space-between align-vertical-space-between shapes lasso lasso-select paint-roller spray-can
@@ -141,6 +143,9 @@ def main():
             aliases.append((name, new_name))
             continue
         rows.append((name, paths))
+    # AGENT-GUARD: an alias target appended to `names` above is visited again
+    # by this loop; keep one row per name or the table carries duplicates.
+    rows = list({name: paths for name, paths in rows}.items())
     rows.sort()
     aliases.sort()
     with out.open("w") as fh:
