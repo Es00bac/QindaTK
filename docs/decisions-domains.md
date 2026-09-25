@@ -762,3 +762,77 @@ refresh.
 **Consequences.** Only the visible cards and the cache buffer exist.
 Scrolling away and back, or a structural refresh, never loses typing. A host
 that binds its own blocks sees the same behaviour.
+
+## D-178 — A score is written music with its own model, separate from MIDI
+
+**Context.** AUD-27 needs voices, ties, tuplets, spelling and articulations;
+piano-roll timing cannot represent them (F sharp and G flat are one MIDI
+pitch, a triplet is not a rounded tick grid, two tied notes are one sound).
+WP-064 already owns MIDI patterns (D-150).
+
+**Decision.** `ScoreModel` owns a score of measures, parts, staves, voices,
+events and notes with UUIDs, spelled pitches and note values at exact ticks
+(960 PPQ). Every change is validated whole (complete voice 1, no overlap,
+complete tuplet groups inside one measure, ties onto the same pitch) and is
+one step of the model's own history. Entry overwrites the span it covers and
+fills the remainder with aligned rests, so the rhythm always adds up.
+
+**Consequences.** The score and the MIDI pattern never share records; the
+only bridge is the conversion of D-180. Notation that the model does not
+declare (grace notes, slurs, lyrics, repeats) is refused or reported, not
+approximated. Files keep 960 PPQ.
+
+## D-179 — One layout for view, PDF and images; the view never places anything
+
+**Context.** ScoreView (integrated earlier) draws host coordinates. Page
+output and the on-screen score must agree, and multi-voice measures need
+shared columns across staves.
+
+**Decision.** `Score::layoutScore` decides every position in page points:
+shared time columns with logarithmic widths, greedy system breaking with
+forced breaks, justification, pages, then accidentals, stems, beams, ties
+and tuplets per staff. `pageSnapshot` normalizes it for ScoreView;
+`paintPage` paints it for PDF and images. ScorePaint.js and paintPage only
+choose glyph shapes.
+
+**Consequences.** A PDF page matches the view's page geometry. Two painters
+exist (QML Canvas and QPainter), so glyph shapes can differ in detail;
+positions cannot. The engraving is plain (no SMuFL font); fidelity against
+other programs is qualification work (WP-088 to WP-094).
+
+## D-180 — Playback is a derived MIDI pattern with stable note IDs
+
+**Context.** Playback must use WP-064's model and scheduling and the tempo
+map, while expressive notation stays in the score.
+
+**Decision.** `Score::toMidi` converts the score (tie chains merged,
+staccato halves and staccatissimo quarters the last value, dynamics and
+accents set velocity, exact PPQ rescale or failure). MIDI note IDs are
+UUIDv5 of the chain's first score note. `ScorePlayback` writes the result
+as one whole pattern of `session.midi` (one MIDI undo step) and keeps one
+beat-locked clip of it on a MIDI track, so the engine and tempo map time it
+like any pattern; audition uses the engine's cue voices.
+
+**Consequences.** Editing the pattern in a PianoRoll is overwritten by the
+next sync; the score is the source. Re-syncs keep note IDs, so controller
+lanes attached to a note survive unrelated edits only until that note's
+chain changes. MIDI files of a score go through the pattern
+(`session.exportMidi`).
+
+## D-181 — MusicXML carries native IDs in `id` attributes and processing instructions
+
+**Context.** AUD-27 requires a semantic round trip; MusicXML has no voice,
+staff or chord-event IDs.
+
+**Decision.** Export writes MusicXML 4.0 partwise with divisions 960, note,
+measure and part UUIDs as prefixed `id` attributes, and score, staff, voice
+and event UUIDs as `qindatk-*` processing instructions, which conforming
+readers ignore. Import reads the declared feature set, maps voices as
+`staff × 4 + voice`, derives values from `type`, dots and time-modification,
+and reports every other element by name (`unsupported`), duration
+mismatches, rounded positions and filled rests.
+
+**Consequences.** A QindaTK file re-imports equal to the original, IDs
+included. Files from other programs import with new IDs and a report of
+what was not kept; tuplet groups follow from ratios, not from `<tuplet>`
+brackets.
