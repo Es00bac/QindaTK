@@ -3,6 +3,7 @@
 
 #include "caption_track_model.h"
 
+#include <QGlyphRun>
 #include <QImage>
 #include <QObject>
 #include <QString>
@@ -17,8 +18,15 @@
 // ([in, out)) stack from the upper band down in lane, in-time, ID order;
 // styleId "emphasis" draws the emphasis style and every other ID the default.
 // Returns the drawn cue IDs in that order.
+// Text is laid out with QTextLayout (font fallback, shaping, bidi) and the
+// layout is drawn as is; glyphRuns() returns the runs of that same layout so
+// tests and warnings inspect exactly what burn() paints.
 namespace CaptionBurnIn {
 QStringList burn(QImage *image, const QVector<CaptionCueRecord> &cues, qint64 timeMs);
+QList<QGlyphRun> glyphRuns(const QString &text, int pixelSize, bool emphasis, qreal width);
+// Characters of `text` no installed font draws: they would burn in as
+// empty .notdef boxes (CaptionTrackModel warns with kind "glyphs").
+QString missingCharacters(const QString &text, bool emphasis = false);
 }
 
 // Burns committed CaptionTrackModel cues into one host-decoded video frame.

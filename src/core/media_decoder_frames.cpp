@@ -85,20 +85,27 @@ Step decodeUntil(MediaDecoder::Private *d, qint64 target, const CancellationToke
     }
 }
 
-int swscaleMatrix(const AVFrame *frame)
+// AGENT-CONTRACT (docs/video-scopes.md "Source coding", VideoScopesModel):
+// the matrix named here is the one handed to swscale below, and the name is
+// reported on MediaDecodedFrame::matrix, so a scope set to "source" reads
+// the frame under the exact Y'CbCr decode it went through.
+std::pair<int, QString> decodeMatrix(const AVFrame *frame)
 {
     switch (frame->colorspace) {
-    case AVCOL_SPC_BT709: return SWS_CS_ITU709;
+    case AVCOL_SPC_BT709: return {SWS_CS_ITU709, QStringLiteral("bt709")};
     case AVCOL_SPC_BT2020_NCL:
-    case AVCOL_SPC_BT2020_CL: return SWS_CS_BT2020;
-    case AVCOL_SPC_SMPTE240M: return SWS_CS_SMPTE240M;
-    case AVCOL_SPC_FCC: return SWS_CS_FCC;
-    case AVCOL_SPC_UNSPECIFIED: return frame->height >= 720 ? SWS_CS_ITU709 : SWS_CS_ITU601;
-    default: return SWS_CS_ITU601;
+    case AVCOL_SPC_BT2020_CL: return {SWS_CS_BT2020, QStringLiteral("bt2020")};
+    case AVCOL_SPC_SMPTE240M: return {SWS_CS_SMPTE240M, QStringLiteral("smpte240m")};
+    case AVCOL_SPC_FCC: return {SWS_CS_FCC, QStringLiteral("fcc")};
+    case AVCOL_SPC_UNSPECIFIED:
+        return frame->height >= 720 ? std::pair{SWS_CS_ITU709, QStringLiteral("bt709")}
+                                    : std::pair{SWS_CS_ITU601, QStringLiteral("bt601")};
+    default: return {SWS_CS_ITU601, QStringLiteral("bt601")};
     }
 }
 
-QImage convertFrame(MediaDecoder::Private *d, const QSize &maxSize, OperationError *error)
+QImage convertFrame(MediaDecoder::Private *d, const QSize &maxSize, OperationError *error,
+                    QString *matrix, QString *range)
 {
     const AVFrame *frame = d->frame;
     const int width = frame->width;
@@ -123,10 +130,15 @@ QImage convertFrame(MediaDecoder::Private *d, const QSize &maxSize, OperationErr
                                                      .arg(MediaFfmpeg::name(descriptor->name)));
         return {};
     }
+    *matrix = QStringLiteral("rgb");
+    *range = QStringLiteral("full");
     if (!(descriptor->flags & AV_PIX_FMT_FLAG_RGB) && descriptor->nb_components >= 3) {
         const int fullRange = frame->color_range == AVCOL_RANGE_JPEG ? 1 : 0;
-        sws_setColorspaceDetails(d->scaler, sws_getCoefficients(swscaleMatrix(frame)), fullRange,
+        const auto [coefficients, name] = decodeMatrix(frame);
+        sws_setColorspaceDetails(d->scaler, sws_getCoefficients(coefficients), fullRange,
                                  sws_getCoefficients(SWS_CS_DEFAULT), 1, 0, 1 << 16, 1 << 16);
+        *matrix = name;
+        *range = fullRange ? QStringLiteral("full") : QStringLiteral("limited");
     }
     // AV_PIX_FMT_RGB32 is native-endian 0xAARRGGBB, QImage::Format_ARGB32.
     QImage image(target, QImage::Format_ARGB32);
@@ -223,7 +235,7 @@ MediaDecodedFrame MediaDecoder::decodeFrame(qint64 index, const QSize &maxSize,
     }
     result.pts = target;
     result.corrupt = (d->frame->flags & AV_FRAME_FLAG_CORRUPT) != 0;
-    result.image = convertFrame(d.get(), maxSize, &result.error);
+    result.image = convertFrame(d.get(), maxSize, &result.error, &result.matrix, &result.range);
     av_frame_unref(d->frame);
     return result;
 }

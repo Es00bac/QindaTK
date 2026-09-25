@@ -176,6 +176,7 @@ qindatk_add_test(tst_sequence_render)
 # WP-072 finishing on real media: grade and captions in playback and export,
 # embedded captions, scopes on decoded frames (QSKIPs without FFmpeg).
 qindatk_add_test(tst_video_finishing)
+qindatk_add_test(tst_video_finishing_paths)
 qindatk_add_test(tst_pdf_annotation_document)
 qindatk_add_test(tst_asset_provider)
 qindatk_add_test(tst_resource_async)

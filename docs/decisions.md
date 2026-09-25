@@ -1107,7 +1107,11 @@ floor program millisecond. It is part of the program's cache key and JSON.
 the committed grade. **Consequences.** Preview and export cannot drift; a
 neutral grade is an identity; a drag re-renders the presented frame without
 re-probing media; HDR sources are graded into SDR sRGB output, and an HDR or
-wide-gamut output grade is future work.
+wide-gamut output grade is future work. *Amended (WP-072 audit):* the session
+`VideoFinishing` reads is switched to `ProgramGrade` scope, so feeding it new
+frames never resets the program grade, and it previews in
+`ColorGradeProcessor::programContext()`, the one context `MediaFinishing`
+grades with.
 
 ## D-127 — Scopes measure the encoded signal under a stated matrix, range and space
 
@@ -1125,6 +1129,10 @@ snapshot with the player's `presentedFrameKey`. **Consequences.** Known-answer
 bars give exact codes (Rec.709 limited 75% yellow Y′ 168, Cb 44, Cr 136);
 limited range describes the legal-range encoding of the decoded frame, not the
 file's original codes; linear-light and HDR nit scopes are not provided.
+*Amended (WP-072 audit):* the default matrix and range are `source`, the
+Y′CbCr decode the decoder reports for each frame, so a Y′CbCr file's scope
+shows its own codes; stated values remain available and each snapshot names
+the origin of its matrix and range.
 
 ## D-128 — Captions interchange as plain text with BCP 47 languages
 

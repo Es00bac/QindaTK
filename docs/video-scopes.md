@@ -13,21 +13,41 @@ three stated choices, each a model property and each echoed in the snapshot:
 
 | property | values | meaning |
 |---|---|---|
-| `matrix` | `bt709` (default), `bt601`, `bt2020` | Y′CbCr coefficients: Kr/Kb 0.2126/0.0722, 0.299/0.114, 0.2627/0.0593 (non-constant luminance) |
-| `signalRange` | `full` (default), `limited` | 8-bit codes: full maps normalized V to `255V` and chroma C to `128 + 255C` (clamped); limited maps to `16 + 219V` and `128 + 224C` |
+| `matrix` | `source` (default), `bt709`, `bt601`, `bt2020` | Y′CbCr coefficients: Kr/Kb 0.2126/0.0722, 0.299/0.114, 0.2627/0.0593 (non-constant luminance); `source` uses the matrix the frame was decoded with |
+| `signalRange` | `source` (default), `full`, `limited` | 8-bit codes: full maps normalized V to `255V` and chroma C to `128 + 255C` (clamped); limited maps to `16 + 219V` and `128 + 224C`; `source` uses the range the frame was decoded with |
 | `analysisSpace` | `srgb` (default), `signal` | `srgb` converts a tagged frame to encoded sRGB first and takes an untagged one as encoded sRGB; `signal` measures the delivered encoded values unchanged and reports the tag's transfer (`srgb`, `linear`, `pq`, `hlg`, `gamma N`, ...) |
 
 Decoded video reaches the scopes as full-range R′G′B′: the decoder converts
 Y′CbCr with the stream's own matrix and range (docs/media-playback.md
-"Decoder"), and SDR video is tagged encoded sRGB. So `signalRange: limited`
-shows the codes the frame would carry as a legal-range signal; it does not
-re-read the source file's codes.
+"Decoder"), and SDR video is tagged encoded sRGB. A stated `limited` range
+shows the codes the frame would carry as a legal-range signal under the
+stated matrix.
+
+### Source coding
+
+`MediaDecodedFrame::matrix`/`range` name the Y′CbCr decode a frame went
+through: the stream's matrix (`bt709`, `bt601`, `bt2020`, `smpte240m`, `fcc`;
+an untagged stream is Rec.709 from 720 lines up and Rec.601 below, the same
+choice handed to swscale) and range (`limited`, or `full` for JPEG range), or
+`rgb` for RGB-coded video. `MediaRenderedFrame::sources` and
+`MediaPlayer.presentedSources` carry them. With `matrix`/`signalRange` at
+`source`, a player-bound model re-encodes each frame with exactly that decode,
+so the waveform shows the file's own Y′ codes within one code of 8-bit
+rounding (`tst_video_finishing_paths` `scopesReadYuvSourcesUnderTheirDecode`,
+on Rec.601 limited untagged and Rec.709 full-range tagged yuv444p files
+checked against the Y′ plane ffmpeg reads from the file). Without a usable
+coding (a plain image through `analyzeFrame`, RGB-coded video, drawn sources
+that disagree, or `smpte240m`/`fcc`) `source` falls back to `bt709`/`full`.
+The snapshot's `matrix`/`signalRange` are always the values used;
+`matrixOrigin`/`rangeOrigin` say `stated`, `source` or `default`, and
+`sourceCoding` names what the decode reported (`bt601/limited`). The
+`VideoScopes` status line marks followed values `(source)`.
 
 ## Snapshot
 
 Every snapshot has `valid`, `frameId`, `width`, `height`, `sampleCount`
 (transparent pixels skipped and counted), the conventions (`matrix`,
-`signalRange`, `analysisSpace`, `transfer`, `profileConvertedToSrgb`,
+`signalRange`, `matrixOrigin`, `rangeOrigin`, `sourceCoding`, `analysisSpace`, `transfer`, `profileConvertedToSrgb`,
 `colorSpaceAssumption`, `rangeConvention`, `lumaConvention`,
 `vectorscopeConvention`) and `codeScale` (`black`, `white`, `chromaZero`,
 `chromaMin`, `chromaMax`). Measurements:

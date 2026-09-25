@@ -71,7 +71,8 @@ MediaRenderedFrame MediaProgram::render(qint64 frame, const QSize &outputSize, M
         }
         result.image = decoded.image;
         result.corrupt = decoded.corrupt;
-        result.sources.append({QString(), source.resourceId, frame, sourceInfo->frames.at(frame).pts});
+        result.sources.append({QString(), source.resourceId, frame, sourceInfo->frames.at(frame).pts,
+                               decoded.matrix, decoded.range});
         finish(*this, result);
         return result;
     }
@@ -120,7 +121,7 @@ MediaRenderedFrame MediaProgram::render(qint64 frame, const QSize &outputSize, M
         }
         target.drawImage(rect, decoded.image);
         result.corrupt = result.corrupt || decoded.corrupt;
-        result.sources.append({clip.clipId, clip.resourceId, *sourceFrame, decoded.pts});
+        result.sources.append({clip.clipId, clip.resourceId, *sourceFrame, decoded.pts, decoded.matrix, decoded.range});
         return true;
     };
     const auto frameEnd = frameStartTicks(frame + 1).value_or(ticks + 1);

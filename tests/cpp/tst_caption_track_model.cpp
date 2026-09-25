@@ -150,6 +150,33 @@ private slots:
         QCOMPARE(formats, (QStringList{QStringLiteral("json"), QStringLiteral("webvtt"), QStringLiteral("srt"),
                                        QStringLiteral("matroska-subrip"), QStringLiteral("burned-in")}));
     }
+
+    // WP-072 audit: an import replaces the language with the cues, so its
+    // undo must bring both back; otherwise the old cues export under the
+    // imported language header and <lang> spans.
+    void undoAfterImportRestoresTheLanguage()
+    {
+        CaptionTrackModel model;
+        QVERIFY(model.importWebVtt(QStringLiteral(
+            "WEBVTT\nLanguage: en-US\n\nhello\n00:00:00.000 --> 00:00:02.000\nHello\n\n"
+            "bonjour\n00:00:02.000 --> 00:00:04.000\n<lang fr-FR>Bonjour</lang>\n")));
+        const QString before = model.exportWebVtt();
+        QVERIFY(model.shiftCues({}, QStringLiteral("100"))); // a plain edit keeps the language on undo
+        QVERIFY(model.importSrt(QStringLiteral("1\n00:00:00,000 --> 00:00:01,000\nこんにちは\n"),
+                                QStringLiteral("ja-JP")));
+        QCOMPARE(model.language(), QStringLiteral("ja-JP"));
+        QVERIFY(model.undo());
+        QCOMPARE(model.language(), QStringLiteral("en-US"));
+        QCOMPARE(model.cues().size(), 2);
+        QVERIFY(model.exportWebVtt().startsWith(QStringLiteral("WEBVTT\nLanguage: en-US\n\n")));
+        QVERIFY(model.exportWebVtt().contains(QStringLiteral("<lang fr-FR>Bonjour</lang>")));
+        QVERIFY(!model.exportWebVtt().contains(QStringLiteral("<lang en-US>")));
+        model.setLanguage(QStringLiteral("en-GB")); // not an undo step: undoing the shift keeps it
+        QVERIFY(model.undo());
+        QCOMPARE(model.language(), QStringLiteral("en-GB"));
+        QCOMPARE(model.cues().at(0).inMs, qint64(0));
+        QVERIFY(before.startsWith(QStringLiteral("WEBVTT\nLanguage: en-US")));
+    }
 };
 
 QTEST_GUILESS_MAIN(CaptionTrackModelTest)
