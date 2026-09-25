@@ -7,6 +7,8 @@
 #include "audio_mixer_model.h"
 #include "audio_source_edit_model.h"
 #include "automation_model.h"
+#include "midi_launcher_model.h"
+#include "midi_sequence_model.h"
 #include "engine_schedule.h"
 #include "resource_resolver.h"
 #include "tempo_map_model.h"
@@ -26,7 +28,8 @@ namespace QindaTK {
 // TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver
 // (media identity, availability, relink) — and AudioMixerModel (buses,
 // routing, sends, groups; WP-062) and AudioSourceEditModel (sample, fade
-// and spectral edits of each source; WP-063), and compiles them into an
+// and spectral edits of each source; WP-063), MidiSequenceModel (patterns,
+// scenes and slots; WP-064) with its MidiLauncherModel, and compiles them into an
 // AudioRenderGraph for its engine and for offline renders. It persists as
 // "qindatk.audio-session/1" JSON with media paths relative to the session.
 class AudioSession : public QObject {
@@ -40,6 +43,8 @@ class AudioSession : public QObject {
     Q_PROPERTY(QindaTK::ResourceResolver *resources READ resources CONSTANT)
     Q_PROPERTY(QindaTK::AudioMixerModel *mixer READ mixer CONSTANT)
     Q_PROPERTY(QindaTK::AudioSourceEditModel *edits READ edits CONSTANT)
+    Q_PROPERTY(QindaTK::MidiSequenceModel *midi READ midi CONSTANT)
+    Q_PROPERTY(QindaTK::MidiLauncherModel *launcher READ launcher CONSTANT)
     Q_PROPERTY(QindaTK::AudioEngine *engine READ engine WRITE setEngine NOTIFY engineChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
     Q_PROPERTY(QString mediaDirectory READ mediaDirectory WRITE setMediaDirectory NOTIFY mediaDirectoryChanged)
@@ -60,6 +65,8 @@ public:
     ResourceResolver *resources() const { return m_resources; }
     AudioMixerModel *mixer() const { return m_mixer; }
     AudioSourceEditModel *edits() const { return m_edits; }
+    MidiSequenceModel *midi() const { return m_midi; }
+    MidiLauncherModel *launcher() const { return m_launcher; }
     AudioEngine *engine() const { return m_engine; }
     void setEngine(AudioEngine *engine);
     QString filePath() const { return m_filePath; }
@@ -95,6 +102,19 @@ public:
     // graph code the device plays; float32 WAV, 1 or 2 channels (a mono file
     // averages the stereo master). An empty endTicks renders to the end of
     // the last clip.
+    // ---- MIDI (WP-064, docs/audio-midi.md; audio_session_midi.cpp) ----
+    // A MIDI track plays its pattern clips through the built-in test
+    // instrument and is a mixer channel like an audio track.
+    Q_INVOKABLE QString addMidiTrack(const QString &name);
+    // One undoable beat-locked clip of `patternId` at `startTicks` (timeline
+    // ticks); its length is `lengthTicks` musical ticks (empty: the pattern's).
+    Q_INVOKABLE QVariantMap insertPattern(const QString &trackId, const QString &patternId,
+                                          const QString &startTicks = QStringLiteral("0"),
+                                          const QString &lengthTicks = {});
+    // Standard MIDI File of one pattern with the session tempo map.
+    Q_INVOKABLE QVariantMap exportMidi(const QString &patternId, const QString &file);
+    // Patterns from a MIDI file (one per track); tempo and meter are reported.
+    Q_INVOKABLE QVariantMap importMidi(const QString &file);
     Q_INVOKABLE QVariantMap renderToFile(const QString &file, const QString &startTicks = QStringLiteral("0"),
                                          const QString &endTicks = {}, int sampleRate = 0, int channels = 2);
 
@@ -129,6 +149,8 @@ private:
     ResourceResolver *m_resources = nullptr;
     AudioMixerModel *m_mixer = nullptr;
     AudioSourceEditModel *m_edits = nullptr;
+    MidiSequenceModel *m_midi = nullptr;
+    MidiLauncherModel *m_launcher = nullptr;
     QPointer<AudioEngine> m_engine;
     QList<QMetaObject::Connection> m_engineConnections;
     QHash<QString, AudioBufferPtr> m_decoded;

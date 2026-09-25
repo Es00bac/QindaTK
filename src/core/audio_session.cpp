@@ -50,8 +50,13 @@ AudioSession::AudioSession(QObject *parent)
       m_schedule(new EngineSchedule(this)),
       m_resources(new ResourceResolver(this)),
       m_mixer(new AudioMixerModel(this, m_timeline, m_automation)),
-      m_edits(new AudioSourceEditModel(this))
+      m_edits(new AudioSourceEditModel(this)),
+      m_midi(new MidiSequenceModel(this)),
+      m_launcher(new MidiLauncherModel(m_midi, this))
 {
+    m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter());
+    connect(m_timeMap, &TimeMap::changed, m_midi, [this] { m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter()); });
+    connect(m_midi, &MidiSequenceModel::contentChanged, this, &AudioSession::rebuild);
     m_timeline->setTimeMap(m_timeMap);
     m_tempo->setTimeMap(m_timeMap);
     m_tempo->setTimeline(m_timeline);
@@ -83,7 +88,14 @@ void AudioSession::setEngine(AudioEngine *engine)
     if (m_engine == engine) return;
     for (const auto &connection : std::as_const(m_engineConnections)) disconnect(connection);
     m_engineConnections.clear();
-    if (m_engine) m_engine->setGraph({});
+    if (m_engine) {
+        // AGENT-GUARD (WP-064): nothing this session started keeps sounding
+        // on an engine it leaves: audition notes and launched clips stop.
+        m_engine->allNotesOff();
+        m_engine->postLaunchStop(0, MidiQuantize::None, nullptr);
+        m_engine->setGraph({});
+    }
+    m_launcher->setEngine(engine);
     // A detached engine no longer runs this session's automation clock.
     if (m_automation->transportRunning()) m_automation->transportStopped(m_forwardedTicks);
     m_engine = engine;
@@ -192,7 +204,7 @@ QString AudioSession::insertClip(TimelineClip clip, const QString &trackId, qint
     TimelineEditRequest request;
     request.kind = TimelineEditKind::InsertClips;
     request.trackId = QUuid::fromString(trackId);
-    request.label = tr("Add audio clip");
+    request.label = clip.kind == QLatin1String("midi") ? tr("Add MIDI clip") : tr("Add audio clip");
     clip.start = 0;
     request.templates = {{clip, 0}};
     OperationError problem;
@@ -405,6 +417,7 @@ bool AudioSession::save(const QString &file)
                            {QStringLiteral("timeline"), QJsonObject::fromVariantMap(m_timeline->contentMap())},
                            {QStringLiteral("mixer"), QJsonObject::fromVariantMap(m_mixer->contentMap())},
                            {QStringLiteral("edits"), QJsonObject::fromVariantMap(m_edits->contentMap())},
+                           {QStringLiteral("midi"), QJsonObject::fromVariantMap(m_midi->contentMap())},
                            {QStringLiteral("media"), media}};
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly) || out.write(QJsonDocument(root).toJson()) < 0 || !out.commit())
@@ -435,18 +448,19 @@ bool AudioSession::open(const QString &file)
     // The mixer part is last: its routes name buses it defines itself and
     // tracks the timeline part just loaded. A session without one (saved
     // before WP-062) opens with the default mix. The source edits (WP-063)
-    // come last and are empty in older files.
-    static constexpr const char *kParts[] = {"tempo", "automation", "timeline", "mixer", "edits"};
+    // come next and are empty in older files; the MIDI part (WP-064) is last.
+    static constexpr const char *kParts[] = {"tempo", "automation", "timeline", "mixer", "edits", "midi"};
     const QVariantMap before[] = {m_tempo->contentMap(), m_automation->contentMap(), m_timeline->contentMap(),
-                                  m_mixer->contentMap(), m_edits->contentMap()};
+                                  m_mixer->contentMap(), m_edits->contentMap(), m_midi->contentMap()};
     const auto loadPart = [this](int part, const QVariantMap &content) {
         return part == 0 ? m_tempo->loadContent(content)
                : part == 1 ? m_automation->loadContent(content)
                : part == 2 ? m_timeline->loadContent(content)
-               : part == 3 ? m_mixer->loadContent(content) : m_edits->loadContent(content);
+               : part == 3 ? m_mixer->loadContent(content)
+               : part == 4 ? m_edits->loadContent(content) : m_midi->loadContent(content);
     };
     m_opening = true; // source edits and their originals arrive below; one recompile at the end
-    for (int part = 0; part < 5; ++part) {
+    for (int part = 0; part < 6; ++part) {
         const QString key = QString::fromLatin1(kParts[part]);
         const QVariantMap result = loadPart(part, root.value(key).toMap());
         if (!result.value(QStringLiteral("ok")).toBool()) {

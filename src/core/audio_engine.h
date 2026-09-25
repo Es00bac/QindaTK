@@ -9,6 +9,7 @@
 
 #include <QFutureWatcher>
 #include <QHash>
+#include <QSet>
 #include <QTimer>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -47,7 +48,11 @@ class AudioEngine : public TransportAdapter {
     Q_PROPERTY(QVariantMap statistics READ statistics NOTIFY statisticsChanged)
     Q_PROPERTY(QindaTK::TransportModel *transport READ transport CONSTANT)
     Q_PROPERTY(QString recordDirectory READ recordDirectory WRITE setRecordDirectory NOTIFY recordDirectoryChanged)
+    Q_PROPERTY(int auditionVoices READ auditionVoices NOTIFY midiStateChanged)
+    Q_PROPERTY(int launchedClips READ launchedClips NOTIFY midiStateChanged)
 public:
+    // Launcher commands waiting for their answer from the device thread.
+    static constexpr int kMidiRequestLimit = 32;
     enum class State { Stopped, Configuring, Running, Lost, Error };
     Q_ENUM(State)
 
@@ -97,6 +102,21 @@ public:
     // channels while the channel is not in the playing graph or no stream runs.
     Q_INVOKABLE QindaTK::AudioMeterModel *channelMeter(const QString &channelId);
 
+    // ---- MIDI (WP-064, docs/audio-midi.md; audio_engine_midi.cpp) ----
+    // Audition notes of the built-in test instrument on the first two
+    // outputs, while a device runs. A transport stop, a device stop or loss
+    // and allNotesOff() release every note (no note is ever left sounding).
+    Q_INVOKABLE bool auditionNoteOn(int pitch, double velocity = 0.8);
+    Q_INVOKABLE bool auditionNoteOff(int pitch);
+    Q_INVOKABLE bool allNotesOff();
+    int auditionVoices() const;
+    int launchedClips() const;
+    // Launcher commands (MidiLauncherModel): lane = Midi::key(track id), slot
+    // = Midi::key(slot id), lane 0 stops every lane. Returns the command
+    // serial the answer carries (midiLaunchEvent), or 0 with `error` set.
+    quint64 postLaunch(quint64 lane, quint64 slot, MidiQuantize quantize, QString *error);
+    quint64 postLaunchStop(quint64 lane, MidiQuantize quantize, QString *error);
+
 signals:
     void devicesChanged();
     void stateChanged();
@@ -108,6 +128,12 @@ signals:
     // {path, startSample, recordedSample, frames, sampleRate, channels,
     //  droppedFrames, latencyFrames, deviceLost, error}
     void recordingFinished(const QVariantMap &take);
+    void midiStateChanged();
+    // kind: MidiEngineEvent::Kind, code: MidiEngineEvent::Code.
+    void midiLaunchEvent(int kind, quint64 serial, quint64 lane, quint64 slot, qint64 sample, int code);
+    // The stream ended (stop, loss, reconfiguration): nothing plays any more
+    // and every launcher request still waiting has no answer coming.
+    void midiReset(const QString &reason);
 
 private:
     struct Run;
@@ -122,6 +148,8 @@ private:
     void drain(Run &run);
     void drainMeters(Run &run);
     void drainChannelMeters(Run &run);
+    void drainMidi(Run &run);
+    quint64 postMidiCommand(int kind, quint64 lane, quint64 slot, MidiQuantize quantize, QString *error);
     void clearChannelMeters();
     void registerMeterMap(const AudioRenderGraph &graph);
     void switchMeterGeneration(quint64 generation);
@@ -186,6 +214,11 @@ private:
     SnapshotCallback m_sink;
     TransportSnapshot m_last;
     quint64 m_revision = 0;
+    // MIDI launcher requests in flight (serials) and the last published counts.
+    QSet<quint64> m_midiRequests;
+    quint64 m_midiSerial = 0;
+    int m_lastAuditionVoices = 0;
+    int m_lastLaunchedClips = 0;
 };
 
 } // namespace QindaTK

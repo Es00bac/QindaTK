@@ -10,9 +10,11 @@
 namespace QindaTK {
 namespace {
 
+// Audio and MIDI tracks are mixer channels (WP-064: MIDI tracks play the
+// built-in test instrument through their channel).
 bool isAudio(const QString &kind)
 {
-    return kind.isEmpty() || kind == QLatin1String("audio");
+    return kind.isEmpty() || kind == QLatin1String("audio") || kind == QLatin1String("midi");
 }
 
 QVariantMap entry(const QString &id, const QString &label, const QString &layout, bool available,

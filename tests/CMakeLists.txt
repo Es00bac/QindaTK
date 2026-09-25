@@ -131,6 +131,10 @@ qindatk_add_test(tst_audio_mixer_dsp)
 qindatk_add_test(tst_audio_mixer_engine)
 qindatk_add_test(tst_audio_dsp)
 qindatk_add_test(tst_audio_source_edit)
+# WP-064 MIDI: model/interchange, graph scheduling, live engine (silent built-in devices).
+qindatk_add_test(tst_midi_model)
+qindatk_add_test(tst_midi_schedule)
+qindatk_add_test(tst_midi_engine)
 qindatk_add_test(tst_file_asset_backend)
 # WP-070 media backend: decode, programs/export, playback and catalog/feeds.
 # Tests QSKIP when QindaTK was built without the optional FFmpeg libraries.

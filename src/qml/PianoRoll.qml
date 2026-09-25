@@ -6,6 +6,10 @@ import QindaTK as Tk
 // AGENT-CONTRACT: note records and tick boundaries are immutable host snapshots.
 // Every edit request names a stable note ID and carries exact decimal tick strings;
 // the MIDI model owns duration math, validation, preview state, commit, and undo.
+// AGENT-GUARD (AUD-22, WP-064): every auditionRequested is matched by one
+// auditionReleased — on finish, cancel, a pitch change, disabling and
+// destruction — so a host wired to AudioEngine.auditionNoteOn/Off never
+// leaves a note sounding.
 T.Control {
     id: root
 
@@ -18,6 +22,9 @@ T.Control {
     property string tooltip: ""
     property string statusText: ""
     property bool editingEnabled: true
+    property bool auditionEnabled: true
+    property int _auditionPitch: -1
+    property real _auditionVelocity: 0.8
     property string _gestureId: ""
     property string _gestureNoteId: ""
     property string _gestureKind: ""
@@ -29,6 +36,8 @@ T.Control {
     property int _gestureSerial: 0
 
     signal noteSelected(string noteId)
+    signal auditionRequested(int pitch, real velocity)
+    signal auditionReleased(int pitch)
     signal notePreviewRequested(string requestId, string patternId, string noteId,
                                 string operation, string targetTicks, int targetPitch)
     signal noteEditFinished(string requestId)
@@ -73,6 +82,22 @@ T.Control {
         }
         return null
     }
+    function auditionPitch(pitch, velocity) {
+        if (pitch === root._auditionPitch) return false
+        root.releaseAudition()
+        if (!root.auditionEnabled || !root.enabled || pitch < 0 || pitch > 127) return false
+        root._auditionPitch = pitch
+        root._auditionVelocity = velocity
+        root.auditionRequested(pitch, velocity)
+        return true
+    }
+    function releaseAudition() {
+        if (root._auditionPitch < 0) return false
+        const pitch = root._auditionPitch
+        root._auditionPitch = -1
+        root.auditionReleased(pitch)
+        return true
+    }
     function beginEditAt(x, y) {
         if (!root.enabled || !root.editingEnabled || root._gestureId.length) return false
         const note = root.noteAt(x, y)
@@ -89,6 +114,7 @@ T.Control {
         root._gestureX = x
         root._gestureY = y
         root._targetX = Number(note.x0)
+        root.auditionPitch(root._gesturePitch, Number(note.velocity) || 0.8)
         return true
     }
     function updateEditAt(x, y) {
@@ -96,6 +122,7 @@ T.Control {
         root._targetX = Math.max(0, Math.min(1, x / Math.max(1, root.width)))
         const ticks = root.tickAt(x)
         const pitch = root._gestureKind === "move" ? root.pitchAt(y) : root._gesturePitch
+        root.auditionPitch(pitch, root._auditionVelocity)
         root.notePreviewRequested(root._gestureId, root.patternId, root._gestureNoteId,
                                   root._gestureKind, ticks, pitch)
         pianoCanvas.requestPaint()
@@ -105,6 +132,7 @@ T.Control {
         if (!root._gestureId.length) return false
         const id = root._gestureId
         root._gestureId = ""
+        root.releaseAudition()
         root.noteEditFinished(id)
         pianoCanvas.requestPaint()
         return true
@@ -113,6 +141,7 @@ T.Control {
         if (!root._gestureId.length) return false
         const id = root._gestureId
         root._gestureId = ""
+        root.releaseAudition()
         root.noteEditCanceled(id)
         pianoCanvas.requestPaint()
         return true
@@ -186,6 +215,9 @@ T.Control {
             }
         }
     }
+    onEnabledChanged: if (!root.enabled) { root.cancelEdit(); root.releaseAudition() }
+    onAuditionEnabledChanged: if (!root.auditionEnabled) root.releaseAudition()
+    Component.onDestruction: root.releaseAudition()
     onNotesChanged: pianoCanvas.requestPaint()
     onSelectedNoteIdChanged: pianoCanvas.requestPaint()
     onTickBoundariesChanged: pianoCanvas.requestPaint()

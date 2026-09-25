@@ -42,6 +42,43 @@ struct EngineEvent {
     const char *reason = nullptr; // DeviceLost: static text
 };
 
+// GUI -> realtime MIDI (WP-064): audition notes and the clip launcher.
+struct MidiCommand {
+    enum Kind : int { NoteOn, NoteOff, AllNotesOff, Launch, Stop };
+    quint64 serial = 0;
+    int kind = NoteOn;
+    int pitch = 0;
+    quint16 velocity = 0;
+    quint64 lane = 0;   // Launch/Stop: Midi::key(track id); Stop with 0 stops every lane
+    quint64 slot = 0;   // Launch: Midi::key(slot id)
+    int quantize = int(MidiQuantize::Bar);
+};
+
+// Realtime -> GUI launcher events. Every Launch/Stop command gets exactly one
+// answer (Queued, StopQueued, Stopped or Rejected) with its serial; Started
+// and Stopped report transitions later, Canceled a request that was replaced.
+struct MidiEngineEvent {
+    enum Kind : int { Queued, Started, StopQueued, Stopped, Canceled, Rejected };
+    enum Code : int { None, NoGraph, NoSlot, NoLane, TransportStopped };
+    int kind = Queued;
+    int code = None;
+    quint64 serial = 0;
+    quint64 lane = 0;
+    quint64 slot = 0;
+    qint64 sample = 0;
+};
+
+// One audition note of the built-in test instrument (MidiTestInstrument).
+struct AuditionVoice {
+    bool active = false;
+    int pitch = 0;
+    double amplitude = 0.0;
+    double step = 0.0;
+    qint64 age = 0;        // samples since note on
+    qint64 releasedAt = -1; // age at note off; -1 while held
+    quint64 order = 0;
+};
+
 struct EngineTransportState {
     qint64 position = 0;
     bool loopEnabled = false;
@@ -60,6 +97,9 @@ public:
     static constexpr std::size_t kCommandCapacity = 64;
     static constexpr std::size_t kEventCapacity = 256;
     static constexpr quint64 kOpenTake = std::numeric_limits<quint64>::max();
+    static constexpr std::size_t kMidiCommandCapacity = 256;
+    static constexpr std::size_t kMidiEventCapacity = 4096;
+    static constexpr int kAuditionVoices = 16;
 
     AudioEngineProcessor(const AudioStreamFormat &format, const EngineTransportState &initial,
                          double captureSeconds = 4.0);
@@ -74,6 +114,11 @@ public:
     qint64 position() const { return m_publishedPosition.load(std::memory_order_acquire); }
     bool playing() const { return m_publishedPlaying.load(std::memory_order_acquire); }
     bool recording() const { return m_publishedRecording.load(std::memory_order_acquire); }
+    // MIDI (WP-064): audition and launcher commands, launcher events.
+    bool postMidi(const MidiCommand &command) { return m_midiCommands.push(command); }
+    bool takeMidiEvent(MidiEngineEvent &event) { return m_midiEvents.pop(event); }
+    int auditionVoices() const { return m_publishedVoices.load(std::memory_order_acquire); }
+    int launchedClips() const { return m_publishedLaunched.load(std::memory_order_acquire); }
     // Only after the device thread was joined: ends an open take and stops.
     void closeAfterStop();
     EngineTransportState stateAfterStop() const;
@@ -102,6 +147,20 @@ private:
     void endTake(bool lost = false) noexcept;
     void captureBlock(const float *input, int frames, qint64 position) noexcept;
     void publish() noexcept;
+    // MIDI, audio_engine_midi_rt.cpp.
+    void applyMidi(const MidiCommand &command) noexcept;
+    void midiEvent(int kind, quint64 serial, quint64 lane, quint64 slot, qint64 sample, int code = 0) noexcept;
+    MidiLaunchLane *launchLane(quint64 lane, bool create) noexcept;
+    void launch(const MidiCommand &command) noexcept;
+    void stopLane(MidiLaunchLane &lane, quint64 serial, int quantize) noexcept;
+    void stopLaunches(const MidiCommand &command) noexcept;
+    void launchTransitions(qint64 position) noexcept;
+    qint64 nextLaunchTransition(qint64 position) const noexcept;
+    void endLaunches(bool report) noexcept;
+    void startVoice(int pitch, quint16 velocity) noexcept;
+    void releaseVoices(int pitch) noexcept; // -1: every voice
+    void renderAudition(float *output, int frames, int channels) noexcept;
+    void clearMidi() noexcept;
 
     const AudioStreamFormat m_format;
     AudioSpscRing<EngineCommand> m_commands{kCommandCapacity};
@@ -132,6 +191,15 @@ private:
     std::atomic<quint64> m_takeSerial{0};
     std::atomic<quint64> m_takeEndTotal{0};
     std::atomic<quint64> m_writtenSerial{0};
+    // MIDI: launcher lanes and audition voices, realtime-owned.
+    AudioSpscRing<MidiCommand> m_midiCommands{kMidiCommandCapacity};
+    AudioSpscRing<MidiEngineEvent> m_midiEvents{kMidiEventCapacity};
+    MidiLaunchState m_launch;
+    AuditionVoice m_voices[kAuditionVoices];
+    double m_auditionStep[128] = {};
+    quint64 m_voiceOrder = 0;
+    std::atomic<int> m_publishedVoices{0};
+    std::atomic<int> m_publishedLaunched{0};
 };
 
 // Drains the capture ring into float32 WAV takes on its own thread (never the

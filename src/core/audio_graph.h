@@ -4,6 +4,7 @@
 #include "audio_media.h"
 #include "audio_mixer_types.h"
 #include "engine_schedule.h"
+#include "midi_program.h"
 
 #include <QStringList>
 #include <functional>
@@ -43,8 +44,11 @@ public:
         // A file render: the master feeds "main" (the file) whatever its
         // device routing, and device ports are silent.
         bool offline = false;
+        // MIDI patterns and launcher slots (WP-064). MIDI tracks play the
+        // patterns their clips name through the built-in test instrument.
+        const MidiContent *midi = nullptr;
     };
-    // Audio (or untyped) tracks become channels in timeline order, then the
+    // Audio, MIDI (or untyped) tracks become channels in timeline order, then the
     // buses in dependency order, then the master. Muted channels, and channels
     // a solo leaves out (D-112), feed nothing.
     static std::shared_ptr<const AudioRenderGraph> compile(const Sources &sources);
@@ -80,8 +84,21 @@ public:
     // thread, or the caller of an offline render that compiled its own).
     // Never allocates, locks or performs I/O; cubic automation was flattened
     // at compile time. `meters` (may be null) receives post-fader channel levels.
+    // `launch` (may be null) adds the clips the launcher plays (D-153).
     void render(qint64 start, int frames, float *out, int channels, double *scratch,
-                AudioChannelMeterSink *meters = nullptr) const noexcept;
+                AudioChannelMeterSink *meters = nullptr, const MidiLaunchState *launch = nullptr) const noexcept;
+
+    // ---- MIDI (WP-064, docs/audio-midi.md) ----
+    const MidiClock &midiClock() const { return m_clock; }
+    // Realtime-safe: the program a launcher slot plays when it belongs to
+    // that MIDI track lane in this graph, else -1.
+    int launchProgram(quint64 slot, quint64 lane) const noexcept;
+    // The events scheduled for a MIDI channel in [start, start + frames),
+    // sorted by sample (note-offs, controllers, note-ons, then per-note
+    // controllers at one sample). Writes at most `capacity`; returns the total found. GUI and
+    // tests; it evaluates exactly what render() plays.
+    int midiEvents(const QString &channelId, qint64 start, int frames, MidiScheduledEvent *out, int capacity,
+                   const MidiLaunchState *launch = nullptr) const;
 
 private:
     struct Clip {
@@ -117,6 +134,10 @@ private:
         std::vector<Route> routes;
         int meterSlot = -1;
         std::size_t buffer = 0;  // first lane in m_work (in kChunk units)
+        bool midi = false;       // a MIDI track: its lanes come from the test instrument
+        quint64 midiLane = 0;    // Midi::key(track id)
+        std::size_t placementFirst = 0;
+        std::size_t placementCount = 0;
     };
     struct PortTarget {
         QString id;
@@ -132,10 +153,14 @@ private:
     bool constant(int curve) const noexcept { return curve < 0 || !m_curves[std::size_t(curve)].automated; }
     double *lane(std::size_t buffer, int index) const noexcept;
     void addClips(const Node &node, qint64 start, int frames, double *const in[2]) const noexcept;
+    void compileMidi(const Sources &sources, qsizetype trackCount);
+    template <typename F> void forEachPlacement(const Node &node, const MidiLaunchState *launch, F &&fn) const noexcept;
+    void addMidi(const Node &node, qint64 start, int frames, double *const in[2], const MidiLaunchState *launch) const noexcept;
+    void playPlacement(const MidiPlacement &placement, qint64 start, int frames, double *const in[2], int lanes) const noexcept;
     void mix(const Node &node, const Route &route, double *const in[2], int frames, const double *gain,
              const double *pan, const double *width, const double *level) const noexcept;
     void mixChunk(qint64 start, int frames, float *out, int channels, double *scratch,
-                  AudioChannelMeterSink *meters) const noexcept;
+                  AudioChannelMeterSink *meters, const MidiLaunchState *launch) const noexcept;
     void writePorts(int frames, float *out, int channels) const noexcept;
 
     quint64 m_generation = 0;
@@ -153,6 +178,16 @@ private:
     QStringList m_meterChannels;
     QVector<int> m_meterLanes;
     QStringList m_problems;
+    // MIDI: the clock, one program per pattern, arrangement placements, and
+    // launcher slots sorted by slot key.
+    struct SlotProgram { quint64 slot = 0; quint64 lane = 0; int program = -1; };
+    MidiClock m_clock;
+    std::vector<MidiProgram> m_programs;
+    std::vector<MidiPlacement> m_placements;
+    std::vector<SlotProgram> m_slots;
+    double m_midiPhase[128] = {};
+    int m_attack = 1;
+    int m_release = 1;
 };
 using AudioRenderGraphPtr = std::shared_ptr<const AudioRenderGraph>;
 

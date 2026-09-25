@@ -35,6 +35,7 @@ void AudioEngine::drain(Run &run)
 {
     EngineEvent event;
     while (run.processor->takeEvent(event)) handleEvent(run, event);
+    drainMidi(run);
 }
 
 void AudioEngine::handleEvent(Run &run, const EngineEvent &event)
