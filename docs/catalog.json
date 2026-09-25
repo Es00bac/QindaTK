@@ -4422,6 +4422,1174 @@
       ]
     },
     {
+      "name": "CalendarGridAllDay",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The all-day lane above the time grid of CalendarGridView: all-day rows and timed rows of 24 hours or more as bars across their visible days, first-fit into lanes. Beyond `maxLanes` the last lane becomes a \"+k more\" row (moreRequested). Internal part of CalendarGridView.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CalendarGridAllDay.qml",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "Tk.CalendarGridView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "areaName",
+          "type": "string",
+          "default": "\"allday\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxLanes",
+          "type": "int",
+          "default": "3",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layout",
+          "type": "var",
+          "default": "view.lane",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overflow",
+          "type": "bool",
+          "default": "layout.laneCount > maxLanes",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shownLanes",
+          "type": "int",
+          "default": "overflow ? maxLanes - 1 : layout.laneCount",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "barHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.controlSm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gap",
+          "type": "real",
+          "default": "Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnWidth",
+          "type": "real",
+          "default": "view.columnWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hiddenCounts",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ghost",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "slotFrom",
+          "parameters": "item, x, y"
+        },
+        {
+          "name": "dragTo",
+          "parameters": "item, x, y"
+        },
+        {
+          "name": "laneY",
+          "parameters": "index"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "calendarGridAllDay",
+        "calendarGridGhost",
+        "calendarGridMore_"
+      ]
+    },
+    {
+      "name": "CalendarGridEvent",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "One visible piece of an occurrence in CalendarGridView: a timed block, an all-day bar or a month chip. Internal part; the owner positions it and supplies `area` (CalendarGridTime, CalendarGridAllDay or CalendarGridMonth), which maps pointer positions to {dayIndex, minute} slots. AGENT-GUARD: a drag only reports slots to the grid; the grid turns them into a request and never moves this item or edits `row` (D-301).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CalendarGridEvent.qml",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "Tk.CalendarGridView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "area",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "variant",
+          "type": "string",
+          "default": "\"timed\"  // timed | bar | chip",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entry",
+          "type": "var",
+          "default": "piece.item",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "row",
+          "type": "var",
+          "default": "entry.row",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "default": "entry.key",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "calendarGridEvent",
+          "type": "bool",
+          "default": "true",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tone",
+          "type": "color",
+          "default": "grid.colorFor(row)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "grid.selectedOccurrenceId === key",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editable",
+          "type": "bool",
+          "default": "grid.canEdit(row)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hot",
+          "type": "bool",
+          "default": "pointer.containsMouse",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragging",
+          "type": "bool",
+          "default": "!!grid.dragState && !!grid.dragState.entry && grid.dragState.entry.key === key",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "filled",
+          "type": "bool",
+          "default": "variant !== \"chip\" || entry.lane",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resizable",
+          "type": "bool",
+          "default": "variant === \"timed\" && editable && !piece.continuesAfter",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "edgeWidth",
+          "type": "real",
+          "default": "Tk.Theme.space.xs + Tk.Theme.size.border",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resizeZone",
+          "type": "real",
+          "default": "Tk.Theme.space.sm + Tk.Theme.size.border",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fill",
+          "type": "color",
+          "default": "Tk.Theme.mix(Tk.Theme.color.panel, tone,",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "String(row.title || qsTr(\"Untitled event\"))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "timeRange",
+          "type": "string",
+          "default": "entry.lane ? qsTr(\"All day\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "textHeight",
+          "type": "real",
+          "default": "availableHeight",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "twoLines",
+          "type": "bool",
+          "default": "textHeight >= titleLabel.implicitHeight + timeLabel.implicitHeight",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "threeLines",
+          "type": "bool",
+          "default": "twoLines && textHeight >= titleLabel.implicitHeight + timeLabel.implicitHeight * 2",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "roomy",
+          "type": "bool",
+          "default": "width > Tk.Theme.size.fieldWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "legible",
+          "type": "bool",
+          "default": "width >= Tk.Theme.size.controlLg",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "calendarGridEvent_",
+        "calendarGridFocusRing",
+        "calendarGridMoved"
+      ]
+    },
+    {
+      "name": "CalendarGridMonth",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Month body of CalendarGridView: a weekday header over the 6 × 7 grid that `CalendarLayout.range(\"month\")` returns (days of the neighbouring months muted). Each cell lists as many chips as fit, all-day first, then a \"+k more\" link (moreRequested). Chips drag in whole days; an empty cell double-clicks or drags into a whole-day create. Internal part.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CalendarGridMonth.qml",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "Tk.CalendarGridView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "areaName",
+          "type": "string",
+          "default": "\"month\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "days",
+          "type": "var",
+          "default": "grid.days",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cells",
+          "type": "var",
+          "default": "CalendarLayout.monthLayout(grid.entries, days)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shownMonth",
+          "type": "string",
+          "default": "grid._anchor.slice(0, 7)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "headerHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.header",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cellWidth",
+          "type": "real",
+          "default": "width / 7",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "cellHeight",
+          "type": "real",
+          "default": "Math.max(0, (height - headerHeight) / 6)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "chipHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.controlSm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "chipGap",
+          "type": "real",
+          "default": "Tk.Theme.size.border",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dateHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.controlSm + Tk.Theme.space.xs * 2",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "capacity",
+          "type": "int",
+          "default": "Math.max(0, Math.floor((cellHeight - dateHeight - Tk.Theme.space.xs) / (chipHeight + chipGap)))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ghost",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "slotFrom",
+          "parameters": "item, x, y"
+        },
+        {
+          "name": "dragTo",
+          "parameters": "item, x, y"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "calendarGridGhost",
+        "calendarGridHeader",
+        "calendarGridMonthCell_",
+        "calendarGridMore_"
+      ]
+    },
+    {
+      "name": "CalendarGridMore",
+      "kind": "qml",
+      "base": "T.AbstractButton",
+      "description": "\"+k more\" link of CalendarGridView (month cells and the all-day lane). Internal part; the owner names it calendarGridMore_<date> and handles `clicked` by emitting moreRequested(date).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CalendarGridMore.qml",
+      "properties": [
+        {
+          "name": "count",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Show all %n events\", \"\", count)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": []
+    },
+    {
+      "name": "CalendarGridTime",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Day / work week / week body of CalendarGridView: day headers, the all-day lane and the scrolling 0–24 h time grid. Internal part; the public API is CalendarGridView. Columns are positioned by arithmetic (not a Flex) so the header, the lane and the grid share exactly one column width.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CalendarGridTime.qml",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "Tk.CalendarGridView",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "areaName",
+          "type": "string",
+          "default": "\"timed\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "days",
+          "type": "var",
+          "default": "grid.days",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dayCount",
+          "type": "int",
+          "default": "days.length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hourHeight",
+          "type": "real",
+          "default": "grid.hourHeight",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canvasHeight",
+          "type": "real",
+          "default": "hourHeight * 24",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gutterWidth",
+          "type": "real",
+          "default": "Math.ceil(gutterMetrics.advanceWidth) + Tk.Theme.space.md * 2",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columnWidth",
+          "type": "real",
+          "default": "dayCount > 0 ? Math.max(0, (width - gutterWidth) / dayCount) : 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minBlockHeight",
+          "type": "real",
+          "default": "Tk.Theme.font.caption + Tk.Theme.space.sm * 2",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minVisualMinutes",
+          "type": "int",
+          "default": "Math.ceil(minBlockHeight / Math.max(1, hourHeight) * 60)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pieces",
+          "type": "var",
+          "default": "CalendarLayout.timedLayout(grid.entries, days, minVisualMinutes)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lane",
+          "type": "var",
+          "default": "CalendarLayout.allDayLayout(grid.entries, days)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "todayIndex",
+          "type": "int",
+          "default": "days.indexOf(grid.todayDate)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockGap",
+          "type": "real",
+          "default": "columnWidth > Tk.Theme.size.fieldWidth ? Tk.Theme.space.md : Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ghost",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "yFor",
+          "parameters": "minute"
+        },
+        {
+          "name": "slotFromView",
+          "parameters": "px, py"
+        },
+        {
+          "name": "slotFrom",
+          "parameters": "item, x, y"
+        },
+        {
+          "name": "dragTo",
+          "parameters": "item, x, y"
+        },
+        {
+          "name": "scrollToHour",
+          "parameters": "hour"
+        },
+        {
+          "name": "geometry",
+          "parameters": "piece"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "calendarGridDay_",
+        "calendarGridGhost",
+        "calendarGridGutter",
+        "calendarGridHeader",
+        "calendarGridNowLine",
+        "calendarGridScroll"
+      ]
+    },
+    {
+      "name": "CalendarGridView",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "Day / work week / week / month time grid over host-projected occurrences. AGENT-CONTRACT (LocalCalendarProjectionModel, LocalProductivityStore .shiftEventLocal, CalendarView): `events` are projection rows {eventId, occurrenceId, title, startLocal, endLocal, zone, allDay, calendarId, recurrenceRule, overridden, location, readOnly}. The grid never expands recurrence, never converts zones and never mutates `events` (D-301): a drag or key move emits eventChangeRequested with {kind: \"shift-local\" | \"resize-local\", minutes, zone, scope, occurrenceId} (scope from `moveScope` for a recurring row, \"series\" otherwise; all-day and month moves in whole days) and waits for the host to re-project. `now` is supplied by the host; the grid never reads the clock.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/CalendarGridView.qml",
+      "properties": [
+        {
+          "name": "events",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "calendars",
+          "type": "var",
+          "default": "[]               // [{id, name, color, visible}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "default": "\"week\"             // day | workweek | week | month",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "anchorDate",
+          "type": "string",
+          "default": "\"\"           // ISO date inside the visible range",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "weekStart",
+          "type": "int",
+          "default": "control.locale.firstDayOfWeek === 0 ? 7 : control.locale.firstDayOfWeek // 1 = Mon … 7 = Sun",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "workDays",
+          "type": "var",
+          "default": "[1, 2, 3, 4, 5]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dayStartHour",
+          "type": "int",
+          "default": "8",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dayEndHour",
+          "type": "int",
+          "default": "18",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hourHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.row * 2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "now",
+          "type": "string",
+          "default": "\"\"                  // host local \"yyyy-MM-ddTHH:mm[:ss]\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedOccurrenceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "zone",
+          "type": "string",
+          "default": "\"\"                 // label only",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "offline",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "errorText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "moveScope",
+          "type": "string",
+          "default": "\"occurrence\"  // for recurring rows: occurrence | following | series",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapMinutes",
+          "type": "int",
+          "default": "15",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "createMinutes",
+          "type": "int",
+          "default": "30",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "use24Hour",
+          "type": "bool",
+          "default": "!/a/i.test(control.locale.timeFormat(Locale.ShortFormat))",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Calendar\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestState",
+          "type": "string",
+          "default": "\"idle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastRequestId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleRange",
+          "type": "var",
+          "default": "CalendarLayout.range(mode, _anchor, weekStart, workDays)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "days",
+          "type": "var",
+          "default": "visibleRange.days",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rangeStart",
+          "type": "string",
+          "default": "visibleRange.start",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rangeEnd",
+          "type": "string",
+          "default": "visibleRange.end   // exclusive",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "_title(visibleRange, _anchor, mode)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hiddenCalendarIds",
+          "type": "var",
+          "default": "(calendars || []).filter(function(c) { return c && c.visible === false })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entries",
+          "type": "var",
+          "default": "CalendarLayout.items(events, hiddenCalendarIds)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "nowPoint",
+          "type": "var",
+          "default": "CalendarLayout.parseLocal(now)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "todayDate",
+          "type": "string",
+          "default": "nowPoint ? CalendarLayout.isoFromDayNumber(nowPoint.day) : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "orderedKeys",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tabStopKey",
+          "type": "string",
+          "default": "orderedKeys.indexOf(selectedOccurrenceId) >= 0 ? selectedOccurrenceId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragState",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dragDistance",
+          "type": "real",
+          "default": "_styleHints ? _styleHints.startDragDistance : Tk.Theme.space.md",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "rangeChanged",
+          "parameters": "string rangeStart, string rangeEnd"
+        },
+        {
+          "name": "occurrenceSelected",
+          "parameters": "string eventId, string occurrenceId"
+        },
+        {
+          "name": "openRequested",
+          "parameters": "string eventId, string occurrenceId"
+        },
+        {
+          "name": "createRequested",
+          "parameters": "string startLocal, string endLocal, bool allDay"
+        },
+        {
+          "name": "eventChangeRequested",
+          "parameters": "string requestId, string eventId, var proposedChange"
+        },
+        {
+          "name": "deleteRequested",
+          "parameters": "string eventId, string occurrenceId"
+        },
+        {
+          "name": "moreRequested",
+          "parameters": "string dateIso"
+        }
+      ],
+      "methods": [
+        {
+          "name": "weekdayName",
+          "parameters": "iso, format"
+        },
+        {
+          "name": "monthName",
+          "parameters": "month, format"
+        },
+        {
+          "name": "dayLabel",
+          "parameters": "iso"
+        },
+        {
+          "name": "rangeText",
+          "parameters": "startMinute, endMinute"
+        },
+        {
+          "name": "timeText",
+          "parameters": "minute, compact"
+        },
+        {
+          "name": "spanText",
+          "parameters": "entry"
+        },
+        {
+          "name": "accessibleName",
+          "parameters": "entry"
+        },
+        {
+          "name": "accessibleDescription",
+          "parameters": "entry"
+        },
+        {
+          "name": "calendarFor",
+          "parameters": "row"
+        },
+        {
+          "name": "colorFor",
+          "parameters": "row"
+        },
+        {
+          "name": "setMode",
+          "parameters": "newMode"
+        },
+        {
+          "name": "navigate",
+          "parameters": "direction"
+        },
+        {
+          "name": "goToday",
+          "parameters": "todayIso"
+        },
+        {
+          "name": "scrollToHour",
+          "parameters": "hour"
+        },
+        {
+          "name": "rowFor",
+          "parameters": "key"
+        },
+        {
+          "name": "canEdit",
+          "parameters": "row"
+        },
+        {
+          "name": "select",
+          "parameters": "row"
+        },
+        {
+          "name": "open",
+          "parameters": "row"
+        },
+        {
+          "name": "requestDelete",
+          "parameters": "row"
+        },
+        {
+          "name": "proposeChange",
+          "parameters": "eventId, proposed"
+        },
+        {
+          "name": "proposeMove",
+          "parameters": "row, minutes"
+        },
+        {
+          "name": "proposeResize",
+          "parameters": "row, minutes"
+        },
+        {
+          "name": "acknowledge",
+          "parameters": "requestId, state, message"
+        },
+        {
+          "name": "createAt",
+          "parameters": "dayIndex, minute"
+        },
+        {
+          "name": "createDay",
+          "parameters": "dayIndex"
+        },
+        {
+          "name": "beginDrag",
+          "parameters": "kind, area, entry, slot"
+        },
+        {
+          "name": "updateDrag",
+          "parameters": "slot"
+        },
+        {
+          "name": "endDrag",
+          "parameters": ""
+        },
+        {
+          "name": "cancelDrag",
+          "parameters": ""
+        },
+        {
+          "name": "focusEvent",
+          "parameters": "key"
+        },
+        {
+          "name": "focusAdjacent",
+          "parameters": "key, direction"
+        },
+        {
+          "name": "handleEventKey",
+          "parameters": "entry, event"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "calendarGrid",
+        "calendarGridNotice"
+      ]
+    },
+    {
       "name": "CalendarPicker",
       "kind": "qml",
       "base": "Item",

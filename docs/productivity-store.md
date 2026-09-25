@@ -114,6 +114,22 @@ overridden instance removes its override. A rule change drops exclusions and
 overrides the new rule no longer produces. `upsert` of an event clears the
 calendar undo history, as before.
 
+### Calendar grid requests
+
+`CalendarGridView` proposes the same `shift-local` change as `CalendarView`
+(drag or Alt/Ctrl+arrow; whole days for all-day rows and in month view), so
+a host applies it with `shiftEventLocal(eventId, minutes, scope,
+occurrenceId)`. A `resize-local` proposal moves only the end by `minutes`;
+the store has no resize call, so the host rewrites `endLocal` with `upsert`
+for `series` and records `{startLocal, endLocal}` with
+`setOccurrenceOverride` for `occurrence` (splitting a series on a resize is
+the host's choice). `createRequested(startLocal, endLocal, allDay)` becomes
+an `upsert` of a new event. Save, then `acknowledge` the request; the grid
+changes only when the projection does (D-301). `rangeChanged` gives civil
+dates with an exclusive end: widen them by a day on each side for
+`LocalCalendarProjectionModel.project`, which takes UTC bounds.
+`examples/calendar-grid/Main.qml` is the reference host.
+
 `examples/local-productivity/Main.qml` shows the five views over one store:
 conversations and lazy attachments, token recipients and attachment jobs,
 scoped moves with undo, a persisted recurrence editor, and task reorder with

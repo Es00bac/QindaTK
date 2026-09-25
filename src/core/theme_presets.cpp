@@ -329,8 +329,12 @@ void ThemePresets::installBaseMetrics(Theme &theme)
     static const Entry motion[] = {{"instant", 0}, {"fast", 80}, {"base", 140}, {"slow", 220},
                                    {"tooltipDelay", 600}, {"tooltipTimeout", 6000},
                                    {"toastTimeout", 6000}, {"gestureIdle", 500}};
+    // AGENT-NOTE (D-301): wash/tint/tintStrong are mix weights for user-data
+    // colours (a calendar's colour into the panel), which no derived colour
+    // role can carry: a today wash, an event fill, a hovered/selected fill.
     static const Entry opacity[] = {{"hidden", 0.0}, {"full", 1.0}, {"disabled", 0.45}, {"muted", 0.7}, {"island", 0.72},
-                                    {"ghost", 0.55}, {"scrim", 0.65}};
+                                    {"ghost", 0.55}, {"scrim", 0.65}, {"wash", 0.06}, {"tint", 0.18},
+                                    {"tintStrong", 0.32}};
     for (const Entry &e : space) theme.space()->setBase(QString::fromLatin1(e.name), e.value);
     for (const Entry &e : radius) theme.radius()->setBase(QString::fromLatin1(e.name), e.value);
     for (const Entry &e : size) theme.size()->setBase(QString::fromLatin1(e.name), e.value);

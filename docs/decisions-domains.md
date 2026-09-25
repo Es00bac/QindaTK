@@ -1101,6 +1101,38 @@ honour `readOnly`). Imported events can later be given a `remoteAccount` and
 CalDAV uploads them with their original UID and alarms. Credentials of a
 private feed follow D-187 and stay on the feed's site across redirects.
 
+## D-301 — The calendar grid proposes, packs deterministically and takes `now` from the host
+
+**Context.** M42 needs an Outlook/Google-class day, work week, week and month
+grid (`CalendarGridView`) over the rows `LocalCalendarProjectionModel`
+produces. A drag-and-drop grid is tempting to make optimistic (move the block
+locally, reconcile later), to compute its own time zone and recurrence, and
+to read the clock for "today" — each of which would fork the store's edit
+rules (scopes, DST gaps, whole-day moves) and make tests time-dependent.
+
+**Decision.** The grid is a view with the productivity request seam. It
+reads `startLocal`/`endLocal` as civil wall time (minutes after local
+midnight; `Date.UTC` only as a day counter), never expands recurrence and
+never converts zones. Every edit is a proposal: `shift-local` (as
+`CalendarView`, scope from `moveScope` for recurring rows, "series"
+otherwise; whole days for all-day rows and in month view) or `resize-local`
+(end only, at least `snapMinutes`); create, open, delete and "more" are
+signals. It never writes to `events`; a muted ghost holds the proposal until
+`acknowledge` or the next projection. Overlapping timed pieces of a day are
+packed per overlap cluster by interval-graph first-fit in one order — start,
+then longer first, then eventId, then occurrenceId — and a piece widens into
+free columns to its right; the same order drives lanes, month chips and
+keyboard traversal. `now` is a host property; without it there is no today,
+no now line and `anchorDate` has no fallback. Calendar colours are user data
+mixed into the panel with new `opacity` weights (`wash`, `tint`,
+`tintStrong`) because no derived colour role can carry them.
+
+**Consequences.** A slow or refusing host shows the ghost, then the truth;
+nothing snaps back. The same projection always draws and tabs identically,
+so fixtures and tests are stable and need no clock. Hosts widen the civil
+visible range by a day for the UTC projection and implement resize
+themselves (`upsert` of `endLocal`, or an occurrence override).
+
 ## D-178 — A score is written music with its own model, separate from MIDI
 
 **Context.** AUD-27 needs voices, ties, tuplets, spelling and articulations;

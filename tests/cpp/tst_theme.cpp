@@ -44,6 +44,10 @@ private slots:
         QCOMPARE(theme->space()->metric(QStringLiteral("md")), 8.0);
         QCOMPARE(theme->size()->metric(QStringLiteral("control")), 24.0);
         QCOMPARE(theme->opacity()->metric(QStringLiteral("hidden")), 0.0);
+        // User-colour mix weights (D-301): wash < tint < tintStrong < ghost.
+        QCOMPARE(theme->opacity()->metric(QStringLiteral("wash")), 0.06);
+        QCOMPARE(theme->opacity()->metric(QStringLiteral("tint")), 0.18);
+        QCOMPARE(theme->opacity()->metric(QStringLiteral("tintStrong")), 0.32);
         QCOMPARE(theme->font()->caption(), 10.0);
         QCOMPARE(theme->font()->body(), 12.0);
     }

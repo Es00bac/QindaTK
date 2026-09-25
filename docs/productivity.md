@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Calendar recurrence
 
-`RecurrenceService` is the local recurrence engine for `CalendarView` and
-`RecurrenceEditor`. The host stores event records and passes a stable event ID,
+`RecurrenceService` is the local recurrence engine for `CalendarView`,
+`CalendarGridView` and `RecurrenceEditor`. The host stores event records and passes a stable event ID,
 an ISO local wall start such as `2026-03-07T09:00:00`, a duration in seconds,
 an IANA zone, a rule, and a half-open UTC search range to `expand(...)`.
 It returns rows with `eventId`, stable `occurrenceId`, `localStart`, `zone`,
@@ -59,3 +59,12 @@ in this rule set to and from iCalendar and keeps any other RRULE verbatim
 Stored edits (rule changes, exclusions, single-occurrence overrides and
 scoped moves) are `LocalProductivityStore` operations; see
 [productivity-store.md](productivity-store.md#calendar-edits).
+
+## Views over the projection
+
+`CalendarView` lists projected rows as an agenda; `CalendarGridView` draws
+the same rows as a day, work week, week or month time grid. Both read wall
+times and zone exactly as projected and propose moves; neither expands
+rules nor applies DST (D-301). See
+[productivity-store.md](productivity-store.md#calendar-grid-requests) for
+how a host applies grid requests.

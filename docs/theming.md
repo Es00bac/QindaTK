@@ -133,7 +133,14 @@ QML properties, so `Tk.Theme.space.md` binds and updates. `space` and
 | `radius` | `none` 0, `xs` 2, `sm` 4, `md` 6, `lg` 10, `xl` 14, `full` 999 |
 | `size` | `controlSm` 20, `control` 24, `controlLg` 28, `sliderTarget` 16, `sliderTargetSm` 14, `toggleTargetSm` 16, `seamTarget` 16, `chip` 32, `action` 36, `row` 22, `rowLg` 28, `header` 24, `tab` 22, `toolbar` 36, `statusBar` 22, `menuItem` 22, `menuMinWidth` 160, `menuItemMinWidth` 120, `icon` 14, `iconSm` 12, `iconLg` 16, `iconXl` 20, `seam` 4, `scrollbar` 8, `labelWidth` 96, `fieldWidth` 120, `panelMinWidth` 200, `panelMinHeight` 120, `border` 1, `focusRing` 2, `grip` 10, `handle` 14, `dropEdge` 28, `tableColumn` 80, `dialogWidth` 420, `rulerLength` 200, `rulerMarker` 9, `sparkline` 56, `sparklineHeight` 14, `meter` 6, `graphMinHeight` 40, `thumbnail` 72, `thumbnailHeight` 40, `waveformHeight` 28, `timeRuler` 22 |
 | `motion` | `instant` 0, `fast` 80, `base` 140, `slow` 220, `tooltipDelay` 600, `tooltipTimeout` 6000, `toastTimeout` 6000, `gestureIdle` 500 (ms); reduced motion zeroes delay and animation durations but retains tooltip/toast reading time and `gestureIdle`, the pause that ends a wheel gesture on Knob and Fader |
-| `opacity` | `hidden` 0, `full` 1, `disabled` 0.45, `muted` 0.7, `island` 0.72, `ghost` 0.55, `scrim` 0.65 |
+| `opacity` | `hidden` 0, `full` 1, `disabled` 0.45, `muted` 0.7, `island` 0.72, `ghost` 0.55, `scrim` 0.65, `wash` 0.06, `tint` 0.18, `tintStrong` 0.32 |
+
+`wash`, `tint` and `tintStrong` are mix weights for colours that are user
+data rather than theme roles, such as a calendar's own colour:
+`Tk.Theme.mix(Tk.Theme.color.panel, calendarColour, Tk.Theme.opacity.tint)`
+is an event fill that keeps `text` readable on every preset, `tintStrong`
+its hovered/selected fill, and `alpha(accent, wash)` a whole-column wash
+(`CalendarGridView`, D-301).
 
 The `size` values are measurements of Sloom Studio at 100% (see
 `installBaseMetrics` in `theme_presets.cpp`). `Tk.Theme.size.get("row")`
