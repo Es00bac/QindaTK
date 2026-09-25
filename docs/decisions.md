@@ -1516,7 +1516,14 @@ Hann grains at least as long as the spacing on both sides, grain resampling
 by the formant ratio, and the grain sum divided by the window sum. Time
 edits map output to input with two linear pieces. Channels share the marks
 of their mean; 5 ms crossfades join the region to the untouched samples.
-**Consequences.** No change reproduces the input to rounding; a ±699-cent
+Unvoiced grains read the input at one whole-sample offset held through the
+run (re-synced to the time map past half a hop), and unvoiced frames next to
+a voiced run whose periods repeat join the run for marking, so noise inside
+a region passes through and a voice onset after noise is shifted.
+**Consequences.** No change reproduces the input to rounding; noise between
+voiced parts of a corrected region is the input, and retimed noise keeps
+0.90–0.96 of its energy (grains averaged at different offsets had lost
+~⅓ in a pitch edit and ~40% in a retime); a ±699-cent
 shift of a harmonic tone lands within 0.25 cents per frame; stereo phase is
 kept. A phase vocoder or a formant-envelope method would be a new operation
 or a versioned parameter, not a silent swap.
@@ -1529,8 +1536,11 @@ claims. **Decision.** Edits beyond ±700 cents, formant ratios outside
 pitch or formant changes over unvoiced material are refused with a reason;
 `AudioPitchSource.editFor` clamps gesture targets into those limits. The
 docs list only what the fixtures assert (docs/audio-pitch.md) and name the
-known artefacts: envelope preservation (a pure sine barely moves), grain
-repetition buzz on noise, and re-processing when a note is edited twice.
+known artefacts: envelope preservation (a pure sine barely moves), voiced-grain
+repetition buzz on breathy material, the joins between voice and noise or silence
+(within 3 cents over the last 11 ms before a gap; 6 cents from 11 ms and
+0.25 cents from 21 ms after an onset), splices in retimed unvoiced runs,
+and re-processing when a note is edited twice.
 **Consequences.** Hosts can show the limits from the snapshot
 (`maximumShiftCents`, `formantMinimum`, `formantMaximum`); listening tests,
 real vocal fixtures and throughput belong to WP-088…WP-094.

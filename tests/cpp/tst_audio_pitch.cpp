@@ -246,6 +246,80 @@ private slots:
         }
     }
 
+    void unvoicedGapsInsideACorrection()
+    {
+        // A note bridging an unvoiced gap: 0.4 s of a 200 Hz voice, 0.2 s of
+        // noise or silence from 19200, the voice again from 28800 (phase 0).
+        // Gap samples must pass through untouched (grains read at their own
+        // input time), and the second onset must reach the target although
+        // the analysis frames straddling it are unvoiced.
+        const std::vector<float> tone = voice([](double) { return 200.0; }, 0.4);
+        std::vector<float> hiss = noise(9600);
+        for (float &v : hiss) v *= 0.4f;
+        for (const bool silent : {false, true}) {
+            std::vector<float> x = tone;
+            if (silent) x.resize(x.size() + 9600, 0.0f);
+            else x.insert(x.end(), hiss.begin(), hiss.end());
+            x.insert(x.end(), tone.begin(), tone.end());
+            const double inputStep = largestStep(x, 1, qint64(x.size()));
+            Settings shortWindow; // ±440 samples: frames that do not reach across the joins
+            shortWindow.minimumHz = 110.0;
+            for (const double shift : {100.0, -100.0, 300.0, -300.0, 699.0, -699.0}) {
+                const QString label = QStringLiteral("%1 %2").arg(silent ? "silence" : "noise").arg(shift);
+                Correction c;
+                c.start = 2400;
+                c.end = 45600;
+                c.targetCents = hzToCents(200.0) + shift;
+                const std::vector<float> y = corrected(x, c);
+                QVERIFY2(!y.empty(), qPrintable(label));
+                QVERIFY2(worstError(y, 4800, 16800, c.targetCents) < 0.25, qPrintable(label));
+                QVERIFY2(worstError(y, 31200, 43200, c.targetCents) < 0.25, qPrintable(label));
+                // The gap interior (150 ms, 25 ms clear of each join) is the input.
+                for (qint64 i = 20400; i < 27600; ++i)
+                    QVERIFY2(std::fabs(y[size_t(i)] - x[size_t(i)]) <= 1e-6f, qPrintable(label));
+                // Short frames wholly inside a voiced part read the target:
+                // within 0.25 cents up to 11 ms before the gap and from 21 ms
+                // after the onset; within 3 cents over the last 11 ms before
+                // the gap (frames 18480…18720 read up to 19160) and 6 cents
+                // from 11 ms after the onset (frame 29760 reads from 29320).
+                const Analysis heard = *analyse(y.data(), qint64(y.size()), Rate, 4800, 31200, shortWindow, {});
+                for (const Frame &frame : heard.frames) {
+                    double tolerance = 0.25;
+                    if (frame.centre >= 18480 && frame.centre < 18960) tolerance = 3.0;
+                    else if (frame.centre >= 18960 && frame.centre < 29760) continue;
+                    else if (frame.centre >= 29760 && frame.centre < 30240) tolerance = 6.0;
+                    const double error = frame.voiced ? std::fabs(frame.cents - c.targetCents) : 1e9;
+                    QVERIFY2(error < tolerance,
+                             qPrintable(QStringLiteral("%1 at %2: %3").arg(label).arg(frame.centre).arg(error)));
+                }
+                QVERIFY2(largestStep(y, 1, qint64(y.size())) <= 1.1 * inputStep, qPrintable(label));
+            }
+        }
+    }
+
+    void retimedNoiseKeepsItsLevel()
+    {
+        // Unvoiced grains hold one read offset and splice when the time map
+        // has drifted half a hop from it, so retimed noise is copied, not
+        // averaged (averaging grains read at different offsets lost ~40%).
+        std::vector<float> x = noise(Rate);
+        for (float &v : x) v *= 0.4f;
+        double input = 0.0;
+        for (qint64 i = 9600; i < 38400; ++i) input += double(x[size_t(i)]) * x[size_t(i)];
+        for (const qint64 target : {qint64(26000), qint64(30000), qint64(20000)}) {
+            Correction c;
+            c.start = 4800;
+            c.end = 43200;
+            c.anchor = 24000;
+            c.target = target;
+            const std::vector<float> y = corrected(x, c);
+            QVERIFY(!y.empty());
+            double output = 0.0;
+            for (qint64 i = 9600; i < 38400; ++i) output += double(y[size_t(i)]) * y[size_t(i)];
+            QVERIFY2(output / input > 0.85 && output / input < 1.05, qPrintable(QStringLiteral("%1: %2").arg(target).arg(output / input)));
+        }
+    }
+
     void noChangeReproducesTheInput()
     {
         const std::vector<float> x = voice([](double) { return 200.0; }, 1.0);

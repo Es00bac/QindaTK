@@ -95,6 +95,51 @@ double inputTime(const Correction &c, double s)
     return double(c.anchor) + (s - double(c.target)) * double(c.end - c.anchor) / double(c.end - c.target);
 }
 
+// 2⟨A, B⟩ / (|A|² + |B|²) for the period before and the period after
+// `centre` at a lag of `period`: 1 for an exactly repeating waveform, about 0
+// for noise, and low when either side is noise the other is not.
+double periodicity(const Signal &x, qint64 centre, double period)
+{
+    const qint64 p = std::max<qint64>(2, std::llround(period));
+    double cross = 0.0, energy = 0.0;
+    for (qint64 n = centre - p; n < centre; ++n) {
+        const double a = x.at(n), b = x.at(n + p);
+        cross += a * b;
+        energy += a * a + b * b;
+    }
+    return energy > 1e-12 ? 2.0 * cross / energy : 0.0;
+}
+
+// AGENT-NOTE (D-196): a YIN frame is unvoiced while any of its ±max-lag
+// window reads the noise or silence beside a voiced run, so a voice that
+// starts right after noise would keep its original pitch for ~15 ms. For
+// the marks only, unvoiced frames next to a run (at most one frame reach
+// away) join it with the edge frame's pitch while the two periods around
+// their centre repeat (periodicity ≥ 0.8). The published analysis and the
+// region's median are not changed.
+void extendVoicing(Analysis &analysis, const Signal &x, qint64 reach)
+{
+    std::vector<Frame> &frames = analysis.frames;
+    const qint64 count = qint64(frames.size());
+    const qint64 most = (reach + analysis.hop - 1) / analysis.hop;
+    const std::vector<Frame> original = frames;
+    const auto grow = [&](qint64 edge, qint64 step) {
+        const Frame &from = original[size_t(edge)];
+        const double period = double(analysis.sampleRate) / from.hz;
+        for (qint64 i = edge + step, n = 0; i >= 0 && i < count && n < most; i += step, ++n) {
+            if (original[size_t(i)].voiced || periodicity(x, frames[size_t(i)].centre, period) < 0.8) return;
+            frames[size_t(i)].voiced = true;
+            frames[size_t(i)].cents = from.cents;
+            frames[size_t(i)].hz = from.hz;
+        }
+    };
+    for (qint64 i = 0; i < count; ++i) {
+        if (!original[size_t(i)].voiced) continue;
+        if (i > 0 && !original[size_t(i - 1)].voiced) grow(i, -1);
+        if (i + 1 < count && !original[size_t(i + 1)].voiced) grow(i, +1);
+    }
+}
+
 struct Mark {
     double position = 0.0;
     bool voiced = false;
@@ -218,7 +263,9 @@ std::optional<CorrectionResult> correct(const std::vector<const float *> &channe
     if ((hasPitch(c) || hasFormant(c)) && result.voicedFrames == 0) return fail(Problem::Unvoiced);
     if (hasPitch(c) && std::fabs(c.targetCents - result.sourceCents) > kMaxShiftCents + 1e-9) return fail(Problem::Shift);
 
-    const Contour contour(*analysis, c, result.sourceCents);
+    Analysis marked = *analysis;
+    extendVoicing(marked, mono, reach.before);
+    const Contour contour(marked, c, result.sourceCents);
     bool cancelled = false;
     const std::vector<Mark> marks = pitchMarks(mono, contour, markLo, markHi, hop, cancel, &cancelled);
     if (cancelled) return fail(Problem::Cancelled);
@@ -244,6 +291,16 @@ std::optional<CorrectionResult> correct(const std::vector<const float *> &channe
     double s = marks.front().position;
     double previousSpacing = 0.0;
     int grains = 0;
+    // AGENT-NOTE (D-195): unvoiced grains read the input at output sample +
+    // one offset held through the unvoiced run, not at the nearest hop mark:
+    // overlapping noise grains read at different offsets average away about
+    // a third of their energy (marks drift off the hop grid after a shifted
+    // voiced run, and a time edit moves every grain). With no time edit the
+    // offset is 0 and the run is the input; under one it re-syncs to the
+    // time map when it drifts by more than half a hop, one splice at a time
+    // (tst_audio_pitch::unvoicedGapsInsideACorrection).
+    double readOffset = 0.0;
+    bool offsetHeld = false;
     while (s < double(markHi)) {
         if (++grains % 256 == 0 && cancel.isCancelled()) return fail(Problem::Cancelled);
         const double t = inputTime(c, s);
@@ -253,6 +310,12 @@ std::optional<CorrectionResult> correct(const std::vector<const float *> &channe
                                                             : mark.position - marks[k - 1].position;
         const double spacing = analysisSpacing / (mark.voiced ? contour.beta(mark.position) : 1.0);
         const double gamma = mark.voiced ? c.formantRatio : 1.0;
+        if (mark.voiced) {
+            offsetHeld = false;
+        } else if (!offsetHeld || std::fabs(t - s - readOffset) > 0.5 * double(hop)) {
+            readOffset = std::round(t - s); // whole samples: the run is copied, not interpolated
+            offsetHeld = true;
+        }
         const double half = std::max({analysisSpacing / gamma, spacing, previousSpacing});
         const qint64 lo = std::max<qint64>(c.start, qint64(std::ceil(s - half)));
         const qint64 hi = std::min<qint64>(c.end - 1, qint64(std::floor(s + half)));
@@ -260,7 +323,7 @@ std::optional<CorrectionResult> correct(const std::vector<const float *> &channe
             const double u = double(n) - s;
             const double w = 0.5 + 0.5 * std::cos(AudioDsp::kPi * u / half);
             if (w <= 0.0) continue;
-            const double position = mark.position + gamma * u;
+            const double position = mark.voiced ? mark.position + gamma * u : double(n) + readOffset;
             for (size_t ch = 0; ch < channelCount; ++ch)
                 sum[ch][size_t(n - c.start)] += w * double(interpolate(inputs[ch], position));
             weight[size_t(n - c.start)] += w;

@@ -68,13 +68,22 @@ whole edit:
 
 - **Marks.** In voiced runs, one mark per period on the waveform's extreme
   of one polarity, refined to a sub-sample position by a parabola; every hop
-  in unvoiced material. All channels share the marks of their mean.
+  in unvoiced material. All channels share the marks of their mean. A YIN
+  frame whose window reads the noise or silence beside a voiced run is
+  unvoiced, so for the marks only, unvoiced frames next to a run (at most one
+  frame reach, 17 ms) join it with the edge frame's pitch while the period
+  before and after their centre repeat (periodicity `2⟨A,B⟩/(|A|²+|B|²)` ≥ 0.8).
 - **Synthesis.** Each output mark takes the grain of the analysis mark
   nearest its input time and is spaced by that mark's period divided by the
   pitch ratio. Grains are Hann windows at least as long as the spacing on
   either side and are resampled by the formant ratio on voiced marks
   (Catmull-Rom). The output is the grain sum divided by the window sum: with
   no change it reproduces the input to rounding.
+- **Unvoiced grains** read the input at the output sample plus one
+  whole-sample offset held through the unvoiced run, so overlapping grains
+  read the same samples: with no time edit the run is the input, and under a
+  time edit the offset re-syncs to the time map (one splice) when it has
+  drifted more than half a hop.
 - **Pitch.** `targetPitchCents` moves the median of the region's voiced
   frames; `correctionAmount` 0 keeps every deviation from it (vibrato,
   scoops), 1 flattens each voiced frame onto the target.
@@ -98,7 +107,7 @@ A pitch or formant change over a region with no voiced frames is refused
 ## Measured results (fixtures)
 
 The tests assert these on synthetic signals with known pitch at 48 kHz
-(`tst_audio_pitch`, `tst_audio_pitch_session`):
+(`tst_audio_pitch`, `tst_audio_pitch_session`, `tst_audio_pitch_requests`):
 
 | Fixture | Asserted |
 | --- | --- |
@@ -111,15 +120,28 @@ The tests assert these on synthetic signals with known pitch at 48 kHz
 | ±30-cent vibrato, amount 1 / amount 0 +100 | flattened within 4 cents / every frame keeps its deviation within 4 cents |
 | Formant 0.8 and 1.25 (1 kHz resonance, 150 Hz) | harmonic centroid scales by the ratio within 0.03, pitch unchanged within 0.25 cents |
 | Retime a note start by +50 / −42 ms | the re-analysed boundary moves by the same amount within 2 hops; pitches unchanged within 0.05 cents |
+| 200 Hz voice, 200 ms of noise or silence, voice again; ±100, ±300, ±699 cents over all of it | voiced interiors within 0.25 cents; gap samples 25 ms clear of the voice equal the input within 1e-6; short-window frames (±9.2 ms) within 0.25 cents up to 11 ms before the gap and from 21 ms after the onset, within 3 cents over the last 11 ms before the gap and 6 cents from 11 ms after the onset; largest sample step ≤ 1.1 × the input's |
+| Retime noise (stretches 1.08×/0.93×, 1.31×/0.79×, 0.83×/1.21×) | output energy 0.85…1.05 × the input's (measured 0.90–0.96) |
+| Host time drag (E4 start 24600 → 26000) | edit over [1320, 47880); targets clamp to 16840…32360; a non-start anchor and non-integer samples are refused; re-analysed E4 starts within 2 hops of 26000; render bit-identical outside the region, A3/E4 frames within 0.05/0.25 cents; one undo step "Move sample 24600 to 26000" |
+| Host Flatten (correctionAmount 1, ±30-cent vibrato) | amount 0 at the note's pitch is no edit; amount 1 is one step "Correct pitch to A3 (100%)", rendered frames within 4 cents of A3; undo renders the input |
 | Session edit | offline render within 0.25 cents of the target; undo/redo/reopen render bit-identically |
 
 **Limitations (measured, not general quality claims).** TD-PSOLA keeps the
 spectral envelope: a pure sine has one harmonic, so a large shift of a sine
 mostly moves its level, not its pitch (tests shift harmonic tones). Large
-downward shifts and stretches repeat grains, which buzzes at the hop rate on
-noise-like material. A repeated edit on the same note re-processes already
-processed audio. Listening tests, real vocal fixtures and throughput are
-not measured here (WP-088…WP-094).
+downward shifts and stretches repeat voiced grains, which buzzes on
+noise-like (breathy) voiced material. At a join between voice and noise or
+silence the correction is not held to the target: the last 11 ms of voice
+before a gap reads within 3 cents, and the first 11 ms after an onset are a
+crossfade from the unshifted onset (within 6 cents from 11 ms and 0.25 cents
+from 21 ms, in short-window frames); frames of the default ±17 ms analysis
+window that straddle a join read unvoiced or an octave off, as they do on
+the input. A time edit splices an unvoiced run each time the map drifts half
+a hop from the held offset (every ~10 hops at a 1.05× stretch, ~2 at 1.3×);
+each splice crossfades uncorrelated material, and retimed noise keeps 0.90–0.96
+of its energy. A repeated edit on the same note re-processes already
+processed audio. Listening tests, real vocal fixtures and throughput are not
+measured here (WP-088…WP-094).
 
 ## Lifecycle and threads (D-197)
 
