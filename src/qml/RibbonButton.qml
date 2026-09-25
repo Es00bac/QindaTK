@@ -29,7 +29,8 @@ T.AbstractButton {
     readonly property bool menuHovered: split && hasMenu && chevronHover.hovered
     signal menuRequested()
 
-    readonly property real _chevron: hasMenu ? Tk.Theme.size.iconSm + Tk.Theme.space.xs : 0
+    // The chevron plus the row gap before it (Flex `gap: space.sm`).
+    readonly property real _chevron: hasMenu ? Tk.Theme.size.iconSm + Tk.Theme.space.sm : 0
     readonly property real largeWidth: Math.ceil(Math.max(Tk.Theme.size.chip + Tk.Theme.space.sm,
         Math.min(Tk.Theme.size.labelWidth, labelMetrics.advanceWidth) + _chevron + Tk.Theme.space.md * 2))
     readonly property real smallWidth: Math.ceil((iconName.length > 0 ? Tk.Theme.size.icon + Tk.Theme.space.sm : 0)
