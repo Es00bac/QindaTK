@@ -7,6 +7,7 @@
 #include "audio_parameter_binding.h"
 #include "audio_session.h"
 
+#include <QPointer>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -163,7 +164,7 @@ private slots:
                                                             {QStringLiteral("ticks"), QString::number(sample * TicksPerSample)},
                                                             {QStringLiteral("value"), value}})));
         AudioMeterModel *oneMeter = rig.mixer->meter(one);
-        AudioMeterModel *busMeter = rig.mixer->meter(bus);
+        QPointer<AudioMeterModel> busMeter = rig.mixer->meter(bus);
         QVERIFY(oneMeter && busMeter);
         QCOMPARE(rig.engine.channelMeter(one), oneMeter); // one model per channel, owned by the engine
         QVERIFY(rig.play());
@@ -197,13 +198,50 @@ private slots:
         QVERIFY(ok(rig.mixer->setMuted(one, true)));
         QTRY_VERIFY(silent(oneMeter));
         QTRY_VERIFY(std::abs(peakOf(busMeter, 0) - dbfs(0.25 * std::pow(10.0, -6.0 / 20.0))) < 1e-3);
-        // A channel that leaves the graph has no measurement any more.
-        QVERIFY(ok(rig.mixer->removeBus(bus)));
-        QTRY_COMPARE(busMeter->channelCount(), 0);
+        // A channel that leaves the mix has no measurement any more, and its
+        // meter is released (the engine keeps meters of live channels only).
         QCOMPARE(busMeter->droppedBlocks(), qint64(0));
+        QVERIFY(ok(rig.mixer->removeBus(bus)));
+        QTRY_VERIFY(busMeter.isNull());
+        QVERIFY(rig.mixer->undo()); // the bus is back: a new meter measures it again
+        QPointer<AudioMeterModel> again = rig.mixer->meter(bus);
+        QVERIFY(again);
+        QTRY_VERIFY(again->channelCount() == 2);
+        QVERIFY(rig.mixer->redo());
+        QTRY_VERIFY(again.isNull());
         rig.engine.stop();
         QTRY_COMPARE(rig.engine.stateName(), QStringLiteral("stopped"));
         QCOMPARE(oneMeter->channelCount(), 0); // no stream, no channels
+    }
+
+    void largeMixesMeterTheMasterAndWatchedStrips()
+    {
+        // Audit (WP-062, D-113): more channels than meter slots. The master
+        // and the strips a view watches are always metered; the rest explain.
+        Rig rig;
+        QCOMPARE(rig.apply(QStringLiteral("builtin:null"), QStringLiteral("None"), QStringLiteral("Stereo")),
+                 QStringLiteral("accepted"));
+        for (int i = 0; i < 130; ++i) QVERIFY(!rig.session.addTrack(QStringLiteral("Silent %1").arg(i)).isEmpty());
+        const QString loud = rig.track(QStringLiteral("Loud"), 96000, [](qint64) { return 0.5f; });
+        QVERIFY(!loud.isEmpty());
+        QCOMPARE(rig.mixer->channelIds().size(), 132);
+        AudioMeterModel *master = rig.mixer->meter(QStringLiteral("master"));
+        AudioMeterModel *loudMeter = rig.mixer->meter(loud);
+        QVERIFY(master && loudMeter);
+        QVERIFY(rig.mixer->meterProblem(QStringLiteral("master")).isEmpty());
+        QVERIFY2(rig.mixer->meterProblem(loud).contains(QStringLiteral("not metered")), qPrintable(rig.mixer->meterProblem(loud)));
+        QVERIFY(rig.play());
+        QTRY_VERIFY(std::abs(peakOf(master, 0) - dbfs(0.5)) < 1e-3); // the master, compiled last, is fed
+        QCOMPARE(loudMeter->channelCount(), 0);
+        // A strip that shows the channel watches it: the next graph meters it.
+        QCOMPARE(rig.mixer->watchMeter(loud), loudMeter);
+        QVERIFY(rig.mixer->meterProblem(loud).isEmpty());
+        QTRY_VERIFY(std::abs(peakOf(loudMeter, 0) - dbfs(0.5)) < 1e-3);
+        QVERIFY(std::abs(peakOf(master, 1) - dbfs(0.5)) < 1e-3);
+        rig.mixer->unwatchMeter(loud);
+        QVERIFY(!rig.mixer->meterProblem(loud).isEmpty());
+        QTRY_COMPARE(loudMeter->channelCount(), 0);
+        QVERIFY(std::abs(peakOf(master, 0) - dbfs(0.5)) < 1e-3);
     }
 
     void devicePortsNeverFallBackToAnotherDevice()

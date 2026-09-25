@@ -101,6 +101,9 @@ public:
     // "master"), created on first request and owned by the engine. It has no
     // channels while the channel is not in the playing graph or no stream runs.
     Q_INVOKABLE QindaTK::AudioMeterModel *channelMeter(const QString &channelId);
+    // Deletes (deleteLater) the meters of channels not in `channels`, so a
+    // session that removes channels or reopens with new IDs keeps a bounded set.
+    void retainChannelMeters(const QSet<QString> &channels);
 
     // ---- MIDI (WP-064, docs/audio-midi.md; audio_engine_midi.cpp) ----
     // Audition notes of the built-in test instrument on the first two

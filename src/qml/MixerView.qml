@@ -197,6 +197,7 @@ T.Control {
                     required property string layout
                     required property string output
                     required property string outputLabel
+                    required property string outputLayout
                     required property bool outputAvailable
                     required property bool muted
                     required property bool soloed
@@ -220,6 +221,7 @@ T.Control {
                         channelKind: cell.channelKind
                         layout: cell.layout
                         output: cell.output
+                        outputLayout: cell.outputLayout
                         muted: cell.muted
                         soloed: cell.soloed
                         armed: cell.armed

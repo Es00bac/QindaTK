@@ -42,6 +42,7 @@ T.Control {
     property real rmsDbfs: -120
     property string routeSummary: qsTr("No route details")
     property string output: ""
+    property string outputLayout: "Stereo" // the destination's layout: Quad or 5.1 pans spatially
     property var sends: []
     property var groupNames: []
     property string commandState: "idle"
@@ -57,6 +58,12 @@ T.Control {
     readonly property bool isMaster: channelKind === "master"
     readonly property var gainBinding: bound ? mixer.parameterBinding(channelId, "gain") : null
     readonly property var boundMeter: bound && mixer.engine ? mixer.meter(channelId) : null
+    // Why the bound channel has no meter feed ("" when it is metered, D-113).
+    readonly property string meterProblem: bound && mixer.engine && _meterWatchSerial >= 0 && mixer.revision.length
+        ? mixer.meterProblem(channelId) : ""
+    property int _meterWatchSerial: 0
+    property var _watchedMixer: null
+    property string _watchedChannel: ""
     readonly property var meterLevels: boundMeter ? boundMeter.levels
         : meterModel && meterModel.levels && meterChannel >= 0 && meterChannel < meterModel.levels.length
           ? [meterModel.levels[meterChannel]]
@@ -79,9 +86,32 @@ T.Control {
     hoverEnabled: true
     Accessible.role: Accessible.Grouping
     Accessible.name: channelName.length ? channelName : tooltip
-    Accessible.description: qsTr("%1, %2, gain %3, peak %4 dBFS%5")
+    Accessible.description: qsTr("%1, %2, gain %3, peak %4 dBFS%5%6")
             .arg(channelKind).arg(layout).arg(fader.valueText).arg(Number(shownPeak).toFixed(1))
             .arg(muted ? qsTr(", muted") : implicitlyMuted ? qsTr(", silent while another channel is soloed") : "")
+            .arg(meterProblem.length ? ", " + meterProblem : "")
+
+    // AGENT-CONTRACT (D-113, AudioMixerModel::watchMeter): the strip watches
+    // the meter it shows, so a large mix meters the strips on screen first;
+    // a recycled strip moves its watch to its new channel.
+    function _updateMeterWatch() {
+        const target = bound && mixer.engine ? mixer : null
+        const id = target ? channelId : ""
+        if (target === _watchedMixer && id === _watchedChannel) return
+        if (_watchedMixer && _watchedChannel.length) _watchedMixer.unwatchMeter(_watchedChannel)
+        _watchedMixer = target
+        _watchedChannel = id
+        if (target) target.watchMeter(id)
+    }
+    onBoundChanged: _updateMeterWatch()
+    onChannelIdChanged: _updateMeterWatch()
+    Component.onCompleted: _updateMeterWatch()
+    Component.onDestruction: if (_watchedMixer && _watchedChannel.length) _watchedMixer.unwatchMeter(_watchedChannel)
+    Connections {
+        target: strip.bound ? strip.mixer : null
+        function onEngineChanged() { strip._updateMeterWatch() }
+        function onMeterWatchChanged() { strip._meterWatchSerial++ }
+    }
 
     // Host mode: one gesture ID per fader gesture, every phase by stable IDs.
     function gainRequest(phase, value, isSilent) {
@@ -169,6 +199,15 @@ T.Control {
             showScale: strip.detail
             tooltip: qsTr("%1 post-fader level").arg(strip.channelName)
         }
+        Tk.Caption {
+            objectName: "channelMeterProblem"
+            Tk.Flex.shrink: 0
+            visible: strip.meterProblem.length > 0
+            width: parent.width
+            wrapMode: Text.Wrap
+            text: strip.meterProblem
+            color: Tk.Theme.color.warning
+        }
         Tk.Fader {
             id: fader
             objectName: "channelGainFader"
@@ -191,9 +230,13 @@ T.Control {
             objectName: "channelPanning"
             width: parent.width
             Tk.Flex.shrink: 0
+            // A surround bus has no panner: its lanes convert as a whole (D-111).
+            visible: strip.layout === "Mono" || strip.layout === "Stereo"
             mixer: strip.bound ? strip.mixer : null
             channelId: strip.channelId
             speakerLayout: strip.layout
+            destinationLayout: strip.outputLayout
+            depthParameterId: strip.channelId + "/depth"
             pad: strip.detail
             panParameterId: strip.channelId + "/pan"
             widthParameterId: strip.channelId + "/width"

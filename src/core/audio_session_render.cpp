@@ -44,6 +44,7 @@ AudioRenderGraphPtr AudioSession::compileGraph(int sampleRate, bool offline)
     sources.schedule = m_schedule->acquire();
     sources.sampleRate = sampleRate;
     sources.mixer = m_mixer ? &m_mixer->content() : nullptr;
+    if (m_mixer) sources.meterFirst = m_mixer->watchedMeters();
     sources.offline = offline;
     sources.midi = &m_midi->content();
     sources.comp = [this](const QString &id) { return m_comps->playback(id); };

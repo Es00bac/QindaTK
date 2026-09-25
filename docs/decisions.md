@@ -1031,14 +1031,28 @@ not undo steps. The session saves the mix as its `mixer` part and loads it
 all or nothing. **Consequences.** Every mixer value has one owner and one
 history, which the controls and automation already share. A track's settings
 stay dormant after the track is deleted, so undo in the timeline brings back
-its routing. Undo is per owner (mixer, timeline, automation) until a host
-joins those histories.
+its routing.
+**Amended after the WP-062 audit.** `session.history` (`AudioSessionHistory`)
+joins the three histories: each model keeps and applies its own steps, and
+the journal records which model took each step, in order, so one Undo always
+reverses the session's newest step; undo on a model directly moves its
+entry, a new step ends every redo, and a model that reloads drops its
+entries. Lanes and dormant settings stay in memory for undo, but a save
+writes only what a reopened session can reach (no settings of deleted
+tracks, no lanes of channels or sends that are gone), and bindings and
+meters of channels that are gone are released. `AudioSession::open` checks
+the mixer part before it replaces any part, so a bad mixer part keeps every
+history and held gesture. A hardware control surface (`AudioControlSurface`,
+Mackie Control over an ALSA sequencer port or host bytes) edits and follows
+the same shared bindings and operations, so automation, strips and hardware
+feedback update one parameter model.
 
 ## D-111 — Pan laws, layouts and conversions
 
 **Context.** AUD-15 needs defined laws and coordinates, and the engine must
-not change what existing sessions play. **Decision.** Channels are Mono or
-Stereo; the master is Stereo. A mono source into a stereo destination follows
+not change what existing sessions play. **Decision.** Tracks are Mono or
+Stereo; buses may also be Quad (L R Ls Rs) or 5.1 (L R C LFE Ls Rs); the
+master is Stereo. A mono source into a stereo destination follows
 the session pan law: `-3dB` constant power (default,
 L = cos((1+p)π/4), R = cos((1−p)π/4)), `-4.5dB`, `-6dB` linear or `0dB`
 balance. Pan p runs from −1 (left) to +1 (right) and width from 0 to 2, both
@@ -1049,7 +1063,17 @@ destination averages. Every route, sends included, passes through the
 channel's panner; a pre-fader send skips only the fader. **Consequences.** The
 default mix (stereo tracks, centre, width 1, 0 dB) is bit-exact with the
 pre-mixer engine, and the laws are exact at the ends and symmetric at the
-centre. Surround layouts are outside the reference engine.
+centre.
+**Amended after the WP-062 audit (spatial panning).** A mono or stereo
+source into a Quad or 5.1 destination is a point at (pan, depth), depth
+−1 rear … +1 front (default front, parameter `<channel>/depth`): the session
+law applies left–right and rear–front, the 5.1 front pans pairwise L–C–R and
+the LFE takes no panned source; each side of a stereo source is a point at
+pan ∓ 1. A surround source converts through a fixed matrix: lane to lane,
+Quad and 5.1 onto each other (a centre into L and R at −3 dB), the ITU-R
+BS.775 stereo downmix (centre and surrounds at −3 dB, no LFE), and its mono
+average. Device ports carry 1, 2, 4 or 6 lanes. Channel meters carry up to
+six lanes.
 
 ## D-112 — The bus graph stays acyclic; solo propagates through it; ports never fall back
 
@@ -1090,6 +1114,13 @@ binding it began on and cancel it if a recycled delegate changes the binding.
 thread, and a frame never mixes two slot layouts. A gesture survives a track
 reorder and a bank or visibility change, and a delegate can never commit into
 another channel.
+**Amended after the WP-062 audit.** Slots are not handed out in processing
+order: while every channel fits, all are metered; with more, the master
+comes first, then the channels a view watches (`watchMeter`, which each
+`ChannelStrip` does for its channel), then the rest, and `meterProblem`
+explains a channel left out. `PanningControl` keeps each gesture on the
+binding it began on as `Fader` and `Knob` do, and `RoutingMatrix` rows come
+from a model that moves rows in place, with selection by input ID.
 
 ## D-126 — Grade and captions are a finishing stage of the media program
 

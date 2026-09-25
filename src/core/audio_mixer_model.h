@@ -41,9 +41,11 @@ class AudioMixerModel : public QObject {
     Q_PROPERTY(QVariantList buses READ buses NOTIFY changed)
     Q_PROPERTY(QVariantList groups READ groups NOTIFY changed)
     Q_PROPERTY(QindaTK::AudioMixerStripModel *strips READ strips CONSTANT)
+    Q_PROPERTY(QindaTK::AudioMixerStripModel *routingInputs READ routingInputs CONSTANT)
     Q_PROPERTY(QString panLaw READ panLaw NOTIFY changed)
     Q_PROPERTY(QStringList panLaws READ panLaws CONSTANT)
     Q_PROPERTY(QStringList layouts READ layouts CONSTANT)
+    Q_PROPERTY(QStringList trackLayouts READ trackLayouts CONSTANT)
     Q_PROPERTY(QVariantList routingSources READ routingSources NOTIFY changed)
     Q_PROPERTY(QVariantList routingDestinations READ routingDestinations NOTIFY changed)
     Q_PROPERTY(QVariantList connections READ connections NOTIFY changed)
@@ -71,9 +73,14 @@ public:
     QVariantList buses() const { return m_buses; }
     QVariantList groups() const { return m_groups; }
     AudioMixerStripModel *strips() const { return m_strips; }
+    // RoutingMatrix rows {portId, label, layout, available}, one per channel
+    // in channelIds order. Like `strips`, rows move and update in place (never
+    // reset), so the matrix keeps its current row and a focused editor by ID.
+    AudioMixerStripModel *routingInputs() const { return m_routing; }
     QString panLaw() const { return AudioMixer::panLawName(m_content.panLaw); }
     QStringList panLaws() const { return AudioMixer::panLawNames(); }
-    QStringList layouts() const { return AudioMixer::layoutNames(); }
+    QStringList layouts() const { return AudioMixer::layoutNames(); } // buses
+    QStringList trackLayouts() const { return AudioMixer::trackLayoutNames(); }
     QVariantList routingSources() const { return m_sources; }
     QVariantList routingDestinations() const { return m_destinations; }
     QVariantList connections() const { return m_connections; }
@@ -84,13 +91,18 @@ public:
     QString undoText() const { return canUndo() ? m_history.at(m_cursor - 1).label : QString(); }
     QString redoText() const { return canRedo() ? m_history.at(m_cursor).label : QString(); }
     int historyCount() const { return int(m_history.size()); }
+    // AudioSessionHistory: steps that undo() and redo() can reach, and a
+    // count of steps ever recorded (it never goes back).
+    int undoDepth() const { return m_cursor; }
+    int redoDepth() const { return int(m_history.size()) - m_cursor; }
+    quint64 historySerial() const { return m_serial; }
     QString lastError() const { return m_lastError; }
 
     // ---- reading ----
     Q_INVOKABLE QString channelName(const QString &channelId) const;
     // {channelId, channelName, channelKind, layout, output, outputLabel,
     //  outputAvailable, muted, soloed, armed, soloSafe, implicitlyMuted,
-    //  effectiveMuted, groupNames, sends, held, hidden, color}
+    //  effectiveMuted, groupNames, sends, held, hidden, color, outputLayout}
     Q_INVOKABLE QVariantMap channel(const QString &channelId) const;
     // Every destination of `channelId`: {id, label, layout, available, allowed, reason}.
     Q_INVOKABLE QVariantList destinations(const QString &channelId) const;
@@ -135,10 +147,28 @@ public:
     Q_INVOKABLE QindaTK::AudioParameterBinding *parameterBinding(const QString &owner, const QString &kind);
     // The engine's post-fader meter of the channel; null without an engine.
     Q_INVOKABLE QindaTK::AudioMeterModel *meter(const QString &channelId);
+    // AGENT-CONTRACT (D-113, ChannelStrip): a view that shows a channel's
+    // meter watches it (counted) and unwatches it when it shows another
+    // channel or goes. With more channels than meter slots, the master and
+    // the watched channels are metered first; meterProblem explains a
+    // channel left out ("" when it is metered).
+    Q_INVOKABLE QindaTK::AudioMeterModel *watchMeter(const QString &channelId);
+    Q_INVOKABLE void unwatchMeter(const QString &channelId);
+    Q_INVOKABLE QString meterProblem(const QString &channelId) const;
+    QSet<QString> watchedMeters() const;
 
     // ---- persistence (the AudioSession "mixer" part), all or nothing ----
     Q_INVOKABLE QVariantMap contentMap() const;
     Q_INVOKABLE QVariantMap loadContent(const QVariantMap &content);
+    // What loadContent would refuse, without changing anything ("" if none):
+    // AudioSession::open checks it before it replaces any part.
+    static QString contentProblem(const QVariantMap &content);
+    // The part AudioSession::save writes: contentMap without the dormant
+    // settings of deleted tracks, which no reopened session can reach.
+    QVariantMap savedContentMap() const;
+    // False for a mixer parameter ("<owner>/<kind>") whose channel or send is
+    // gone from the saved mix; the session leaves such lanes out of the file.
+    bool keepsParameter(const QString &parameterId) const;
 
 signals:
     void changed();
@@ -148,6 +178,9 @@ signals:
     void heldChanged();
     void engineChanged();
     void lastErrorChanged();
+    // The watched set changed while more channels exist than meter slots:
+    // the session recompiles so the graph meters what is on screen.
+    void meterWatchChanged();
 
 private:
     struct Step {
@@ -164,6 +197,7 @@ private:
     QString portProblem(const QString &portId) const;
     QString loopText(const QString &from, const QStringList &loop) const;
     QString destinationLabel(const QString &id) const;
+    QString outputLayout(const QString &destinationId) const;
     QString activeDeviceId() const;
     int activeOutputChannels() const;
     const AudioMixerSend *findSend(const QString &sendId, QString *channelId = nullptr) const;
@@ -174,6 +208,9 @@ private:
     // emits changed() when anything readable differs (always when forced).
     void refresh(bool force = false);
     void refreshHeld();
+    // Releases bindings and engine meters of channels and sends that are gone.
+    void prune();
+    bool liveTrack(const QString &channelId) const;
 
     AudioSession *m_session = nullptr;
     TimelineModel *m_timeline = nullptr;
@@ -194,7 +231,10 @@ private:
     QStringList m_held;
     QVector<QVariantList> m_rows;
     AudioMixerStripModel *m_strips = nullptr;
+    AudioMixerStripModel *m_routing = nullptr;
     QHash<QString, AudioParameterBinding *> m_bindings;
+    QHash<QString, int> m_meterWatch;
+    quint64 m_serial = 0;
     QString m_lastError;
 };
 

@@ -24,7 +24,9 @@ void AudioChannelMeterSink::begin(quint64 generation, int slotCount) noexcept
 
 void AudioChannelMeterSink::add(int slot, int lane, const double *samples, const double *gain, int frames) noexcept
 {
-    if (slot < 0 || slot >= m_frame.slotCount || lane < 0 || lane > 1 || !samples || frames <= 0) return;
+    if (slot < 0 || slot >= m_frame.slotCount || lane < 0 || lane >= AudioChannelMeterFrame::kMaxLanes || !samples
+        || frames <= 0)
+        return;
     float peak = m_frame.peak[slot][lane];
     double squares = m_frame.squares[slot][lane];
     for (int i = 0; i < frames; ++i) {
@@ -59,10 +61,11 @@ void AudioChannelMeterSink::close() noexcept
     if (!m_ring.push(m_frame)) m_dropped.fetch_add(1, std::memory_order_acq_rel);
     const quint64 generation = m_frame.generation;
     const int count = m_frame.slotCount;
-    for (int slot = 0; slot < count; ++slot) {
-        m_frame.peak[slot][0] = m_frame.peak[slot][1] = 0.0f;
-        m_frame.squares[slot][0] = m_frame.squares[slot][1] = 0.0;
-    }
+    for (int slot = 0; slot < count; ++slot)
+        for (int lane = 0; lane < AudioChannelMeterFrame::kMaxLanes; ++lane) {
+            m_frame.peak[slot][lane] = 0.0f;
+            m_frame.squares[slot][lane] = 0.0;
+        }
     m_frame.frames = 0;
     m_frame.generation = generation;
     m_frame.slotCount = count;
