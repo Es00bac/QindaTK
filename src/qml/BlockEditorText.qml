@@ -50,6 +50,9 @@ Item {
         target: root.editor
         function onFocusedBlockIdChanged() { root.claimFocus() }
         function onPendingFocusIdChanged() { root.claimFocus() }
+        // A card kept alive or reused for the same block gets no property
+        // change; show a draft stored while it was off screen.
+        function onDraftsChanged() { if (!field.activeFocus) root.load() }
     }
 
     function firstLine() { return field.positionToRectangle(field.cursorPosition).y <= field.positionToRectangle(0).y }
