@@ -31269,7 +31269,7 @@
       "name": "ScientificPlot3D",
       "kind": "qml",
       "base": "T.Control",
-      "description": "3D scientific plot: a sampled surface (ScientificGrid) and/or 3D scatter points (ScientificDataset, dimensions 3) in a calibrated domain cube. AGENT-NOTE: ScientificScene3D (C++) owns the data-to-scene transform, the explicit interpolation lattice and the orbit camera. The Qt Quick 3D renderer (ScientificPlot3DRenderer.qml, GPU backends only) and the software view (ScientificScene3DView, also the export painter) both draw from it, so they agree; see docs/scientific-plot.md and decision D-140.",
+      "description": "3D scientific plot: a sampled surface (ScientificGrid) and/or 3D scatter points (ScientificDataset, dimensions 3) in a calibrated domain cube. AGENT-NOTE: ScientificScene3D (C++) owns the data-to-scene transform, the explicit interpolation lattice and the orbit camera. The Qt Quick 3D renderer (ScientificPlot3DRenderer.qml, GPU backends only) and the software view (ScientificScene3DView, also the export painter) both draw from it, so they agree; see docs/scientific-plot.md and decision D-140. AGENT-NOTE: the GPU renderer follows the WP-076 render-resource lifecycle (docs/scene-3d.md, SceneView3D.qml): one renderer per view, replaced when the window's scene graph is invalidated so every GPU resource is rebuilt from ScientificScene3D. SceneModel3D itself is not used: it is an editable entity document with undo, while plot geometry is derived data (D-140).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ScientificPlot3D.qml",
@@ -31331,6 +31331,22 @@
           "required": false
         },
         {
+          "name": "tableSource",
+          "type": "string",
+          "default": "control.grid ? \"surface\" : \"points\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pointLimit",
+          "type": "int",
+          "default": "4096",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "forceSoftware",
           "type": "bool",
           "default": "false",
@@ -31358,6 +31374,14 @@
           "name": "gpuRenderer",
           "type": "bool",
           "default": "renderer.status === Loader.Ready && renderer.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "renderGeneration",
+          "type": "alias",
+          "default": "internal.generation",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -31391,6 +31415,14 @@
           "parameters": ""
         },
         {
+          "name": "pointsCsvData",
+          "parameters": ""
+        },
+        {
+          "name": "resetRenderer",
+          "parameters": ""
+        },
+        {
           "name": "textSummary",
           "parameters": ""
         },
@@ -31421,7 +31453,11 @@
         "scientificPlot3DDataTable",
         "scientificPlot3DGesture",
         "scientificPlot3DRendererLoader",
-        "scientificPlot3DSoftware"
+        "scientificPlot3DSoftware",
+        "scientificPlot3DTablePane",
+        "scientificPlot3DTablePoints",
+        "scientificPlot3DTableSource",
+        "scientificPlot3DTableSurface"
       ]
     },
     {
@@ -65612,6 +65648,11 @@
           "parameters": "const QString &id"
         },
         {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int index"
+        },
+        {
           "name": "samplesInRange",
           "returns": "QVariantList",
           "parameters": "double xMin, double xMax, int limit"
@@ -65741,7 +65782,7 @@
       "name": "ScientificGeometry3D",
       "kind": "cpp",
       "base": "QQuick3DGeometry",
-      "description": "Optional Qt Quick 3D upload of one part of a ScientificScene3D: the surface triangles, the scatter points (small octahedra) or the domain frame (lines). Built only when Qt Quick 3D is available (src/CMakeLists.txt). AGENT-CONTRACT: ScientificScene3D owns every position and colour; this adapter copies its current snapshot into GPU vertex buffers on meshChanged and never transforms data itself, so the GPU image matches the software view and export (same scene coordinates, same camera properties).",
+      "description": "Optional Qt Quick 3D upload of one part of a ScientificScene3D: the surface triangles, the scatter points (small octahedra) or the domain frame (lines). Built only when Qt Quick 3D is available (src/CMakeLists.txt). Vertex layout: position (3 x f32), normal (3 x f32), colour (4 x f32), non-indexed; each point is VerticesPerPoint vertices. tst_scientific_geometry3d checks the buffer against the scene headless. AGENT-CONTRACT: ScientificScene3D owns every position and colour; this adapter copies its current snapshot into GPU vertex buffers on meshChanged and never transforms data itself, so the GPU image matches the software view and export (same scene coordinates, same camera properties).",
       "singleton": false,
       "attached": null,
       "file": "src/core/scientific_geometry3d.h",
@@ -65931,6 +65972,11 @@
           "name": "node",
           "returns": "QVariantMap",
           "parameters": "int row, int column"
+        },
+        {
+          "name": "get",
+          "returns": "QVariantMap",
+          "parameters": "int index"
         },
         {
           "name": "interpolate",
@@ -66467,6 +66513,20 @@
           "constant": false
         },
         {
+          "name": "sourcePointCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pointLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "problem",
           "type": "QString",
           "default": "",
@@ -66627,6 +66687,11 @@
         },
         {
           "name": "csvData",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "pointsCsvData",
           "returns": "QString",
           "parameters": ""
         },

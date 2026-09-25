@@ -132,9 +132,17 @@ TestCase {
         compare(cursor.zUnit, "K")
         verify(Math.abs(cursor.z - 5.5) < 0.05) // the 2 x 2 field is z = x + y; bilinear is exact
         figure.showDataTable = true
-        verify(findChild(figure, "scientificPlotDataTable").visible)
+        const samples = findChild(figure, "scientificPlotDataTable")
+        verify(samples.visible)
+        // Cells read rows through get(index): the table shows real values.
+        compare(samples.recordAt(0).id, "a0")
+        compare(samples.recordAt(0).x, 0)
+        verify(samples.recordAt(0).yUnit.length > 0)
         figure.tableSource = -1
-        verify(findChild(figure, "scientificPlotSurfaceTable").visible)
+        const nodes = findChild(figure, "scientificPlotSurfaceTable")
+        verify(nodes.visible)
+        compare(nodes.recordAt(0).id, "r0c0")
+        compare(nodes.recordAt(0).zUnit, "K")
         verify(!findChild(figure, "scientificPlotDataTable").visible)
         compare(figure.implicitWidth, Tk.Theme.size.panelMinWidth)
     }
@@ -161,5 +169,37 @@ TestCase {
         compare(pointSpy.count, 1)
         verify(volume.textSummary().indexOf("bilinear") > 0)
         verify(volume.Accessible.description.indexOf("1 points") > 0)
+        verify(volume.Accessible.description.indexOf("Selected point top at X 0 m, Y 0 m, Z 1 m.") > 0)
+    }
+
+    function test_3d_points_table_beside_a_surface() {
+        const root = createTemporaryObject(volumeFixture, this)
+        verify(root !== null)
+        const volume = root.plot
+        compare(volume.tableSource, "surface")
+        volume.showDataTable = true
+        const table = findChild(volume, "scientificPlot3DDataTable")
+        const source = findChild(volume, "scientificPlot3DTableSource")
+        verify(table.visible)
+        verify(source.visible) // both a surface and points: the points stay reachable
+        compare(table.model, root.plot.grid)
+        compare(table.recordAt(12).id, "r2c2") // the saddle centre node, as a cell reads it
+        compare(table.recordAt(12).z, 0)
+        compare(table.recordAt(12).zUnit, "m")
+        const pointsTab = findChild(source, "scientificPlot3DTablePoints")
+        verify(pointsTab !== null)
+        // The pane lays out on its first polish after becoming visible.
+        tryVerify(function() { return table.y >= source.height && pointsTab.width > Tk.Theme.size.control })
+        mouseClick(pointsTab)
+        compare(volume.tableSource, "points")
+        compare(table.model, root.probes)
+        compare(table.model.count, 1)
+        compare(table.model.sample(0).z, 1)
+        compare(table.recordAt(0).id, "top")
+        compare(table.recordAt(0).z, 1)
+        compare(table.recordAt(0).zUnit, "m")
+        verify(volume.pointsCsvData().indexOf("\"top\",\"0\",\"0\"") > 0)
+        verify(volume.csvData().indexOf("xUnit,yUnit,zUnit") > 0)
+        verify(volume.Accessible.description.indexOf("top at X 0 m, Y 0 m, Z 1 m") > 0)
     }
 }

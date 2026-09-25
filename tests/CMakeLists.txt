@@ -81,6 +81,12 @@ if(QINDATK_WITH_QUICK3D)
     find_package(Qt6Quick3D 6.8 QUIET)
     qindatk_add_test(tst_mesh_rig_geometry)
     target_link_libraries(tst_mesh_rig_geometry PRIVATE Qt6::Quick3D)
+    # Headless: ScientificGeometry3D's buffers against ScientificScene3D.
+    qindatk_add_test(tst_scientific_geometry3d)
+    target_link_libraries(tst_scientific_geometry3d PRIVATE Qt6::Quick3D)
+    # Real Qt Quick 3D drawing and scene-graph loss of ScientificPlot3D; skips
+    # headless, run under a display with QT_QUICK_BACKEND=rhi (docs/scientific-plot.md).
+    qindatk_add_test(tst_scientific_plot3d_render)
 endif()
 qindatk_add_test(tst_slide_deck)
 qindatk_add_test(tst_slide_playback)

@@ -163,6 +163,14 @@ QVariantMap ScientificGrid::window(int firstRow, int lastRow, int firstColumn, i
 }
 
 int ScientificGrid::rowCount(const QModelIndex &parent) const { return parent.isValid() ? 0 : count(); }
+QVariantMap ScientificGrid::get(int index) const
+{
+    if (index < 0 || index >= count()) return {};
+    QVariantMap out = node(index / columns(), index % columns());
+    out.insert(QStringLiteral("xUnit"), m_xUnit); out.insert(QStringLiteral("yUnit"), m_yUnit);
+    out.insert(QStringLiteral("zUnit"), m_zUnit);
+    return out;
+}
 QHash<int, QByteArray> ScientificGrid::roleNames() const
 {
     return {{IdRole, "id"}, {RowRole, "row"}, {ColumnRole, "column"}, {XRole, "x"}, {YRole, "y"},

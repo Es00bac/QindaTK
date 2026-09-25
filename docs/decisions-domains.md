@@ -361,10 +361,23 @@ software view and PNG/SVG export project the same vertices with the same
 matrices (depth-sorted faces, headlight shading). Coordinates are float32
 only inside the normalized cube; data stays float64.
 
+The GPU view uses the WP-076 scene/render boundary for its resources, not
+`SceneModel3D`: `ScientificPlot3D` loads one renderer per view, counts it
+(`renderGeneration`) and replaces it when the window's scene graph is
+invalidated, exactly as `SceneView3D` does, so a device loss rebuilds every
+buffer from `ScientificScene3D`. `SceneModel3D` is an editable entity
+document (IDs, hierarchy, undo, gizmo transforms); plot geometry is derived,
+read-only data regenerated from the dataset, so storing it as entities would
+duplicate the source of truth and put plot data in an undo history. Drawn
+points are capped (`pointLimit`, at most 16,384, thinned with X/Y/Z extremes
+and the selection kept), and a selection change patches only the affected
+point vertices.
+
 **Consequences.** Projection, picking, interpolation and export are testable
 headless with exact numbers, and 3D figures export reproducibly on any
 machine. The GPU image adds lighting and antialiasing differences only;
-comparing it with the export belongs to WP-092's output-fidelity work.
+comparing it with the export belongs to WP-089 (format, device and output
+fidelity).
 
 ## D-141 — Exports embed complete provenance and are byte-reproducible
 
@@ -375,7 +388,10 @@ provenance; the first slice embedded one series' metadata in PNG/SVG.
 document (PNG text chunk, SVG `<metadata>`): every source's identity, units,
 precision, shape, host parameters and full samples or a SHA-256 of the
 lattice, plus all render parameters (axes, viewport, sampling, interpolation,
-colour domain, camera, size). Painting is deterministic for identical inputs,
+colour domain, camera, size) and all render state the painter reads: the
+selection, every colour and ramp, the metrics map with the requested font and
+the family it resolved to. Anything that changes the pixels changes the
+metadata. Painting is deterministic for identical inputs,
 size and fonts, so repeated exports are byte-identical. A composite embeds
 each panel's full metadata under its (a), (b) label.
 

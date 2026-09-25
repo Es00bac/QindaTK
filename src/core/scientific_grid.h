@@ -73,6 +73,9 @@ public:
     // numbers or null (missing). Atomic: rejects everything on any error.
     Q_INVOKABLE bool replaceGrid(const QVariantList &xs, const QVariantList &ys, const QVariantList &values);
     Q_INVOKABLE QVariantMap node(int row, int column) const;
+    // AGENT-CONTRACT: Tk.DataTable's row reader (DataTable.qml recordAt): node
+    // at row-major `index` plus xUnit, yUnit, zUnit, as data() exposes them.
+    Q_INVOKABLE QVariantMap get(int index) const;
     Q_INVOKABLE QVariantMap interpolate(double x, double y, Interpolation mode) const;
     // Bounded read of a lattice window: at most maxRows x maxColumns nodes
     // (each <= 512), taken at an integer stride (real nodes, never averages).
