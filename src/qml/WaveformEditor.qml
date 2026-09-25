@@ -6,6 +6,8 @@ import QindaTK as Tk
 // AGENT-CONTRACT: the host owns source samples, edits and sample indexing. `columns`
 // carries bounded extrema and exact decimal sample boundaries; this view only
 // requests a selection or edit gesture and never changes the source snapshot.
+// The reference host is Tk.AudioWaveformSource (columns, zoom, scroll) plus
+// AudioSession.edits.apply for edit requests (docs/audio-editing.md, D-134/D-135).
 T.Control {
     id: root
 
@@ -40,10 +42,13 @@ T.Control {
     implicitHeight: Tk.Theme.size.waveformHeight * 2
     Accessible.role: Accessible.Graphic
     Accessible.name: root.tooltip.length ? root.tooltip : qsTr("Waveform editor")
-    Accessible.description: root.statusText.length ? root.statusText : qsTr("Audio waveform and sample selection. F requests fade, G requests gain, Delete requests trim.")
+    Accessible.description: root.statusText.length ? root.statusText
+        : qsTr("Audio waveform and sample selection. F fades in, Shift+F fades out, G applies gain, S silences, T crops to the selection and Delete removes it.")
     activeFocusOnTab: true
     focus: true
 
+    // Exact column boundaries first (decimal strings survive beyond 2^53);
+    // otherwise linear between the first and last boundary.
     function fractionForSample(sample) {
         if (!root.columns.length) return 0
         const wanted = String(sample)
@@ -51,7 +56,10 @@ T.Control {
             if (String(root.columns[i].startSample) === wanted) return i / root.columns.length
             if (String(root.columns[i].endSample) === wanted) return (i + 1) / root.columns.length
         }
-        return 0
+        const first = Number(root.columns[0].startSample)
+        const last = Number(root.columns[root.columns.length - 1].endSample)
+        if (!(last > first)) return 0
+        return Math.max(0, Math.min(1, (Number(wanted) - first) / (last - first)))
     }
     function boundaryAt(x) {
         if (!root.columns.length)
@@ -153,19 +161,36 @@ T.Control {
                     ctx.fillText(String(region.label), rx0 + Tk.Theme.space.xs, Tk.Theme.space.xs)
                 }
             }
+            if (root.selectionEndSample !== root.selectionStartSample && data.length) {
+                const sx0 = root.fractionForSample(root.selectionStartSample) * w
+                const sx1 = root.fractionForSample(root.selectionEndSample) * w
+                ctx.fillStyle = root.toCss(Tk.Theme.color.selection)
+                ctx.globalAlpha = Tk.Theme.opacity.muted
+                ctx.fillRect(Math.min(sx0, sx1), 0, Math.max(Tk.Theme.size.border, Math.abs(sx1 - sx0)), bandHeight)
+                ctx.globalAlpha = Tk.Theme.opacity.full
+            }
             if (data.length) {
                 ctx.strokeStyle = root.toCss(Tk.Theme.color.info)
                 ctx.globalAlpha = Tk.Theme.opacity.muted
                 ctx.lineWidth = Tk.Theme.size.border
+                const yFor = v => bandHeight * (0.5 - Math.max(-1, Math.min(1, Number(v) || 0)) * 0.46)
+                if (data.length * 2 <= w) {
+                    // Few columns (sample zoom): join the column values so single samples read as a line.
+                    ctx.beginPath()
+                    for (let i = 0; i < data.length; ++i) {
+                        const x = ((i + 0.5) / data.length) * w
+                        if (i === 0) ctx.moveTo(x, yFor(data[i].maximum))
+                        else ctx.lineTo(x, yFor(data[i].maximum))
+                    }
+                    ctx.stroke()
+                }
                 const step = Math.max(1, Math.ceil(data.length / Math.max(1, w)))
                 for (let i = 0; i < data.length; i += step) {
                     const item = data[i]
                     const x = ((i + 0.5) / data.length) * w
-                    const lo = Math.max(-1, Math.min(1, Number(item.minimum) || 0))
-                    const hi = Math.max(-1, Math.min(1, Number(item.maximum) || 0))
                     ctx.beginPath()
-                    ctx.moveTo(x, bandHeight * (0.5 - hi * 0.46))
-                    ctx.lineTo(x, bandHeight * (0.5 - lo * 0.46))
+                    ctx.moveTo(x, yFor(item.maximum))
+                    ctx.lineTo(x, Math.max(yFor(item.minimum), yFor(item.maximum) + Tk.Theme.size.border))
                     ctx.stroke()
                 }
                 ctx.globalAlpha = Tk.Theme.opacity.full
@@ -232,13 +257,19 @@ T.Control {
             root.scrollRequested(event.key === Qt.Key_Left ? -0.05 : 0.05)
             event.accepted = true
         } else if (event.key === Qt.Key_F) {
-            root.requestEdit("fade")
+            root.requestEdit(event.modifiers & Qt.ShiftModifier ? "fadeOut" : "fadeIn")
             event.accepted = true
         } else if (event.key === Qt.Key_G) {
             root.requestEdit("gain")
             event.accepted = true
-        } else if (event.key === Qt.Key_Delete) {
-            root.requestEdit("trim")
+        } else if (event.key === Qt.Key_S) {
+            root.requestEdit("silence")
+            event.accepted = true
+        } else if (event.key === Qt.Key_T) {
+            root.requestEdit("crop")
+            event.accepted = true
+        } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+            root.requestEdit("delete")
             event.accepted = true
         }
     }

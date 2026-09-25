@@ -26,7 +26,8 @@ QVariantMap failure(const QString &message)
 
 AudioBufferPtr AudioSession::mediaBuffer(const QString &resourceId, int sampleRate)
 {
-    const AudioBufferPtr decoded = m_decoded.value(resourceId);
+    // Edited samples (D-134); the resampled copy is dropped per source revision.
+    const AudioBufferPtr decoded = m_decoded.contains(resourceId) ? m_edits->buffer(resourceId) : nullptr;
     if (!decoded || decoded->sampleRate == sampleRate) return decoded;
     const QString key = QStringLiteral("%1/%2").arg(sampleRate).arg(resourceId);
     if (const AudioBufferPtr cached = m_resampled.value(key)) return cached;

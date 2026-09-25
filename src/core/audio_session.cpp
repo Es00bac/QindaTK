@@ -49,7 +49,8 @@ AudioSession::AudioSession(QObject *parent)
       m_automation(new AutomationModel(this)),
       m_schedule(new EngineSchedule(this)),
       m_resources(new ResourceResolver(this)),
-      m_mixer(new AudioMixerModel(this, m_timeline, m_automation))
+      m_mixer(new AudioMixerModel(this, m_timeline, m_automation)),
+      m_edits(new AudioSourceEditModel(this))
 {
     m_timeline->setTimeMap(m_timeMap);
     m_tempo->setTimeMap(m_timeMap);
@@ -64,6 +65,8 @@ AudioSession::AudioSession(QObject *parent)
     connect(m_timeline, &TimelineModel::contentReset, this, changed);
     connect(m_schedule, &EngineSchedule::published, this, &AudioSession::rebuild);
     connect(m_mixer, &AudioMixerModel::contentChanged, this, &AudioSession::rebuild);
+    connect(m_edits, &AudioSourceEditModel::sourceChanged, this,
+            [this](const QString &resourceId, const QString &) { sourceEdited(resourceId); });
 }
 
 AudioSession::~AudioSession()
@@ -134,7 +137,9 @@ QVariantList AudioSession::media() const
     QVariantList list;
     for (const QVariant &value : m_resources->resources()) {
         QVariantMap entry = value.toMap();
-        const AudioBufferPtr buffer = m_decoded.value(entry.value(QStringLiteral("resourceId")).toString());
+        const QString id = entry.value(QStringLiteral("resourceId")).toString();
+        // Frames, rate and channels of the samples that play: the edited source.
+        const AudioBufferPtr buffer = m_decoded.contains(id) ? m_edits->buffer(id) : nullptr;
         entry.insert(QStringLiteral("decoded"), bool(buffer));
         if (buffer) {
             entry.insert(QStringLiteral("sampleRate"), buffer->sampleRate);
@@ -167,7 +172,19 @@ bool AudioSession::decode(const QString &resourceId)
     const AudioBufferPtr buffer = uri.isEmpty() ? nullptr : AudioFile::readWav(localPath(uri));
     if (buffer) m_decoded.insert(resourceId, buffer);
     else m_decoded.remove(resourceId);
+    m_edits->setOriginal(resourceId, buffer);
     return bool(buffer);
+}
+
+void AudioSession::sourceEdited(const QString &resourceId)
+{
+    // AGENT-CONTRACT (D-134): a new source revision invalidates its resampled
+    // copies and recompiles, so playback and renders use the edited samples.
+    for (auto it = m_resampled.begin(); it != m_resampled.end();)
+        it = it.key().endsWith(QLatin1Char('/') + resourceId) ? m_resampled.erase(it) : std::next(it);
+    if (m_opening) return;
+    emit mediaChanged();
+    rebuild();
 }
 
 QString AudioSession::insertClip(TimelineClip clip, const QString &trackId, qint64 at, QString *error)
@@ -275,6 +292,7 @@ QVariantMap AudioSession::importMedia(const QString &file, const QString &trackI
         return failure(m_lastError);
     }
     m_decoded.insert(resourceId, buffer);
+    m_edits->setOriginal(resourceId, buffer);
     TimelineClip clip;
     clip.id = QUuid::createUuid();
     clip.duration = *duration;
@@ -285,6 +303,7 @@ QVariantMap AudioSession::importMedia(const QString &file, const QString &trackI
     const QString clipId = insertClip(clip, trackId, *start, &error);
     if (clipId.isEmpty()) {
         m_decoded.remove(resourceId);
+        m_edits->setOriginal(resourceId, nullptr);
         m_resources->removeResource(resourceId);
         fail(error);
         return failure(error);
@@ -385,6 +404,7 @@ bool AudioSession::save(const QString &file)
                            {QStringLiteral("automation"), QJsonObject::fromVariantMap(m_automation->contentMap())},
                            {QStringLiteral("timeline"), QJsonObject::fromVariantMap(m_timeline->contentMap())},
                            {QStringLiteral("mixer"), QJsonObject::fromVariantMap(m_mixer->contentMap())},
+                           {QStringLiteral("edits"), QJsonObject::fromVariantMap(m_edits->contentMap())},
                            {QStringLiteral("media"), media}};
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly) || out.write(QJsonDocument(root).toJson()) < 0 || !out.commit())
@@ -414,20 +434,24 @@ bool AudioSession::open(const QString &file)
     // replaced are restored; a bad file never leaves a half-loaded session.
     // The mixer part is last: its routes name buses it defines itself and
     // tracks the timeline part just loaded. A session without one (saved
-    // before WP-062) opens with the default mix.
-    static constexpr const char *kParts[] = {"tempo", "automation", "timeline", "mixer"};
+    // before WP-062) opens with the default mix. The source edits (WP-063)
+    // come last and are empty in older files.
+    static constexpr const char *kParts[] = {"tempo", "automation", "timeline", "mixer", "edits"};
     const QVariantMap before[] = {m_tempo->contentMap(), m_automation->contentMap(), m_timeline->contentMap(),
-                                  m_mixer->contentMap()};
+                                  m_mixer->contentMap(), m_edits->contentMap()};
     const auto loadPart = [this](int part, const QVariantMap &content) {
         return part == 0 ? m_tempo->loadContent(content)
                : part == 1 ? m_automation->loadContent(content)
-               : part == 2 ? m_timeline->loadContent(content) : m_mixer->loadContent(content);
+               : part == 2 ? m_timeline->loadContent(content)
+               : part == 3 ? m_mixer->loadContent(content) : m_edits->loadContent(content);
     };
-    for (int part = 0; part < 4; ++part) {
+    m_opening = true; // source edits and their originals arrive below; one recompile at the end
+    for (int part = 0; part < 5; ++part) {
         const QString key = QString::fromLatin1(kParts[part]);
         const QVariantMap result = loadPart(part, root.value(key).toMap());
         if (!result.value(QStringLiteral("ok")).toBool()) {
             for (int loaded = part - 1; loaded >= 0; --loaded) loadPart(loaded, before[loaded]);
+            m_opening = false;
             return fail(tr("The session %1 could not be loaded: %2").arg(key, resultError(result)));
         }
     }
@@ -448,6 +472,7 @@ bool AudioSession::open(const QString &file)
         const int saved = root.value(QStringLiteral("sampleRate")).toInt();
         if (saved > 0) m_timeMap->setSampleRate(saved);
     }
+    m_opening = false;
     if (m_filePath != path) {
         m_filePath = path;
         emit filePathChanged();

@@ -5,6 +5,7 @@
 #include "audio_graph.h"
 #include "audio_media.h"
 #include "audio_mixer_model.h"
+#include "audio_source_edit_model.h"
 #include "automation_model.h"
 #include "engine_schedule.h"
 #include "resource_resolver.h"
@@ -24,7 +25,8 @@ namespace QindaTK {
 // It owns the accepted domain models — TimelineModel (clips, edits, undo),
 // TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver
 // (media identity, availability, relink) — and AudioMixerModel (buses,
-// routing, sends, groups; WP-062), and compiles them into an
+// routing, sends, groups; WP-062) and AudioSourceEditModel (sample, fade
+// and spectral edits of each source; WP-063), and compiles them into an
 // AudioRenderGraph for its engine and for offline renders. It persists as
 // "qindatk.audio-session/1" JSON with media paths relative to the session.
 class AudioSession : public QObject {
@@ -37,6 +39,7 @@ class AudioSession : public QObject {
     Q_PROPERTY(QindaTK::EngineSchedule *schedule READ schedule CONSTANT)
     Q_PROPERTY(QindaTK::ResourceResolver *resources READ resources CONSTANT)
     Q_PROPERTY(QindaTK::AudioMixerModel *mixer READ mixer CONSTANT)
+    Q_PROPERTY(QindaTK::AudioSourceEditModel *edits READ edits CONSTANT)
     Q_PROPERTY(QindaTK::AudioEngine *engine READ engine WRITE setEngine NOTIFY engineChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
     Q_PROPERTY(QString mediaDirectory READ mediaDirectory WRITE setMediaDirectory NOTIFY mediaDirectoryChanged)
@@ -56,6 +59,7 @@ public:
     EngineSchedule *schedule() const { return m_schedule; }
     ResourceResolver *resources() const { return m_resources; }
     AudioMixerModel *mixer() const { return m_mixer; }
+    AudioSourceEditModel *edits() const { return m_edits; }
     AudioEngine *engine() const { return m_engine; }
     void setEngine(AudioEngine *engine);
     QString filePath() const { return m_filePath; }
@@ -69,6 +73,8 @@ public:
     // Graph at `sampleRate` from the committed timeline, media, schedule and
     // mix. `offline`: the master feeds "main" (the file), device ports are silent.
     AudioRenderGraphPtr compileGraph(int sampleRate, bool offline = false);
+    // The edited samples (edits.buffer) at `sampleRate`, resampled once per
+    // source revision.
     AudioBufferPtr mediaBuffer(const QString &resourceId, int sampleRate);
     // The engine clock in timeline ticks: the device thread's live transport
     // sample when an engine is attached, else the automation transport.
@@ -109,6 +115,7 @@ private:
     void updateRecordTarget();
     void addRecordedTake(const QVariantMap &take);
     bool decode(const QString &resourceId);
+    void sourceEdited(const QString &resourceId);
     QString insertClip(TimelineClip clip, const QString &trackId, qint64 at, QString *error);
     QString armedTrack() const;
     bool fail(const QString &message);
@@ -121,6 +128,7 @@ private:
     EngineSchedule *m_schedule = nullptr;
     ResourceResolver *m_resources = nullptr;
     AudioMixerModel *m_mixer = nullptr;
+    AudioSourceEditModel *m_edits = nullptr;
     QPointer<AudioEngine> m_engine;
     QList<QMetaObject::Connection> m_engineConnections;
     QHash<QString, AudioBufferPtr> m_decoded;
@@ -129,6 +137,7 @@ private:
     QString m_mediaDirectory;
     QString m_lastError;
     qint64 m_forwardedTicks = 0;
+    bool m_opening = false; // open() recompiles once at the end
 };
 
 } // namespace QindaTK

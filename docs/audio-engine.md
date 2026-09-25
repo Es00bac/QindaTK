@@ -131,7 +131,8 @@ error`.
 ## Session persistence
 
 `AudioSession` owns `timeline` (clips, edits, undo), `tempo`, `automation`,
-`schedule`, `resources` and `timeMap`. `importMedia(file, trackId,
+`schedule`, `resources`, `timeMap`, `mixer` and `edits` (source sample edits,
+saved as the `edits` part). `importMedia(file, trackId,
 startTicks)` decodes a RIFF/WAVE file (PCM 8/16/24/32, float 32/64,
 extensible), registers a resource (`media:<uuid>`) and inserts one undoable
 clip. `save(file)` writes `qindatk.audio-session/1` JSON atomically
@@ -162,6 +163,8 @@ layout; see [audio-measurement.md](audio-measurement.md).
 Hardware/OS matrices (PipeWire native, JACK, WASAPI, CoreAudio, real
 interfaces, driver hot-plug notifications) are WP-088 platform qualification;
 formats beyond WAV belong to format adapters; resampling at playback time,
-fades/crossfades and per-clip gain are not modelled; plugins belong to
-WP-066. Sends, buses and per-track and bus meters are in
+clip crossfades and per-clip gain are not modelled; plugins belong to
+WP-066. Source edits (trim, fades, gain, spectral processing) are
+`AudioSession.edits` ([audio-editing.md](audio-editing.md), WP-063): the
+graph plays the edited buffers. Sends, buses and per-track and bus meters are in
 [audio-mixer.md](audio-mixer.md).

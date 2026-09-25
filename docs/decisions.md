@@ -880,6 +880,7 @@ plus the angle table reopens the same cuts (the angle is recovered from each
 clip's resource), and program playback and export need no multicam-specific
 rendering.
 
+
 ## D-100 — A held control is heard in every mode; static values are the parameter default
 
 **Context.** WP-061 controls must change real engine parameters, and one
@@ -1010,6 +1011,8 @@ document-space path geometry. Enabled effects of an unknown kind refuse
 export explicitly. **Consequences.** Scaled strokes export at their canvas
 width (earlier output scaled them), browsers reproduce the appearance, and
 renderers without CSS compositing ignore the blend mode.
+
+
 
 ## D-110 — Mixer state lives in AudioMixerModel; channel values are automation parameters
 
@@ -1205,3 +1208,68 @@ native reopen, SVG/DXF output). 3D presentation of engineering geometry
 uses the accepted WP-076 scene viewport; a solid-modeling kernel remains a
 host-provided extension. **Consequences.** WP-083's CAD qualification
 covers only the declared 2D operations.
+
+## D-134 — Source edits are an operation list per resource with their own history
+
+**Context.** WP-063 needs real trim, fade, gain and spectral edits that play,
+render, analyse and undo consistently, while the engine's device thread must
+never allocate or run editing code. **Decision.** Each `AudioSession` owns an
+`AudioSourceEditModel` (`session.edits`). A source is its decoded original
+plus an ordered list of edits in source-sample coordinates (`gain`, `fadeIn`,
+`fadeOut`, `silence`, `delete`, `crop`, `spectralGain`); in-place edits keep
+their computed replacement samples, so undo refolds from the original with
+copies only. The model has its own history (per-owner undo, as D-110). Every
+change bumps the source revision and emits `sourceChanged`; the session
+drops resampled copies and recompiles, so the engine adopts new immutable
+buffers at a period boundary. The session saves the edit list as its
+`edits` part and replays it on open. Clips keep their timeline placement: a
+shortened source leaves the tail of a clip silent. **Consequences.**
+Playback, offline renders and both analysis sources always read the same
+samples, the audio thread stays allocation-free, and edits are reversible.
+Moving clips with a length-changing edit, and joining histories across
+owners, are host or timeline work.
+
+## D-135 — Waveform extrema come from an exact min/max pyramid
+
+**Context.** AUD-20 requires zooming from the whole file to single samples
+without dropping peaks, with bounded memory and exact sample boundaries.
+**Decision.** `AudioPeakPyramid` stores min/max of 16-sample blocks and of
+each ×4 coarser level (about ⅔ byte per sample per channel), built once per
+source revision on the thread pool with cancellation. A range query combines
+whole blocks from the coarsest fitting level and reads raw samples only at
+the partial ends, so every answer is the exact min/max. Columns split a range
+of `L` samples into `n = min(count, L, 8192)` parts at `⌊i·L/n⌋`; when
+`L ≤ count` each column is one sample. **Consequences.** A single-sample
+spike is visible at every zoom and in exactly one column, selections snap to
+exact sample numbers, and zooming never rescans the samples.
+
+## D-136 — Spectral analysis uses centred periodic-Hann frames and amplitude dBFS
+
+**Context.** AUD-21 requires known tones to land at the expected bins and
+declared window, hop and normalization metadata, with bounded tiles.
+**Decision.** Frame *f* is centred on sample `f·hop` and zero-padded outside
+the source; the window is the periodic Hann (`Σw = N/2`); bin *k* is
+`k·rate/N`; magnitudes are amplitudes `2|X[k]|/Σw` (DC and Nyquist
+`|X[k]|/Σw`), so a full-scale sine on a bin reads 0 dBFS. Display cells take
+the maximum over the frames centred in a column and the bins in a band.
+Requests are capped at 12 000 cells and `maxFrames` frames: wider ranges use
+a power-of-two multiple of the hop. Frames are computed in 32-frame tiles per
+(revision, channel, N, hop), cached in a 32 MiB least-recently-used cache.
+**Consequences.** Tile boundaries cannot show seams, strided frames are
+frames of the full analysis, the same conventions serve analysis and
+processing, and memory and paint cost are bounded for any file length.
+
+## D-137 — Spectral processing is an STFT gain with exact patch bounds and provisional previews
+
+**Context.** Spectral selections must be processed with cancellable
+previews and reversible commits, without touching audio outside the
+selection. **Decision.** `spectralGain` multiplies the bins in
+`[lowHz, highHz]` of the frames centred in `[start, end)` (hop N/4, Hann
+analysis and synthesis, `Σw² = 1.5`) and adds only the difference those
+frames make, so samples outside `[f0·h − N/2, (f1−1)·h + N/2)` are
+bit-identical and untouched bins reconstruct to rounding. A preview runs on
+the thread pool, can be cancelled between frames, and once ready is
+provisional: the session plays and analyses it until it is committed (one
+undo step) or cancelled (the committed samples return). **Consequences.**
+A user hears a spectral change before accepting it, a cancelled preview
+never lands, and undo restores the exact original samples.

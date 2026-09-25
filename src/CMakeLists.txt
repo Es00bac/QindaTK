@@ -119,6 +119,11 @@ qt_add_qml_module(qindatk
         core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp core/audio_engine_meters.cpp
         core/audio_engine.h core/audio_engine_p.h
         core/audio_session.cpp core/audio_session_transport.cpp core/audio_session_render.cpp core/audio_session.h
+        core/audio_dsp.cpp core/audio_dsp.h core/audio_peaks.cpp core/audio_peaks.h
+        core/audio_spectrogram.cpp core/audio_spectrogram.h
+        core/audio_source_edit.cpp core/audio_source_edit.h
+        core/audio_source_edit_model.cpp core/audio_source_edit_model.h
+        core/audio_analysis_source.cpp core/audio_spectrogram_source.cpp core/audio_analysis_source.h
         core/uri_validator.cpp core/uri_validator.h
         core/token_editor_service.cpp core/token_editor_service.h
         core/resource_resolver.cpp core/resource_resolver.h
