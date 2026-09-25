@@ -1980,3 +1980,34 @@ after a concurrent edit, and element IDs were private. **Decision.**
 and `textPosition` resolves it on any replica; a deleted element resolves to
 the gap it left. **Consequences.** Shared selections follow edits without
 host rebasing; anchors survive compaction because element IDs do.
+
+## D-297 — The ribbon squeezes and wraps; it never scrolls commands away
+
+**Context.** The first `Ribbon` drew every item as the same small button in
+one row and scrolled a group row that did not fit. QindaOffice (its first
+real host) moves four applications from wrapping tool strips to ribbons and
+holds a rule that no command may be hidden at 520 px; a horizontally
+scrolled row hides exactly the commands a narrow window needs. The Office
+suites also needed a weight hierarchy (a primary command per group),
+row-shaped groups (font family and size above B/I/U) and live binding to
+their own action objects.
+
+**Decision.** Items carry a weight (`large`, `small`, `icon`); a group is
+either column-stacked `items` or explicit `rows`. One `arrange(level)` in
+`RibbonGroup` measures and places, and the ribbon picks the lowest
+`squeezeLevel` whose summed `widthAt(level)` fits: 0 as declared, 1 large
+items small, 2 icon-only where an icon exists, 3 the same plus wrapping
+lines. Widths per weight come from label metrics only, so planning never
+reads the placement it produces. Items bind to an Action-shaped QObject
+(`text`, `iconName`, `enabled`, `visible`, `checkable`, `checked`,
+`trigger()`) without the toolkit knowing its class; `CommandRegistry` items
+and host components remain. An unknown icon name falls back to the label.
+The look — pill tabs, soft group cards with Overline captions, a host
+`trailing` slot beside the tabs — is the toolkit's own.
+
+**Consequences.** A narrow window gets a taller ribbon, never a hidden
+command; hosts can test that every item of every tab is inside the ribbon
+at any width. `ribbonGroupViewport` is no longer a `Scroll` (it has no
+`scrollableX`). `compact` mode is a host preference, not a squeeze level.
+Tests: `tst_ribbon.qml`, `tst_navigation_models.qml`.
+

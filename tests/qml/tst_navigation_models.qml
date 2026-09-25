@@ -101,7 +101,10 @@ TestCase {
         const group = findChild(ribbon, "ribbonGroup_clipboard")
         verify(group)
         verify(findChild(ribbon, "ribbonItem_paste"))
-        tryVerify(function() { return findChild(ribbon, "ribbonGroupViewport").scrollableX })
+        // D-297: a narrow ribbon squeezes and wraps instead of scrolling.
+        tryVerify(function() { return ribbon.squeezeLevel >= 2 })
+        const paste = findChild(ribbon, "ribbonItem_paste")
+        verify(paste.mapToItem(ribbon, paste.width, 0).x <= ribbon.width + 0.5)
         const requested = createTemporaryObject(spyComponent, root, { target: ribbon, signalName: "itemRequested" })
         ribbon.keyTipsVisible = true
         verify(ribbon.onKey({ key: Qt.Key_P, text: "P" }))

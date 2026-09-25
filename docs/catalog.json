@@ -29636,7 +29636,7 @@
       "name": "Ribbon",
       "kind": "qml",
       "base": "Item",
-      "description": "Model-driven contextual command ribbon. Group commands keep stable model IDs.",
+      "description": "Model-driven contextual command ribbon (D-297). Tabs declare groups and items by stable ID; contextual tabs appear only for matching context IDs.  tabs: [{ id, label, keyTip, contextual, contextId, visible, groups: [{ id, label, items: [item…] | rows: [[item…], …] }] }] item: { id, label, iconName, tooltip, shortcut, keyTip, visible, enabled, size: \"large\"|\"small\"|\"icon\", checkable, checked, action (Action-shaped QObject, see RibbonSlot.qml) | commandId (with commandRegistry) | component (a host Component), menu: [item… | \"|\"], split }  Layout: a row of pill tabs with the host's `trailing` item (a command search, say) and the collapse toggle at the right; below it the current tab's groups as soft cards. `mode: \"compact\"` draws one row of small buttons per group without captions.  AGENT-CONTRACT (squeeze, QindaOffice AGENTS.md \"Squeeze\"): the ribbon never hides a command. As the width shrinks, `squeezeLevel` steps 0 → 1 (large items become small) → 2 (items with an icon become icon-only) → 3 (the groups wrap onto further lines). Levels are planned from RibbonGroup.widthAt(), never from drawn geometry.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/Ribbon.qml",
@@ -29706,6 +29706,46 @@
           "required": false
         },
         {
+          "name": "mode",
+          "type": "string",
+          "default": "\"expanded\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stackRows",
+          "type": "int",
+          "default": "2",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "autoSqueeze",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "itemDelegate",
+          "type": "Component",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "trailing",
+          "type": "Item",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "visibleTabs",
           "type": "var",
           "default": "filteredTabs()",
@@ -29720,6 +29760,30 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "compact",
+          "type": "bool",
+          "default": "mode === \"compact\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bandHeight",
+          "type": "real",
+          "default": "stackRows * Tk.Theme.size.control + (stackRows - 1) * Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "squeezeLevel",
+          "type": "int",
+          "default": "planLevel()",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -29730,6 +29794,10 @@
         {
           "name": "itemRequested",
           "parameters": "string tabId, string groupId, string itemId"
+        },
+        {
+          "name": "collapseToggled",
+          "parameters": "bool collapsed"
         }
       ],
       "methods": [
@@ -29750,8 +29818,28 @@
           "parameters": "id"
         },
         {
+          "name": "groupItems",
+          "parameters": "group"
+        },
+        {
+          "name": "findItem",
+          "parameters": "groupId, itemId"
+        },
+        {
           "name": "activateItem",
           "parameters": "groupId, itemId"
+        },
+        {
+          "name": "keyTipFor",
+          "parameters": "item"
+        },
+        {
+          "name": "openItemMenu",
+          "parameters": "item, anchor"
+        },
+        {
+          "name": "planLevel",
+          "parameters": ""
         },
         {
           "name": "onKey",
@@ -29767,12 +29855,376 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "ribbonAction_",
+        "ribbonBackground",
         "ribbonCollapseButton",
         "ribbonGroupViewport",
-        "ribbonGroup_",
-        "ribbonItem_",
-        "ribbonTab_"
+        "ribbonGroups",
+        "ribbonItemMenu",
+        "ribbonMenuItem_",
+        "ribbonTabRow",
+        "ribbonTab_",
+        "ribbonTrailing"
+      ]
+    },
+    {
+      "name": "RibbonButton",
+      "kind": "qml",
+      "base": "T.AbstractButton",
+      "description": "One ribbon command at one of three weights (D-297): \"large\" — the group's primary command: icon over a one-line label, as tall as the two stacked rows beside it (`bandHeight`); \"small\" — icon + one-line label at control height (stacked two high); \"icon\"  — a square icon-only button (the label becomes the tooltip). `hasMenu` adds a chevron; with `split` the chevron is its own target that emits `menuRequested` while the body emits `clicked`.  AGENT-CONTRACT (Ribbon.qml, RibbonGroup.qml): `largeWidth`, `smallWidth` and `iconWidth` are this button's width at each weight, computed from the label metrics alone — never from the current `size` — so the ribbon can plan its squeeze level without laying out every weight (no binding loop).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RibbonButton.qml",
+      "properties": [
+        {
+          "name": "size",
+          "type": "string",
+          "default": "\"small\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "shortcutText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasMenu",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "split",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bandHeight",
+          "type": "real",
+          "default": "Tk.Theme.size.control * 2 + Tk.Theme.space.xs",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "menuHovered",
+          "type": "bool",
+          "default": "split && hasMenu && chevronHover.hovered",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "largeWidth",
+          "type": "real",
+          "default": "Math.ceil(Math.max(Tk.Theme.size.chip + Tk.Theme.space.sm,",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "smallWidth",
+          "type": "real",
+          "default": "Math.ceil((iconName.length > 0 ? Tk.Theme.size.icon + Tk.Theme.space.sm : 0)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconWidth",
+          "type": "real",
+          "default": "iconName.length > 0 ? Tk.Theme.size.control + _chevron : smallWidth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "plainLabel",
+          "type": "string",
+          "default": "String(text).replace(/&&/g, \"\\u0001\").replace(/&/g, \"\").replace(/\\u0001/g, \"&\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "menuRequested",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ribbonButtonBackground",
+        "ribbonButtonIcon",
+        "ribbonButtonLabel",
+        "ribbonButtonMenuArea"
+      ]
+    },
+    {
+      "name": "RibbonGroup",
+      "kind": "qml",
+      "base": "Item",
+      "description": "One labelled group of a Tk.Ribbon, drawn as a soft card (D-297). Two arrangements, both declared as data by the host: `items` — columns: a \"large\" item is a column of its own; consecutive \"small\"/\"icon\"/component items stack `stackRows` high; `rows`  — explicit rows ([[…], […]]), for groups that read left to right (a font group: family and size on top, B I U below). `level` is the ribbon's squeeze level: 0 as declared, 1 turns large items small, 2 turns every item with an icon into an icon-only button. In `compact` mode every group is one row and the caption is hidden.  AGENT-CONTRACT (Ribbon.qml): `widthAt(level)` is this group's width at a level, computed from the items' weight-independent metrics (RibbonButton.largeWidth/smallWidth/iconWidth, a component's implicit width). The ribbon sums it to pick its level, so it must never read the current placement — that is what keeps the squeeze free of binding loops. AGENT-NOTE: items are placed by computed x/y rather than nested Flex columns: one arrange() both measures and places, so the planned width and the drawn width cannot drift apart, and a level change moves items without re-creating them (a combo keeps its popup and focus).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RibbonGroup.qml",
+      "properties": [
+        {
+          "name": "groupData",
+          "type": "var",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "ribbon",
+          "type": "Item",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "level",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "compact",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "default": "String(groupData.id || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "entries",
+          "type": "var",
+          "default": "flatten(groupData)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "arrangement",
+          "type": "var",
+          "default": "arrange(level)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "captionHeight",
+          "type": "real",
+          "default": "compact ? 0 : caption.implicitHeight + Tk.Theme.space.xs",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "padding",
+          "type": "real",
+          "default": "Tk.Theme.space.sm",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "flatten",
+          "parameters": "data"
+        },
+        {
+          "name": "hasIcon",
+          "parameters": "index"
+        },
+        {
+          "name": "weightAt",
+          "parameters": "index, lvl"
+        },
+        {
+          "name": "widthOf",
+          "parameters": "index, weight"
+        },
+        {
+          "name": "widthAt",
+          "parameters": "lvl"
+        },
+        {
+          "name": "arrange",
+          "parameters": "lvl"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ribbonGroupCaption",
+        "ribbonGroupCard",
+        "ribbonGroup_"
+      ]
+    },
+    {
+      "name": "RibbonSlot",
+      "kind": "qml",
+      "base": "Item",
+      "description": "One item of a Tk.RibbonGroup: chooses the presentation for the item's data and exposes the weight-independent width the squeeze plans with. { component: Component }      — a host widget (a combo, a colour button); ribbon.itemDelegate set        — the host draws every non-component item; { commandId } + registry       — a Tk.CommandButton bound to the registry; otherwise                      — a Tk.RibbonButton, bound live to `item.action` when one is given.  AGENT-CONTRACT (`item.action`): any QObject with `text` (or `plainText`), `iconName`, `enabled`, `visible`, `checkable`, `checked`, optional `shortcutText`/`tooltip`, and a `trigger()` method — QtQuick's Action shape, and QindaOffice's ActionEntry. The ribbon never flips `checked` itself; the action is the truth and the button re-binds after a click.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RibbonSlot.qml",
+      "properties": [
+        {
+          "name": "ribbon",
+          "type": "Item",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "groupId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "itemData",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "weight",
+          "type": "string",
+          "default": "\"small\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "action",
+          "type": "var",
+          "default": "itemData && itemData.action ? itemData.action : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "itemId",
+          "type": "string",
+          "default": "String(itemData.id || itemData.commandId || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "default": "String(itemData.label || (action ? (action.plainText !== undefined ? action.plainText : action.text) : \"\") || itemId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "iconName",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "itemEnabled",
+          "type": "bool",
+          "default": "itemData.enabled !== false && (action === null || action.enabled)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "content",
+          "type": "Item",
+          "default": "loader.item",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "widthFor",
+          "parameters": "w"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "ribbonAction_",
+        "ribbonItem_"
       ]
     },
     {
