@@ -170,12 +170,18 @@ DeckState defaultDeck()
         placeholder("title", "Title", QRectF(80, 60, 800, 90), 40, "Click to add title"),
         placeholder("subtitle", "Subtitle", QRectF(80, 300, 800, 60), 24, "Click to add subtitle"),
         placeholder("body", "Body", QRectF(80, 170, 800, 320), 22, "Click to add text")};
+    // Layout placeholders only position a role (the codec stores role and
+    // bounds), so they keep every other member at its default.
+    auto slot = [](const QString &role, const QRectF &bounds) {
+        Placeholder p;
+        p.role = role;
+        p.bounds = bounds;
+        return p;
+    };
     Layout title{QStringLiteral("layout-title"), QStringLiteral("Title slide"),
-                 {placeholder("title", "Title", QRectF(80, 180, 800, 110), 40, {}),
-                  placeholder("subtitle", "Subtitle", QRectF(80, 310, 800, 60), 24, {})}};
+                 {slot("title", QRectF(80, 180, 800, 110)), slot("subtitle", QRectF(80, 310, 800, 60))}};
     Layout content{QStringLiteral("layout-content"), QStringLiteral("Title and content"),
-                   {placeholder("title", "Title", QRectF(80, 40, 800, 90), 40, {}),
-                    placeholder("body", "Body", QRectF(80, 150, 800, 340), 22, {})}};
+                   {slot("title", QRectF(80, 40, 800, 90)), slot("body", QRectF(80, 150, 800, 340))}};
     master.layouts = {title, content};
     deck.masters << master;
     Slide slide;

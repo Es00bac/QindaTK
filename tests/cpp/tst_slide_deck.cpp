@@ -79,6 +79,13 @@ private slots:
         // Title layout position (80, 180, 800 x 110), not the master's.
         QCOMPARE(title.value("bounds").toMap().value("y").toDouble(), 180.0);
         QVERIFY(!deck.canUndo());
+
+        // Sorter thumbnails come from the slide painter, cached until an edit.
+        const QString preview = deck.slideSummaries().first().toMap().value("previewUrl").toString();
+        QVERIFY(preview.startsWith(QStringLiteral("data:image/png;base64,")));
+        QCOMPARE(deck.slideSummaries().first().toMap().value("previewUrl").toString(), preview);
+        QVERIFY(!deck.insertObject(slide, "shape", box(0, 0, 480, 270)).isEmpty());
+        QVERIFY(deck.slideSummaries().first().toMap().value("previewUrl").toString() != preview);
     }
 
     void masterChangesKeepDeliberateOverrides()
@@ -306,7 +313,8 @@ private slots:
         const QString shape = deck.insertObject(slide, "shape", box(1, 1, 10, 10));
         QVERIFY(!deck.addEffect(shape, "appear").isEmpty());
         const QByteArray good = deck.toJson().toUtf8();
-        QVERIFY(SlideDeck::decodeState(good, nullptr, nullptr, nullptr, nullptr));
+        QString goodProblem;
+        QVERIFY2(SlideDeck::decodeState(good, nullptr, nullptr, nullptr, &goodProblem), qPrintable(goodProblem));
 
         QJsonObject root = QJsonDocument::fromJson(good).object();
         QJsonArray slides = root.value("slides").toArray();

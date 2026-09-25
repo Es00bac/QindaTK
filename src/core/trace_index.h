@@ -6,11 +6,16 @@
 #include <QStringList>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
+#include <atomic>
+#include <functional>
+#include <memory>
 
 namespace QindaTK {
 
 // A bounded trace snapshot. Raw records carry exact decimal tick strings and
 // explicit clock domains; conversion, validation and sorting run off-thread.
+// Files (this index's export format or Chrome Trace Event JSON) are read and
+// parsed off-thread too; see trace_import.cpp.
 class TraceIndex : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -24,6 +29,7 @@ class TraceIndex : public QObject {
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
 public:
     explicit TraceIndex(QObject *parent = nullptr) : QObject(parent) {}
+    ~TraceIndex() override;
     bool busy() const { return m_busy; }
     int count() const { return m_records.size(); }
     int rejectedCount() const { return m_rejected; }
@@ -35,6 +41,12 @@ public:
 
     Q_INVOKABLE bool setClockDomains(const QVariantList &domains);
     Q_INVOKABLE QString ingestAsync(const QVariantList &records);
+    // JSON text or a local file (path or file: URL) in this index's export
+    // format or Chrome Trace Event format. Clock domains come from the data.
+    Q_INVOKABLE QString ingestJsonAsync(const QString &json);
+    Q_INVOKABLE QString ingestFileAsync(const QString &pathOrUrl);
+    // Stops the running analysis; the current snapshot stays.
+    Q_INVOKABLE void cancel();
     Q_INVOKABLE void clear();
     Q_INVOKABLE QVariantMap record(const QString &id) const;
     Q_INVOKABLE QVariantList childrenOf(const QString &spanId) const;
@@ -77,13 +89,23 @@ private:
         QVector<Record> records;
         QStringList threads;
         QString error;
+        QHash<QString, ClockDomain> domains;
+        bool replaceDomains = false;
+        bool cancelled = false;
         int rejected = 0;
         int truncated = 0;
         qint64 start = 0;
         qint64 end = 0;
     };
+    using CancelFlag = std::shared_ptr<std::atomic_bool>;
     static Analysis analyze(const QVariantList &input,
-                            const QHash<QString, ClockDomain> &domains);
+                            const QHash<QString, ClockDomain> &domains,
+                            const CancelFlag &cancel);
+    static Analysis analyzeJson(const QByteArray &bytes, const CancelFlag &cancel);
+    static Analysis analyzeFile(const QString &path, const CancelFlag &cancel);
+    static Analysis chromeTrace(const QVariantList &events, const CancelFlag &cancel);
+    static bool parseDomains(const QVariantList &domains, QHash<QString, ClockDomain> *out);
+    QString startJob(std::function<Analysis(const CancelFlag &)> job);
     QVariantMap recordMap(const Record &record) const;
     static bool decimal(const QVariant &value, qint64 *out);
     static bool convert(qint64 ticks, const ClockDomain &domain, qint64 *ns);
@@ -95,6 +117,7 @@ private:
     QString m_error;
     qint64 m_start = 0;
     qint64 m_end = 0;
+    CancelFlag m_cancel;
     quint64 m_generation = 0;
     int m_rejected = 0;
     int m_truncated = 0;

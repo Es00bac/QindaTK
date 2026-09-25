@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "local_property_sync.h"
-#include "reference_document_codec.h"
+#include "property_sync_detail_p.h"
 #include <QFile>
+#include <QUuid>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -12,158 +13,11 @@
 #include <optional>
 
 namespace QindaTK {
+using namespace sync_detail;
 namespace {
-constexpr int MaxOperations = 4096;
 constexpr int MaxClients = 8;
 constexpr int MaxStoreBytes = 4 * 1024 * 1024;
-constexpr int MaxValueBytes = 64 * 1024;
-
-bool canonicalUuid(const QString &id)
-{
-    const QUuid uuid(id);
-    return !uuid.isNull() && uuid.toString(QUuid::WithoutBraces) == id;
-}
-
-QString keyOf(const PropertySyncOperation &op)
-{
-    return op.entityId + QLatin1Char('/') + op.propertyId;
-}
-
-bool outranks(const PropertySyncOperation &a, const PropertySyncOperation &b)
-{
-    if (a.logicalTime != b.logicalTime) return a.logicalTime > b.logicalTime;
-    if (a.actorId != b.actorId) return a.actorId > b.actorId;
-    return a.operationId > b.operationId;
-}
-
-std::optional<QJsonObject> encodeValue(const QVariant &value)
-{
-    QString kind;
-    QJsonValue stored;
-    switch (value.metaType().id()) {
-    case QMetaType::Bool: kind = QStringLiteral("bool"); stored = value.toBool(); break;
-    case QMetaType::Int: kind = QStringLiteral("int"); stored = value.toString(); break;
-    case QMetaType::UInt: kind = QStringLiteral("uint"); stored = value.toString(); break;
-    case QMetaType::LongLong: kind = QStringLiteral("int64"); stored = value.toString(); break;
-    case QMetaType::ULongLong: kind = QStringLiteral("uint64"); stored = value.toString(); break;
-    case QMetaType::Double:
-        if (!std::isfinite(value.toDouble())) return std::nullopt;
-        kind = QStringLiteral("double"); stored = QString::number(value.toDouble(), 'g', 17); break;
-    case QMetaType::QString: kind = QStringLiteral("string"); stored = value.toString(); break;
-    case QMetaType::QByteArray:
-        kind = QStringLiteral("bytes"); stored = QString::fromLatin1(value.toByteArray().toBase64()); break;
-    default: return std::nullopt;
-    }
-    QJsonObject result{{QStringLiteral("kind"), kind}, {QStringLiteral("data"), stored}};
-    if (QJsonDocument(result).toJson(QJsonDocument::Compact).size() > MaxValueBytes)
-        return std::nullopt;
-    return result;
-}
-
-std::optional<QVariant> decodeValue(const QJsonObject &object)
-{
-    if (object.size() != 2 || !object.contains(QStringLiteral("kind"))
-        || !object.contains(QStringLiteral("data"))
-        || QJsonDocument(object).toJson(QJsonDocument::Compact).size() > MaxValueBytes)
-        return std::nullopt;
-    const QString kind = object.value(QStringLiteral("kind")).toString();
-    const QJsonValue data = object.value(QStringLiteral("data"));
-    if (kind == QStringLiteral("bool") && data.isBool()) return QVariant(data.toBool());
-    if (!data.isString()) return std::nullopt;
-    const QString text = data.toString();
-    if (kind == QStringLiteral("string")) return QVariant(text);
-    if (kind == QStringLiteral("bytes")) {
-        const QByteArray encoded = text.toLatin1();
-        const auto decoded = QByteArray::fromBase64Encoding(encoded);
-        if (!decoded || decoded.decoded.toBase64() != encoded) return std::nullopt;
-        return QVariant(decoded.decoded);
-    }
-    bool ok = false;
-    if (kind == QStringLiteral("int")) {
-        const int n = text.toInt(&ok); if (ok && QString::number(n) == text) return QVariant(n);
-    } else if (kind == QStringLiteral("uint")) {
-        const uint n = text.toUInt(&ok); if (ok && QString::number(n) == text) return QVariant(n);
-    } else if (kind == QStringLiteral("int64")) {
-        const qlonglong n = text.toLongLong(&ok); if (ok && QString::number(n) == text) return QVariant(n);
-    } else if (kind == QStringLiteral("uint64")) {
-        const qulonglong n = text.toULongLong(&ok); if (ok && QString::number(n) == text) return QVariant(n);
-    } else if (kind == QStringLiteral("double")) {
-        const double n = text.toDouble(&ok);
-        if (ok && std::isfinite(n) && QString::number(n, 'g', 17) == text) return QVariant(n);
-    }
-    return std::nullopt;
-}
-
-std::optional<QJsonObject> encode(const PropertySyncOperation &op)
-{
-    const auto value = encodeValue(op.value);
-    if (!value) return std::nullopt;
-    QJsonObject result{{QStringLiteral("document"), op.documentId},
-                       {QStringLiteral("id"), op.operationId},
-                       {QStringLiteral("actor"), op.actorId},
-                       {QStringLiteral("time"), QString::number(op.logicalTime)},
-                       {QStringLiteral("entity"), op.entityId},
-                       {QStringLiteral("property"), op.propertyId},
-                       {QStringLiteral("value"), *value}};
-    if (op.kind == PropertySyncOperation::Kind::Restore)
-        result.insert(QStringLiteral("kind"), QStringLiteral("restore"));
-    return result;
-}
-
-std::optional<PropertySyncOperation> decode(const QJsonObject &object)
-{
-    if ((object.size() != 7 && object.size() != 8)
-        || !object.value(QStringLiteral("value")).isObject())
-        return std::nullopt;
-    PropertySyncOperation op;
-    op.documentId = object.value(QStringLiteral("document")).toString();
-    op.operationId = object.value(QStringLiteral("id")).toString();
-    op.actorId = object.value(QStringLiteral("actor")).toString();
-    op.entityId = object.value(QStringLiteral("entity")).toString();
-    op.propertyId = object.value(QStringLiteral("property")).toString();
-    const QString time = object.value(QStringLiteral("time")).toString();
-    bool ok = false;
-    op.logicalTime = time.toULongLong(&ok);
-    const auto value = decodeValue(object.value(QStringLiteral("value")).toObject());
-    if (!canonicalUuid(op.documentId) || !canonicalUuid(op.operationId)
-        || !canonicalUuid(op.actorId) || !canonicalUuid(op.entityId)
-        || !ok || !op.logicalTime || QString::number(op.logicalTime) != time
-        || op.propertyId.isEmpty() || op.propertyId.size() > 256 || !value)
-        return std::nullopt;
-    op.value = *value;
-    if (object.size() == 8) {
-        if (object.value(QStringLiteral("kind")).toString() != QStringLiteral("restore")
-            || op.entityId != op.documentId
-            || op.propertyId != QStringLiteral("__qtk.restore.v1")
-            || op.value.metaType() != QMetaType::fromType<QByteArray>()
-            || op.value.toByteArray().size() > 40 * 1024)
-            return std::nullopt;
-        const auto snapshot = ReferenceDocumentCodec::decode(op.value.toByteArray());
-        if (!snapshot || snapshot->document->documentIdString() != op.documentId)
-            return std::nullopt;
-        op.kind = PropertySyncOperation::Kind::Restore;
-    }
-    return op;
-}
-
-bool sameOperation(const PropertySyncOperation &a, const PropertySyncOperation &b)
-{
-    return a.documentId == b.documentId && a.operationId == b.operationId
-        && a.actorId == b.actorId && a.logicalTime == b.logicalTime
-        && a.entityId == b.entityId && a.propertyId == b.propertyId
-        && a.value.metaType() == b.value.metaType() && a.value == b.value
-        && a.kind == b.kind;
-}
-}
-
-std::optional<QJsonObject> propertySyncOperationToJson(const PropertySyncOperation &operation)
-{
-    return encode(operation);
-}
-
-std::optional<PropertySyncOperation> propertySyncOperationFromJson(const QJsonObject &object)
-{
-    return decode(object);
+constexpr int MaxHistory = 256;
 }
 
 void LocalPropertySyncService::setDocumentId(const QString &id)
@@ -212,7 +66,7 @@ bool LocalPropertySyncService::open()
     QHash<QString, PropertySyncOperation> seen;
     for (const auto &row : rows) {
         if (!row.isObject()) return fail(QStringLiteral("Invalid operation row"));
-        const auto op = decode(row.toObject());
+        const auto op = propertySyncOperationFromJson(row.toObject());
         if (!op || op->documentId != m_documentId || seen.contains(op->operationId))
             return fail(QStringLiteral("Invalid or duplicate stored operation"));
         seen.insert(op->operationId, *op);
@@ -230,7 +84,7 @@ bool LocalPropertySyncService::persist(const QVector<PropertySyncOperation> &ope
     if (m_storagePath.isEmpty()) return true;
     QJsonArray rows;
     for (const auto &op : operations) {
-        const auto encoded = encode(op);
+        const auto encoded = propertySyncOperationToJson(op);
         if (!encoded) return fail(QStringLiteral("Unsupported operation value"));
         rows.append(*encoded);
     }
@@ -269,8 +123,7 @@ void LocalPropertySyncService::detach(LocalPropertySyncClient *client)
 
 bool LocalPropertySyncService::submit(const PropertySyncOperation &operation)
 {
-    if (!m_opened || operation.documentId != m_documentId || !encode(operation)
-        || !decode(*encode(operation)))
+    if (!m_opened || operation.documentId != m_documentId || !validOperation(operation))
         return fail(QStringLiteral("Invalid operation"));
     for (const auto &existing : m_operations) {
         if (existing.operationId != operation.operationId) continue;
@@ -315,6 +168,18 @@ void LocalPropertySyncClient::setDocument(PropertyDocument *document)
     m_document = document;
     m_expectedRevision = document ? document->revision().value : 0;
     m_resetGeneration = document ? document->resetGeneration() : 0;
+    m_baselineEntities.clear();
+    m_baselineValues.clear();
+    m_support.clear();
+    m_removed.clear();
+    m_text.clear();
+    if (document) {
+        for (const auto &change : document->committedValues()) {
+            const QString entity = change.target.toString();
+            m_baselineEntities.insert(entity);
+            m_baselineValues.insert(keyOf(entity, change.propertyId), change.after);
+        }
+    }
     emit changed();
 }
 
@@ -332,11 +197,72 @@ void LocalPropertySyncClient::setActorId(const QString &id)
     emit changed();
 }
 
+void LocalPropertySyncClient::setTextProperties(const QStringList &properties)
+{
+    if (m_connected || !m_pending.isEmpty() || !m_seen.isEmpty()
+        || m_textProperties == properties) return;
+    m_textProperties = properties;
+    m_text.clear();
+    emit changed();
+}
+
+void LocalPropertySyncClient::setReadOnly(bool readOnly)
+{
+    if (m_readOnly == readOnly) return;
+    m_readOnly = readOnly;
+    emit changed();
+}
+
 bool LocalPropertySyncClient::fail(const QString &message)
 {
     m_lastError = message;
     emit changed();
     return false;
+}
+
+bool LocalPropertySyncClient::inSync() const
+{
+    return m_document && m_document->revision().value == m_expectedRevision
+        && m_document->resetGeneration() == m_resetGeneration;
+}
+
+bool LocalPropertySyncClient::readyToEdit()
+{
+    if (!m_document || !m_service || !canonicalUuid(m_actorId)
+        || m_document->documentIdString() != m_service->documentId()
+        || m_clock >= std::numeric_limits<quint64>::max() - 2)
+        return fail(QStringLiteral("Client, entity or clock is invalid"));
+    if (m_readOnly) return fail(QStringLiteral("This replica is read only"));
+    if (m_pending.size() >= MaxOperations)
+        return fail(QStringLiteral("Offline operation queue is full"));
+    if (!inSync()) return fail(QStringLiteral("Document changed outside synchronization"));
+    return true;
+}
+
+PropertySyncOperation LocalPropertySyncClient::makeOperation(
+    Kind kind, const QString &entityId, const QString &propertyId, const QVariant &value,
+    const QString &meta)
+{
+    return {m_document->documentIdString(), QUuid::createUuid().toString(QUuid::WithoutBraces),
+            m_actorId, ++m_clock, entityId, propertyId, value, kind, meta};
+}
+
+bool LocalPropertySyncClient::submitLocal(const PropertySyncOperation &operation,
+                                          const std::optional<HistoryEntry> &entry)
+{
+    if (!receive(operation)) return false;
+    if (entry) record(*entry);
+    m_pending.append(operation);
+    emit changed();
+    return !m_connected || flush();
+}
+
+void LocalPropertySyncClient::record(HistoryEntry entry)
+{
+    auto &stack = m_recording == Record::Undo ? m_redo : m_undo;
+    if (m_recording == Record::Fresh) m_redo.clear();
+    stack.append(std::move(entry));
+    if (stack.size() > MaxHistory) stack.removeFirst();
 }
 
 bool LocalPropertySyncClient::connectToService()
@@ -345,9 +271,7 @@ bool LocalPropertySyncClient::connectToService()
     if (!m_document || !m_service || !canonicalUuid(m_actorId)
         || m_document->documentIdString() != m_service->documentId())
         return fail(QStringLiteral("Client configuration is incomplete"));
-    if (m_document->revision().value != m_expectedRevision
-        || m_document->resetGeneration() != m_resetGeneration)
-        return fail(QStringLiteral("Document changed outside synchronization"));
+    if (!inSync()) return fail(QStringLiteral("Document changed outside synchronization"));
     if (!m_service->attach(this)) return fail(m_service->lastError());
     m_connected = true;
     emit changed();
@@ -375,31 +299,32 @@ void LocalPropertySyncClient::disconnectFromService()
 bool LocalPropertySyncClient::setValue(const QString &entityId,
                                        const QString &propertyId, const QVariant &value)
 {
-    if (!m_document || !m_service || !canonicalUuid(m_actorId)
-        || m_document->documentIdString() != m_service->documentId()
-        || !canonicalUuid(entityId) || m_clock == std::numeric_limits<quint64>::max())
-        return fail(QStringLiteral("Client, entity or clock is invalid"));
-    if (m_pending.size() >= MaxOperations)
-        return fail(QStringLiteral("Offline operation queue is full"));
-    if (m_document->revision().value != m_expectedRevision
-        || m_document->resetGeneration() != m_resetGeneration)
-        return fail(QStringLiteral("Document changed outside synchronization"));
-    if (!encodeValue(value)) return fail(QStringLiteral("Unsupported or oversized value"));
-    if (auto error = m_document->validate(EntityId::parse(entityId), propertyId, value))
+    return setValueImpl(entityId, propertyId, value, true);
+}
+
+bool LocalPropertySyncClient::setValueImpl(const QString &entityId, const QString &propertyId,
+                                           const QVariant &value, bool recordHistory)
+{
+    if (!readyToEdit()) return false;
+    if (!canonicalUuid(entityId)) return fail(QStringLiteral("Entity ID is invalid"));
+    if (isTextProperty(propertyId))
+        return fail(QStringLiteral("Text properties change through replaceText"));
+    if (!encodableValue(value)) return fail(QStringLiteral("Unsupported or oversized value"));
+    const EntityId entity = EntityId::parse(entityId);
+    if (auto error = m_document->validate(entity, propertyId, value))
         return fail(error.message);
-    PropertySyncOperation operation{m_document->documentIdString(),
-        QUuid::createUuid().toString(QUuid::WithoutBraces), m_actorId,
-        ++m_clock, entityId, propertyId, value};
-    if (!receive(operation)) return false;
-    m_pending.append(operation);
-    emit changed();
-    return !m_connected || flush();
+    const QVariant previous = m_document->committedValue(entity, propertyId);
+    const auto operation = makeOperation(Kind::Set, entityId, propertyId, value);
+    std::optional<HistoryEntry> entry;
+    if (recordHistory)
+        entry = step(Kind::Set, operation.operationId, entityId, propertyId, previous);
+    return submitLocal(operation, entry);
 }
 
 bool LocalPropertySyncClient::receive(const PropertySyncOperation &operation)
 {
     if (!m_document || operation.documentId != m_document->documentIdString()
-        || !encode(operation) || !decode(*encode(operation)))
+        || !validOperation(operation))
         return fail(QStringLiteral("Invalid incoming operation"));
     const auto previous = m_seen.constFind(operation.operationId);
     if (previous != m_seen.cend())
@@ -407,28 +332,54 @@ bool LocalPropertySyncClient::receive(const PropertySyncOperation &operation)
             ? true : fail(QStringLiteral("Duplicate ID has different content"));
     if (m_seen.size() >= MaxOperations * 2)
         return fail(QStringLiteral("Client operation limit reached"));
-    if (m_document->revision().value != m_expectedRevision
-        || m_document->resetGeneration() != m_resetGeneration)
-        return fail(QStringLiteral("Document changed outside synchronization"));
-    if (operation.kind == PropertySyncOperation::Kind::Restore)
-        return receiveRestore(operation);
-    const QString key = keyOf(operation);
-    const auto winner = m_winners.constFind(key);
-    if (winner == m_winners.cend() || outranks(operation, winner.value())) {
-        if (auto error = m_document->applySynchronizedValue(
-                EntityId::parse(operation.entityId), operation.propertyId, operation.value))
-            return fail(error.message);
-        m_expectedRevision = m_document->revision().value;
-        if (winner != m_winners.cend() && winner->actorId == m_actorId
-            && operation.actorId != m_actorId
-            && winner->value != operation.value)
-            emit operationLost(winner->operationId, operation.operationId);
-        m_winners.insert(key, operation);
+    if (!inSync()) return fail(QStringLiteral("Document changed outside synchronization"));
+    bool accepted = false;
+    switch (operation.kind) {
+    case Kind::Set: accepted = receiveSet(operation); break;
+    case Kind::Restore: accepted = receiveRestore(operation); break;
+    case Kind::Create:
+    case Kind::Delete: accepted = receiveEntity(operation); break;
+    case Kind::TextInsert:
+    case Kind::TextDelete: accepted = receiveText(operation); break;
+    case Kind::Checkpoint:
+        accepted = m_checkpoints.size() < 256
+            || fail(QStringLiteral("Shared checkpoint limit reached"));
+        if (accepted) m_checkpoints.append(operation);
+        break;
     }
+    if (!accepted) return false;
     m_seen.insert(operation.operationId, operation);
     m_clock = std::max(m_clock, operation.logicalTime);
+    if (operation.kind == Kind::Checkpoint) emit checkpointShared(operation.operationId);
     emit changed();
     return true;
+}
+
+bool LocalPropertySyncClient::receiveSet(const PropertySyncOperation &operation)
+{
+    if (isTextProperty(operation.propertyId))
+        return fail(QStringLiteral("A text property received a value operation"));
+    const auto descriptor = m_document->descriptor(operation.propertyId);
+    if (!descriptor || descriptor->type != operation.value.metaType())
+        return fail(QStringLiteral("Operation value does not match the property schema"));
+    const QString key = keyOf(operation.entityId, operation.propertyId);
+    const auto found = m_winners.constFind(key);
+    const std::optional<PropertySyncOperation> winner = found != m_winners.cend()
+        ? std::optional<PropertySyncOperation>(found.value()) : std::nullopt;
+    if (winner && !outranks(operation, *winner)) return true;
+    const EntityId entity = EntityId::parse(operation.entityId);
+    if (m_document->contains(entity)) {
+        if (auto error = m_document->applySynchronizedValue(
+                entity, operation.propertyId, operation.value))
+            return fail(error.message);
+        m_expectedRevision = m_document->revision().value;
+    }
+    m_winners.insert(key, operation);
+    if (winner && winner->actorId == m_actorId && operation.actorId != m_actorId
+        && winner->value != operation.value)
+        emit operationLost(winner->operationId, operation.operationId);
+    // A winning edit to a deleted entity revives it (observed-remove, D-166).
+    return reconcileEntity(operation.entityId);
 }
 
 bool LocalPropertySyncClient::flush()

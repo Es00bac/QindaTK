@@ -87,6 +87,7 @@ DocumentCodecPtr workbookDocumentCodec(); // qindatk.workbook.v1 (docs/workbook.
 DocumentCodecPtr sceneDocumentCodec(); // qindatk.scene3d.v1 (docs/scene-3d.md)
 DocumentCodecPtr slideDeckDocumentCodec(); // qindatk.slides.v1 (docs/slides.md#persistence)
 DocumentCodecPtr localDataDesignDocumentCodec(); // qindatk.local-data-design.v1 (docs/forms-reports.md#design-document)
+DocumentCodecPtr notebookDocumentCodec(); // qindatk.notebook.v1 (docs/notebooks.md#format)
 
 // Empty result when `actual` names the same schema, document, revision and
 // reset generation as `expected`; otherwise the first mismatch.

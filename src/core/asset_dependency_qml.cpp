@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QUrl>
+#include <algorithm>
 
 namespace QindaTK {
 namespace {
@@ -49,21 +50,21 @@ QString withoutComments(QString text)
 }
 }
 
-QString AssetDependencyIndex::absolutePathFor(const QString &id) const
+QString AssetDependencyIndex::absolutePathIn(const QString &root, const QString &id)
 {
-    if (m_projectRoot.isEmpty() || id.isEmpty() || QDir::isAbsolutePath(id)
+    if (root.isEmpty() || id.isEmpty() || QDir::isAbsolutePath(id)
         || id == QStringLiteral("..") || id.startsWith(QStringLiteral("../"))) return {};
     const QString clean = QDir::cleanPath(id);
     if (clean != id) return {};
-    const QString path = QDir(m_projectRoot).absoluteFilePath(id);
+    const QString path = QDir(root).absoluteFilePath(id);
     const QString canonical = QFileInfo(path).canonicalFilePath();
-    if (canonical.isEmpty() || !canonical.startsWith(m_projectRoot + QLatin1Char('/')))
+    if (canonical.isEmpty() || !canonical.startsWith(root + QLatin1Char('/')))
         return {};
     return canonical;
 }
 
-QString AssetDependencyIndex::localId(const QString &sourceId,
-                                      const QString &reference) const
+namespace {
+QString localId(const QString &root, const QString &sourceId, const QString &reference)
 {
     if (reference.isEmpty() || !QUrl(reference).scheme().isEmpty()
         || reference.startsWith(QLatin1Char(':'))
@@ -74,78 +75,135 @@ QString AssetDependencyIndex::localId(const QString &sourceId,
     const QString id = QDir::cleanPath(QDir(parent).filePath(reference));
     if (id == QStringLiteral("..") || id.startsWith(QStringLiteral("../"))
         || id.startsWith(QLatin1Char('/')) || id.size() > 512) return {};
-    const QString absolute = QDir(m_projectRoot).absoluteFilePath(id);
+    const QString absolute = QDir(root).absoluteFilePath(id);
     const QString canonical = QFileInfo(absolute).canonicalFilePath();
-    if (!canonical.isEmpty() && !canonical.startsWith(m_projectRoot + QLatin1Char('/')))
+    if (!canonical.isEmpty() && !canonical.startsWith(root + QLatin1Char('/')))
         return {};
     return id;
 }
+}
 
-bool AssetDependencyIndex::scanQmlFile(const QString &sourceId)
+// AGENT-NOTE: extraction is a pure function of (root, file bytes) so the
+// project worker can run it off the GUI thread; only applyExtraction touches
+// the index. Keep it free of member state.
+AssetDependencyIndex::Extraction AssetDependencyIndex::extractQml(const QString &root,
+                                                                 const QString &sourceId)
 {
-    const QString path = absolutePathFor(sourceId);
-    if (path.isEmpty() || !path.endsWith(QStringLiteral(".qml")))
-        return fail(QStringLiteral("QML source must be inside the project root"));
+    Extraction result;
+    const QString path = absolutePathIn(root, sourceId);
+    if (path.isEmpty() || !path.endsWith(QStringLiteral(".qml"))) {
+        result.error = QStringLiteral("QML source must be inside the project root");
+        return result;
+    }
     QFileInfo before(path);
-    if (!before.isFile() || before.size() > MaxQmlBytes)
-        return fail(QStringLiteral("QML source is missing or exceeds 1 MiB"));
+    if (!before.isFile() || before.size() > MaxQmlBytes) {
+        result.error = QStringLiteral("QML source is missing or exceeds 1 MiB");
+        return result;
+    }
     const qint64 initialSize = before.size();
     const QDateTime initialModified = before.lastModified();
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return fail(QStringLiteral("Cannot read QML source"));
+    if (!file.open(QIODevice::ReadOnly)) {
+        result.error = QStringLiteral("Cannot read QML source");
+        return result;
+    }
     const QByteArray bytes = file.read(MaxQmlBytes + 1);
-    if (bytes.size() > MaxQmlBytes) return fail(QStringLiteral("QML source exceeds 1 MiB"));
-    if (!upsertAsset(sourceId, before.fileName(), path, true, QStringLiteral("qml")))
-        return false;
-    const QString token = beginScan(sourceId);
-    if (token.isEmpty()) return false;
+    if (bytes.size() > MaxQmlBytes) {
+        result.error = QStringLiteral("QML source exceeds 1 MiB");
+        return result;
+    }
     const QString content = withoutComments(QString::fromUtf8(bytes));
+    QList<qsizetype> newlines;
+    for (qsizetype i = 0; i < content.size(); ++i)
+        if (content.at(i) == QLatin1Char('\n')) newlines.append(i);
+    auto lineAt = [&](qsizetype offset) {
+        return int(std::lower_bound(newlines.cbegin(), newlines.cend(), offset)
+                   - newlines.cbegin()) + 1;
+    };
     static const QRegularExpression imports(
         QStringLiteral(R"((?m)^\s*import\s+["']([^"']+)["'])"));
     static const QRegularExpression references(
         QStringLiteral(R"(\b(?:source|iconSource|url|file|fileName|texture)\s*:\s*(?:Qt\.resolvedUrl\s*\()?\s*["']([^"']+)["'])"));
-    QSet<QString> found;
-    auto addReference = [&](const QString &reference, bool imported) {
-        const QString id = localId(sourceId, reference);
+    QHash<QString, ExtractedEdge> found;
+    auto add = [&](const QString &target, const Edge &edge) {
+        const auto existing = found.constFind(target);
+        if (existing != found.cend() && existing->edge.line <= edge.line) return;
+        const QFileInfo info(QDir(root).absoluteFilePath(target));
+        found.insert(target, ExtractedEdge{target, edge, info.exists()});
+    };
+    auto addReference = [&](const QRegularExpressionMatch &match, bool imported) {
+        const QString reference = match.captured(1);
+        const QString id = localId(root, sourceId, reference);
         if (id.isEmpty()) return;
-        const QString absolute = QDir(m_projectRoot).absoluteFilePath(id);
-        const QFileInfo info(absolute);
-        if (imported && info.isDir()) {
+        const Edge edge{imported ? QStringLiteral("import") : QStringLiteral("reference"),
+                        lineAt(match.capturedStart(1)), reference};
+        const QString absolute = QDir(root).absoluteFilePath(id);
+        if (imported && QFileInfo(absolute).isDir()) {
             QDirIterator files(absolute, {QStringLiteral("*.qml")},
                 QDir::Files | QDir::Readable | QDir::NoSymLinks);
             while (files.hasNext() && found.size() <= MaxQmlReferences) {
                 files.next();
                 const QFileInfo qml = files.fileInfo();
-                const QString child = QDir(m_projectRoot).relativeFilePath(qml.canonicalFilePath());
+                const QString child = QDir(root).relativeFilePath(qml.canonicalFilePath());
                 if (validId(child) && !child.startsWith(QStringLiteral("../")))
-                    found.insert(child);
+                    add(child, edge);
             }
         } else {
-            found.insert(id);
+            add(id, edge);
         }
     };
     auto iterator = imports.globalMatch(content);
-    while (iterator.hasNext()) addReference(iterator.next().captured(1), true);
+    while (iterator.hasNext()) addReference(iterator.next(), true);
     iterator = references.globalMatch(content);
-    while (iterator.hasNext()) addReference(iterator.next().captured(1), false);
-    if (found.size() > MaxQmlReferences)
-        return fail(QStringLiteral("QML source has too many local references"));
+    while (iterator.hasNext()) addReference(iterator.next(), false);
+    if (found.size() > MaxQmlReferences) {
+        result.error = QStringLiteral("QML source has too many local references");
+        return result;
+    }
     before.refresh();
     if (before.size() != initialSize || bytes.size() != initialSize
         || before.lastModified() != initialModified) {
-        emit scanRejected(sourceId, QStringLiteral("QML source changed during scan"));
-        return fail(QStringLiteral("QML source changed during scan"));
+        result.changedDuringRead = true;
+        result.error = QStringLiteral("QML source changed during scan");
+        return result;
     }
-    for (const QString &id : found) {
+    result.edges = found.values();
+    return result;
+}
+
+bool AssetDependencyIndex::applyExtraction(const QString &sourceId, const Extraction &extraction)
+{
+    if (!extraction.error.isEmpty()) {
+        if (extraction.changedDuringRead) emit scanRejected(sourceId, extraction.error);
+        return fail(extraction.error);
+    }
+    const QString path = absolutePathIn(m_projectRoot, sourceId);
+    if (!upsertAsset(sourceId, QFileInfo(sourceId).fileName(), path, true,
+                     QStringLiteral("qml")))
+        return false;
+    const QString token = beginScan(sourceId);
+    if (token.isEmpty()) return false;
+    QHash<QString, Edge> next;
+    for (const ExtractedEdge &found : extraction.edges) {
+        const QString &id = found.targetId;
         const QFileInfo info(QDir(m_projectRoot).absoluteFilePath(id));
         const QVariantMap existing = asset(id);
         const QString label = existing.value(QStringLiteral("label"), info.fileName()).toString();
-        const QString kind = existing.value(QStringLiteral("kind"),
-            id.endsWith(QStringLiteral(".qml")) ? QStringLiteral("qml")
-                                                 : QStringLiteral("file")).toString();
-        if (!upsertAsset(id, label, info.absoluteFilePath(), info.exists(), kind)) return false;
+        QString kind = existing.value(QStringLiteral("kind")).toString();
+        if (kind.isEmpty() || kind == QStringLiteral("unresolved"))
+            kind = id.endsWith(QStringLiteral(".qml")) ? QStringLiteral("qml")
+                                                       : QStringLiteral("file");
+        if (!upsertAsset(id, label, info.absoluteFilePath(), found.exists, kind)) return false;
+        next.insert(id, found.edge);
     }
-    return commitScan(sourceId, token, found.values());
+    return commitEdges(sourceId, token, std::move(next));
+}
+
+bool AssetDependencyIndex::scanQmlFile(const QString &sourceId)
+{
+    // AGENT-GUARD: this synchronous form reads one bounded file on the
+    // caller's thread. Whole projects go through scanProjectAsync.
+    return applyExtraction(sourceId, extractQml(m_projectRoot, sourceId));
 }
 
 } // namespace QindaTK

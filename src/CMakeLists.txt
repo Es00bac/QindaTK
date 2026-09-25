@@ -62,6 +62,10 @@ qt_add_qml_module(qindatk
         core/geographic_tile_network.cpp
         core/scene_model_3d.h core/scene_model_3d.cpp core/scene_model_3d_codec.cpp
         core/scene_model_3d_history.cpp core/scene_model_3d_parse.cpp core/scene_document_codec.cpp
+        core/notebook_document.h core/notebook_document_p.h core/notebook_document.cpp
+        core/notebook_document_blocks.cpp core/notebook_document_codec.cpp core/notebook_document_history.cpp
+        core/notebook_document_html.cpp core/notebook_document_selection.cpp
+        core/notebook_document_services.cpp core/notebook_document_text.cpp
         core/mesh_rig_document.h core/mesh_rig_document.cpp
         core/mesh_rig_document_persistence.cpp core/mesh_rig_history.cpp
         core/mesh_rig_pose.cpp core/mesh_rig_uv.cpp core/mesh_rig_paint.cpp
@@ -120,7 +124,9 @@ qt_add_qml_module(qindatk
         core/test_transport_clock.cpp core/test_transport_clock.h
         core/audio_ring.h core/audio_media.cpp core/audio_media.h
         core/audio_device.cpp core/audio_device.h
-        core/audio_graph.cpp core/audio_graph_mix.cpp core/audio_graph_midi.cpp core/audio_graph.h
+        core/audio_graph.cpp core/audio_graph_mix.cpp core/audio_graph_midi.cpp core/audio_graph_comp.cpp core/audio_graph.h
+        core/audio_take_comp.cpp core/audio_take_comp.h
+        core/audio_take_comp_model.cpp core/audio_take_comp_view.cpp core/audio_take_comp_model.h
         core/midi_types.cpp core/midi_types.h core/midi_program.cpp core/midi_program.h
         core/midi_sequence_model.cpp core/midi_sequence_edit.cpp core/midi_sequence_ops.cpp core/midi_sequence_model.h
         core/midi_smf.cpp core/midi_smf.h core/midi_launcher_model.cpp core/midi_launcher_model.h
@@ -132,6 +138,7 @@ qt_add_qml_module(qindatk
         core/audio_engine_midi.cpp core/audio_engine_midi_rt.cpp
         core/audio_engine.h core/audio_engine_p.h
         core/audio_session.cpp core/audio_session_transport.cpp core/audio_session_render.cpp core/audio_session_midi.cpp
+        core/audio_session_comp.cpp
         core/audio_session.h
         core/audio_dsp.cpp core/audio_dsp.h core/audio_peaks.cpp core/audio_peaks.h
         core/audio_spectrogram.cpp core/audio_spectrogram.h
@@ -143,7 +150,8 @@ qt_add_qml_module(qindatk
         core/resource_resolver.cpp core/resource_resolver.h
         core/asset_dependency_index.cpp core/asset_dependency_index.h
         core/trace_index.cpp core/trace_index.h
-        core/asset_dependency_qml.cpp
+        core/asset_dependency_qml.cpp core/asset_dependency_scan.cpp
+        core/trace_import.cpp
         core/resource_resolver_async.cpp
         core/document_resource_links.cpp core/document_resource_links.h
         core/transfer_payload.cpp core/transfer_payload.h
@@ -232,7 +240,11 @@ qt_add_qml_module(qindatk
         core/recovery_manager.cpp core/recovery_manager.h
         core/property_document.cpp core/property_document.h
         core/local_property_sync.cpp core/local_property_sync_restore.cpp core/local_property_sync.h
-        core/property_sync_socket.cpp core/property_sync_socket.h
+        core/local_property_sync_structure.cpp core/local_property_sync_text.cpp
+        core/local_property_sync_undo.cpp
+        core/property_sync_codec.cpp core/property_sync_detail_p.h
+        core/property_sync_channel.cpp core/property_sync_channel.h
+        core/property_sync_socket.cpp core/property_sync_socket_client.cpp core/property_sync_socket.h
         core/property_version_history.cpp core/property_version_history.h
         core/reference_document_codec.cpp core/reference_document_codec.h
         core/reference_collection_value.cpp core/reference_collection_value.h

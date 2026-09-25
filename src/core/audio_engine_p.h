@@ -8,7 +8,9 @@
 #include "audio_meter_tap.h"
 #include "audio_ring.h"
 
+#include <QPair>
 #include <QString>
+#include <QVector>
 #include <atomic>
 #include <functional>
 #include <limits>
@@ -40,6 +42,17 @@ struct EngineEvent {
     qint64 frames = 0;           // RecordEnd: frames captured into the take (code Lost: device failed)
     qint64 dropped = 0;          // RecordEnd: frames lost to a full capture ring
     const char *reason = nullptr; // DeviceLost: static text
+    qint64 jumpsDropped = 0;      // RecordEnd: discontinuities the jump ring could not hold
+};
+
+// Realtime -> GUI (WP-065): the transport jumped while a take was open (a
+// loop wrap or a seek). File frame `frame` of take `take` was captured at
+// transport sample `position`; the frames before it continue the previous
+// position. Per-pass takes are cut from these.
+struct RecordJump {
+    quint64 take = 0;
+    qint64 frame = 0;
+    qint64 position = 0;
 };
 
 // GUI -> realtime MIDI (WP-064): audition notes and the clip launcher.
@@ -100,6 +113,7 @@ public:
     static constexpr std::size_t kMidiCommandCapacity = 256;
     static constexpr std::size_t kMidiEventCapacity = 4096;
     static constexpr int kAuditionVoices = 16;
+    static constexpr std::size_t kJumpCapacity = 1024;
 
     AudioEngineProcessor(const AudioStreamFormat &format, const EngineTransportState &initial,
                          double captureSeconds = 4.0);
@@ -108,6 +122,7 @@ public:
     const AudioStreamFormat &format() const { return m_format; }
     bool post(const EngineCommand &command) { return m_commands.push(command); }
     bool takeEvent(EngineEvent &event) { return m_events.pop(event); }
+    bool takeJump(RecordJump &jump) { return m_jumps.pop(jump); }
     // Returns a previously offered graph that was never adopted (releasable now).
     const AudioRenderGraph *offer(const AudioRenderGraph *graph);
     quint64 adoptedGeneration() const { return m_adopted.load(std::memory_order_acquire); }
@@ -146,6 +161,7 @@ private:
     void beginTake() noexcept;
     void endTake(bool lost = false) noexcept;
     void captureBlock(const float *input, int frames, qint64 position) noexcept;
+    void recordJump(qint64 frame, qint64 position) noexcept;
     void publish() noexcept;
     // MIDI, audio_engine_midi_rt.cpp.
     void applyMidi(const MidiCommand &command) noexcept;
@@ -186,6 +202,10 @@ private:
     bool m_takeAnnounced = false;
     qint64 m_takeFrames = 0;
     qint64 m_takeDropped = 0;
+    qint64 m_takeJumpsDropped = 0;
+    // AGENT-GUARD: its own ring, so wraps of a short loop can never crowd out
+    // the command acknowledgments the event ring guarantees room for.
+    AudioSpscRing<RecordJump> m_jumps{kJumpCapacity};
     quint64 m_pushed = 0;
     std::atomic<quint64> m_pushedPublished{0};
     std::atomic<quint64> m_takeSerial{0};
@@ -249,6 +269,14 @@ struct AudioEngine::Job {
 
 struct AudioEngine::Take {
     qint64 position = 0;
+    QVector<QPair<qint64, qint64>> jumps; // (file frame, transport sample), WP-065
+    qint64 jumpsDropped = 0;
+    bool loopEnabled = false;
+    qint64 loopStart = 0;
+    qint64 loopEnd = 0;
+    bool punchEnabled = false;
+    qint64 punchStart = 0;
+    qint64 punchEnd = 0;
     qint64 frames = 0;
     qint64 dropped = 0;
     int latency = 0;

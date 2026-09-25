@@ -15,7 +15,7 @@ pages below are the reference.
 | [diagram.md](diagram.md) | Stable diagram nodes/ports/edges, editing, deterministic orthogonal paths and local JSON |
 | [cad.md](cad.md) | Typed 2D sketch entities, units, measurements, constraints, viewport, native file and SVG/DXF output |
 | [script-runtime.md](script-runtime.md) | Bounded local JavaScript, explicit command allowlist, replay, semantic undo group and console UI |
-| [collaboration.md](collaboration.md) | Property synchronization: operation identity, deterministic conflicts, local IPC, actor permissions, durable offline reconnect, presence and scope limits |
+| [collaboration.md](collaboration.md) | Collaboration: operation identity, deterministic conflicts, object deletes, text merge, own-step undo, local and network transport, live permissions, presence, shared versions and restore |
 | [gantt.md](gantt.md) | Task schema, working-calendar projection, schedule transactions, dependency and grid seams |
 | [productivity.md](productivity.md) | Local calendar recurrence expansion, event identity, DST policy and host persistence boundary |
 | [control-interaction.md](control-interaction.md) | Owner state, user signals, editing states, focus and assistive action baseline |
@@ -34,6 +34,7 @@ pages below are the reference.
 | [publishing.md](publishing.md) | Named styles with inheritance and overrides, merged table cells, table styles, linked text frames, page columns and `qindatk.richtext` version 2 |
 | [printing.md](printing.md) | Print tickets and destination capabilities, one sheet geometry for preview, PDF and printers, bounded preview cache, cancellable jobs, publishing preflight with validated repairs, page bleed |
 | [references-review.md](references-review.md) | Equations (TeX subset, layout, linear text), reference fields that renumber in one undo step, comments and tracked changes with accept/reject |
+| [notebooks.md](notebooks.md) | Persistent notebooks: sections, pages and nested blocks with stable IDs, split/merge/nesting, cross-block selection and paste, search, links, missing media, code evaluation, chart blocks, sessions and recovery |
 | [resource-table.md](resource-table.md) | Stable resource and time-bucket identity, allocation units, conflicts and reversible edits |
 | [persistence.md](persistence.md) | Document sessions of any registered kind, the reference file format, atomic save, multi-document close and recovery behavior |
 | [document-models.md](document-models.md) | Domain model/command/codec contracts, the shared history engine, save clean marks, recovery frames and how a new domain joins |
@@ -68,6 +69,7 @@ pages below are the reference.
 | [audio-engine.md](audio-engine.md) | Realtime audio engine and session: threads/queues, graph lifetime, devices and reconfiguration, recording latency, persistence, relink, offline render, callback measurements |
 | [audio-mixer.md](audio-mixer.md) | Mixer and routing: channel/bus/port identities, pan laws and layouts, sends, solo in place and groups, feedback refusals, device ports that never fall back, channel meters, MixerView/ChannelStrip/PanningControl/RoutingMatrix |
 | [audio-editing.md](audio-editing.md) | Waveform and spectral editing: sample/channel coordinates, exact peak pyramid, FFT window/hop/scaling conventions, bounded spectrum tiles, source edits with undo and persistence, cancellable spectral previews, WaveformEditor/SpectrogramView providers |
+| [audio-comping.md](audio-comping.md) | Takes and comping: loop passes cut from record jumps, non-destructive punch, comp coordinates and edits, take-junction crossfades, previews, audition/compare, persistence and relink, TakeCompView wiring |
 | [audio-midi.md](audio-midi.md) | MIDI, patterns and clip launching: tick/velocity/controller resolutions, per-note expression, exact reversible edits and gestures, stateless sample-accurate scheduling and test instrument, polymetric steps and seeded probability, engine-quantized launching, audition lifecycle, MIDI file interchange |
 | [audio-measurement.md](audio-measurement.md) | Realtime meter tap, peak/RMS meter and BS.1770-4 loudness models, hold/fall/clip on audio time, engine parameter transactions for Knob and Fader, silence floor |
 | [vector-authoring.md](vector-authoring.md) | Vector appearance panels and undoable solid canvas style edits |

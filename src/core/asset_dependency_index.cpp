@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QQueue>
+#include <QUrl>
 #include <algorithm>
 #include <functional>
 #include <limits>
@@ -19,23 +20,35 @@ bool AssetDependencyIndex::validId(const QString &id)
     return !id.trimmed().isEmpty() && id.size() <= 512 && !id.contains(QChar::Null);
 }
 
+AssetDependencyIndex::~AssetDependencyIndex()
+{
+    if (m_scanCancel) m_scanCancel->store(true);
+}
+
+void AssetDependencyIndex::notify()
+{
+    if (m_quiet == 0) emit changed();
+}
+
 bool AssetDependencyIndex::fail(const QString &message)
 {
     m_error = message;
-    emit changed();
+    notify();
     return false;
 }
 
 void AssetDependencyIndex::setProjectRoot(const QString &path)
 {
     if (!m_assets.isEmpty()) { fail(QStringLiteral("Set the project root before adding assets")); return; }
-    const QString root = QFileInfo(path).canonicalFilePath();
+    const QUrl url(path);
+    const QString root = QFileInfo(url.isLocalFile() ? url.toLocalFile() : path)
+                             .canonicalFilePath();
     if (root.isEmpty() || !QFileInfo(root).isDir()) {
         fail(QStringLiteral("Project root must be an existing directory")); return;
     }
     m_projectRoot = root;
     m_error.clear();
-    emit changed();
+    notify();
 }
 
 QVariantMap AssetDependencyIndex::assetMap(const Asset &entry) const
@@ -85,7 +98,7 @@ bool AssetDependencyIndex::upsertAsset(const QString &id, const QString &label,
     entry.available = available;
     entry.kind = kind;
     m_error.clear();
-    if (different) emit changed();
+    if (different) notify();
     return true;
 }
 
@@ -96,7 +109,7 @@ bool AssetDependencyIndex::setAvailable(const QString &id, bool available)
     if (found->available == available) return true;
     found->available = available;
     m_error.clear();
-    emit changed();
+    notify();
     return true;
 }
 
@@ -114,27 +127,59 @@ QString AssetDependencyIndex::beginScan(const QString &sourceId)
 bool AssetDependencyIndex::commitScan(const QString &sourceId, const QString &token,
                                       const QStringList &dependencies)
 {
+    if (dependencies.size() > MaxEdgesPerAsset)
+        return fail(QStringLiteral("Dependency edge limit exceeded"));
+    QHash<QString, Edge> next;
+    for (const QString &dependency : dependencies)
+        next.insert(dependency, Edge{QStringLiteral("host"), 0, dependency});
+    return commitEdges(sourceId, token, std::move(next));
+}
+
+bool AssetDependencyIndex::commitScanEdges(const QString &sourceId, const QString &token,
+                                           const QVariantList &edges)
+{
+    if (edges.size() > MaxEdgesPerAsset)
+        return fail(QStringLiteral("Dependency edge limit exceeded"));
+    QHash<QString, Edge> next;
+    for (const QVariant &raw : edges) {
+        const QVariantMap row = raw.toMap();
+        const QString target = row.value(QStringLiteral("targetId")).toString();
+        Edge edge{row.value(QStringLiteral("kind"), QStringLiteral("host")).toString(),
+                  row.value(QStringLiteral("line"), 0).toInt(),
+                  row.value(QStringLiteral("reference"), target).toString()};
+        if (edge.kind != QStringLiteral("import") && edge.kind != QStringLiteral("reference")
+            && edge.kind != QStringLiteral("host"))
+            return fail(QStringLiteral("Unknown dependency edge kind"));
+        if (edge.line < 0 || edge.reference.size() > 2048)
+            return fail(QStringLiteral("Invalid dependency edge location"));
+        const auto existing = next.constFind(target);
+        if (existing == next.cend() || (edge.line > 0 && edge.line < existing->line))
+            next.insert(target, edge);
+    }
+    return commitEdges(sourceId, token, std::move(next));
+}
+
+bool AssetDependencyIndex::commitEdges(const QString &sourceId, const QString &token,
+                                       QHash<QString, Edge> next)
+{
     const auto found = m_assets.find(sourceId);
     if (found == m_assets.end() || found->scanToken == 0 || token.isEmpty()
         || QString::number(found->scanToken) != token) {
         emit scanRejected(sourceId, QStringLiteral("Stale or unknown scan result"));
         return fail(QStringLiteral("Stale or unknown scan result"));
     }
-    if (dependencies.size() > MaxEdgesPerAsset)
-        return fail(QStringLiteral("Dependency edge limit exceeded"));
-    QSet<QString> next;
-    for (const QString &dependency : dependencies) {
-        if (!validId(dependency)) return fail(QStringLiteral("Invalid dependency ID"));
-        next.insert(dependency);
-    }
+    for (auto it = next.cbegin(); it != next.cend(); ++it)
+        if (!validId(it.key())) return fail(QStringLiteral("Invalid dependency ID"));
     if (next.size() > MaxEdgesPerAsset
         || m_edgeCount - found->dependencies.size() + next.size() > MaxEdges)
         return fail(QStringLiteral("Dependency edge limit exceeded"));
     int missing = 0;
-    for (const QString &id : next) if (!m_assets.contains(id)) ++missing;
+    for (auto it = next.cbegin(); it != next.cend(); ++it)
+        if (!m_assets.contains(it.key())) ++missing;
     if (m_assets.size() + missing > MaxAssets)
         return fail(QStringLiteral("Asset index is full"));
-    for (const QString &id : next) {
+    for (auto it = next.cbegin(); it != next.cend(); ++it) {
+        const QString &id = it.key();
         if (!m_assets.contains(id)) {
             Asset placeholder;
             placeholder.id = id;
@@ -148,7 +193,7 @@ bool AssetDependencyIndex::commitScan(const QString &sourceId, const QString &to
     m_edgeCount += next.size() - source.dependencies.size();
     source.dependencies = std::move(next);
     m_error.clear();
-    emit changed();
+    notify();
     return true;
 }
 
@@ -156,8 +201,28 @@ QStringList AssetDependencyIndex::dependencies(const QString &id) const
 {
     const auto found = m_assets.constFind(id);
     if (found == m_assets.cend()) return {};
-    QStringList result = found->dependencies.values();
+    QStringList result = found->dependencies.keys();
     result.sort();
+    return result;
+}
+
+QVariantList AssetDependencyIndex::references(const QString &id) const
+{
+    QVariantList result;
+    const auto found = m_assets.constFind(id);
+    if (found == m_assets.cend()) return result;
+    for (const QString &target : dependencies(id)) {
+        const Edge edge = found->dependencies.value(target);
+        result.append(QVariantMap{{QStringLiteral("targetId"), target},
+                                  {QStringLiteral("kind"), edge.kind},
+                                  {QStringLiteral("line"), edge.line},
+                                  {QStringLiteral("reference"), edge.reference},
+                                  {QStringLiteral("available"), m_assets.value(target).available}});
+    }
+    std::stable_sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toMap().value(QStringLiteral("line")).toInt()
+               < b.toMap().value(QStringLiteral("line")).toInt();
+    });
     return result;
 }
 
@@ -175,8 +240,8 @@ QStringList AssetDependencyIndex::affectedBy(const QString &id) const
     if (!m_assets.contains(id)) return {};
     QHash<QString, QStringList> reverse;
     for (auto it = m_assets.cbegin(); it != m_assets.cend(); ++it)
-        for (const QString &dependency : it->dependencies)
-            reverse[dependency].append(it.key());
+        for (auto edge = it->dependencies.cbegin(); edge != it->dependencies.cend(); ++edge)
+            reverse[edge.key()].append(it.key());
     QSet<QString> seen{id};
     QQueue<QString> queue;
     queue.enqueue(id);
@@ -200,13 +265,19 @@ QVariantList AssetDependencyIndex::diagnostics() const
     QStringList ids = m_assets.keys();
     ids.sort();
     for (const QString &source : ids) {
+        const Asset &entry = *m_assets.constFind(source);
         for (const QString &target : dependencies(source)) {
             if (m_assets.value(target).available) continue;
+            const Edge edge = entry.dependencies.value(target);
+            const QString where = edge.line > 0
+                ? QStringLiteral("%1 line %2").arg(source).arg(edge.line) : source;
             result.append(QVariantMap{{QStringLiteral("type"), QStringLiteral("missing")},
                                       {QStringLiteral("sourceId"), source},
                                       {QStringLiteral("targetId"), target},
+                                      {QStringLiteral("line"), edge.line},
+                                      {QStringLiteral("reference"), edge.reference},
                                       {QStringLiteral("message"),
-                                       QStringLiteral("%1 needs missing %2").arg(source, target)}});
+                                       QStringLiteral("%1 needs missing %2").arg(where, target)}});
         }
     }
     QHash<QString, int> index, low;

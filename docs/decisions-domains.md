@@ -617,3 +617,219 @@ previous document when parsing fails.
 and gives an identical report, which the tests check for a rename and for a
 retype. Hosts show the non-fatal issues to the user; nothing rewrites a
 design automatically.
+## D-162 — Project dependency scans read off-thread and yield to newer answers
+
+**Context.** WP-087 needs real dependency extraction for a whole project and
+must reject obsolete analyses. The first slice scanned one QML file at a
+time on the caller's thread.
+
+**Decision.** `AssetDependencyIndex.scanProjectAsync()` walks the project
+root for QML files (no symlinks or hidden entries, at most 4,096 files) and
+extracts edges on a worker. The worker never touches the index. When it
+finishes, the GUI thread applies each source's edges only if the source's
+scan token is unchanged since the scan started, so a file rescanned in the
+meantime keeps its newer edges; those sources are reported as skipped. A
+newer scan or `cancelProjectScan()` discards the older result. An indexed
+QML source whose file is gone is marked unavailable and loses its outgoing
+edges, so its dependents report a missing input.
+
+**Consequences.** Hosts get whole-project extraction without blocking the
+GUI. A project over the file cap is refused with an error, not partially
+indexed. Other source formats still commit edges through
+`beginScan`/`commitScanEdges` with the same token rule.
+
+## D-163 — Edges record where they were written; relinks are plans
+
+**Context.** A "missing file" diagnostic is only actionable if it says which
+line to fix, and relinking must not rewrite user files behind the host's
+undo history.
+
+**Decision.** Every edge stores `kind` (`import`, `reference`, `host`), a
+1-based `line` and the reference text as written. Diagnostics name the
+line. `relinkCandidates(id)` lists project files with the same file name
+(a bounded walk of 20,000 entries, at most 32 results).
+`relinkPlan(missingId, replacementId)` returns one edit per dependent with
+the replacement text relative to that source. The index never writes files;
+the host applies the plan in its own transaction and rescans.
+
+**Consequences.** Relink is reviewable and undoable by the host. Directory
+imports cannot be relinked file by file; the plan says so in `note`.
+
+## D-164 — Chrome Trace Event JSON is the one foreign trace format
+
+**Context.** Real execution traces come from profilers. Chrome, Perfetto and
+Qt Creator's trace tools read and write Chrome Trace Event JSON.
+
+**Decision.** `TraceIndex.ingestJsonAsync`/`ingestFileAsync` read either the
+index's own export or Chrome trace events, off the GUI thread, up to 64 MiB.
+Chrome `ts`/`dur` microseconds become a `chrome` clock domain of 1 ns per
+tick, rounded to the nearest nanosecond. `X`, matched `B`/`E` and instant
+events are kept; counters, async and flow phases and unmatched begins count
+as rejected. Parents come from time containment on the same thread. Record
+IDs are `e<n>`, the event's 1-based position in the file.
+
+**Consequences.** Real profiler output opens without a host adapter.
+Cross-thread parents and clock-domain metadata need the index's own format,
+which round-trips exactly through `exportJson()`.
+
+## D-165 — Trace cancellation is cooperative and keeps the current snapshot
+
+**Context.** Large traces must stay off the GUI thread and be cancellable
+without losing what the user is looking at.
+
+**Decision.** Each analysis gets a cancel flag that the worker polls every
+1,024 rows. `cancel()`, a newer ingest, `setClockDomains` and `clear()` set
+it and bump the generation, so a finished stale result is discarded with
+`analysisDiscarded`. `cancel()` leaves the published snapshot in place.
+
+**Consequences.** A cancelled row loop stops within 1,024 rows. JSON parsing
+and the final sort cannot be interrupted, so their result is simply
+discarded. The view never shows a half-applied trace.
+
+## D-166 — Collaborative deletes remove only what their author observed
+
+**Context.** WP-082 needs object creation and deletion across replicas that
+edit offline. A plain "delete wins" rule erases a concurrent committed edit;
+"edit wins" by Lamport time alone cannot tell an unseen edit from an old one.
+
+**Decision.** A `Delete` operation names the supporters its author observed:
+the baseline token, the object's `Create` operations and the winning operation
+of each property. An object is present while any supporter is not named by a
+delete (observed-remove). Values and text of a deleted object are retained.
+A `Create` of an existing UUID revives it; a `Restore` that wins a property
+supports the object too. See [collaboration.md](collaboration.md#objects-and-deletes).
+
+**Consequences.** Replicas converge for any delivery order, and a concurrent
+edit that wins its property brings the object back rather than vanishing. A
+concurrent edit that loses to a value the deleter saw does not. A delete is
+bounded by the object's property count, not by its edit history.
+
+## D-167 — Plain text merges as a replicated sequence of code units
+
+**Context.** Two people typing in one string property under last-writer-wins
+lose one person's words.
+
+**Decision.** Properties a client lists in `textProperties` merge as an RGA
+sequence: each UTF-16 unit has a stable ID (`base:<n>` or `<operation>:<i>`),
+inserts anchor after an element and order after it by descending
+`(logicalTime, actor, operation, index)`, and deletes leave tombstones. A
+version restore replaces text through ordinary text operations rather than
+the `Restore` packet. Formatting (rich text) is not part of this sequence.
+
+**Consequences.** Concurrent inserts and deletes keep every character on
+every replica, with an identical interleaving. Tombstones grow the sequence;
+it is capped at 65,536 elements per property and fails closed beyond that.
+Positions are code units, so hosts must keep grapheme clusters together.
+
+## D-168 — One authenticated frame protocol for local and network peers
+
+**Context.** The first transport sent the actor credential in its hello over
+an owner-only local socket. A local-network transport must not expose the
+credential and must resist injected, replayed or reordered frames.
+
+**Decision.** Protocol 2 is shared by the local socket and TCP: server
+challenge nonce, client nonce and HMAC-SHA256 proof keyed by the credential,
+a per-connection session key, and sealed frames with a strict per-direction
+sequence number and MAC. Any failed frame closes the connection; operation
+replay on reconnect recovers state. Permissions are read per operation and
+pushed live; rotation and revocation close sessions. Frames are not
+encrypted; confidentiality comes from the network (LAN, WireGuard/Tailscale)
+or a host TLS adapter. No hosted service is part of the toolkit.
+
+**Consequences.** Peers on other Linux machines collaborate without a third
+party, and a network fault becomes a reconnect rather than corrupt state.
+Protocol-1 peers cannot connect to protocol-2 endpoints. Document values are
+visible to anyone who can read the network path.
+
+## D-169 — Shared versions and undo are new operations in the log
+
+**Context.** Local checkpoint files differ per replica, and a linear undo
+chain replays stale inverse values over other people's edits.
+
+**Decision.** A shared checkpoint is a `Checkpoint` operation carrying the
+snapshot and its name/time; every replica lists them sorted by operation
+order. Collaborative undo reverses only this actor's own steps by issuing new
+operations, and refuses a step a newer edit has superseded (`undoConflict`).
+
+**Consequences.** Version lists and restores agree on all replicas and
+survive restart through the durable log. Undo never erases a collaborator's
+work; a superseded step is dropped rather than applied. Checkpoints consume
+log space (40 KiB snapshots within the 4 MiB log).
+
+## D-170 — Notebook blocks are a flat depth-first list with parent IDs
+
+**Context.** Notebooks nest blocks (list items, toggles, sub-points) but are
+read, virtualized, searched, selected and pasted in reading order. A tree of
+child arrays makes every flat operation (cross-block selection, the ListView
+model, caret movement) walk the tree, and makes a single-block edit copy a
+branch.
+
+**Decision.** `NotebookDocument` stores each page's blocks as one flat list in
+reading order. A block's `parentId` names an earlier block of the same page,
+and every block between a parent and its child is also that parent's
+descendant. The native decoder rejects any other order; every structural edit
+ends with `NotebookTree::repair`, which lifts a block whose parent is gone to
+its nearest remaining ancestor. Moves, deletes and copies of a block include
+its contiguous subtree. Split hands the children to the tail; merge hands the
+second block's children to the first.
+
+**Consequences.** Views, selection and search use flat indices directly, and
+depth is derived. Operations that need siblings (indent, `moveBlockBy`)
+compute them per call, which is linear in the page (at most 10,000 blocks).
+Timing for very large pages belongs to WP-091. Docs: [notebooks](notebooks.md#model).
+
+## D-171 — Notebook history steps share unchanged pages
+
+**Context.** WP-057 needs undo for every text and structural edit, including
+cross-page moves and multi-block pastes, on notebooks of 10,000 or more
+blocks, through the shared `UndoService` and `DocumentSession`.
+
+**Decision.** A notebook step stores the whole state before and after. Qt's
+implicit sharing keeps unchanged pages and block lists shared by the live
+state and every step, so `retainedBytes` counts only the pages a step
+changed. Steps are validated by a stamp issued once per document lifetime,
+not by comparing content, so undo and redo are constant-time. Typing in one
+block merges under `text:<blockId>`.
+
+**Consequences.** One command type covers every operation, and composing
+macros is exact. A step touching many pages (a paste into a huge page) is
+charged for all of them, which the 256 MiB default budget bounds.
+
+## D-172 — Cross-block selections and pastes follow rich-text fragment rules
+
+**Context.** Copying from the middle of one block to the middle of another,
+then pasting into the middle of a third, must give the same result every
+time, keep formatting, and never reuse IDs.
+
+**Decision.** A selection is ordered by flat index, then UTF-16 offset
+snapped to grapheme boundaries. Text endpoints contribute their selected
+part; other endpoints and all blocks between are whole. The copied range has
+`openStart`/`openEnd` exactly like a rich-text `Fragment`: pasting into a
+text block splits it at the caret, joins an open first fragment to the head
+and an open last fragment to the tail. Every pasted block gets a fresh UUID,
+and references within the range (parents, a chart's source table) are
+rewritten. Formatting travels as runs over `RichText::Spans`, and HTML goes
+through `RichTextHtml`, so notebooks exchange formatted text with the rich
+text editor and other applications.
+
+**Consequences.** Paste and delete-selection are single undo steps with
+exact, testable results. Pasting a range whose endpoints are not text (a
+table) never merges.
+
+## D-173 — Block views are virtualized and keep drafts by block ID
+
+**Context.** The first `BlockEditor` built every block card with a Repeater,
+and a text field's unsaved text lived only in that field. Long pages were
+slow, and a rebuilt field lost its text.
+
+**Decision.** `BlockEditor` lists blocks in a `ListView` with `reuseItems`
+whose model is the ordered block IDs. The ID list is replaced only when the
+order changes, so a text commit updates cards in place. Uncommitted text is
+kept in the editor's `drafts`, keyed by block ID, and restored when a card is
+created or reused. Structural edits commit the affected draft first. Focus
+after an edit is requested by block ID and applied after the deferred model
+refresh.
+
+**Consequences.** Only the visible cards and the cache buffer exist.
+Scrolling away and back, or a structural refresh, never loses typing. A host
+that binds its own blocks sees the same behaviour.
