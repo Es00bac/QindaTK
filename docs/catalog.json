@@ -32370,7 +32370,7 @@
       "name": "ScoreView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the notation host owns semantic score records, rhythmic interpretation, engraving coordinates, pagination, selection, and edits. `layoutSnapshot` supplies already-laid-out staff/measure/event coordinates and exact insertion tick strings. This control draws that snapshot and sends stable-ID requests; it does not infer spacing, spelling, rhythm, or playback. Snapshot coordinates (`x0`, `x1`, `top`, `lineGap`, event `x`, `staffStep`, playbackCursorX, and entry-position `x`) are normalized to this control. `staffStep` is the host's diatonic engraving step from the bottom staff line; exact insertion ticks remain strings and are never parsed as JS numbers. The reference host is Tk.ScoreModel (WP-067, D-178): its layoutSnapshot(page) is this view's snapshot and every request below maps to one of its calls (docs/notation.md#editing). Drawing lives in ScorePaint.js.",
+      "description": "AGENT-CONTRACT: the notation host owns semantic score records, rhythmic interpretation, engraving coordinates, pagination, selection, and edits. `layoutSnapshot` supplies already-laid-out staff/measure/event coordinates and exact insertion tick strings. This control draws that snapshot and sends stable-ID requests; it does not infer spacing, spelling, rhythm, or playback. Snapshot coordinates (`x0`, `x1`, `top`, `lineGap`, event `x`, `staffStep`, playbackCursorX, and entry-position `x`) are normalized to this control. `staffStep` is the host's diatonic engraving step from the bottom staff line; exact insertion ticks remain strings and are never parsed as JS numbers. The reference host is Tk.ScoreModel (WP-067, D-178): its layoutSnapshot(page) is this view's snapshot and every request below maps to one of its calls (docs/notation.md#editing). Drawing is Tk.ScoreCanvasItem, the same C++ painter as PDF and image output (D-179).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ScoreView.qml",
@@ -32583,10 +32583,6 @@
         }
       ],
       "methods": [
-        {
-          "name": "css",
-          "parameters": "color"
-        },
         {
           "name": "allStaves",
           "parameters": ""
@@ -68964,6 +68960,103 @@
       "bridge": false
     },
     {
+      "name": "ScoreCanvasItem",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "AGENT-CONTRACT (D-179): ScoreView's drawing surface (objectName \"scoreCanvas\"). It paints `snapshot` with Score::paintSnapshot, the same painter PDF and image output use; ScoreView supplies the theme colours. AGENT-GUARD: paint() may run on the render thread; it reads the copied properties only and emits nothing.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/score_canvas_item.h",
+      "properties": [
+        {
+          "name": "snapshot",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectedEventId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "cursorX",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumEvents",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "surfaceColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "inkColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "mutedColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "borderColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "accentColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fontFamily",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "appearanceChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ScoreModel",
       "kind": "cpp",
       "base": "QObject",
@@ -69182,6 +69275,11 @@
           "parameters": "const QString &measureId, int fifths"
         },
         {
+          "name": "setPickup",
+          "returns": "QVariantMap",
+          "parameters": "const QString &measureId, const QString &ticks"
+        },
+        {
           "name": "setBreak",
           "returns": "QVariantMap",
           "parameters": "const QString &measureId, const QString &kind"
@@ -69321,7 +69419,7 @@
       "name": "ScorePlayback",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT (D-180, docs/notation.md#playback): plays a ScoreModel through an AudioSession's MIDI model and engine (WP-064). sync() writes the score's MIDI rendering (Score::toMidi) into one pattern of `session.midi` as one MIDI undo step and keeps one beat-locked clip of it on a MIDI track at `startTicks`, so the tempo map (WP-049) times it and the engine schedules it like any pattern. The score stays the source; the pattern is derived and is replaced whole on every sync. Audition uses the engine's cue voices (auditionNoteOn/Off).",
+      "description": "AGENT-CONTRACT (D-180, docs/notation.md#playback): plays a ScoreModel through an AudioSession's MIDI model and engine (WP-064). sync() writes the score's MIDI rendering (Score::toMidi) into one pattern of `session.midi` and keeps one beat-locked clip of it on a MIDI track at `startTicks`, so the tempo map (WP-049) times it and the engine schedules it like any pattern. The score stays the source; the pattern is derived and is replaced whole on every sync. The track and pattern IDs are UUIDv5 of the score ID (Score::playbackTrackId / playbackPatternId) and the clip is the one of that pattern on that track, so the link lives in the saved session itself: a reopened session, a new ScorePlayback or a score set again finds them instead of adding copies. A sync that fails part-way undoes the steps it made. Audition uses the engine's cue voices.",
       "singleton": false,
       "attached": null,
       "file": "src/core/score_playback.h",
