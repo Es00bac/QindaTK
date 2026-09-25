@@ -338,6 +338,7 @@ qindatk_add_test(tst_rich_text_references)
 qindatk_add_test(tst_rich_text_review)
 qindatk_add_test(tst_print_output)
 qindatk_add_test(tst_print_preflight)
+qindatk_add_test(tst_print_preview)
 # The test registers synthetic pointing devices (QPointingDevicePrivate);
 # the handler itself needs QuickPrivate, which qindatk links privately.
 target_link_libraries(tst_stylus_handler PRIVATE Qt6::GuiPrivate Qt6::QuickPrivate)

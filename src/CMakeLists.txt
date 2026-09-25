@@ -292,6 +292,7 @@ qt_add_qml_module(qindatk
         core/print_preflight.cpp core/print_preflight.h
         core/print_adapter.cpp core/print_adapter.h core/print_adapter_p.h
         core/print_adapter_jobs.cpp core/print_adapter_repair.cpp
+        core/print_adapter_preview.cpp core/print_preview_renderer.cpp core/print_preview_renderer_p.h
         core/print_sheet_view.cpp core/print_sheet_view.h
         core/rich_text_codec.cpp core/rich_text_codec_read.cpp core/rich_text_codec_publishing.cpp
         core/rich_text_codec_review.cpp
@@ -548,6 +549,13 @@ if(QINDATK_ENABLE_WIDGETS AND TARGET Qt6::Widgets)
             platform_widgets/native_print_backend.h)
         target_link_libraries(qindatk_widgets PUBLIC Qt6::PrintSupport)
         target_compile_definitions(qindatk_widgets PUBLIC QINDATK_HAVE_NATIVE_PRINT=1)
+        # AGENT-NOTE (PLT-04): jobs go to CUPS through cupsPrintFile2, whose
+        # job ID is the only proof the queue accepted them.
+        if(TARGET Cups::Cups)
+            target_link_libraries(qindatk_widgets PRIVATE Cups::Cups)
+            target_compile_definitions(qindatk_widgets PRIVATE QINDATK_HAVE_CUPS=1)
+            set(QINDATK_WIDGETS_CUPS TRUE PARENT_SCOPE)
+        endif()
         install(FILES platform_widgets/native_print_backend.h
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/qindatk)
         set(QINDATK_WIDGETS_PRINT TRUE PARENT_SCOPE)

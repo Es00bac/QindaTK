@@ -252,6 +252,14 @@ preview pixel for pixel, and PDF media boxes match the plan. Devices never
 scale or place pages themselves. A new device only opens, advances and
 finishes sheets. See [printing.md](printing.md#one-output-description).
 
+**Addendum (audit of the code-first round).** OFF-12 asks for asynchronous
+preview. Views request sheets from a preview thread that lays out its own
+copy of the document per preview generation (the D-131 snapshot, reused)
+and paints through the same `renderSheet`; results of an older generation
+are dropped. Layout code reached from that thread must not keep unlocked
+static state. One preview image is at most a quarter of the 64 MiB cache;
+larger zooms are rendered at the largest zoom that fits.
+
 ## D-131 — Print jobs print a snapshot, one sheet per turn
 
 **Context.** The document is GUI-thread only, and a user may keep editing
@@ -261,15 +269,20 @@ lose the settings or pretend success.
 **Decision.** `print()` copies the document through its own codec and lays
 out the copy; the job paints that copy one sheet per event-loop turn.
 `cancel()` is a request that the next turn honours by aborting the device.
-Devices commit only in `finish()` (QSaveFile for PDF, a `.part` file for the
-system engine, the CUPS spool), so an aborted job leaves no output; a device
+Devices commit only in `finish()` (QSaveFile for PDF and the system engine's
+file output, the CUPS spool for printers), so an aborted job leaves no output; a device
 that streams reports `deliveredSheets()`. A failed or cancelled job names the
 pages that did not reach paper or disk, and the ticket stays unchanged.
 
 **Consequences.** Editing during a job is safe, and the GUI stays responsive
 between sheets. Copying costs one encode and decode (about 50 ms for 500
-pages). "Completed" for a printer means handed to CUPS; tracking the job on
-the printer is not part of this package.
+pages). "Completed" for a printer means CUPS returned a job ID for it; a
+refused submission is a failure. Native devices render into a private
+temporary PDF: file output commits it through `QSaveFile` (never deleting
+the old target first, never touching a `<path>.part` sibling), and printer
+output submits it with `cupsPrintFile2` rather than Qt's CUPS engine, which
+ignores the submission result. Tracking the job on the printer is not part
+of this package.
 
 ## D-132 — Preflight issues have derived IDs and validated repairs
 

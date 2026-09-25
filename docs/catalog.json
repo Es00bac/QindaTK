@@ -63159,6 +63159,13 @@
           "constant": false
         },
         {
+          "name": "previewPendingCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "previewGeneration",
           "type": "int",
           "default": "",
@@ -63218,11 +63225,20 @@
           "parameters": ""
         },
         {
+          "name": "previewReady",
+          "parameters": "int pageIndex"
+        },
+        {
           "name": "errorChanged",
           "parameters": ""
         }
       ],
       "methods": [
+        {
+          "name": "requestPreview",
+          "returns": "bool",
+          "parameters": "int pageIndex, double zoom"
+        },
         {
           "name": "refreshDestinations",
           "returns": "void",
@@ -63278,7 +63294,7 @@
       "name": "PrintSheetView",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
-      "description": "Shows one output sheet of a PrintAdapter: the page placed on the selected paper with the ticket's scale, bleed, crop marks and colour, as the job will print it (D-130). Images come from the adapter's bounded preview cache and are fetched in updatePolish, on the GUI thread, never while painting.",
+      "description": "Shows one output sheet of a PrintAdapter: the page placed on the selected paper with the ticket's scale, bleed, crop marks and colour, as the job will print it (D-130). Images come from the adapter's bounded preview cache; a missing one is requested from the preview thread (OFF-12) and the view is `pending` until previewReady, showing the page's previous image meanwhile.",
       "singleton": false,
       "attached": null,
       "file": "src/core/print_sheet_view.h",
@@ -63320,6 +63336,13 @@
         },
         {
           "name": "ready",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pending",
           "type": "bool",
           "default": "",
           "readonly": true,

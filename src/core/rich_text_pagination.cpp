@@ -174,13 +174,17 @@ bool FlowBuilder::placeParagraph(const Paragraph &p, FlowState &state, Page &pag
     }
     int fit = 0;
     while (first + fit < n && (!m_paged || bottomOf(first + fit) <= m_height + 0.01)) ++fit;
-    const bool split = first + fit < n;
+    bool split = first + fit < n;
     if (split) {
         if (n - (first + fit) == 1 && fit >= 2) --fit;                 // widow: carry two lines
         if (first == 0 && fit == 1 && n > 1 && m_hasContent) fit = 0;  // orphan: move it all
         if (fit == 0 && !m_hasContent) {
             fit = 1;
             page.overflow = page.overflow || bottomOf(first) > m_height + 0.01;
+            // AGENT-GUARD: the forced line may be the paragraph's last; still
+            // calling it split restarts the same line on every new page, an
+            // endless run of pages (tst_print_preflight page-overflow case).
+            split = first + fit < n;
         }
     } else {
         fit = n - first;
