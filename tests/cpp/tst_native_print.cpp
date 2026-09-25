@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// The native print backend (WP-053): system printers as destinations, the
-// system print engine writing a file, cancellation without output, and a
-// vanished printer refused while the adapter keeps working. Real printer
-// runs are qualification work (WP-089); CUPS may list no printers here.
+// The native print backend (WP-053, PLT-04): system printers as
+// destinations, the system print engine writing a file, cancellation without
+// output, a vanished printer refused while the adapter keeps working, jobs
+// that count as printed only when the spooler accepts them, the job options a
+// printer receives, and file output that replaces a target atomically or not
+// at all. Real printer runs are qualification work (WP-088); CUPS may list no
+// printers here, so a test spooler stands in for the queue.
 #include "native_print_backend.h"
 #include "print_adapter.h"
 #include "rich_text_fixtures.h"
@@ -16,6 +19,57 @@ using namespace QindaTK;
 using namespace QindaTK::RichTextFixtures;
 
 namespace {
+
+// A queue that records what it is given and accepts or refuses on demand.
+class FakeSpooler final : public PrintSpooler {
+public:
+    struct Received { Job job; QByteArray pdf; };
+    bool accept = true;
+    QString refusalReason;
+    QVector<Received> received;
+    QVector<Print::Capabilities> printers() override
+    {
+        Print::Capabilities c;
+        c.printerId = NativePrintBackend::printerId(QStringLiteral("ghost"));
+        c.label = QStringLiteral("Ghost printer");
+        c.kind = QStringLiteral("printer");
+        c.papers = Print::standardPapers();
+        c.duplexModes = {QStringLiteral("simplex"), QStringLiteral("long-edge"), QStringLiteral("short-edge")};
+        c.colorModes = {QStringLiteral("color"), QStringLiteral("grayscale")};
+        c.maxCopies = 99;
+        c.collate = true;
+        return {c};
+    }
+    QString refusal(const QString &printerName) override
+    {
+        return printerName == QLatin1String("ghost") ? refusalReason : QStringLiteral("%1 is gone").arg(printerName);
+    }
+    int submit(const Job &job, QString *error) override
+    {
+        QFile file(job.pdfPath);
+        received.append({job, file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray()});
+        if (accept) return 42;
+        *error = QStringLiteral("client-error-not-accepting-jobs");
+        return 0;
+    }
+};
+
+QStringList entries(const QString &directory)
+{
+    return QDir(directory).entryList(QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Name);
+}
+
+QString readAll(const QString &path)
+{
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? QString::fromLatin1(file.readAll()) : QString();
+}
+
+bool writeText(const QString &path, const QByteArray &text)
+{
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly) && file.write(text) == text.size();
+}
 
 int pdfPages(const QString &path, QSizeF *firstBox)
 {
@@ -112,6 +166,166 @@ private slots:
         QVERIFY(!adapter.print().isEmpty());
         QTRY_COMPARE(adapter.job().value(QStringLiteral("status")).toString(), QStringLiteral("completed"));
         QCOMPARE(pdfPages(path, nullptr), 3);
+    }
+
+    void jobOptionsFollowTheTicket()
+    {
+        Print::Ticket ticket;
+        ticket.copies = 3;
+        ticket.collate = true;
+        ticket.duplex = QStringLiteral("long-edge");
+        ticket.colorMode = QStringLiteral("grayscale");
+        ticket.paperId = QStringLiteral("a4");
+        using O = PrintSpooler::Options;
+        QCOMPARE(NativePrintBackend::jobOptions(ticket),
+                 (O{{QStringLiteral("copies"), QStringLiteral("3")}, {QStringLiteral("collate"), QStringLiteral("true")},
+                    {QStringLiteral("sides"), QStringLiteral("two-sided-long-edge")},
+                    {QStringLiteral("print-color-mode"), QStringLiteral("monochrome")},
+                    {QStringLiteral("media"), QStringLiteral("iso_a4_210x297mm")}}));
+        ticket.copies = 1;
+        ticket.duplex = QStringLiteral("short-edge");
+        ticket.colorMode = QStringLiteral("color");
+        ticket.paperId = QStringLiteral("native:Env10");
+        QCOMPARE(NativePrintBackend::jobOptions(ticket),
+                 (O{{QStringLiteral("copies"), QStringLiteral("1")},
+                    {QStringLiteral("sides"), QStringLiteral("two-sided-short-edge")},
+                    {QStringLiteral("print-color-mode"), QStringLiteral("color")},
+                    {QStringLiteral("media"), QStringLiteral("Env10")}}));
+        ticket.duplex = QStringLiteral("simplex");
+        ticket.paperId = QStringLiteral("document"); // the PDF's own page size
+        QCOMPARE(NativePrintBackend::jobOptions(ticket).at(1).second, QStringLiteral("one-sided"));
+        QCOMPARE(NativePrintBackend::jobOptions(ticket).size(), 3);
+    }
+
+    void printerJobsCountOnlyWhenTheQueueAccepts()
+    {
+        QTemporaryDir scratch;
+        QTemporaryDir temp; // the job's temporary PDF lives here, and must not stay
+        QVERIFY(scratch.isValid() && temp.isValid());
+        const QByteArray oldTemp = qgetenv("TMPDIR");
+        qputenv("TMPDIR", QFile::encodeName(temp.path()));
+        RichTextDocument doc;
+        buildLines(doc, 6, 2);
+        auto spooler = std::make_shared<FakeSpooler>();
+        PrintAdapter adapter;
+        adapter.setBackends({std::make_shared<NativePrintBackend>(spooler)});
+        adapter.setDocument(&doc);
+        const QVariantMap ticket{{QStringLiteral("printerId"), NativePrintBackend::printerId(QStringLiteral("ghost"))},
+                                 {QStringLiteral("copies"), 3}, {QStringLiteral("collate"), true},
+                                 {QStringLiteral("duplex"), QStringLiteral("long-edge")},
+                                 {QStringLiteral("colorMode"), QStringLiteral("grayscale")},
+                                 {QStringLiteral("paperId"), QStringLiteral("a4")}, {QStringLiteral("pages"), QStringLiteral("1-2")}};
+        QVERIFY2(adapter.applySettings(ticket), qPrintable(adapter.lastError()));
+        const QVariantMap before = adapter.settings();
+
+        // A queue that refuses the rendered job: failed, never "completed".
+        spooler->accept = false;
+        QVERIFY2(!adapter.print().isEmpty(), qPrintable(adapter.lastError()));
+        QTRY_VERIFY(!adapter.busy());
+        QVariantMap job = adapter.job();
+        QCOMPARE(job.value(QStringLiteral("status")).toString(), QStringLiteral("failed"));
+        QVERIFY(job.value(QStringLiteral("error")).toString().contains(QStringLiteral("not-accepting-jobs")));
+        QCOMPARE(job.value(QStringLiteral("affectedPages")).toString(), QStringLiteral("1-2"));
+        QCOMPARE(adapter.lastErrorCode(), QStringLiteral("backendFailure"));
+        QCOMPARE(adapter.settings(), before);
+        QCOMPARE(spooler->received.size(), 1);
+        QCOMPARE(entries(temp.path()), QStringList());
+
+        // Accepted: the job carries the ticket's options and the selected sheets.
+        spooler->accept = true;
+        QVERIFY(!adapter.print().isEmpty());
+        QTRY_COMPARE(adapter.job().value(QStringLiteral("status")).toString(), QStringLiteral("completed"));
+        QCOMPARE(spooler->received.size(), 2);
+        const FakeSpooler::Received &sent = spooler->received.last();
+        QCOMPARE(sent.job.printerName, QStringLiteral("ghost"));
+        QCOMPARE(sent.job.options, NativePrintBackend::jobOptions(adapter.ticket()));
+        QVERIFY(sent.job.options.contains({QStringLiteral("copies"), QStringLiteral("3")}));
+        QVERIFY(sent.job.options.contains({QStringLiteral("sides"), QStringLiteral("two-sided-long-edge")}));
+        QVERIFY(sent.job.options.contains({QStringLiteral("print-color-mode"), QStringLiteral("monochrome")}));
+        const QString copy = scratch.filePath(QStringLiteral("sent.pdf"));
+        QVERIFY(writeText(copy, sent.pdf));
+        QSizeF box;
+        QCOMPARE(pdfPages(copy, &box), 2); // one of each sheet; copies are the queue's job
+        QVERIFY(qAbs(box.width() - 595.28) <= 1.0 && qAbs(box.height() - 841.89) <= 1.0);
+        QCOMPARE(entries(temp.path()), QStringList());
+
+        // A queue that stopped accepting is refused before anything renders.
+        spooler->refusalReason = QStringLiteral("ghost is not accepting jobs");
+        QVERIFY(!adapter.print().isEmpty());
+        QTRY_VERIFY(!adapter.busy());
+        QCOMPARE(adapter.job().value(QStringLiteral("status")).toString(), QStringLiteral("failed"));
+        QCOMPARE(adapter.job().value(QStringLiteral("error")).toString(), spooler->refusalReason);
+        QCOMPARE(spooler->received.size(), 2);
+        if (oldTemp.isNull()) qunsetenv("TMPDIR");
+        else qputenv("TMPDIR", oldTemp);
+    }
+
+    void cupsRefusalIsReportedNotIgnored()
+    {
+        if (!CupsSpooler::available()) QSKIP("built without libcups");
+        // No queue by this name exists, with or without a running scheduler:
+        // the real submission path must report failure, not a job.
+        const QString name = QStringLiteral("qindatk-no-such-queue-%1").arg(QCoreApplication::applicationPid());
+        CupsSpooler cups;
+        QVERIFY(!cups.refusal(name).isEmpty());
+        QTemporaryDir directory;
+        const QString pdf = directory.filePath(QStringLiteral("job.pdf"));
+        QVERIFY(writeText(pdf, "%PDF-1.4\n%%EOF\n"));
+        QString error;
+        QCOMPARE(cups.submit({name, QStringLiteral("QindaTK test"), pdf, {}}, &error), 0);
+        QVERIFY(!error.isEmpty());
+    }
+
+    void printToFileReplacesAtomicallyOrNotAtAll()
+    {
+        RichTextDocument doc;
+        buildLines(doc, 6, 2);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString folder = directory.filePath(QStringLiteral("out"));
+        QVERIFY(QDir().mkpath(folder));
+        const QString path = folder + QStringLiteral("/report.pdf");
+        const QString part = path + QStringLiteral(".part"); // somebody else's file
+        QVERIFY(writeText(path, "previous report"));
+        QVERIFY(writeText(part, "unrelated"));
+        PrintAdapter adapter;
+        adapter.setBackends({std::make_shared<NativePrintBackend>()});
+        adapter.setDocument(&doc);
+        QVERIFY(adapter.applySettings({{QStringLiteral("printerId"), NativePrintBackend::fileDestinationId()},
+                                       {QStringLiteral("outputPath"), path}}));
+
+        // A folder that cannot take the new file: the old one stays whole.
+        QVERIFY(QFile::setPermissions(folder, QFile::ReadOwner | QFile::ExeOwner));
+        if (QFile file(folder + QStringLiteral("/probe")); file.open(QIODevice::WriteOnly)) {
+            QFile::setPermissions(folder, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+            QSKIP("running with permission to write into read-only folders");
+        }
+        QVERIFY(!adapter.print().isEmpty());
+        QTRY_VERIFY(!adapter.busy());
+        QCOMPARE(adapter.job().value(QStringLiteral("status")).toString(), QStringLiteral("failed"));
+        QCOMPARE(adapter.job().value(QStringLiteral("failedPage")).toInt(), 1);
+        QVERIFY(adapter.job().value(QStringLiteral("error")).toString().contains(path));
+        QVERIFY(QFile::setPermissions(folder, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        QCOMPARE(readAll(path), QStringLiteral("previous report"));
+        QCOMPARE(entries(folder), (QStringList{QStringLiteral("report.pdf"), QStringLiteral("report.pdf.part")}));
+
+        // No usable temporary folder: fails on the first sheet, target untouched.
+        const QByteArray oldTemp = qgetenv("TMPDIR");
+        qputenv("TMPDIR", QFile::encodeName(directory.filePath(QStringLiteral("no-such-temp"))));
+        QVERIFY(!adapter.print().isEmpty());
+        QTRY_VERIFY(!adapter.busy());
+        if (oldTemp.isNull()) qunsetenv("TMPDIR");
+        else qputenv("TMPDIR", oldTemp);
+        QCOMPARE(adapter.job().value(QStringLiteral("status")).toString(), QStringLiteral("failed"));
+        QVERIFY(adapter.job().value(QStringLiteral("error")).toString().contains(QStringLiteral("temporary file")));
+        QCOMPARE(readAll(path), QStringLiteral("previous report"));
+
+        // Success replaces the target in one step and leaves the sibling alone.
+        QVERIFY(!adapter.print().isEmpty());
+        QTRY_COMPARE(adapter.job().value(QStringLiteral("status")).toString(), QStringLiteral("completed"));
+        QCOMPARE(pdfPages(path, nullptr), 3);
+        QCOMPARE(readAll(part), QStringLiteral("unrelated"));
+        QCOMPARE(entries(folder), (QStringList{QStringLiteral("report.pdf"), QStringLiteral("report.pdf.part")}));
     }
 
     void registeredBackendsReachNewAdapters()

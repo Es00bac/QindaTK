@@ -11,6 +11,7 @@
 #include <QSaveFile>
 #include <QUrl>
 #include <QtMath>
+#include <cmath>
 
 namespace QindaTK::Print {
 namespace {
@@ -180,6 +181,19 @@ QSize sheetPixelSize(const Sheet &sheet, double zoom)
         return qBound(0, qCeil(points * UnitsPerPoint * zoom - 1e-6), 16384);
     };
     return {pixels(sheet.sizePt.width()), pixels(sheet.sizePt.height())};
+}
+
+double previewZoom(const Sheet &sheet, double zoom, qint64 maxBytes)
+{
+    const auto bytes = [&sheet](double z) {
+        const QSize size = sheetPixelSize(sheet, z);
+        return qint64(size.width()) * size.height() * 4;
+    };
+    if (!(zoom > 0) || bytes(zoom) <= maxBytes) return zoom;
+    const double area = sheet.sizePt.width() * sheet.sizePt.height() * UnitsPerPoint * UnitsPerPoint * 4;
+    double z = area > 0 ? std::floor(std::sqrt(double(maxBytes) / area) * 64) / 64 : zoom;
+    while (z > 1.0 / 64 && bytes(z) > maxBytes) z -= 1.0 / 64;
+    return qBound(1.0 / 64, z, zoom);
 }
 
 PaintContext outputContext(RichTextObjectRenderer *objects)

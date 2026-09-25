@@ -14,6 +14,7 @@
 namespace QindaTK {
 class RichTextImageRenderer;
 class RichTextLayout;
+namespace Print { class PreviewRenderer; }
 
 // Printing and publishing preflight for a RichTextDocument (WP-053,
 // docs/printing.md): destinations and their capabilities, one print ticket,
@@ -42,11 +43,16 @@ class PrintAdapter : public QObject {
     Q_PROPERTY(int previewCacheCount READ previewCacheCount NOTIFY previewChanged)
     Q_PROPERTY(qint64 previewCacheBytes READ previewCacheBytes NOTIFY previewChanged)
     Q_PROPERTY(int previewRenderCount READ previewRenderCount NOTIFY previewChanged)
+    Q_PROPERTY(int previewPendingCount READ previewPendingCount NOTIFY previewChanged)
     Q_PROPERTY(int previewGeneration READ previewGeneration NOTIFY previewInvalidated)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
     Q_PROPERTY(QString lastErrorCode READ lastErrorCode NOTIFY errorChanged)
 public:
     static constexpr qint64 PreviewCacheByteLimit = 64ll * 1024 * 1024;
+    // AGENT-GUARD: one preview image is at most a quarter of the cache, so
+    // the byte limit holds even for the newest image; larger requests are
+    // rendered at a lower zoom (Print::previewZoom) and scaled by the view.
+    static constexpr qint64 PreviewImageByteLimit = PreviewCacheByteLimit / 4;
 
     explicit PrintAdapter(QObject *parent = nullptr);
     ~PrintAdapter() override;
@@ -79,6 +85,7 @@ public:
     int previewCacheCount() const { return int(m_cache.size()); }
     qint64 previewCacheBytes() const { return m_cacheBytes; }
     int previewRenderCount() const { return m_renderCount; }
+    int previewPendingCount() const { return int(m_pending.size()); }
     int previewGeneration() const { return m_generation; }
     QString lastError() const { return m_lastError; }
     QString lastErrorCode() const { return m_lastErrorCode; }
@@ -88,8 +95,18 @@ public:
     QVector<Print::Sheet> plan();
     // The sheet a layout page is output on with the current ticket.
     Print::Sheet sheetOf(int pageIndex);
-    // Preview of `pageIndex` at `zoom` (1: 96 px per inch), from the cache.
+    // The zoom a preview of `pageIndex` is rendered at: `zoom`, lowered until
+    // the image fits PreviewImageByteLimit.
+    double previewZoomFor(int pageIndex, double zoom);
+    // Preview of `pageIndex` at `zoom` (1: 96 px per inch) from the cache,
+    // rendered on the calling thread when missing. Blocking: for tests and
+    // tools; views use requestPreview/cachedPreview.
     QImage previewImage(int pageIndex, double zoom);
+    // The cached preview, or a null image; never renders.
+    QImage cachedPreview(int pageIndex, double zoom);
+    // True when the preview is cached. Otherwise queues it on the preview
+    // thread and returns false; previewReady(pageIndex) follows.
+    Q_INVOKABLE bool requestPreview(int pageIndex, double zoom);
 
     Q_INVOKABLE void refreshDestinations();
     // Merges `patch` into the ticket; malformed values change nothing. Options
@@ -116,6 +133,7 @@ signals:
     void issuesChanged();
     void previewChanged();          // cache statistics
     void previewInvalidated();      // pages must be fetched again (document or ticket changed)
+    void previewReady(int pageIndex); // a requested preview is in the cache
     void errorChanged();
 
 private:
@@ -129,6 +147,9 @@ private:
     void stepJob();
     void finishJob(const QString &status, const QString &error, int failedSheet);
     void trimCache();
+    QString previewKey(int pageIndex, double zoom) const;
+    void cachePreview(const QString &key, const QImage &image);
+    void onPreviewRendered(int generation, const QString &key, const QImage &image);
     bool applyRepair(const Print::Issue &issue, const QString &actionId, const QVariant &argument);
     bool replaceFont(const QString &family);
     bool relinkImage(const QString &objectId, const QVariant &argument);
@@ -149,6 +170,8 @@ private:
     int m_cacheLimit = 8;
     quint64 m_cacheClock = 0;
     int m_renderCount = 0;
+    QHash<QString, int> m_pending;   // preview key -> page, queued on the preview thread
+    std::unique_ptr<Print::PreviewRenderer> m_renderer;
     int m_generation = 0;
     std::unique_ptr<Job> m_job;
     QVariantMap m_lastJob;

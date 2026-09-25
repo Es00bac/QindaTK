@@ -372,15 +372,24 @@ private slots:
         QTRY_COMPARE(adapter.job().value(QStringLiteral("status")).toString(), QStringLiteral("completed"));
         QCOMPARE(capture->log->sheets.size(), 3);
 
-        // A PDF that cannot be written fails without a file; a good path then works.
+        // A missing folder is refused before a job starts; a read-only one
+        // fails on the first sheet without a file; a good path then works.
         QTemporaryDir directory;
-        const QString bad = directory.filePath(QStringLiteral("missing-folder/out.pdf"));
-        QVERIFY(adapter.applySettings({{QStringLiteral("printerId"), QStringLiteral("pdf")}, {QStringLiteral("outputPath"), bad},
+        const QString missing = directory.filePath(QStringLiteral("missing-folder/out.pdf"));
+        QVERIFY(adapter.applySettings({{QStringLiteral("printerId"), QStringLiteral("pdf")}, {QStringLiteral("outputPath"), missing},
                                        {QStringLiteral("copies"), 1}}));
+        QVERIFY(adapter.print().isEmpty());
+        QVERIFY(adapter.lastError().contains(QStringLiteral("does not exist")));
+        QVERIFY(QDir(directory.path()).mkdir(QStringLiteral("locked")));
+        const QString locked = directory.filePath(QStringLiteral("locked"));
+        QVERIFY(QFile::setPermissions(locked, QFile::ReadOwner | QFile::ExeOwner));
+        const QString bad = directory.filePath(QStringLiteral("locked/out.pdf"));
+        QVERIFY(adapter.applySettings({{QStringLiteral("outputPath"), bad}}));
         QVERIFY(!adapter.print().isEmpty());
         QTRY_COMPARE(adapter.job().value(QStringLiteral("status")).toString(), QStringLiteral("failed"));
         QCOMPARE(adapter.job().value(QStringLiteral("failedPage")).toInt(), 1);
         QVERIFY(!QFile::exists(bad));
+        QVERIFY(QFile::setPermissions(locked, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
         const QString good = directory.filePath(QStringLiteral("out.pdf"));
         QVERIFY(adapter.applySettings({{QStringLiteral("outputPath"), good}}));
         QVERIFY(!adapter.print().isEmpty());
