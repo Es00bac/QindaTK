@@ -81,7 +81,7 @@ A field is a run of characters whose format names a `ReferenceField`
 | `caption` | sequence | a series name (`sequence:Figure`, or `Figure`) | `Figure 2`; `(2)` for `Equation`. Numbered per series in document order. |
 | `cross-reference` | crossReference | a caption field | the target's result, for example `Figure 2` |
 | `citation` | citation | a source | `[n]`, where n is the source's rank by first citation in document order |
-| `bibliography` | bibliography | none | `[n] Author. Title. Publisher, Year.` for each cited source, joined by soft line breaks, or `No sources cited.` |
+| `bibliography` | bibliography | none | `[n] Author. Title. Publisher, Year.` for each cited source (a part that already ends in a period, such as `Wu, L.`, gets no second one), joined by soft line breaks, or `No sources cited.` |
 
 ### Result text
 

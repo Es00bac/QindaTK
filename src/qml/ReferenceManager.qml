@@ -98,11 +98,15 @@ Item {
                 gap: Tk.Theme.space.xs
                 Repeater {
                     model: control.references
-                    delegate: Tk.Button {
+                    // AGENT-NOTE: list rows read from the start and elide at the
+                    // end (a long bibliography row must not clip both sides).
+                    delegate: Tk.ListRow {
                         required property var modelData
                         objectName: "reference_" + modelData.id
-                        text: (modelData.label || modelData.type) + " · " + (modelData.formattedText || modelData.targetId)
-                        variant: modelData.id === control.selectedReferenceId ? "outline" : "ghost"
+                        // One line per row: a bibliography's entries are separated by line breaks.
+                        text: ((modelData.label || modelData.type) + " · " + (modelData.formattedText || modelData.targetId))
+                              .replace(/[\u2028\u2029\n]+/g, " ")
+                        selected: modelData.id === control.selectedReferenceId
                         tooltip: qsTr("Select %1 reference").arg(modelData.label || modelData.type)
                         onClicked: control.selectReference(modelData.id)
                     }
