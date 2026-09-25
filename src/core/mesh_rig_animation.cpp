@@ -7,7 +7,7 @@ namespace {
 const char *const AxisNames[3] = {"x", "y", "z"};
 }
 
-// AGENT-CONTRACT (D-178): a bone's timeline animation lives in the WP-073
+// AGENT-CONTRACT (D-291): a bone's timeline animation lives in the WP-073
 // AutomationModel as three angle lanes "meshrig/bone:<boneId>/rotation.<axis>"
 // (degrees, -180..180, linear by default). KeyframeTimeline, DopeSheet and
 // CurveEditor edit those lanes directly; this document only reads them at

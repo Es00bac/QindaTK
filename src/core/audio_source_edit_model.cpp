@@ -97,7 +97,7 @@ void AudioSourceEditModel::fold(Source &entry)
         entry.folded = 0;
         entry.problems.clear();
     }
-    // AGENT-NOTE (D-187): the replay owns one working copy and edits it in
+    // AGENT-NOTE (D-294): the replay owns one working copy and edits it in
     // place; only a length change allocates another. Published buffers are
     // never written: `work` is private until it becomes `current`.
     std::shared_ptr<AudioBuffer> work;

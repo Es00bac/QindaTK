@@ -8,7 +8,7 @@ import QindaTK as Tk
 // it does not run FFT, interpret normalization, or apply spectral processing.
 // The reference host is Tk.AudioSpectrogramSource (tiles, boundaries, metadata)
 // plus AudioSession.edits.preview/commitPreview for processRequested
-// (docs/audio-editing.md, D-136/D-137/D-186). The committed selection and the
+// (docs/audio-editing.md, D-136/D-137/D-293). The committed selection and the
 // committed mask are host state in sample/Hz coordinates, so they keep their
 // place through zoom. processRequested's `parameters` ({mask} for a mask) are
 // merged into the edit map as they are.

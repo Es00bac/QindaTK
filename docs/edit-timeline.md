@@ -6,7 +6,7 @@ TrackHeader, AUD-06 ClipItem, AUD-07 TimeSelection, AUD-08 MarkerLane). It is
 the timeline UI and model layer for audio, video and animation editors. It is
 not an audio engine, a media decoder or an Audacity port: playback, recording,
 peak pyramids, crossfades and time stretch belong to the host or later
-packages. Decision [D-045](decisions-application.md#d-045--keep-timeline-placement-in-an-exact-tick-model-and-views-delegate-free)
+packages. Decision [D-290](decisions-application.md#d-290--keep-timeline-placement-in-an-exact-tick-model-and-views-delegate-free)
 records why the layers are split this way.
 
 ```

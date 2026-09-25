@@ -10,7 +10,7 @@ import QindaTK as Tk
 // channelColumns, zoom, scroll) plus AudioSession.edits.apply for edit requests:
 // editRequested's `parameters` ({gainDb} for gain, {shape} for fades) are the
 // edit's own parameters and are merged into the apply() map as they are
-// (docs/audio-editing.md, D-134/D-135/D-187).
+// (docs/audio-editing.md, D-134/D-135/D-294).
 T.Control {
     id: root
 

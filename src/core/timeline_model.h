@@ -21,7 +21,7 @@ namespace QindaTK {
 // One accepted gesture is one change set and one history step; a rejected,
 // stale or cancelled edit leaves every committed record unchanged. A
 // production host either drives this model as its projection or takes the
-// history through externalUndo (see docs/edit-timeline.md, D-045).
+// history through externalUndo (see docs/edit-timeline.md, D-290).
 class TimelineModel : public QObject {
     Q_OBJECT
     QML_ELEMENT

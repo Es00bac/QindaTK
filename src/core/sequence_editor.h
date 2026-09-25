@@ -13,7 +13,7 @@ namespace QindaTK {
 
 // AGENT-CONTRACT (docs/sequence-edits.md "SequenceEditor"): the backend of
 // TrimView and TransitionEditor. It turns their requests into TimelineModel
-// transactions (the only writer of clip placement, D-045) and publishes
+// transactions (the only writer of clip placement, D-290) and publishes
 // snapshots in the shapes the views read:
 //  - trim: one revision-guarded session per edit point; previewTrim() begins
 //    or updates it, so the views show the preview overlay's frames, and

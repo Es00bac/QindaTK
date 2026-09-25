@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // WP-063 audit fixtures: analysis workers cancelled or superseded after they
-// ran, the memory bound on committed edits (D-187), masked spectral edits
-// through the session (D-186), and the WaveformEditor's gain/fade handles and
+// ran, the memory bound on committed edits (D-294), masked spectral edits
+// through the session (D-293), and the WaveformEditor's gain/fade handles and
 // channel layout driving real edits.
 #include "audio_analysis_source.h"
 #include "audio_dsp.h"
@@ -159,7 +159,7 @@ private slots:
         AudioSession session;
         const QString id = importInto(session, writeTones(dir.filePath(QStringLiteral("t.wav"))));
         AudioSourceEditModel *edits = session.edits();
-        // Gain, fades and silence hold no copy of their range (D-187).
+        // Gain, fades and silence hold no copy of their range (D-294).
         for (const QVariantMap &edit : {op(QStringLiteral("gain"), 0, 48000, {{QStringLiteral("gainDb"), -6.0}}),
                                         op(QStringLiteral("fadeIn"), 0, 24000),
                                         op(QStringLiteral("fadeOut"), 24000, 48000, {{QStringLiteral("shape"), QStringLiteral("equalPower")}}),

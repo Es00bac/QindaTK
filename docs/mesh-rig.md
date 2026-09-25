@@ -69,7 +69,7 @@ step.
 ### Timeline animation (WP-073)
 
 `animationModel` takes the toolkit's keyframe engine, an `AutomationModel`
-(D-178). `bindBoneAnimation(boneId)` adds three angle lanes
+(D-291). `bindBoneAnimation(boneId)` adds three angle lanes
 `meshrig/bone:<boneId>/rotation.x|y|z` (degrees, −180…180, linear) and copies
 the bone's private keys into them at `frame × ticksPerFrame`; the private keys
 stay in the mesh file, so the document still evaluates the same animation
@@ -151,7 +151,7 @@ face regardless of texture size. A sample past either bound is refused with
 painted stay, and `endPaint()` commits them.
 
 `paintUv(uv,color,radiusPixels,opacity,hardness)` paints in texture space
-(D-179): the dab is centred on the surface point whose UV is `uv` (the first
+(D-292): the dab is centred on the surface point whose UV is `uv` (the first
 face in document order where islands overlap), so `TexturePaintView` paints
 exactly the texel under its pointer, and the dab still crosses seams. Samples
 are joined at the same spacing in texels. `texel(channel,x,y)` reads one
@@ -173,7 +173,7 @@ inverse, and `cameraOverlay(...)` projects a face and the posed bones.
 
 ### Painting and selecting in the 3D view
 
-`SceneView3D.meshTool` chooses what a left click on the mesh does (D-179):
+`SceneView3D.meshTool` chooses what a left click on the mesh does (D-292):
 `"paint"` emits `meshStrokeBegan`, one `meshPaintRayRequested(origin,
 direction)` per pointer sample through the pixel under the pointer, then
 `meshStrokeFinished` (Escape emits `meshStrokeCancelled`); the host routes them

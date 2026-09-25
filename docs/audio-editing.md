@@ -6,8 +6,8 @@ audio. `WaveformEditor` and `SpectrogramView` stay pure views; the data and
 the edits live in C++ next to the engine ([audio-engine.md](audio-engine.md)).
 Decisions [D-134](decisions.md#d-134--source-edits-are-an-operation-list-per-resource-with-their-own-history)
 to [D-137](decisions.md#d-137--spectral-processing-is-an-stft-gain-with-exact-patch-bounds-and-provisional-previews),
-[D-186](decisions.md#d-186--spectral-masks-are-samplehz-polygons-applied-per-analysis-frame) (masks) and
-[D-187](decisions.md#d-187--committed-edits-hold-parameters-spectral-patches-are-a-bounded-cache) (edit memory).
+[D-293](decisions.md#d-293--spectral-masks-are-samplehz-polygons-applied-per-analysis-frame) (masks) and
+[D-294](decisions.md#d-294--committed-edits-hold-parameters-spectral-patches-are-a-bounded-cache) (edit memory).
 
 ```
  AudioSession ─ decode ─▶ AudioSourceEditModel (session.edits)
@@ -89,7 +89,7 @@ analysis source for that resource drops its pyramid or tiles and recomputes.
 The session saves the edit list as its `edits` part and replays it on open;
 previews and history are not saved.
 
-**Memory (D-187).** Gain, fades and silence store only their parameters;
+**Memory (D-294).** Gain, fades and silence store only their parameters;
 their samples are recomputed from the base whenever the list is replayed.
 Spectral and pitch edits keep their computed patch as a cache bounded by
 `edits.patchBudgetBytes` (64 MiB; `edits.patchBytes` reports what is held):
@@ -116,7 +116,7 @@ difference those frames make is added, so every sample outside
 reconstruct to rounding. A range shorter than one hop between frame centres
 is refused.
 
-**Masks (D-186).** `mask: [[{sample, hz}, …], …]` replaces the band: a
+**Masks (D-293).** `mask: [[{sample, hz}, …], …]` replaces the band: a
 frame centred on sample *c* changes the bins whose frequency lies inside
 any polygon on the line `x = c` (even-odd per polygon, union across
 polygons); frames the mask misses change nothing. Points must lie inside

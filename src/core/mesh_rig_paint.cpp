@@ -251,7 +251,7 @@ int MeshRigDocument::faceAtUv(const QPointF &uv, double *l0, double *l1, double 
     }
     return -1;
 }
-// AGENT-NOTE (D-179): texture-space painting. The dab is centred on the
+// AGENT-NOTE (D-292): texture-space painting. The dab is centred on the
 // surface point whose UV is under the pointer, so TexturePaintView paints the
 // texel it shows; the dab is still a surface sphere, so it crosses seams.
 bool MeshRigDocument::paintUv(const QPointF &uv, const QColor &color, int radius, qreal opacity, qreal hardness) {

@@ -236,7 +236,7 @@ shared history engine and persists through the document session boundary of
 Snapping, selection handles and guides (WP-041) and colour transforms
 (WP-043) plug into the published contracts. See [canvas.md](canvas.md).
 
-## D-045 — Keep timeline placement in an exact tick model and views delegate-free
+## D-290 — Keep timeline placement in an exact tick model and views delegate-free
 
 **Context.** An edit timeline must move, trim, split and ripple thousands of
 clips with sample- and frame-exact results, undo each gesture exactly, and

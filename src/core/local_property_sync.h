@@ -50,7 +50,7 @@ class PropertySyncSocketClient;
 // checkpoint window. A non-authoritative service is a replica's durable
 // queue: operations its own clients submit stay in the outbox until the
 // upstream hub acknowledges them, and it adopts the hub's base instead of
-// compacting. See docs/collaboration.md "Compaction" and D-204.
+// compacting. See docs/collaboration.md "Compaction" and D-295.
 class LocalPropertySyncService : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -98,13 +98,13 @@ public:
     // The upstream hub acknowledged this operation.
     void settle(const QString &operationId);
     // Removes an unsettled outbox operation that the hub refused for good and
-    // rebuilds every attached replica without it (D-205).
+    // rebuilds every attached replica without it (D-296).
     bool discard(const QString &operationId);
     // Whether count more operations fit, compacting first when possible.
     bool canAccept(int count);
     // A hub with no replica attached in this process (a headless server)
     // folds through a scratch replica built from this baseline snapshot and
-    // text property list, which must match every replica's (D-204).
+    // text property list, which must match every replica's (D-295).
     void setCompactionBaseline(const QByteArray &snapshot, const QStringList &textProperties);
     Q_INVOKABLE bool compact();
     // Replaces this replica's log with the hub's base and retained tail,

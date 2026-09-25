@@ -60,7 +60,7 @@ struct Network {
         documentId = base.documentIdString();
         service.setDocumentId(documentId);
         service.setStoragePath(directory.filePath(QStringLiteral("server.json")));
-        // A headless hub: it folds its log through a scratch replica (D-204).
+        // A headless hub: it folds its log through a scratch replica (D-295).
         service.setCompactionBaseline(baseline, {});
         server.setService(&service);
         return service.open()

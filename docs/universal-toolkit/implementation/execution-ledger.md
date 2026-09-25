@@ -17,7 +17,7 @@ WP-031 subsequently passed its own installed-consumer gate and is accepted.
 WP-040 is accepted: its WP-033 dependency and live-window render lifecycle
 qualification passed. The Qt 6.8 offscreen RHI readback repair passed the full
 integrated suite. WP-048 is accepted
-after its time-axis and host-media boundaries were reconciled with D-045;
+after its time-axis and host-media boundaries were reconciled with D-290;
 both full integrated suites and its installed consumers pass. WP-050 is
 accepted after focused merged editing, view and session checks; WP-055 is
 accepted after the merged workbook and sheet checks.

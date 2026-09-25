@@ -2,7 +2,7 @@
 import QtQuick
 import QindaTK as Tk
 
-// AGENT-CONTRACT (D-179): SceneView3D's CPU mesh layer. It draws the
+// AGENT-CONTRACT (D-292): SceneView3D's CPU mesh layer. It draws the
 // selected face and the posed bones from MeshRigDocument.cameraOverlay (the
 // exact inverse of meshRay), and while SceneView3D.meshTool is "select" or
 // "paint" it owns left-button gestures on the mesh: selection emits stable

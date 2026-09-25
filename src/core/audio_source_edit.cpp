@@ -247,7 +247,7 @@ bool AudioSourceEditing::prepare(const AudioBuffer &buffer, AudioSourceEdit &edi
         if (error) *error = problem;
         return false;
     }
-    // AGENT-GUARD (D-187): only spectral and pitch edits carry a patch
+    // AGENT-GUARD (D-294): only spectral and pitch edits carry a patch
     // (needsPatch). Gain, fades and silence are recomputed from the base
     // samples by apply(), so the edit list never holds a copy of their range
     // (a whole-file gain on an hour of stereo would otherwise keep 1.4 GB per
