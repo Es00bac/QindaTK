@@ -12,6 +12,14 @@ Rectangle {
     property var strokeStyle: ({ width: 7, unit: "document", color: "#f4b858",
         alignment: "center", cap: "round", join: "bevel", dash: [3, 2], dashMode: "custom" })
     property var fillStyle: ({ kind: "solid", settings: { solid: { color: "#329eaa" } } })
+    property string pathError: ""
+    readonly property var selectedNodes: editor.selectedNodeIds
+    function nodeSummary() {
+        if (selectedNodes.length === 0) return qsTr("Click a square node to select it; Shift-click adds one.")
+        const first = editor.model.node(selectedNodes[0])
+        return selectedNodes.length === 1 ? qsTr("Node %1 selected (%2)").arg(first.id).arg(first.type)
+                                          : qsTr("%n nodes selected", "", selectedNodes.length)
+    }
 
     Tk.CanvasDocument {
         id: document
@@ -52,12 +60,14 @@ Rectangle {
             Tk.Flex.flex: 1
             height: parent.height
             Tk.PathEditor {
+                id: editor
                 objectName: "pathWorkingEditor"
                 anchors.fill: parent
                 document: document
                 surface: canvas
                 objectId: scene.pathId
                 contourIndex: scene.contourIndex
+                onEditRejected: function(message) { scene.pathError = message }
             }
         }
         Tk.Flex {
@@ -66,10 +76,50 @@ Rectangle {
             gap: Tk.Theme.space.md
             Tk.Label { text: qsTr("PATH AUTHORING") }
             Tk.Caption { text: qsTr("Drag the square nodes or round Bézier handles.") }
+            Tk.Caption {
+                objectName: "pathWorkingNodeInfo"
+                width: parent.width
+                text: { editor.nodes; return scene.nodeSummary() } // node types change with edits
+                wrapMode: Text.WordWrap
+            }
+            Tk.Flex {
+                width: parent.width
+                direction: Tk.Flex.Row
+                wrap: Tk.Flex.Wrap
+                gap: Tk.Theme.space.sm
+                Repeater {
+                    model: [
+                        { name: "Insert", label: qsTr("Insert"), tip: qsTr("Add a node halfway along the segment after the selected node"), run: "insert" },
+                        { name: "Delete", label: qsTr("Delete"), tip: qsTr("Delete the selected nodes"), run: "delete" },
+                        { name: "Split", label: qsTr("Split"), tip: qsTr("Open the contour at the selected node"), run: "split" },
+                        { name: "Join", label: qsTr("Join"), tip: qsTr("Join the two selected end nodes"), run: "join" },
+                        { name: "Corner", label: qsTr("Corner"), tip: qsTr("Retract the selected nodes' handles"), run: "corner" },
+                        { name: "Smooth", label: qsTr("Smooth"), tip: qsTr("Align the selected nodes' handles"), run: "smooth" },
+                        { name: "Symmetric", label: qsTr("Symmetric"), tip: qsTr("Align the handles and make them equal"), run: "symmetric" }
+                    ]
+                    delegate: Tk.Button {
+                        required property var modelData
+                        objectName: "pathWorking" + modelData.name
+                        text: modelData.label
+                        tooltip: modelData.tip
+                        enabled: scene.selectedNodes.length > 0
+                        onClicked: {
+                            scene.pathError = ""
+                            const run = modelData.run
+                            if (run === "insert") editor.insertAfterSelection()
+                            else if (run === "delete") editor.deleteSelection()
+                            else if (run === "split") editor.splitSelection()
+                            else if (run === "join") editor.joinSelection()
+                            else editor.setSelectionType(run)
+                        }
+                    }
+                }
+            }
             Tk.Button {
-                text: scene.contourIndex === 0 ? qsTr("Edit inner contour") : qsTr("Edit outer contour")
+                objectName: "pathWorkingNextContour"
+                text: qsTr("Edit contour %1 of %2").arg(scene.contourIndex + 1).arg(editor.model.contours.length)
                 tooltip: qsTr("Switch the contour whose nodes can be dragged")
-                onClicked: scene.contourIndex = scene.contourIndex === 0 ? 1 : 0
+                onClicked: scene.contourIndex = (scene.contourIndex + 1) % Math.max(1, editor.model.contours.length)
             }
             Tk.StrokeStyleEditor {
                 objectName: "pathWorkingStroke"
@@ -113,7 +163,14 @@ Rectangle {
                     if (ids.length > 0) scene.pathId = ids[0]
                 }
             }
-            Tk.Caption { text: styles.lastError; visible: text.length > 0 }
+            Tk.Caption {
+                objectName: "pathWorkingError"
+                width: parent.width
+                text: scene.pathError || styles.lastError
+                visible: text.length > 0
+                color: Tk.Theme.color.warning
+                wrapMode: Text.WordWrap
+            }
         }
     }
 }

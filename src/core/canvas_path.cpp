@@ -32,9 +32,12 @@ QPen pen(const CanvasObject &object, qreal minimumWidth)
 {
     QPen value(object.stroke, std::max(object.strokeWidth, minimumWidth));
     value.setCapStyle(object.strokeCap);
-    value.setJoinStyle(object.strokeJoin);
-    // AGENT-NOTE: Qt's stroker limits the miter length (tip to inner corner)
-    // to limit x width, the SVG stroke-miterlimit ratio, which export writes.
+    // AGENT-NOTE: Qt::MiterJoin clips an over-long miter at limit x WIDTH
+    // from the corner; Qt::SvgMiterJoin bevels once the miter length (tip to
+    // inner corner) exceeds limit x width, the SVG stroke-miterlimit rule
+    // that export writes and strokeOutset() bounds (measured with
+    // QPainterPathStroker on Qt 6.11; tst_canvas_vector_editing::miterJoinsStayInsideBounds).
+    value.setJoinStyle(object.strokeJoin == Qt::MiterJoin ? Qt::SvgMiterJoin : object.strokeJoin);
     value.setMiterLimit(object.appearance->miterLimit);
     if (!object.dashPattern.isEmpty()) value.setDashPattern(object.dashPattern);
     return value;

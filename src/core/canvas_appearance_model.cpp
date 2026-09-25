@@ -2,6 +2,7 @@
 #include "canvas_appearance_model.h"
 #include "canvas_appearance.h"
 #include "canvas_document_format.h"
+#include "canvas_selection_model.h"
 
 #include <QSet>
 
@@ -22,6 +23,40 @@ QVariantMap record(const CanvasEffect &effect)
                    CanvasAppearanceModel::tr("Not drawn or exported by the reference canvas; kept in the document"));
     return map;
 }
+QString colorText(const QColor &color)
+{
+    return color.alpha() < 255 ? color.name(QColor::HexArgb) : color.name(QColor::HexRgb);
+}
+
+// The fixed paint entries in the order the renderer and SVG export paint
+// them, before the effects (canvas_appearance_paint.cpp).
+QVariantList paintRecords(const CanvasObject &o)
+{
+    const CanvasAppearance &a = *o.appearance;
+    const auto entry = [](const char *id, const QString &name, bool present, const QString &detail) {
+        return QVariantMap{{QStringLiteral("id"), QLatin1String(id)}, {QStringLiteral("kind"), QLatin1String(id)},
+                           {QStringLiteral("name"), name}, {QStringLiteral("present"), present},
+                           {QStringLiteral("detail"), detail}};
+    };
+    const bool managed = !o.managedFill.isEmpty();
+    QVariantList list;
+    list.append(entry("fill", CanvasAppearanceModel::tr("Fill"), o.hasFill(),
+                      !o.hasFill() ? CanvasAppearanceModel::tr("None")
+                      : managed ? CanvasAppearanceModel::tr("Typed colour or gradient")
+                                : colorText(o.fill)));
+    list.append(entry("pattern", CanvasAppearanceModel::tr("Pattern"), o.hasPattern(),
+                      o.hasPattern() ? CanvasAppearanceModel::tr("%1 in %2")
+                                           .arg(CanvasAppearanceRules::patternName(a.pattern.kind),
+                                                colorText(a.pattern.ink))
+                                     : CanvasAppearanceModel::tr("None")));
+    list.append(entry("stroke", CanvasAppearanceModel::tr("Stroke"), o.hasStroke(),
+                      o.hasStroke() ? CanvasAppearanceModel::tr("%1 %2, %3")
+                                          .arg(QString::number(o.strokeWidth),
+                                               CanvasAppearanceRules::alignmentName(a.strokeAlignment),
+                                               colorText(o.stroke))
+                                    : CanvasAppearanceModel::tr("None")));
+    return list;
+}
 } // namespace
 
 void CanvasAppearanceModel::setDocument(CanvasDocumentAdapter *document)
@@ -40,6 +75,27 @@ void CanvasAppearanceModel::setDocument(CanvasDocumentAdapter *document)
     }
     refresh();
     emit documentChanged();
+}
+
+void CanvasAppearanceModel::setSelectionModel(CanvasSelectionModel *model)
+{
+    if (m_selectionModel == model) return;
+    if (m_selectionModel) disconnect(m_selectionModel, nullptr, this, nullptr);
+    m_selectionModel = model;
+    if (model) {
+        // The key object is the first selected one.
+        const auto follow = [this] {
+            const auto &ids = m_selectionModel ? m_selectionModel->selection() : QVector<CanvasObjectId>();
+            setObjectId(ids.isEmpty() ? QString() : QString::number(ids.constFirst()));
+        };
+        connect(model, &CanvasSelectionModel::selectionChanged, this, follow);
+        connect(model, &QObject::destroyed, this, [this] {
+            m_selectionModel = nullptr;
+            emit selectionModelChanged();
+        });
+        follow();
+    }
+    emit selectionModelChanged();
 }
 
 void CanvasAppearanceModel::setObjectId(const QString &id)
@@ -78,9 +134,11 @@ void CanvasAppearanceModel::refresh()
     if (o)
         for (const CanvasEffect &effect : o->appearance->effects) effects.append(record(effect));
     const bool editable = o && m_document->effectiveVisible(*o) && !m_document->effectiveLocked(*o);
-    if (effects == m_effects && editable == m_editable) return;
+    const QVariantList paints = o ? paintRecords(*o) : QVariantList();
+    if (effects == m_effects && editable == m_editable && paints == m_paints) return;
     m_effects = effects;
     m_editable = editable;
+    m_paints = paints;
     emit effectsChanged();
 }
 
@@ -175,8 +233,14 @@ bool CanvasAppearanceModel::setEffectParameters(const QString &effectId, const Q
     if (index < 0) return fail(tr("No such appearance effect: %1").arg(effectId));
     QVector<CanvasEffect> effects = target()->appearance->effects;
     const QString kind = effects.at(index).kind;
+    // A supported kind keeps the values a partial map leaves out.
+    QVariantMap merged = parameters;
+    if (CanvasAppearanceRules::supportedEffect(kind)) {
+        merged = CanvasAppearanceRules::parameterMap(effects.at(index));
+        for (auto it = parameters.cbegin(); it != parameters.cend(); ++it) merged.insert(it.key(), it.value());
+    }
     QByteArray canonical;
-    if (const OperationError error = CanvasAppearanceRules::canonicalParameters(kind, parameters, &canonical))
+    if (const OperationError error = CanvasAppearanceRules::canonicalParameters(kind, merged, &canonical))
         return fail(error.message);
     effects[index].parameters = canonical;
     return commit(effects, tr("Edit appearance effect"));

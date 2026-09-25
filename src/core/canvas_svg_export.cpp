@@ -281,6 +281,17 @@ void writeFilter(QXmlStreamWriter &xml, const CanvasObject &o)
             primitive("feMergeNode", {{"in", result + QStringLiteral("-shadow")}});
             primitive("feMergeNode", {{"in", source}});
             xml.writeEndElement();
+        } else if (effect.kind == QLatin1String("color-adjust")) {
+            const auto adjust = CanvasAppearanceRules::colorAdjust(effect);
+            primitive("feColorMatrix", {{"in", source}, {"type", QStringLiteral("saturate")},
+                                        {"values", num(adjust.saturation)}, {"result", result + QStringLiteral("-sat")}});
+            xml.writeStartElement(QStringLiteral("feComponentTransfer"));
+            xml.writeAttribute(QStringLiteral("in"), result + QStringLiteral("-sat"));
+            xml.writeAttribute(QStringLiteral("result"), result);
+            const QString slope = num(adjust.contrast), intercept = num(0.5 - 0.5 * adjust.contrast + adjust.brightness);
+            for (const char *channel : {"feFuncR", "feFuncG", "feFuncB"})
+                primitive(channel, {{"type", QStringLiteral("linear")}, {"slope", slope}, {"intercept", intercept}});
+            xml.writeEndElement();
         } else {
             primitive("feGaussianBlur", {{"in", source},
                                          {"stdDeviation", num(CanvasAppearanceRules::blurRadius(effect))},
