@@ -42,8 +42,8 @@ Section {
                 Tk.PropertyGroup {
                     title: "Document"; count: "3 of 5"
                     Tk.PropertyRow { label: "Page size"; Tk.ComboBox { model: ["Comic Book (170 x 260)", "A4", "Letter"]; currentIndex: 0 } }
-                    Tk.PropertyRow { label: "Width"; Tk.NumberField { value: 170; suffix: "mm" } }
-                    Tk.PropertyRow { label: "Bleed"; hint: "Printed past the trim"; Tk.NumberField { value: 3.17; decimals: 2; suffix: "mm" } }
+                    Tk.PropertyRow { label: "Width"; Tk.NumberField { value: 170; suffix: "mm"; onValueModified: (v) => value = v } }
+                    Tk.PropertyRow { label: "Bleed"; hint: "Printed past the trim"; Tk.NumberField { value: 3.17; decimals: 2; suffix: "mm"; onValueModified: (v) => value = v } }
                     Tk.PropertyRow { label: "Grid"; Tk.Switch { text: "enabled"; checked: true } }
                     Tk.PropertyRow { label: "Notes"; alignTop: true; Tk.TextArea { rows: 2; placeholderText: "Reviewer notes" } }
                 }

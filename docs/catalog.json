@@ -4146,10 +4146,6 @@
       "signals": [],
       "methods": [
         {
-          "name": "rebind",
-          "parameters": ""
-        },
-        {
           "name": "setRadius",
           "parameters": "value"
         },
@@ -7680,7 +7676,7 @@
       "name": "ComboBox",
       "kind": "qml",
       "base": "T.ComboBox",
-      "description": "AGENT-CONTRACT (docs/controls.md): the 24px (small 20) picker on inputBg with a chevron, whose popup (objectName \"comboPopup\") is a Menu-styled list with host-bounded height and scrolling. Rows fit scaled text and expose selected state; `textRole` and `iconRole` read the model. A JS array of strings needs no roles. `placeholderText` shows while currentIndex is -1. `editable` turns the content into a text input, as T.ComboBox defines.",
+      "description": "AGENT-CONTRACT (docs/controls.md): the 24px (small 20) picker on inputBg with a chevron, whose popup (objectName \"comboPopup\") is a Menu-styled list with host-bounded height and scrolling. Rows fit scaled text and expose selected state; `textRole` and `iconRole` read the model. A JS array of strings needs no roles. `placeholderText` shows while currentIndex is -1. `editable` turns the content into a text input, as T.ComboBox defines. A non-editable combo draws its label elided (\"Fit to pa…\", objectName \"comboDisplayText\") while its implicit width still measures the full text.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ComboBox.qml",
@@ -7782,6 +7778,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "comboDisplayText",
         "comboPopup"
       ]
     },
@@ -22858,7 +22855,7 @@
       "name": "NumberField",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (docs/controls.md): the inspector number field. 24px (small 20), mono digits, optional inline `label` (\"W\"), `prefix`/`suffix` readouts, ▲▼ step buttons on hover (always visible in Touch), and scrubbing: dragging horizontally on the label or the field changes the value by `scrubSensitivity` units per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel steps. `value` is always clamped to [from, to] and rounded to `decimals`. `defaultValue`/`reset()` provide explicit reset semantics; mixed state is resolved only by a valid user commit. Invalid drafts stay visible and `inputInvalid` reports them. `valueModified(value)` fires for user edits and reset, while a programmatic `value = x` is silent. objectNames: \"numberInput\", \"numberLabel\", \"numberStepUp\", \"numberStepDown\".",
+      "description": "AGENT-CONTRACT (docs/controls.md): the inspector number field. 24px (small 20), mono digits, optional inline `label` (\"W\"), `prefix`/`suffix` readouts, ▲▼ step buttons on hover (always visible in Touch), and scrubbing: dragging horizontally on the label or the field changes the value by `scrubSensitivity` units per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel steps. The field shows `clampedValue`: `value` clamped to [from, to] and rounded to `decimals`. `defaultValue`/`reset()` provide explicit reset semantics. Invalid drafts stay visible and `inputInvalid` reports them. `valueModified(value)` fires for user edits and reset with the clamped result, while a programmatic `value = x` is silent. objectNames: \"numberInput\", \"numberLabel\", \"numberStepUp\", \"numberStepDown\", \"numberMixedPlaceholder\". AGENT-CONTRACT (docs/controls.md, D-198; hosts: every Tk.NumberField user): the host owns `value` and `mixed`; the field never assigns either. A user edit only emits `valueModified(next)`; the display follows `value` once the host applies it, and snaps back to `value` when the host refuses. So a host binding such as `value: model.x` survives clamping and user edits alike. A host without a model echoes the edit: `onValueModified: (v) => value = v`.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/NumberField.qml",
@@ -23027,6 +23024,14 @@
           "name": "inputInvalid",
           "type": "bool",
           "default": "_invalidDraft",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clampedValue",
+          "type": "real",
+          "default": "clamp(value)",
           "readonly": true,
           "defaultProperty": false,
           "required": false

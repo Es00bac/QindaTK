@@ -28,15 +28,12 @@ Item {
     readonly property var dashModes: ["solid", "dash", "dot", "custom"]
     readonly property string dashText: (style.dash || []).join(" ")
 
-    // AGENT-NOTE: the owner's descriptor is the truth. User edits assign the
-    // fields' own values, which ends their bindings, so the fields are synced
-    // from `style` whenever the owner changes it and after every request (an
-    // owner may reject or later undo the edit).
+    // AGENT-NOTE: the owner's descriptor is the truth. The NumberFields bind
+    // `value` and `mixed` to `style` and never write either (D-198). A
+    // ColorField user edit assigns its own color, which ends that binding, so
+    // it is synced from `style` whenever the owner changes it and after every
+    // request (an owner may reject or later undo the edit).
     function syncFields() {
-        widthField.value = editor.style.width === undefined ? 1 : editor.style.width
-        widthField.mixed = editor.isMixed("width")
-        miterField.value = editor.style.miterLimit === undefined ? 4 : editor.style.miterLimit
-        miterField.mixed = editor.isMixed("miterLimit")
         colorField.color = editor.style.color || Tk.Theme.color.text
     }
     function isMixed(field) { return (editor.style.mixed || []).indexOf(field) >= 0 }

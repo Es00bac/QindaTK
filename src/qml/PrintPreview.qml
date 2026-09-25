@@ -134,12 +134,21 @@ Item {
         }
         Tk.Overline { title: qsTr("OUTPUT SETTINGS") }
         Tk.Grid {
-            columns: "1fr 1fr"
+            id: settingsGrid
+            // AGENT-NOTE: the paired rows (Paper | Orientation, ...) go two
+            // up only when each editor keeps a field's width next to its
+            // label; a narrower panel stacks them, because two 35px combos
+            // elide every label away (comfortable density at 320px).
+            // AGENT-GUARD: the full-width rows' columnSpan follows `twoUp`;
+            // a span of 2 in a one-column grid adds an implicit column.
+            readonly property bool twoUp: width >= 2 * (Tk.Theme.size.labelWidth + Tk.Theme.space.sm
+                                                         + Tk.Theme.size.fieldWidth) + columnGap
+            columns: twoUp ? "1fr 1fr" : "1fr"
             gap: Tk.Theme.space.xs
             columnGap: Tk.Theme.space.md
             Tk.PropertyRow {
                 label: qsTr("Destination")
-                Tk.Grid.columnSpan: 2
+                Tk.Grid.columnSpan: settingsGrid.twoUp ? 2 : 1
                 Tk.ComboBox {
                     objectName: "printDestination"
                     model: control.destinations
@@ -156,7 +165,7 @@ Item {
             }
             Tk.PropertyRow {
                 label: qsTr("File")
-                Tk.Grid.columnSpan: 2
+                Tk.Grid.columnSpan: settingsGrid.twoUp ? 2 : 1
                 visible: control.capabilities.kind === "file"
                 Tk.TextField {
                     objectName: "printOutputPath"

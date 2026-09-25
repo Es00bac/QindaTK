@@ -84,7 +84,7 @@ qindatk_add_test(tst_mesh_rig_authoring)
 # The GPU upload adapter exists only when Qt Quick 3D is installed (src/CMakeLists.txt).
 # Imported targets are directory-scoped: find the package again here.
 if(QINDATK_WITH_QUICK3D)
-    find_package(Qt6Quick3D 6.8 QUIET)
+    qindatk_find_qt_module(Quick3D QUIET)
     qindatk_add_test(tst_mesh_rig_geometry)
     target_link_libraries(tst_mesh_rig_geometry PRIVATE Qt6::Quick3D)
     # Headless: ScientificGeometry3D's buffers against ScientificScene3D.

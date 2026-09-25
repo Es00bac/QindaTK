@@ -29,12 +29,12 @@ Section {
     }
     GalleryRow {
         label: "NumberField"
-        Tk.NumberField { label: "W"; value: 170; suffix: "mm" }
-        Tk.NumberField { label: "H"; value: 260; suffix: "mm" }
-        Tk.NumberField { value: 3.17; decimals: 2; suffix: "mm"; stepSize: 0.1 }
-        Tk.NumberField { prefix: "$"; value: 9.94; decimals: 2 }
-        Tk.NumberField { label: "%"; value: 100; from: 0; to: 100; small: true }
-        Tk.NumberField { value: -1; error: true }
+        Tk.NumberField { label: "W"; value: 170; suffix: "mm"; onValueModified: (v) => value = v }
+        Tk.NumberField { label: "H"; value: 260; suffix: "mm"; onValueModified: (v) => value = v }
+        Tk.NumberField { value: 3.17; decimals: 2; suffix: "mm"; stepSize: 0.1; onValueModified: (v) => value = v }
+        Tk.NumberField { prefix: "$"; value: 9.94; decimals: 2; onValueModified: (v) => value = v }
+        Tk.NumberField { label: "%"; value: 100; from: 0; to: 100; small: true; onValueModified: (v) => value = v }
+        Tk.NumberField { value: -1; error: true; onValueModified: (v) => value = v }
         Tk.NumberField { value: 12; enabled: false }
     }
     GalleryRow {

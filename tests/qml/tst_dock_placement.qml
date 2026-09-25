@@ -176,7 +176,9 @@ TestCase {
             verify(body.scrollableY)
             y.inputItem.forceActiveFocus(Qt.TabFocusReason)
             tryVerify(function() { return body.contentY > 0 })
-            const draftY = y.value
+            // The panel's y (100) is past this small host's range; the field
+            // shows and steps from the clamped value, not the raw draft (D-198).
+            const draftY = y.clampedValue
             keyClick(Qt.Key_Down)
             compare(y.value, draftY - Tk.Theme.space.lg)
             compare(host.model.panel("f").y, 100)

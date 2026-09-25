@@ -10,6 +10,8 @@ import QindaTK as Tk
 // expose selected state; `textRole` and `iconRole` read the model. A JS
 // array of strings needs no roles. `placeholderText` shows while currentIndex
 // is -1. `editable` turns the content into a text input, as T.ComboBox defines.
+// A non-editable combo draws its label elided ("Fit to pa…", objectName
+// "comboDisplayText") while its implicit width still measures the full text.
 T.ComboBox {
     id: control
 
@@ -172,6 +174,18 @@ T.ComboBox {
         color: control.hovered || control.popup.visible ? Tk.Theme.color.text : Tk.Theme.color.textMuted
     }
 
+    // AGENT-GUARD: the contentItem must stay a T.TextField, because
+    // T.ComboBox wires editable mode (keys, validator, accept) to a
+    // TextInput contentItem, and a TextInput cannot elide. So when the combo
+    // is not editable the field keeps the full text with its glyphs hidden;
+    // that full text keeps implicitWidth independent of the current width, so
+    // Grid/Flex tracks sized from it do not oscillate. The elided Text on top
+    // draws the label. Measuring from the elided text would shrink the track
+    // that the elision came from.
+    // AGENT-GUARD: no `id` on this contentItem. An id stops the deferred
+    // contentItem from being deferred, and T.ComboBox then never reports the
+    // field's acceptableInput (tst_combo_editing: "12" read as acceptable).
+    // The elided Text reaches the field as `parent`.
     contentItem: T.TextField {
         text: control.editable ? control.editText : control.displayText
         enabled: control.editable
@@ -181,13 +195,26 @@ T.ComboBox {
         validator: control.validator
         selectByMouse: control.selectTextByMouse
         verticalAlignment: Text.AlignVCenter
-        color: control.enabled ? Tk.Theme.color.text : Tk.Theme.color.textDisabled
+        color: !control.editable ? "transparent"
+             : control.enabled ? Tk.Theme.color.text : Tk.Theme.color.textDisabled
         selectionColor: Tk.Theme.color.selection
         selectedTextColor: Tk.Theme.color.text
         font.family: Tk.Theme.font.family
         font.pixelSize: control.small ? Tk.Theme.font.small : Tk.Theme.font.body
         renderType: Text.NativeRendering
         padding: 0
+
+        Text {
+            objectName: "comboDisplayText"
+            visible: !control.editable
+            anchors.fill: parent
+            text: control.displayText
+            elide: Text.ElideRight
+            verticalAlignment: Text.AlignVCenter
+            color: control.enabled ? Tk.Theme.color.text : Tk.Theme.color.textDisabled
+            font: parent.font
+            renderType: Text.NativeRendering
+        }
     }
 
     background: Rectangle {

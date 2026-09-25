@@ -349,6 +349,7 @@ T.Control {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+        value: control.value
         from: control.from; to: control.to; defaultValue: control.defaultValue
         stepSize: control.stepSize; decimals: 1; suffix: control.unit.length ? " " + control.unit : ""
         tooltip: control.tooltip; Accessible.name: control.Accessible.name
@@ -358,9 +359,6 @@ T.Control {
             if (own) control.commitGesture()
         }
     }
-    // AGENT-GUARD: NumberField assigns its own `value` on a typed commit; the
-    // Binding element re-asserts the fader's value so the field never goes stale.
-    Binding { target: field; property: "value"; value: control.value }
     Tk.Mono {
         objectName: "faderValue"
         visible: control.numericEntry && control.silent

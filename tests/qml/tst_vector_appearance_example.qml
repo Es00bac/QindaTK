@@ -76,10 +76,10 @@ TestCase {
         part("styleWorkingBlend").activated(1)
         compare(styles.selectionStyle.blend, "multiply")
 
-        // A user edit assigns the field itself, as typing does; the editor
-        // still follows the owner afterwards, undo included.
-        width.value = 6
+        // A user edit only reports the new width (NumberField never writes
+        // its own value, D-198); the field follows the owner, undo included.
         width.valueModified(6)
+        compare(width.value, 6)
         compare(styles.selectionStyle.strokeWidth, 6)
         part("styleWorkingUndo").clicked()
         compare(styles.selectionStyle.strokeWidth, 4)

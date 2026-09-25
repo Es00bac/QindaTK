@@ -9,12 +9,19 @@ import QindaTK as Tk
 // dragging horizontally
 // on the label or the field changes the value by `scrubSensitivity` units
 // per pixel (Shift ×10, Alt ×0.1). Arrow keys step (Shift ×10); Ctrl+wheel
-// steps. `value` is always clamped to [from, to] and rounded to `decimals`.
-// `defaultValue`/`reset()` provide explicit reset semantics; mixed state is
-// resolved only by a valid user commit. Invalid drafts stay visible and
-// `inputInvalid` reports them. `valueModified(value)` fires for user edits
-// and reset, while a programmatic `value = x` is silent. objectNames:
-// "numberInput", "numberLabel", "numberStepUp", "numberStepDown".
+// steps. The field shows `clampedValue`: `value` clamped to [from, to] and
+// rounded to `decimals`. `defaultValue`/`reset()` provide explicit reset
+// semantics. Invalid drafts stay visible and `inputInvalid` reports them.
+// `valueModified(value)` fires for user edits and reset with the clamped
+// result, while a programmatic `value = x` is silent. objectNames:
+// "numberInput", "numberLabel", "numberStepUp", "numberStepDown",
+// "numberMixedPlaceholder".
+// AGENT-CONTRACT (docs/controls.md, D-198; hosts: every Tk.NumberField user):
+// the host owns `value` and `mixed`; the field never assigns either. A user
+// edit only emits `valueModified(next)`; the display follows `value` once the
+// host applies it, and snaps back to `value` when the host refuses. So a host
+// binding such as `value: model.x` survives clamping and user edits alike. A
+// host without a model echoes the edit: `onValueModified: (v) => value = v`.
 T.Control {
     id: control
 
@@ -39,6 +46,8 @@ T.Control {
     readonly property alias inputItem: input
     readonly property bool editing: input.activeFocus
     readonly property bool inputInvalid: _invalidDraft
+    // What the field shows and steps from; `value` itself is never rewritten.
+    readonly property real clampedValue: clamp(value)
 
     signal valueModified(real value)
     signal editingFinished()
@@ -56,17 +65,14 @@ T.Control {
     function format(v) {
         return Number(v).toFixed(Math.max(0, control.decimals))
     }
-    // User-driven change: clamps, assigns, emits.
+    // User-driven change: clamps and reports; the host decides whether
+    // `value` follows (see the AGENT-CONTRACT above).
     function commit(v) {
         if (!control.editable || !control.enabled) return
         const next = control.clamp(v)
-        const wasMixed = control.mixed
-        control.mixed = false
         control._invalidDraft = false
-        if (next !== control.value || wasMixed) {
-            control.value = next
+        if (next !== control.clampedValue || control.mixed)
             control.valueModified(next)
-        }
         if (!control.editing) {
             control.syncText()
         }
@@ -75,14 +81,14 @@ T.Control {
         let amount = control.stepSize
         if (modifiers & Qt.ShiftModifier) amount *= 10
         if (modifiers & Qt.AltModifier) amount /= 10
-        control.commit(control.value + direction * amount)
+        control.commit(control.clampedValue + direction * amount)
         if (control.editing) {
             control.syncText()
             input.selectAll()
         }
     }
     function syncText() {
-        input.text = control.mixed ? "" : control.format(control.value)
+        input.text = control.mixed ? "" : control.format(control.clampedValue)
     }
     function applyInput() {
         if (!control.editable || !control.enabled) {
@@ -106,12 +112,10 @@ T.Control {
         control.syncText()
     }
 
-    onValueChanged: {
-        const clamped = control.clamp(control.value)
-        if (clamped !== control.value) {
-            control.value = clamped
-            return
-        }
+    // AGENT-GUARD: never assign `value` or `mixed` here or anywhere in this
+    // file. Clamping by assignment removed the host's binding whenever the
+    // clamp changed the number (WP-051: millimetre fields froze at 0.0/1.0).
+    onClampedValueChanged: {
         if (!control.editing || !control.live) {
             control.syncText()
         }
@@ -121,15 +125,7 @@ T.Control {
         syncText()
     }
     onDecimalsChanged: syncText()
-    Component.onCompleted: {
-        // AGENT-GUARD: assign only when clamping changes the value. An
-        // unconditional `value = clamp(value)` removed every owner binding on
-        // `value` at creation, so bound fields froze at their first value.
-        const clamped = control.clamp(control.value)
-        if (clamped !== control.value)
-            control.value = clamped
-        control.syncText()
-    }
+    Component.onCompleted: control.syncText()
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             implicitContentWidth + leftPadding + rightPadding)
@@ -364,7 +360,7 @@ T.Control {
         property real startValue: 0
         onActiveChanged: {
             if (active) {
-                startValue = control.value
+                startValue = control.clampedValue
             } else {
                 control.editingFinished()
             }

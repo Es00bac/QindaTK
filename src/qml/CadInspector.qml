@@ -32,29 +32,15 @@ Rectangle {
         horizontal: "H", vertical: "V", distance: "D", angle: "A", coincident: "C", tangent: "T"
     })
 
-    // AGENT-GUARD: NumberField.commit and its clamp/rounding assign `value`,
-    // which drops the binding. Rebinding on every entity snapshot keeps the
-    // fields on the document after commits, rejected edits, undo and units.
-    onEntityChanged: rebind()
-    function rebind() {
-        radiusField.value = Qt.binding(function() { return inspector.entity ? inspector.entity.radius : 0 })
-        startField.value = Qt.binding(function() {
-            return inspector.kind === "arc" && inspector.entity ? inspector.entity.startDegrees : 0
-        })
-        sweepField.value = Qt.binding(function() {
-            return inspector.kind === "arc" && inspector.entity ? inspector.entity.sweepDegrees : 0
-        })
-    }
+    // AGENT-NOTE (D-198): the fields bind to `entity` and never write their
+    // own value, so after a commit, a refused solve, undo or a unit change they
+    // show the document's number without any rebinding.
     function setRadius(value) {
-        const ok = kind === "circle" ? document.setCircleRadius(ids[0], value)
+        return kind === "circle" ? document.setCircleRadius(ids[0], value)
             : document.setArc(ids[0], value, entity.startDegrees, entity.sweepDegrees)
-        rebind()
-        return ok
     }
     function setArcAngles(start, sweep) {
-        const ok = document.setArc(ids[0], entity.radius, start, sweep)
-        rebind()
-        return ok
+        return document.setArc(ids[0], entity.radius, start, sweep)
     }
     function relationText(relation) {
         const name = kindNames[relation.kind] || relation.kind

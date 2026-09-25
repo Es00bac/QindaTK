@@ -12,7 +12,7 @@ file(GLOB qindatk_qml_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEP
 # Scene data stays renderer-independent. SDKs without Quick3D still expose
 # SceneView3D, which reports its renderer unavailable through the lazy Loader.
 if(QINDATK_ENABLE_QUICK3D)
-    find_package(Qt6Quick3D 6.8 QUIET)
+    qindatk_find_qt_module(Quick3D QUIET)
 endif()
 # AGENT-GUARD: test QINDATK_WITH_QUICK3D, never TARGET Qt6::Quick3D alone;
 # another package may define the target while the option is OFF (D-201).
@@ -511,7 +511,7 @@ endif()
 # AGENT-CONTRACT (core/volume_render_node.cpp): PREFIX + file path is the
 # resource path the node loads, ":/qindatk/shaders/volume_raycast.*.qsb".
 if(QINDATK_ENABLE_SHADER_TOOLS)
-    find_package(Qt6ShaderTools 6.8 QUIET)
+    qindatk_find_qt_module(ShaderTools QUIET)
 endif()
 set(QINDATK_WITH_SHADER_TOOLS FALSE PARENT_SCOPE)
 if(QINDATK_ENABLE_SHADER_TOOLS AND TARGET Qt6::ShaderTools)

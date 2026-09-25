@@ -225,6 +225,7 @@ T.Control {
             Tk.NumberField {
                 id: panField
                 objectName: "panField"
+                value: Math.round(control.shownPan * 100)
                 width: Tk.Theme.size.labelWidth / 2
                 small: true
                 from: -100; to: 100; stepSize: 1; decimals: 0; suffix: "%"
@@ -252,6 +253,7 @@ T.Control {
             Tk.NumberField {
                 id: widthField
                 objectName: "widthField"
+                value: Math.round(control.shownWidth * 100)
                 width: Tk.Theme.size.labelWidth / 2
                 small: true
                 from: 0; to: 200; stepSize: 1; decimals: 0; suffix: "%"
@@ -280,6 +282,7 @@ T.Control {
             Tk.NumberField {
                 id: depthField
                 objectName: "depthField"
+                value: Math.round(control.shownDepth * 100)
                 width: Tk.Theme.size.labelWidth / 2
                 small: true
                 from: -100; to: 100; stepSize: 1; decimals: 0; suffix: "%"
@@ -369,16 +372,14 @@ T.Control {
             color: control._requestState === "rejected" ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
         }
     }
-    // AGENT-GUARD: the sliders and fields assign their own value while edited;
-    // these re-assert the engine value whenever no edit holds them. A press
+    // AGENT-GUARD: the sliders assign their own value while edited (the
+    // NumberFields never do, D-198, and bind plainly above); these re-assert
+    // the engine value whenever no edit holds them. A press
     // (pointer or arrow key) must leave the slider where it is: the default
     // restoreMode would put back the slider's value from before the first
     // binding (0), and the key step would start from there.
     Binding { target: panSlider; property: "value"; value: control.shownPan; when: !panSlider.pressed; restoreMode: Binding.RestoreNone }
     Binding { target: widthSlider; property: "value"; value: control.shownWidth; when: !widthSlider.pressed; restoreMode: Binding.RestoreNone }
     Binding { target: depthSlider; property: "value"; value: control.shownDepth; when: !depthSlider.pressed; restoreMode: Binding.RestoreNone }
-    Binding { target: panField; property: "value"; value: Math.round(control.shownPan * 100) }
-    Binding { target: widthField; property: "value"; value: Math.round(control.shownWidth * 100) }
-    Binding { target: depthField; property: "value"; value: Math.round(control.shownDepth * 100) }
     Tk.ToolTip { visible: control.hovered && control.tooltip.length > 0; text: control.tooltip }
 }
