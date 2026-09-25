@@ -506,6 +506,7 @@ qt_add_executable(qindatk-plugin-host
     pluginhost/plugin_host_main.cpp
     pluginhost/plugin_host_library.cpp
     pluginhost/plugin_host_instance.cpp
+    pluginhost/plugin_host_editor.cpp
     pluginhost/plugin_host_audio.cpp
     pluginhost/plugin_host_clap.h)
 qindatk_enable_warnings(qindatk-plugin-host)

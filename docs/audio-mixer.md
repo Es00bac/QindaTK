@@ -162,7 +162,10 @@ another channel's parameter.
 | `tst_audio_mixer_engine` | on the loopback device a route change during playback switches at period boundaries with every sample either the source or silence; channel meters measure known post-fader levels; zero device-thread allocations during route, mute and fader changes; a device port never falls back to another device |
 | `tst_mixer_routing.qml` | MixerView creates fewer than 20 strips for 41 channels and keeps a gesture through a bank change, hiding and a reorder; a strip key step is one engine transaction and another writer moves its fader; matrix and routing panel explain refusals; pad, field and keyboard give canonical pan and width |
 
-Not covered here: plugin inserts and `PluginRack` (WP-066); surround layouts
+Plugin inserts run pre-fader in each channel's chain, with their latency
+compensated on every route ([audio-plugins.md](audio-plugins.md), WP-066).
+
+Not covered here: surround layouts
 beyond stereo; control-surface I/O (the protocol adapter writes through
 `parameterBinding`); parameter de-zippering; performance measurement,
 screen-reader runs, other platforms and output-fidelity comparison

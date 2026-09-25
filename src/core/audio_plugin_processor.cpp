@@ -105,10 +105,12 @@ void AudioPluginProcessor::setDead() noexcept
 bool AudioPluginProcessor::prepare(int frames, bool offline, bool bypass) noexcept
 {
     m_usable = false;
+    m_owned = false;
     m_offlineRun = offline;
     m_busy.store(true, std::memory_order_seq_cst);
     if (m_owner.load(std::memory_order_seq_cst) != (offline ? Offline : Device)) return false;
     if (!m_block || !m_configured) return false;
+    m_owned = true;
     // A reset (new configuration, or the start or end of an offline render)
     // clears the dry line here and reaches the plugin with the next block.
     if (m_resetPending.exchange(false, std::memory_order_acq_rel)) {
@@ -186,6 +188,13 @@ bool AudioPluginProcessor::await(std::uint32_t sequence, std::int64_t timeoutNs)
 
 void AudioPluginProcessor::run(std::int64_t start, int frames, double *const lanes[2], int laneCount) noexcept
 {
+    // AGENT-GUARD: a renderer that does not own the processor must not touch
+    // the dry line or the block: the owner (GUI thread reconfiguring, or an
+    // offline render) may be reallocating them. Its lanes pass unchanged.
+    if (!m_owned) {
+        m_busy.store(false, std::memory_order_seq_cst);
+        return;
+    }
     bool processed = false;
     if (m_usable) {
         PluginIpc::Block &block = *m_block;
@@ -226,6 +235,7 @@ void AudioPluginProcessor::run(std::int64_t start, int frames, double *const lan
     }
     finish(lanes, laneCount, frames, processed);
     m_usable = false;
+    m_owned = false;
     m_busy.store(false, std::memory_order_seq_cst);
 }
 

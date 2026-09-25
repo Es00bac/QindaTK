@@ -112,6 +112,7 @@ private:
     std::vector<double> m_dry; // 2 lanes x max(1, latency)
 
     // Renderer state.
+    bool m_owned = false;  // prepare() found this renderer the owner
     bool m_usable = false;
     bool m_sendReset = false;
     bool m_offlineRun = false;

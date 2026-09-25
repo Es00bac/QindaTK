@@ -226,14 +226,12 @@ void ClapInstance::processBlock() noexcept
 void ClapInstance::flushQueued() noexcept
 {
     if (!m_params) return;
-    QVector<QPair<quint32, double>> values;
-    {
-        std::lock_guard lock(m_flushMutex);
-        values.swap(m_flushValues);
-    }
     m_eventList.clear();
     std::size_t used = 0;
-    for (const auto &[id, value] : std::as_const(values)) {
+    // The queued values become events under the lock; clear() keeps the
+    // vector's capacity (Qt 6), so nothing is freed on the audio thread.
+    std::unique_lock lock(m_flushMutex);
+    for (const auto &[id, value] : std::as_const(m_flushValues)) {
         if (used >= m_eventStorage.size()) break;
         clap_event_param_value_t &event = m_eventStorage[used++].param;
         event.header.size = sizeof(clap_event_param_value_t);
@@ -250,6 +248,8 @@ void ClapInstance::flushQueued() noexcept
         event.value = value;
         m_eventList.push_back(&event.header);
     }
+    m_flushValues.clear();
+    lock.unlock();
     m_params->flush(m_plugin, &m_inEvents, &m_outEvents);
     m_eventList.clear();
 }
