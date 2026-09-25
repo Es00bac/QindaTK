@@ -200,6 +200,8 @@ TestCase {
         compare(picker.monthData.cells.length, 42)
         verify(picker.monthData.cells.some(function(cell) { return cell.date === "2024-02-29" && cell.enabled }))
         verify(!picker.showDate("2024-02-01") || picker.monthData.monthLabel.length > 0)
+        // A year is a label: never grouped like a quantity ("2,024").
+        verify(picker.monthData.monthLabel.indexOf("2024") >= 0, picker.monthData.monthLabel)
         const parsed = service.parseDate("2/29/2024", "M/d/yyyy")
         verify(parsed.ok)
         compare(parsed.value, "2024-02-29")

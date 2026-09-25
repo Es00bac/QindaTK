@@ -9,6 +9,15 @@
 
 namespace QindaTK {
 namespace {
+
+// A year is a label, not a quantity: "September 2026", never "2,026"
+// (QLocale::toString groups thousands by default).
+QString yearText(QLocale locale, int year)
+{
+    locale.setNumberOptions(locale.numberOptions() | QLocale::OmitGroupSeparator);
+    return locale.toString(year);
+}
+
 QVariantMap failure(const QString &message)
 {
     return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), message}};
@@ -260,7 +269,7 @@ QVariantMap LocaleService::monthGrid(int year, int month, const QString &minDate
             {QStringLiteral("year"), year}, {QStringLiteral("month"), month},
             {QStringLiteral("monthLabel"),
                 calendar.standaloneMonthName(m_locale, month, year) + QLatin1Char(' ')
-                    + mapDigitsToLocale(m_locale.toString(year))},
+                    + mapDigitsToLocale(yearText(m_locale, year))},
             {QStringLiteral("firstDayOfWeek"), startDay},
             {QStringLiteral("weekdayLabels"), weekdays},
             {QStringLiteral("cells"), cells}};
