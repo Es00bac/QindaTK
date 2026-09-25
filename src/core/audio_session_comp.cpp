@@ -4,9 +4,13 @@
 // holds the clip that places it (resourceId == comp id).
 #include "audio_session.h"
 
+#include <QDir>
+#include <QFileInfo>
 #include <QUrl>
 #include <QUuid>
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 
 namespace QindaTK {
 namespace {
@@ -56,6 +60,44 @@ QStringList AudioSession::missingMedia() const
                 if (!m_decoded.contains(take.resourceId)) add(take.resourceId);
         }
     return missing;
+}
+
+QString AudioSession::generateTestTake(const QString &file, const QVariantMap &options)
+{
+    clearError();
+    const int rate = options.value(QStringLiteral("sampleRate"), sampleRate()).toInt();
+    AudioBuffer buffer;
+    buffer.sampleRate = rate;
+    buffer.channels = 1;
+    for (const QVariant &value : options.value(QStringLiteral("segments")).toList())
+        buffer.frames += std::max<qint64>(0, value.toMap().value(QStringLiteral("frames")).toLongLong());
+    if (rate < 1 || buffer.frames < 1 || buffer.frames > qint64(rate) * 600) {
+        fail(tr("A test take needs a sample rate and 1 frame to 10 minutes of segments"));
+        return {};
+    }
+    buffer.samples.resize(size_t(buffer.frames));
+    qint64 at = 0;
+    double phase = 0.0;
+    for (const QVariant &value : options.value(QStringLiteral("segments")).toList()) {
+        const QVariantMap segment = value.toMap();
+        const qint64 frames = std::max<qint64>(0, segment.value(QStringLiteral("frames")).toLongLong());
+        const double step = 2.0 * std::numbers::pi * segment.value(QStringLiteral("frequency"), 220.0).toDouble() / rate;
+        const double amplitude = std::clamp(segment.value(QStringLiteral("amplitude"), 0.5).toDouble(), 0.0, 1.0);
+        const double pulse = 2.0 * std::numbers::pi * segment.value(QStringLiteral("pulse"), 3.0).toDouble() / rate;
+        for (qint64 i = 0; i < frames; ++i, ++at, phase += step)
+            buffer.samples[size_t(at)] = float(amplitude * (0.775 + 0.225 * std::sin(pulse * double(i))) * std::sin(phase));
+    }
+    const QString base = m_mediaDirectory.isEmpty() ? QDir::tempPath() : m_mediaDirectory;
+    const QString name = file.isEmpty()
+        ? QStringLiteral("test-take-%1.wav").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)) : file;
+    const QString path = QDir(base).absoluteFilePath(name);
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QString error;
+    if (!AudioFile::writeWav(path, buffer, &error)) {
+        fail(error);
+        return {};
+    }
+    return path;
 }
 
 QString AudioSession::compForClip(const QString &clipId) const

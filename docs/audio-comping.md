@@ -136,7 +136,12 @@ Tk.TakeCompView {
 }
 ```
 
-`viewState` returns `{takes, compSegments, sampleBoundaries, …}`. The
+`viewState` returns `{takes, compSegments, sampleBoundaries, sampleRate, …}`;
+pass `sampleRate` to the view so lane offsets read in seconds.
+`session.generateTestTake(file, {segments})` writes a mono test performance
+(one sine per segment) and `session.placeTake(map)` places a recording map
+from QML; [examples/take-comp](../examples/take-comp/Main.qml) builds a live
+comp from them. The
 boundary table is `columns` equal cells plus every committed segment and
 fade edge, and it stays fixed while a preview runs, because a swipe holds
 indices into it. Takes carry `available` and bounded `peaks`. Keys:
