@@ -166,9 +166,19 @@ Tk.Box {
             wrapMode: Text.WordWrap
         }
     }
+    // AGENT-GUARD: a pooled delegate is only culled by the ListView (Qt
+    // 6.11); it stays `visible`, connected and findable by objectName. Hiding
+    // it keeps a pooled text part from taking a focus request meant for the
+    // visible card (BlockEditorText.claimFocus checks visibility).
+    property bool pooled: false
+    visible: !pooled
+    ListView.onPooled: pooled = true
     // A delegate reused for the same block ID gets no property change, so
     // reload the text part explicitly (drafts may have changed meanwhile).
-    ListView.onReused: if (card.contentItem_ && card.contentItem_.load) card.contentItem_.load()
+    ListView.onReused: {
+        pooled = false
+        if (card.contentItem_ && card.contentItem_.load) card.contentItem_.load()
+    }
     TapHandler {
         onTapped: {
             if (card.editor.notebook) card.editor.selectedBlockId = card.blockId

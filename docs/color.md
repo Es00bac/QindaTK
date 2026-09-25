@@ -106,7 +106,7 @@ to the nearest byte. Alpha is copied without
 grading. Processing refuses untagged input, unresolved profiles, invalid
 parameters, unsupported working profiles/intents, and images above 16 MP.
 
-The [color-grade fixture](../examples/color-grade/Main.qml) binds wheel gestures to `ColorGradeEditSession` and shows before/after images and bounded scope snapshots. The session accepts a host supplied tagged `QImage` and immutable context through `setFrame(clipId, frameId, image, context)`; QML can also bind `sourceImage` when frame ownership is elsewhere. It routes transient parameter maps through `EditTransaction` and `UndoService`, so finish records one complete grade state, cancel restores the committed state, and undo/redo rerender the same frame. A frame or context change cancels an open gesture; switching clip/frame also clears its old single-target history so undo cannot affect a different frame. Context generations must change whenever a profile or transform policy changes. The fixture uses `ColorGradePreviewModel` only for deterministic source pixels.
+The [color-grade fixture](../examples/color-grade/Main.qml) binds wheel gestures to `ColorGradeEditSession` and shows before/after images and bounded scope snapshots. The session accepts a host supplied tagged `QImage` and immutable context through `setFrame(clipId, frameId, image, context)`; QML can also bind `sourceImage` when frame ownership is elsewhere. It routes transient parameter maps through `EditTransaction` and `UndoService`, so finish records one complete grade state, cancel restores the committed state, and undo/redo rerender the same frame. A frame or context change cancels an open gesture. `scope` says what the grade belongs to: `FrameGrade` (the default, a still grade), `ClipGrade` or `ProgramGrade`. Leaving the scope (a new frame or clip for a frame grade, a new clip for a clip grade) starts a neutral grade with a fresh history so undo cannot affect a different target; a new target within the scope only replaces the preview source and keeps the grade and its history. Context generations must change whenever a profile or transform policy changes. `saveJson()`/`loadJson()` persist the committed grade as `qindatk.color-grade/1` (`format`, `scope`, `clipId`, `grade`); a load replaces the grade as a new document without an undo step and refuses malformed or out-of-range grades without changing anything. The fixture uses `ColorGradePreviewModel` only for deterministic source pixels.
 
 ## Grade gestures
 
@@ -136,7 +136,18 @@ encoded sRGB, the SDR program policy of D-096) and then burns in captions. A
 neutral grade is skipped, so it is an exact identity. `VideoFinishing` builds
 the stage from a `ColorGradeEditSession` (and a `CaptionTrackModel`) and
 `MediaPlayer.finishing` attaches it: the monitor shows `value(true)`, which
-includes a drag in progress, while `exportJob` uses the committed grade. The
+includes a drag in progress, while `exportJob` uses the committed grade.
+Attaching a session switches it to `ProgramGrade`: a host feeding it each
+presented frame through `setFrame` only changes the preview source, and the
+grade, its undo history and the next export stay. A `ProgramGrade` session
+previews in `ColorGradeProcessor::programContext()` (the same context
+`MediaFinishing` grades with; the host's generation is kept) whatever output
+profile the host's context names, because program frames and the lossless
+export are encoded sRGB (D-096); a `FrameGrade` still keeps the host's output
+profile. `tst_video_finishing_paths` checks the grade surviving new frames,
+save/load, a Display P3 host context previewing the program's pixels, and
+`exportJob` → program JSON → `MediaExport::renderProvider` writing the
+committed grade and the embedded captions while a drag is open. The
 program's cache key includes the finishing digest, so no ungraded cached frame
 is shown after a change. `tst_video_finishing` checks that a decoded frame
 graded by the program equals the session's preview pixel for pixel, and that

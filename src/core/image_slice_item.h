@@ -20,6 +20,11 @@ namespace QindaTK {
 // −0.5 and size−0.5. sliceImage, voxelAt, positionForVoxel and the crosshair
 // share that one mapping; change them together. Oblique planes use the square
 // reslice frame of D-149 (image_slice_reslice.cpp) in all four instead.
+// AGENT-CONTRACT (docs/volume-imaging.md#linked-views-and-overlays, D-260):
+// a cursor bound to another volume, an overlay, and a transfer function are
+// used only when compatible (VoxelVolume::geometryMismatch, matching value
+// units); otherwise the view says why in linkError/overlayError and ignores
+// them instead of drawing a wrong point or colour.
 class ImageSliceItem : public QQuickPaintedItem {
     Q_OBJECT
     QML_ELEMENT
@@ -39,6 +44,12 @@ class ImageSliceItem : public QQuickPaintedItem {
     Q_PROPERTY(QColor crosshairColor READ crosshairColor WRITE setCrosshairColor NOTIFY changed)
     Q_PROPERTY(double crosshairWidth READ crosshairWidth WRITE setCrosshairWidth NOTIFY changed)
     Q_PROPERTY(QVariantList resliceOrientation READ resliceOrientation WRITE setResliceOrientation NOTIFY changed)
+    Q_PROPERTY(QindaTK::VoxelVolume *overlay READ overlay WRITE setOverlay NOTIFY changed)
+    Q_PROPERTY(QindaTK::TransferFunctionModel *overlayTransfer READ overlayTransfer WRITE setOverlayTransfer NOTIFY changed)
+    Q_PROPERTY(double overlayOpacity READ overlayOpacity WRITE setOverlayOpacity NOTIFY changed)
+    Q_PROPERTY(QString linkError READ linkError NOTIFY linkChanged)
+    Q_PROPERTY(bool cursorLinked READ cursorLinked NOTIFY linkChanged)
+    Q_PROPERTY(QString overlayError READ overlayError NOTIFY linkChanged)
     Q_PROPERTY(int sliceCount READ sliceCount NOTIFY sliceChanged)
     Q_PROPERTY(int sliceIndex READ sliceIndex NOTIFY sliceChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
@@ -80,6 +91,24 @@ public:
     QVariantList resliceOrientation() const;
     void setResliceOrientation(const QVariantList &matrix);
     QString lastError() const { return m_error; }
+    // An overlay volume on the same voxel grid (a label map, a second
+    // modality) drawn through overlayTransfer at overlayOpacity (0–1).
+    VoxelVolume *overlay() const { return m_overlay; }
+    void setOverlay(VoxelVolume *overlay);
+    TransferFunctionModel *overlayTransfer() const { return m_overlayTransfer; }
+    void setOverlayTransfer(TransferFunctionModel *transfer);
+    double overlayOpacity() const { return m_overlayOpacity; }
+    void setOverlayOpacity(double opacity);
+    // Why the cursor or transfer function is ignored (empty when both apply),
+    // and why the overlay is not drawn (empty when it is, or when unset).
+    QString linkError() const { return m_linkError; }
+    QString overlayError() const { return m_overlayError; }
+    bool cursorLinked() const;
+    // JSON-safe view settings (plane, reslice orientation, window, channel,
+    // frame, interpolation, overlay opacity) with the volume identity; restore
+    // validates atomically and rejects settings for another dataset (D-260).
+    Q_INVOKABLE QVariantMap saveSettings() const;
+    Q_INVOKABLE bool restoreSettings(const QVariantMap &settings);
     // Principal planes count voxel slices; an oblique plane counts steps of
     // the smallest spacing along its normal across the volume diagonal.
     int sliceCount() const;
@@ -96,6 +125,7 @@ public:
 signals:
     void changed();
     void sliceChanged();
+    void linkChanged();
 private:
     // D-149: an oblique plane passes through the cursor, is centred on the
     // volume centre's projection and spans the volume diagonal on each side.
@@ -121,6 +151,10 @@ private:
     double currentSlice() const;
     QRectF targetRect() const;
     QRgb colorFor(double value) const;
+    // Base colour at a voxel point with the accepted overlay composited over it.
+    QRgb shadeAt(double x, double y, double z) const;
+    void refreshLinks();
+    static bool parseOrientation(const QVariantList &matrix, double out[9]);
     void invalidate();
     QPointer<VoxelVolume> m_volume;
     QPointer<VolumeCursor> m_cursor;
@@ -132,7 +166,11 @@ private:
     QColor m_background = Qt::transparent, m_crosshair = Qt::transparent;
     double m_crosshairWidth = 0;
     double m_reslice[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-    QString m_error;
+    QString m_error, m_linkError, m_overlayError;
+    QPointer<VoxelVolume> m_overlay;
+    QPointer<TransferFunctionModel> m_overlayTransfer;
+    double m_overlayOpacity = 0.5;
+    bool m_cursorLinked = true, m_transferUsable = true, m_overlayUsable = false;
     QImage m_image;
     double m_imageSlice = 0;
     bool m_dirty = true;

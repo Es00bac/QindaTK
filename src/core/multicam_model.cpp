@@ -141,10 +141,20 @@ const MulticamModel::Angle *MulticamModel::angleForResource(const QString &resou
     return nullptr;
 }
 
-std::optional<qint64> MulticamModel::sourceAt(const Angle &item, qint64 ticks) const
+const MulticamModel::Angle *MulticamModel::angleForSound(const QString &resourceId) const
+{
+    for (const Angle &item : m_angles)
+        if (item.audioResourceId.isEmpty() ? item.resourceId == resourceId : item.audioResourceId == resourceId)
+            return &item;
+    return nullptr;
+}
+
+// `sound`: the position in the file that carries the angle's sound.
+std::optional<qint64> MulticamModel::sourceAt(const Angle &item, qint64 ticks, bool sound) const
 {
     const auto sync = TimelineTime::subtract(ticks, m_syncStart);
-    return sync ? TimelineTime::add(*sync, item.syncOffset) : std::nullopt;
+    const qint64 offset = sound && !item.audioResourceId.isEmpty() ? item.audioSyncOffset : item.syncOffset;
+    return sync ? TimelineTime::add(*sync, offset) : std::nullopt;
 }
 
 const TimelineClip *MulticamModel::programClipAt(qint64 ticks) const
@@ -195,6 +205,8 @@ QVariantList MulticamModel::angles() const
             {QStringLiteral("audioResourceId"), item.audioResourceId},
             {QStringLiteral("syncOffsetTicks"), QString::number(item.syncOffset)},
             {QStringLiteral("sourceDurationTicks"), QString::number(item.sourceDuration)},
+            {QStringLiteral("audioSyncOffsetTicks"), QString::number(item.audioSyncOffset)},
+            {QStringLiteral("audioSourceDurationTicks"), QString::number(item.audioSourceDuration)},
             // The source time each angle shows at the playhead (thumbnail requests).
             {QStringLiteral("frameTimeTicks"), inside ? QString::number(*source) : QString()},
             {QStringLiteral("frameId"), QString()},
@@ -214,15 +226,20 @@ bool MulticamModel::addAngle(const QVariantMap &map)
     item.audioResourceId = map.value(QStringLiteral("audioResourceId")).toString();
     const auto offset = decimal(map.value(QStringLiteral("syncOffsetTicks"), QStringLiteral("0")));
     const auto duration = decimal(map.value(QStringLiteral("sourceDurationTicks"), QStringLiteral("-1")));
+    const auto audioOffset = map.contains(QStringLiteral("audioSyncOffsetTicks"))
+        ? decimal(map.value(QStringLiteral("audioSyncOffsetTicks"))) : offset;
+    const auto audioDuration = decimal(map.value(QStringLiteral("audioSourceDurationTicks"), QStringLiteral("-1")));
     if (item.id.isEmpty() || item.resourceId.isEmpty())
         return fail(tr("An angle needs an ID and a resource"));
-    if (!offset || !duration || *duration < -1)
+    if (!offset || !duration || *duration < -1 || !audioOffset || !audioDuration || *audioDuration < -1)
         return fail(tr("Angle offsets and durations are exact decimal tick strings"));
     if (angle(item.id) || angleForResource(item.resourceId))
         return fail(tr("Angle IDs and resources must be unique"));
     if (m_angles.size() >= kMaxAngles) return fail(tr("A multicam group has at most 64 angles"));
     item.syncOffset = *offset;
     item.sourceDuration = *duration;
+    item.audioSyncOffset = *audioOffset;
+    item.audioSourceDuration = *audioDuration;
     m_angles.push_back(item);
     emit anglesChanged();
     return true;
@@ -303,7 +320,14 @@ QVariantMap MulticamModel::insertProgram(const QString &angleId, const QString &
         TimelineClipTemplate sound = picture;
         sound.clip.id = QUuid::createUuid();
         sound.clip.kind = QStringLiteral("audio");
-        if (!item->audioResourceId.isEmpty()) sound.clip.resourceId = item->audioResourceId;
+        if (!item->audioResourceId.isEmpty()) {
+            // A separate sound file: its own sync position and length.
+            const auto heard = sourceAt(*item, *start, true);
+            if (!heard) return refuse(tr("The sync position is out of range"));
+            sound.clip.resourceId = item->audioResourceId;
+            sound.clip.sourceOffset = *heard;
+            sound.clip.sourceDuration = item->audioSourceDuration;
+        }
         sound.trackOffset = int(to - from);
         request.templates.push_back(sound);
     }
@@ -353,6 +377,12 @@ QVariantMap MulticamModel::switchAngle(const QString &angleId, const QString &at
     request.linkedResourceId = item->audioResourceId;
     request.sourceOffset = *source;
     request.sourceDuration = item->sourceDuration;
+    if (!item->audioResourceId.isEmpty()) {
+        const auto heard = sourceAt(*item, *at, true);
+        if (!heard) return refuse(tr("The sync position is out of range"));
+        request.linkedSourceOffset = *heard;
+        request.linkedSourceDuration = item->audioSourceDuration;
+    }
     request.label = tr("Switch to angle %1").arg(item->label.isEmpty() ? item->id : item->label);
     TimelineEditInput input;
     input.pointerTicks = *at;
@@ -370,12 +400,16 @@ QStringList MulticamModel::unsyncedClipIds() const
 {
     QStringList result;
     if (!m_timeline) return result;
-    for (const auto &entry : m_timeline->trackIndex(QUuid(m_trackId))) {
-        const TimelineClip *clip = m_timeline->clipRecord(entry.id);
-        const Angle *item = clip ? angleForResource(clip->resourceId) : nullptr;
-        if (!item) continue;
-        const auto expected = sourceAt(*item, clip->start);
-        if (!expected || *expected != clip->sourceOffset) result.push_back(clip->id.toString(QUuid::WithoutBraces));
+    for (const bool sound : {false, true}) {
+        const QString &track = sound ? m_audioTrackId : m_trackId;
+        if (track.isEmpty()) continue;
+        for (const auto &entry : m_timeline->trackIndex(QUuid(track))) {
+            const TimelineClip *clip = m_timeline->clipRecord(entry.id);
+            const Angle *item = !clip ? nullptr : sound ? angleForSound(clip->resourceId) : angleForResource(clip->resourceId);
+            if (!item) continue;
+            const auto expected = sourceAt(*item, clip->start, sound);
+            if (!expected || *expected != clip->sourceOffset) result.push_back(clip->id.toString(QUuid::WithoutBraces));
+        }
     }
     return result;
 }
@@ -388,7 +422,9 @@ QVariantMap MulticamModel::contentMap() const
                                    {QStringLiteral("resourceId"), item.resourceId},
                                    {QStringLiteral("audioResourceId"), item.audioResourceId},
                                    {QStringLiteral("syncOffsetTicks"), QString::number(item.syncOffset)},
-                                   {QStringLiteral("sourceDurationTicks"), QString::number(item.sourceDuration)}});
+                                   {QStringLiteral("sourceDurationTicks"), QString::number(item.sourceDuration)},
+                                   {QStringLiteral("audioSyncOffsetTicks"), QString::number(item.audioSyncOffset)},
+                                   {QStringLiteral("audioSourceDurationTicks"), QString::number(item.audioSourceDuration)}});
     return {{QStringLiteral("schema"), kSchema}, {QStringLiteral("trackId"), m_trackId},
             {QStringLiteral("audioTrackId"), m_audioTrackId}, {QStringLiteral("syncStartTicks"), syncStartTicks()},
             {QStringLiteral("audioFollowsVideo"), m_audioFollows}, {QStringLiteral("angles"), list}};

@@ -14,9 +14,11 @@
 
 namespace QindaTK {
 namespace {
+// Local versions keep the newest MaxCheckpoints within MaxStoreBytes; a
+// shared version is one log operation, so it stays within one packet.
 constexpr int MaxCheckpoints = 64;
-constexpr qsizetype MaxSnapshotBytes = 40 * 1024;
-constexpr qsizetype MaxStoreBytes = 4 * 1024 * 1024;
+constexpr qsizetype MaxLocalSnapshotBytes = 1024 * 1024;
+constexpr qsizetype MaxStoreBytes = 16 * 1024 * 1024;
 
 bool canonicalUuid(const QString &id)
 {
@@ -137,7 +139,7 @@ bool PropertyVersionHistory::open()
             || entry.name.size() > 128 || entry.operationCount < 0
             || QDateTime::fromString(entry.createdAt, Qt::ISODateWithMs).isValid() == false
             || !bytes || bytes.decoded.toBase64() != encoded
-            || bytes.decoded.size() > MaxSnapshotBytes)
+            || bytes.decoded.size() > MaxLocalSnapshotBytes)
             return fail(QStringLiteral("Invalid checkpoint metadata"));
         entry.snapshot = bytes.decoded;
         const auto decoded = ReferenceDocumentCodec::decode(entry.snapshot);
@@ -182,12 +184,13 @@ QString PropertyVersionHistory::checkpoint(const QString &name)
     const QString trimmed = name.trimmed();
     if (!m_opened || !m_client || !m_client->document() || !m_client->service()
         || !canonicalUuid(m_client->actorId()) || trimmed.isEmpty()
-        || trimmed.size() > 128 || m_entries.size() >= MaxCheckpoints) {
-        fail(QStringLiteral("Checkpoint configuration, name or limit is invalid"));
+        || trimmed.size() > 128) {
+        fail(QStringLiteral("Checkpoint configuration or name is invalid"));
         return {};
     }
     const auto snapshot = ReferenceDocumentCodec::capture(*m_client->document());
-    if (!snapshot || snapshot->payload.size() > MaxSnapshotBytes) {
+    const qsizetype limit = m_shared ? sync_detail::MaxSnapshotBytes : MaxLocalSnapshotBytes;
+    if (!snapshot || snapshot->payload.size() > limit) {
         fail(QStringLiteral("Checkpoint snapshot is unsupported or too large"));
         return {};
     }
@@ -201,13 +204,36 @@ QString PropertyVersionHistory::checkpoint(const QString &name)
                 m_client->actorId(), m_client->document()->revisionString(),
                 QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs),
                 m_client->service()->operationCount(), snapshot->payload, {}};
+    // AGENT-NOTE: the history keeps the newest versions instead of refusing
+    // new ones, so restore (which saves a safety version first) keeps working
+    // for the life of the document. remove() prunes explicitly.
     auto updated = m_entries;
     updated.append(entry);
-    if (!persist(updated)) return {};
+    while (updated.size() > MaxCheckpoints) updated.removeFirst();
+    while (!persist(updated)) {
+        if (updated.size() == 1) return {};
+        updated.removeFirst();
+    }
     m_entries = std::move(updated);
     m_lastError.clear();
     emit changed();
     return entry.id;
+}
+
+bool PropertyVersionHistory::remove(const QString &id)
+{
+    if (!m_opened || m_shared)
+        return fail(QStringLiteral("Only a local version history removes versions"));
+    auto updated = m_entries;
+    const auto removed = std::remove_if(updated.begin(), updated.end(),
+                                        [&](const Entry &entry) { return entry.id == id; });
+    if (removed == updated.end()) return fail(QStringLiteral("Unknown version"));
+    updated.erase(removed, updated.end());
+    if (!persist(updated)) return false;
+    m_entries = std::move(updated);
+    m_lastError.clear();
+    emit changed();
+    return true;
 }
 
 QVariantList PropertyVersionHistory::versions() const

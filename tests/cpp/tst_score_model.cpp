@@ -179,14 +179,33 @@ private slots:
 
         // A tie needs the same sounding pitch next in the voice.
         const QString revision = f.model.revisionText();
-        QVERIFY(!ok(f.model.editEvent(sharpHalf, QStringLiteral("tie"))));
+        const QVariantMap refused = f.model.editEvent(sharpHalf, QStringLiteral("tie")); // F#4 -> F4
+        QVERIFY(!ok(refused));
+        QCOMPARE(refused.value(QStringLiteral("code")).toString(), QStringLiteral("tie-target-missing"));
         QCOMPARE(f.model.revisionText(), revision);
+        QVERIFY(!f.model.eventData(sharpHalf).value(QStringLiteral("notes")).toList().value(0).toMap().value(QStringLiteral("tie")).toBool());
         QVERIFY(ok(f.model.editEvent(sharpAgain, QStringLiteral("tie"))));
         QVERIFY(Score::tieContinuations(f.model.content()).contains(noteId(nextBar)));
         QVERIFY(f.model.eventData(sharpAgain).value(QStringLiteral("notes")).toList().value(0).toMap().value(QStringLiteral("tie")).toBool());
         // Overwriting the tied-to note drops the tie instead of refusing.
         QVERIFY(ok(f.note(1, 3840, QStringLiteral("A4"), QStringLiteral("whole"))));
         QVERIFY(!f.model.eventData(sharpAgain).value(QStringLiteral("notes")).toList().value(0).toMap().value(QStringLiteral("tie")).toBool());
+
+        // Key of C: F#4 tied over the bar line shows no sharp, the next F#4 restates it.
+        Fixture c(2);
+        const QString before = c.note(0, 1920, QStringLiteral("F#4"), QStringLiteral("half")).value(QStringLiteral("eventId")).toString();
+        const QString over = c.note(1, 3840, QStringLiteral("F#4"), QStringLiteral("quarter")).value(QStringLiteral("eventId")).toString();
+        const QString after = c.note(1, 4800, QStringLiteral("F#4"), QStringLiteral("quarter")).value(QStringLiteral("eventId")).toString();
+        QVERIFY(ok(c.model.editEvent(before, QStringLiteral("tie"))));
+        const auto cNote = [&](const QString &eventId) {
+            return QUuid::fromString(c.model.eventData(eventId).value(QStringLiteral("notes")).toList().value(0).toMap()
+                                         .value(QStringLiteral("id")).toString());
+        };
+        const auto cShown = Score::accidentals(c.model.content(), c.model.content().parts[0].staves[0],
+                                               Score::tieContinuations(c.model.content()));
+        QCOMPARE(cShown.value(cNote(before)), QStringLiteral("sharp"));
+        QCOMPARE(cShown.value(cNote(over)), QString());
+        QCOMPARE(cShown.value(cNote(after)), QStringLiteral("sharp"));
 
         QVERIFY(ok(f.model.editEvent(natural, QStringLiteral("respell"))));
         QCOMPARE(f.firstPitch(natural), QStringLiteral("Gbb4"));

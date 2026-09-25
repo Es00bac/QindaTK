@@ -71,7 +71,32 @@ private slots:
     void perspectiveCameraRays();
     void materialChannelsPaintSaveAndReopen();
     void invalidPaintLeavesStateIntact();
+    void longStrokesStayWithinWorkBound();
+    void workLimitKeepsPaintedPixels();
+    void uvPaintMatchesTexelUnderPointer();
+    void projectionInvertsCameraRays();
 };
+
+namespace {
+// The shipped mesh-rig-live fixture: a 210 x 210 quad of two triangles whose
+// UVs fill the texture, split on the diagonal seam.
+void liveQuad(MeshRigDocument &doc, int size)
+{
+    const QString a = doc.addVertex({-105, -105, 0}), b = doc.addVertex({105, -105, 0});
+    const QString c = doc.addVertex({105, 105, 0}), d = doc.addVertex({-105, 105, 0});
+    const QString first = doc.addFace(a, b, c), second = doc.addFace(a, c, d);
+    doc.setUV(first, 0, {0, 0}); doc.setUV(first, 1, {1, 0}); doc.setUV(first, 2, {1, 1});
+    doc.setUV(second, 0, {0, 0}); doc.setUV(second, 1, {1, 1}); doc.setUV(second, 2, {0, 1});
+    doc.setSeam(a, c, true);
+    QVERIFY(doc.resizeTexture(size, size));
+}
+int changedTexels(const QImage &a, const QImage &b)
+{
+    int count = 0;
+    for (int y = 0; y < a.height(); ++y) for (int x = 0; x < a.width(); ++x) count += a.pixel(x, y) != b.pixel(x, y);
+    return count;
+}
+}
 
 void MeshRigPaintTest::dabCrossesSeamExactly()
 {
@@ -235,6 +260,122 @@ void MeshRigPaintTest::invalidPaintLeavesStateIntact()
     QVERIFY(!doc.painting());
     QCOMPARE(doc.texture(), white);
     QVERIFY(!doc.endPaint());
+}
+
+void MeshRigPaintTest::longStrokesStayWithinWorkBound()
+{
+    // Default brush (radius 8) sweeping the whole quad three times. Charged
+    // per face UV box, a 256^2 dab cost ~131k texels and the stroke was
+    // discarded after ~122 dabs; at 1024^2 after ~7.
+    for (int size : {256, 1024}) {
+        MeshRigDocument doc;
+        liveQuad(doc, size);
+        const QImage blank = doc.texture();
+        QVERIFY(doc.beginPaint());
+        for (int row = 0; row < 3; ++row) {
+            const float y = -80.0f + 80.0f * row;
+            for (int step = 0; step <= 40; ++step) {
+                const float x = (row % 2 ? 100.0f - 5.0f * step : -100.0f + 5.0f * step);
+                QVERIFY2(doc.paintRay({x, y, 100}, {0, 0, -1}, QColor(255, 0, 0), 8, 1, 1),
+                         qPrintable(doc.lastError()));
+            }
+        }
+        QVERIFY(doc.painting());
+        QVERIFY(doc.endPaint());
+        const int painted = changedTexels(blank, doc.texture());
+        // Three full-width bands of a 16-texel brush (in 256 texels) at least.
+        // Three bands ~16 texels wide across ~70% of the texture, at least.
+        QVERIFY2(painted > 3 * (size * 150 / 210) * 12, qPrintable(QString::number(painted)));
+        QVERIFY(doc.undo());
+        QCOMPARE(doc.texture(), blank);
+    }
+}
+
+void MeshRigPaintTest::workLimitKeepsPaintedPixels()
+{
+    // Radius 1 on a 1024^2 texture joins samples texel by texel, so nine
+    // sweeps pass the 8192-dab stroke bound. The refused sample reports the
+    // limit; the stroke and its pixels stay and commit as one step.
+    MeshRigDocument doc;
+    liveQuad(doc, 1024);
+    const QImage blank = doc.texture();
+    QVERIFY(doc.beginPaint());
+    bool refused = false;
+    for (int sweep = 0; sweep < 12 && !refused; ++sweep) {
+        const float y = -100.0f + 15.0f * sweep;
+        refused = !doc.paintRay({sweep % 2 ? 100.0f : -100.0f, y, 100}, {0, 0, -1}, QColor(0, 0, 255), 1, 1, 1);
+    }
+    QVERIFY(refused);
+    QCOMPARE(doc.lastError(), QStringLiteral("Paint stroke work limit reached"));
+    QVERIFY(doc.painting());
+    const QImage kept = doc.texture();
+    QVERIFY(changedTexels(blank, kept) > 5000);
+    QVERIFY(doc.endPaint());
+    QCOMPARE(doc.texture(), kept);
+    QVERIFY(doc.undo());
+    QCOMPARE(doc.texture(), blank);
+    QVERIFY(doc.redo());
+    QCOMPARE(doc.texture(), kept);
+}
+
+void MeshRigPaintTest::uvPaintMatchesTexelUnderPointer()
+{
+    MeshRigDocument doc;
+    seamQuad(doc);
+    const QImage white = doc.texture();
+    double margin = 0;
+    // World (12.3, 3.6) on island A is UV (12.3, 3.6) / 32: texel (12, 28).
+    const QSet<QPoint> expected = referenceDab({12.3, 3.6}, 3.0, &margin);
+    QVERIFY(margin > 1e-3);
+    QVERIFY(expected.contains(QPoint(12, 28)));
+    QVERIFY(doc.beginPaint());
+    QVERIFY(doc.paintUv({12.3 / 32, 3.6 / 32}, QColor(0, 128, 0), 3, 1, 1));
+    QVERIFY(doc.endPaint());
+    const QImage uvPainted = doc.texture();
+    QCOMPARE(paintedTexels(uvPainted, white.pixel(0, 0)), expected);
+    QCOMPARE(doc.texel("baseColor", 12, 28), QColor(0, 128, 0));
+    // The same surface point painted from the camera gives the same texels.
+    QVERIFY(doc.undo());
+    QVERIFY(doc.beginPaint());
+    QVERIFY(doc.paintRay({12.3f, 3.6f, 10}, {0, 0, -1}, QColor(0, 128, 0), 3, 1, 1));
+    QVERIFY(doc.endPaint());
+    QCOMPARE(doc.texture(), uvPainted);
+    // Near the seam, a UV dab also crosses into the other island.
+    QVERIFY(doc.undo());
+    QVERIFY(doc.beginPaint());
+    QVERIFY(doc.paintUv({9.2 / 32, 7.1 / 32}, QColor(255, 0, 0), 3, 1, 1));
+    QVERIFY(doc.endPaint());
+    QCOMPARE(paintedTexels(doc.texture(), white.pixel(0, 0)), referenceDab({9.2, 7.1}, 3.0, &margin));
+    // Outside every UV island nothing is painted and the stroke is kept.
+    QVERIFY(doc.beginPaint());
+    QVERIFY(!doc.paintUv({0.2, 0.9}, QColor(255, 0, 0), 3, 1, 1));
+    QVERIFY(doc.painting());
+    doc.cancelPaint();
+}
+
+void MeshRigPaintTest::projectionInvertsCameraRays()
+{
+    MeshRigDocument doc;
+    const Quad q = seamQuad(doc);
+    const QString bone = doc.addBone("Bone", {}, {2, 2, 0}, {12, 2, 0});
+    const QVector3D camera(8, 8, 30), euler(0, 10, 0);
+    const QSizeF viewport(320, 200);
+    for (const QPointF pixel : {QPointF(160, 100), QPointF(150, 90), QPointF(175, 112)}) {
+        QVector3D origin, direction;
+        QVERIFY(MeshRigDocument::perspectiveRay(camera, euler, 60, viewport, pixel, &origin, &direction));
+        const QVariantMap hit = doc.pickFace(origin, direction);
+        QVERIFY(!hit.isEmpty());
+        QPointF back;
+        QVERIFY(MeshRigDocument::projectPoint(camera, euler, 60, viewport, hit.value("position").value<QVector3D>(), &back));
+        QVERIFY2(std::hypot(back.x() - pixel.x(), back.y() - pixel.y()) < 1e-2, qPrintable(QString("%1,%2").arg(back.x()).arg(back.y())));
+    }
+    QPointF behind;
+    QVERIFY(!MeshRigDocument::projectPoint(camera, {0, 0, 0}, 60, viewport, {8, 8, 40}, &behind));
+    const QVariantMap overlay = doc.cameraOverlay(camera, euler, 60, viewport, q.below);
+    QCOMPARE(overlay.value("face").toList().size(), 3);
+    QCOMPARE(overlay.value("bones").toList().size(), 1);
+    QCOMPARE(overlay.value("bones").toList()[0].toMap().value("boneId").toString(), bone);
+    QVERIFY(doc.cameraOverlay(camera, euler, 60, viewport, "unknown").value("face").toList().isEmpty());
 }
 
 QTEST_GUILESS_MAIN(MeshRigPaintTest)

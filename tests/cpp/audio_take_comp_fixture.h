@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // Shared fixtures for the WP-065 take comp tests (tst_audio_take_comp,
-// tst_audio_take_comp_engine): WAV helpers, a synthetic loop recording and a
+// tst_audio_take_comp_engine, tst_audio_take_comp_edges): WAV helpers, a synthetic loop recording and a
 // compact text form of a comp's segments.
 #pragma once
 
@@ -9,6 +9,7 @@
 #include <QHash>
 #include <QString>
 #include <QStringList>
+#include <algorithm>
 #include <functional>
 #include <vector>
 
@@ -46,6 +47,21 @@ inline std::vector<float> render(AudioSession &session, const QString &path, qin
     const QVariantMap result = session.renderToFile(path, QStringLiteral("0"),
                                                     endSample < 0 ? QString() : text(ticks(endSample)), 0, 1);
     return result.value(QStringLiteral("ok")).toBool() ? readMono(path) : std::vector<float>{};
+}
+
+// What the device graph plays from sample 0 to `end` (previews and
+// auditions included; an export never hears them, D-176), mono.
+inline std::vector<float> device(AudioSession &session, qint64 end)
+{
+    const AudioRenderGraphPtr graph = session.compileGraph(Rate);
+    std::vector<float> out(size_t(end), 0.0f);
+    std::vector<double> scratch(AudioRenderGraph::kMaxBlock);
+    for (qint64 at = 0; at < end;) {
+        const int count = int(std::min<qint64>(AudioRenderGraph::kMaxBlock, end - at));
+        graph->render(at, count, out.data() + at, 1, scratch.data());
+        at += count;
+    }
+    return out;
 }
 
 // What AudioEngine::recordingFinished reports for a take recorded from

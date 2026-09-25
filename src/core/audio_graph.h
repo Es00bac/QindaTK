@@ -8,7 +8,9 @@
 #include "engine_schedule.h"
 #include "midi_program.h"
 
+#include <QSet>
 #include <QStringList>
+#include <array>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -57,6 +59,9 @@ public:
         // Take comps (WP-065): an audio clip whose resourceId starts with
         // "comp:" plays what this returns for it (invalid: missing).
         std::function<AudioCompPlayback(const QString &compId)> comp;
+        // Channels metered first when more channels than meter slots exist
+        // (the strips on screen, D-113); the master is always metered.
+        QSet<QString> meterFirst;
     };
     static bool isCompResource(const QString &resourceId) { return resourceId.startsWith(QLatin1String("comp:")); }
     // Audio, MIDI (or untyped) tracks become channels in timeline order, then the
@@ -155,6 +160,8 @@ private:
         int delay = 0;          // latency compensation, frames (D-192)
         std::size_t delayBuffer = 0; // first sample in m_delay
         std::size_t delaySlot = 0;   // cursor in m_delayCursor
+        // A surround source's fixed conversion (AudioMixer::surroundMatrix).
+        std::array<double, AudioMixer::kMaxLanes * AudioMixer::kMaxLanes> matrix{};
     };
     struct Node {
         QString channelId;
@@ -163,6 +170,7 @@ private:
         int gain = -1;           // curves; -1 is the default (unity, centre, width 1)
         int pan = -1;
         int width = -1;
+        int depth = -1;          // front/back of a spatial pan (default front)
         bool audible = true;
         std::vector<Route> routes;
         int meterSlot = -1;
@@ -181,6 +189,11 @@ private:
         bool bypassed = false;
         bool notes = false;           // receives the channel's MIDI
         int latency = 0;
+        // Lanes past the front pair of a surround channel bypass a stereo
+        // plugin and wait its latency in m_delay (0 lanes: nothing to delay).
+        int extraLanes = 0;
+        std::size_t extraBuffer = 0;
+        std::size_t extraSlot = 0;
         std::size_t parameterFirst = 0; // m_insertParameters range
         std::size_t parameterCount = 0;
     };
@@ -198,6 +211,7 @@ private:
 
     int addCurve(const EngineScheduleSnapshot *schedule, const QString &parameterId);
     int portIndex(const QString &id, const Sources &sources, const QString &from);
+    Route converted(const Node &node, Route route) const;
     void evaluate(int curve, double fallback, qint64 start, int frames, double *out) const noexcept;
     bool constant(int curve) const noexcept { return curve < 0 || !m_curves[std::size_t(curve)].automated; }
     double *lane(std::size_t buffer, int index) const noexcept;
@@ -208,8 +222,16 @@ private:
     template <typename F> void forEachPlacement(const Node &node, const MidiLaunchState *launch, F &&fn) const noexcept;
     void addMidi(const Node &node, qint64 start, int frames, double *const in[2], const MidiLaunchState *launch) const noexcept;
     void playPlacement(const MidiPlacement &placement, qint64 start, int frames, double *const in[2], int lanes) const noexcept;
-    void mix(const Node &node, const Route &route, double *const in[2], int frames, const double *gain,
-             const double *pan, const double *width, const double *level) const noexcept;
+    struct Controls {
+        const double *gain;
+        const double *pan;
+        const double *width;
+        const double *depth;
+        const double *level;
+    };
+    void mix(const Node &node, const Route &route, double *const in[], int frames, const Controls &controls) const noexcept;
+    void mixSpatial(const Node &node, double *const out[], int destLanes, double *const in[], int frames,
+                    const Controls &controls, bool preFader) const noexcept;
     void mixChunk(qint64 start, int frames, float *out, int channels, double *scratch,
                   AudioChannelMeterSink *meters, const MidiLaunchState *launch) const noexcept;
     void writePorts(int frames, float *out, int channels) const noexcept;
@@ -217,9 +239,13 @@ private:
                        const MidiLaunchState *launch) const noexcept;
     // Plugins (audio_graph_plugins.cpp).
     void compilePlugins(const Sources &sources);
-    void runInserts(const Node &node, qint64 start, int frames, double *const in[2],
+    void runInserts(const Node &node, qint64 start, int frames, double *const in[],
                     const MidiLaunchState *launch) const noexcept;
-    void delayRoute(const Route &route, int lanes, double *const in[2], double *const out[2], int frames) const noexcept;
+    void delayRoute(const Route &route, int lanes, double *const in[], double *const out[], int frames) const noexcept;
+    // Delays `lanes` lanes by `delay` frames through m_delay[buffer...]; in
+    // and out may be the same lanes.
+    void delayLines(std::size_t buffer, std::size_t slot, int delay, int lanes, double *const in[],
+                    double *const out[], int frames) const noexcept;
 
     quint64 m_generation = 0;
     int m_sampleRate = 48000;

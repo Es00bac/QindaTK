@@ -4,9 +4,13 @@
 // holds the clip that places it (resourceId == comp id).
 #include "audio_session.h"
 
+#include <QDir>
+#include <QFileInfo>
 #include <QUrl>
 #include <QUuid>
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 
 namespace QindaTK {
 namespace {
@@ -56,6 +60,44 @@ QStringList AudioSession::missingMedia() const
                 if (!m_decoded.contains(take.resourceId)) add(take.resourceId);
         }
     return missing;
+}
+
+QString AudioSession::generateTestTake(const QString &file, const QVariantMap &options)
+{
+    clearError();
+    const int rate = options.value(QStringLiteral("sampleRate"), sampleRate()).toInt();
+    AudioBuffer buffer;
+    buffer.sampleRate = rate;
+    buffer.channels = 1;
+    for (const QVariant &value : options.value(QStringLiteral("segments")).toList())
+        buffer.frames += std::max<qint64>(0, value.toMap().value(QStringLiteral("frames")).toLongLong());
+    if (rate < 1 || buffer.frames < 1 || buffer.frames > qint64(rate) * 600) {
+        fail(tr("A test take needs a sample rate and 1 frame to 10 minutes of segments"));
+        return {};
+    }
+    buffer.samples.resize(size_t(buffer.frames));
+    qint64 at = 0;
+    double phase = 0.0;
+    for (const QVariant &value : options.value(QStringLiteral("segments")).toList()) {
+        const QVariantMap segment = value.toMap();
+        const qint64 frames = std::max<qint64>(0, segment.value(QStringLiteral("frames")).toLongLong());
+        const double step = 2.0 * std::numbers::pi * segment.value(QStringLiteral("frequency"), 220.0).toDouble() / rate;
+        const double amplitude = std::clamp(segment.value(QStringLiteral("amplitude"), 0.5).toDouble(), 0.0, 1.0);
+        const double pulse = 2.0 * std::numbers::pi * segment.value(QStringLiteral("pulse"), 3.0).toDouble() / rate;
+        for (qint64 i = 0; i < frames; ++i, ++at, phase += step)
+            buffer.samples[size_t(at)] = float(amplitude * (0.775 + 0.225 * std::sin(pulse * double(i))) * std::sin(phase));
+    }
+    const QString base = m_mediaDirectory.isEmpty() ? QDir::tempPath() : m_mediaDirectory;
+    const QString name = file.isEmpty()
+        ? QStringLiteral("test-take-%1.wav").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)) : file;
+    const QString path = QDir(base).absoluteFilePath(name);
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QString error;
+    if (!AudioFile::writeWav(path, buffer, &error)) {
+        fail(error);
+        return {};
+    }
+    return path;
 }
 
 QString AudioSession::compForClip(const QString &clipId) const
@@ -220,23 +262,77 @@ QVariantMap AudioSession::placeTakeInComp(const QString &trackId, const QString 
         return QVariantMap{{QStringLiteral("ok"), true}, {QStringLiteral("clipId"), clipId},
                            {QStringLiteral("compId"), compId}};
     };
+    // Puts `comp` (new, complete) under `clip` in one timeline step: undo
+    // returns the clip to its previous source, which stays unchanged.
+    const auto switchTo = [&](const TimelineClip &clip, const AudioTakeComp &comp, qint64 sourceOffsetTicks,
+                              const QString &label) {
+        QString problem;
+        const auto available = toTicks(comp.length);
+        if (!available) return failure(tr("The comp is out of the timeline range"));
+        if (!m_comps->insert(comp, &problem)) return failure(problem);
+        TimelineEditRequest request;
+        request.kind = TimelineEditKind::SwitchSource;
+        request.clipIds = {clip.id};
+        request.resourceId = comp.id;
+        request.sourceOffset = sourceOffsetTicks;
+        request.sourceDuration = *available;
+        request.label = label;
+        TimelineEditInput input;
+        input.pointerTicks = clip.start;
+        input.snap = false;
+        if (const OperationError failed = m_timeline->apply(request, input)) {
+            m_comps->remove(comp.id);
+            return failure(failed.message);
+        }
+        return result(clip.id.toString(QUuid::WithoutBraces), comp.id);
+    };
     QString error;
 
     // 1. A comp clip already there takes the new passes as one comp step.
     if (const QString clipId = compClipOver(trackId, rate, rangeStart, rangeEnd, false); !clipId.isEmpty()) {
-        const TimelineClip *clip = m_timeline->clipRecord(QUuid::fromString(clipId));
-        const AudioTakeComp *comp = m_comps->comp(clip->resourceId);
-        const auto windowStart = toSamples(clip->start);
-        const auto windowEnd = toSamples(clip->end());
-        const auto offset = toSamples(clip->sourceOffset);
+        const TimelineClip clip = *m_timeline->clipRecord(QUuid::fromString(clipId));
+        const AudioTakeComp *comp = m_comps->comp(clip.resourceId);
+        const auto windowStart = toSamples(clip.start);
+        const auto windowEnd = toSamples(clip.end());
+        const auto offset = toSamples(clip.sourceOffset);
         if (!windowStart || !windowEnd || !offset) return failure(tr("The comp clip is out of the timeline range"));
+        const qint64 origin = *windowStart - *offset;
         QVector<AudioTake> takes;
         QVector<AudioTakeCompModel::Selection> selections;
-        build(*windowStart - *offset, *windowStart, *windowEnd, comp->length, int(comp->takes.size()) + 1, takes,
-              selections);
-        const QString compId = comp->id;
-        if (!m_comps->record(compId, takes, selections, &error)) return failure(error);
-        return result(clipId, compId);
+        const int first = int(comp->takes.size()) + 1;
+        // AGENT-NOTE (WP-065 audit): recorded audio before comp sample 0 or
+        // past the comp end could never be selected, so such a recording
+        // grows the comp. The clip then plays a grown copy (new ID, positions
+        // shifted by `lead`) through one timeline source switch, exactly as a
+        // punch into a media clip; timeline undo returns the old comp intact
+        // and comp undo can never misalign the clip's offset. The clip keeps
+        // its placement; audio past an edge the clip reaches is selected, so
+        // trimming that edge out plays it.
+        const qint64 lead = std::max<qint64>(0, origin - low);
+        const qint64 length = std::max(comp->length, high - origin) + lead;
+        if (lead == 0 && length == comp->length) {
+            build(origin, *windowStart, *windowEnd, comp->length, first, takes, selections);
+            const QString compId = comp->id;
+            if (!m_comps->record(compId, takes, selections, &error)) return failure(error);
+            return result(clipId, compId);
+        }
+        AudioTakeComp grown = *comp;
+        grown.id = AudioComp::newId("comp");
+        grown.length = length;
+        for (AudioTake &take : grown.takes) take.sourceOffset -= lead;
+        for (AudioCompSegment &segment : grown.segments) {
+            segment.start += lead;
+            segment.end += lead;
+        }
+        const qint64 from = *windowStart <= origin ? origin - lead : *windowStart;
+        const qint64 to = *windowEnd >= origin + comp->length ? origin - lead + length : *windowEnd;
+        build(origin - lead, from, to, length, first, takes, selections);
+        error = AudioComp::addTakes(grown, takes);
+        for (const auto &selection : std::as_const(selections))
+            if (error.isEmpty()) error = AudioComp::select(grown, selection.takeId, selection.start, selection.end);
+        const auto leadTicks = toTicks(lead);
+        if (!error.isEmpty() || !leadTicks) return failure(error.isEmpty() ? tr("The take is out of the timeline range") : error);
+        return switchTo(clip, grown, clip.sourceOffset + *leadTicks, tr("Record takes"));
     }
 
     // 2. Punching into a media clip turns it into a comp whose first take is
@@ -248,8 +344,7 @@ QVariantMap AudioSession::placeTakeInComp(const QString &trackId, const QString 
         const auto windowStart = toSamples(clip.start);
         const auto windowEnd = toSamples(clip.end());
         const auto offset = toSamples(clip.sourceOffset);
-        const auto available = source ? toTicks(source->frames) : std::nullopt;
-        if (!windowStart || !windowEnd || !offset || !available) return failure(tr("The clip cannot hold takes"));
+        if (!windowStart || !windowEnd || !offset || !source) return failure(tr("The clip cannot hold takes"));
         AudioTakeComp comp;
         comp.id = AudioComp::newId("comp");
         comp.sampleRate = rate;
@@ -266,22 +361,8 @@ QVariantMap AudioSession::placeTakeInComp(const QString &trackId, const QString 
         if (error.isEmpty()) error = AudioComp::addTakes(comp, takes);
         for (const auto &selection : std::as_const(selections))
             if (error.isEmpty()) error = AudioComp::select(comp, selection.takeId, selection.start, selection.end);
-        if (!error.isEmpty() || !m_comps->insert(comp, &error)) return failure(error);
-        TimelineEditRequest request;
-        request.kind = TimelineEditKind::SwitchSource;
-        request.clipIds = {clip.id};
-        request.resourceId = comp.id;
-        request.sourceOffset = clip.sourceOffset;
-        request.sourceDuration = *available;
-        request.label = tr("Punch in");
-        TimelineEditInput input;
-        input.pointerTicks = clip.start;
-        input.snap = false;
-        if (const OperationError problem = m_timeline->apply(request, input)) {
-            m_comps->remove(comp.id);
-            return failure(problem.message);
-        }
-        return result(mediaClipId, comp.id);
+        if (!error.isEmpty()) return failure(error);
+        return switchTo(clip, comp, clip.sourceOffset, tr("Punch in"));
     }
 
     // 3. Otherwise a new comp clip spans the passes.

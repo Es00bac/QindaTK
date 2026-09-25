@@ -101,19 +101,37 @@ QString PresentationWindows::audienceScreen() const
 QScreen *PresentationWindows::screenNamed(const QString &name) const
 {
     if (name.isEmpty()) return nullptr;
-    for (QScreen *screen : QGuiApplication::screens()) if (screen->name() == name) return screen;
+    for (QScreen *screen : availableScreens()) if (screen->name() == name) return screen;
     return nullptr;
+}
+
+QList<QScreen *> PresentationWindows::availableScreens() const { return QGuiApplication::screens(); }
+
+QScreen *PresentationWindows::primaryScreen() const
+{
+    const QList<QScreen *> screens = availableScreens();
+    QScreen *primary = QGuiApplication::primaryScreen();
+    return screens.contains(primary) ? primary : screens.value(0);
+}
+
+QString PresentationWindows::audienceClaim() const
+{
+    return m_audienceScreenId.isEmpty() ? m_lastAudienceScreen : m_audienceScreenId;
 }
 
 QScreen *PresentationWindows::presenterScreen() const
 {
-    if (QScreen *chosen = screenNamed(m_presenterScreenId)) return chosen;
-    // Prefer the primary screen unless the audience claimed it.
-    QScreen *primary = QGuiApplication::primaryScreen();
-    if (primary && (m_audienceScreenId.isEmpty() || primary->name() != m_audienceScreenId)) return primary;
-    for (QScreen *screen : QGuiApplication::screens())
-        if (screen->name() != m_audienceScreenId) return screen;
-    return primary;
+    // AGENT-GUARD (OFF-23, D-161): the presenter window carries the speaker
+    // notes, so it never moves onto the display the audience uses (the chosen
+    // one, or the one it was last connected on). With only that display left
+    // there is no presenter screen and placePresenter hides the window.
+    const QString claim = audienceClaim();
+    if (QScreen *chosen = screenNamed(m_presenterScreenId); chosen && chosen->name() != claim) return chosen;
+    QScreen *primary = primaryScreen();
+    if (primary && (claim.isEmpty() || primary->name() != claim)) return primary;
+    for (QScreen *screen : availableScreens())
+        if (screen->name() != claim) return screen;
+    return nullptr;
 }
 
 QVariantList PresentationWindows::displays() const
@@ -123,7 +141,7 @@ QVariantList PresentationWindows::displays() const
     QQuickWindow *presenter = presenterWindow();
     const QString presenterName = presenter && presenter->screen() ? presenter->screen()->name() : QString();
     bool chosenPresent = false;
-    for (QScreen *screen : QGuiApplication::screens()) {
+    for (QScreen *screen : availableScreens()) {
         const QString model = QStringList{screen->manufacturer(), screen->model()}.join(u' ').trimmed();
         const QString label = QStringLiteral("%1%2 (%3×%4)").arg(screen->name(), model.isEmpty() ? QString() : QStringLiteral(" · ") + model)
                                   .arg(screen->geometry().width()).arg(screen->geometry().height());
@@ -209,6 +227,8 @@ bool PresentationWindows::openAudience()
     auto *view = new SlideFrameView;
     view->setObjectName(QStringLiteral("slideAudienceOutput"));
     view->setShow(m_show);
+    view->setKeyNavigation(true); // controllable while the presenter window is hidden
+    view->setFocus(true);
     view->setParent(window);
     fill(window, view);
     m_audienceView = view;
@@ -251,7 +271,9 @@ void PresentationWindows::close()
     const bool wasActive = m_active;
     m_active = false;
     m_closing = false;
+    m_lastAudienceScreen.clear();
     setStatus(QStringLiteral("closed"));
+    setPresenterStatus(QStringLiteral("closed"));
     if (wasActive && m_show) m_show->stop();
     emit changed();
 }
@@ -296,11 +318,29 @@ bool PresentationWindows::swapDisplays()
 void PresentationWindows::placePresenter()
 {
     QQuickWindow *window = presenterWindow();
+    if (!window) { setPresenterStatus(QStringLiteral("closed")); return; }
     QScreen *screen = presenterScreen();
-    if (!window || !screen) return;
+    if (!screen) {
+        // Only the audience display is left: hide the notes rather than show
+        // them to the room. The show stays controllable from the audience
+        // window's keys and returns here when a display is added.
+        window->hide();
+        setPresenterStatus(QStringLiteral("hidden"));
+        return;
+    }
     if (window->visibility() == QWindow::FullScreen) window->showNormal();
     windowHost()->moveWindow(m_presenterId, screen->availableGeometry(), screen->name());
     window->show();
+    setPresenterStatus(QStringLiteral("shown"));
+}
+
+void PresentationWindows::setPresenterStatus(const QString &status)
+{
+    if (m_presenterStatus == status) return;
+    const QString before = m_presenterStatus;
+    m_presenterStatus = status;
+    if (status == QStringLiteral("hidden")) emit presenterHidden();
+    if (before == QStringLiteral("hidden") && status == QStringLiteral("shown")) emit presenterRestored();
 }
 
 void PresentationWindows::placeAudience()
@@ -309,17 +349,21 @@ void PresentationWindows::placeAudience()
     if (!window) { setStatus(QStringLiteral("closed")); return; }
     QScreen *presenter = presenterScreen();
     QScreen *target = screenNamed(m_audienceScreenId);
-    if (m_audienceScreenId.isEmpty())
-        for (QScreen *screen : QGuiApplication::screens())
-            if (screen != presenter) { target = screen; break; }
+    if (m_audienceScreenId.isEmpty()) {
+        // Keep the display it was connected on, else any but the presenter's.
+        target = presenter && presenter->name() == m_lastAudienceScreen ? nullptr : screenNamed(m_lastAudienceScreen);
+        for (QScreen *screen : availableScreens())
+            if (!target && screen != presenter) target = screen;
+    }
     if (target) {
         if (window->visibility() == QWindow::FullScreen && window->screen() != target) window->showNormal();
         windowHost()->moveWindow(m_audienceId, target->geometry(), target->name());
         if (m_fullScreen) window->showFullScreen(); else window->show();
+        m_lastAudienceScreen = target->name();
         setStatus(QStringLiteral("connected"));
         return;
     }
-    QScreen *fallback = presenter ? presenter : QGuiApplication::primaryScreen();
+    QScreen *fallback = presenter ? presenter : primaryScreen();
     if (!fallback) return;
     if (window->visibility() == QWindow::FullScreen) window->showNormal();
     const QRect available = fallback->availableGeometry();

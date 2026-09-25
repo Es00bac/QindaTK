@@ -32,6 +32,9 @@ public:
     // Tightly packed voxels from VolumeRaycaster::packTexture; voxelType is
     // "uint8", "uint16" or "float32". Uploaded (and dropped) on next prepare.
     void setVolumeData(QByteArray bytes, const QString &voxelType, int sizeX, int sizeY, int sizeZ);
+    // The current volume is not packed yet (D-261): draw nothing until the
+    // next setVolumeData instead of a texture of the previous volume.
+    void clearVolume();
     void setFrame(const VolumeRayGeometry &geometry, const VolumeTransferTable &table,
                   VolumeRenderMode mode, bool linear, const QSizeF &size);
     void prepare() override;
@@ -41,9 +44,10 @@ public:
     QRectF rect() const override;
     StateFlags changedStates() const override;
 private:
-    static constexpr int UniformFloats = 16 + 8 * 4; // mat4 + vec4[8], std140
+    static constexpr int UniformFloats = 16 + 11 * 4; // mat4 + vec4[11], std140
     QPointer<QQuickWindow> m_window;
     QByteArray m_pending;
+    bool m_hasVolume = false;
     QString m_voxelType = QStringLiteral("uint8");
     int m_size[3] = {0, 0, 0};
     int m_textureSize[3] = {0, 0, 0};

@@ -74,7 +74,9 @@ private slots:
         QCOMPARE(master.value("layouts").toList().size(), 2);
         const QString slide = deck.slideIds().first();
         const QVariantMap title = objectWithRole(deck, slide, "title");
-        QCOMPARE(title.value("text").toString(), QStringLiteral("Click to add title"));
+        // The prompt is editing chrome, not content (audit finding 4, D-158).
+        QCOMPARE(title.value("text").toString(), QString());
+        QCOMPARE(title.value("prompt").toString(), QStringLiteral("Click to add title"));
         QVERIFY(title.value("inheritedText").toBool() && title.value("inheritedBounds").toBool());
         // Title layout position (80, 180, 800 x 110), not the master's.
         QCOMPARE(title.value("bounds").toMap().value("y").toDouble(), 180.0);
@@ -132,7 +134,8 @@ private slots:
         QVERIFY(deck.slide(second).value("layoutId").toString().startsWith(QStringLiteral("layout-content-")));
         QCOMPARE(objectWithRole(deck, second, "title").value("text").toString(), QStringLiteral("Agenda"));
         QCOMPARE(objectWithRole(deck, second, "body").value("text").toString(), QStringLiteral("Dark body"));
-        QCOMPARE(objectWithRole(deck, first, "title").value("text").toString(), QStringLiteral("Click to add title"));
+        QCOMPARE(objectWithRole(deck, first, "title").value("text").toString(), QString());
+        QCOMPARE(objectWithRole(deck, first, "title").value("prompt").toString(), QStringLiteral("Click to add title"));
         QVERIFY(!deck.applyMaster(QStringLiteral("missing"), {first}));
         QVERIFY(!deck.lastError().isEmpty());
     }

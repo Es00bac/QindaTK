@@ -3,6 +3,8 @@
 #include "media_program.h"
 #include "media_transition.h"
 #include "multicam_model.h"
+#include "resource_resolver.h"
+#include "sequence_editor.h"
 #include "sequence_fixture.h"
 
 #include <QColor>
@@ -79,6 +81,9 @@ private slots:
     void transitionsRenderAndExportTheSameFrames();
     void linkedTrimsKeepPictureAndSoundTogether();
     void multicamSwitchesRenderSyncedAngles();
+    void transitionParametersReachTheOutput();
+    void overlappingWindowsKeepTheEarlierDissolve();
+    void editorPreviewAndMulticamFollowThePlayer();
 };
 
 void SequenceRenderTest::transitionsRenderAndExportTheSameFrames()
@@ -269,6 +274,205 @@ void SequenceRenderTest::multicamSwitchesRenderSyncedAngles()
     QVERIFY(restored.unsyncedClipIds().isEmpty());
     const auto again = programOf(reopened.model, paths);
     for (const auto &[frame, code] : codes) QCOMPARE(codeAt(*again, frame, pool), code);
+}
+
+// The non-default parameters, checked on the evaluator and on rendered
+// frames and sound: wipe right/up/down, a coloured dip, the equal-power curve.
+void SequenceRenderTest::transitionParametersReachTheOutput()
+{
+    // The evaluator on solid layers: w = 16384 covers a quarter from each side.
+    QImage red(8, 8, QImage::Format_ARGB32_Premultiplied), blue(8, 8, QImage::Format_ARGB32_Premultiplied);
+    red.fill(QColor(255, 0, 0));
+    blue.fill(QColor(0, 0, 255));
+    const auto wipe = [&](const QString &direction) {
+        return MediaTransition::blend(red, blue, QStringLiteral("wipe"), 16384, {{QStringLiteral("direction"), direction}});
+    };
+    const QColor b(0, 0, 255), r(255, 0, 0);
+    QCOMPARE(wipe(QStringLiteral("left")).pixelColor(1, 4), b);
+    QCOMPARE(wipe(QStringLiteral("left")).pixelColor(2, 4), r);
+    QCOMPARE(wipe(QStringLiteral("right")).pixelColor(6, 4), b);
+    QCOMPARE(wipe(QStringLiteral("right")).pixelColor(5, 4), r);
+    QCOMPARE(wipe(QStringLiteral("down")).pixelColor(4, 1), b);
+    QCOMPARE(wipe(QStringLiteral("down")).pixelColor(4, 2), r);
+    QCOMPARE(wipe(QStringLiteral("up")).pixelColor(4, 6), b);
+    QCOMPARE(wipe(QStringLiteral("up")).pixelColor(4, 5), r);
+    const QVariantMap white{{QStringLiteral("color"), QStringLiteral("#ffffff")}};
+    QCOMPARE(MediaTransition::blend(red, blue, QStringLiteral("dip"), 32768, white).pixelColor(0, 0), QColor(255, 255, 255));
+    QCOMPARE(MediaTransition::blend(red, blue, QStringLiteral("dip"), 16384, white).pixelColor(0, 0),
+             QColor(255, mixed(0, 255, 32768), mixed(0, 255, 32768)));
+    // Equal power: sin/cos of the linear position, so the two gains' squares sum to 1.
+    const QVariantMap power{{QStringLiteral("curve"), QStringLiteral("equalPower")}};
+    for (const qint64 sample : {0, 17, 50, 99}) {
+        const double position = (double(sample) + 0.5) / 100.0;
+        const float in = MediaTransition::audioGain(sample, 0, 100, true, power);
+        const float out = MediaTransition::audioGain(sample, 0, 100, false, power);
+        QVERIFY(std::fabs(in - std::sin(position * 1.57079632679489661923)) < 1e-6);
+        QVERIFY(std::fabs(in * in + out * out - 1.0f) < 1e-5);
+        QVERIFY(std::fabs(MediaTransition::audioGain(sample, 0, 100, true, {}) - position) < 1e-6);
+    }
+
+    QTemporaryDir dir;
+    const QString a = MediaFixture::signal(dir.filePath(QStringLiteral("a.mkv")), 75, 128, 72, 2, 1); // all pops
+    const QString bars = MediaFixture::signal(dir.filePath(QStringLiteral("b.mkv")), 75, 128, 72, 2, 0);
+    QVERIFY(!a.isEmpty() && !bars.isEmpty());
+    const QHash<QString, QString> paths{{QStringLiteral("A"), a}, {QStringLiteral("B"), bars}};
+    Session s;
+    using namespace SequenceFixture;
+    QVERIFY(s.model.setContent({S, 1}, {track(V1, kVideo), track(A1, kAudio)},
+                               {clip(ClipA, V1, kVideo, 0, 25 * F, 0, 75 * F, QStringLiteral("A"), LinkA),
+                                clip(ClipB, V1, kVideo, 25 * F, 25 * F, 25 * F, 75 * F, QStringLiteral("B"), LinkB),
+                                clip(SoundA, A1, kAudio, 0, 25 * F, 0, 75 * F, QStringLiteral("A"), LinkA),
+                                clip(SoundB, A1, kAudio, 25 * F, 25 * F, 25 * F, 75 * F, QStringLiteral("B"), LinkB)},
+                               {}));
+    MediaDecoderPool pool;
+    // Window [23F, 27F); frame 24 has w = 24576: 48 of 128 columns, 27 of 72 rows.
+    // A is white; B's bars are (0,191,191) at x = 40 and (191,0,191) at x = 80.
+    const auto frame24 = [&](const QString &direction) {
+        const QVariantMap parameters{{QStringLiteral("direction"), direction}};
+        if (s.transition(ClipB, QStringLiteral("wipe"), 4 * F, QStringLiteral("center"), parameters)) return QImage();
+        const auto program = programOf(s.model, paths);
+        return program ? program->render(24, program->frameSize, pool, {}).image : QImage();
+    };
+    const QColor whiteA(255, 255, 255), cyanB(0, 191, 191);
+    const QImage right = frame24(QStringLiteral("right"));
+    QCOMPARE(right.pixelColor(79, 5), whiteA);
+    QCOMPARE(right.pixelColor(80, 5), QColor(191, 0, 191));
+    const QImage down = frame24(QStringLiteral("down"));
+    QCOMPARE(down.pixelColor(40, 26), cyanB);
+    QCOMPARE(down.pixelColor(40, 27), whiteA);
+    const QImage up = frame24(QStringLiteral("up"));
+    QCOMPARE(up.pixelColor(40, 45), cyanB);
+    QCOMPARE(up.pixelColor(40, 44), whiteA);
+    // A red dip: A mixes to red over the first half, red to B over the second.
+    QVERIFY(!s.transition(ClipB, QStringLiteral("dip"), 4 * F, QStringLiteral("center"),
+                          {{QStringLiteral("color"), QStringLiteral("#ff0000")}}));
+    const auto dip = programOf(s.model, paths);
+    QCOMPARE(dip->render(23, dip->frameSize, pool, {}).image.pixelColor(40, 5),
+             QColor(255, mixed(255, 0, 16384), mixed(255, 0, 16384))); // w = 8192
+    QCOMPARE(dip->render(26, dip->frameSize, pool, {}).image.pixelColor(40, 5),
+             QColor(mixed(255, 0, 49152), mixed(0, 191, 49152), mixed(0, 191, 49152))); // w = 57344
+    // Equal-power sound: mid-window A's tone keeps cos(pi/4) of its level, not half.
+    QVERIFY(!s.transition(ClipB, QStringLiteral("dissolve"), 4 * F, QStringLiteral("center"), power, true));
+    const auto program = programOf(s.model, paths);
+    const qint64 first = 23 * 1920, last = 27 * 1920;
+    const MediaAudioMix mix = program->mixAudio(first, last - first, pool, {});
+    QVERIFY2(!mix.error, qPrintable(mix.error.message));
+    const float middle = peakAt(mix.samples, mix.firstSample, (first + last) / 2 - 240, 480);
+    QVERIFY2(middle > 0.33f && middle < 0.39f, qPrintable(QString::number(middle)));
+    const float end = peakAt(mix.samples, mix.firstSample, last - 480, 480);
+    QVERIFY2(end > 0.035f && end < 0.07f, qPrintable(QString::number(end))); // cos near pi/2, above linear
+}
+
+// A timeline loaded from elsewhere with two windows overlapping on a short
+// clip keeps the second cut, so the first dissolve still shows both clips.
+void SequenceRenderTest::overlappingWindowsKeepTheEarlierDissolve()
+{
+    QTemporaryDir dir;
+    const QString a = MediaFixture::signal(dir.filePath(QStringLiteral("a.mkv")), 100, 128, 72, 0, 0);
+    QVERIFY(!a.isEmpty());
+    const QHash<QString, QString> paths{{QStringLiteral("A"), a}};
+    Session s;
+    using namespace SequenceFixture;
+    TimelineClip b = clip(ClipB, V1, kVideo, 50 * F, 10 * F, 60 * F, 100 * F, QStringLiteral("A"));
+    b.transition = {QStringLiteral("dissolve"), 0, 8 * F, QStringLiteral("start"), {}};
+    TimelineClip c = clip(ClipC, V1, kVideo, 60 * F, 20 * F, 30 * F, 100 * F, QStringLiteral("A"));
+    c.transition = {QStringLiteral("dissolve"), 8 * F, 0, QStringLiteral("end"), {}};
+    QVERIFY(s.model.setContent({S, 1}, {track(V1, kVideo)},
+                               {clip(ClipA, V1, kVideo, 0, 50 * F, 0, 100 * F, QStringLiteral("A")), b, c}, {}));
+    const auto program = programOf(s.model, paths);
+    QVERIFY(program);
+    QCOMPARE(program->video.size(), 3);
+    QVERIFY(!program->video.at(1).fadeIn.isNull());
+    QVERIFY(program->video.at(2).fadeIn.isNull());
+    MediaDecoderPool pool;
+    const MediaRenderedFrame rendered = program->render(55, program->frameSize, pool, {});
+    QVERIFY2(!rendered.error, qPrintable(rendered.error.message));
+    QCOMPARE(rendered.sources.size(), 2);
+    QCOMPARE(rendered.sources.at(0).clipId, uid(ClipA).toString(QUuid::WithoutBraces));
+    QCOMPARE(rendered.sources.at(1).clipId, uid(ClipB).toString(QUuid::WithoutBraces));
+}
+
+// The editor's transition preview loops the bound player over the window,
+// and MulticamModel's playhead follows the frame the player presents.
+void SequenceRenderTest::editorPreviewAndMulticamFollowThePlayer()
+{
+    QTemporaryDir dir;
+    const QString one = MediaFixture::signal(dir.filePath(QStringLiteral("cam1.mkv")), 100, 128, 72, 0, 0);
+    const QString two = MediaFixture::signal(dir.filePath(QStringLiteral("cam2.mkv")), 100, 128, 72, 0, 0);
+    QVERIFY(!one.isEmpty() && !two.isEmpty());
+    ResourceResolver resolver;
+    QVERIFY(resolver.registerResource(QStringLiteral("cam1"), MediaFixture::fileUri(one)));
+    QVERIFY(resolver.registerResource(QStringLiteral("cam2"), MediaFixture::fileUri(two)));
+    Session s;
+    using namespace SequenceFixture;
+    QVERIFY(s.model.setContent({S, 1}, {track(V1, kVideo)},
+                               {clip(ClipA, V1, kVideo, 0, 50 * F, 0, 100 * F, QStringLiteral("cam1")),
+                                clip(ClipB, V1, kVideo, 50 * F, 50 * F, 25 * F, 100 * F, QStringLiteral("cam2"))},
+                               {}));
+    MediaPlayer player;
+    player.setResolver(&resolver);
+    player.setFrameWidth(128);
+    player.setFrameHeight(72);
+    player.setTimeline(&s.model);
+    QTRY_COMPARE(player.presentedFrame(), QStringLiteral("0"));
+    QTRY_VERIFY(player.transport()->canSeek());
+
+    SequenceEditor editor;
+    editor.setTimeline(&s.model);
+    editor.setPlayer(&player);
+    editor.setLinked(false);
+    editor.setTransitionClipId(uid(ClipB).toString(QUuid::WithoutBraces));
+    // An 8-frame centred dissolve: window [46F, 54F), samples [88320, 103680).
+    QVERIFY(editor.editTransition(QStringLiteral("type"), QStringLiteral("dissolve")).value(QStringLiteral("ok")).toBool());
+    QVERIFY(editor.editTransition(QStringLiteral("durationTicks"), QString::number(8 * F)).value(QStringLiteral("ok")).toBool());
+    const QVariantMap preview = editor.previewTransition();
+    QVERIFY2(preview.value(QStringLiteral("ok")).toBool(), qPrintable(preview.value(QStringLiteral("error")).toString()));
+    QCOMPARE(preview.value(QStringLiteral("startTicks")).toString(), QString::number(46 * F));
+    QCOMPARE(preview.value(QStringLiteral("startSample")).toString(), QStringLiteral("88320"));
+    QCOMPARE(preview.value(QStringLiteral("endSample")).toString(), QStringLiteral("103680"));
+    QCOMPARE(editor.transitionPreviewState(), QStringLiteral("pending"));
+    QTRY_VERIFY(player.transport()->loopEnabled());
+    QCOMPARE(player.transport()->loopStartSample(), QStringLiteral("88320"));
+    QCOMPARE(player.transport()->loopEndSample(), QStringLiteral("103680"));
+    // It plays the blended window and wraps back to its start.
+    const auto presented = [&] { return player.presentedFrame().toLongLong(); };
+    QTRY_VERIFY(presented() >= 46 && presented() < 54 && player.presentedSources().size() == 2);
+    QTRY_VERIFY(presented() >= 52);
+    QTRY_VERIFY(presented() >= 46 && presented() < 49);
+    QVERIFY(editor.stopTransitionPreview());
+    QCOMPARE(editor.transitionPreviewState(), QStringLiteral("idle"));
+    QTRY_VERIFY(!player.transport()->loopEnabled());
+    QTRY_VERIFY(!player.transport()->playing());
+
+    // The multicam playhead is the presented frame.
+    MulticamModel multicam;
+    multicam.setTimeline(&s.model);
+    multicam.setTrackId(uid(V1).toString(QUuid::WithoutBraces));
+    QVERIFY(multicam.addAngle({{QStringLiteral("angleId"), QStringLiteral("one")},
+                               {QStringLiteral("resourceId"), QStringLiteral("cam1")},
+                               {QStringLiteral("sourceDurationTicks"), QString::number(100 * F)}}));
+    QVERIFY(multicam.addAngle({{QStringLiteral("angleId"), QStringLiteral("two")},
+                               {QStringLiteral("resourceId"), QStringLiteral("cam2")},
+                               {QStringLiteral("syncOffsetTicks"), QString::number(-25 * F)},
+                               {QStringLiteral("sourceDurationTicks"), QString::number(100 * F)}}));
+    multicam.setPlayer(&player);
+    QVERIFY(!player.seekFrame(QStringLiteral("20")).isEmpty());
+    QTRY_COMPARE(multicam.playheadTicks(), QString::number(20 * F));
+    QCOMPARE(multicam.activeAngleId(), QStringLiteral("one"));
+    QVERIFY(!player.seekFrame(QStringLiteral("70")).isEmpty());
+    QTRY_COMPARE(multicam.playheadTicks(), QString::number(70 * F));
+    QCOMPARE(multicam.activeAngleId(), QStringLiteral("two"));
+    // A switch with no time cuts at the frame on screen, in sync.
+    const QVariantMap switched = multicam.switchAngle(QStringLiteral("one"));
+    QVERIFY2(switched.value(QStringLiteral("ok")).toBool(), qPrintable(switched.value(QStringLiteral("error")).toString()));
+    QCOMPARE(switched.value(QStringLiteral("atTicks")).toString(), QString::number(70 * F));
+    QCOMPARE(multicam.angleAt(QString::number(69 * F)), QStringLiteral("two"));
+    QCOMPARE(multicam.angleAt(QString::number(70 * F)), QStringLiteral("one"));
+    QVERIFY(multicam.unsyncedClipIds().isEmpty());
+    // The player re-renders the committed cut under the playhead: cam1's frame 70.
+    QTRY_COMPARE(player.presentedSources().first().toMap().value(QStringLiteral("resourceId")).toString(),
+                 QStringLiteral("cam1"));
+    QCOMPARE(player.presentedSources().first().toMap().value(QStringLiteral("frame")).toString(), QStringLiteral("70"));
 }
 
 QTEST_MAIN(SequenceRenderTest)

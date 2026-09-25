@@ -342,7 +342,7 @@ void TstCanvasVectorAppearance::styleModelBindsTheSelection()
     QCOMPARE(styles.selectionStyle().value(QStringLiteral("count")).toInt(), 2);
     QVERIFY(styles.selectionStyle().value(QStringLiteral("mixed")).toStringList().contains(QStringLiteral("strokeWidth")));
     QCOMPARE(styles.strokeStyle().value(QStringLiteral("width")).toDouble(), 2.0);
-    QVERIFY(styles.strokeStyle().value(QStringLiteral("mixed")).toStringList().contains(QStringLiteral("strokeWidth")));
+    QVERIFY(styles.strokeStyle().value(QStringLiteral("mixed")).toStringList().contains(QStringLiteral("width")));
     QCOMPARE(styles.fillStyle().value(QStringLiteral("kind")).toString(), QStringLiteral("solid"));
 
     // A panel request applies only the field that changed: widths stay mixed.
@@ -359,7 +359,7 @@ void TstCanvasVectorAppearance::styleModelBindsTheSelection()
     stroke.insert(QStringLiteral("width"), 3.0);
     QVERIFY(styles.applyStrokeStyle(stroke));
     QCOMPARE(doc.object(b)->strokeWidth, 3.0);
-    QVERIFY(!styles.strokeStyle().value(QStringLiteral("mixed")).toStringList().contains(QStringLiteral("strokeWidth")));
+    QVERIFY(!styles.strokeStyle().value(QStringLiteral("mixed")).toStringList().contains(QStringLiteral("width")));
     // Choosing "custom" before typing values keeps the custom field offered.
     stroke = styles.strokeStyle();
     stroke.insert(QStringLiteral("dashMode"), QStringLiteral("custom"));
@@ -401,7 +401,8 @@ void TstCanvasVectorAppearance::appearanceModelEditsTheStack()
     QVERIFY(model.addEffect(QStringLiteral("drop-shadow")).isEmpty()); // no object yet
     model.setObjectId(QString::number(id));
     QVERIFY(model.editable());
-    QCOMPARE(model.supportedKinds(), (QStringList{QStringLiteral("drop-shadow"), QStringLiteral("gaussian-blur")}));
+    QCOMPARE(model.supportedKinds(), (QStringList{QStringLiteral("drop-shadow"), QStringLiteral("gaussian-blur"),
+                                                  QStringLiteral("color-adjust")}));
     const QString shadow = model.addEffect(QStringLiteral("drop-shadow"));
     QCOMPARE(shadow, QStringLiteral("drop-shadow-1"));
     const QVariantMap record = model.effects().first().toMap();

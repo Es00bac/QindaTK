@@ -1,0 +1,5 @@
+Design review agenda
+
+1. Inbox model: conversations and lazy attachments
+2. Calendar: moving one occurrence versus the whole series
+3. Task board: reorder, move and sync conflicts

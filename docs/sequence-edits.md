@@ -29,7 +29,7 @@ and an exported file show the same frames. Decisions D-118 to D-121.
 | `slip` | clips | `sourceOffset += d`; placement and length stay. | Head and tail handles. |
 | `slide` | clips | The clip moves; the clip ending at its start lengthens or shortens, the clip starting at its end rolls (a roll on both sides). Length of the sequence stays. | Left neighbour's tail handle, right neighbour's head handle and minimum length; with no neighbour, the gap on that side. |
 | `setTransition` | one incoming clip | Sets or removes (`transition` absent or empty `type`) the transition into it. | A clip must end at its start; handles (below). |
-| `switchSource` | clips playing at `pointerTicks` | Cuts each at that time; the part from there on shows `resourceId` from source position `sourceOffset` with `sourceDuration` available. At a clip's start the clip switches whole. | The new source must cover the whole switched part. |
+| `switchSource` | clips playing at `pointerTicks` | Cuts each at that time; the part from there on shows `resourceId` from source position `sourceOffset` with `sourceDuration` available; linked partners take `linkedResourceId` from `linkedSourceOffset` with `linkedSourceDuration` (each falls back to the picture's value). At a clip's start the clip switches whole. | The new source must cover the whole switched part. |
 | `link`, `unlink` | clips | Give the clips a new common `linkId`, or clear it. | — |
 
 Deltas are `pointerTicks − grabTicks`. The TrimView's ripple mode maps side
@@ -79,21 +79,29 @@ Types and parameters (values are strings):
 `curve` is `linear` (default) or `equalPower`. The same window on an audio
 clip is a crossfade.
 
-**Legality (AGENT-GUARD in `timeline_planner_nle.cpp`).** Setting a
+**Legality (AGENT-GUARD in `timeline_planner_transitions.cpp`).** Setting a
 transition needs an outgoing clip ending exactly at the incoming clip's start,
-enough head and tail handle, and a window inside both clips. Every other edit
+enough head and tail handle, and a window inside both clips. A clip's two
+windows share its length: its own lead-in (`afterCut` of its transition) plus
+the lead-out into the next clip (`beforeCut` of that clip's transition) must
+not exceed its duration, so a 10-frame clip cannot take an 8-frame
+start-aligned transition in and an 8-frame end-aligned one out (`Validation`,
+field `duration`). Every other edit
 is checked after planning: if the cut no longer exists (the outgoing clip was
 deleted or moved away), the transition is dropped in the same change set, so
 undo restores it; if the cut still exists but the edit leaves too little
 handle or clip around it, the edit is refused (`Validation`, field
-`handles`), shown as an invalid preview. Split parts and pasted clips carry no
+`handles`), shown as an invalid preview; an edit that shortens a clip until
+its two windows overlap is refused the same way (field `duration`). Split parts and pasted clips carry no
 transition.
 
 ### Evaluation
 
 `MediaProgram::fromTimeline` extends the outgoing span to the window end and
 pulls the incoming span back to the window start (its source offset moves
-back by `beforeCut`), and marks both with the window. For a program frame
+back by `beforeCut`), and marks both with the window. A timeline loaded from
+elsewhere with overlapping windows on one clip keeps the later cut, so the
+earlier dissolve still shows both of its clips. For a program frame
 `[start, end)` in the window the incoming weight is taken at the frame's
 midpoint and rounded once:
 
@@ -145,8 +153,12 @@ default).
 
 `Tk.MulticamModel` (C++, D-121) is the backend of `MulticamView`. Angles are
 `{angleId, label, resourceId, audioResourceId, syncOffsetTicks,
-sourceDurationTicks}`: at program tick T, angle *a* shows source ticks
-`(T − syncStartTicks) + a.syncOffsetTicks`. The program is ordinary clips on
+sourceDurationTicks, audioSyncOffsetTicks, audioSourceDurationTicks}`: at
+program tick T, angle *a* shows source ticks
+`(T − syncStartTicks) + a.syncOffsetTicks`. When the sound is a separate
+recording (`audioResourceId`), it plays from
+`(T − syncStartTicks) + a.audioSyncOffsetTicks` of that file and is bounded by
+`audioSourceDurationTicks` (defaults: the picture's offset, unknown length). The program is ordinary clips on
 `trackId` (with linked sound on `audioTrackId` when set):
 
 - `insertProgram(angleId, start, duration)` places a synchronized program clip
@@ -155,12 +167,14 @@ sourceDurationTicks}`: at program tick T, angle *a* shows source ticks
   `switchSource` transaction whose source position comes from the sync map,
   never from the clip being cut, so switching cannot drift even after a slip.
   With `audioFollowsVideo` the linked sound is cut and switched too (to
-  `audioResourceId`, or the picture's resource); without it the sound stays;
+  `audioResourceId` at its own sync position and length, or the picture's
+  resource at the picture's position); without it the sound stays;
 - `playheadTicks` follows `player.presentedTicks` when a player is bound, so a
   switch during playback cuts at the frame on screen;
 - `angles` (for the view: `frameTimeTicks` is each angle's source time at the
   playhead, `available` needs media there and online), `activeAngleId`,
-  `angleAt(ticks)`, `sourceTicksAt`, `unsyncedClipIds()`;
+  `angleAt(ticks)`, `sourceTicksAt`, `unsyncedClipIds()` (program clips and,
+  when `audioTrackId` is set, angle sound clips away from their sync position);
 - `contentMap()`/`loadContent()` (`qindatk.multicam/1`) save the angle table;
   with the timeline JSON they reopen the same cuts, and the program angle is
   recovered from each clip's resource.
@@ -189,8 +203,10 @@ sound; QSKIPs without FFmpeg) and QML `tst_video_edit_backend.qml`.
 
 ## Limits
 
-- Transitions join two clips on one track; a transition between composition
-  states belongs to the motion packages (WP-073).
+- Transitions join two clips on one track. VID-05's purpose also names
+  transitions between composition states; no package provides them yet and
+  the plan assigns VID-05 only to WP-071
+  ([evidence](universal-toolkit/implementation/evidence/WP-071.md)).
 - A multicam group is a table of angles over one program track; nested
   multicam clips and automatic sync by audio waveform are not provided (the
   host supplies sync offsets).

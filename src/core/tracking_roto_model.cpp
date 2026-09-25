@@ -5,9 +5,9 @@
 #include <QColorSpace>
 #include <QImageReader>
 #include <QUuid>
-#include <QtConcurrent/QtConcurrentRun>
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 
 namespace QindaTK {
 namespace {
@@ -51,10 +51,38 @@ void TrackingRotoModel::remember()
     m_redo.clear();
 }
 
+// AGENT-GUARD (VID-15: analysis results are separate from accepted edits):
+// undo/redo restore accepted data only. A live preview (unaccepted results)
+// and the live analysis state win over the snapshot's, so undoing an
+// unrelated edit never discards finished results or resurrects "running"
+// (a snapshot taken while a job ran). A snapshot's own preview comes back
+// only when the live track has none and its frames are unchanged, which is
+// how undoing an accept returns the results to preview.
+void TrackingRotoModel::restore(const State &state)
+{
+    QVector<Track> tracks = state.tracks;
+    for (Track &track : tracks) {
+        const int live = trackIndex(track.id);
+        const bool stale = track.state == QLatin1String("running") || !previewCurrent(track);
+        if (live >= 0 && (!m_tracks[live].preview.isEmpty() || stale)) {
+            track.state = m_tracks[live].state;
+            track.preview = m_tracks[live].preview;
+            track.previewInputs = m_tracks[live].previewInputs;
+        } else if (stale) {
+            track.state = QStringLiteral("idle");
+            track.preview.clear();
+            track.previewInputs.clear();
+        }
+    }
+    m_tracks = tracks;
+    m_masks = state.masks;
+}
+
 QVariantMap TrackingRotoModel::pointMap(const Point &point)
 {
     return {{QStringLiteral("frame"), point.frame}, {QStringLiteral("x"), point.x},
             {QStringLiteral("y"), point.y}, {QStringLiteral("confidence"), point.confidence},
+            {QStringLiteral("rotation"), point.rotation}, {QStringLiteral("scale"), point.scale},
             {QStringLiteral("state"), point.state}, {QStringLiteral("source"), point.source}};
 }
 
@@ -71,6 +99,7 @@ QVariantList TrackingRotoModel::tracks() const
             {QStringLiteral("seedX"), track.seedX}, {QStringLiteral("seedY"), track.seedY},
             {QStringLiteral("radius"), track.radius},
             {QStringLiteral("searchRadius"), track.searchRadius},
+            {QStringLiteral("motion"), track.motion},
             {QStringLiteral("state"), track.state},
             {QStringLiteral("points"), points}, {QStringLiteral("previewPoints"), preview}});
     }
@@ -93,19 +122,15 @@ QVariantList TrackingRotoModel::masks() const
         QVariantList keys;
         for (auto it = mask.keys.cbegin(); it != mask.keys.cend(); ++it)
             keys.append(QVariantMap{{QStringLiteral("frame"), it.key()},
-                                    {QStringLiteral("points"), pathList(it.value())}});
+                                    {QStringLiteral("points"), pathList(it->points)},
+                                    {QStringLiteral("source"), it->source},
+                                    {QStringLiteral("trackIds"), it->trackIds}});
         result.append(QVariantMap{{QStringLiteral("maskId"), mask.id},
                                   {QStringLiteral("label"), mask.label},
                                   {QStringLiteral("feather"), mask.feather},
                                   {QStringLiteral("keyframes"), keys}});
     }
     return result;
-}
-
-double TrackingRotoModel::analysisProgress() const
-{
-    if (m_analysis.total < 1) return 0.0;
-    return std::clamp(double(m_analysis.done) / double(m_analysis.total), 0.0, 1.0);
 }
 
 bool TrackingRotoModel::setFrame(int frame, const QImage &image)
@@ -116,10 +141,10 @@ bool TrackingRotoModel::setFrame(int frame, const QImage &image)
         setError(frame < 0 ? QStringLiteral("Tracking frames need a nonnegative index.") : error);
         return false;
     }
-    return storeProxy(frame, gray);
+    return storeProxy(frame, gray, image.size());
 }
 
-bool TrackingRotoModel::storeProxy(int frame, const QImage &gray)
+bool TrackingRotoModel::storeProxy(int frame, const QImage &gray, QSize sourceSize)
 {
     const qsizetype oldBytes = m_frames.value(frame).sizeInBytes();
     if (m_frameBytes - oldBytes + gray.sizeInBytes() > TrackingEngine::kMaxProxyBytes) {
@@ -127,11 +152,16 @@ bool TrackingRotoModel::storeProxy(int frame, const QImage &gray)
         return false;
     }
     // AGENT-GUARD: replacing a frame invalidates a running analysis, whose job
-    // holds the old proxies; results measured on stale pixels never apply.
+    // holds the old proxies, and every finished preview measured on it
+    // (discardStaleResults; acceptAnalysis also checks previewInputs), so
+    // results measured on stale pixels never apply.
     cancelAnalysis();
     m_frameBytes += gray.sizeInBytes() - oldBytes;
     m_frames.insert(frame, gray);
+    m_frameSource.insert(frame, sourceSize);
+    m_frameVersions.insert(frame, ++m_frameSerial);
     setError({});
+    discardStaleResults(frame);
     emit framesChanged();
     return true;
 }
@@ -150,8 +180,8 @@ bool TrackingRotoModel::loadFrame(int frame, const QUrl &url)
     if (!url.isLocalFile()) { setError(QStringLiteral("Tracking frame URL must be local.")); return false; }
     QImageReader reader(url.toLocalFile());
     const QSize size = reader.size();
-    if (size.isValid() && qint64(size.width()) * size.height() > TrackingEngine::kMaxProxyPixels) {
-        setError(QStringLiteral("Tracking frame exceeds 4 megapixels."));
+    if (size.isValid() && qint64(size.width()) * size.height() > TrackingEngine::kMaxSourcePixels) {
+        setError(QStringLiteral("Tracking frame exceeds 64 megapixels."));
         return false;
     }
     QImage image = reader.read();
@@ -177,7 +207,7 @@ QString TrackingRotoModel::addTrack(const QString &label, int referenceFrame,
     track.seedY = y;
     track.radius = radius;
     track.searchRadius = searchRadius;
-    track.points.insert(referenceFrame, {referenceFrame, x, y, 1.0,
+    track.points.insert(referenceFrame, {referenceFrame, x, y, 1.0, 0.0, 1.0,
                          QStringLiteral("tracked"), QStringLiteral("seed")});
     m_tracks.append(track);
     setError({});
@@ -196,131 +226,25 @@ bool TrackingRotoModel::removeTrack(const QString &trackId)
     return true;
 }
 
-bool TrackingRotoModel::startAnalysis(const QString &trackId, int startFrame, int endFrame,
-                                      int occlusionFrames)
+bool TrackingRotoModel::setTrackOptions(const QString &trackId, int radius, int searchRadius,
+                                        const QString &motion)
 {
     const int index = trackIndex(trackId);
-    if (m_analysis.running || m_load.running || index < 0 || startFrame < 0 || endFrame < 0
-        || std::abs(endFrame - startFrame) >= 300 || occlusionFrames < 0 || occlusionFrames > 30) {
-        setError(QStringLiteral("Analysis needs one valid track, no running job, a range of at most "
-                                "300 frames and 0–30 occlusion frames."));
+    if (index < 0 || (m_analysis.running && m_analysis.trackId == trackId)
+        || radius < 2 || radius > 16 || searchRadius < 1 || searchRadius > 64
+        || (motion != QLatin1String("translation") && motion != QLatin1String("similarity"))) {
+        setError(QStringLiteral("Track options need radius 2–16, search radius 1–64, motion "
+                                "translation or similarity, and no running analysis on the track."));
         return false;
     }
-    Track &track = m_tracks[index];
-    const QImage reference = m_frames.value(track.referenceFrame);
-    const QPointF seed(track.seedX, track.seedY);
-    if (!TrackingEngine::trackableReference(reference, seed, track.radius)) {
-        setError(QStringLiteral("Reference patch is missing, out of bounds or lacks texture."));
-        return false;
-    }
-    const int step = endFrame >= startFrame ? 1 : -1;
-    TrackingEngine::Job job;
-    job.reference = reference;
-    job.seed = seed;
-    job.radius = track.radius;
-    job.searchRadius = track.searchRadius;
-    job.occlusionFrames = occlusionFrames;
-    for (int frame = startFrame;; frame += step) {
-        const QImage image = m_frames.value(frame);
-        if (image.isNull() || image.size() != reference.size()) {
-            setError(QStringLiteral("Every analysis frame must be loaded at the reference size."));
-            return false;
-        }
-        job.frames.append(frame);
-        job.images.append(image);
-        if (frame == endFrame) break;
-    }
-    // The search starts from the accepted neighbour before the range when it
-    // is trusted, otherwise from the reference seed.
-    const Point before = track.points.value(startFrame - step);
-    const bool trusted = track.points.contains(startFrame - step) && before.state != QLatin1String("lost");
-    job.start = trusted ? QPointF(before.x, before.y) : seed;
-
-    track.preview.clear();
-    track.state = QStringLiteral("running");
-    // A cancelled job stops at its next frame; never leave it unjoined.
-    m_analysisFuture.waitForFinished();
-    m_analysis = Analysis();
-    m_analysis.running = true;
-    m_analysis.trackId = trackId;
-    m_analysis.total = int(job.frames.size());
-    m_analysis.job = ++m_jobSerial;
-    const quint64 id = m_analysis.job;
-    const CancellationToken token = m_analysis.cancel.token();
-    // AGENT-NOTE: the worker owns shared proxy copies (TrackingEngine::Job)
-    // and posts each sample back; stale jobs are ignored by ID, so cancel
-    // is immediate on this thread even while the worker finishes a frame.
-    m_analysisFuture = QtConcurrent::run([this, id, token, job = std::move(job)] {
-        const TrackingEngine::End end = TrackingEngine::run(job, token, [this, id](const TrackingEngine::Sample &s) {
-            QMetaObject::invokeMethod(this, [this, id, s] {
-                onAnalysisSample(id, s.frame, s.x, s.y, s.confidence, s.lost);
-            }, Qt::QueuedConnection);
-        });
-        if (end == TrackingEngine::End::Cancelled) return;
-        const bool lost = end == TrackingEngine::End::Lost;
-        QMetaObject::invokeMethod(this, [this, id, lost] { onAnalysisFinished(id, lost); },
-                                  Qt::QueuedConnection);
-    });
-    setError({});
-    emit changed();
-    emit analysisChanged();
-    return true;
-}
-
-void TrackingRotoModel::onAnalysisSample(quint64 job, int frame, double x, double y,
-                                         double confidence, bool lost)
-{
-    if (!m_analysis.running || m_analysis.job != job) return;
-    const int index = trackIndex(m_analysis.trackId);
-    if (index < 0) { cancelAnalysis(); return; }
-    m_tracks[index].preview.insert(frame, {frame, x, y, confidence,
-        lost ? QStringLiteral("lost") : QStringLiteral("tracked"), QStringLiteral("generated")});
-    ++m_analysis.done;
-    m_analysis.lastFrame = frame;
-    m_analysis.lastConfidence = confidence;
-    emit changed();
-    emit analysisChanged();
-}
-
-void TrackingRotoModel::onAnalysisFinished(quint64 job, bool lost)
-{
-    if (!m_analysis.running || m_analysis.job != job) return;
-    m_analysis.running = false;
-    const int index = trackIndex(m_analysis.trackId);
-    if (index >= 0) {
-        Track &track = m_tracks[index];
-        track.state = lost ? QStringLiteral("lost") : QStringLiteral("ready");
-        if (lost)
-            setError(QStringLiteral("Feature lost at frame %1 (confidence %2).")
-                     .arg(m_analysis.lastFrame).arg(m_analysis.lastConfidence, 0, 'f', 2));
-    }
-    emit changed();
-    emit analysisChanged();
-}
-
-void TrackingRotoModel::cancelAnalysis()
-{
-    if (!m_analysis.running) return;
-    m_analysis.cancel.cancel();
-    const int index = trackIndex(m_analysis.trackId);
-    if (index >= 0) {
-        m_tracks[index].state = QStringLiteral("cancelled");
-        m_tracks[index].preview.clear();
-    }
-    m_analysis.running = false;
-    emit changed(); emit analysisChanged();
-}
-
-bool TrackingRotoModel::acceptAnalysis(const QString &trackId)
-{
-    const int index = trackIndex(trackId);
-    if (index < 0 || m_analysis.running || m_tracks[index].preview.isEmpty()
-        || m_tracks[index].state == QLatin1String("cancelled")) return false;
+    const Track &current = m_tracks.at(index);
+    if (current.radius == radius && current.searchRadius == searchRadius && current.motion == motion)
+        return true;
     remember();
     Track &track = m_tracks[index];
-    for (auto it = track.preview.cbegin(); it != track.preview.cend(); ++it)
-        track.points.insert(it.key(), it.value());
-    track.preview.clear();
+    track.radius = radius;
+    track.searchRadius = searchRadius;
+    track.motion = motion;
     setError({});
     emit changed();
     return true;
@@ -330,13 +254,24 @@ bool TrackingRotoModel::correctPoint(const QString &trackId, int frame, double x
 {
     const int index = trackIndex(trackId);
     if (index < 0 || frame < 0 || !finite(x) || !finite(y) || m_analysis.running) return false;
+    const QMap<int, Point> &existing = m_tracks.at(index).points;
+    if (!existing.contains(frame) && existing.size() >= kMaxTrackPoints) {
+        setError(QStringLiteral("A track holds at most %1 points.").arg(kMaxTrackPoints));
+        return false;
+    }
+    // A corrected position keeps the pose (rotation/scale) of the nearest
+    // accepted point at or before the frame.
+    auto posed = existing.upperBound(frame);
+    const Point pose = posed == existing.cbegin() ? Point() : *std::prev(posed);
     remember();
     Track &track = m_tracks[index];
-    track.points.insert(frame, {frame, x, y, 1.0,
+    track.points.insert(frame, {frame, x, y, 1.0, pose.rotation, pose.scale,
                         QStringLiteral("corrected"), QStringLiteral("user")});
     if (frame == track.referenceFrame) { track.seedX = x; track.seedY = y; }
     track.preview.clear();
+    track.previewInputs.clear();
     track.state = QStringLiteral("ready");
+    setError({});
     emit changed();
     return true;
 }
@@ -355,6 +290,7 @@ bool TrackingRotoModel::offsetTrack(const QString &trackId, double dx, double dy
         it->source = QStringLiteral("user");
     }
     track.preview.clear();
+    track.previewInputs.clear();
     emit changed();
     return true;
 }
@@ -377,7 +313,10 @@ bool TrackingRotoModel::rebaseTrack(const QString &trackId, int frame)
     track.referenceFrame = frame;
     track.seedX = point.x;
     track.seedY = point.y;
+    track.referenceRotation = point.rotation;
+    track.referenceScale = point.scale;
     track.preview.clear();
+    track.previewInputs.clear();
     if (track.state == QLatin1String("lost") || track.state == QLatin1String("cancelled"))
         track.state = QStringLiteral("ready");
     setError({});
@@ -389,8 +328,7 @@ bool TrackingRotoModel::undo()
 {
     if (m_undo.isEmpty() || m_analysis.running) return false;
     m_redo.append({m_tracks, m_masks});
-    const State state = m_undo.takeLast();
-    m_tracks = state.tracks; m_masks = state.masks;
+    restore(m_undo.takeLast());
     emit changed();
     return true;
 }
@@ -399,8 +337,7 @@ bool TrackingRotoModel::redo()
 {
     if (m_redo.isEmpty() || m_analysis.running) return false;
     m_undo.append({m_tracks, m_masks});
-    const State state = m_redo.takeLast();
-    m_tracks = state.tracks; m_masks = state.masks;
+    restore(m_redo.takeLast());
     emit changed();
     return true;
 }

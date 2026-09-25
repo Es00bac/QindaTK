@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // WP-066 plugins in the render graph: processed audio from real CLAP
 // plugins (offline renders, exact samples), latency compensation across
-// tracks and bypass, an instrument playing MIDI notes on their exact samples,
-// and on a live engine (silent built-in devices): no allocation on the device
+// tracks, bypass and a 5.1 bus, an instrument playing MIDI notes on their
+// exact samples, and on a live engine (silent built-in devices): no allocation on the device
 // thread, a crash and a hang during playback that leave the session playing,
 // and unloading while the engine plays.
 #include "audio_parameter_binding.h"
@@ -155,6 +155,41 @@ private slots:
         const AudioBufferPtr bypassed = rig.render(QStringLiteral("bypassed.wav"), 6000);
         QVERIFY(bypassed);
         for (qint64 i = 0; i < bypassed->frames; ++i) QCOMPARE(bypassed->channel(0)[i], ramp(i) * 2.0f);
+    }
+
+    // A stereo plugin on a 5.1 bus (WP-062 layouts) processes the front pair;
+    // the other lanes wait its latency, so the downmixed file is the file the
+    // bus gives without the plugin.
+    void surroundInsertKeepsEveryLaneAligned()
+    {
+        Rig rig;
+        AudioMixerModel *mixer = rig.session->mixer();
+        const QString voice = rig.track(QStringLiteral("Voice"), 6000);
+        QVERIFY(ok(mixer->setLayout(voice, QStringLiteral("Mono"))));
+        const QString five = mixer->addBus(QStringLiteral("5.1"), QStringLiteral("5.1")).value(QStringLiteral("channelId")).toString();
+        QVERIFY(!five.isEmpty() && ok(mixer->setOutput(voice, five)));
+        for (const auto &[kind, value] : {std::pair{QStringLiteral("pan"), -0.3}, std::pair{QStringLiteral("depth"), -0.2}}) {
+            const QString id = mixer->ensureParameter(voice, kind);
+            QVERIFY(ok(rig.session->automation()->applyEdit({{QStringLiteral("kind"), QStringLiteral("editParameter")},
+                                                             {QStringLiteral("parameterId"), id},
+                                                             {QStringLiteral("default"), value}})));
+        }
+        const AudioBufferPtr reference = rig.render(QStringLiteral("reference.wav"), 6000);
+        QVERIFY(reference && reference->frames == 6000);
+        const QString id = rig.add(five, Gain);
+        QVERIFY(rig.set(id, 2, 64));
+        QTRY_COMPARE(rig.plugins->instance(id).value(QStringLiteral("latencyFrames")).toInt(), 64);
+        const AudioRenderGraphPtr graph = rig.session->compileGraph(Rate, true);
+        QCOMPARE(graph->insertLatency(five), 64);
+        QCOMPARE(graph->pluginLatency(), 64);
+        const AudioBufferPtr out = rig.render(QStringLiteral("surround.wav"), 6000);
+        QVERIFY(out && out->frames == 6000);
+        // The plugin carries its lanes as float: equal within float rounding,
+        // where a lane 64 frames off would differ by about 1e-3.
+        for (qint64 i = 0; i < out->frames; ++i)
+            for (int c = 0; c < 2; ++c)
+                QVERIFY2(std::abs(out->channel(c)[i] - reference->channel(c)[i]) < 1e-6f,
+                         qPrintable(QStringLiteral("frame %1 lane %2").arg(i).arg(c)));
     }
 
     void instrumentPlaysNotesOnTheirSamples()

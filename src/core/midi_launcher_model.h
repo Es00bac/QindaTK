@@ -8,6 +8,7 @@
 #include <QPointer>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
+#include <optional>
 
 namespace QindaTK {
 
@@ -21,6 +22,11 @@ class AudioEngine;
 // boundary was rendered, "ready" when it stopped. `slotList` is the
 // ClipLauncher `slots` snapshot; launchAcknowledged carries the one answer
 // to each request (accepted | rejected | canceled) for acknowledgeLaunch().
+// Recording (midi_launcher_record.cpp): record() arms one slot; the engine
+// stamps every audition note (MidiInputPort, the host) from the quantized
+// start, and the stopped take becomes a new pattern in that slot as one undo
+// step ("Record clip"). A transport stop, a device loss or detaching the
+// engine ends the take and keeps what was played.
 class MidiLauncherModel : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -30,6 +36,7 @@ class MidiLauncherModel : public QObject {
     Q_PROPERTY(QStringList queuedSlots READ queuedSlots NOTIFY slotListChanged)
     Q_PROPERTY(QString quantization READ quantization WRITE setQuantization NOTIFY slotListChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
+    Q_PROPERTY(QString recordingSlot READ recordingSlot NOTIFY slotListChanged)
 public:
     MidiLauncherModel(MidiSequenceModel *midi, QObject *parent = nullptr);
 
@@ -40,6 +47,7 @@ public:
     QString quantization() const { return m_midi->quantization(); }
     void setQuantization(const QString &name) { m_midi->setQuantization(name); }
     QString lastError() const { return m_lastError; }
+    QString recordingSlot() const;
 
     // An empty quantization uses the session's (none, beat or bar). Returns
     // false when refused at once; launchAcknowledged has then already been
@@ -47,6 +55,10 @@ public:
     Q_INVOKABLE bool launch(const QString &requestId, const QString &slotId, const QString &quantization = {});
     Q_INVOKABLE bool stop(const QString &requestId, const QString &slotId, const QString &quantization = {});
     Q_INVOKABLE bool stopAll(const QString &requestId, const QString &quantization = {});
+    // Records into a slot from its quantized boundary until stopRecording;
+    // one take at a time. The answers come as launchAcknowledged.
+    Q_INVOKABLE bool record(const QString &requestId, const QString &slotId, const QString &quantization = {});
+    Q_INVOKABLE bool stopRecording(const QString &requestId, const QString &quantization = {});
     // {state, startSample, stopSample, stopping} of one slot.
     Q_INVOKABLE QVariantMap slotState(const QString &slotId) const;
 
@@ -56,9 +68,19 @@ signals:
     void launchAcknowledged(const QString &requestId, const QString &state, const QString &message);
     void slotStarted(const QString &slotId, const QString &sample);
     void slotStopped(const QString &slotId, const QString &sample);
+    // A take was committed (patternId) or produced nothing (empty patternId).
+    void recordingFinished(const QString &slotId, const QString &patternId, int noteCount);
 
 private:
     struct Request { QString id; QUuid slot; };
+    struct TakeNote { qint64 on = 0; qint64 off = -1; quint16 velocity = 1; int pitch = 0; };
+    struct Take {
+        quint64 serial = 0;
+        QUuid slot;
+        bool armed = false;
+        qint64 startSample = -1;
+        QVector<TakeNote> notes;
+    };
     struct Runtime {
         bool queued = false;
         bool playing = false;
@@ -71,6 +93,10 @@ private:
     bool reject(const QString &requestId, const QString &message);
     void acknowledge(quint64 serial, const QString &state, const QString &message);
     void engineEvent(int kind, quint64 serial, quint64 lane, quint64 slot, qint64 sample, int code);
+    void recordEvent(int kind, quint64 serial, quint64 slot, qint64 sample, qint64 tick, int pitch, int velocity,
+                     int code);
+    void finishTake(qint64 length);
+    std::optional<MidiQuantize> quantizeOf(const QString &quantization) const;
     void reset(const QString &reason);
     void refreshKeys();
     static QString codeText(int code);
@@ -84,6 +110,7 @@ private:
     QHash<quint64, QUuid> m_slotKeys;
     QHash<quint64, QUuid> m_laneKeys;
     QString m_lastError;
+    std::optional<Take> m_take;
 };
 
 } // namespace QindaTK

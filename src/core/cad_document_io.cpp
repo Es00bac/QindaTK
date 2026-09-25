@@ -150,11 +150,16 @@ bool CadDocument::decode(const QByteArray &bytes, State *result, QString *diagno
         result->constraints.append({id, kind, first, second, amount.toDouble()});
     }
     if (!validGeometry(*result, diagnostic)) return false;
+    // AGENT-GUARD (docs/cad.md): reopen accepts exactly what an edit commits.
+    // solve() checks residuals before projecting, so a sketch saved within
+    // tolerance leaves every point untouched; a projection pass here would
+    // move points by more than 1e-6 mm (long angle-constrained segments) and
+    // reject a file that saved successfully.
     State projected = *result;
     if (!solve(&projected, {}, diagnostic)) return false;
     for (int i = 0; i < result->points.size(); ++i) {
         const Point &original = result->points.at(i), &candidate = projected.points.at(i);
-        if (std::hypot(original.x - candidate.x, original.y - candidate.y) > 1e-6) {
+        if (original.x != candidate.x || original.y != candidate.y) {
             *diagnostic = QStringLiteral("CAD file violates saved constraints"); return false;
         }
     }
@@ -175,6 +180,7 @@ bool CadDocument::loadFromFile(const QString &path)
     }
     m_state = std::move(decoded);
     m_undo.clear(); m_redo.clear(); ++m_revision;
+    m_transactionDepth = 0; m_transactionRecorded = false;
     setError({}); emit changed();
     return true;
 }

@@ -3,6 +3,7 @@
 
 // Private helpers shared by the collaboration sources. Not installed.
 #include "local_property_sync.h"
+#include <QJsonObject>
 #include <QStringList>
 #include <optional>
 
@@ -15,6 +16,12 @@ inline constexpr int MaxObserved = 1024;
 inline constexpr int MaxTextInsert = 4096;
 inline constexpr int MaxTextElements = 65536;
 inline constexpr int MaxTextRanges = 1024;
+// Auto-compaction of an authoritative service starts at this many retained
+// operations; the compacted state (docs/collaboration.md "Compaction") is
+// bounded by MaxStateBytes and shared checkpoints by MaxSharedCheckpoints.
+inline constexpr int DefaultCompactAt = 2048;
+inline constexpr qsizetype MaxStateBytes = 4 * 1024 * 1024;
+inline constexpr int MaxSharedCheckpoints = 64;
 
 inline QString restoreProperty() { return QStringLiteral("__qtk.restore.v1"); }
 inline QString entityProperty() { return QStringLiteral("__qtk.entity"); }
@@ -31,6 +38,9 @@ inline QString keyOf(const QString &entity, const QString &property)
 // operation kind uses this one order.
 bool outranks(const PropertySyncOperation &a, const PropertySyncOperation &b);
 bool encodableValue(const QVariant &value);
+// The typed value codec of operation packets, shared by the state snapshot.
+std::optional<QJsonObject> encodeValue(const QVariant &value);
+std::optional<QVariant> decodeValue(const QJsonObject &object);
 bool sameOperation(const PropertySyncOperation &a, const PropertySyncOperation &b);
 // True when the packet survives the bounded wire codec unchanged.
 bool validOperation(const PropertySyncOperation &operation);

@@ -8,17 +8,26 @@ import QindaTK as Tk
 // arrow-key a stop to move it, Delete or right-click to remove) plus the
 // selected stop's exact value, opacity and color. Sized to its content.
 // A drag or slider press is one undoable step (Escape cancels a drag);
-// Ctrl+Z / Ctrl+Shift+Z and the header buttons undo and redo.
+// Ctrl+Z / Ctrl+Shift+Z and the header buttons undo and redo. The header
+// picks a built-in preset; the range row sets what values below or above the
+// domain and missing values map to; `histogram` (a VoxelVolume.histogram()
+// map) draws the value distribution above the gradient with its explicit
+// below/above/missing counts.
 // AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer
 // settings model. Voxel source data and its revision are never changed here.
 // Gestures use the model's beginEdit/commitEdit/cancelEdit transaction
 // (D-148), so previews repaint views but only the committed step is recorded.
+// AGENT-GUARD: a gesture this editor opened is closed by this editor: a model
+// swap or the editor's destruction cancels it (_cancelGesture), otherwise the
+// model stays `editing` and refuses undo, redo and every later gesture.
 T.Control {
     id: control
     objectName: "transferFunctionEditor"
     property Tk.TransferFunctionModel model: null
     property string selectedPointId: ""
     property string tooltip: qsTr("Transfer function")
+    // A VoxelVolume.histogram() result over the model's domain, or null.
+    property var histogram: null
     readonly property var selectedPoint: {
         if (!model) return ({})
         const revision = model.revision
@@ -45,13 +54,50 @@ T.Control {
     function undo() { return !!model && model.undo() }
     function redo() { return !!model && model.redo() }
 
+    // The model whose gesture this editor opened (null when none is open).
+    property Tk.TransferFunctionModel _gestureModel: null
+    function _beginGesture(label) {
+        if (!model) return false
+        if (model.editing) return _gestureModel === model // another client's gesture: stay out
+        if (!model.beginEdit(label)) return false
+        _gestureModel = model
+        return true
+    }
+    function _commitGesture() {
+        const owner = _gestureModel
+        _gestureModel = null
+        return !!owner && owner.editing && owner.commitEdit()
+    }
+    function _cancelGesture() {
+        const owner = _gestureModel
+        _gestureModel = null
+        return !!owner && owner.editing && owner.cancelEdit()
+    }
+    onModelChanged: _cancelGesture()
+    Component.onDestruction: _cancelGesture()
+    readonly property var _rangeColors: [
+        {name: qsTr("Text"), color: Tk.Theme.color.text},
+        {name: qsTr("Accent"), color: Tk.Theme.color.accent},
+        {name: qsTr("Warning"), color: Tk.Theme.color.warning},
+        {name: qsTr("Danger"), color: Tk.Theme.color.danger},
+        {name: qsTr("Success"), color: Tk.Theme.color.success}]
+    function _rangeTooltip(which, range) {
+        if (!range || !range.mode) return ""
+        if (which === "missing")
+            return range.opacity > 0 ? qsTr("Missing values: %1 at %2 opacity").arg(range.color).arg(range.opacity)
+                                     : qsTr("Missing values: transparent")
+        const side = which === "below" ? qsTr("Below the domain") : qsTr("Above the domain")
+        return range.mode === "clamp" ? qsTr("%1: clamps to the end stop").arg(side)
+                                      : qsTr("%1: %2 at %3 opacity").arg(side).arg(range.color).arg(range.opacity)
+    }
+
     Keys.onPressed: function(event) {
         if (event.matches(StandardKey.Undo)) {
             event.accepted = control.undo()
         } else if (event.matches(StandardKey.Redo)) {
             event.accepted = control.redo()
-        } else if (event.key === Qt.Key_Escape && control.model && control.model.editing) {
-            event.accepted = control.model.cancelEdit()
+        } else if (event.key === Qt.Key_Escape && control._gestureModel) {
+            event.accepted = control._cancelGesture()
         } else {
             event.accepted = false
         }
@@ -83,6 +129,25 @@ T.Control {
             align: Tk.Flex.Center
             Tk.Label { text: qsTr("Transfer function"); Tk.Flex.grow: 1 }
             Tk.Mono { text: control.model ? control.model.unit : "" }
+            Tk.ComboBox {
+                id: presetPicker
+                objectName: "transferPreset"
+                small: true
+                enabled: !!control.model
+                tooltip: qsTr("Apply a built-in transfer preset")
+                textRole: "name"
+                model: control.model ? [{id: "", name: qsTr("Custom")}].concat(control.model.presets()) : []
+                currentIndex: {
+                    if (!control.model) return -1
+                    const id = control.model.presetId
+                    const index = model.findIndex(function(entry) { return entry.id === id })
+                    return Math.max(0, index)
+                }
+                onActivated: function(index) {
+                    const entry = model[index]
+                    if (control.model && entry && entry.id.length > 0) control.model.applyPreset(entry.id)
+                }
+            }
             Tk.IconButton {
                 objectName: "transferUndo"
                 iconName: "undo"
@@ -100,6 +165,31 @@ T.Control {
                 tooltip: control.model && control.model.redoText.length > 0
                     ? qsTr("Redo %1").arg(control.model.redoText) : qsTr("Redo")
                 onClicked: control.redo()
+            }
+        }
+        Item {
+            id: histogramStrip
+            objectName: "transferHistogram"
+            visible: !!control.histogram && !!control.histogram.bins
+            implicitHeight: Tk.Theme.size.waveformHeight
+            readonly property var bins: visible ? control.histogram.bins : []
+            readonly property real largest: visible ? Math.max(1, control.histogram.largest) : 1
+            Accessible.role: Accessible.Chart
+            Accessible.name: qsTr("Value histogram")
+            Repeater {
+                model: histogramStrip.bins.length
+                Rectangle {
+                    required property int index
+                    objectName: "transferHistogramBar"
+                    x: index * histogramStrip.width / histogramStrip.bins.length
+                    width: Math.max(Tk.Theme.size.border, histogramStrip.width / histogramStrip.bins.length)
+                    // Log-scaled: a background bin must not flatten the rest.
+                    height: histogramStrip.height * Math.log(1 + histogramStrip.bins[index])
+                            / Math.log(1 + histogramStrip.largest)
+                    y: histogramStrip.height - height
+                    color: Tk.Theme.color.textMuted
+                    opacity: Tk.Theme.opacity.muted
+                }
             }
         }
         Tk.GradientEditor {
@@ -129,18 +219,16 @@ T.Control {
             // A drag, or a keyboard nudge (preview then finish), previews
             // inside one transaction and commits it once on finish.
             onMovePreviewRequested: function(id, position) {
-                if (!control.model) return
-                if (!control.model.editing && !control.model.beginEdit(qsTr("Move transfer point"))) return
+                if (!control._beginGesture(qsTr("Move transfer point"))) return
                 control.model.movePoint(String(id), control._valueAt(position))
             }
             onMoveFinished: function(id, position) {
                 if (!control.model) return
+                if (control.model.editing && control._gestureModel !== control.model) return
                 control.model.movePoint(String(id), control._valueAt(position))
-                if (control.model.editing) control.model.commitEdit()
+                control._commitGesture()
             }
-            onMoveCanceled: function(id) {
-                if (control.model && control.model.editing) control.model.cancelEdit()
-            }
+            onMoveCanceled: function(id) { control._cancelGesture() }
             onDeleteStopRequested: function(id) {
                 if (control.model && control.model.removePoint(String(id))) control.selectedPointId = ""
             }
@@ -177,11 +265,8 @@ T.Control {
                 tooltip: qsTr("Selected transfer opacity")
                 // One press-drag-release of the handle is one history step.
                 onPressedChanged: {
-                    if (!control.model) return
-                    if (pointOpacity.pressed && !control.model.editing)
-                        control.model.beginEdit(qsTr("Change transfer opacity"))
-                    else if (!pointOpacity.pressed && control.model.editing)
-                        control.model.commitEdit()
+                    if (pointOpacity.pressed) control._beginGesture(qsTr("Change transfer opacity"))
+                    else control._commitGesture()
                 }
                 onValueModified: function(value) {
                     if (control.model && !control.model.setPointOpacity(control.selectedPointId, value))
@@ -196,16 +281,70 @@ T.Control {
                 color: control.selectedPoint.color || Tk.Theme.color.text
                 // ColorSwatches reads strings or {name, color}; a bare color
                 // value has no .color and would paint an undefined swatch.
-                colors: [{name: qsTr("Text"), color: Tk.Theme.color.text},
-                         {name: qsTr("Accent"), color: Tk.Theme.color.accent},
-                         {name: qsTr("Warning"), color: Tk.Theme.color.warning},
-                         {name: qsTr("Danger"), color: Tk.Theme.color.danger},
-                         {name: qsTr("Success"), color: Tk.Theme.color.success}]
+                colors: control._rangeColors
                 onColorSelected: function(color) {
                     if (control.model && !control.model.setPointColor(control.selectedPointId, color))
                         control._syncFields()
                 }
                 onCustomRequested: control.customColorRequested(control.selectedPointId)
+            }
+        }
+        Tk.Flex {
+            objectName: "transferRanges"
+            direction: Tk.Flex.Row
+            align: Tk.Flex.Center
+            gap: Tk.Theme.space.xs
+            Repeater {
+                model: ["below", "above", "missing"]
+                Tk.Flex {
+                    id: rangeCell
+                    required property string modelData
+                    readonly property var range: {
+                        if (!control.model) return ({})
+                        const revision = control.model.revision
+                        return revision < 0 ? ({}) : modelData === "below" ? control.model.belowRange
+                            : modelData === "above" ? control.model.aboveRange : control.model.missingValue
+                    }
+                    Tk.Flex.grow: 1
+                    direction: Tk.Flex.Row
+                    align: Tk.Flex.Center
+                    gap: Tk.Theme.space.xs
+                    Tk.Caption {
+                        text: rangeCell.modelData === "below" ? qsTr("Below")
+                            : rangeCell.modelData === "above" ? qsTr("Above") : qsTr("Missing")
+                    }
+                    Tk.ColorButton {
+                        objectName: "transferRange_" + rangeCell.modelData
+                        small: true
+                        enabled: !!control.model
+                        color: rangeCell.range.color || Tk.Theme.color.text
+                        colors: control._rangeColors
+                        tooltip: control._rangeTooltip(rangeCell.modelData, rangeCell.range)
+                        onColorSelected: function(color) {
+                            if (control.model) control.model.setRangeColor(rangeCell.modelData, color, 1)
+                        }
+                    }
+                    Tk.IconButton {
+                        objectName: "transferRangeReset_" + rangeCell.modelData
+                        small: true
+                        iconName: rangeCell.modelData === "missing" ? "eye-off" : "unlink"
+                        enabled: !!control.model && (rangeCell.modelData === "missing"
+                            ? rangeCell.range.opacity > 0 : rangeCell.range.mode === "color")
+                        tooltip: rangeCell.modelData === "missing" ? qsTr("Make missing values transparent")
+                            : qsTr("Clamp to the end stop")
+                        onClicked: {
+                            if (rangeCell.modelData === "missing")
+                                control.model.setRangeColor("missing", rangeCell.range.color, 0)
+                            else
+                                control.model.clampRange(rangeCell.modelData)
+                        }
+                    }
+                    Tk.Mono {
+                        objectName: "transferRangeCount_" + rangeCell.modelData
+                        visible: !!control.histogram && control.histogram[rangeCell.modelData] !== undefined
+                        text: visible ? String(control.histogram[rangeCell.modelData]) : ""
+                    }
+                }
             }
         }
     }

@@ -11,8 +11,9 @@ namespace QindaTK {
 
 // Shows one output sheet of a PrintAdapter: the page placed on the selected
 // paper with the ticket's scale, bleed, crop marks and colour, as the job will
-// print it (D-130). Images come from the adapter's bounded preview cache and
-// are fetched in updatePolish, on the GUI thread, never while painting.
+// print it (D-130). Images come from the adapter's bounded preview cache; a
+// missing one is requested from the preview thread (OFF-12) and the view is
+// `pending` until previewReady, showing the page's previous image meanwhile.
 class PrintSheetView : public QQuickPaintedItem {
     Q_OBJECT
     QML_ELEMENT
@@ -21,7 +22,8 @@ class PrintSheetView : public QQuickPaintedItem {
     Q_PROPERTY(QSizeF sheetSize READ sheetSize NOTIFY sheetChanged)          // points
     Q_PROPERTY(QRectF sheetRect READ sheetRect NOTIFY sheetChanged)          // item coordinates
     Q_PROPERTY(bool selected READ selected NOTIFY sheetChanged)
-    Q_PROPERTY(bool ready READ ready NOTIFY sheetChanged)
+    Q_PROPERTY(bool ready READ ready NOTIFY sheetChanged)                     // the current image is shown
+    Q_PROPERTY(bool pending READ pending NOTIFY sheetChanged)                 // a render is on its way
     Q_PROPERTY(double zoom READ zoom NOTIFY sheetChanged)                     // 1: 96 px per inch
 public:
     explicit PrintSheetView(QQuickItem *parent = nullptr);
@@ -32,7 +34,8 @@ public:
     QSizeF sheetSize() const { return m_sheetSize; }
     QRectF sheetRect() const;
     bool selected() const { return m_selected; }
-    bool ready() const { return !m_image.isNull(); }
+    bool ready() const { return !m_image.isNull() && !m_pending; }
+    bool pending() const { return m_pending; }
     double zoom() const { return m_zoom; }
     void paint(QPainter *painter) override;
 
@@ -48,8 +51,11 @@ protected:
 private:
     QPointer<PrintAdapter> m_adapter;
     QMetaObject::Connection m_invalidated;
+    QMetaObject::Connection m_ready;
     int m_page = 0;
     QImage m_image;
+    int m_imagePage = -1;
+    bool m_pending = false;
     QSizeF m_sheetSize;
     bool m_selected = false;
     double m_zoom = 0;

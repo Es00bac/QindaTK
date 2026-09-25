@@ -9,8 +9,10 @@
 #include "volume_raycast.h"
 #include "volume_view_item.h"
 #include "voxel_volume.h"
+#include <QGuiApplication>
 #include <QJsonDocument>
 #include <QQuickWindow>
+#include <QSet>
 #include <QtTest>
 #include <cmath>
 #include <cstring>
@@ -375,6 +377,9 @@ private slots:
         QCOMPARE(view.referenceSize(), QSize(17, 17));
         const QImage expected = view.renderReference(17, 17);
         QCOMPARE(expected.pixel(8, 8), qRgba(190, 190, 190, 220));
+        // D-261: the frame is rendered by the worker; wait for it to land.
+        QTRY_COMPARE(view.renderStatistics().value("completed").toInt(), 1);
+        QTRY_VERIFY(!view.busy());
         // Premultiplied over a black window: the grabbed RGB is the reference RGB.
         const QImage grabbed = window.grabWindow();
         QCOMPARE(qRed(grabbed.pixel(8, 8)), 190);
@@ -387,18 +392,44 @@ private slots:
         QTRY_COMPARE(view.fallbackReason(), QStringLiteral("Reference renderer requested"));
     }
 
+    void gpuPathMatchesReference_data()
+    {
+        // AGENT-NOTE: one row per texture format (R8, R16, R32F): the shader's
+        // value scale (params[6].w) differs per format, and each row puts the
+        // phantom peak at the top of the transfer domain.
+        // Composite rows cover opacity correction and accumulation, the
+        // linear row the texture filter against the reference trilinear.
+        QTest::addColumn<QString>("type");
+        QTest::addColumn<double>("peak");
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<bool>("linear");
+        const int mip = VolumeViewItem::MaximumIntensity, composite = VolumeViewItem::Composite;
+        QTest::newRow("uint8 mip") << QStringLiteral("uint8") << 220.0 << mip << false;
+        QTest::newRow("uint16 mip") << QStringLiteral("uint16") << 55000.0 << mip << false;
+        QTest::newRow("float32 mip") << QStringLiteral("float32") << 1.0 << mip << false;
+        QTest::newRow("uint8 composite") << QStringLiteral("uint8") << 220.0 << composite << false;
+        QTest::newRow("uint16 composite linear") << QStringLiteral("uint16") << 55000.0 << composite << true;
+    }
     void gpuPathMatchesReference()
     {
         // AGENT-NOTE: registered twice in CMake; only tst_volume_render_rhi
-        // (QT_QUICK_BACKEND=rhi) runs this, and it skips without a hardware
-        // RHI context. GPU qualification across drivers is WP-088..094 work.
+        // (QT_QUICK_BACKEND=rhi on a real display) runs this, and it skips
+        // without a hardware RHI context. Driver coverage is WP-088..094 work.
         if (qEnvironmentVariable("QT_QUICK_BACKEND") != QLatin1String("rhi"))
             QSKIP("GPU comparison runs only in the tst_volume_render_rhi registration");
+        // Offscreen GL has no 3D textures (and aborts without an X display).
+        if (QGuiApplication::platformName() == QLatin1String("offscreen"))
+            QSKIP("GPU comparison needs a real display (Wayland or X11)");
+        QFETCH(QString, type);
+        QFETCH(double, peak);
+        QFETCH(int, mode);
+        QFETCH(bool, linear);
         VoxelVolume volume;
-        QVERIFY(volume.configure({{"sizeX", 33}, {"sizeY", 33}, {"sizeZ", 33}}));
+        QVERIFY(volume.configure({{"sizeX", 33}, {"sizeY", 33}, {"sizeZ", 33}, {"voxelType", type}}));
         QVERIFY(volume.fillSpherePhantom());
         TransferFunctionModel transfer;
-        rampTransfer(transfer);
+        QVERIFY(transfer.configure(0, peak));
+        QVERIFY(transfer.replacePoints({stop("low", 0, 0, Qt::black), stop("high", peak, 1)}));
         QQuickWindow window;
         window.setColor(Qt::black);
         window.resize(64, 64);
@@ -406,21 +437,58 @@ private slots:
         view.setSize(QSizeF(64, 64));
         view.setVolume(&volume);
         view.setTransfer(&transfer);
-        view.setMode(VolumeViewItem::MaximumIntensity);
+        view.setYaw(0);
+        view.setPitch(0);
+        view.setInterpolation(linear ? VoxelVolume::Linear : VoxelVolume::Nearest);
+        view.setMode(VolumeViewItem::Mode(mode));
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         QTRY_VERIFY(!view.renderPath().isEmpty());
         if (view.renderPath() != QLatin1String("gpu"))
             QSKIP(qPrintable(QStringLiteral("GPU path unavailable: %1").arg(view.fallbackReason())));
+        // D-261: the texture is packed by the worker; wait for the upload.
+        QTRY_VERIFY(view.renderStatistics().value("completed").toInt() >= 1);
+        QTRY_VERIFY(!view.busy());
         const QImage expected = view.renderReference(64, 64);
+        QVERIFY(qRed(expected.pixel(32, 32)) > 100); // the core: a real answer, not black
         const QImage grabbed = window.grabWindow();
-        for (const QPoint point : {QPoint(32, 32), QPoint(31, 33), QPoint(1, 1)}) {
-            const QRgb want = expected.pixel(point), got = grabbed.pixel(point);
-            QVERIFY2(qAbs(qRed(want) - qRed(got)) <= 4 && qAbs(qGreen(want) - qGreen(got)) <= 4
-                         && qAbs(qBlue(want) - qBlue(got)) <= 4,
-                     qPrintable(QStringLiteral("pixel %1,%2: reference %3 GPU %4").arg(point.x())
-                                    .arg(point.y()).arg(want, 8, 16).arg(got, 8, 16)));
+        // The window may have a fractional device pixel ratio: logical pixel
+        // (x, y) covers physical x·s … (x+1)·s, so the physical sample's ray
+        // lies within half a pixel of the reference ray. The tolerance is 4
+        // levels plus the reference's spread over the 3×3 neighbourhood.
+        const double scale = grabbed.width() / 64.0;
+        const auto spread = [&expected](int x, int y) {
+            int most = 0;
+            const QRgb centre = expected.pixel(x, y);
+            for (int dy = -1; dy <= 1; ++dy)
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const QRgb other = expected.pixel(x + dx, y + dy);
+                    most = std::max({most, qAbs(qRed(other) - qRed(centre)),
+                                     qAbs(qGreen(other) - qGreen(centre)), qAbs(qBlue(other) - qBlue(centre))});
+                }
+            return most;
+        };
+        QSet<int> levels;
+        int compared = 0, tight = 0;
+        for (int k = 1; k < 63; ++k) {
+            for (const QPoint point : {QPoint(k, 32), QPoint(32, k)}) {
+                const int tolerance = 4 + spread(point.x(), point.y());
+                const QRgb want = expected.pixel(point);
+                const QRgb got = grabbed.pixel(int((point.x() + 0.5) * scale), int((point.y() + 0.5) * scale));
+                QVERIFY2(qAbs(qRed(want) - qRed(got)) <= tolerance && qAbs(qGreen(want) - qGreen(got)) <= tolerance
+                             && qAbs(qBlue(want) - qBlue(got)) <= tolerance,
+                         qPrintable(QStringLiteral("pixel %1,%2: reference %3 GPU %4 (tolerance %5)")
+                                        .arg(point.x()).arg(point.y()).arg(want, 8, 16).arg(got, 8, 16)
+                                        .arg(tolerance)));
+                levels.insert(qRed(want) / 32);
+                ++compared;
+                if (tolerance <= 12) ++tight;
+            }
         }
+        // Background, shell and core were compared, most at a tight tolerance.
+        QVERIFY2(levels.size() >= 3, qPrintable(QString::number(levels.size())));
+        QCOMPARE(compared, 124);
+        QVERIFY2(tight >= 100, qPrintable(QString::number(tight)));
     }
 };
 

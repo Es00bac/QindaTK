@@ -53,15 +53,14 @@ AudioSession::AudioSession(QObject *parent)
       m_edits(new AudioSourceEditModel(this)),
       m_midi(new MidiSequenceModel(this)),
       m_launcher(new MidiLauncherModel(m_midi, this)),
+      m_midiInput(new MidiInputPort(this)),
       m_comps(new AudioTakeCompModel(this)),
       m_plugins(new AudioPluginHost(this, m_automation, m_mixer))
 {
     m_comps->setSourceLookup([this](const QString &id) { return m_decoded.contains(id) ? m_edits->buffer(id) : nullptr; });
     connect(m_comps, &AudioTakeCompModel::changed, this, &AudioSession::rebuild);
     connect(this, &AudioSession::mediaChanged, m_comps, &AudioTakeCompModel::sourcesChanged);
-    m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter());
-    connect(m_timeMap, &TimeMap::changed, m_midi, [this] { m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter()); });
-    connect(m_midi, &MidiSequenceModel::contentChanged, this, &AudioSession::rebuild);
+    connectMidi();
     m_timeline->setTimeMap(m_timeMap);
     m_tempo->setTimeMap(m_timeMap);
     m_tempo->setTimeline(m_timeline);
@@ -76,12 +75,27 @@ AudioSession::AudioSession(QObject *parent)
     connect(m_schedule, &EngineSchedule::published, this, &AudioSession::rebuild);
     connect(m_mixer, &AudioMixerModel::contentChanged, this, &AudioSession::rebuild);
     connect(m_plugins, &AudioPluginHost::contentChanged, this, &AudioSession::rebuild);
+    // Strips scrolled into view get meter slots (D-113); one recompile per event loop turn.
+    connect(m_mixer, &AudioMixerModel::meterWatchChanged, this, [this] {
+        if (m_meterRebuildQueued) return;
+        m_meterRebuildQueued = true;
+        QMetaObject::invokeMethod(this, [this] {
+            m_meterRebuildQueued = false;
+            rebuild();
+        }, Qt::QueuedConnection);
+    });
     connect(m_edits, &AudioSourceEditModel::sourceChanged, this,
             [this](const QString &resourceId, const QString &) { sourceEdited(resourceId); });
+    m_history = new AudioSessionHistory(m_timeline, m_automation, m_mixer, this);
 }
 
 AudioSession::~AudioSession()
 {
+    // AGENT-GUARD (WP-064, D-153): a session destroyed while its engine lives
+    // on (an app-level engine, a page torn down) leaves nothing playing, like
+    // setEngine(nullptr): launched clips, audition notes and a MIDI take end.
+    m_midiInput->setEngine(nullptr);
+    if (m_engine) m_engine->releaseMidi();
     // AGENT-GUARD: the mixer's shared bindings release open gestures through
     // the automation model, so the mixer goes before the models it uses.
     // Plugins go first: their processes quit and their bindings let go (WP-066).
@@ -100,10 +114,10 @@ void AudioSession::setEngine(AudioEngine *engine)
     if (m_engine) {
         // AGENT-GUARD (WP-064): nothing this session started keeps sounding
         // on an engine it leaves: audition notes and launched clips stop.
-        m_engine->allNotesOff();
-        m_engine->postLaunchStop(0, MidiQuantize::None, nullptr);
+        m_engine->releaseMidi();
         m_engine->setGraph({});
     }
+    m_midiInput->setEngine(engine);
     m_launcher->setEngine(engine);
     // A detached engine no longer runs this session's automation clock.
     if (m_automation->transportRunning()) m_automation->transportStopped(m_forwardedTicks);
@@ -362,12 +376,20 @@ bool AudioSession::save(const QString &file)
                                     {QStringLiteral("sha256"), expected.isEmpty()
                                          ? entry.value(QStringLiteral("sha256")).toString() : expected}});
     }
+    // AGENT-GUARD (WP-062): mixer lanes whose channel or send is gone stay in
+    // memory for undo but never reach the file, so saves do not accumulate them.
+    QVariantMap automation = m_automation->contentMap();
+    QVariantList parameters = automation.value(QStringLiteral("parameters")).toList();
+    parameters.removeIf([this](const QVariant &value) {
+        return !m_mixer->keepsParameter(value.toMap().value(QStringLiteral("id")).toString());
+    });
+    automation.insert(QStringLiteral("parameters"), parameters);
     const QJsonObject root{{QStringLiteral("schema"), schemaId()},
                            {QStringLiteral("sampleRate"), sampleRate()},
                            {QStringLiteral("tempo"), QJsonObject::fromVariantMap(m_tempo->contentMap())},
-                           {QStringLiteral("automation"), QJsonObject::fromVariantMap(m_automation->contentMap())},
+                           {QStringLiteral("automation"), QJsonObject::fromVariantMap(automation)},
                            {QStringLiteral("timeline"), QJsonObject::fromVariantMap(m_timeline->contentMap())},
-                           {QStringLiteral("mixer"), QJsonObject::fromVariantMap(m_mixer->contentMap())},
+                           {QStringLiteral("mixer"), QJsonObject::fromVariantMap(m_mixer->savedContentMap())},
                            {QStringLiteral("edits"), QJsonObject::fromVariantMap(m_edits->contentMap())},
                            {QStringLiteral("midi"), QJsonObject::fromVariantMap(m_midi->contentMap())},
                            {QStringLiteral("comps"), QJsonObject::fromVariantMap(m_comps->contentMap())},
@@ -415,6 +437,11 @@ bool AudioSession::open(const QString &file)
                : part == 4 ? m_edits->loadContent(content)
                : part == 5 ? m_midi->loadContent(content) : m_comps->loadContent(content);
     };
+    // The mixer part is checked before anything is replaced: restoring a part
+    // reloads it, which clears its undo history and cancels a held gesture.
+    if (const QString problem = AudioMixerModel::contentProblem(root.value(QStringLiteral("mixer")).toMap());
+        !problem.isEmpty())
+        return fail(tr("The session mixer could not be loaded: %1").arg(problem));
     // Plugins (WP-066) are validated with the other parts and loaded last.
     if (QString problem; !AudioPluginHost::validateContent(root.value(QStringLiteral("plugins")).toMap(), &problem))
         return fail(tr("The session plugins could not be loaded: %1").arg(problem));

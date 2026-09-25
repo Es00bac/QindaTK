@@ -12,7 +12,7 @@ namespace QindaTK {
 namespace {
 bool colorFrom(const QVariant &value, QColor &color)
 {
-    if (value.isNull()) { color = {}; return true; }
+    if (value.isNull()) { color = QColor(); return true; } // not {}: that is Qt::color0, white
     if (value.metaType().id() == QMetaType::QColor) color = value.value<QColor>();
     else if (value.metaType().id() == QMetaType::QString) color = QColor(value.toString());
     else return false;
@@ -184,6 +184,66 @@ void CanvasStyleModel::setDocument(CanvasDocumentAdapter *document)
     }
     refresh();
     emit documentChanged();
+}
+
+void CanvasStyleModel::setSelectionModel(CanvasSelectionModel *model)
+{
+    if (m_selectionModel == model) return;
+    if (m_selectionModel) disconnect(m_selectionModel, nullptr, this, nullptr);
+    m_selectionModel = model;
+    if (model) {
+        const auto follow = [this] {
+            QVariantList ids;
+            if (m_selectionModel)
+                for (CanvasObjectId id : m_selectionModel->selection()) ids.append(QString::number(id));
+            adoptSelection(ids);
+        };
+        connect(model, &CanvasSelectionModel::selectionChanged, this, follow);
+        connect(model, &QObject::destroyed, this, [this] {
+            m_selectionModel = nullptr;
+            emit selectionModelChanged();
+        });
+        follow();
+    }
+    emit selectionModelChanged();
+}
+
+void CanvasStyleModel::setSelectedIds(const QVariantList &ids)
+{
+    if (!m_selectionModel) {
+        adoptSelection(ids);
+        return;
+    }
+    // The canvas selection is the one truth: select there and follow it.
+    QVector<CanvasObjectId> proposed;
+    for (const QVariant &value : ids) proposed.append(value.toString().toULongLong());
+    m_selectionModel->setSelection(proposed);
+}
+
+void CanvasStyleModel::setGradientEditor(GradientEditorModel *editor)
+{
+    if (m_gradientEditor == editor) return;
+    m_gradientEditor = editor;
+    emit gradientEditorChanged();
+    refresh();
+}
+
+QStringList CanvasStyleModel::strokeUnits() const
+{
+    return {QStringLiteral("document"), QStringLiteral("px"), QStringLiteral("pt"), QStringLiteral("mm"),
+            QStringLiteral("in")};
+}
+
+qreal CanvasStyleModel::documentUnitsPer(const QString &unit)
+{
+    // AGENT-NOTE: one document unit is one CSS pixel (1/96 in): SVG export
+    // writes document units as user units under a viewBox, which viewers
+    // size as pixels (docs/vector-authoring.md#stroke-units).
+    if (unit == QLatin1String("document") || unit == QLatin1String("px")) return 1;
+    if (unit == QLatin1String("pt")) return 96.0 / 72.0;
+    if (unit == QLatin1String("mm")) return 96.0 / 25.4;
+    if (unit == QLatin1String("in")) return 96.0;
+    return 0;
 }
 
 bool CanvasStyleModel::fail(const QString &message)

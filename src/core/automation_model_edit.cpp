@@ -371,6 +371,7 @@ OperationError AutomationModel::record(AutomationChangeSet changes)
     if (auto error = applyChanges(changes, false)) return fail(error);
     m_history.resize(m_cursor);
     m_history.push_back(changes);
+    ++m_historySerial;
     if (m_history.size() > kHistoryLimit) m_history.removeFirst();
     m_cursor = m_history.size();
     ++m_revision;

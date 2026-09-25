@@ -16,10 +16,12 @@ namespace QindaTK {
 // AGENT-CONTRACT (WP-062, docs/audio-mixer.md, D-110..D-112): plain mixer
 // data shared by AudioMixerModel (GUI thread) and AudioRenderGraph::compile.
 // Channel IDs: "track:<uuid>" (an audio timeline track), "bus:<uuid>" and
-// "master". Parameter IDs: "<channel>/gain|pan|width" and "<send>/level".
+// "master". Parameter IDs: "<channel>/gain|pan|width|depth" and "<send>/level".
 // Output IDs: a bus, "master", a port ("main", "device:<n>[-<m>]@<device>")
 // or "" (disconnected). Nothing here is realtime except the gain laws.
-enum class AudioLayout { Mono = 1, Stereo = 2 };
+// The value is the lane count. Tracks are Mono or Stereo; buses may also be
+// Quad (L R Ls Rs) or 5.1 (L R C LFE Ls Rs, SMPTE order); the master is Stereo.
+enum class AudioLayout { Mono = 1, Stereo = 2, Quad = 4, Surround51 = 6 };
 enum class AudioPanLaw { ConstantPower, Compromise, Linear, Balance };
 
 struct AudioMixerSend {
@@ -72,6 +74,7 @@ namespace AudioMixer {
 inline constexpr int kMaxBuses = 256;
 inline constexpr int kMaxSends = 16; // per channel
 inline constexpr int kMaxGroups = 64;
+inline constexpr int kMaxLanes = 6; // the widest layout (5.1)
 
 QString masterId();   // "master"
 QString mainPortId(); // "main"
@@ -84,15 +87,21 @@ bool isBus(const QString &channelId);
 bool isSend(const QString &id);
 bool isGroup(const QString &id);
 QString newId(const QString &prefix); // "<prefix>:<uuid>"
-// "<owner>/<kind>"; kinds: gain, pan, width (channels) and level (sends).
+// "<owner>/<kind>"; kinds: gain, pan, width, depth (channels) and level (sends).
 QString parameterId(const QString &owner, const QString &kind);
 // The engine parameter behind `kind`: gain and level in dB (range minimum is
-// silence, D-101), pan -1..+1 and width 0..2 (steps of 0.01).
+// silence, D-101), pan -1..+1, width 0..2 and depth -1 (rear) .. +1 (front,
+// the default) in steps of 0.01.
 std::optional<AutomationParameter> parameterFor(const QString &owner, const QString &kind, const QString &name);
 
 QString layoutName(AudioLayout layout);
 std::optional<AudioLayout> layoutFromName(const QString &name);
 QStringList layoutNames();
+QStringList trackLayoutNames(); // Mono, Stereo
+std::optional<AudioLayout> layoutForLanes(int lanes);
+bool isSurround(AudioLayout layout);
+// Speaker (lane) names: "M"; "L", "R"; "L", "R", "Ls", "Rs"; "L", "R", "C", "LFE", "Ls", "Rs".
+QStringList speakerNames(AudioLayout layout);
 QString panLawName(AudioPanLaw law); // "-3dB", "-4.5dB", "-6dB", "0dB"
 std::optional<AudioPanLaw> panLawFromName(const QString &name);
 QStringList panLawNames();
@@ -103,6 +112,19 @@ QStringList panLawNames();
 void panGains(AudioPanLaw law, double pan, double &left, double &right) noexcept;
 // A stereo source keeps each side at unity until the balance moves away from it.
 void balanceGains(double pan, double &left, double &right) noexcept;
+// AGENT-CONTRACT (D-111): spatial panning. A mono point source at x (pan,
+// -1 left .. +1 right) and y (depth, -1 rear .. +1 front) feeds each speaker
+// lane of a Quad or 5.1 destination with gains[lane]: the pan law between
+// left and right and again between rear and front; on 5.1 the front pans
+// L-C-R pairwise (x = 0 is the centre speaker alone) and the LFE gets
+// nothing. Other layouts leave gains at 0.
+void spatialGains(AudioLayout layout, AudioPanLaw law, double x, double y, double *gains) noexcept;
+// The fixed conversion of a surround source (Quad or 5.1) into `to`:
+// matrix[to lane * kMaxLanes + from lane]. Same layout: lane to lane; Quad
+// and 5.1 map L R Ls Rs onto each other (a 5.1 centre goes to L and R at
+// -3 dB); to Stereo the ITU-R BS.775 downmix (centre and surrounds at -3 dB,
+// no LFE); to Mono the average of that stereo pair.
+void surroundMatrix(AudioLayout from, AudioLayout to, double *matrix) noexcept;
 
 struct Port {
     bool main = false;
@@ -141,6 +163,12 @@ struct Audibility {
 };
 Audibility audibility(const AudioMixerContent &content, const QStringList &channels,
                       const QSet<QString> &trackMuted, const QSet<QString> &trackSoloed);
+
+// D-113: which of `channels` (tracks in timeline order, buses in mixer
+// order, the master) get one of `slotCount` meter slots when not all fit: the
+// master first, then the channels in `first` (the strips views watch), then
+// the rest in order. Every channel is metered while they all fit.
+QSet<QString> meteredChannels(const QStringList &channels, const QSet<QString> &first, int slotCount);
 
 // "qindatk.audio-mixer/1" maps; an empty map reads as the default mix.
 QVariantMap toMap(const AudioMixerContent &content);

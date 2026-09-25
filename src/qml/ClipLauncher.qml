@@ -22,6 +22,7 @@ T.Control {
     property int _serial: 0
 
     signal launchRequested(string requestId, string slotId, string quantization)
+    signal recordRequested(string requestId, string slotId, string quantization)
     signal stopRequested(string requestId, string slotId)
     signal slotSelected(string slotId)
     signal launchAcknowledged(string requestId, string state, string message)
@@ -53,6 +54,23 @@ T.Control {
         root._requestMessage = qsTr("Waiting for host acknowledgment")
         root.slotSelected(root._pendingSlotId)
         root.launchRequested(root._pendingRequestId, root._pendingSlotId, root.quantization)
+        return true
+    }
+    // Asks the host to record into a slot (AUD-25 record state); the host's
+    // acknowledgment and its next snapshot (state "recording") answer it.
+    function requestRecord(slotId) {
+        if (!root.enabled || root._requestState === "pending") return false
+        let slot = null
+        for (let i = 0; i < root.slots.length; ++i)
+            if (String(root.slots[i].id) === String(slotId)) slot = root.slots[i]
+        if (!slot || slot.available === false || slot.state === "recording") return false
+        root._serial += 1
+        root._pendingRequestId = "clip-record-" + root._serial
+        root._pendingSlotId = String(slot.id)
+        root._requestState = "pending"
+        root._requestMessage = qsTr("Waiting for host acknowledgment")
+        root.slotSelected(root._pendingSlotId)
+        root.recordRequested(root._pendingRequestId, root._pendingSlotId, root.quantization)
         return true
     }
     function requestStop(slotId) {

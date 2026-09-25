@@ -193,6 +193,87 @@ private slots:
         QVERIFY(!issueIds(adapter).contains(QStringLiteral("text-overset:A")));
     }
 
+    void unbreakablePageOverflowIsReported()
+    {
+        RichTextDocument doc;
+        buildLines(doc, 3);
+        PrintAdapter adapter;
+        adapter.setDocument(&doc);
+        QVERIFY(!issueIds(adapter).join(u',').contains(QStringLiteral("page-overflow:")));
+        // An inline image taller than the page: its line cannot break. The
+        // fixture's exact line boxes would clip it, so the line grows freely.
+        ParagraphFormatPatch natural;
+        natural.lineHeightPt = 0.0;
+        const QUuid firstId = doc.paragraphsInOrder().first()->id;
+        QVERIFY(doc.setParagraphFormat({firstId, 0}, {firstId, 0}, natural));
+        RichObject tall;
+        tall.kind = QStringLiteral("image");
+        tall.widthPt = 72;
+        tall.heightPt = doc.pageSetupValue().heightPt * 2;
+        const Paragraph *first = doc.paragraphsInOrder().first();
+        QVERIFY(doc.insertObject({first->id, 0}, tall));
+        QString objectId;
+        for (const RichObject &object : doc.objects()) objectId = object.id;
+        const QString id = QStringLiteral("page-overflow:") + pid(doc, 0);
+        const QVariantMap issue = findIssue(adapter, id);
+        QVERIFY2(!issue.isEmpty(), qPrintable(issueIds(adapter).join(u',')));
+        QCOMPARE(issue.value(QStringLiteral("severity")).toString(), QStringLiteral("warning"));
+        QCOMPARE(issue.value(QStringLiteral("category")).toString(), QStringLiteral("Layout"));
+        QCOMPARE(issue.value(QStringLiteral("targetId")).toString(), QStringLiteral("page:1"));
+        QCOMPARE(issue.value(QStringLiteral("pageIndex")).toInt(), 0);
+        QCOMPARE(issue.value(QStringLiteral("paragraphId")).toString(), pid(doc, 0));
+        QVERIFY(issue.value(QStringLiteral("repairActionIds")).toStringList().isEmpty()); // the author decides
+        // Once the image fits the page the issue is gone.
+        RichObject fitted = *doc.object(objectId);
+        fitted.heightPt = 72;
+        QVERIFY(doc.setObject(fitted));
+        QVERIFY(!issueIds(adapter).contains(id));
+    }
+
+    void failedRepairsAreTakenBack()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        RichTextDocument doc;
+        buildLines(doc, 3);
+        const QString original = QStringLiteral("file:///nonexistent-qindatk/chart.png");
+        const QString missing = insertImage(doc, original);
+        PrintAdapter adapter;
+        adapter.setDocument(&doc);
+        const QString id = QStringLiteral("image-missing:") + missing;
+        QVERIFY(!findIssue(adapter, id).isEmpty());
+
+        // The new file is readable when the repair checks it, then vanishes
+        // (a network share dropping out) before preflight runs again: the
+        // document change is undone rather than left as a half-fix.
+        const QString vanishing = writeImage(directory, QStringLiteral("vanishing.png"), 300);
+        const QString before = doc.toJson();
+        const QMetaObject::Connection drop = connect(&doc, &RichTextDocument::changed, this, [vanishing] {
+            QFile::remove(vanishing);
+        });
+        QVERIFY(!adapter.repair(id, QStringLiteral("relink-image"), vanishing));
+        disconnect(drop);
+        QCOMPARE(adapter.lastErrorCode(), QStringLiteral("validation"));
+        QVERIFY2(adapter.lastError().contains(QStringLiteral("did not resolve")), qPrintable(adapter.lastError()));
+        QCOMPARE(doc.object(missing)->source, original);
+        QCOMPARE(doc.toJson(), before);
+        QVERIFY(adapter.issue(id).value(QStringLiteral("id")).toString() == id); // re-run after the rollback
+        QVERIFY(!adapter.preflightStale());
+
+        // A ticket repair that does not resolve its issue restores the ticket.
+        const QVariantMap settings = adapter.settings();
+        QVERIFY(issueIds(adapter).contains(QStringLiteral("output-outputPath")));
+        const QString nowhere = directory.filePath(QStringLiteral("missing-folder/out.pdf"));
+        QVERIFY(!adapter.repair(QStringLiteral("output-outputPath"), QStringLiteral("choose-output-file"), nowhere));
+        QVERIFY(adapter.lastError().contains(QStringLiteral("did not resolve")));
+        QCOMPARE(adapter.settings(), settings);
+        QVERIFY(adapter.issue(QStringLiteral("output-outputPath")).value(QStringLiteral("description")).toString()
+                    .contains(QStringLiteral("Choose a file")));
+        const QString good = directory.filePath(QStringLiteral("out.pdf"));
+        QVERIFY(adapter.repair(QStringLiteral("output-outputPath"), QStringLiteral("choose-output-file"), good));
+        QCOMPARE(adapter.settings().value(QStringLiteral("outputPath")).toString(), good);
+    }
+
     void fieldsAndEquationsAreChecked()
     {
         RichTextDocument doc;

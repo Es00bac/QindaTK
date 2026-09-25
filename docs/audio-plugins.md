@@ -47,7 +47,7 @@ What the CLAP host supports:
 
 | Area | Supported | Not supported |
 | --- | --- | --- |
-| Audio | the main input and output port, mono or stereo, 32-bit float; blocks of at most 256 frames (`AudioRenderGraph::kChunk`); other ports get silent scratch buffers | 64-bit processing, side-chains, surround layouts |
+| Audio | the main input and output port, mono or stereo, 32-bit float; on a Quad or 5.1 channel (WP-062) the front pair goes through the plugin and the other lanes wait its latency; blocks of at most 256 frames (`AudioRenderGraph::kChunk`); other ports get silent scratch buffers | 64-bit processing, side-chains, surround layouts |
 | Notes | CLAP note on/off (from MIDI track patterns and launched clips) to the first instrument of a MIDI track; a transport jump ends held notes | MIDI CC, per-note expression, MPE, note output |
 | Parameters | every automatable, visible, writable parameter as an automation parameter; values sent at block starts; editor gestures back as automation transactions | sample-accurate automation inside a block, modulation (`PARAM_MOD`), per-note parameters |
 | State | `clap.state` save/load as an opaque blob in the session | `state-context`, presets |
@@ -169,6 +169,9 @@ the master is late by `graph->pluginLatency()` frames, and:
   frames, so a file lines up with the timeline;
 - a bypassed or failed insert passes its input delayed by its latency, so
   bypass never shifts the mix;
+- on a Quad or 5.1 channel the plugin gets the front pair (L, R); the
+  other lanes wait the insert's latency in a delay line of their own, so the
+  channel's lanes stay aligned (`tst_audio_plugin_engine`);
 - a plugin whose latency changes asks for a restart; the host reactivates
   it and recompiles the graph (delay lines restart from silence).
 

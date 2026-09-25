@@ -30,8 +30,17 @@ class WindowHost;
 //   waiting    the chosen display is missing (never connected or unplugged);
 //              the audience window stays open as a window on the presenter's
 //              display and returns to the chosen display when it reappears
+// presenterStatus:
+//   closed     no presenter window
+//   shown      on its chosen display, else the primary or any display the
+//              audience does not use
+//   hidden     only the audience's display is left (the presenter's display
+//              was unplugged): the window is hidden, never moved onto the
+//              projector, and is shown again when another display appears;
+//              the audience window's keys keep the show controllable
 // AGENT-CONTRACT (D-161): audience content never receives the notes; the
-// presenter window is the only place speakerNotes are bound.
+// presenter window is the only place speakerNotes are bound, and it is
+// never placed on the audience's display.
 class PresentationWindows : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -45,6 +54,7 @@ class PresentationWindows : public QObject {
     Q_PROPERTY(bool fullScreen READ fullScreen WRITE setFullScreen NOTIFY changed)
     Q_PROPERTY(bool active READ active NOTIFY changed)
     Q_PROPERTY(QString audienceStatus READ audienceStatus NOTIFY changed)
+    Q_PROPERTY(QString presenterStatus READ presenterStatus NOTIFY changed)
     Q_PROPERTY(QString audienceWindowId READ audienceWindowId NOTIFY changed)
     Q_PROPERTY(QString presenterWindowId READ presenterWindowId NOTIFY changed)
     Q_PROPERTY(QString audienceScreen READ audienceScreen NOTIFY changed)
@@ -67,6 +77,7 @@ public:
     void setFullScreen(bool fullScreen);
     bool active() const { return m_active; }
     QString audienceStatus() const { return m_status; }
+    QString presenterStatus() const { return m_presenterStatus; }
     QString audienceWindowId() const { return m_audienceId; }
     QString presenterWindowId() const { return m_presenterId; }
     // Screen name the audience window is on now; empty when closed.
@@ -90,11 +101,19 @@ public:
     // to QGuiApplication automatically; public for hosts and tests).
     Q_INVOKABLE void reconcile();
 
+protected:
+    // AGENT-NOTE: the displays placement may use (QGuiApplication::screens()).
+    // A seam for headless tests, whose offscreen platform screen cannot be
+    // unplugged: a test subclass leaves it out to model a two-display desk.
+    virtual QList<QScreen *> availableScreens() const;
+
 signals:
     void configurationChanged();
     void changed();
     void audienceDisconnected(const QString &screenId);
     void audienceReconnected(const QString &screenId);
+    void presenterHidden();
+    void presenterRestored();
 
 private:
     bool openAudience();
@@ -104,9 +123,13 @@ private:
     void fill(QQuickWindow *window, QQuickItem *content);
     void windowClosed(const QString &windowId);
     void setStatus(const QString &status);
+    void setPresenterStatus(const QString &status);
+    // The display the audience uses: the chosen one, else where it was last connected.
+    QString audienceClaim() const;
     bool fail(const QString &message);
     QScreen *screenNamed(const QString &name) const;
     QScreen *presenterScreen() const;
+    QScreen *primaryScreen() const;
 
     QPointer<SlideShow> m_show;
     QPointer<WindowHost> m_host;
@@ -119,6 +142,8 @@ private:
     QString m_audienceId;
     QString m_presenterId;
     QString m_status = QStringLiteral("closed");
+    QString m_presenterStatus = QStringLiteral("closed");
+    QString m_lastAudienceScreen;
     QString m_error;
     QMetaObject::Connection m_hostConnection;
     bool m_fullScreen = true;

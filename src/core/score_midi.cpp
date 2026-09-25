@@ -24,6 +24,16 @@ QUuid midiNoteId(const QUuid &scoreNoteId)
     return QUuid::createUuidV5(midiNamespace(), scoreNoteId.toRfc4122());
 }
 
+QUuid playbackTrackId(const QUuid &scoreId)
+{
+    return QUuid::createUuidV5(midiNamespace(), scoreId.toRfc4122() + QByteArrayLiteral("/track"));
+}
+
+QUuid playbackPatternId(const QUuid &scoreId)
+{
+    return QUuid::createUuidV5(midiNamespace(), scoreId.toRfc4122() + QByteArrayLiteral("/pattern"));
+}
+
 double dynamicVelocity(const QString &dynamic)
 {
     static const double levels[] = {0.20, 0.30, 0.42, 0.54, 0.66, 0.78, 0.90, 1.0};

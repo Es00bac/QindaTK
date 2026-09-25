@@ -26,6 +26,11 @@ QString textOf(const NotebookDocument &doc, const QString &id)
     return doc.block(id).value("data").toMap().value("text").toString();
 }
 
+QSet<QString> idSet(const QStringList &ids)
+{
+    return QSet<QString>(ids.cbegin(), ids.cend());
+}
+
 // 200 pages x 50 blocks; every fifth block nests under the one before it and
 // every block carries a bold run, so the file exercises tree and run checks.
 QByteArray largeNotebook(QStringList *pageIds)
@@ -323,6 +328,112 @@ private slots:
         QCOMPARE(copied.at(1).toMap().value("data").toMap().value("sourceBlockId").toString(), newTable);
         QVERIFY(doc.removeBlock(table));
         QCOMPARE(doc.chartSeries(chart).value("valid").toBool(), false);
+    }
+    // Audit gap (WP-057 cf2): a standalone save refuses a file that
+    // loadFromFile would refuse, instead of writing an unopenable notebook.
+    void standaloneSaveRefusesAnUnopenableFile()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        NotebookDocument doc;
+        const QString page = doc.addPage(doc.addSection("Big"), {}, "Big");
+        const QString chunk(Notebook::Limits::MaxTextLength, u'x');
+        const int count = int(Notebook::Limits::MaxFileBytes / Notebook::Limits::MaxTextLength) + 1;
+        QStringList ids;
+        for (int i = 0; i < count; ++i) {
+            // One page per block keeps every undo step within the memory bound.
+            ids.append(doc.insertBlock(i == 0 ? page : doc.addPage(doc.sections().first().toMap().value("id").toString()),
+                                       {}, "text", {{"text", chunk}}));
+            QVERIFY2(!ids.last().isEmpty(), qPrintable(doc.lastError()));
+        }
+        const QString path = dir.filePath("big.qtknb");
+        QVERIFY(!doc.saveToFile(path));
+        QVERIFY2(doc.lastError().contains(QStringLiteral("64 MiB")), qPrintable(doc.lastError()));
+        QVERIFY(!QFile::exists(path));
+        QVERIFY(doc.removeBlock(ids.takeLast()));
+        QVERIFY(doc.removeBlock(ids.takeLast()));
+        QVERIFY2(doc.saveToFile(path), qPrintable(doc.lastError()));
+        NotebookDocument reopened;
+        QVERIFY2(reopened.loadFromFile(path), qPrintable(reopened.lastError()));
+        QCOMPARE(reopened.blockCount(), count - 2);
+    }
+
+    // OFF-26: the file changes on disk while this copy is edited. The save is
+    // refused as a conflict with nothing lost; reconcileJson merges the disk
+    // version without dropping an attachment from either side.
+    void externalChangeReconcilesWithoutDroppingAttachments()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath("shared.qtknb");
+        DocumentManager manager;
+        manager.recoveryManager()->setDirectory(dir.filePath("recovery"));
+        auto *session = manager.createDocument(QString::fromLatin1(NotebookDocument::SchemaId));
+        QVERIFY(session);
+        session->setAutosaveDelayMs(600000);
+        auto *doc = qobject_cast<NotebookDocument *>(session->modelObject());
+        const QString section = doc->addSection("Field");
+        const QString page = doc->addPage(section, {}, "Day");
+        const QString note = doc->insertBlock(page, {}, "text", {{"text", "Shared note"}});
+        doc->insertBlock(page, note, "image", {{"resourceId", "photo-base"}});
+        const QString quiet = doc->addPage(section, page, "Quiet");
+        const QString quietNote = doc->insertBlock(quiet, {}, "text", {{"text", "Unchanged here"}});
+        QSignalSpy saved(session, &DocumentSession::saveFinished);
+        QVERIFY(session->requestSaveAs(path));
+        QVERIFY(saved.wait(10000));
+        QVERIFY(saved.takeFirst().first().toBool());
+        const QString base = doc->toJson();
+
+        NotebookDocument other; // another copy of the file, edited offline
+        QVERIFY(other.resetFromJson(base));
+        QVERIFY(other.setBlockText(note, "Edited on disk"));
+        QVERIFY(!other.insertBlock(page, note, "image", {{"resourceId", "photo-disk"}}).isEmpty());
+        QVERIFY(other.setBlockText(quietNote, "Changed on disk only"));
+        const QString diskPage = other.addPage(section, quiet, "From disk");
+        QVERIFY(!other.insertBlock(diskPage, {}, "image", {{"resourceId", "photo-disk-page"}}).isEmpty());
+        QJsonObject disk = QJsonDocument::fromJson(other.toJson().toUtf8()).object();
+        disk.insert("documentId", doc->documentId());
+        const QString diskJson = QString::fromUtf8(QJsonDocument(disk).toJson(QJsonDocument::Compact));
+        {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            QVERIFY(file.write(diskJson.toUtf8()) > 0);
+        }
+
+        QVERIFY(doc->setBlockText(note, "Edited here"));
+        QVERIFY(!doc->insertBlock(page, note, "image", {{"resourceId", "photo-local"}}).isEmpty());
+        QVERIFY(session->checkExternalChange());
+        QVERIFY(session->requestSave());
+        QVERIFY(saved.wait(10000));
+        QVERIFY(!saved.takeFirst().first().toBool());
+        QVERIFY(session->externalChanged() && session->isDirty());
+        const QSet<QString> local{"photo-base", "photo-local"};
+        QCOMPARE(idSet(doc->resourceIds()), local);
+
+        const QVariantMap result = doc->reconcileJson(diskJson, base);
+        QVERIFY2(result.value("changed").toBool(), qPrintable(doc->lastError()));
+        QCOMPARE(result.value("pagesAdded").toInt(), 1);
+        QCOMPARE(result.value("pagesUpdated").toInt(), 1);
+        QCOMPARE(result.value("conflictCopies").toInt(), 1);
+        const QSet<QString> all{"photo-base", "photo-local", "photo-disk", "photo-disk-page"};
+        QCOMPARE(idSet(doc->resourceIds()), all);
+        QCOMPARE(textOf(*doc, note), QStringLiteral("Edited here"));
+        QCOMPARE(textOf(*doc, quietNote), QStringLiteral("Changed on disk only"));
+        const QVariantList pages = doc->pages();
+        QCOMPARE(pages.size(), 4);
+        QCOMPARE(pages.at(1).toMap().value("title").toString(), QStringLiteral("Day (other version)"));
+        QCOMPARE(doc->reconcileJson(diskJson, diskJson).value("changed").toBool(), false); // disk is the new base
+        QVERIFY(doc->undo());
+        QCOMPARE(idSet(doc->resourceIds()), local);
+        QVERIFY(doc->redo());
+
+        QVERIFY(session->requestSaveAs(path, true));
+        QVERIFY(saved.wait(10000));
+        QVERIFY(saved.takeFirst().first().toBool());
+        QVERIFY(!session->externalChanged());
+        NotebookDocument reopened;
+        QVERIFY2(reopened.loadFromFile(path), qPrintable(reopened.lastError()));
+        QCOMPARE(idSet(reopened.resourceIds()), all);
     }
 };
 

@@ -93,6 +93,7 @@ TestCase {
         verify(findChild(preview, "printOutputPath").visible)
         const sheet = findChild(preview, "boundSheet")
         tryVerify(function() { return sheet.ready })
+        verify(!sheet.pending)
         compare(sheet.sheetSize.width, 372)
         compare(sheet.sheetSize.height, 432)
         verify(sheet.selected)
@@ -101,6 +102,13 @@ TestCase {
         preview.requestSetting("paperId", "letter")
         compare(printAdapter.settings.paperId, "letter")
         tryVerify(function() { return sheet.sheetSize.width === 612 && sheet.sheetSize.height === 792 })
+        tryVerify(function() { return sheet.ready && !sheet.pending })
+
+        // Previews render on the preview thread: a request returns before
+        // its image exists, and previewReady brings it into the cache.
+        verify(!printAdapter.requestPreview(2, 0.3))
+        tryVerify(function() { return printAdapter.requestPreview(2, 0.3) })
+        compare(printAdapter.previewPendingCount, 0)
 
         // Out-of-range pages are refused before a job starts.
         verify(!printAdapter.applySettings({ pages: "x" }))

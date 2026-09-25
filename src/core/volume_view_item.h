@@ -4,6 +4,7 @@
 #include "transfer_function_model.h"
 #include "volume_cursor.h"
 #include "volume_raycast.h"
+#include "volume_render_worker.h"
 #include "voxel_volume.h"
 #include <QColor>
 #include <QImage>
@@ -21,6 +22,10 @@ namespace QindaTK {
 // the same algorithm; updatePaintNode picks one per frame and publishes the
 // choice as renderPath/fallbackReason. Camera, mode, sampling and clip are
 // view settings (saveSettings/restoreSettings); they never touch voxels.
+// D-261: volume reads (the reference image, the texture pack) run on a
+// VolumeRenderWorker, never in updatePaintNode; a newer request cancels and
+// rejects the older one, cancelRendering() stops the current one, and the
+// item shows the last completed frame until a current one arrives.
 class VolumeViewItem : public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
@@ -46,6 +51,8 @@ class VolumeViewItem : public QQuickItem {
     Q_PROPERTY(QString fallbackReason READ fallbackReason NOTIFY renderPathChanged)
     Q_PROPERTY(QSize referenceSize READ referenceSize NOTIFY renderPathChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
+    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    Q_PROPERTY(QString linkError READ linkError NOTIFY linkChanged)
 public:
     enum Mode { Composite = 0, MaximumIntensity = 1 };
     Q_ENUM(Mode)
@@ -97,6 +104,16 @@ public:
     QString fallbackReason() const { return m_fallbackReason; }
     QSize referenceSize() const { return m_referenceSize; }
     QString lastError() const { return m_error; }
+    // Background volume work is in flight (an image or a texture pack).
+    bool busy() const { return m_busy; }
+    // Why the transfer function or cursor is ignored (D-260), else empty.
+    QString linkError() const { return m_linkError; }
+    // Stops the running image/texture work; the view keeps its last frame
+    // until the next change asks for a new one.
+    Q_INVOKABLE void cancelRendering();
+    // {started, completed, rejected, canceled}: jobs begun, frames shown,
+    // obsolete results discarded, jobs stopped by cancelRendering().
+    Q_INVOKABLE QVariantMap renderStatistics() const;
 
     // Orbit by a delta (yaw wraps to −180…180, pitch clamps to ±90).
     Q_INVOKABLE void orbit(double deltaYaw, double deltaPitch);
@@ -118,6 +135,8 @@ signals:
     void appearanceChanged();
     void renderPathChanged();
     void errorChanged();
+    void busyChanged();
+    void linkChanged();
     void picked(const QVariantList &voxel);
 protected:
     QSGNode *updatePaintNode(QSGNode *old, UpdatePaintNodeData *) override;
@@ -129,6 +148,11 @@ private:
     void fail(const QString &message);
     void publishPath(const QString &path, const QString &reason, const QSize &referenceSize);
     QString probeGpu() const;
+    void refreshLinks();
+    void startJob(VolumeRenderWorker::Kind kind, const QSize &size);
+    void delivered(const VolumeRenderWorker::Result &result);
+    void setBusy(bool busy);
+    void waitForWorker();
     QPointer<VoxelVolume> m_volume;
     QPointer<VolumeCursor> m_cursor;
     QPointer<TransferFunctionModel> m_transfer;
@@ -139,9 +163,22 @@ private:
     qint64 m_maximumTextureBytes = 256 * 1024 * 1024;
     QString m_renderPath, m_fallbackReason, m_error;
     QSize m_referenceSize;
-    // Render-thread state, touched only in updatePaintNode (GUI blocked).
-    QImage m_referenceImage;
-    bool m_referenceDirty = true;
+    QString m_linkError;
+    bool m_transferUsable = true, m_cursorLinked = true;
+    // AGENT-GUARD: the fields below are touched only in updatePaintNode (GUI
+    // blocked) and on the GUI thread (worker deliveries, invalidation), never
+    // by the worker, which gets copies in its Request.
+    VolumeRenderWorker *m_worker = nullptr;
+    quint64 m_generation = 1, m_volumeGeneration = 1;
+    quint64 m_requestedGeneration = 0, m_requestedVolumeGeneration = 0;
+    QSize m_requestedSize;
+    QImage m_readyImage;       // a delivered, current reference image
+    QByteArray m_packedBytes;  // a delivered, current texture pack
+    QString m_packedType;
+    int m_packedShape[3] = {0, 0, 0};
+    bool m_imageReady = false, m_packReady = false;
+    bool m_renderCanceled = false, m_busy = false;
+    qint64 m_started = 0, m_completed = 0, m_rejected = 0, m_canceled = 0;
     bool m_textureDirty = true;
     bool m_contentIsGpu = false;
     bool m_packFailed = false;

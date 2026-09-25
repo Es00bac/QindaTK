@@ -52,7 +52,25 @@ public:
     Q_INVOKABLE QVariantMap moveTask(const QString &taskId, const QString &toStatus,
                                      int targetOrder = -1);
     Q_INVOKABLE QVariantMap undoTaskMove();
-    Q_INVOKABLE QVariantMap shiftEventLocal(const QString &eventId, int minutes);
+    // Moves an event by local wall minutes. scope "series" moves the whole
+    // event (its exception and override keys follow); "occurrence" moves one
+    // instance of a recurring event as an override; "following" splits the
+    // series at `occurrenceId` and moves that part (the result names the new
+    // event in `eventId`). All-day events move by whole days (minutes % 1440).
+    Q_INVOKABLE QVariantMap shiftEventLocal(const QString &eventId, int minutes,
+                                            const QString &scope = QStringLiteral("series"),
+                                            const QString &occurrenceId = {});
+    // Replaces the recurrence rule (RecurrenceService shape); an empty map
+    // makes the event single. Exceptions/overrides the new rule no longer
+    // produces are dropped.
+    Q_INVOKABLE QVariantMap setEventRecurrence(const QString &eventId, const QVariantMap &rule);
+    // Adds or removes an EXDATE-style exclusion for one occurrence.
+    Q_INVOKABLE QVariantMap setOccurrenceExcluded(const QString &eventId, const QString &occurrenceId,
+                                                  bool excluded);
+    // Overrides title/description/location/startLocal/endLocal of one
+    // occurrence (RECURRENCE-ID); an empty map restores the series values.
+    Q_INVOKABLE QVariantMap setOccurrenceOverride(const QString &eventId, const QString &occurrenceId,
+                                                  const QVariantMap &fields);
     Q_INVOKABLE QVariantMap undoEventChange();
     Q_INVOKABLE QVariantMap exportSnapshot() const;
 
@@ -74,6 +92,9 @@ private:
     QVariantMap result(bool ok, const QString &error = {}) const;
     void setStatus(const QString &status, const QString &error = {});
     void pushTaskUndo();
+    int eventIndex(const QString &eventId) const;
+    QVariantMap eventError(const QString &error);
+    void commitEvents(const QVariantList &previous);
 
     QString m_filePath;
     QString m_expectedFilePath;

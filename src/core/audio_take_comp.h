@@ -52,7 +52,9 @@ struct AudioTakeComp {
 
 // What plays for one segment after the crossfade policy (D-175): the segment
 // range, the extended range it is heard over, and its fade regions (empty
-// when start == end). A fade-in weight at sample s of [a, b) is
+// when start == end). A fade region belongs to the segment's run (touching
+// segments of one take), so it can reach past the segment's own edges; it
+// only weights the samples the piece plays. A fade-in weight at sample s of [a, b) is
 // t = (s - a + 0.5) / (b - a); linear t, equal power sin(t·π/2); a fade out
 // uses 1 - t and cos(t·π/2).
 struct AudioCompPiece {
@@ -101,9 +103,12 @@ QString setFade(AudioTakeComp &comp, qint64 samples, AudioCompFade shape);
 // Adds takes (unique IDs, same rate); the caller then selects their ranges.
 QString addTakes(AudioTakeComp &comp, const QVector<AudioTake> &takes);
 // The pieces that play (D-175). `auditionTakeId` non-empty: that take alone
-// over its whole coverage inside the comp, without fades.
-QVector<AudioCompPiece> resolve(const AudioTakeComp &comp, const QString &auditionTakeId = {});
-AudioCompPlayback playback(const AudioTakeComp &comp, const QString &auditionTakeId = {});
+// over its coverage inside the comp and inside [auditionStart, auditionEnd)
+// (auditionEnd < 0: to the comp end), without fades.
+QVector<AudioCompPiece> resolve(const AudioTakeComp &comp, const QString &auditionTakeId = {},
+                                qint64 auditionStart = 0, qint64 auditionEnd = -1);
+AudioCompPlayback playback(const AudioTakeComp &comp, const QString &auditionTakeId = {}, qint64 auditionStart = 0,
+                           qint64 auditionEnd = -1);
 // Fade weight of sample `s` in [a, b) (fade in when `in`).
 // Realtime-safe (the render graph calls it per faded sample).
 double fadeWeight(AudioCompFade shape, bool in, qint64 s, qint64 a, qint64 b) noexcept;

@@ -11,7 +11,7 @@ layout(location = 0) out vec2 pixel;
 // stages; params[] is filled in the order documented in volume_raycast.frag.
 layout(std140, binding = 0) uniform buf {
     mat4 mvp;
-    vec4 params[8];
+    vec4 params[11];
 };
 
 out gl_PerVertex { vec4 gl_Position; };

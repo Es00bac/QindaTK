@@ -13,9 +13,14 @@ full-color frames for composition.
 A track has a stable `trackId`, label, reference frame, seed point in source
 pixel coordinates, patch radius and per-frame search radius. `tracks` publishes
 accepted `points` and separate generated `previewPoints`, each with `frame`,
-`x`, `y`, `confidence`, `state` and `source`. Point states are `tracked`, `lost`
-and `corrected`. Track states are `idle`, `running`, `ready`, `lost` and
-`cancelled`.
+`x`, `y`, `rotation` (degrees, clockwise on screen), `scale`, `confidence`,
+`state` and `source`. Point states are `tracked`, `lost` and `corrected`.
+Track states are `idle`, `running`, `ready`, `lost` and `cancelled`. A track's
+`motion` is `translation` (default) or `similarity`, which also solves the
+patch's rotation and uniform scale against the reference.
+`setTrackOptions(trackId, radius, searchRadius, motion)` changes the patch
+radius, search radius and motion model as an undoable edit. Radii are
+tracking-proxy pixels, which equal source pixels for frames up to 4 MP.
 
 `startAnalysis(trackId, startFrame, endFrame, occlusionFrames = 0)` checks the
 reference patch and every frame in the range, then runs on a worker thread
@@ -30,6 +35,10 @@ error around the last trusted point, then refines the integer match to
 subpixel precision with a parabola through the squared-error neighbours (a
 zero-error match is exact and is not refined). A fractional seed keeps its
 offset. Confidence is `max(0, 1 - error/64)`; error above 16 reports `lost`.
+A `similarity` track searches positions under the prior rotation and scale,
+then runs a compass search over position, rotation and scale on bilinear
+samples of the squared error, bounded to 20° and ×1.25 per frame and a total
+scale of 0.25–4. The lost test uses the refined mean absolute error.
 
 **Loss and occlusion.** A lost point keeps the last trusted position and its
 measured confidence; the engine never extrapolates motion. With
@@ -43,8 +52,11 @@ frame, otherwise `ready`. `TrackingPanel` shows reacquired loss as a warning.
 Measured accuracy (tests/cpp/tst_tracking_roto_model.cpp): integer shifts of a
 bounded texture track exactly; smooth texture shifted by 1.3 and 0.6 px per
 frame tracks within 0.2 px (simulation of the same algorithm: mean 0.05 px,
-max 0.09 px). Rotation, scale and perspective change are not modelled; rebase
-the reference or correct points when appearance drifts.
+max 0.09 px). A smooth texture turning 3° and scaling ×1.025 per frame tracks
+within 0.25 px, 0.5° and 0.01 scale (tests/cpp/tst_tracking_roto_motion.cpp).
+Perspective is handled by a four-track corner pin on the mask (below), not by
+a single patch. Rebase the reference or correct points when appearance drifts
+beyond these models.
 
 Generated points do not change accepted edits until `acceptAnalysis(trackId)`.
 `correctPoint(trackId, frame, x, y)` inserts a user point at exact frame ID,
@@ -53,7 +65,19 @@ the selected inclusive range, and `rebaseTrack(trackId, frame)` makes an
 accepted, nonlost point the new reference patch and seed. A later analysis
 starts from the accepted point just before its range when that point is
 trusted. These actions participate in the model's bounded undo/redo history.
-Multi-resolution optical flow and camera solving are later adapter work.
+
+**Results stay separate from accepted edits.** Undo and redo restore accepted
+data only: a live preview and the live analysis state are kept, so undoing an
+edit made while a job ran never discards its finished results or leaves a
+track `running`. Undoing an accept returns its results to preview. A preview
+records the version of every frame it measured (the range and the reference).
+Replacing any of those frames (`setFrame`, `loadFrame`, `loadMediaFrames`)
+cancels a running job and discards a finished preview (state `cancelled`,
+`lastError` names the frame); `acceptAnalysis` also refuses a preview whose
+frames changed, so results measured on stale pixels never apply. A track holds
+at most 4096 accepted points; accepting or correcting past that is refused,
+and `saveToFile` checks the bytes it writes with the loader, so a saved
+document always reopens.
 
 ## Tracking footage
 
@@ -67,8 +91,11 @@ end. A missing file, a range past the last frame, a corrupt (concealed) frame
 or the proxy budget fails the load explicitly. `cancelFrameLoad()` stops it at
 once; frames already stored remain and late frames never apply. `loadedFrames`
 lists the stored frame IDs. `setFrame`/`loadFrame` still accept host images.
-Frames larger than 4 megapixels are refused rather than proxied at a different
-scale.
+A frame above 4 megapixels (for example 3840×2160) is tracked on a smooth
+downscale that fits 4 MP; the model keeps each frame's source size and maps
+positions back to source pixels, so tracks and masks stay in source
+coordinates (a UHD fixture tracks within 0.5 source px). Frames above 64 MP
+are refused. Every frame of an analysis must share the reference's size.
 
 ## Mask contract
 
@@ -103,22 +130,39 @@ sampled at the frame the layer's pixels came from (D-142):
 A missing mask model or key, or a negative layer time, fails the frame and
 keeps the prior rendered frame. Composition time is never used for masks.
 
-`previewTrackedMask(maskId, sourceFrame, targetFrame, trackId)` translates a
-source path by the normalized displacement between two **accepted, nonlost** tracking
-points. It returns a preview path without editing the mask. A user or host can
-accept it with `setMaskKeyframe`; a lost track cannot propagate a mask.
-`applyTrackToMask(maskId, sourceFrame, trackId, fromFrame, toFrame)` keys the
-translated path on every frame of the range with an accepted, nonlost point as
-one undo step and returns `keyedFrames` and `skippedFrames`; lost frames are
-never keyed, so the mask interpolates across them from trusted keys and the
-host can see which frames need a manual key.
+## Masks from tracking
+
+Each mask key carries `source`: `user` (drawn, edited or accepted with
+`setMaskKeyframe`) or `generated` (keyed by tracking, with the `trackIds` that
+generated it). It is stored and reopened with the key; `evaluateMask` reports
+`source: "generated"` when a generated key shapes the frame.
+
+`previewTrackedMask(maskId, sourceFrame, targetFrame, trackId)` moves a source
+path by the motion between two **accepted, nonlost** tracking points and
+returns a preview path without editing the mask. A user or host can accept it
+with `setMaskKeyframe`; a lost track cannot propagate a mask.
+
+`previewPropagation(maskId, sourceFrame, trackIds, fromFrame, toFrame)`
+returns the generated keys for a whole range (`keys`, `keyedFrames`,
+`skippedFrames`, `keptFrames`) without editing anything; `applyPropagation`
+with the same arguments commits them as `generated` keys in one undo step.
+One track moves the path by its translation, plus rotation and scale about the
+tracked point for a `similarity` track; four tracks (corners in order) corner-
+pin it with the perspective map of their quad. Lost or missing frames are
+skipped, so the mask interpolates across them from trusted keys; a frame with
+a user key is kept, never overwritten, and rerunning refreshes generated keys.
+`applyTrackToMask(maskId, sourceFrame, trackId, fromFrame, toFrame)` is the
+one-track form of `applyPropagation`.
+
+## Persistence and limits
 
 `saveToFile(localUrl)` and `loadFromFile(localUrl)` use schema
 `qindatk.tracking-roto` version 1 and atomic local writes. They preserve only
-accepted track points and mask keys. A reopened model needs its source frames
+accepted track points (with pose), track options and mask keys (with source). A reopened model needs its source frames
 rebound before a fresh analysis. Limits are 128 tracks, 128 masks, 512 keys per
-mask, 256 vertices per key, 300 analysis or loaded frames per job, 30
-occlusion frames, 4-megapixel tracking proxies,
+mask, 256 vertices per key, 4096 accepted points per track, 300 analysis or
+loaded frames per job, 30 occlusion frames, 4-megapixel tracking proxies of
+source frames up to 64 megapixels,
 256 MiB aggregate proxy storage, 16-megapixel mask output and a 4 MiB document.
 
 ## Host boundary

@@ -3,10 +3,18 @@
 // voice, beams by beat, rest positions), tuplet brackets and ties across a
 // system break, pagination with forced breaks and justification, the
 // ScoreView snapshot and reading order, part extraction, PDF and image
-// output from the same layout (docs/notation.md#layout).
+// output from the same layout, and the view's canvas matching the PDF/image
+// painter pixel for pixel (docs/notation.md#layout).
 #include "score_model.h"
+#include "score_paint.h"
 
 #include <QFile>
+#include <QQmlComponent>
+#include <QQmlEngine>
+#include <QQuickItem>
+#include <QQuickItemGrabResult>
+#include <QQuickView>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -236,6 +244,48 @@ private slots:
         const double y = staff.top + (8.0 - c5->step) * layout.staffSpace / 2.0;
         QVERIFY(qGray(image.pixel(qRound(c5->x * zoom), qRound(y * zoom))) < 128); // a filled head
         QCOMPARE(qGray(image.pixel(4, 4)), 255);                                    // blank margin
+    }
+
+    void viewCanvasPaintsWhatThePageOutputPaints()
+    {
+        // ScoreView's canvas (ScoreCanvasItem) and PDF/image output share
+        // Score::paintSnapshot; with the output's colours the pixels match.
+        Dense d;
+        QVERIFY(ok(d.model.editEvent(d.eighths[0], QStringLiteral("articulation"), QStringLiteral("accent"))));
+        QVERIFY(ok(d.model.editEvent(d.eighths[0], QStringLiteral("dynamic"), QStringLiteral("mf"))));
+        const QImage page = d.model.renderPageImage(0, 1.0);
+        QQuickView view;
+        view.engine()->addImportPath(QStringLiteral(QINDATK_BUILD_QML_DIR));
+        view.resize(595, 842);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QQmlComponent component(view.engine());
+        component.setData(QByteArrayLiteral("import QtQuick\nimport QindaTK as Tk\n"
+                                            "Tk.ScoreCanvasItem { width: 595; height: 842; surfaceColor: \"white\";"
+                                            " inkColor: \"black\"; mutedColor: \"black\"; borderColor: \"black\";"
+                                            " accentColor: \"black\" }"),
+                          QUrl(QStringLiteral("inline.qml")));
+        QScopedPointer<QObject> root(component.create());
+        QVERIFY2(root, qPrintable(component.errorString()));
+        auto *item = qobject_cast<QQuickItem *>(root.data());
+        QVERIFY(item);
+        item->setProperty("snapshot", d.model.layoutSnapshot(0));
+        item->setParentItem(view.contentItem());
+        const auto grab = item->grabToImage();
+        QVERIFY(grab);
+        QSignalSpy ready(grab.data(), &QQuickItemGrabResult::ready);
+        QVERIFY(!grab->image().isNull() || ready.wait(5000));
+        const QImage shown = grab->image().convertToFormat(QImage::Format_ARGB32).scaled(page.size());
+        QCOMPARE(shown.size(), page.size());
+        int ink = 0, differing = 0;
+        for (int y = 0; y < page.height(); ++y)
+            for (int x = 0; x < page.width(); ++x) {
+                const int a = qGray(page.pixel(x, y)), b = qGray(shown.pixel(x, y));
+                if (a < 128) ++ink;
+                if (std::abs(a - b) > 96) ++differing;
+            }
+        QVERIFY2(ink > 800, qPrintable(QString::number(ink))); // a real page, not two blanks
+        QVERIFY2(differing * 200 < ink, qPrintable(QStringLiteral("%1 of %2").arg(differing).arg(ink)));
     }
 };
 

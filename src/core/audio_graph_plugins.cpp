@@ -36,6 +36,8 @@ void AudioRenderGraph::compilePlugins(const Sources &sources)
                         m_insertParameters.push_back({index, curve});
                 insert.parameterCount = m_insertParameters.size() - insert.parameterFirst;
                 node.insertLatency += insert.latency;
+                if (insert.latency > 0 && node.lanes > PluginIpc::kMaxChannels)
+                    insert.extraLanes = node.lanes - PluginIpc::kMaxChannels;
                 m_inserts.push_back(std::move(insert));
             }
             node.insertCount = m_inserts.size() - node.insertFirst;
@@ -58,6 +60,13 @@ void AudioRenderGraph::compilePlugins(const Sources &sources)
         }
     }
     std::size_t delaySamples = 0;
+    for (Insert &insert : m_inserts) {
+        if (insert.extraLanes == 0) continue;
+        insert.extraBuffer = delaySamples;
+        insert.extraSlot = m_delayCursor.size();
+        m_delayCursor.push_back(0);
+        delaySamples += std::size_t(insert.extraLanes) * std::size_t(insert.latency);
+    }
     for (std::size_t i = 0; i < m_nodes.size(); ++i) {
         Node &node = m_nodes[i];
         for (Route &route : node.routes) {
@@ -89,7 +98,7 @@ int AudioRenderGraph::compensation(const QString &channelId) const
     return -1;
 }
 
-void AudioRenderGraph::runInserts(const Node &node, qint64 start, int frames, double *const in[2],
+void AudioRenderGraph::runInserts(const Node &node, qint64 start, int frames, double *const in[],
                                   const MidiLaunchState *launch) const noexcept
 {
     for (std::size_t k = 0; k < node.insertCount; ++k) {
@@ -119,25 +128,38 @@ void AudioRenderGraph::runInserts(const Node &node, qint64 start, int frames, do
                 }
             }
         }
-        processor->run(start, frames, in, node.lanes);
+        // AGENT-NOTE: plugins get mono or stereo (docs/audio-plugins.md). A
+        // surround channel's front pair goes through the plugin; its other
+        // lanes wait the plugin's latency so the channel stays aligned.
+        processor->run(start, frames, in, std::min(node.lanes, PluginIpc::kMaxChannels));
+        if (insert.extraLanes > 0)
+            delayLines(insert.extraBuffer, insert.extraSlot, insert.latency, insert.extraLanes,
+                       in + PluginIpc::kMaxChannels, in + PluginIpc::kMaxChannels, frames);
     }
 }
 
-void AudioRenderGraph::delayRoute(const Route &route, int lanes, double *const in[2], double *const out[2],
+void AudioRenderGraph::delayRoute(const Route &route, int lanes, double *const in[], double *const out[],
                                   int frames) const noexcept
 {
-    const std::size_t delay = std::size_t(route.delay);
-    int &cursor = m_delayCursor[route.delaySlot];
+    delayLines(route.delayBuffer, route.delaySlot, route.delay, lanes, in, out, frames);
+}
+
+void AudioRenderGraph::delayLines(std::size_t buffer, std::size_t slot, int delay, int lanes, double *const in[],
+                                  double *const out[], int frames) const noexcept
+{
+    const std::size_t length = std::size_t(delay);
+    int &cursor = m_delayCursor[slot];
     for (int l = 0; l < lanes; ++l) {
-        double *line = m_delay.data() + route.delayBuffer + std::size_t(l) * delay;
+        double *line = m_delay.data() + buffer + std::size_t(l) * length;
         std::size_t at = std::size_t(cursor);
         for (int i = 0; i < frames; ++i) {
+            const double x = in[l][i];
             out[l][i] = line[at];
-            line[at] = in[l][i];
-            if (++at == delay) at = 0;
+            line[at] = x;
+            if (++at == length) at = 0;
         }
     }
-    cursor = int((std::size_t(cursor) + std::size_t(frames)) % delay);
+    cursor = int((std::size_t(cursor) + std::size_t(frames)) % length);
 }
 
 } // namespace QindaTK

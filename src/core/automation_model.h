@@ -106,6 +106,11 @@ public:
     QString undoText() const { return canUndo() ? m_history.at(m_cursor - 1).label : QString(); }
     QString redoText() const { return canRedo() ? m_history.at(m_cursor).label : QString(); }
     int historyCount() const { return int(m_history.size()); }
+    // AudioSessionHistory: steps undo() and redo() can reach, and a count of
+    // steps ever recorded here (it never goes back).
+    int undoDepth() const { return int(m_cursor); }
+    int redoDepth() const { return int(m_history.size() - m_cursor); }
+    quint64 historySerial() const { return m_historySerial; }
     bool transportRunning() const { return m_running; }
     QString transportTicksText() const { return QString::number(m_transportTicks); }
     QVariantMap capabilities() const;
@@ -237,6 +242,7 @@ private:
     std::optional<Session> m_session;
     QVector<AutomationChangeSet> m_history;
     qsizetype m_cursor = 0;
+    quint64 m_historySerial = 0;
     bool m_running = false;
     qint64 m_transportTicks = 0;
     QHash<int, QString> m_unavailable; // AutomationMode -> reason

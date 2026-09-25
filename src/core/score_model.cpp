@@ -67,11 +67,11 @@ QVariantMap ScoreModel::ok(const QVariantMap &extra)
     return result;
 }
 
-QVariantMap ScoreModel::failure(const QString &message)
+QVariantMap ScoreModel::failure(const QString &message, const QString &code)
 {
     m_lastError = message;
     emit lastErrorChanged();
-    return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), message}};
+    return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), message}, {QStringLiteral("code"), code}};
 }
 
 void ScoreModel::clearError()
@@ -153,10 +153,14 @@ QVariantMap ScoreModel::capabilities() const
             {QStringLiteral("dynamics"), Score::dynamicNames()},
             {QStringLiteral("interchange"), QStringList{QStringLiteral("qindatk.score/1"), QStringLiteral("musicxml-4.0-partwise")}},
             {QStringLiteral("output"), QStringList{QStringLiteral("pdf"), QStringLiteral("image")}},
+            {QStringLiteral("pickups"), true},
+            // AGENT-CONTRACT: docs/notation.md#not-covered-here lists the same names.
             {QStringLiteral("unsupported"), QStringList{QStringLiteral("grace notes"), QStringLiteral("slurs"),
                                                         QStringLiteral("lyrics"), QStringLiteral("chord symbols"),
-                                                        QStringLiteral("cross-staff notes"), QStringLiteral("repeats"),
-                                                        QStringLiteral("transposing instruments")}}};
+                                                        QStringLiteral("cross-staff notes"), QStringLiteral("repeats and endings"),
+                                                        QStringLiteral("clef changes"), QStringLiteral("multi-measure rests"),
+                                                        QStringLiteral("transposing instruments"),
+                                                        QStringLiteral("tempo marks (the session tempo map owns tempo)")}}};
 }
 
 QVariantList ScoreModel::parts() const
@@ -193,6 +197,7 @@ QVariantList ScoreModel::measures() const
                                    {QStringLiteral("time"), QStringLiteral("%1/%2").arg(measure.numerator).arg(measure.denominator)},
                                    {QStringLiteral("fifths"), measure.fifths},
                                    {QStringLiteral("break"), Score::breakName(measure.breakAfter)},
+                                   {QStringLiteral("pickup"), QString::number(measure.pickup)},
                                    {QStringLiteral("startTicks"), QString::number(starts[m])},
                                    {QStringLiteral("endTicks"), QString::number(starts[m + 1])}});
     }

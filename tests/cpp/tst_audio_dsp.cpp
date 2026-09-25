@@ -155,6 +155,51 @@ private slots:
         QVERIFY(!AudioDsp::spectralPatchRange({100, 300, 0.0, 1000.0, 0.0, 2048, Rate}, buffer->frames));
     }
 
+    void maskBinRangesFollowThePolygon()
+    {
+        // Triangle (0, 1 kHz) – (1000, 1 kHz) – (0, 9 kHz): at sample 500 the
+        // inside is 1 kHz … 5 kHz; bins are 23.4375 Hz apart at N = 2048.
+        const std::vector<AudioDsp::SpectralMaskPolygon> triangle{{{0, 1000.0}, {1000, 1000.0}, {0, 9000.0}}};
+        auto ranges = AudioDsp::maskBinRanges(triangle, 500.0, 2048, Rate);
+        QCOMPARE(int(ranges.size()), 1);
+        QCOMPARE(ranges[0].first, 43);   // ceil(1000 / 23.4375)
+        QCOMPARE(ranges[0].second, 213); // floor(5000 / 23.4375)
+        QVERIFY(AudioDsp::maskBinRanges(triangle, 1500.0, 2048, Rate).empty()); // past the polygon
+        // Paint dabs are a union: two polygons give both ranges.
+        std::vector<AudioDsp::SpectralMaskPolygon> dabs = triangle;
+        dabs.push_back({{400, 12000.0}, {600, 12000.0}, {600, 14000.0}, {400, 14000.0}});
+        ranges = AudioDsp::maskBinRanges(dabs, 500.0, 2048, Rate);
+        QCOMPARE(int(ranges.size()), 2);
+        QCOMPARE(ranges[1].first, 512);  // 12000 Hz is bin 512 exactly
+        QCOMPARE(ranges[1].second, 597); // floor(14000 / 23.4375)
+    }
+
+    void maskedGainMatchesTheBandAndStaysInsideTheMask()
+    {
+        const auto buffer = tones(48000, {{1500.0, 0.5}, {6000.0, 0.5}});
+        // A rectangle mask is the band edit, bit for bit.
+        AudioDsp::SpectralGainSpec band{12000, 36000, 5000.0, 7000.0, 0.0, 2048, Rate, {}};
+        AudioDsp::SpectralGainSpec masked = band;
+        masked.mask = {{{12000, 5000.0}, {36000, 5000.0}, {36000, 7000.0}, {12000, 7000.0}}};
+        const auto a = AudioDsp::spectralGain(buffer->channel(0), buffer->frames, band);
+        const auto b = AudioDsp::spectralGain(buffer->channel(0), buffer->frames, masked);
+        QVERIFY(a && b);
+        QCOMPARE(b->start, a->start);
+        QVERIFY(b->samples == a->samples);
+        // A mask covering only the second half of the range leaves the first
+        // half's frames exactly as they were and removes the tone after it.
+        masked.mask = {{{24000, 5000.0}, {36000, 5000.0}, {36000, 7000.0}, {24000, 7000.0}}};
+        const auto half = AudioDsp::spectralGain(buffer->channel(0), buffer->frames, masked);
+        QVERIFY(half);
+        auto processed = makeBuffer(48000);
+        processed->samples = buffer->samples;
+        std::copy(half->samples.begin(), half->samples.end(), processed->samples.begin() + half->start);
+        for (qint64 i = 12000; i < 24000 - 1024; ++i) QCOMPARE(processed->samples[size_t(i)], buffer->samples[size_t(i)]);
+        QVERIFY(magnitudes(*processed, 2048, 30720)[256] < 1e-5f);                 // 6 kHz removed inside
+        QVERIFY(std::fabs(magnitudes(*processed, 2048, 30720)[64] - 0.5f) < 1e-5f); // 1.5 kHz kept
+        QVERIFY(std::fabs(magnitudes(*processed, 2048, 16384)[256] - 0.5f) < 1e-5f); // 6 kHz kept before
+    }
+
     void spectralProcessingCancels()
     {
         const auto buffer = tones(48000, {{1500.0, 0.5}});

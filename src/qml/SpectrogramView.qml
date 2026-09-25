@@ -8,8 +8,10 @@ import QindaTK as Tk
 // it does not run FFT, interpret normalization, or apply spectral processing.
 // The reference host is Tk.AudioSpectrogramSource (tiles, boundaries, metadata)
 // plus AudioSession.edits.preview/commitPreview for processRequested
-// (docs/audio-editing.md, D-136/D-137). The committed selection is host state
-// in sample/Hz coordinates, so it keeps its place through zoom.
+// (docs/audio-editing.md, D-136/D-137/D-186). The committed selection and the
+// committed mask are host state in sample/Hz coordinates, so they keep their
+// place through zoom. processRequested's `parameters` ({mask} for a mask) are
+// merged into the edit map as they are.
 T.Control {
     id: root
 
@@ -27,17 +29,24 @@ T.Control {
     property string statusText: ""
     property string tooltip: ""
     property bool selectionEnabled: true
+    // "rectangle" (time × band), "lasso" (one freehand polygon) or "paint" (brush dabs added to the mask).
+    property string selectionMode: "rectangle"
+    property real brushRadius: Tk.Theme.size.grip
     // Committed region, drawn at any zoom: exact samples and Hz.
     property string selectionStartSample: ""
     property string selectionEndSample: ""
     property real selectionLowHz: 0
     property real selectionHighHz: 0
+    // Committed mask: [[{sample, hz}, …], …], one polygon per lasso or brush dab.
+    property var maskPolygons: []
+    readonly property int maskPointLimit: 4096 // AudioDsp::kMaxMaskPoints
     property string _gestureId: ""
     property int _gestureSerial: 0
     property real _startX: 0
     property real _startY: 0
     property real _endX: 0
     property real _endY: 0
+    property var _path: [] // lasso vertices or paint dab centres, in view pixels
     readonly property int tileCount: root.tiles.length
 
     signal selectionPreviewRequested(string gestureId, string sourceId, string channelId,
@@ -45,9 +54,11 @@ T.Control {
                                      real lowHz, real highHz)
     signal selectionCommitted(string gestureId, string sourceId, string channelId,
                               string startSample, string endSample, real lowHz, real highHz)
+    signal maskCommitted(string gestureId, string sourceId, string channelId, var polygons,
+                         string startSample, string endSample, real lowHz, real highHz)
     signal gestureCanceled(string gestureId)
     signal processRequested(string gestureId, string sourceId, string channelId, string operation,
-                            string startSample, string endSample, real lowHz, real highHz)
+                            string startSample, string endSample, real lowHz, real highHz, var parameters)
     signal zoomRequested(string anchorSample, real anchorHz, real factor)
     signal scrollRequested(real timeFraction, real frequencyFraction)
 
@@ -57,7 +68,7 @@ T.Control {
     Accessible.role: Accessible.Graphic
     Accessible.name: root.tooltip.length ? root.tooltip : qsTr("Spectrogram view")
     Accessible.description: root.statusText.length ? root.statusText
-        : qsTr("%1 point FFT, %2 window, %3 hop, %4 normalization. Delete removes the selected region.")
+        : qsTr("%1 point FFT, %2 window, %3 hop, %4 normalization. R selects rectangles, L draws a lasso, B paints a mask; Delete removes the selected region or mask.")
           .arg(root.fftSize).arg(root.fftWindow).arg(root.hopSize).arg(root.fftNormalization)
     activeFocusOnTab: true
     focus: true
@@ -89,14 +100,61 @@ T.Control {
         if (!(last > first)) return 0
         return Math.max(0, Math.min(1, (Number(wanted) - first) / (last - first)))
     }
+    // Decimal sample strings stay exact past 2^53: add a small offset digit by digit.
+    function addSamples(text, offset) {
+        const value = Number(text)
+        if (Number.isSafeInteger(value) && Number.isSafeInteger(value + offset)) return String(value + offset)
+        const digits = String(text)
+        let out = "", carry = offset
+        for (let i = digits.length - 1; i >= 0 || carry > 0; --i) {
+            const d = (i >= 0 ? Number(digits[i]) : 0) + carry
+            out = String(d % 10) + out
+            carry = Math.floor(d / 10)
+        }
+        return out
+    }
+    function compareSamples(a, b) {
+        const x = String(a), y = String(b)
+        return x.length !== y.length ? x.length - y.length : (x < y ? -1 : x > y ? 1 : 0)
+    }
+    // The sample under x, interpolated inside its column from the exact left boundary.
+    function sampleAtX(x) {
+        const count = root.sampleBoundaries.length
+        if (count < 2) return ""
+        const position = Math.max(0, Math.min(1, x / Math.max(1, root.width))) * (count - 1)
+        const i = Math.min(count - 2, Math.floor(position))
+        const span = Number(root.sampleBoundaries[i + 1]) - Number(root.sampleBoundaries[i])
+        return root.addSamples(root.sampleBoundaries[i], Math.max(0, Math.round((position - i) * span)))
+    }
     readonly property bool hasSelection: root.selectionStartSample.length > 0
         && root.selectionEndSample.length > 0 && root.selectionStartSample !== root.selectionEndSample
         && root.selectionHighHz > root.selectionLowHz
+    readonly property bool hasMask: root.maskPolygons.length > 0
+    // {startSample, endSample, lowHz, highHz} bounding the polygons.
+    function maskExtent(polygons) {
+        let start = "", end = "", low = Infinity, high = -Infinity
+        for (const polygon of polygons)
+            for (const point of polygon) {
+                const s = String(point.sample)
+                if (!start.length || root.compareSamples(s, start) < 0) start = s
+                if (!end.length || root.compareSamples(s, end) > 0) end = s
+                low = Math.min(low, Number(point.hz))
+                high = Math.max(high, Number(point.hz))
+            }
+        return { startSample: start, endSample: end, lowHz: low, highHz: high }
+    }
+    // The committed mask when there is one, otherwise the committed rectangle.
     function requestProcess(operation) {
-        if (!root.enabled || !root.selectionEnabled || !root.hasSelection) return false
+        if (!root.enabled || !root.selectionEnabled || !(root.hasMask || root.hasSelection)) return false
         const id = "spectral-process-" + (++root._gestureSerial).toString()
-        root.processRequested(id, root.sourceId, root.channelId, operation, root.selectionStartSample,
-                              root.selectionEndSample, root.selectionLowHz, root.selectionHighHz)
+        if (root.hasMask) {
+            const e = root.maskExtent(root.maskPolygons)
+            root.processRequested(id, root.sourceId, root.channelId, operation, e.startSample, e.endSample,
+                                  e.lowHz, e.highHz, { mask: root.maskPolygons })
+        } else {
+            root.processRequested(id, root.sourceId, root.channelId, operation, root.selectionStartSample,
+                                  root.selectionEndSample, root.selectionLowHz, root.selectionHighHz, {})
+        }
         return true
     }
     function frequencyAt(y) {
@@ -105,6 +163,22 @@ T.Control {
             return root.minimumHz * Math.pow(root.maximumHz / root.minimumHz, fraction)
         return root.minimumHz + (root.maximumHz - root.minimumHz) * fraction
     }
+    function maskPoint(x, y) { return { sample: root.sampleAtX(x), hz: root.frequencyAt(y) } }
+    // One brush dab: an octagon of brushRadius pixels around (x, y).
+    function dabPolygon(x, y) {
+        const points = []
+        for (let k = 0; k < 8; ++k) {
+            const a = Math.PI * 2 * k / 8
+            points.push(root.maskPoint(Math.max(0, Math.min(root.width, x + root.brushRadius * Math.cos(a))),
+                                       Math.max(0, Math.min(root.height, y + root.brushRadius * Math.sin(a)))))
+        }
+        return points
+    }
+    function _pathCapacity() {
+        let used = 0
+        for (const polygon of root.maskPolygons) used += polygon.length
+        return root.selectionMode === "paint" ? Math.floor((root.maskPointLimit - used) / 8) : root.maskPointLimit
+    }
     function beginSelectionAt(x, y) {
         if (!root.enabled || !root.selectionEnabled || root.sampleBoundaries.length < 2
                 || root._gestureId.length)
@@ -112,6 +186,7 @@ T.Control {
         root._gestureId = "spectral-gesture-" + (++root._gestureSerial).toString()
         root._startX = root._endX = Math.max(0, Math.min(root.width, x))
         root._startY = root._endY = Math.max(0, Math.min(root.height, y))
+        root._path = []
         updateSelectionAt(x, y)
         return true
     }
@@ -119,6 +194,16 @@ T.Control {
         if (!root._gestureId.length) return false
         root._endX = Math.max(0, Math.min(root.width, x))
         root._endY = Math.max(0, Math.min(root.height, y))
+        if (root.selectionMode !== "rectangle") {
+            // Lasso vertices every space.sm pixels; dabs every brush radius.
+            const spacing = root.selectionMode === "paint" ? root.brushRadius : Tk.Theme.space.sm
+            const last = root._path.length ? root._path[root._path.length - 1] : null
+            if ((!last || Math.hypot(root._endX - last.x, root._endY - last.y) >= spacing)
+                    && root._path.length < root._pathCapacity())
+                root._path = root._path.concat([{ x: root._endX, y: root._endY }])
+            spectralCanvas.requestPaint()
+            return true
+        }
         const start = root.sampleAt(Math.min(root._startX, root._endX))
         const end = root.sampleEndAt(Math.max(root._startX, root._endX))
         const low = Math.min(root.frequencyAt(root._startY), root.frequencyAt(root._endY))
@@ -130,22 +215,45 @@ T.Control {
     function finishSelection() {
         if (!root._gestureId.length) return false
         const id = root._gestureId
+        root._gestureId = ""
+        spectralCanvas.requestPaint()
+        if (root.selectionMode !== "rectangle") {
+            const path = root._path
+            root._path = []
+            let polygons = []
+            if (root.selectionMode === "lasso") {
+                if (path.length < 3) { root.gestureCanceled(id); return false }
+                polygons = [path.map(p => root.maskPoint(p.x, p.y))]
+            } else {
+                if (!path.length) { root.gestureCanceled(id); return false }
+                polygons = root.maskPolygons.concat(path.map(p => root.dabPolygon(p.x, p.y)))
+            }
+            const e = root.maskExtent(polygons)
+            root.maskCommitted(id, root.sourceId, root.channelId, polygons, e.startSample, e.endSample,
+                               e.lowHz, e.highHz)
+            return true
+        }
         const start = root.sampleAt(Math.min(root._startX, root._endX))
         const end = root.sampleEndAt(Math.max(root._startX, root._endX))
         const low = Math.min(root.frequencyAt(root._startY), root.frequencyAt(root._endY))
         const high = Math.max(root.frequencyAt(root._startY), root.frequencyAt(root._endY))
-        root._gestureId = ""
         root.selectionCommitted(id, root.sourceId, root.channelId, start, end, low, high)
-        spectralCanvas.requestPaint()
         return true
     }
     function cancelSelection() {
         if (!root._gestureId.length) return false
         const id = root._gestureId
         root._gestureId = ""
+        root._path = []
         root.gestureCanceled(id)
         spectralCanvas.requestPaint()
         return true
+    }
+    // Where a committed mask vertex sits now, in canvas pixels (follows zoom).
+    function maskPointPosition(polygonIndex, pointIndex) {
+        const point = root.maskPolygons[polygonIndex][pointIndex]
+        return Qt.point(root.fractionForSample(point.sample) * spectralCanvas.width,
+                        root.yForFrequency(Number(point.hz)))
     }
 
     background: Rectangle {
@@ -188,24 +296,60 @@ T.Control {
             ctx.fillText(root.formatHz(root.maximumHz), Tk.Theme.space.xs, Tk.Theme.space.xs)
             ctx.textBaseline = "bottom"
             ctx.fillText(root.formatHz(root.minimumHz), Tk.Theme.space.xs, height - Tk.Theme.space.xs)
-            if (root.hasSelection && !root._gestureId.length) {
-                const sx0 = root.fractionForSample(root.selectionStartSample) * width
-                const sx1 = root.fractionForSample(root.selectionEndSample) * width
-                const sy0 = root.yForFrequency(root.selectionHighHz)
-                const sy1 = root.yForFrequency(root.selectionLowHz)
-                ctx.strokeStyle = root.css(Tk.Theme.color.focus)
-                ctx.lineWidth = Tk.Theme.size.border
-                ctx.strokeRect(Math.min(sx0, sx1), sy0, Math.max(Tk.Theme.size.border, Math.abs(sx1 - sx0)),
-                               Math.max(Tk.Theme.size.border, sy1 - sy0))
+            // Committed mask polygons, mapped from sample/Hz at the current zoom.
+            ctx.fillStyle = root.css(Tk.Theme.color.selection)
+            ctx.strokeStyle = root.css(Tk.Theme.color.focus)
+            ctx.lineWidth = Tk.Theme.size.border
+            for (const polygon of root.maskPolygons) {
+                ctx.beginPath()
+                for (let p = 0; p < polygon.length; ++p) {
+                    const x = root.fractionForSample(polygon[p].sample) * width
+                    const y = root.yForFrequency(Number(polygon[p].hz))
+                    if (p === 0) ctx.moveTo(x, y)
+                    else ctx.lineTo(x, y)
+                }
+                ctx.closePath()
+                ctx.globalAlpha = Tk.Theme.opacity.ghost
+                ctx.fill()
+                ctx.globalAlpha = Tk.Theme.opacity.full
+                ctx.stroke()
             }
-            if (root._gestureId.length) {
+            if (!root._gestureId.length) return
+            ctx.fillStyle = root.css(Tk.Theme.color.selection)
+            ctx.globalAlpha = Tk.Theme.opacity.muted
+            if (root.selectionMode === "rectangle") {
                 const x = Math.min(root._startX, root._endX), y = Math.min(root._startY, root._endY)
-                ctx.fillStyle = root.css(Tk.Theme.color.selection)
-                ctx.globalAlpha = Tk.Theme.opacity.muted
                 ctx.fillRect(x, y, Math.max(Tk.Theme.size.border, Math.abs(root._endX - root._startX)),
                              Math.max(Tk.Theme.size.border, Math.abs(root._endY - root._startY)))
-                ctx.globalAlpha = Tk.Theme.opacity.full
+            } else if (root.selectionMode === "lasso" && root._path.length) {
+                ctx.beginPath()
+                ctx.moveTo(root._path[0].x, root._path[0].y)
+                for (let i = 1; i < root._path.length; ++i) ctx.lineTo(root._path[i].x, root._path[i].y)
+                ctx.closePath()
+                ctx.fill()
+            } else {
+                for (const dab of root._path) {
+                    ctx.beginPath()
+                    ctx.arc(dab.x, dab.y, root.brushRadius, 0, Math.PI * 2)
+                    ctx.fill()
+                }
             }
+            ctx.globalAlpha = Tk.Theme.opacity.full
+        }
+        // The committed rectangle, placed from its sample/Hz coordinates at the current zoom.
+        Rectangle {
+            id: selectionOverlay
+            objectName: "spectrogramSelection"
+            readonly property real f0: root.fractionForSample(root.selectionStartSample)
+            readonly property real f1: root.fractionForSample(root.selectionEndSample)
+            visible: root.hasSelection && !root.hasMask && !root._gestureId.length
+            x: Math.min(f0, f1) * spectralCanvas.width
+            width: Math.max(Tk.Theme.size.border, Math.abs(f1 - f0) * spectralCanvas.width)
+            y: root.yForFrequency(root.selectionHighHz)
+            height: Math.max(Tk.Theme.size.border, root.yForFrequency(root.selectionLowHz) - y)
+            color: "transparent"
+            border.color: Tk.Theme.color.focus
+            border.width: Tk.Theme.size.border
         }
     }
     function yForFrequency(hz) {
@@ -214,26 +358,19 @@ T.Control {
             fraction = Math.log(Math.max(root.minimumHz, hz) / root.minimumHz) / Math.log(root.maximumHz / root.minimumHz)
         else
             fraction = (hz - root.minimumHz) / Math.max(1, root.maximumHz - root.minimumHz)
-        return (1 - Math.max(0, Math.min(1, fraction))) * height
+        return (1 - Math.max(0, Math.min(1, fraction))) * spectralCanvas.height
     }
     function formatHz(hz) { return hz >= 1000 ? (hz / 1000).toFixed(1) + " kHz" : Math.round(hz) + " Hz" }
     function css(c) { return "rgba(" + Math.round(c.r * 255) + "," + Math.round(c.g * 255) + "," + Math.round(c.b * 255) + "," + c.a + ")" }
-    onTilesChanged: spectralCanvas.requestPaint()
-    onSampleBoundariesChanged: spectralCanvas.requestPaint()
-    onWidthChanged: spectralCanvas.requestPaint()
-    onHeightChanged: spectralCanvas.requestPaint()
-    onMinimumHzChanged: spectralCanvas.requestPaint()
-    onMaximumHzChanged: spectralCanvas.requestPaint()
-    onFrequencyScaleChanged: spectralCanvas.requestPaint()
-    onSelectionStartSampleChanged: spectralCanvas.requestPaint()
-    onSelectionEndSampleChanged: spectralCanvas.requestPaint()
-    onSelectionLowHzChanged: spectralCanvas.requestPaint()
-    onSelectionHighHzChanged: spectralCanvas.requestPaint()
+    // Everything the canvas reads; any change repaints it.
+    readonly property var _paintInputs: [root.tiles, root.sampleBoundaries, root.width, root.height,
+        root.minimumHz, root.maximumHz, root.frequencyScale, root.maskPolygons]
+    on_PaintInputsChanged: spectralCanvas.requestPaint()
     DragHandler {
         target: null
         enabled: root.enabled && root.selectionEnabled
         onActiveChanged: {
-            if (active) root.beginSelectionAt(centroid.position.x, centroid.position.y)
+            if (active) root.beginSelectionAt(centroid.pressPosition.x, centroid.pressPosition.y)
             else if (root._gestureId.length) root.finishSelection()
         }
         onCentroidChanged: if (active) root.updateSelectionAt(centroid.position.x, centroid.position.y)
@@ -253,10 +390,12 @@ T.Control {
     }
     Keys.onEscapePressed: event => { root.cancelSelection(); event.accepted = true }
     Keys.onPressed: event => {
-        if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
-            root.requestProcess("spectralGain")
-            event.accepted = true
-        }
+        if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) root.requestProcess("spectralGain")
+        else if (event.key === Qt.Key_R) root.selectionMode = "rectangle"
+        else if (event.key === Qt.Key_L) root.selectionMode = "lasso"
+        else if (event.key === Qt.Key_B) root.selectionMode = "paint"
+        else return
+        event.accepted = true
     }
     Tk.ToolTip { visible: hover.hovered && root.tooltip.length > 0; text: root.tooltip }
     HoverHandler { id: hover }

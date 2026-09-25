@@ -205,6 +205,7 @@ QVariantMap ScoreModel::exportMusicXml(const QString &file, const QVariantMap &o
             xml.writeStartElement(QStringLiteral("measure"));
             xml.writeAttribute(QStringLiteral("number"), QString::number(m + 1));
             xml.writeAttribute(QStringLiteral("id"), xmlId(QLatin1Char('M'), measure.id));
+            if (measure.pickup > 0) xml.writeAttribute(QStringLiteral("implicit"), QStringLiteral("yes"));
             if (m > 0 && c.measures[m - 1].breakAfter != ScoreBreak::None) {
                 xml.writeEmptyElement(QStringLiteral("print"));
                 xml.writeAttribute(c.measures[m - 1].breakAfter == ScoreBreak::Page ? QStringLiteral("new-page")

@@ -19,13 +19,27 @@ T.Control {
     property string sourceFrameUrl: ""
     property real sourceAspectRatio: 1
     property string trackingTrackId: ""
+    // Single-frame preview (previewTrackedMask: points) or range preview
+    // (previewPropagation: keys [{frame, points}] with fromFrame/toFrame/trackIds).
     property var propagationPreview: ({})
+    // Range for "Propagate range"; empty strings disable it.
+    property string propagationFrom: ""
+    property string propagationTo: ""
     property string tooltip: qsTr("Edit the selected mask path on this source frame")
     property bool generatedPreview: false
     property real feather: Number(mask.feather || 0)
     readonly property var mask: masks.find(function(item) { return String(item.maskId) === control.maskId }) || ({})
     readonly property var keyframe: (mask.keyframes || []).find(function(item) { return String(item.frame) === String(control.currentFrame) }) || ({})
     readonly property var points: keyframe.points || []
+    // "user" (drawn or accepted) or "generated" (keyed by tracking); "" off-key.
+    readonly property string keySource: keyframe.frame === undefined ? "" : String(keyframe.source || "user")
+    // AGENT-GUARD: previewPropagation's keys arrive as a C++ list (a QML
+    // sequence, for which Array.isArray is false); test for a length instead
+    // (tst_tracking_roto_controls test_range_preview_from_cpp_lists).
+    readonly property bool rangePreview: Boolean(propagationPreview.keys) && propagationPreview.keys.length !== undefined
+    readonly property var previewPath: rangePreview
+        ? ((propagationPreview.keys.find(function(item) { return String(item.frame) === String(control.currentFrame) }) || {}).points || [])
+        : (propagationPreview.points || [])
     readonly property bool previewVisible: generatedPreview || propagationPreview.state === "preview"
     property var _previewPoint: null
     property bool _dragging: false
@@ -35,6 +49,8 @@ T.Control {
     signal maskSelected(string maskId)
     signal propagateRequested(string maskId, string sourceFrame, string targetFrame, string trackId)
     signal acceptPreviewRequested(string maskId, string frame, var points)
+    signal propagateRangeRequested(string maskId, string sourceFrame, string fromFrame, string toFrame, string trackId)
+    signal acceptRangeRequested(string maskId, string sourceFrame, string fromFrame, string toFrame, var trackIds)
     signal cancelPreviewRequested(string maskId, string frame)
     signal pointEditPreviewRequested(string maskId, string frame, var points)
     signal keyframeEditRequested(string maskId, string frame, var points)
@@ -109,7 +125,21 @@ T.Control {
         propagateRequested(String(mask.maskId), String(sourceFrame), String(currentFrame), String(trackingTrackId))
         return true
     }
+    function requestRangePropagation() {
+        if (!mask.maskId || !trackingTrackId || !sourceFrame || !propagationFrom || !propagationTo) return false
+        propagateRangeRequested(String(mask.maskId), String(sourceFrame), String(propagationFrom),
+                                String(propagationTo), String(trackingTrackId))
+        return true
+    }
     function acceptPreview() {
+        if (rangePreview) {
+            if (propagationPreview.state !== "preview" || propagationPreview.ok === false || !mask.maskId
+                    || !propagationPreview.keys.length) return false
+            acceptRangeRequested(String(mask.maskId), String(propagationPreview.sourceFrame),
+                                 String(propagationPreview.fromFrame), String(propagationPreview.toFrame),
+                                 (propagationPreview.trackIds || []).map(String))
+            return true
+        }
         const previewPoints = propagationPreview.points || []
         if (propagationPreview.state !== "preview" || !mask.maskId || previewPoints.length < 3
                 || propagationPreview.ok === false) return false
@@ -161,7 +191,6 @@ T.Control {
                 onActivated: function(index) { control.maskSelected(String(control.masks[index].maskId)) }
             }
             Tk.Spacer { Tk.Flex.grow: 1 }
-            Tk.Caption { id: maskStatus; text: control.previewVisible ? qsTr("GENERATED PREVIEW") : qsTr("EDITABLE MASK"); color: control.previewVisible ? Tk.Theme.color.warning : Tk.Theme.color.textMuted }
             Tk.Button {
                 objectName: "rotoPropagate"
                 text: qsTr("Propagate")
@@ -170,11 +199,23 @@ T.Control {
                 onClicked: control.requestPropagation()
             }
             Tk.Button {
+                objectName: "rotoPropagateRange"
+                text: qsTr("Range")
+                variant: "outline"
+                tooltip: qsTr("Preview tracked keys from %1 to %2").arg(control.propagationFrom).arg(control.propagationTo)
+                visible: control.propagationFrom.length > 0 && control.propagationTo.length > 0
+                enabled: Boolean(control.mask.maskId && control.trackingTrackId)
+                onClicked: control.requestRangePropagation()
+            }
+            Tk.Button {
                 objectName: "rotoAcceptPreview"
                 text: qsTr("Accept preview")
-                tooltip: qsTr("Commit the generated mask path as a keyframe")
+                tooltip: control.rangePreview ? qsTr("Commit the generated keys; user keys stay")
+                                              : qsTr("Commit the generated mask path as a keyframe")
                 visible: control.propagationPreview.state === "preview"
-                enabled: control.propagationPreview.ok !== false && (control.propagationPreview.points || []).length >= 3
+                enabled: control.propagationPreview.ok !== false
+                         && (control.rangePreview ? control.propagationPreview.keys.length > 0
+                                                  : (control.propagationPreview.points || []).length >= 3)
                 onClicked: control.acceptPreview()
             }
             Tk.Button {
@@ -194,6 +235,24 @@ T.Control {
             gap: Tk.Theme.space.sm
             Tk.Caption { text: qsTr("Frame %1").arg(control.currentFrame) }
             Tk.Caption { text: qsTr("%1 points").arg(control.points.length) }
+            Tk.Caption {
+                objectName: "rotoKeySource"
+                text: control.keySource === "generated" ? qsTr("Generated key")
+                      : control.keySource === "user" ? qsTr("User key") : qsTr("No key")
+                color: control.keySource === "generated" ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
+                Accessible.role: Accessible.StaticText
+                Accessible.name: text
+            }
+            // AGENT-NOTE: the status lives on this row, not the header, so the
+            // header's buttons never elide it at compact panel widths.
+            Tk.Caption {
+                id: maskStatus
+                objectName: "rotoStatus"
+                text: !control.previewVisible ? qsTr("EDITABLE MASK")
+                      : control.rangePreview ? qsTr("GENERATED PREVIEW · %1 KEYS").arg(control.propagationPreview.keys.length)
+                      : qsTr("GENERATED PREVIEW")
+                color: control.previewVisible ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
+            }
             Tk.Spacer { Tk.Flex.grow: 1 }
             Tk.Caption { text: qsTr("Feather") }
             Tk.Slider {
@@ -233,7 +292,7 @@ T.Control {
                     onPaint: {
                         const ctx = getContext("2d")
                         ctx.reset()
-                        const preview = control.propagationPreview.points || []
+                        const preview = control.previewPath
                         if (preview.length > 2) {
                             ctx.beginPath()
                             for (let i = 0; i < preview.length; ++i) {
@@ -253,7 +312,7 @@ T.Control {
                             else ctx.lineTo(p.x * width, p.y * height)
                         }
                         ctx.closePath()
-                        ctx.fillStyle = control.previewVisible ? Tk.Theme.color.warning : Tk.Theme.color.accent
+                        ctx.fillStyle = control.previewVisible || control.keySource === "generated" ? Tk.Theme.color.warning : Tk.Theme.color.accent
                         ctx.globalAlpha = 0.18; ctx.fill(); ctx.globalAlpha = 1
                         ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = Tk.Theme.size.border * 2; ctx.stroke()
                     }
@@ -263,6 +322,7 @@ T.Control {
                         function onCurrentFrameChanged() { path.requestPaint() }
                         function onPointsChanged() { path.requestPaint() }
                         function onPropagationPreviewChanged() { path.requestPaint() }
+                        function onKeySourceChanged() { path.requestPaint() }
                     }
                 }
                 Repeater {

@@ -52,8 +52,14 @@ VolumeRenderNode::~VolumeRenderNode() { releaseResources(); }
 void VolumeRenderNode::setVolumeData(QByteArray bytes, const QString &voxelType, int sizeX, int sizeY, int sizeZ)
 {
     m_pending = std::move(bytes);
+    m_hasVolume = true;
     m_voxelType = voxelType;
     m_size[0] = sizeX; m_size[1] = sizeY; m_size[2] = sizeZ;
+}
+void VolumeRenderNode::clearVolume()
+{
+    m_pending.clear();
+    m_hasVolume = false;
 }
 void VolumeRenderNode::setFrame(const VolumeRayGeometry &geometry, const VolumeTransferTable &table,
                                 VolumeRenderMode mode, bool linear, const QSizeF &size)
@@ -193,7 +199,7 @@ void VolumeRenderNode::prepare()
     const float vertices[8] = {0, 0, w, 0, 0, h, w, h};
     updates->updateDynamicBuffer(m_vertexBuffer.get(), 0, sizeof(vertices), vertices);
     // AGENT-CONTRACT (src/shaders/volume_raycast.frag `buf`): the order and
-    // meaning of these eight vec4s is the shader's uniform block.
+    // meaning of these eleven vec4s is the shader's uniform block.
     float uniforms[UniformFloats];
     const QMatrix4x4 mvp = *projectionMatrix() * *matrix();
     std::memcpy(uniforms, mvp.constData(), 16 * sizeof(float));
@@ -211,13 +217,17 @@ void VolumeRenderNode::prepare()
     uniforms[45] = float(1.0 / (m_table.domainMax - m_table.domainMin));
     uniforms[46] = float(VolumeRaycaster::TerminationOpacity);
     uniforms[47] = float(g.maximumSteps);
+    // D-263: below / above / missing transfer entries (straight RGBA 0…1).
+    const std::array<quint8, 4> *specials[] = {&m_table.below, &m_table.above, &m_table.missing};
+    for (int i = 0; i < 3; ++i)
+        for (int c = 0; c < 4; ++c) uniforms[48 + i * 4 + c] = (*specials[i])[c] / 255.0f;
     updates->updateDynamicBuffer(m_uniformBuffer.get(), 0, sizeof(uniforms), uniforms);
     commandBuffer()->resourceUpdate(updates);
 }
 
 void VolumeRenderNode::render(const RenderState *state)
 {
-    if (!m_pipeline || !m_bindings || !m_volumeTexture) return;
+    if (!m_hasVolume || !m_pipeline || !m_bindings || !m_volumeTexture) return;
     QRhiCommandBuffer *cb = commandBuffer();
     cb->setGraphicsPipeline(m_pipeline.get());
     const QSize target = renderTarget()->pixelSize();

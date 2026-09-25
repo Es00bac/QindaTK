@@ -97,7 +97,9 @@ QTextCharFormat resolvedFormat(const RichTextDocument &doc, const CharFormat &di
 
 qreal objectCharAdvance(const QTextCharFormat &format)
 {
-    static QHash<QString, qreal> cache;
+    // AGENT-GUARD: print previews lay out on a worker thread (D-130), so
+    // this memo is per thread; a shared QHash would race.
+    thread_local QHash<QString, qreal> cache;
     const QString key = format.font().key();
     if (const auto found = cache.constFind(key); found != cache.constEnd()) return found.value();
     QTextLayout probe(QString(QChar(ObjectChar)), format.font(), layoutDevice());

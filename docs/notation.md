@@ -22,7 +22,7 @@ ScoreView ──requests──▶ ScoreModel (score_types / rhythm / codec / mod
 | Object | ID | Holds |
 | --- | --- | --- |
 | Score | UUID | title, composer, measures, parts |
-| Measure | UUID, shared by every staff | time signature (n/1…32), key (−7…7 fifths), break after (none, system, page) |
+| Measure | UUID, shared by every staff | time signature (n/1…32), key (−7…7 fifths), break after (none, system, page), pickup length (an anacrusis shorter than the meter) |
 | Part | UUID | name, abbreviation, MIDI channel, 1–4 staves |
 | Staff | UUID | clef (treble, bass, alto), voices 1–4 (voice 1 always exists) |
 | Voice | UUID | events sorted by tick, never overlapping, never crossing a bar line |
@@ -71,7 +71,9 @@ All results are `{ok, error, …}`; each accepted call is one undo step
 | `playbackLocateRequested(measureId, ticks)` | `ScorePlayback.timelineTicksFor(ticks)` |
 
 `editEvent` edits: `duration` (value ID), `dot` (toggle), `tie` (all notes or
-one note ID), `articulation` (toggle), `dynamic`, `pitch` (name, or
+one note ID; a tie with no note of the same pitch right after it is refused
+with `code: "tie-target-missing"`, and tying a chord ties the notes that
+continue), `articulation` (toggle), `dynamic`, `pitch` (name, or
 `{noteId, pitch}`), `step` (±n diatonic, spelled in the key), `transpose`
 (semitones, spelled in the key), `respell` (next enharmonic), `addPitch`,
 `removePitch`, `rest`. Deleting a note leaves a rest of the same value and
@@ -80,7 +82,8 @@ tied-to note drops the tie. Structure: `newScore`, `addPart`, `removePart`,
 `setPart`, `setClef`, `addVoice`, `appendMeasures`, `insertMeasures`,
 `removeMeasures`, `setTimeSignature` and `setKeySignature` (the measure and
 the following ones that had the same value; a meter changes only on
-measures of rests), `setBreak`.
+measures of rests), `setPickup` (on a measure of rests), `setBreak`.
+Refusals carry `error` and a `code`.
 
 ScoreView keys: arrows navigate, Shift+Up/Down move a step, `.` dot, `T` tie,
 `J` respell, `1`…`7` set the value (64th … whole) of the selection and of
@@ -103,7 +106,8 @@ selected event's `label` is the view's accessible description.
   a key change to C shows naturals.
 - Accidentals follow the key, earlier alterations of the same line and
   octave in the measure (every voice of the staff) and ties (a tied-to note
-  shows none). Stems: voice 1 up and 2 down when two voices sound in a
+  shows none and sets no state, so an F sharp tied over the bar line is
+  followed by an F sharp that shows its sharp again). Stems: voice 1 up and 2 down when two voices sound in a
   measure, else by the notes' distance from the middle line. Eighths and
   shorter beam by beat (dotted quarter in compound eighth meters), with
   secondary beams and stubs; unbeamed notes get flags. Seconds in a chord
@@ -123,9 +127,14 @@ every event (measure, part, staff, voice, time) with its spoken label.
 
 ## Output
 
-`exportPdf(file, options)` writes one PDF page per layout page and
-`renderPageImage(page, zoom)` (C++) an image, both through `Score::paintPage`
-from the same layout the view draws.
+`Score::paintSnapshot` is the one painter: ScoreView draws through
+`Tk.ScoreCanvasItem` (objectName `scoreCanvas`) with theme colours, and
+`exportPdf(file, options)` (one PDF page per layout page) and
+`renderPageImage(page, zoom)` (C++) paint the same snapshot in black on
+white through `Score::paintPage`. Clefs, accidentals, noteheads, rests,
+flags, ties, articulations, fermatas, brackets and final bar lines are
+vector paths in staff spaces (score_glyphs.cpp), so no music font is
+needed; text (title, meters, dynamics) uses the theme font.
 
 ## Native file
 
@@ -144,11 +153,15 @@ time-modification, ties, articulations (strong-accent is marcato),
 fermatas, dynamics, keys, meters, system and page breaks, title and
 composer. Native IDs travel as `id` attributes (`N-`, `M-`, `P-` prefixes)
 and `qindatk-score`, `qindatk-staff`, `qindatk-voice`, `qindatk-event`
-processing instructions, so a QindaTK file returns with every ID. Import
-reports `unsupported` element names (grace notes, slurs, lyrics, repeats,
-clef changes, words, …) instead of dropping them silently,
-`durationMismatches` (duration against the written value),
-`roundedPositions` and `filledRests` (voice-1 gaps filled).
+processing instructions, so a QindaTK file returns with every ID. A pickup
+measure is written and read as `implicit="yes"` (`pickups` counts them).
+Nothing is dropped silently: `unsupported` names content not kept (tempo
+from `<sound>`, words, grace notes, slurs, lyrics, repeats, clef changes,
+…) and `recomputed` names engraving hints and metadata that the layout and
+export regenerate (stem, beam, notehead, accidental display, print layout,
+defaults, credit, encoding, tuplet brackets); also `durationMismatches`
+(duration against the written value), `roundedPositions` and `filledRests`
+(voice-1 gaps filled).
 
 ## Playback (D-180)
 
@@ -164,8 +177,14 @@ the score (`retained`). `midiConversion(ppq)` shows the result.
 `ScorePlayback {score; session}`: `sync()` writes the conversion into one
 pattern of `session.midi` (one MIDI undo step), adds a MIDI track named
 after the score and one beat-locked clip at `startTicks`, replacing the
-clip when the score's length changes; `autoSync` re-syncs on every score
-change. The engine then schedules the notes like any pattern, through every
+clip when the score's length or start changes; `autoSync` re-syncs on every
+score change. The link is not remembered but found: the track and pattern
+IDs are UUIDv5 of the score ID (`Score::playbackTrackId`,
+`playbackPatternId`) and the clip is that pattern's clip on that track, so a
+reopened session, a new ScorePlayback or a score set again finds them
+(`trackId`, `patternId`, `clipId` are set before any sync) and a sync never
+adds copies. A sync that fails part-way (a refused clip, a refused MIDI
+commit) undoes the timeline and MIDI steps it made and reports the error. The engine then schedules the notes like any pattern, through every
 tempo and meter change. `scoreTickAt(timeline)`, `timelineTicksFor(tick)`,
 `currentScoreTick()` and `cursor()` map the transport to the score and to
 `locate`. `audition(eventId)` sounds the event's notes on the engine's cue
@@ -175,17 +194,17 @@ voices until `releaseAudition()`.
 
 | Test | Checks |
 | --- | --- |
-| `tst_score_model` | value ticks and IDs, pitch spelling and enharmonics; overwrite entry and rest filling with exact results; undo to the previous content; refusals; tuplet groups and replacement; key and measure accidental context; ties required to match, dropped on overwrite; respell, step, transpose; chords, articulations, dynamics, voices, deletion; measures, meters, keys, breaks; native JSON and file round trip, PPQ refusal |
-| `tst_score_layout` | shared columns in a dense two-voice measure, stems by voice, beams by beat, rest position; tuplet bracket and a tie across a system break; 240 measures over pages with forced system and page breaks and justified systems; snapshot entry positions, labels, reading order and locate; part extraction to layout and MusicXML; PDF and image pixels from the layout |
-| `tst_score_interchange` | MusicXML round trip of the declared set with every ID; a foreign file's grace, slur and lyric reported; MIDI conversion (tie merge, staccato, triplets, 480 PPQ, inexact PPQ refused, stable IDs); session playback at exact samples, through a tempo change, cursor mapping, auto re-sync; chord audition on a running engine |
+| `tst_score_model` | value ticks and IDs, pitch spelling and enharmonics; overwrite entry and rest filling with exact results; undo to the previous content; refusals; tuplet groups and replacement; key and measure accidental context, a sharp tied over the bar line restated; ties required to match (typed refusal, content unchanged), dropped on overwrite; respell, step, transpose; chords, articulations, dynamics, voices, deletion; measures, meters, keys, breaks; native JSON and file round trip, PPQ refusal |
+| `tst_score_layout` | shared columns in a dense two-voice measure, stems by voice, beams by beat, rest position; tuplet bracket and a tie across a system break; 240 measures over pages with forced system and page breaks and justified systems; snapshot entry positions, labels, reading order and locate; part extraction to layout and MusicXML; PDF and image pixels from the layout; the view's ScoreCanvasItem pixels against the page image |
+| `tst_score_interchange` | MusicXML round trip of the declared set with every ID; a foreign file's grace, slur and lyric reported; a pickup bar kept through import and export and its tempo and words reported; MIDI conversion (tie merge, staccato, triplets, 480 PPQ, inexact PPQ refused, stable IDs); session playback at exact samples, through a tempo change, cursor mapping, auto re-sync; the link found again after a session reopen and a score reassignment without duplicates; a failed sync rolled back; chord audition on a running engine |
 | `tst_score_edit.qml` | ScoreView keyboard entry, dot, step, value keys, delete and undo through ScoreModel; rest entry and refusal; a click entering at an exact position |
 
 ## Not covered here
 
-Grace notes, slurs, lyrics, chord symbols, repeats and endings, cross-staff
-notes, clef changes inside a score, transposing instruments and multi-measure
-rests are declared unsupported (`capabilities.unsupported`) and reported on
-import. Engraving uses plain glyphs (letters and Unicode accidentals), not a
-SMuFL music font. Performance measurement, other platforms, screen-reader
-runs, translation and output-fidelity comparison with other notation
-programs are WP-088 to WP-094.
+`capabilities.unsupported` lists exactly: grace notes, slurs, lyrics, chord
+symbols, cross-staff notes, repeats and endings, clef changes, multi-measure
+rests, transposing instruments, and tempo marks (the session tempo map owns
+tempo); MusicXML import reports each of them. Glyphs are vector paths, not
+a SMuFL font. Performance measurement, other platforms, screen-reader runs,
+translation and output-fidelity comparison with other notation programs are
+WP-089 to WP-094.

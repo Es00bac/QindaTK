@@ -17,6 +17,10 @@ model by ID.
 | `connectPorts(fromNode, fromPort, toNode, toPort)` | Validate endpoint direction, identity and matching port types (`any` is a wildcard), reject duplicates and return a stable edge ID. |
 | `moveNode(id, x, y)`, `moveNodes(ids, dx, dy)` | Move one card or a group in one undo step. Edges keep their port associations. |
 | `setNodeTitle`, `removeNode`, `removeNodes(ids)`, `disconnectEdge` | Edit labels and topology. Removing nodes removes incident edges in the same step; `removeNodes` is one step for a whole selection and fails without change if any ID is unknown. |
+| `addGroup(nodeIds, title)`, `removeGroup(groupId)` | Persist a titled card group, or ungroup it (the cards stay), in one undo step. A card belongs to at most one group; removing a card removes it from its group, and a group that loses its last card is dropped. |
+| `alignNodes(ids, edge)` | Align two or more cards in one undo step. `edge` is `left`, `centerX`, `right`, `top`, `centerY` or `bottom`. Cards share one size, so left/top align to the smallest position, right/bottom to the largest and centres to the midpoint; the other axis is untouched. |
+| `distributeNodes(ids, axis)` | Space three or more cards evenly along `horizontal` or `vertical` in one undo step. The outermost cards stay; saved order breaks position ties. |
+| `beginTransaction`, `commitTransaction`, `cancelTransaction` | Group several edits (a card and its ports) into one undo step, or roll them back with the history as it was (D-283). Nested pairs join the outer one; undo and redo are refused while one is open. |
 | `setEdgeFlow(edgeId, amount)` | Set a finite, nonnegative quantity (up to 1 billion) on one edge in one undo step. |
 | `autoLayout(columnStep, rowStep, originX, originY)` | Explicitly arrange a directed graph by rank in one undo step. Manual positions stay untouched until called. |
 | `routeEdges(metrics)` | Return `{edgeId: {points, clear}}`: orthogonal document-space polylines that avoid card interiors. |
@@ -29,8 +33,11 @@ model by ID.
 `nodes` and `edges` are read-only snapshots. Node rows contain `nodeId`,
 `title`, `stencilId`, document-space `x`/`y`, and `inputs`/`outputs` with
 `portId`, `label`, `type`, plus derived `inFlow` and `outFlow` totals. Edge rows
-contain `edgeId`, four endpoint IDs and `flow` (default 1).
-The native file holds these fields and a `version` of 1. A reopen keeps all
+contain `edgeId`, four endpoint IDs and `flow` (default 1). `groups` rows
+contain `groupId`, `title` and `nodeIds`.
+The native file holds these fields and a `version` of 1; a `groups` array
+is written only when the diagram has groups, so older readers and files
+are unaffected. A reopen keeps all
 IDs; it starts a new local undo history.
 Older version-1 files without `flow` reopen with value 1 on each edge.
 
@@ -102,7 +109,20 @@ document-unit grid. Ctrl+Z undoes, Ctrl+Shift+Z or Ctrl+Y redoes, and Escape
 cancels a pending link or drag. With one card or wire selected, the
 `diagramInspector` strip edits its title (`diagramTitleEditor`, commit with
 Enter) or flow (`diagramFlowEditor`); a rejected value restores the stored
-one. Arrows navigate nodes, Space arms the selected
+one. The same strip adds an input or output port to the single selected card
+(`diagramAddInput`, `diagramAddOutput`). With two or more cards selected it
+shows the arrange commands `diagramArrange_<left|centerX|right|top|centerY|bottom>`
+and `diagramArrange_<horizontal|vertical>` (distribute, three or more cards),
+which call `alignSelection(edge)` / `distributeSelection(axis)`.
+
+`DiagramCanvas.stencils` lists `{type, title, inputs, outputs}` records; the
+toolbar's Add menu offers them and `addStencil(type, x, y)` creates the card
+and its typed ports in one transaction, so one Undo removes the whole drop.
+The toolbar Group button and Ctrl+G group the selection with `addGroup`;
+Ctrl+Shift+G or the Ungroup button removes the selected group. Dragging or
+nudging a group frame moves its members with one `moveNodes`. A refused
+request (a card already grouped, too few cards to distribute) is reported on
+the graph's status line. Arrows navigate nodes, Space arms the selected
 output, and Enter connects it to the selected input. Middle drag pans and
 Ctrl+wheel zooms around the pointer. `selectedNodeId`, `selectedEdgeId`,
 `zoom`, `panX` and `panY` describe the local view. The underlying `NodeGraph`
@@ -140,14 +160,19 @@ reopenable format.
 `DiagramDocument` and [`CadDocument`](cad.md) are separate models that
 answer the same calls (D-122): `revision`, `canUndo`, `canRedo`,
 `lastError`, `undo()`, `redo()`, `saveToFile(path)`, `loadFromFile(path)`
-and `exportSvg(path)`. Their views (`DiagramCanvas`, `CadViewport`) take a
+and `exportSvg(path)`, plus the transactions of D-283
+(`beginTransaction()`, `commitTransaction()`, `cancelTransaction()`), which
+the views use so that a connect, move, align, stencil drop or CAD tool
+gesture is one canvas transaction. Their views (`DiagramCanvas`, `CadViewport`) take a
 `document` and keep selection and viewport pose (`zoom`, `panX`, `panY`)
 locally.
 
 ## Scope notes
 
 Performance on large graphs, screen-reader runs and output-fidelity
-comparison belong to the deferred qualification packages WP-088 to WP-094.
+comparison are qualification work, which the user deferred to WP-089 to
+WP-094 (WP-088 is a planned Linux platform package, not a deferral).
+GraphML and SVG export do not carry groups; the native file does.
 Visual stencil assets are provider-backed (`stencilId` is stored for the
 host). A shared cross-document session history is the host's composition of
 each document's own history. See

@@ -19,4 +19,10 @@ void gaussianBlur(QImage &image, qreal sigma);
 // pixels, tinted with `color` (alpha included) and blurred with `sigma`.
 void dropShadow(QImage &layer, QPoint offset, qreal sigma, const QColor &color);
 
+// Per-pixel colour adjustment on straight (unpremultiplied) sRGB values, as
+// the SVG export writes it: feColorMatrix "saturate" then feComponentTransfer
+// "linear" (slope = contrast, intercept = 0.5 - 0.5 * contrast + brightness),
+// each clamped to 0..1. Alpha is unchanged.
+void colorAdjust(QImage &layer, qreal brightness, qreal contrast, qreal saturation);
+
 } // namespace QindaTK::CanvasEffects

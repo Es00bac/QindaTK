@@ -4,6 +4,7 @@
 #include "slide_timeline.h"
 
 #include <QElapsedTimer>
+#include <QHash>
 #include <QImage>
 #include <QObject>
 #include <QPointer>
@@ -48,6 +49,10 @@ class SlideShow : public QObject {
     Q_PROPERTY(QString elapsedText READ elapsedText NOTIFY clockChanged)
     Q_PROPERTY(QString timerState READ timerState NOTIFY clockChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
+    // Presenter annotation commands (OFF-23): "pointer", "pen" or "highlight".
+    Q_PROPERTY(QString annotationTool READ annotationTool WRITE setAnnotationTool NOTIFY annotationsChanged)
+    Q_PROPERTY(int annotationCount READ annotationCount NOTIFY annotationsChanged)
+    Q_PROPERTY(bool pointerVisible READ pointerVisible NOTIFY annotationsChanged)
 public:
     explicit SlideShow(QObject *parent = nullptr);
     SlideDeck *deck() const { return m_deck; }
@@ -78,6 +83,12 @@ public:
     QString elapsedText() const;
     QString timerState() const { return m_timerState; }
     QString lastError() const { return m_error; }
+    static constexpr int MaximumStrokes = 500;         // per slide
+    static constexpr int MaximumStrokePoints = 4096;
+    QString annotationTool() const { return m_annotationTool; }
+    void setAnnotationTool(const QString &tool);
+    int annotationCount() const { return int(m_annotations.value(m_slideId).size()); }
+    bool pointerVisible() const { return m_pointerVisible; }
 
     Q_INVOKABLE bool start(const QString &slideId = {});
     Q_INVOKABLE void stop();
@@ -94,6 +105,14 @@ public:
     // "start" (resumes when paused), "pause", "resume", "reset".
     Q_INVOKABLE bool timerAction(const QString &action);
     Q_INVOKABLE QImage renderFrame(int width, int height) const;
+    // Ink on the current slide with the pen or highlight tool; points are
+    // slide pixels ({x, y} maps or points). Kept per slide until the show
+    // stops; visible in every output of the show, never saved or exported.
+    Q_INVOKABLE bool addAnnotationStroke(const QVariantList &points);
+    Q_INVOKABLE void clearAnnotations();
+    // The pointer tool's dot at a slide point; hidden on navigation.
+    Q_INVOKABLE bool setPointer(qreal x, qreal y);
+    Q_INVOKABLE void hidePointer();
 
 signals:
     void deckChanged();
@@ -102,6 +121,7 @@ signals:
     void frameChanged();
     void clockChanged();
     void finished();
+    void annotationsChanged();
 
 private:
     QStringList shownSlides() const;
@@ -127,6 +147,10 @@ private:
     QElapsedTimer m_monotonic;
     qint64 m_lastNanoseconds = 0;
     QString m_error;
+    QString m_annotationTool = QStringLiteral("pointer");
+    QHash<QString, QVector<Slides::AnnotationStroke>> m_annotations;
+    bool m_pointerVisible = false;
+    QPointF m_pointer;
 };
 
 } // namespace QindaTK

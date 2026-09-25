@@ -6,6 +6,7 @@
 
 #include <QHash>
 #include <QImage>
+#include <QJsonObject>
 #include <QObject>
 #include <QPointer>
 #include <QVariantList>
@@ -39,6 +40,7 @@ class SlideDeck : public QObject, public DocumentModel {
     Q_PROPERTY(QVariantList masters READ masterSummaries NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
+    Q_PROPERTY(QString undoText READ undoText NOTIFY historyChanged)
     Q_PROPERTY(bool textEditing READ textEditing NOTIFY textEditChanged)
     Q_PROPERTY(QString textEditObjectId READ textEditObjectId NOTIFY textEditChanged)
     Q_PROPERTY(QindaTK::UndoService *undoService READ undoService NOTIFY historyChanged)
@@ -58,6 +60,7 @@ public:
     QVariantList masterSummaries() const;
     bool canUndo() const;
     bool canRedo() const;
+    QString undoText() const;
     bool textEditing() const { return !m_textObjectId.isEmpty(); }
     QString textEditObjectId() const { return m_textObjectId; }
     UndoService *undoService() const;
@@ -70,6 +73,10 @@ public:
     Q_INVOKABLE QVariantList effects(const QString &slideId) const;
     Q_INVOKABLE QVariantList targetChoices(const QString &slideId) const;
     Q_INVOKABLE QVariantList masterChoices() const;
+    // Distinct colours the deck uses (master background/foreground, then
+    // placeholder and object fills, the default shape fill first), at most 16:
+    // the swatches a fill picker offers.
+    Q_INVOKABLE QStringList documentColors() const;
     Q_INVOKABLE QVariantList placeholderOverrides(const QString &masterId) const;
     Q_INVOKABLE QString notes(const QString &slideId) const;
     Q_INVOKABLE QVariantMap schedule(const QString &slideId) const;
@@ -91,8 +98,24 @@ public:
                                      const QVariantMap &bounds, const QString &text = {});
     Q_INVOKABLE bool removeObject(const QString &objectId);
     Q_INVOKABLE bool moveObject(const QString &objectId, const QVariantMap &bounds);
+    // Replaces the content with unformatted text (hosts and scripts); the
+    // SlideCanvas edits through beginTextEdit so formatting survives.
     Q_INVOKABLE bool setObjectText(const QString &objectId, const QString &text);
+    // One undo step: [{id, bounds: {x, y, width, height}, rotation}] (sets ownBounds).
+    Q_INVOKABLE bool transformObjects(const QVariantList &edits);
+    Q_INVOKABLE bool removeObjects(const QStringList &objectIds);
+    struct ObjectGeometry {
+        QString id;
+        QRectF bounds;
+        double rotation = 0;
+    };
+    // Geometry changes and removals as one step (the SlideCanvas adapter's commit).
+    bool editObjects(const QString &label, const QVector<ObjectGeometry> &geometry, const QStringList &removed);
     Q_INVOKABLE bool setObjectFill(const QString &objectId, const QString &fill);
+    // One undo step for a multi-selection.
+    Q_INVOKABLE bool setObjectsFill(const QStringList &objectIds, const QString &fill);
+    // The resolved rich text of an object as compact fragment JSON.
+    Q_INVOKABLE QString objectTextJson(const QString &objectId) const;
     // Rich text box editing through the shared rich-text stack: the returned
     // document (owned by the deck) holds the object's resolved content; bind
     // it to Tk.RichTextEditor. commit stores it as one deck undo step.
@@ -137,6 +160,11 @@ public:
     Q_INVOKABLE QImage renderFrame(const QString &slideId, int step, const QString &ticks,
                                    int width, int height) const;
     Q_INVOKABLE QString previewDataUrl(const QString &slideId, int width) const;
+    // Exported playback: PNG frames (frame-00000.png, ...) of every build of
+    // the slide at Slides::playbackPositions, painted by paintFrame at
+    // `width` pixels (0: slide width). Returns the frame count, -1 on failure.
+    Q_INVOKABLE int exportPlayback(const QString &slideId, const QString &directory, int framesPerSecond = 30,
+                                   int width = 0);
 
     // DocumentModel
     QObject *modelObject() const override { return const_cast<SlideDeck *>(this); }
@@ -148,6 +176,12 @@ public:
     void publishCommand(const DocumentCommand &command, bool forward) override;
     DocumentCommandPtr composeCommands(const DocumentCommand &first,
                                        const DocumentCommand &second) const override;
+
+    // Edit-time bound of the encoded deck (validate()); at most, and by
+    // default, the codec's 64 MiB decode limit, so every accepted state saves
+    // to a file that reopens. Lower it for small-memory hosts and tests.
+    qsizetype encodedLimit() const { return m_encodedLimit; }
+    void setEncodedLimit(qsizetype bytes);
 
     static QString schemaId() { return QStringLiteral("qindatk.slides.v1"); }
     // Pure JSON codec shared by the DocumentCodec, toJson and the tests.
@@ -196,7 +230,12 @@ private:
     QMetaObject::Connection m_historyConnection;
     QPointer<RichTextDocument> m_textDocument;
     QString m_textObjectId;
+    // The open text box's content as the editor first extracted it: commit
+    // compares against this, so an editor round-trip that only normalises
+    // the JSON is not mistaken for a deliberate change (D-158).
+    QJsonObject m_textBaseline;
     QString m_error;
+    qsizetype m_encodedLimit = Slides::MaximumEncodedBytes;
 };
 
 } // namespace QindaTK

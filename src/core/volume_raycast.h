@@ -8,6 +8,7 @@
 #include <QSizeF>
 #include <QString>
 #include <array>
+#include <functional>
 
 namespace QindaTK {
 class TransferFunctionModel;
@@ -20,18 +21,21 @@ class TransferFunctionModel;
 // drawing what the tests verify.
 
 // 256 straight RGBA8 entries over [domainMin, domainMax]. Both render paths
-// look values up in this table with linear interpolation between entries and
-// clamping at the ends (the GPU samples it as a 256×1 linear texture).
+// look values up in this table with linear interpolation between entries
+// (the GPU samples it as a 256×1 linear texture); a value below or above the
+// domain takes `below`/`above` and a NaN takes `missing` (D-263), which the
+// GPU receives as three uniforms.
 struct VolumeTransferTable {
     static constexpr int Size = 256;
     double domainMin = 0, domainMax = 255;
     std::array<quint8, Size * 4> rgba{};
+    std::array<quint8, 4> below{}, above{}, missing{};
     // Entry k holds colorAt/opacityAt at domainMin + k/255 × span.
     static VolumeTransferTable fromModel(const TransferFunctionModel &model);
     // No transfer model: a gray ramp over center ± width/2 whose opacity
     // equals its gray level.
     static VolumeTransferTable fromWindow(double center, double width);
-    // Straight RGBA in 0…1; a non-finite value is transparent.
+    // Straight RGBA in 0…1: below/above/missing entries outside the domain.
     void lookup(double value, double out[4]) const;
     QImage image() const; // 256×1 RGBA8888, for the GPU upload
 };
@@ -87,10 +91,19 @@ public:
     // Conservative 3D texture side: QRhi reports only the 2D limit and
     // GL_MAX_3D_TEXTURE_SIZE is 2048 on current desktop drivers.
     static constexpr int MaximumTextureSide = 2048;
-    // Premultiplied ARGB32, one ray per pixel centre. Missing samples (out of
-    // bounds, unavailable chunks, NaN) contribute nothing.
+    // Premultiplied ARGB32, one ray per pixel centre. Missing samples
+    // (unavailable chunks, NaN) composite the table's `missing` entry, which
+    // is transparent unless the transfer function sets it; maximum intensity
+    // ignores them. `canceled`, when given, is polled before every ray: a
+    // true answer abandons the frame and returns a null image (D-261).
     static QImage render(const VoxelVolume &volume, const VolumeTransferTable &table,
-                         const VolumeRayParams &params, const QSize &size);
+                         const VolumeRayParams &params, const QSize &size,
+                         const std::function<bool()> &canceled = {});
+    // The same with geometry computed earlier (a worker must not read the
+    // volume's calibration while the GUI thread may reconfigure it; D-261).
+    static QImage render(const VoxelVolume &volume, const VolumeTransferTable &table,
+                         const VolumeRayParams &params, const VolumeRayGeometry &geometry,
+                         const QSize &size, const std::function<bool()> &canceled = {});
     // Premultiplied RGBA (0…1) of the ray through (px, py).
     static void shade(const VoxelVolume &volume, const VolumeTransferTable &table,
                       const VolumeRayParams &params, const VolumeRayGeometry &geometry,
@@ -109,7 +122,8 @@ public:
     // the volume's voxel type, host byte order, for a 3D texture upload.
     // Reads chunk by chunk through the volume's bounded cache. False (and
     // `out` cleared) when a chunk is missing.
-    static bool packTexture(const VoxelVolume &volume, int channel, int frame, QByteArray *out);
+    static bool packTexture(const VoxelVolume &volume, int channel, int frame, QByteArray *out,
+                            const std::function<bool()> &canceled = {});
 };
 
 } // namespace QindaTK

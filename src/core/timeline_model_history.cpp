@@ -247,6 +247,7 @@ void TimelineModel::recordHistory(const TimelineChangeSet &changes, quint64 byte
         m_history.removeLast();
     }
     m_history.push_back({changes, bytes});
+    ++m_historySerial;
     m_historyBytes += bytes;
     m_cursor = m_history.size();
     while (!m_history.isEmpty()

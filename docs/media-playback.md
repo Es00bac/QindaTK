@@ -172,7 +172,7 @@ optionally `resolver`, `catalog`); program mode: `timeline`, `frameWidth`,
 changes and committed timeline revisions. `state` is `empty`, `loading`,
 `ready`, `missing` or `failed`. `presentedFrame`, `presentedTicks`,
 `presentedFrameKey` (`resource@revision#frame`), `presentedTimecode`,
-`presentedSources` and `missingResourceIds` describe the frame on screen;
+`presentedSources` (each `{clipId, resourceId, frame, pts, matrix, range}`, the last two the Y′CbCr decode used; see [video-scopes.md](video-scopes.md#source-coding)) and `missingResourceIds` describe the frame on screen;
 `targetFrame` and `pending` describe where the transport is. `seekFrame`,
 `stepFrame`, `seekTicks` (the frame showing at those ticks), `play`, `stop` and
 `togglePlayback` return transport request IDs; `exportJob(outputPath)` returns

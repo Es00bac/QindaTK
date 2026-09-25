@@ -24,6 +24,12 @@ inline constexpr int MaximumMasters = 64;
 inline constexpr int MaximumLayouts = 64;
 inline constexpr int MaximumPlaceholders = 32;
 inline constexpr double MaximumCoordinate = 100000.0;
+// AGENT-GUARD: resource bounds checked by validate() at edit time, so an
+// accepted edit always encodes within the codec's decode limit (a saved deck
+// can be reopened) and one text edit cannot grow undo memory unnoticed.
+inline constexpr qsizetype MaximumTextBytes = qsizetype(2) * 1024 * 1024; // one fragment, encoded
+inline constexpr qsizetype MaximumEncodedBytes = qsizetype(64) * 1024 * 1024; // decode limit
+inline constexpr qsizetype MaximumPromptLength = 256;
 
 // Text box content: the canonical `qindatk.richtext.fragment` JSON of the
 // rich-text stack (docs/rich-text.md#persistence) plus its derived plain
@@ -31,6 +37,7 @@ inline constexpr double MaximumCoordinate = 100000.0;
 struct TextContent {
     QJsonObject rich;
     QString plain;
+    qsizetype bytes = 0; // compact JSON size of `rich`, set with it (not compared)
     static TextContent fromPlain(const QString &text);
     // Validates through RichTextCodec::fragmentFromJson; nullopt when invalid.
     static std::optional<TextContent> fromFragmentJson(const QJsonObject &json,
@@ -41,6 +48,9 @@ struct TextContent {
 // A master placeholder carries the defaults of one role; a layout
 // placeholder only positions a role (its text, fill and size come from the
 // master). Colors are document data (#rrggbb / #aarrggbb), not theme roles.
+// AGENT-NOTE: `prompt` ("Click to add title") is authoring chrome, never
+// content: only the editing canvas paints it, and only while the resolved
+// text is empty. Audience output, previews and export never see it.
 struct Placeholder {
     QString role;
     QString label;
@@ -49,6 +59,7 @@ struct Placeholder {
     QString fill;          // empty: transparent
     double fontSize = 24;  // slide pixels
     TextContent text;
+    QString prompt;
     friend bool operator==(const Placeholder &, const Placeholder &) = default;
 };
 
@@ -81,6 +92,7 @@ struct SlideObject {
     QString fill;
     double fontSize = 0; // 0: inherit (placeholder) or 24
     TextContent text;
+    double rotation = 0; // degrees clockwise about the bounds centre; part of ownBounds
     bool locked = false;
     bool visible = true;
     bool ownBounds = false;
@@ -137,6 +149,8 @@ struct ResolvedObject {
     QString fill;
     double fontSize = 24;
     TextContent text;
+    double rotation = 0;
+    QString prompt; // the placeholder's authoring prompt (editing canvas only)
     bool locked = false;
     bool visible = true;
     bool inheritedBounds = false;
@@ -166,8 +180,17 @@ DeckState defaultDeck();
 void ensureLayoutObjects(const DeckState &deck, Slide &slide);
 QString newId(const QString &prefix);
 
+// An upper bound of encodeState's size for `deck` without the header and
+// extensions: exact text fragment sizes plus worst-case records.
+qsizetype encodedBytesUpperBound(const DeckState &deck);
+// Heap retained by one undo step holding `before` and `after`: only what
+// the edit detached is counted (unchanged slides share storage), with text
+// charged at its plain and fragment sizes. A deliberate upper estimate.
+quint64 retainedBytes(const DeckState &before, const DeckState &after);
+
 // First problem of a structurally complete deck (unique IDs, references,
-// bounds, colors, enums, time ranges); empty when valid.
-QString validate(const DeckState &deck);
+// bounds, colors, enums, time ranges, text and encoded size against
+// `encodedLimit`); empty when valid.
+QString validate(const DeckState &deck, qsizetype encodedLimit = MaximumEncodedBytes);
 
 } // namespace QindaTK::Slides

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "print_adapter_p.h"
+#include "print_preview_renderer_p.h"
 
 #include <algorithm>
 
@@ -156,7 +157,9 @@ void PrintAdapter::invalidateOutput()
 {
     m_cache.clear();
     m_cacheBytes = 0;
+    m_pending.clear(); // results of the old generation are dropped on arrival
     ++m_generation;
+    if (m_renderer) m_renderer->setGeneration(m_generation);
     m_preflightStale = true;
     emit outputChanged();
     emit previewChanged();
@@ -218,50 +221,6 @@ bool PrintAdapter::applySettings(const QVariantMap &patch)
     emit settingsChanged();
     invalidateOutput();
     return true;
-}
-
-QImage PrintAdapter::previewImage(int pageIndex, double zoom)
-{
-    RichTextLayout *pages = layout();
-    if (!pages || pageIndex < 0 || pageIndex >= pages->pageCount() || !(zoom > 0) || zoom > 8) return {};
-    const QString key = QStringLiteral("%1@%2").arg(pageIndex).arg(zoom, 0, 'g', 6);
-    const auto found = m_cache.find(key);
-    if (found != m_cache.end()) {
-        found->lastUse = ++m_cacheClock;
-        return found->image;
-    }
-    const QImage image = Print::renderSheet(*pages, sheetOf(pageIndex), zoom,
-                                            m_ticket.colorMode == QLatin1String("grayscale"), m_images.get());
-    ++m_renderCount;
-    if (!image.isNull()) {
-        m_cache.insert(key, {image, ++m_cacheClock});
-        m_cacheBytes += image.sizeInBytes();
-        trimCache();
-    }
-    emit previewChanged();
-    return image;
-}
-
-void PrintAdapter::setPreviewCacheLimit(int pages)
-{
-    pages = qBound(1, pages, 256);
-    if (pages == m_cacheLimit) return;
-    m_cacheLimit = pages;
-    trimCache();
-    emit previewChanged();
-}
-
-void PrintAdapter::trimCache()
-{
-    // AGENT-GUARD: the cache is bounded by page count and bytes; the image
-    // just rendered has the newest use stamp, so it is evicted last.
-    while (m_cache.size() > m_cacheLimit || (m_cacheBytes > PreviewCacheByteLimit && m_cache.size() > 1)) {
-        auto oldest = m_cache.begin();
-        for (auto it = m_cache.begin(); it != m_cache.end(); ++it)
-            if (it->lastUse < oldest->lastUse) oldest = it;
-        m_cacheBytes -= oldest->image.sizeInBytes();
-        m_cache.erase(oldest);
-    }
 }
 
 QVariantList PrintAdapter::runPreflight()

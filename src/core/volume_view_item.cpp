@@ -1,11 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "volume_view_item.h"
-#include "volume_render_node.h"
-#include <QQuickWindow>
-#include <QSGImageNode>
-#include <QSGRectangleNode>
-#include <QSGRendererInterface>
-#include <rhi/qrhi.h>
 #include <algorithm>
 #include <cmath>
 
@@ -13,12 +7,6 @@ namespace QindaTK {
 namespace {
 constexpr double DefaultYaw = 30, DefaultPitch = 20;
 
-QRhiTexture::Format textureFormat(const QString &voxelType)
-{
-    if (voxelType == QLatin1String("uint16")) return QRhiTexture::R16;
-    if (voxelType == QLatin1String("float32")) return QRhiTexture::R32F;
-    return QRhiTexture::R8;
-}
 double wrapDegrees(double degrees)
 {
     double wrapped = std::fmod(degrees + 180.0, 360.0);
@@ -53,8 +41,11 @@ VolumeViewItem::VolumeViewItem(QQuickItem *parent) : QQuickItem(parent)
     setFlag(ItemHasContents, true);
     m_params.yawDegrees = DefaultYaw;
     m_params.pitchDegrees = DefaultPitch;
+    m_worker = new VolumeRenderWorker(this);
+    m_worker->delivered = [this](const VolumeRenderWorker::Result &result) { delivered(result); };
 }
-VolumeViewItem::~VolumeViewItem() = default;
+VolumeViewItem::~VolumeViewItem() { waitForWorker(); }
+void VolumeViewItem::waitForWorker() { if (m_worker) m_worker->cancelAndWait(); }
 
 void VolumeViewItem::fail(const QString &message)
 {
@@ -62,8 +53,22 @@ void VolumeViewItem::fail(const QString &message)
     m_error = message;
     emit errorChanged();
 }
-void VolumeViewItem::invalidate() { m_referenceDirty = true; update(); }
-void VolumeViewItem::invalidateVolume() { m_textureDirty = true; m_packFailed = false; invalidate(); }
+void VolumeViewItem::invalidate()
+{
+    // A new generation makes every image in flight obsolete (D-261).
+    ++m_generation;
+    m_renderCanceled = false;
+    update();
+}
+void VolumeViewItem::invalidateVolume()
+{
+    ++m_volumeGeneration;
+    m_textureDirty = true;
+    m_packFailed = false;
+    m_packReady = false;
+    m_packedBytes.clear();
+    invalidate();
+}
 void VolumeViewItem::geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry)
 {
     QQuickItem::geometryChange(newGeometry, oldGeometry);
@@ -74,21 +79,31 @@ void VolumeViewItem::releaseResources()
     // The window is going away or changing: the next node is built fresh.
     m_contentIsGpu = false;
     m_textureDirty = true;
+    m_requestedGeneration = m_requestedVolumeGeneration = 0;
 }
 
 void VolumeViewItem::setVolume(VoxelVolume *volume)
 {
     if (m_volume == volume) return;
+    // AGENT-GUARD: the worker may be reading the old volume; it must stop
+    // before this item forgets it (the host may delete it next).
+    waitForWorker();
     if (m_volume) disconnect(m_volume, nullptr, this, nullptr);
     m_volume = volume;
-    if (volume) connect(volume, &VoxelVolume::changed, this, &VolumeViewItem::invalidateVolume);
-    invalidateVolume(); emit sourceChanged();
+    if (volume) {
+        connect(volume, &VoxelVolume::changed, this, [this] { refreshLinks(); invalidateVolume(); });
+        connect(volume, &VoxelVolume::aboutToBeDestroyed, this, &VolumeViewItem::waitForWorker,
+                Qt::DirectConnection);
+    }
+    refreshLinks(); invalidateVolume(); emit sourceChanged();
 }
 void VolumeViewItem::setCursor(VolumeCursor *cursor)
 {
     if (m_cursor == cursor) return;
+    if (m_cursor) disconnect(m_cursor, nullptr, this, nullptr);
     m_cursor = cursor;
-    emit sourceChanged();
+    if (cursor) connect(cursor, &VolumeCursor::changed, this, &VolumeViewItem::refreshLinks);
+    refreshLinks(); emit sourceChanged();
 }
 void VolumeViewItem::setTransfer(TransferFunctionModel *transfer)
 {
@@ -96,8 +111,8 @@ void VolumeViewItem::setTransfer(TransferFunctionModel *transfer)
     if (m_transfer) disconnect(m_transfer, nullptr, this, nullptr);
     m_transfer = transfer;
     // Previews during a transfer gesture repaint too (changed, not committed).
-    if (transfer) connect(transfer, &TransferFunctionModel::changed, this, &VolumeViewItem::invalidate);
-    invalidate(); emit sourceChanged();
+    if (transfer) connect(transfer, &TransferFunctionModel::changed, this, [this] { refreshLinks(); invalidate(); });
+    refreshLinks(); invalidate(); emit sourceChanged();
 }
 void VolumeViewItem::setChannel(int channel)
 {
@@ -209,8 +224,9 @@ void VolumeViewItem::resetView()
 }
 VolumeTransferTable VolumeViewItem::transferTable() const
 {
-    return m_transfer ? VolumeTransferTable::fromModel(*m_transfer)
-                      : VolumeTransferTable::fromWindow(m_windowCenter, m_windowWidth);
+    // A transfer function in another value unit is ignored (linkError).
+    return m_transfer && m_transferUsable ? VolumeTransferTable::fromModel(*m_transfer)
+                                          : VolumeTransferTable::fromWindow(m_windowCenter, m_windowWidth);
 }
 QVariantList VolumeViewItem::pick(double x, double y) const
 {
@@ -222,7 +238,7 @@ QVariantList VolumeViewItem::pick(double x, double y) const
 bool VolumeViewItem::setCursorFromPick(double x, double y)
 {
     const QVariantList voxel = pick(x, y);
-    if (voxel.size() != 3 || !m_cursor) return false;
+    if (voxel.size() != 3 || !m_cursor || !m_cursorLinked) return false;
     if (!m_cursor->volume()) m_cursor->setVolume(m_volume);
     if (!m_cursor->setVoxelPoint(voxel[0].toDouble(), voxel[1].toDouble(), voxel[2].toDouble())) return false;
     emit picked({m_cursor->x(), m_cursor->y(), m_cursor->z()});
@@ -249,7 +265,8 @@ QVariantMap VolumeViewItem::saveSettings() const
             {QStringLiteral("channel"), m_params.channel},
             {QStringLiteral("frame"), m_params.frame},
             {QStringLiteral("windowCenter"), m_windowCenter},
-            {QStringLiteral("windowWidth"), m_windowWidth}};
+            {QStringLiteral("windowWidth"), m_windowWidth},
+            {QStringLiteral("volume"), m_volume ? m_volume->identity() : QVariantMap()}};
 }
 bool VolumeViewItem::restoreSettings(const QVariantMap &settings)
 {
@@ -277,6 +294,18 @@ bool VolumeViewItem::restoreSettings(const QVariantMap &settings)
         fail(QStringLiteral("Invalid volume view settings"));
         return false;
     }
+    // D-260: settings name their dataset; another dataset's (or a missing
+    // channel/frame) are rejected instead of silently applied.
+    if (m_volume) {
+        const QString mismatch = settings.contains(QStringLiteral("volume"))
+            ? m_volume->identityMismatch(settings.value(QStringLiteral("volume")).toMap())
+            : QStringLiteral("The settings do not name their volume");
+        if (!mismatch.isEmpty()) { fail(mismatch); return false; }
+        if (channel >= m_volume->channels() || frame >= m_volume->frames()) {
+            fail(QStringLiteral("The saved channel or frame is outside the volume"));
+            return false;
+        }
+    }
     m_params.yawDegrees = wrapDegrees(yaw);
     m_params.pitchDegrees = pitch;
     m_params.zoom = zoom;
@@ -299,126 +328,4 @@ bool VolumeViewItem::restoreSettings(const QVariantMap &settings)
     return true;
 }
 
-QString VolumeViewItem::probeGpu() const
-{
-    VolumeGpuProbe probe;
-    QQuickWindow *win = window();
-    const QSGRendererInterface *rif = win ? win->rendererInterface() : nullptr;
-    QRhi *rhi = win ? win->rhi() : nullptr;
-    probe.rhi = rif && QSGRendererInterface::isApiRhiBased(rif->graphicsApi()) && rhi;
-    probe.shaders = VolumeRenderNode::shadersAvailable();
-    if (rhi && m_volume) {
-        probe.threeDimensionalTextures = rhi->isFeatureSupported(QRhi::ThreeDimensionalTextures);
-        probe.formatSupported = rhi->isTextureFormatSupported(textureFormat(m_volume->voxelType()),
-                                                              QRhiTexture::ThreeDimensional);
-        probe.maximumTextureSide = rhi->resourceLimit(QRhi::TextureSizeMax);
-    }
-    QString reason = VolumeRaycaster::gpuUnavailableReason(m_volume, probe, m_maximumTextureBytes,
-                                                           m_renderer == Reference);
-    if (reason.isEmpty() && m_volume && (m_params.channel >= m_volume->channels()
-                                         || m_params.frame >= m_volume->frames()))
-        reason = QStringLiteral("The channel or frame is outside the volume");
-    if (reason.isEmpty() && m_packFailed) reason = QStringLiteral("The volume has missing chunks");
-    return reason;
-}
-void VolumeViewItem::publishPath(const QString &path, const QString &reason, const QSize &referenceSize)
-{
-    if (path == m_renderPath && reason == m_fallbackReason && referenceSize == m_referenceSize) return;
-    // AGENT-GUARD: called during sync on the render thread; the GUI-thread
-    // state and its signal are updated by a queued call, never emitted here.
-    QMetaObject::invokeMethod(this, [this, path, reason, referenceSize] {
-        if (path == m_renderPath && reason == m_fallbackReason && referenceSize == m_referenceSize) return;
-        m_renderPath = path;
-        m_fallbackReason = reason;
-        m_referenceSize = referenceSize;
-        emit renderPathChanged();
-    }, Qt::QueuedConnection);
-}
-
-QSGNode *VolumeViewItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *)
-{
-    QQuickWindow *win = window();
-    if (!win || width() <= 0 || height() <= 0) {
-        delete old;
-        m_contentIsGpu = false;
-        return nullptr;
-    }
-    QSGNode *root = old;
-    if (!root) {
-        root = new QSGNode;
-        root->appendChildNode(win->createRectangleNode());
-        m_contentIsGpu = false;
-        m_referenceDirty = m_textureDirty = true;
-    }
-    auto *background = static_cast<QSGRectangleNode *>(root->firstChild());
-    background->setRect(boundingRect());
-    background->setColor(m_background);
-    QSGNode *content = background->nextSibling();
-    const auto replaceContent = [&](QSGNode *next) {
-        if (content) { root->removeChildNode(content); delete content; }
-        content = next;
-        if (next) root->appendChildNode(next);
-    };
-
-    QString reason = probeGpu();
-    if (reason.isEmpty()) {
-        if (!m_contentIsGpu || !content) {
-            replaceContent(new VolumeRenderNode(win));
-            m_contentIsGpu = true;
-            m_textureDirty = true;
-        }
-        auto *node = static_cast<VolumeRenderNode *>(content);
-        if (m_textureDirty) {
-            QByteArray bytes;
-            if (VolumeRaycaster::packTexture(*m_volume, m_params.channel, m_params.frame, &bytes)) {
-                node->setVolumeData(std::move(bytes), m_volume->voxelType(), m_volume->sizeX(),
-                                    m_volume->sizeY(), m_volume->sizeZ());
-                m_textureDirty = false;
-            } else {
-                m_packFailed = true;
-                reason = QStringLiteral("The volume has missing chunks");
-            }
-        }
-        if (reason.isEmpty()) {
-            node->setFrame(VolumeRayGeometry::compute(*m_volume, m_params, size()), transferTable(),
-                           m_params.mode, m_params.interpolation == VoxelVolume::Linear, size());
-            node->markDirty(QSGNode::DirtyMaterial);
-            publishPath(QStringLiteral("gpu"), {}, {});
-            return root;
-        }
-    }
-
-    // Reference path: the exact CPU image, capped at MaximumReferencePixels.
-    const double factor = std::min(1.0, std::sqrt(MaximumReferencePixels / (width() * height())));
-    const QSize referenceSize(std::max(1, int(std::lround(width() * factor))),
-                              std::max(1, int(std::lround(height() * factor))));
-    bool upload = false;
-    if (m_contentIsGpu || !content) {
-        auto *image = win->createImageNode();
-        image->setOwnsTexture(true);
-        replaceContent(image);
-        m_contentIsGpu = false;
-        upload = true;
-    }
-    if (m_referenceDirty || m_referenceImage.size() != referenceSize) {
-        m_referenceImage = m_volume ? VolumeRaycaster::render(*m_volume, transferTable(), m_params, referenceSize)
-                                    : QImage();
-        if (m_referenceImage.isNull()) {
-            m_referenceImage = QImage(referenceSize, QImage::Format_ARGB32_Premultiplied);
-            m_referenceImage.fill(Qt::transparent);
-        }
-        m_referenceDirty = false;
-        upload = true;
-    }
-    auto *image = static_cast<QSGImageNode *>(content);
-    if (upload) {
-        if (QSGTexture *texture = win->createTextureFromImage(m_referenceImage, QQuickWindow::TextureHasAlphaChannel))
-            image->setTexture(texture); // the node deletes the texture it replaces
-    }
-    image->setRect(boundingRect());
-    const bool exact = referenceSize == QSize(int(std::lround(width())), int(std::lround(height())));
-    image->setFiltering(exact ? QSGTexture::Nearest : QSGTexture::Linear);
-    publishPath(QStringLiteral("reference"), reason, referenceSize);
-    return root;
-}
 } // namespace QindaTK

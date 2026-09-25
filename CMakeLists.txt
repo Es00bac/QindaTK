@@ -93,6 +93,10 @@ endif()
 # The native print backend (WP-053) joins qindatk_widgets when PrintSupport exists.
 if(QINDATK_ENABLE_WIDGETS AND QINDATK_ENABLE_NATIVE_PRINT)
     find_package(Qt6 6.8 QUIET COMPONENTS PrintSupport)
+    # CUPS submits its printer jobs; without it the backend offers print-to-file only.
+    if(TARGET Qt6::PrintSupport)
+        find_package(Cups QUIET)
+    endif()
 endif()
 # AGENT-NOTE: QuickPrivate serves layout_info.cpp (anchor/explicit size
 # detection) and StylusHandler's implementation-only tablet event path (D-015).

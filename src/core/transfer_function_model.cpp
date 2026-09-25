@@ -70,9 +70,12 @@ bool TransferFunctionModel::configure(double minimum, double maximum, const QStr
     if (!std::isfinite(minimum) || !std::isfinite(maximum) || minimum >= maximum) {
         fail(QStringLiteral("Transfer domain must be finite and increasing")); return false;
     }
-    m_min = minimum; m_max = maximum; m_unit = unit;
-    m_points = {{QStringLiteral("low"), minimum, QColor(Qt::black), 0},
-                {QStringLiteral("high"), maximum, QColor(Qt::white), 1}};
+    State loaded;
+    loaded.min = minimum; loaded.max = maximum; loaded.unit = unit;
+    loaded.points = {{QStringLiteral("low"), minimum, QColor(Qt::black), 0},
+                     {QStringLiteral("high"), maximum, QColor(Qt::white), 1}};
+    loaded.missing = {true, QColor(Qt::black), 0};
+    setState(loaded);
     resetHistory(); publish(); emit committed(); return true;
 }
 bool TransferFunctionModel::replacePoints(const QVariantList &points)
@@ -170,6 +173,20 @@ bool TransferFunctionModel::removePoint(const QString &id)
     after.removeAt(index);
     return apply(std::move(after), tr("Remove transfer point"));
 }
+const TransferFunctionModel::Special *TransferFunctionModel::specialFor(double value) const
+{
+    if (!std::isfinite(value)) return &m_missing;
+    if (value < m_min && m_below.set) return &m_below;
+    if (value > m_max && m_above.set) return &m_above;
+    return nullptr;
+}
+QString TransferFunctionModel::classify(double value) const
+{
+    if (!std::isfinite(value)) return QStringLiteral("missing");
+    if (value < m_min) return QStringLiteral("below");
+    if (value > m_max) return QStringLiteral("above");
+    return QStringLiteral("inside");
+}
 TransferFunctionModel::Segment TransferFunctionModel::segmentAt(double value) const
 {
     // Values outside the domain clamp to an endpoint; inside it, the first
@@ -183,7 +200,11 @@ TransferFunctionModel::Segment TransferFunctionModel::segmentAt(double value) co
 }
 QColor TransferFunctionModel::colorAt(double value) const
 {
-    if (!std::isfinite(value)) return Qt::transparent;
+    if (const Special *special = specialFor(value)) {
+        QColor color = special->color;
+        color.setAlpha(int(std::lround(255 * special->opacity)));
+        return color;
+    }
     const Segment s = segmentAt(value);
     const auto mix = [&s](int a, int b) { return int(std::lround(a + s.t * (b - a))); };
     return QColor(mix(s.left->color.red(), s.right->color.red()),
@@ -193,7 +214,7 @@ QColor TransferFunctionModel::colorAt(double value) const
 }
 double TransferFunctionModel::opacityAt(double value) const
 {
-    if (!std::isfinite(value)) return 0;
+    if (const Special *special = specialFor(value)) return special->opacity;
     const Segment s = segmentAt(value);
     return s.left->opacity + s.t * (s.right->opacity - s.left->opacity);
 }
@@ -204,32 +225,5 @@ QVariantList TransferFunctionModel::previewColors(int count) const
     for (int i = 0; i < count; ++i)
         colors.append(colorAt(m_min + (m_max - m_min) * i / (count - 1)).name(QColor::HexRgb));
     return colors;
-}
-QVariantMap TransferFunctionModel::saveSettings() const
-{
-    QVariantList saved;
-    for (const auto &point : m_points)
-        saved.append(QVariantMap{{QStringLiteral("id"), point.id},
-                                 {QStringLiteral("value"), point.value},
-                                 {QStringLiteral("color"), point.color.name(QColor::HexRgb)},
-                                 {QStringLiteral("opacity"), point.opacity}});
-    return {{QStringLiteral("domainMin"), m_min}, {QStringLiteral("domainMax"), m_max},
-            {QStringLiteral("unit"), m_unit}, {QStringLiteral("points"), saved}};
-}
-bool TransferFunctionModel::restoreSettings(const QVariantMap &settings)
-{
-    bool minOk = false, maxOk = false;
-    const double min = settings.value(QStringLiteral("domainMin")).toDouble(&minOk);
-    const double max = settings.value(QStringLiteral("domainMax")).toDouble(&maxOk);
-    if (!minOk || !maxOk || !std::isfinite(min) || !std::isfinite(max) || min >= max) {
-        fail(QStringLiteral("Transfer domain must be finite and increasing")); return false;
-    }
-    // Validated against the domain being restored; nothing changes on failure.
-    QVector<Point> parsed;
-    if (!parsePoints(settings.value(QStringLiteral("points")).toList(), min, max, &parsed)) return false;
-    m_min = min; m_max = max; m_unit = settings.value(QStringLiteral("unit")).toString();
-    m_points = std::move(parsed);
-    resetHistory(); publish(); emit committed();
-    return true;
 }
 } // namespace QindaTK

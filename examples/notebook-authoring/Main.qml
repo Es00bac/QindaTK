@@ -82,6 +82,7 @@ Rectangle {
                 ]),
                 page("page-sketches", "section-field", "Bank sketches", ["ink", "estuary"], [
                     block("sketch-text", "text", { text: "The sandbar curves toward the old pier. Add the north bank marks after the next walk." }),
+                    block("sketch-photo", "image", { resourceId: "bank-sketch", caption: "North bank from the pier" }),
                     block("sketch-ink", "ink", { strokes: [{ id: "stroke-1" }, { id: "stroke-2" }] })
                 ]),
                 page("page-citations", "section-research", "Sources and quotations", ["references"], [
@@ -104,6 +105,8 @@ Rectangle {
     }
     function save() {
         if (!session) return
+        // Typing still inside the idle window reaches the model first.
+        blockEditor.flushDrafts()
         const started = session.uri.length > 0 ? session.requestSave() : session.requestSaveAs(savePath, true)
         statusText = started ? qsTr("Saving to %1…").arg(savePath) : session.lastError
     }
@@ -146,6 +149,9 @@ Rectangle {
         // The photo's file is not on this machine: the block keeps its
         // logical ID and shows the relink notice.
         resolver.registerResource("field-photo", savePath.replace(/[^/]*$/, "missing-sandbar.jpg"))
+        // The sketch ships next to this file: it resolves and is drawn
+        // from the resolver alone (no host AssetProvider).
+        resolver.registerResource("bank-sketch", String(Qt.resolvedUrl("bank-sketch.png")))
         statusText = qsTr("New notebook from the field template · unsaved")
     }
 
@@ -211,6 +217,7 @@ Rectangle {
             currentPageId: "page-lab-log"
             onPageOpened: function(pageId) { root.statusText = qsTr("Opened %1").arg(root.notebook.page(pageId).title) }
             Tk.BlockEditor {
+                id: blockEditor
                 objectName: "notebookBlockEditor"
                 anchors.fill: parent
                 notebook: root.notebook

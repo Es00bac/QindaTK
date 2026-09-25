@@ -71,7 +71,7 @@ bool TraceIndex::setClockDomains(const QVariantList &domains)
     m_cancel.reset();
     ++m_generation;
     m_domains = std::move(next);
-    m_records.clear(); m_byId.clear(); m_threads.clear();
+    m_records.clear(); m_byId.clear(); m_threads.clear(); m_lanes.clear();
     m_rejected = 0; m_truncated = 0; m_busy = false; m_error.clear();
     emit changed();
     return true;
@@ -136,6 +136,7 @@ TraceIndex::Analysis TraceIndex::analyze(const QVariantList &input,
         result.end = std::max(result.end, r.endNs);
     }
     result.threads = threads.values(); result.threads.sort();
+    if (!assignLanes(&result, cancel)) result.cancelled = true;
     return result;
 }
 
@@ -184,12 +185,22 @@ void TraceIndex::cancel()
 void TraceIndex::publish(Analysis result, quint64 generation)
 {
     if (generation != m_generation) return;
-    if (result.replaceDomains && result.error.isEmpty()) m_domains = std::move(result.domains);
+    // AGENT-GUARD (D-165): a failed analysis (bad JSON, unreadable file, over
+    // a cap) reports its error and keeps the current snapshot, like cancel.
+    // Only a successful analysis replaces records; tst_trace_index checks it.
+    if (!result.error.isEmpty()) {
+        m_error = std::move(result.error);
+        m_busy = false;
+        emit changed();
+        return;
+    }
+    if (result.replaceDomains) m_domains = std::move(result.domains);
     m_records = std::move(result.records);
     m_byId.clear();
     for (int i = 0; i < m_records.size(); ++i) m_byId.insert(m_records[i].id, i);
     m_threads = std::move(result.threads);
-    m_error = std::move(result.error);
+    m_lanes = std::move(result.lanes);
+    m_error.clear();
     m_rejected = result.rejected; m_truncated = result.truncated;
     m_start = result.start; m_end = result.end; m_busy = false;
     emit changed();
@@ -199,12 +210,12 @@ void TraceIndex::clear()
 {
     if (m_cancel) m_cancel->store(true);
     m_cancel.reset();
-    ++m_generation; m_records.clear(); m_byId.clear(); m_threads.clear();
+    ++m_generation; m_records.clear(); m_byId.clear(); m_threads.clear(); m_lanes.clear();
     m_error.clear(); m_start = m_end = 0; m_rejected = m_truncated = 0; m_busy = false;
     emit changed();
 }
 
-QVariantMap TraceIndex::recordMap(const Record &r) const
+QVariantMap TraceIndex::recordMap(const Record &r)
 {
     return {{QStringLiteral("id"), r.id}, {QStringLiteral("kind"), r.kind},
             {QStringLiteral("name"), r.name}, {QStringLiteral("category"), r.category},
@@ -292,24 +303,51 @@ QVariantList TraceIndex::queryRangeNs(const QString &fromNs, const QString &toNs
     return out;
 }
 
-QString TraceIndex::exportJson() const
+QString TraceIndex::serialize(const QVector<Record> &records,
+                             const QHash<QString, ClockDomain> &domainsById,
+                             int truncated, int rejected)
 {
     QJsonObject root;
     QJsonArray domains;
-    QStringList domainIds = m_domains.keys(); domainIds.sort();
+    QStringList domainIds = domainsById.keys(); domainIds.sort();
     for (const QString &id : domainIds) {
-        const auto &d = m_domains[id];
+        const auto &d = domainsById[id];
         domains.append(QJsonObject{{QStringLiteral("id"), id},
                                    {QStringLiteral("nanosPerTick"), QString::number(d.nanosPerTick)},
                                    {QStringLiteral("offsetNs"), QString::number(d.offsetNs)}});
     }
     root.insert(QStringLiteral("clockDomains"), domains);
-    root.insert(QStringLiteral("truncatedCount"), m_truncated);
-    root.insert(QStringLiteral("rejectedCount"), m_rejected);
-    QJsonArray records;
-    for (const Record &r : m_records) records.append(QJsonObject::fromVariantMap(recordMap(r)));
-    root.insert(QStringLiteral("records"), records);
+    root.insert(QStringLiteral("truncatedCount"), truncated);
+    root.insert(QStringLiteral("rejectedCount"), rejected);
+    QJsonArray rows;
+    for (const Record &r : records) rows.append(QJsonObject::fromVariantMap(recordMap(r)));
+    root.insert(QStringLiteral("records"), rows);
     return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
+QString TraceIndex::exportJson() const
+{
+    return serialize(m_records, m_domains, m_truncated, m_rejected);
+}
+
+QString TraceIndex::exportJsonAsync()
+{
+    // The worker gets implicitly shared copies: later ingests replace
+    // m_records without touching what is being written.
+    const QString requestId = QStringLiteral("export-%1").arg(++m_exportSerial);
+    const auto records = m_records;
+    const auto domains = m_domains;
+    const int truncated = m_truncated, rejected = m_rejected;
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, requestId] {
+        const QString json = watcher->result();
+        watcher->deleteLater();
+        emit exportReady(requestId, json);
+    });
+    watcher->setFuture(QtConcurrent::run([records, domains, truncated, rejected] {
+        return serialize(records, domains, truncated, rejected);
+    }));
+    return requestId;
 }
 
 } // namespace QindaTK
