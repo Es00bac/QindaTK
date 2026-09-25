@@ -28,12 +28,28 @@ Item {
         if (graphRevision < 0 || !index || !selectedId) return []
         return index.references(selectedId)
     }
-    // AGENT-NOTE: relinkCandidates walks the project tree (bounded in C++),
-    // so it is asked only for a missing asset that something still uses.
-    readonly property var relinkCandidates: {
-        if (graphRevision < 0 || !index || !selectedId || selectedAsset.available
-            || selectedDependents.length === 0) return []
-        return index.relinkCandidates(selectedId)
+    // AGENT-NOTE: relink candidates come from a bounded walk of the project
+    // tree on a worker (relinkCandidatesAsync), asked only when the selection
+    // becomes a missing asset that something still uses, and after a scan;
+    // never from a binding, which would re-walk on every index change.
+    property var relinkCandidates: []
+    property string relinkRequest: ""
+    readonly property string relinkKey: graphRevision >= 0 && index && selectedId
+        && selectedAsset.available === false && selectedDependents.length > 0 ? selectedId : ""
+    onRelinkKeyChanged: requestRelinkCandidates()
+    function requestRelinkCandidates() {
+        relinkCandidates = []
+        relinkRequest = relinkKey && index ? index.relinkCandidatesAsync(relinkKey) : ""
+    }
+    // Missing leaves or cycles anywhere in the selected asset's inputs.
+    readonly property var rebuildBlockers: {
+        if (graphRevision < 0 || !index || !selectedId) return []
+        return index.rebuildBlockers(selectedId)
+    }
+    // What replacing the selected asset rebuilds: {valid: [ids], blocked: [{id, reason}]}.
+    readonly property var rebuildPlan: {
+        if (graphRevision < 0 || !index || !selectedId) return ({valid: [], blocked: []})
+        return index.rebuildPlan(selectedId)
     }
     readonly property var selectedDependents: {
         if (graphRevision < 0 || !index || !selectedId) return []
@@ -50,6 +66,8 @@ Item {
     signal navigateRequested(string assetId)
     signal relinkRequested(string assetId)
     signal rebuildRequested(string assetId)
+    // validIds: the affected outputs whose inputs are all present, inputs first.
+    signal rebuildAffectedRequested(string assetId, var validIds)
     // plan comes from index.relinkPlan: [{sourceId, line, kind, reference,
     // replacement, note}]. The host applies the edits and rescans the sources.
     signal relinkChosen(string assetId, string replacementId, var plan)
@@ -58,7 +76,16 @@ Item {
     implicitHeight: Tk.Theme.size.panelMinHeight
     Accessible.role: Accessible.Grouping
     Accessible.name: tooltip
-    Connections { target: root.index; function onChanged() { root.graphRevision += 1 } }
+    Connections {
+        target: root.index
+        function onChanged() { root.graphRevision += 1 }
+        function onProjectScanFinished() { if (root.relinkKey) root.requestRelinkCandidates() }
+        function onRelinkCandidatesReady(requestId, assetId, candidates) {
+            if (requestId !== root.relinkRequest) return
+            root.relinkRequest = ""
+            root.relinkCandidates = candidates
+        }
+    }
 
     Tk.Flex {
         anchors.fill: parent
@@ -119,122 +146,172 @@ Item {
                     onDoubleClicked: root.navigateRequested(modelData.id)
                 }
             }
-            Tk.Scroll {
-                objectName: "dependencyDetailScroll"
-                implicitWidth: Tk.Theme.size.panelMinWidth
+            Tk.Flex {
+                direction: Tk.Flex.Column
+                gap: Tk.Theme.space.sm
                 Tk.Flex.grow: 1
                 Tk.Flex.basis: 0
                 Tk.Flex.minWidth: 0
-                overflowY: Tk.Scroll.Auto
-                Tk.Flex {
-                    direction: Tk.Flex.Column
-                    align: Tk.Flex.Stretch
-                    gap: Tk.Theme.space.sm
-                    Tk.EmptyState {
-                        visible: !root.selectedId
-                        title: qsTr("Select an asset")
-                        text: qsTr("Inspect inputs, dependents and impact.")
-                    }
-                    Tk.Heading {
-                        objectName: "dependencySelectedTitle"
-                        visible: !!root.selectedId
-                        text: root.selectedAsset.label || root.selectedId
-                        level: 3
-                    }
-                    Tk.Caption {
-                        objectName: "dependencySelectedUri"
-                        visible: !!root.selectedId
-                        text: root.selectedAsset.uri || root.selectedId
-                        wrapMode: Text.WrapAnywhere
-                    }
-                    Tk.Caption {
-                        objectName: "dependencyStatus"
-                        visible: !!root.selectedId
-                        text: root.selectedAsset.available ? qsTr("Available") : qsTr("Missing")
-                        color: root.selectedAsset.available ? Tk.Theme.color.success
-                                                             : Tk.Theme.color.danger
-                    }
+                Tk.Segmented {
+                    id: detailMode
+                    objectName: "dependencyDetailMode"
+                    small: true
+                    model: [qsTr("Details"), qsTr("Graph")]
+                    tooltip: qsTr("Show details or the dependency graph")
+                }
+                Tk.AssetDependencyGraph {
+                    visible: detailMode.currentIndex === 1
+                    Tk.Flex.grow: 1
+                    Tk.Flex.basis: 0
+                    index: root.index
+                    selectedId: root.selectedId
+                    revision: root.graphRevision
+                    onAssetSelected: function(assetId) { root.selectedId = assetId }
+                }
+                Tk.Scroll {
+                    objectName: "dependencyDetailScroll"
+                    implicitWidth: Tk.Theme.size.panelMinWidth
+                    visible: detailMode.currentIndex === 0
+                    Tk.Flex.grow: 1
+                    Tk.Flex.basis: 0
+                    Tk.Flex.minWidth: 0
+                    overflowY: Tk.Scroll.Auto
                     Tk.Flex {
-                        visible: !!root.selectedId
-                        direction: Tk.Flex.Row
-                        gap: Tk.Theme.space.xs
-                        Tk.Button {
-                            objectName: "dependencyNavigate"
-                            text: qsTr("Open")
-                            tooltip: qsTr("Open the selected asset")
-                            onClicked: root.navigateRequested(root.selectedId)
+                        direction: Tk.Flex.Column
+                        align: Tk.Flex.Stretch
+                        gap: Tk.Theme.space.sm
+                        Tk.EmptyState {
+                            visible: !root.selectedId
+                            title: qsTr("Select an asset")
+                            text: qsTr("Inspect inputs, dependents and impact.")
                         }
-                        Tk.Button {
-                            objectName: "dependencyRelink"
-                            text: qsTr("Relink")
-                            tooltip: qsTr("Choose a new location for this asset")
-                            onClicked: root.relinkRequested(root.selectedId)
+                        Tk.Heading {
+                            objectName: "dependencySelectedTitle"
+                            visible: !!root.selectedId
+                            text: root.selectedAsset.label || root.selectedId
+                            level: 3
                         }
-                        Tk.Button {
-                            objectName: "dependencyRebuild"
-                            text: qsTr("Rebuild")
-                            tooltip: qsTr("Request a rebuild for this asset")
-                            available: !!root.selectedAsset.available
-                                       && root.selectedDiagnostics.length === 0
-                            onClicked: root.rebuildRequested(root.selectedId)
+                        Tk.Caption {
+                            objectName: "dependencySelectedUri"
+                            visible: !!root.selectedId
+                            text: root.selectedAsset.uri || root.selectedId
+                            wrapMode: Text.WrapAnywhere
                         }
-                    }
-                    Tk.Overline { visible: !!root.selectedId; title: qsTr("INPUTS") }
-                    Repeater {
-                        model: root.selectedReferences
-                        delegate: Tk.ListRow {
-                            required property var modelData
-                            objectName: "dependencyInput_" + modelData.targetId
-                            text: modelData.targetId
-                            secondaryText: (modelData.line > 0 ? qsTr("line %1 · ").arg(modelData.line) : "")
-                                           + modelData.kind
-                                           + (modelData.available ? "" : qsTr(" · Missing"))
-                            tooltip: qsTr("Inspect input %1").arg(modelData.targetId)
-                            onClicked: root.selectedId = modelData.targetId
+                        Tk.Caption {
+                            objectName: "dependencyStatus"
+                            visible: !!root.selectedId
+                            text: root.selectedAsset.available ? qsTr("Available") : qsTr("Missing")
+                            color: root.selectedAsset.available ? Tk.Theme.color.success
+                                                                 : Tk.Theme.color.danger
                         }
-                    }
-                    Tk.Overline { visible: !!root.selectedId; title: qsTr("USED BY") }
-                    Repeater {
-                        model: root.selectedDependents
-                        delegate: Tk.ListRow {
-                            required property string modelData
-                            text: modelData
-                            tooltip: qsTr("Inspect dependent %1").arg(modelData)
-                            onClicked: root.selectedId = modelData
+                        Tk.Flex {
+                            visible: !!root.selectedId
+                            direction: Tk.Flex.Row
+                            wrap: Tk.Flex.Wrap   // narrow panes keep every action reachable
+                            gap: Tk.Theme.space.xs
+                            Tk.Button {
+                                objectName: "dependencyNavigate"
+                                text: qsTr("Open")
+                                tooltip: qsTr("Open the selected asset")
+                                onClicked: root.navigateRequested(root.selectedId)
+                            }
+                            Tk.Button {
+                                objectName: "dependencyRelink"
+                                text: qsTr("Relink")
+                                tooltip: qsTr("Choose a new location for this asset")
+                                onClicked: root.relinkRequested(root.selectedId)
+                            }
+                            Tk.Button {
+                                objectName: "dependencyRebuild"
+                                text: qsTr("Rebuild")
+                                tooltip: root.rebuildBlockers.length === 0
+                                         ? qsTr("Request a rebuild for this asset")
+                                         : root.rebuildBlockers[0].message
+                                available: root.rebuildBlockers.length === 0
+                                onClicked: root.rebuildRequested(root.selectedId)
+                            }
+                            Tk.Button {
+                                objectName: "dependencyRebuildAffected"
+                                text: qsTr("Rebuild affected")
+                                tooltip: qsTr("Rebuild the outputs that use this asset")
+                                available: root.rebuildPlan.valid.length > 0
+                                onClicked: root.rebuildAffectedRequested(root.selectedId,
+                                                                         root.rebuildPlan.valid)
+                            }
                         }
-                    }
-                    Tk.Caption {
-                        objectName: "dependencyImpact"
-                        visible: !!root.selectedId
-                        text: qsTr("%1 outputs affected: %2")
-                              .arg(root.selectedImpact.length)
-                              .arg(root.selectedImpact.join(", "))
-                        wrapMode: Text.Wrap
-                    }
-                    Tk.Overline {
-                        visible: root.relinkCandidates.length > 0
-                        title: qsTr("RELINK TO")
-                    }
-                    Repeater {
-                        model: root.relinkCandidates
-                        delegate: Tk.ListRow {
-                            required property string modelData
-                            objectName: "dependencyCandidate_" + modelData
-                            text: modelData
-                            tooltip: qsTr("Relink %1 to %2").arg(root.selectedId).arg(modelData)
-                            onClicked: root.relinkChosen(root.selectedId, modelData,
-                                                         root.index.relinkPlan(root.selectedId, modelData))
-                        }
-                    }
-                    Tk.Overline { visible: root.selectedDiagnostics.length > 0; title: qsTr("DIAGNOSTICS") }
-                    Repeater {
-                        model: root.selectedDiagnostics
-                        delegate: Tk.Caption {
-                            required property var modelData
-                            objectName: "dependencyDiagnostic"
-                            text: modelData.message
+                        Tk.Caption {
+                            objectName: "dependencyRebuildBlocked"
+                            visible: !!root.selectedId && root.rebuildBlockers.length > 0
+                            text: root.rebuildBlockers.length > 0
+                                  ? qsTr("Rebuild blocked: %1").arg(root.rebuildBlockers[0].message) : ""
                             color: Tk.Theme.color.danger
                             wrapMode: Text.Wrap
+                        }
+                        Tk.Overline { visible: !!root.selectedId; title: qsTr("INPUTS") }
+                        Repeater {
+                            model: root.selectedReferences
+                            delegate: Tk.ListRow {
+                                required property var modelData
+                                objectName: "dependencyInput_" + modelData.targetId
+                                text: modelData.targetId
+                                secondaryText: (modelData.line > 0 ? qsTr("line %1 · ").arg(modelData.line) : "")
+                                               + modelData.kind
+                                               + (modelData.available ? "" : qsTr(" · Missing"))
+                                tooltip: qsTr("Inspect input %1").arg(modelData.targetId)
+                                onClicked: root.selectedId = modelData.targetId
+                            }
+                        }
+                        Tk.Overline { visible: !!root.selectedId; title: qsTr("USED BY") }
+                        Repeater {
+                            model: root.selectedDependents
+                            delegate: Tk.ListRow {
+                                required property string modelData
+                                text: modelData
+                                tooltip: qsTr("Inspect dependent %1").arg(modelData)
+                                onClicked: root.selectedId = modelData
+                            }
+                        }
+                        Tk.Caption {
+                            objectName: "dependencyImpact"
+                            visible: !!root.selectedId
+                            text: qsTr("%1 outputs affected: %2")
+                                  .arg(root.selectedImpact.length)
+                                  .arg(root.selectedImpact.join(", "))
+                            wrapMode: Text.Wrap
+                        }
+                        Tk.Caption {
+                            objectName: "dependencyRebuildPlan"
+                            visible: !!root.selectedId && root.selectedImpact.length > 0
+                            text: qsTr("Replacing it rebuilds %1 · %2 blocked")
+                                  .arg(root.rebuildPlan.valid.join(", ") || qsTr("nothing"))
+                                  .arg(root.rebuildPlan.blocked.length)
+                            wrapMode: Text.Wrap
+                        }
+                        Tk.Overline {
+                            visible: root.relinkCandidates.length > 0
+                            title: qsTr("RELINK TO")
+                        }
+                        Repeater {
+                            model: root.relinkCandidates
+                            delegate: Tk.ListRow {
+                                required property string modelData
+                                objectName: "dependencyCandidate_" + modelData
+                                text: modelData
+                                tooltip: qsTr("Relink %1 to %2").arg(root.selectedId).arg(modelData)
+                                onClicked: root.relinkChosen(root.selectedId, modelData,
+                                                             root.index.relinkPlan(root.selectedId, modelData))
+                            }
+                        }
+                        Tk.Overline { visible: root.selectedDiagnostics.length > 0; title: qsTr("DIAGNOSTICS") }
+                        Repeater {
+                            model: root.selectedDiagnostics
+                            delegate: Tk.Caption {
+                                required property var modelData
+                                objectName: "dependencyDiagnostic"
+                                text: modelData.message
+                                color: Tk.Theme.color.danger
+                                wrapMode: Text.Wrap
+                            }
                         }
                     }
                 }
