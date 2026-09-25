@@ -14,11 +14,12 @@ file(GLOB qindatk_qml_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEP
 find_package(Qt6Quick3D 6.8 QUIET)
 set(qindatk_quick3d_sources)
 if(NOT TARGET Qt6::Quick3D)
-    list(FILTER qindatk_qml_files EXCLUDE REGEX "(SceneView3DRenderer|MaterialPreviewRenderer)\\.qml$")
+    list(FILTER qindatk_qml_files EXCLUDE REGEX "(SceneView3DRenderer|MaterialPreviewRenderer|ScientificPlot3DRenderer)\\.qml$")
     message(STATUS "QindaTK: optional SceneView3D renderer unavailable (Qt Quick 3D not installed)")
 else()
     list(APPEND qindatk_quick3d_sources
-        core/mesh_rig_geometry.h core/mesh_rig_geometry.cpp)
+        core/mesh_rig_geometry.h core/mesh_rig_geometry.cpp
+        core/scientific_geometry3d.h core/scientific_geometry3d.cpp)
 endif()
 file(GLOB qindatk_js_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.js")
 
@@ -292,6 +293,13 @@ qt_add_qml_module(qindatk
         core/grid.cpp core/grid.h
         core/chart_axis.cpp core/chart_axis.h
         core/scientific_dataset.cpp core/scientific_dataset.h
+        core/scientific_grid.cpp core/scientific_grid.h
+        core/scientific_sampling.cpp core/scientific_sampling.h
+        core/scientific_plot_renderer.cpp core/scientific_plot_renderer.h
+        core/scientific_plot_paint.cpp
+        core/scientific_figure_composer.cpp core/scientific_figure_composer.h
+        core/scientific_scene3d.cpp core/scientific_scene3d.h
+        core/scientific_scene3d_render.cpp
         core/voxel_volume.cpp core/voxel_volume.h
         core/volume_cursor.cpp core/volume_cursor.h
         core/transfer_function_model.cpp core/transfer_function_model.h

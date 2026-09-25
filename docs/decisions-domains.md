@@ -232,3 +232,79 @@ Orphaned comments and cut fields keep their identity across a save. A
 WP-051 version-2 reader reports the new members as ignored and loses them;
 both readers ship in the same round. See
 [references-review.md](references-review.md#persistence).
+
+## D-138 — Scientific data is float64 with explicit gaps and exact units
+
+**Context.** WP-085 plots measurements whose precision, gaps and units must
+survive display and export. Chart models accept loose numbers, treat NaN
+variously and sometimes rescale; an exported figure that silently converted
+millivolts to volts, or drew a missing reading as zero, would be wrong in a
+way no reader can see.
+
+**Decision.** `ScientificDataset` and `ScientificGrid` store IEEE float64,
+reject every non-finite input, and represent a gap only by an explicit
+`missingY` flag or a `null` node. Uncertainty is host-supplied nonnegative
+offsets, symmetric or asymmetric, in X and Y; the toolkit estimates nothing.
+Trace series have strictly increasing X; scatter series accept any X. Units
+are exact strings: a figure whose series, surface or annotations disagree
+with the axis units refuses to draw and names the mismatch, instead of
+converting. Replacement is atomic and bounded (100,000 samples; 1,048,576
+grid nodes).
+
+**Consequences.** A figure shows exactly the numbers given and states its
+gaps. Hosts convert units and window very large arrays before handing them
+over; out-of-core storage is not part of the models.
+
+## D-139 — Figures downsample by envelope and record how
+
+**Context.** A 100,000-sample trace cannot be painted point by point at
+interactive rates, and stride sampling hides the spikes and gaps that
+scientific readers look for.
+
+**Decision.** A trace over `paintPointLimit` keeps, per equal index bucket,
+its first, minimum, maximum and last present sample and its first gap (an M4
+envelope, at most five per bucket). Scatter keeps every k-th sample plus the
+extreme-X/Y samples. Surfaces are sampled once per raster pixel centre in a
+raster of at most 1,024². The method and painted counts are part of the
+export metadata, and `paintedIndices()` exposes the exact selection.
+
+**Consequences.** Extremes and gaps are always visible; line shape between
+them is approximate at high compression, which the metadata declares.
+Performance figures for large data belong to WP-088.
+
+## D-140 — One scene object feeds GPU 3D, software 3D and export
+
+**Context.** Qt Quick 3D gives real shaded surfaces, but it needs an RHI
+backend: headless tests and the software adaptation cannot render it, and a
+figure exported from GPU pixels would differ by driver.
+
+**Decision.** `ScientificScene3D` (C++) owns the data-to-scene transform
+(data Z up, a ±100 cube), the explicit interpolation lattice with holes at
+missing nodes, and an orbit camera expressed as position, quaternion,
+vertical field of view and clip planes. `ScientificGeometry3D` uploads its
+snapshot to Qt Quick 3D with the camera bound to those properties, and the
+software view and PNG/SVG export project the same vertices with the same
+matrices (depth-sorted faces, headlight shading). Coordinates are float32
+only inside the normalized cube; data stays float64.
+
+**Consequences.** Projection, picking, interpolation and export are testable
+headless with exact numbers, and 3D figures export reproducibly on any
+machine. The GPU image adds lighting and antialiasing differences only;
+comparing it with the export belongs to WP-092's output-fidelity work.
+
+## D-141 — Exports embed complete provenance and are byte-reproducible
+
+**Context.** EXT-06 requires reproducible figures with data and parameter
+provenance; the first slice embedded one series' metadata in PNG/SVG.
+
+**Decision.** 2D figures, composed panels and 3D scenes embed one JSON
+document (PNG text chunk, SVG `<metadata>`): every source's identity, units,
+precision, shape, host parameters and full samples or a SHA-256 of the
+lattice, plus all render parameters (axes, viewport, sampling, interpolation,
+colour domain, camera, size). Painting is deterministic for identical inputs,
+size and fonts, so repeated exports are byte-identical. A composite embeds
+each panel's full metadata under its (a), (b) label.
+
+**Consequences.** A figure file alone identifies and verifies its data.
+Large series make large files, since every sample is embedded; hosts that
+need small files export `csvData()`/`metadataJson()` sidecars instead.

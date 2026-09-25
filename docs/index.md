@@ -72,7 +72,7 @@ pages below are the reference.
 | [polar.md](polar.md) | Numeric polar, categorical radar and radial-bar coordinates, validation, selection and export |
 | [uncertainty.md](uncertainty.md) | Declared interval meanings, error bars, continuous bands, provenance and metadata-preserving export |
 | [geographic-map.md](geographic-map.md) | Local GeoJSON vectors, WGS84/Web Mercator semantics, antimeridian wrap, selection, attribution and unsupported tile state |
-| [scientific-plot.md](scientific-plot.md) | Float64 scientific samples, units, missing values, host-supplied uncertainty, calibrated 2D cursor and reproducible figure export |
+| [scientific-plot.md](scientific-plot.md) | Float64 scientific series and sampled surfaces: units, missing values, asymmetric/X uncertainty, multi-series 2D figures, downsampling, 3D surface/scatter with explicit interpolation and camera, reproducible figure and panel export |
 | [event-log.md](event-log.md) | Bounded event ingestion, UTC identity, filtering, pause/follow, selection and CSV data seam |
 | [docking.md](docking.md) | DockModel operations, zones/lanes/groups, the JSON schema, DockHost gestures |
 | [qindastudio-migration.md](qindastudio-migration.md) | Moving QindaStudio onto QindaTK: type map (StudioPanel, DockHost, StudioPill, StudioIcon, StudioTheme → QindaTK), build integration, migration order |
