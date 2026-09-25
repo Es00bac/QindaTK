@@ -28,7 +28,8 @@ QVariantMap entry(const QString &id, const QString &label, const QString &layout
 
 AudioMixerModel::AudioMixerModel(AudioSession *session, TimelineModel *timeline, AutomationModel *automation)
     : QObject(session), m_session(session), m_timeline(timeline), m_automation(automation),
-      m_strips(new AudioMixerStripModel(this))
+      m_strips(new AudioMixerStripModel(this)),
+      m_routing(new AudioMixerStripModel({"portId", "label", "layout", "available"}, this))
 {
     connect(m_timeline, &TimelineModel::revisionChanged, this, [this] { refresh(); });
     connect(m_timeline, &TimelineModel::contentReset, this, [this] { refresh(); });
@@ -80,9 +81,18 @@ QString AudioMixerModel::destinationLabel(const QString &id) const
     const auto port = AudioMixer::parsePort(id);
     if (!port) return channelName(id);
     if (port->main) return tr("Main output");
-    const QString channels = port->count > 1 ? QStringLiteral("%1–%2").arg(port->first).arg(port->first + 1)
+    const QString channels = port->count > 1 ? QStringLiteral("%1–%2").arg(port->first).arg(port->first + port->count - 1)
                                              : QString::number(port->first);
     return tr("Out %1 · %2").arg(channels, port->deviceId);
+}
+
+QString AudioMixerModel::outputLayout(const QString &destinationId) const
+{
+    if (destinationId.isEmpty()) return {};
+    if (const auto port = AudioMixer::parsePort(destinationId))
+        return AudioMixer::layoutName(AudioMixer::layoutForLanes(port->count).value_or(AudioLayout::Stereo));
+    if (destinationId == AudioMixer::masterId()) return QStringLiteral("Stereo");
+    return AudioMixer::layoutName(AudioMixer::strip(m_content, destinationId).layout);
 }
 
 QString AudioMixerModel::activeDeviceId() const
@@ -124,6 +134,8 @@ QVariantList AudioMixerModel::outputPorts() const
     const QString device = activeDeviceId();
     const int channels = activeOutputChannels();
     if (!device.isEmpty()) {
+        if (channels >= 6) add(AudioMixer::devicePortId(device, 1, 6), QStringLiteral("5.1"));
+        if (channels >= 4) add(AudioMixer::devicePortId(device, 1, 4), QStringLiteral("Quad"));
         if (channels >= 2) add(AudioMixer::devicePortId(device, 1, 2), QStringLiteral("Stereo"));
         for (int channel = 1; channel <= channels; ++channel)
             add(AudioMixer::devicePortId(device, channel, 1), QStringLiteral("Mono"));
@@ -134,7 +146,7 @@ QVariantList AudioMixerModel::outputPorts() const
         const QString output = AudioMixer::strip(m_content, channel).output;
         if (listed.contains(output)) continue;
         if (const auto port = AudioMixer::parsePort(output))
-            add(output, port->count > 1 ? QStringLiteral("Stereo") : QStringLiteral("Mono"));
+            add(output, AudioMixer::layoutName(AudioMixer::layoutForLanes(port->count).value_or(AudioLayout::Stereo)));
     }
     return ports;
 }
@@ -201,7 +213,8 @@ QStringList AudioMixerModel::parametersOf(const QString &channelId) const
 {
     QStringList ids{AudioMixer::parameterId(channelId, QStringLiteral("gain")),
                     AudioMixer::parameterId(channelId, QStringLiteral("pan")),
-                    AudioMixer::parameterId(channelId, QStringLiteral("width"))};
+                    AudioMixer::parameterId(channelId, QStringLiteral("width")),
+                    AudioMixer::parameterId(channelId, QStringLiteral("depth"))};
     for (const AudioMixerSend &send : AudioMixer::strip(m_content, channelId).sends)
         ids.push_back(AudioMixer::parameterId(send.id, QStringLiteral("level")));
     return ids;
@@ -238,7 +251,7 @@ QVariantList AudioMixerModel::stripRow(const QString &id, const AudioMixer::Audi
     return {id, channelName(id), kind, AudioMixer::layoutName(settings.layout), settings.output,
             destinationLabel(settings.output), available, muted, soloed, track && track->armed, settings.soloSafe,
             audibility.implicit.contains(id), audibility.muted.contains(id), groupNames, QVariant(sends), isHeld(id),
-            m_hidden.contains(id), track ? track->color : QString()};
+            m_hidden.contains(id), track ? track->color : QString(), outputLayout(settings.output)};
 }
 
 QVariantMap AudioMixerModel::channel(const QString &channelId) const
@@ -280,6 +293,7 @@ void AudioMixerModel::refresh(bool force)
     QStringList held;
     QVector<QVariantList> rows;
     QVariantList sources, connections, buses, destinations, groups;
+    QVector<QVariantList> inputs;
     for (const QString &id : std::as_const(channels)) {
         const bool holding = isHeld(id);
         if (holding) held.push_back(id);
@@ -288,6 +302,7 @@ void AudioMixerModel::refresh(bool force)
         if (!m_hidden.contains(id) || holding) rows.push_back(stripRow(id, audibility));
         const QString layout = AudioMixer::layoutName(AudioMixer::strip(m_content, id).layout);
         sources.push_back(entry(id, channelName(id), layout, true));
+        inputs.push_back({id, channelName(id), layout, true});
         const QString output = AudioMixer::strip(m_content, id).output;
         if (!output.isEmpty())
             connections.push_back(QVariantMap{{QStringLiteral("inputId"), id}, {QStringLiteral("outputId"), output}});
@@ -314,7 +329,9 @@ void AudioMixerModel::refresh(bool force)
     m_destinations = destinations;
     m_groups = groups;
     m_strips->update(rows);
+    m_routing->update(inputs);
     if (different) {
+        prune();
         ++m_revision;
         emit changed();
     }
@@ -330,79 +347,6 @@ void AudioMixerModel::refreshHeld()
     for (const QString &id : std::as_const(m_channels))
         if (isHeld(id)) held.push_back(id);
     if (held != m_held) refresh();
-}
-
-QString AudioMixerModel::ensureParameter(const QString &owner, const QString &kind)
-{
-    QString name;
-    QString channel;
-    if (const AudioMixerSend *send = AudioMixer::isSend(owner) ? findSend(owner, &channel) : nullptr)
-        name = tr("%1 → %2").arg(channelName(channel), channelName(send->target));
-    else if (m_channels.contains(owner))
-        name = channelName(owner);
-    if (name.isEmpty()) {
-        reject(tr("%1 is not a channel or send of this mix").arg(owner));
-        return {};
-    }
-    const auto parameter = AudioMixer::parameterFor(owner, kind, name);
-    if (!parameter) {
-        reject(tr("%1 has no %2 parameter").arg(name, kind));
-        return {};
-    }
-    if (m_automation->lane(parameter->id)) return parameter->id;
-    // AGENT-NOTE: adding a parameter is not an automation history step, and
-    // the mixer never removes one (removeParameter clears that history).
-    OperationError problem;
-    if (!m_automation->addParameter(*parameter, &problem)) {
-        reject(problem.message);
-        return {};
-    }
-    return parameter->id;
-}
-
-AudioParameterBinding *AudioMixerModel::parameterBinding(const QString &owner, const QString &kind)
-{
-    const QString id = ensureParameter(owner, kind);
-    if (id.isEmpty()) return nullptr;
-    AudioParameterBinding *&binding = m_bindings[id];
-    if (!binding) {
-        binding = new AudioParameterBinding(this); // parented: QML never deletes it
-        binding->setSession(m_session);
-        binding->setParameterId(id);
-    }
-    return binding;
-}
-
-AudioMeterModel *AudioMixerModel::meter(const QString &channelId)
-{
-    return m_engine && m_channels.contains(channelId) ? m_engine->channelMeter(channelId) : nullptr;
-}
-
-QVariantMap AudioMixerModel::contentMap() const
-{
-    QVariantMap map = AudioMixer::toMap(m_content);
-    map.insert(QStringLiteral("hidden"), hiddenChannels());
-    return map;
-}
-
-QVariantMap AudioMixerModel::loadContent(const QVariantMap &content)
-{
-    QString error;
-    const auto parsed = AudioMixer::fromMap(content, &error);
-    if (!parsed) return reject(error);
-    QSet<QString> hidden;
-    for (const QString &id : content.value(QStringLiteral("hidden")).toStringList()) {
-        if (!AudioMixer::isTrack(id) && !AudioMixer::bus(*parsed, id) && id != AudioMixer::masterId())
-            return reject(tr("A hidden channel %1 is not part of the mix").arg(id));
-        hidden.insert(id);
-    }
-    m_hidden = hidden;
-    m_history.clear();
-    m_cursor = 0;
-    apply(*parsed);
-    emit historyChanged();
-    emit contentReset();
-    return accepted();
 }
 
 void AudioMixerModel::apply(const AudioMixerContent &next)
@@ -425,6 +369,7 @@ QVariantMap AudioMixerModel::commit(const QString &label, AudioMixerContent next
     if (const QString problem = AudioMixer::validate(next); !problem.isEmpty()) return reject(problem);
     m_history.resize(m_cursor);
     m_history.push_back({label, m_content, next});
+    ++m_serial;
     if (m_history.size() > kHistoryLimit) m_history.removeFirst();
     m_cursor = int(m_history.size());
     apply(next);

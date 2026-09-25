@@ -5,6 +5,7 @@
 #include "audio_graph.h"
 #include "audio_media.h"
 #include "audio_mixer_model.h"
+#include "audio_session_history.h"
 #include "audio_source_edit_model.h"
 #include "audio_take_comp_model.h"
 #include "automation_model.h"
@@ -46,6 +47,8 @@ class AudioSession : public QObject {
     Q_PROPERTY(QindaTK::EngineSchedule *schedule READ schedule CONSTANT)
     Q_PROPERTY(QindaTK::ResourceResolver *resources READ resources CONSTANT)
     Q_PROPERTY(QindaTK::AudioMixerModel *mixer READ mixer CONSTANT)
+    // One Undo/Redo over the timeline, automation and mixer histories (D-110).
+    Q_PROPERTY(QindaTK::AudioSessionHistory *history READ history CONSTANT)
     Q_PROPERTY(QindaTK::AudioSourceEditModel *edits READ edits CONSTANT)
     Q_PROPERTY(QindaTK::MidiSequenceModel *midi READ midi CONSTANT)
     Q_PROPERTY(QindaTK::MidiLauncherModel *launcher READ launcher CONSTANT)
@@ -72,6 +75,7 @@ public:
     EngineSchedule *schedule() const { return m_schedule; }
     ResourceResolver *resources() const { return m_resources; }
     AudioMixerModel *mixer() const { return m_mixer; }
+    AudioSessionHistory *history() const { return m_history; }
     AudioSourceEditModel *edits() const { return m_edits; }
     MidiSequenceModel *midi() const { return m_midi; }
     MidiLauncherModel *launcher() const { return m_launcher; }
@@ -177,9 +181,11 @@ private:
     EngineSchedule *m_schedule = nullptr;
     ResourceResolver *m_resources = nullptr;
     AudioMixerModel *m_mixer = nullptr;
+    AudioSessionHistory *m_history = nullptr;
     AudioSourceEditModel *m_edits = nullptr;
     MidiSequenceModel *m_midi = nullptr;
     MidiLauncherModel *m_launcher = nullptr;
+    bool m_meterRebuildQueued = false;
     AudioTakeCompModel *m_comps = nullptr;
     bool m_passTakes = true;
     QPointer<AudioEngine> m_engine;

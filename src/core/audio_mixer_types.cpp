@@ -78,25 +78,16 @@ std::optional<AutomationParameter> parameterFor(const QString &owner, const QStr
         parameter.range = {UnitDimension::Scalar, QStringLiteral("normalized"), 0.0, 2.0};
         parameter.defaultValue = 1.0;
         parameter.step = 0.01;
+    } else if (kind == QLatin1String("depth") && channel) {
+        parameter.name = tr("%1 depth").arg(name);
+        parameter.range = {UnitDimension::Scalar, QStringLiteral("normalized"), -1.0, 1.0};
+        parameter.defaultValue = 1.0;
+        parameter.step = 0.01;
     } else {
         return std::nullopt;
     }
     return parameter;
 }
-
-QString layoutName(AudioLayout layout)
-{
-    return layout == AudioLayout::Mono ? QStringLiteral("Mono") : QStringLiteral("Stereo");
-}
-
-std::optional<AudioLayout> layoutFromName(const QString &name)
-{
-    if (name == QLatin1String("Mono")) return AudioLayout::Mono;
-    if (name == QLatin1String("Stereo")) return AudioLayout::Stereo;
-    return std::nullopt;
-}
-
-QStringList layoutNames() { return {QStringLiteral("Mono"), QStringLiteral("Stereo")}; }
 
 QString panLawName(AudioPanLaw law)
 {
@@ -175,14 +166,14 @@ std::optional<Port> parsePort(const QString &id)
     port.deviceId = id.mid(at + 1);
     port.first = (dash < 0 ? channels : channels.left(dash)).toInt(&firstOk);
     const int last = dash < 0 ? port.first : channels.mid(dash + 1).toInt(&lastOk);
-    if (!firstOk || !lastOk || port.first < 1 || (last != port.first && last != port.first + 1)) return std::nullopt;
+    if (!firstOk || !lastOk || port.first < 1 || !layoutForLanes(last - port.first + 1)) return std::nullopt;
     port.count = last - port.first + 1;
     return port;
 }
 
 QString devicePortId(const QString &deviceId, int first, int count)
 {
-    return count > 1 ? QStringLiteral("device:%1-%2@%3").arg(first).arg(first + 1).arg(deviceId)
+    return count > 1 ? QStringLiteral("device:%1-%2@%3").arg(first).arg(first + count - 1).arg(deviceId)
                      : QStringLiteral("device:%1@%2").arg(first).arg(deviceId);
 }
 
@@ -272,6 +263,8 @@ QString validate(const AudioMixerContent &content)
         const AudioMixerStrip &settings = *it;
         if (!isTrack(channel) && !buses.contains(channel) && channel != masterId())
             return tr("Routing names an unknown channel %1").arg(channel);
+        if (isTrack(channel) && isSurround(settings.layout))
+            return tr("Tracks are Mono or Stereo; surround layouts are for buses");
         const QString &output = settings.output;
         if (!output.isEmpty() && output != masterId() && !buses.contains(output) && !isPort(output))
             return tr("%1 feeds an unknown destination %2").arg(channel, output);
@@ -365,6 +358,19 @@ Audibility audibility(const AudioMixerContent &content, const QStringList &chann
     }
     result.muted = muted | result.implicit;
     return result;
+}
+
+QSet<QString> meteredChannels(const QStringList &channels, const QSet<QString> &first, int slotCount)
+{
+    // Never `slots`: a Qt keyword macro.
+    if (channels.size() <= slotCount) return QSet<QString>(channels.cbegin(), channels.cend());
+    QSet<QString> chosen;
+    if (channels.contains(masterId()) && slotCount > 0) chosen.insert(masterId());
+    for (const QString &id : channels)
+        if (chosen.size() < slotCount && first.contains(id)) chosen.insert(id);
+    for (const QString &id : channels)
+        if (chosen.size() < slotCount) chosen.insert(id);
+    return chosen;
 }
 
 } // namespace QindaTK::AudioMixer

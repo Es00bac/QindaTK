@@ -8,11 +8,56 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPointer>
 #include <QSignalSpy>
 #include <QtTest>
 
 using namespace QindaTK;
 using namespace QindaTK::MixerFixture;
+
+namespace {
+
+// A copy of the saved session `file` whose mixer adds a bus that closes a
+// loop with `bus`: AudioSession::open must refuse it whole.
+QString loopedCopy(Fixture &f, const QString &file, const QString &bus)
+{
+    QFile in(file);
+    if (!in.open(QIODevice::ReadOnly)) return {};
+    QJsonObject root = QJsonDocument::fromJson(in.readAll()).object();
+    QJsonObject mix = root.value(QStringLiteral("mixer")).toObject();
+    const QString other = AudioMixer::newId(QStringLiteral("bus"));
+    QJsonArray buses = mix.value(QStringLiteral("buses")).toArray();
+    buses.push_back(QJsonObject{{QStringLiteral("id"), other}, {QStringLiteral("name"), QStringLiteral("Other")}});
+    QJsonArray strips = mix.value(QStringLiteral("strips")).toArray();
+    strips.push_back(QJsonObject{{QStringLiteral("channelId"), bus}, {QStringLiteral("output"), other}});
+    strips.push_back(QJsonObject{{QStringLiteral("channelId"), other}, {QStringLiteral("output"), bus}});
+    mix.insert(QStringLiteral("buses"), buses);
+    mix.insert(QStringLiteral("strips"), strips);
+    root.insert(QStringLiteral("mixer"), mix);
+    const QString bad = f.dir.filePath(QStringLiteral("loop.qtkaudio"));
+    QFile out(bad);
+    if (!out.open(QIODevice::WriteOnly) || out.write(QJsonDocument(root).toJson()) <= 0) return {};
+    return bad;
+}
+
+QJsonObject savedFile(Fixture &f, const QString &name)
+{
+    const QString file = f.dir.filePath(name);
+    if (!f.session.save(file)) return {};
+    QFile in(file);
+    return in.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(in.readAll()).object() : QJsonObject();
+}
+
+QStringList savedParameters(const QJsonObject &root)
+{
+    QStringList ids;
+    for (const QJsonValue &value : root.value(QStringLiteral("automation")).toObject().value(QStringLiteral("parameters")).toArray())
+        ids.push_back(value.toObject().value(QStringLiteral("id")).toString());
+    ids.sort();
+    return ids;
+}
+
+} // namespace
 
 class TestAudioMixer : public QObject {
     Q_OBJECT
@@ -150,31 +195,149 @@ private slots:
         QCOMPARE(out.at(1), mixed.at(1));
 
         // A file whose buses form a loop is refused whole; the session keeps its mix.
-        QFile in(file);
-        QVERIFY(in.open(QIODevice::ReadOnly));
-        QJsonObject root = QJsonDocument::fromJson(in.readAll()).object();
-        in.close();
-        QJsonObject mix = root.value(QStringLiteral("mixer")).toObject();
-        const QString other = AudioMixer::newId(QStringLiteral("bus"));
-        QJsonArray buses = mix.value(QStringLiteral("buses")).toArray();
-        buses.push_back(QJsonObject{{QStringLiteral("id"), other}, {QStringLiteral("name"), QStringLiteral("Other")}});
-        QJsonArray strips = mix.value(QStringLiteral("strips")).toArray();
-        strips.push_back(QJsonObject{{QStringLiteral("channelId"), group}, {QStringLiteral("output"), other}});
-        strips.push_back(QJsonObject{{QStringLiteral("channelId"), other}, {QStringLiteral("output"), group}});
-        mix.insert(QStringLiteral("buses"), buses);
-        mix.insert(QStringLiteral("strips"), strips);
-        root.insert(QStringLiteral("mixer"), mix);
-        const QString bad = f.dir.filePath(QStringLiteral("loop.qtkaudio"));
-        QFile out2(bad);
-        QVERIFY(out2.open(QIODevice::WriteOnly));
-        QVERIFY(out2.write(QJsonDocument(root).toJson()) > 0);
-        out2.close();
+        const QString bad = loopedCopy(f, file, group);
+        QVERIFY(!bad.isEmpty());
         const QVariantMap before = reopened.mixer()->contentMap();
         const QVariantMap timeline = reopened.timeline()->contentMap();
         QVERIFY(!reopened.open(bad));
         QVERIFY2(reopened.lastError().contains(QStringLiteral("Routing loop")), qPrintable(reopened.lastError()));
         QCOMPARE(reopened.mixer()->contentMap(), before);
         QCOMPARE(reopened.timeline()->contentMap(), timeline);
+    }
+
+    void openRefusalKeepsHistoriesAndGestures()
+    {
+        // Audit (WP-062): a refused mixer part must not reload the parts
+        // before it, which would clear their undo and cancel a held gesture.
+        Fixture f;
+        const QString voice = f.track(QStringLiteral("Voice"), 0.5f);
+        const QString group = f.bus(QStringLiteral("Group"));
+        QVERIFY(ok(f.mixer->setOutput(voice, group)));
+        AudioParameterBinding *gain = f.mixer->parameterBinding(voice, QStringLiteral("gain"));
+        QVERIFY(gain->begin(0.0) && gain->commit(-6.0));
+        const QString file = f.dir.filePath(QStringLiteral("mix.qtkaudio"));
+        QVERIFY2(f.session.save(file), qPrintable(f.session.lastError()));
+        const QString bad = loopedCopy(f, file, group);
+        QVERIFY(!bad.isEmpty());
+        AudioParameterBinding *pan = f.mixer->parameterBinding(voice, QStringLiteral("pan"));
+        QVERIFY(pan->begin(0.0) && pan->preview(-0.5)); // a fader or pad is held
+        const int automationSteps = f.session.automation()->historyCount();
+        const int timelineSteps = f.session.timeline()->historyCount();
+        const int mixerSteps = f.mixer->historyCount();
+        QVERIFY(automationSteps > 0 && timelineSteps > 0 && mixerSteps > 0);
+        const QVariantMap automation = f.session.automation()->contentMap();
+
+        QVERIFY(!f.session.open(bad));
+        QVERIFY2(f.session.lastError().contains(QStringLiteral("Routing loop")), qPrintable(f.session.lastError()));
+        QCOMPARE(f.session.automation()->historyCount(), automationSteps);
+        QCOMPARE(f.session.timeline()->historyCount(), timelineSteps);
+        QCOMPARE(f.mixer->historyCount(), mixerSteps);
+        QCOMPARE(f.session.automation()->contentMap(), automation);
+        QVERIFY(pan->gestureActive());
+        QCOMPARE(f.mixer->heldChannels(), QStringList{voice});
+        QVERIFY(pan->commit(-0.5)); // the held gesture still ends as one step
+        QCOMPARE(f.session.automation()->historyCount(), automationSteps + 1);
+        QVERIFY(f.session.automation()->undo());
+        QVERIFY(f.session.automation()->undo()); // the gain step survived too
+        QCOMPARE(gain->value(), 0.0);
+    }
+
+    void sessionHistoryUndoesAcrossOwners()
+    {
+        // One Undo over the mixer, timeline and automation histories (D-110).
+        Fixture f;
+        const QString voice = f.track(QStringLiteral("Voice"), 0.5f);
+        const QString bus = f.bus(QStringLiteral("Bus"));
+        AudioSessionHistory *history = f.session.history();
+        const int base = history->count();
+        QVERIFY(ok(f.mixer->setOutput(voice, bus)));   // mixer
+        QVERIFY(ok(f.mixer->setMuted(voice, true)));   // timeline (the track's flag)
+        AudioParameterBinding *gain = f.mixer->parameterBinding(voice, QStringLiteral("gain"));
+        QVERIFY(gain->begin(0.0) && gain->commit(-6.0)); // automation
+        QCOMPARE(history->count(), base + 3);
+        QCOMPARE(history->undoOwner(), QStringLiteral("automation"));
+        QVERIFY(history->undo());
+        QCOMPARE(gain->value(), 0.0);
+        QCOMPARE(history->undoOwner(), QStringLiteral("timeline"));
+        QVERIFY(history->undo());
+        QCOMPARE(f.value(voice, "muted").toBool(), false);
+        QCOMPARE(history->undoOwner(), QStringLiteral("mixer"));
+        QCOMPARE(history->undoText(), f.mixer->undoText());
+        QVERIFY(history->undo());
+        QCOMPARE(f.value(voice, "output").toString(), QStringLiteral("master"));
+        // Redo replays the same order.
+        QCOMPARE(history->redoOwner(), QStringLiteral("mixer"));
+        QVERIFY(history->redo());
+        QVERIFY(history->redo());
+        QCOMPARE(f.value(voice, "muted").toBool(), true);
+        QCOMPARE(history->redoOwner(), QStringLiteral("automation"));
+        QVERIFY(history->redo());
+        QCOMPARE(gain->value(), -6.0);
+        QVERIFY(!history->canRedo());
+        // An undo made on one model directly moves its entry: the session
+        // undo then skips it and reverses the newest remaining step.
+        QVERIFY(f.session.timeline()->undo()); // the mute
+        QCOMPARE(history->redoOwner(), QStringLiteral("timeline"));
+        QVERIFY(history->undo());               // the gain, then the route
+        QCOMPARE(gain->value(), 0.0);
+        QCOMPARE(history->undoOwner(), QStringLiteral("mixer"));
+        // A new step ends every redo, as one stack does.
+        QVERIFY(ok(f.mixer->setPanLaw(QStringLiteral("-6dB"))));
+        QVERIFY(!history->canRedo());
+        QCOMPARE(history->undoOwner(), QStringLiteral("mixer"));
+        // A model that loads its content drops its entries.
+        QVERIFY(ok(f.mixer->loadContent(f.mixer->contentMap())));
+        QVERIFY(history->undoOwner() != QStringLiteral("mixer"));
+    }
+
+    void savesStayBoundedByTheLiveMix()
+    {
+        // Audit (WP-062): what users add and remove must not accumulate in
+        // saved files or in the mixer's bindings.
+        Fixture f;
+        const QString voice = f.track(QStringLiteral("Voice"), 0.5f);
+        const QString drums = f.track(QStringLiteral("Drums"), 0.25f);
+        QVERIFY(f.set(voice, QStringLiteral("pan"), 0.25));
+        const QStringList baseline = savedParameters(savedFile(f, QStringLiteral("base.qtkaudio")));
+        QVERIFY(baseline.contains(voice + QStringLiteral("/pan")));
+        for (int round = 0; round < 3; ++round) {
+            const QString bus = f.bus(QStringLiteral("Bus"));
+            const QString send = f.mixer->addSend(voice, bus).value(QStringLiteral("sendId")).toString();
+            QPointer<AudioParameterBinding> level = f.mixer->parameterBinding(send, QStringLiteral("level"));
+            QPointer<AudioParameterBinding> busGain = f.mixer->parameterBinding(bus, QStringLiteral("gain"));
+            QVERIFY(level && busGain && level->begin(0.0) && level->commit(-3.0));
+            QVERIFY(ok(f.mixer->removeBus(bus))); // takes the send with it
+            // The lanes stay for undo; the bindings of what is gone are released.
+            QVERIFY(f.session.automation()->lane(send + QStringLiteral("/level")));
+            QTRY_VERIFY(level.isNull() && busGain.isNull());
+            if (round == 0) {
+                // Undo brings the bus back with its send level.
+                QVERIFY(f.mixer->undo());
+                AudioParameterBinding *restored = f.mixer->parameterBinding(send, QStringLiteral("level"));
+                QVERIFY(restored);
+                QCOMPARE(restored->value(), -3.0);
+                QVERIFY(f.mixer->redo());
+            }
+        }
+        // A deleted track: its dormant settings stay for timeline undo, but no
+        // reopened session could reach them, so the file leaves them out.
+        QVERIFY(f.set(drums, QStringLiteral("pan"), -0.5));
+        QVERIFY(ok(f.mixer->setLayout(drums, QStringLiteral("Mono"))));
+        QVERIFY(ok(f.session.timeline()->applyEdit({{QStringLiteral("kind"), QStringLiteral("removeTrack")},
+                                                     {QStringLiteral("trackId"),
+                                                      AudioMixer::trackOf(drums).toString(QUuid::WithoutBraces)}})));
+        QVERIFY(f.mixer->content().strips.contains(drums)); // dormant
+        const QJsonObject saved = savedFile(f, QStringLiteral("after.qtkaudio"));
+        QStringList expected = baseline;
+        expected.removeIf([&drums](const QString &id) { return id.startsWith(drums); });
+        QCOMPARE(savedParameters(saved), expected);
+        for (const QJsonValue &strip : saved.value(QStringLiteral("mixer")).toObject().value(QStringLiteral("strips")).toArray())
+            QVERIFY(strip.toObject().value(QStringLiteral("channelId")).toString() != drums);
+        // The saved file opens to the same live mix.
+        AudioSession reopened;
+        QVERIFY2(reopened.open(f.dir.filePath(QStringLiteral("after.qtkaudio"))), qPrintable(reopened.lastError()));
+        QCOMPARE(reopened.mixer()->channelIds(), f.mixer->channelIds());
+        QCOMPARE(reopened.mixer()->contentMap(), f.mixer->savedContentMap());
     }
 
     void stripRowsMoveAndHideWithoutResets()

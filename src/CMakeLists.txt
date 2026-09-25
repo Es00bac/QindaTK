@@ -146,12 +146,14 @@ qt_add_qml_module(qindatk
         core/score_musicxml_write.cpp core/score_musicxml_read.cpp
         core/score_midi.cpp core/score_midi.h core/score_playback.cpp core/score_playback.h
         core/audio_channel_meters.cpp core/audio_channel_meters.h
-        core/audio_mixer_types.cpp core/audio_mixer_codec.cpp core/audio_mixer_types.h
-        core/audio_mixer_model.cpp core/audio_mixer_ops.cpp core/audio_mixer_model.h
+        core/audio_mixer_types.cpp core/audio_mixer_codec.cpp core/audio_mixer_spatial.cpp core/audio_mixer_types.h
+        core/audio_mixer_model.cpp core/audio_mixer_ops.cpp core/audio_mixer_model_io.cpp core/audio_mixer_model.h
         core/audio_mixer_strip_model.cpp core/audio_mixer_strip_model.h
+        core/audio_control_surface.cpp core/audio_control_surface_port.cpp core/audio_control_surface.h
         core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp core/audio_engine_meters.cpp
         core/audio_engine_midi.cpp core/audio_engine_midi_rt.cpp
         core/audio_engine.h core/audio_engine_p.h
+        core/audio_session_history.cpp core/audio_session_history.h
         core/audio_session.cpp core/audio_session_transport.cpp core/audio_session_render.cpp core/audio_session_midi.cpp
         core/audio_session_comp.cpp
         core/audio_session.h

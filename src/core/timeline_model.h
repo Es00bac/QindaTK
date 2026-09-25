@@ -227,6 +227,11 @@ public:
     QString undoText() const;
     QString redoText() const;
     int historyCount() const { return int(m_history.size()); }
+    // AudioSessionHistory: steps undo() and redo() can reach, and a count of
+    // steps ever recorded here (it never goes back; external steps excluded).
+    int undoDepth() const { return int(m_cursor); }
+    int redoDepth() const { return int(m_history.size() - m_cursor); }
+    quint64 historySerial() const { return m_historySerial; }
     int historyLimit() const { return m_historyLimit; }
     void setHistoryLimit(int steps);
     bool externalUndo() const { return m_externalUndo; }
@@ -332,6 +337,7 @@ private:
     QStringList m_retiredOperations; // invalidated gestures report StaleRevision
     QVector<HistoryStep> m_history;
     qsizetype m_cursor = 0;
+    quint64 m_historySerial = 0;
     quint64 m_historyBytes = 0;
     quint64 m_historyBudget = 64ULL * 1024ULL * 1024ULL;
     int m_historyLimit = 256;

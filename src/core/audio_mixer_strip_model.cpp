@@ -11,11 +11,16 @@ QList<QByteArray> AudioMixerStripModel::roles()
     // properties; AudioMixerModel::stripRow() fills them in this order.
     return {"channelId", "channelName", "channelKind", "layout", "output", "outputLabel",
             "outputAvailable", "muted", "soloed", "armed", "soloSafe", "implicitlyMuted",
-            "effectiveMuted", "groupNames", "sends", "held", "hidden", "color"};
+            "effectiveMuted", "groupNames", "sends", "held", "hidden", "color", "outputLayout"};
 }
 
 AudioMixerStripModel::AudioMixerStripModel(QObject *parent)
-    : QAbstractListModel(parent)
+    : QAbstractListModel(parent), m_roles(roles())
+{
+}
+
+AudioMixerStripModel::AudioMixerStripModel(const QList<QByteArray> &roles, QObject *parent)
+    : QAbstractListModel(parent), m_roles(roles)
 {
 }
 
@@ -35,8 +40,7 @@ QVariant AudioMixerStripModel::data(const QModelIndex &index, int role) const
 QHash<int, QByteArray> AudioMixerStripModel::roleNames() const
 {
     QHash<int, QByteArray> names;
-    const QList<QByteArray> list = roles();
-    for (int i = 0; i < list.size(); ++i) names.insert(Qt::UserRole + i, list.at(i));
+    for (int i = 0; i < m_roles.size(); ++i) names.insert(Qt::UserRole + i, m_roles.at(i));
     return names;
 }
 
@@ -100,7 +104,7 @@ QVariantMap AudioMixerStripModel::get(int row) const
 {
     QVariantMap map;
     if (row < 0 || row >= m_rows.size()) return map;
-    const QList<QByteArray> names = roles();
+    const QList<QByteArray> &names = m_roles;
     const QVariantList &values = m_rows.at(row);
     for (int i = 0; i < names.size() && i < values.size(); ++i) map.insert(QString::fromLatin1(names.at(i)), values.at(i));
     return map;

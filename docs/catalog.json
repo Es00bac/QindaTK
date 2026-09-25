@@ -5212,6 +5212,14 @@
           "required": false
         },
         {
+          "name": "outputLayout",
+          "type": "string",
+          "default": "\"Stereo\" // the destination's layout: Quad or 5.1 pans spatially",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "sends",
           "type": "var",
           "default": "[]",
@@ -5300,6 +5308,14 @@
           "required": false
         },
         {
+          "name": "meterProblem",
+          "type": "string",
+          "default": "bound && mixer.engine && _meterWatchSerial >= 0 && mixer.revision.length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "meterLevels",
           "type": "var",
           "default": "boundMeter ? boundMeter.levels",
@@ -5366,6 +5382,7 @@
         "channelGainFader",
         "channelGroups",
         "channelHide",
+        "channelMeterProblem",
         "channelMute",
         "channelName",
         "channelPanning",
@@ -23053,7 +23070,7 @@
       "name": "PanningControl",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (WP-062, docs/controls.md, docs/audio-mixer.md): pan and stereo width in canonical coordinates, pan -1 (left) .. +1 (right) and width 0 (mono) .. 2, snapped to 0.01; the law, lane order and layouts belong to the engine (AudioMixer, D-111). Bound (`mixer` + `channelId`, or `panBinding`/`widthBinding`): the sliders, the numeric fields and the pad are the same AudioParameterBinding transactions, one per gesture, and a pad drag commits pan and width as one undo step. Host mode keeps the request protocol: begin/preview/commit/cancel by stable IDs, acknowledged by the host. objectNames: \"panSlider\", \"panField\", \"stereoWidthSlider\", \"widthField\", \"panPad\", \"panPadHandle\", \"panRequestStatus\".",
+      "description": "AGENT-CONTRACT (WP-062, docs/controls.md, docs/audio-mixer.md): pan, stereo width and depth in canonical coordinates: pan -1 (left) .. +1 (right), width 0 (mono) .. 2, depth -1 (rear) .. +1 (front), snapped to 0.01; the law, lane order and layouts belong to the engine (AudioMixer, D-111). `destinationLayout` is the layout the channel feeds: into Quad or 5.1 the pad is a spatial position (x pan, y depth) over that layout's speakers; otherwise its y is the stereo width. Bound (`mixer` + `channelId`, or `panBinding`/`widthBinding`/`depthBinding`): sliders, numeric fields and the pad are the same AudioParameterBinding transactions, one per gesture, and a pad drag commits both of its parameters as one undo step. Host mode keeps the request protocol: begin/preview/commit/cancel by stable IDs, acknowledged by the host. objectNames: \"panSlider\", \"panField\", \"stereoWidthSlider\", \"widthField\", \"depthSlider\", \"depthField\", \"panPad\", \"panPadHandle\", \"panSpeaker\", \"panRequestStatus\".",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PanningControl.qml",
@@ -23075,6 +23092,14 @@
           "required": false
         },
         {
+          "name": "destinationLayout",
+          "type": "string",
+          "default": "\"Stereo\" // \"Quad\" or \"5.1\": spatial panning",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "panBinding",
           "type": "var",
           "default": "mixer && channelId.length ? mixer.parameterBinding(channelId, \"pan\") : null",
@@ -23086,6 +23111,14 @@
           "name": "widthBinding",
           "type": "var",
           "default": "mixer && channelId.length && hasWidth ? mixer.parameterBinding(channelId, \"width\") : null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "depthBinding",
+          "type": "var",
+          "default": "mixer && channelId.length && spatial ? mixer.parameterBinding(channelId, \"depth\") : null",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -23107,6 +23140,14 @@
           "required": false
         },
         {
+          "name": "depthParameterId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "panValue",
           "type": "real",
           "default": "0",
@@ -23116,6 +23157,14 @@
         },
         {
           "name": "stereoWidth",
+          "type": "real",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "depthValue",
           "type": "real",
           "default": "1",
           "readonly": false,
@@ -23171,6 +23220,14 @@
           "required": false
         },
         {
+          "name": "spatial",
+          "type": "bool",
+          "default": "destinationLayout === \"Quad\" || destinationLayout === \"5.1\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "clampedPan",
           "type": "real",
           "default": "Math.max(-1, Math.min(1, panValue))",
@@ -23182,6 +23239,14 @@
           "name": "clampedWidth",
           "type": "real",
           "default": "Math.max(0, Math.min(2, stereoWidth))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clampedDepth",
+          "type": "real",
+          "default": "Math.max(-1, Math.min(1, depthValue))",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -23203,9 +23268,25 @@
           "required": false
         },
         {
+          "name": "shownDepth",
+          "type": "real",
+          "default": "depthBinding ? depthBinding.value : clampedDepth",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "panText",
           "type": "string",
           "default": "Math.abs(shownPan) < 0.005 ? qsTr(\"C\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "speakers",
+          "type": "var",
+          "default": "destinationLayout === \"Quad\"",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -23235,16 +23316,36 @@
           "parameters": "y"
         },
         {
-          "name": "panId",
-          "parameters": ""
+          "name": "depthAt",
+          "parameters": "y"
         },
         {
-          "name": "widthId",
+          "name": "padKind",
           "parameters": ""
         },
         {
           "name": "bindingFor",
-          "parameters": "widthEdit"
+          "parameters": "kind"
+        },
+        {
+          "name": "parameterIdFor",
+          "parameters": "kind"
+        },
+        {
+          "name": "shownFor",
+          "parameters": "kind"
+        },
+        {
+          "name": "hostFor",
+          "parameters": "kind"
+        },
+        {
+          "name": "gesture",
+          "parameters": "kind"
+        },
+        {
+          "name": "setGesture",
+          "parameters": "kind, value"
         },
         {
           "name": "nextId",
@@ -23256,15 +23357,19 @@
         },
         {
           "name": "begin",
-          "parameters": "parameterId, widthEdit"
+          "parameters": "kind"
         },
         {
           "name": "update",
-          "parameters": "parameterId, value, widthEdit"
+          "parameters": "kind, value"
         },
         {
           "name": "finish",
-          "parameters": "parameterId, value, widthEdit"
+          "parameters": "kind, value"
+        },
+        {
+          "name": "drop",
+          "parameters": "kind"
         },
         {
           "name": "cancel",
@@ -23273,6 +23378,10 @@
         {
           "name": "acknowledgeEdit",
           "parameters": "gestureId, accepted, message"
+        },
+        {
+          "name": "padValue",
+          "parameters": "y"
         },
         {
           "name": "padBegin",
@@ -23285,6 +23394,14 @@
         {
           "name": "padEnd",
           "parameters": "x, y"
+        },
+        {
+          "name": "sliderPressed",
+          "parameters": "kind, pressed, value"
+        },
+        {
+          "name": "sliderMoved",
+          "parameters": "kind, pressed, value"
         }
       ],
       "enums": {},
@@ -23296,11 +23413,14 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "depthField",
+        "depthSlider",
         "panField",
         "panPad",
         "panPadHandle",
         "panRequestStatus",
         "panSlider",
+        "panSpeaker",
         "panningControl",
         "stereoWidthSlider",
         "widthField"
@@ -29613,7 +29733,7 @@
       "name": "RoutingMatrix",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT (WP-062, docs/controls.md, docs/audio-mixer.md): ports and connections are immutable snapshots by stable ID. A selection proposes one connection; only the owner validates cycles, layouts and availability and reports acceptance or the reason for a refusal. Bound (`mixer`): sources, destinations and connections come from Tk.AudioMixerModel and each request is AudioMixerModel.setOutput, answered at once. A connection to a port that is no longer offered (its device went away) stays shown as unavailable; it is never displayed as another port or as disconnected.",
+      "description": "AGENT-CONTRACT (WP-062, docs/controls.md, docs/audio-mixer.md): ports and connections are immutable snapshots by stable ID. A selection proposes one connection; only the owner validates cycles, layouts and availability and reports acceptance or the reason for a refusal. Bound (`mixer`): sources, destinations and connections come from Tk.AudioMixerModel and each request is AudioMixerModel.setOutput, answered at once. A connection to a port that is no longer offered (its device went away) stays shown as unavailable; it is never displayed as another port or as disconnected. Selection is a stable input ID (`selectedInputId`, `inputSelected`): bound rows come from mixer.routingInputs, which moves and updates rows in place, so an accepted route (or a reorder) keeps the current row, its delegate and a focused destination editor; host arrays re-find the row by ID. Keys: Up/Down, Home/End and Page Up/Down move the selection; Return or Enter focuses its destination, whose Up/Down propose the neighbouring route; Escape goes back to the rows.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/RoutingMatrix.qml",
@@ -29651,6 +29771,14 @@
           "required": false
         },
         {
+          "name": "selectedInputId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Audio routing\")",
@@ -29683,6 +29811,22 @@
           "required": false
         },
         {
+          "name": "inputModel",
+          "type": "var",
+          "default": "mixer ? mixer.routingInputs : inputPorts",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "inputCount",
+          "type": "int",
+          "default": "mixer ? mixer.routingInputs.count : (inputPorts ? inputPorts.length : 0)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "routeOptions",
           "type": "var",
           "default": "[{id: \"\", label: qsTr(\"Disconnected\"), available: true}]",
@@ -29699,9 +29843,37 @@
         {
           "name": "routeAcknowledged",
           "parameters": "string requestId, string state, string message"
+        },
+        {
+          "name": "inputSelected",
+          "parameters": "string inputId"
         }
       ],
       "methods": [
+        {
+          "name": "inputIdAt",
+          "parameters": "row"
+        },
+        {
+          "name": "rowOf",
+          "parameters": "inputId"
+        },
+        {
+          "name": "selectInput",
+          "parameters": "inputId"
+        },
+        {
+          "name": "stepInput",
+          "parameters": "delta"
+        },
+        {
+          "name": "followSelection",
+          "parameters": ""
+        },
+        {
+          "name": "editInput",
+          "parameters": "inputId"
+        },
         {
           "name": "find",
           "parameters": "list, id"
@@ -42599,6 +42771,155 @@
       "bridge": false
     },
     {
+      "name": "AudioControlSurface",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (WP-062, AUD-13, docs/audio-mixer.md, D-110): a hardware control surface speaking the Mackie Control (MCU) protocol, bound to one AudioMixerModel. It edits and follows the SAME parameter model as every strip and as automation: faders and V-Pots go through the mixer's shared AudioParameterBinding (one transaction per touch, or per burst on a surface without touch sensing), buttons are mixer operations. Feedback (motor faders, V-Pot rings, button LEDs) is sent whenever the parameter or flag changes, from any writer, except to a fader the surface itself holds. Surface strips 1-8 show `bank` onward of the mixer's shown channels (the master has its own fader). A bank change waits while a surface gesture is open, as MixerView does (D-113). MIDI arrives through receive() or the ALSA sequencer port (openPort); feedback leaves through outgoing() and that port. Messages (MIDI channel 1 unless noted): fader n    pitch bend on channel n (1-8), 14-bit travel; the master on 9 touch n    note 104+n (the master 112), velocity 127 touch, 0 release V-Pot n    CC 16+n: bit 6 set turns left, bits 0-5 count steps of the parameter's step (pan: 0.01); the ring CC 48+n, dot mode 1-11 buttons    note 0+n arm, 8+n solo, 16+n mute, 24+n select (LED: the same note, velocity 127 on, 0 off); 46/47 bank -8/+8, 48/49 -1/+1",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_control_surface.h",
+      "properties": [
+        {
+          "name": "mixer",
+          "type": "QindaTK::AudioMixerModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "bank",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "stripCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "channels",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedChannelId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "held",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "portOpen",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "portAddress",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "mixerChanged",
+          "parameters": ""
+        },
+        {
+          "name": "bankChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectedChannelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "heldChanged",
+          "parameters": ""
+        },
+        {
+          "name": "portChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "outgoing",
+          "parameters": "const QByteArray &message"
+        },
+        {
+          "name": "channelSelected",
+          "parameters": "const QString &channelId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "receive",
+          "returns": "bool",
+          "parameters": "const QByteArray &bytes"
+        },
+        {
+          "name": "refresh",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "releaseAll",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "openPort",
+          "returns": "bool",
+          "parameters": "const QString &name = QStringLiteral(\"QindaTK control surface\""
+        },
+        {
+          "name": "closePort",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "connectPort",
+          "returns": "bool",
+          "parameters": "const QString &address"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "AudioEngine",
       "kind": "cpp",
       "base": "TransportAdapter",
@@ -43190,6 +43511,13 @@
           "constant": true
         },
         {
+          "name": "routingInputs",
+          "type": "QindaTK::AudioMixerStripModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
           "name": "panLaw",
           "type": "QString",
           "default": "",
@@ -43205,6 +43533,13 @@
         },
         {
           "name": "layouts",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "trackLayouts",
           "type": "QStringList",
           "default": "",
           "readonly": true,
@@ -43322,6 +43657,10 @@
         },
         {
           "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "meterWatchChanged",
           "parameters": ""
         }
       ],
@@ -43472,6 +43811,21 @@
           "parameters": "const QString &channelId"
         },
         {
+          "name": "watchMeter",
+          "returns": "QindaTK::AudioMeterModel *",
+          "parameters": "const QString &channelId"
+        },
+        {
+          "name": "unwatchMeter",
+          "returns": "void",
+          "parameters": "const QString &channelId"
+        },
+        {
+          "name": "meterProblem",
+          "returns": "QString",
+          "parameters": "const QString &channelId"
+        },
+        {
           "name": "contentMap",
           "returns": "QVariantMap",
           "parameters": ""
@@ -43496,7 +43850,7 @@
       "name": "AudioMixerStripModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
-      "description": "AGENT-NOTE (WP-062, D-113): the MixerView delegate source. update() diffs the next rows against the current ones by channel ID: departed rows are removed, retained rows MOVE (beginMoveRows) and emit dataChanged only for changed roles, entering rows are inserted in place. A reorder, a hidden channel or a mute therefore never rebuilds the strip under a gesture; rows carry no engine state (AudioMixerModel and the automation lanes do).",
+      "description": "AGENT-NOTE (WP-062, D-113): the MixerView delegate source (and, with its own roles, RoutingMatrix's input rows). update() diffs the next rows against the current ones by channel ID: departed rows are removed, retained rows MOVE (beginMoveRows) and emit dataChanged only for changed roles, entering rows are inserted in place. A reorder, a hidden channel or a mute therefore never rebuilds the strip under a gesture; rows carry no engine state (AudioMixerModel and the automation lanes do).",
       "singleton": false,
       "attached": null,
       "file": "src/core/audio_mixer_strip_model.h",
@@ -43933,6 +44287,13 @@
           "constant": true
         },
         {
+          "name": "history",
+          "type": "QindaTK::AudioSessionHistory *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
           "name": "edits",
           "type": "QindaTK::AudioSourceEditModel *",
           "default": "",
@@ -44110,6 +44471,93 @@
           "name": "compForClip",
           "returns": "QString",
           "parameters": "const QString &clipId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AudioSessionHistory",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (WP-062, D-110, docs/audio-mixer.md): one Undo and one Redo over the three histories a mixer edit can land in: the timeline (track mute, solo, arm, name and every clip edit), the automation (gain, pan, width and send levels) and the mixer (buses, routing, sends, groups, bus and master mute or solo). Each model keeps and applies its own steps; this journal keeps only which model recorded each step, in the order they were recorded, so undo() always reverses the newest step of the session. A step undone or redone on its model directly moves here too, a new step ends every redo (one stack), and a model that loads or clears its history drops its entries. A timeline in externalUndo mode records nothing here.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_session_history.h",
+      "properties": [
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoOwner",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoOwner",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
         }
       ],
       "enums": {},

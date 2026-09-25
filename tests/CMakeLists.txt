@@ -153,6 +153,13 @@ qindatk_add_test(tst_audio_engine_meter)
 qindatk_add_test(tst_audio_mixer)
 qindatk_add_test(tst_audio_mixer_dsp)
 qindatk_add_test(tst_audio_mixer_engine)
+qindatk_add_test(tst_audio_mixer_surround)
+qindatk_add_test(tst_audio_control_surface)
+if(QINDATK_ENABLE_ALSA AND QINDATK_ALSA_FOUND)
+    # The test drives the surface's sequencer port from its own ALSA client.
+    target_link_libraries(tst_audio_control_surface PRIVATE PkgConfig::QINDATK_ALSA)
+    target_compile_definitions(tst_audio_control_surface PRIVATE QINDATK_HAVE_ALSA=1)
+endif()
 qindatk_add_test(tst_audio_dsp)
 qindatk_add_test(tst_audio_source_edit)
 # WP-065 take comps: model, renders, persistence, punch, view wiring; loopback passes.

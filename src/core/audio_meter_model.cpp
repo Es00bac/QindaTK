@@ -50,6 +50,11 @@ QStringList AudioMeterModel::channelNames(const QString &layout, int channels)
 {
     if (layout == QLatin1String("Mono") && channels == 1) return {QStringLiteral("M")};
     if (layout == QLatin1String("Stereo") && channels == 2) return {QStringLiteral("L"), QStringLiteral("R")};
+    if (layout == QLatin1String("Quad") && channels == 4)
+        return {QStringLiteral("L"), QStringLiteral("R"), QStringLiteral("Ls"), QStringLiteral("Rs")};
+    if (layout == QLatin1String("5.1") && channels == 6)
+        return {QStringLiteral("L"), QStringLiteral("R"), QStringLiteral("C"), QStringLiteral("LFE"), QStringLiteral("Ls"),
+                QStringLiteral("Rs")};
     QStringList names;
     for (int index = 0; index < channels; ++index) names.append(QString::number(index + 1));
     return names;
