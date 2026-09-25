@@ -5,6 +5,7 @@
 #include "audio_graph.h"
 #include "audio_media.h"
 #include "audio_mixer_model.h"
+#include "audio_plugin_host.h"
 #include "audio_source_edit_model.h"
 #include "automation_model.h"
 #include "midi_launcher_model.h"
@@ -45,6 +46,7 @@ class AudioSession : public QObject {
     Q_PROPERTY(QindaTK::AudioSourceEditModel *edits READ edits CONSTANT)
     Q_PROPERTY(QindaTK::MidiSequenceModel *midi READ midi CONSTANT)
     Q_PROPERTY(QindaTK::MidiLauncherModel *launcher READ launcher CONSTANT)
+    Q_PROPERTY(QindaTK::AudioPluginHost *plugins READ plugins CONSTANT)
     Q_PROPERTY(QindaTK::AudioEngine *engine READ engine WRITE setEngine NOTIFY engineChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
     Q_PROPERTY(QString mediaDirectory READ mediaDirectory WRITE setMediaDirectory NOTIFY mediaDirectoryChanged)
@@ -67,6 +69,8 @@ public:
     AudioSourceEditModel *edits() const { return m_edits; }
     MidiSequenceModel *midi() const { return m_midi; }
     MidiLauncherModel *launcher() const { return m_launcher; }
+    // Plugin inserts of the mixer channels (WP-066, docs/audio-plugins.md).
+    AudioPluginHost *plugins() const { return m_plugins; }
     AudioEngine *engine() const { return m_engine; }
     void setEngine(AudioEngine *engine);
     QString filePath() const { return m_filePath; }
@@ -151,6 +155,7 @@ private:
     AudioSourceEditModel *m_edits = nullptr;
     MidiSequenceModel *m_midi = nullptr;
     MidiLauncherModel *m_launcher = nullptr;
+    AudioPluginHost *m_plugins = nullptr;
     QPointer<AudioEngine> m_engine;
     QList<QMetaObject::Connection> m_engineConnections;
     QHash<QString, AudioBufferPtr> m_decoded;

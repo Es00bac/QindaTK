@@ -131,8 +131,9 @@ void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channe
     for (const Node &node : m_nodes) {
         double *in[2] = {lane(node.buffer, 0), lane(node.buffer, node.lanes > 1 ? 1 : 0)};
         if (!node.clips.empty()) addClips(node, start, frames, in);
-        if (node.midi) addMidi(node, start, frames, in, launch);
+        if (node.midi && !node.pluginInstrument) addMidi(node, start, frames, in, launch);
         if (!node.audible) continue; // muted: feeds nothing, and its meter reads silence
+        if (node.insertCount) runInserts(node, start, frames, in, launch); // pre-fader (WP-066)
         evaluate(node.gain, 1.0, start, frames, gain);
         if (meters && node.meterSlot >= 0)
             for (int l = 0; l < node.lanes; ++l) meters->add(node.meterSlot, l, in[l], gain, frames);
@@ -141,7 +142,15 @@ void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channe
         evaluate(node.width, 1.0, start, frames, width);
         for (const Route &route : node.routes) {
             evaluate(route.level, 1.0, start, frames, level);
-            mix(node, route, in, frames, gain, pan, width, level);
+            if (route.delay <= 0) {
+                mix(node, route, in, frames, gain, pan, width, level);
+                continue;
+            }
+            // Latency compensation (D-192): this route waits for slower paths.
+            double *delayed[2] = {scratch + 4 * kChunk, scratch + 5 * kChunk};
+            delayRoute(route, node.lanes, in, delayed, frames);
+            if (node.lanes == 1) delayed[1] = delayed[0];
+            mix(node, route, delayed, frames, gain, pan, width, level);
         }
     }
     writePorts(frames, out, channels);

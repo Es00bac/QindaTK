@@ -5,9 +5,12 @@ import QindaTK as Tk
 
 // `instances` is an ordered host snapshot. Every button, switch and drag
 // emits a request; the rack waits for host acknowledgement and a new snapshot.
+// With AudioPluginHost (session.plugins.instances(channel), rackAction()) a
+// parameter row that carries a `binding` (AudioParameterBinding) edits the
+// automation parameter directly with a Knob (WP-066, docs/audio-plugins.md).
 T.Control {
     id: root
-    property var instances: [] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters,editorAvailable}
+    property var instances: [] // {instanceId,pluginId,name,vendor,state,bypassed,latencyFrames,error,parameters{parameterId,name,displayValue,available,binding?},editorAvailable}
     property string channelId: ""
     property string tooltip: ""
     property string emptyText: qsTr("Drop a plugin here or add one from the browser")
@@ -104,6 +107,18 @@ T.Control {
         if (!root.enabled || !instance || instance.editorAvailable === false) return ""
         return root.requestAction(instanceId, "open-editor", {pluginId: String(instance.pluginId)})
     }
+    function requestReload(instanceId) {
+        if (!root.enabled || !root.instanceById(instanceId) || root.isActionPending(instanceId, "reload")) return ""
+        return root.requestAction(instanceId, "reload", {})
+    }
+    function parameterRowHeight(parameter) {
+        return parameter && parameter.binding ? Tk.Theme.size.controlLg : Tk.Theme.size.control
+    }
+    function parametersHeight(parameters) {
+        let height = 0
+        for (let i = 0; i < parameters.length; ++i) height += root.parameterRowHeight(parameters[i])
+        return height
+    }
     function requestParameterEdit(instanceId, parameter) {
         if (!root.enabled || !root.instanceById(instanceId) || !parameter || parameter.available === false) return ""
         return root.requestAction(instanceId, "edit-parameter", {
@@ -174,7 +189,7 @@ T.Control {
                     readonly property int baseHeight: Tk.Theme.size.control * 2 + Tk.Theme.space.xs * 2
                     objectName: "pluginSlot_" + instanceId
                     width: list.width
-                    height: baseHeight + (expanded ? Tk.Theme.size.control * (modelData.parameters || []).length : 0)
+                    height: baseHeight + (expanded ? root.parametersHeight(modelData.parameters || []) : 0)
                     Rectangle {
                         anchors.fill: parent
                         color: slot.index % 2 ? Tk.Theme.color.surface : Tk.Theme.color.panelAlt
@@ -246,6 +261,13 @@ T.Control {
                             }
                             Tk.Spacer { }
                             Tk.Button {
+                                objectName: "pluginReload_" + slot.instanceId
+                                visible: ["failed", "missing"].indexOf(String(modelData.state || "")) >= 0
+                                text: qsTr("Reload")
+                                tooltip: qsTr("Ask the host to start %1 again with its saved state").arg(modelData.name || slot.instanceId)
+                                onClicked: root.requestReload(slot.instanceId)
+                            }
+                            Tk.Button {
                                 text: qsTr("↑")
                                 tooltip: qsTr("Move plugin earlier in the host chain")
                                 enabled: slot.index > 0
@@ -267,26 +289,41 @@ T.Control {
                         Repeater {
                             model: slot.expanded ? (modelData.parameters || []) : []
                             delegate: Tk.Flex {
+                                id: parameterRow
                                 required property var modelData
                                 width: parent.width
+                                height: root.parameterRowHeight(modelData)
                                 gap: Tk.Theme.space.sm
                                 Tk.Label {
                                     width: Tk.Theme.size.fieldWidth
-                                    text: String(modelData.name || modelData.parameterId)
+                                    text: String(parameterRow.modelData.name || parameterRow.modelData.parameterId)
                                     elide: Text.ElideRight
                                     Accessible.ignored: true
                                 }
                                 Tk.Mono {
-                                    text: String(modelData.displayValue || "—")
+                                    text: parameterRow.modelData.binding ? String(parameterRow.modelData.binding.valueText)
+                                                                         : String(parameterRow.modelData.displayValue || "—")
                                     color: Tk.Theme.color.textMuted
                                     Accessible.ignored: true
                                 }
                                 Tk.Spacer { }
+                                Tk.Knob {
+                                    objectName: "pluginParameter_" + String(parameterRow.modelData.parameterId)
+                                    visible: !!parameterRow.modelData.binding
+                                    binding: parameterRow.modelData.binding || null
+                                    numericEntry: false
+                                    showValue: false
+                                    enabled: parameterRow.modelData.available !== false
+                                    tooltip: qsTr("%1 · automation parameter %2")
+                                        .arg(String(parameterRow.modelData.name || ""))
+                                        .arg(String(parameterRow.modelData.parameterId))
+                                }
                                 Tk.Button {
+                                    visible: !parameterRow.modelData.binding
                                     text: qsTr("Edit")
                                     tooltip: qsTr("Request an edit using this stable parameter ID")
-                                    enabled: modelData.available !== false
-                                    onClicked: root.requestParameterEdit(slot.instanceId, modelData)
+                                    enabled: parameterRow.modelData.available !== false
+                                    onClicked: root.requestParameterEdit(slot.instanceId, parameterRow.modelData)
                                 }
                             }
                         }

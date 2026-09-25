@@ -52,7 +52,8 @@ AudioSession::AudioSession(QObject *parent)
       m_mixer(new AudioMixerModel(this, m_timeline, m_automation)),
       m_edits(new AudioSourceEditModel(this)),
       m_midi(new MidiSequenceModel(this)),
-      m_launcher(new MidiLauncherModel(m_midi, this))
+      m_launcher(new MidiLauncherModel(m_midi, this)),
+      m_plugins(new AudioPluginHost(this, m_automation, m_mixer))
 {
     m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter());
     connect(m_timeMap, &TimeMap::changed, m_midi, [this] { m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter()); });
@@ -70,6 +71,7 @@ AudioSession::AudioSession(QObject *parent)
     connect(m_timeline, &TimelineModel::contentReset, this, changed);
     connect(m_schedule, &EngineSchedule::published, this, &AudioSession::rebuild);
     connect(m_mixer, &AudioMixerModel::contentChanged, this, &AudioSession::rebuild);
+    connect(m_plugins, &AudioPluginHost::contentChanged, this, &AudioSession::rebuild);
     connect(m_edits, &AudioSourceEditModel::sourceChanged, this,
             [this](const QString &resourceId, const QString &) { sourceEdited(resourceId); });
 }
@@ -78,6 +80,9 @@ AudioSession::~AudioSession()
 {
     // AGENT-GUARD: the mixer's shared bindings release open gestures through
     // the automation model, so the mixer goes before the models it uses.
+    // Plugins go first: their processes quit and their bindings let go (WP-066).
+    disconnect(m_plugins, nullptr, this, nullptr);
+    delete std::exchange(m_plugins, nullptr);
     delete m_mixer;
     m_mixer = nullptr;
     for (const auto &connection : std::as_const(m_engineConnections)) disconnect(connection);
@@ -418,6 +423,7 @@ bool AudioSession::save(const QString &file)
                            {QStringLiteral("mixer"), QJsonObject::fromVariantMap(m_mixer->contentMap())},
                            {QStringLiteral("edits"), QJsonObject::fromVariantMap(m_edits->contentMap())},
                            {QStringLiteral("midi"), QJsonObject::fromVariantMap(m_midi->contentMap())},
+                           {QStringLiteral("plugins"), QJsonObject::fromVariantMap(m_plugins->saveContent())},
                            {QStringLiteral("media"), media}};
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly) || out.write(QJsonDocument(root).toJson()) < 0 || !out.commit())
@@ -459,6 +465,9 @@ bool AudioSession::open(const QString &file)
                : part == 3 ? m_mixer->loadContent(content)
                : part == 4 ? m_edits->loadContent(content) : m_midi->loadContent(content);
     };
+    // Plugins (WP-066) are validated with the other parts and loaded last.
+    if (QString problem; !AudioPluginHost::validateContent(root.value(QStringLiteral("plugins")).toMap(), &problem))
+        return fail(tr("The session plugins could not be loaded: %1").arg(problem));
     m_opening = true; // source edits and their originals arrive below; one recompile at the end
     for (int part = 0; part < 6; ++part) {
         const QString key = QString::fromLatin1(kParts[part]);
@@ -486,6 +495,7 @@ bool AudioSession::open(const QString &file)
         const int saved = root.value(QStringLiteral("sampleRate")).toInt();
         if (saved > 0) m_timeMap->setSampleRate(saved);
     }
+    m_plugins->loadContent(root.value(QStringLiteral("plugins")).toMap());
     m_opening = false;
     if (m_filePath != path) {
         m_filePath = path;

@@ -120,7 +120,13 @@ qt_add_qml_module(qindatk
         core/test_transport_clock.cpp core/test_transport_clock.h
         core/audio_ring.h core/audio_media.cpp core/audio_media.h
         core/audio_device.cpp core/audio_device.h
-        core/audio_graph.cpp core/audio_graph_mix.cpp core/audio_graph_midi.cpp core/audio_graph.h
+        core/audio_graph.cpp core/audio_graph_mix.cpp core/audio_graph_midi.cpp core/audio_graph_plugins.cpp core/audio_graph.h
+        core/audio_plugin_ipc_p.h core/audio_plugin_types.cpp core/audio_plugin_types.h
+        core/audio_plugin_registry.cpp core/audio_plugin_registry.h
+        core/audio_plugin_processor.cpp core/audio_plugin_processor.h
+        core/audio_plugin_instance.cpp core/audio_plugin_instance_editor.cpp core/audio_plugin_instance.h
+        core/audio_plugin_editor.cpp core/audio_plugin_editor.h
+        core/audio_plugin_host.cpp core/audio_plugin_host_content.cpp core/audio_plugin_host.h
         core/midi_types.cpp core/midi_types.h core/midi_program.cpp core/midi_program.h
         core/midi_sequence_model.cpp core/midi_sequence_edit.cpp core/midi_sequence_ops.cpp core/midi_sequence_model.h
         core/midi_smf.cpp core/midi_smf.h core/midi_launcher_model.cpp core/midi_launcher_model.h
@@ -483,6 +489,26 @@ if(QINDATK_ENABLE_FFMPEG AND FFMPEG_FOUND)
 endif()
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
+
+# ---- out-of-process plugin host (WP-066, D-190, docs/audio-plugins.md) ----
+# AGENT-CONTRACT: qindatk never loads plugin code. It starts this executable
+# (one process per plugin instance, and one per scanned binary) and talks to
+# it through core/audio_plugin_ipc_p.h. The CLAP headers (MIT, vendored in
+# third_party/clap) are used only here and by the test plugins.
+qt_add_executable(qindatk-plugin-host
+    pluginhost/plugin_host_main.cpp
+    pluginhost/plugin_host_library.cpp
+    pluginhost/plugin_host_instance.cpp
+    pluginhost/plugin_host_audio.cpp
+    pluginhost/plugin_host_clap.h)
+qindatk_enable_warnings(qindatk-plugin-host)
+target_include_directories(qindatk-plugin-host PRIVATE core "${PROJECT_SOURCE_DIR}/third_party/clap/include")
+target_link_libraries(qindatk-plugin-host PRIVATE Qt6::Core ${CMAKE_DL_LIBS})
+set_target_properties(qindatk-plugin-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/libexec")
+install(TARGETS qindatk-plugin-host RUNTIME DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/qindatk")
+set_source_files_properties(core/audio_plugin_types.cpp PROPERTIES COMPILE_DEFINITIONS
+    "QINDATK_PLUGIN_HOST_BUILD_PATH=\"$<TARGET_FILE:qindatk-plugin-host>\";QINDATK_PLUGIN_HOST_INSTALL_PATH=\"${CMAKE_INSTALL_FULL_LIBEXECDIR}/qindatk/qindatk-plugin-host\"")
+add_dependencies(qindatk qindatk-plugin-host)
 
 if(TARGET Qt6::Widgets)
     add_library(qindatk_widgets STATIC

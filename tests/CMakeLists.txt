@@ -156,6 +156,31 @@ qindatk_add_test(tst_audio_source_edit)
 qindatk_add_test(tst_midi_model)
 qindatk_add_test(tst_midi_schedule)
 qindatk_add_test(tst_midi_engine)
+# WP-066 plugin hosting: real CLAP test plugins (tests/plugins) run by
+# qindatk-plugin-host: scan, lifecycle, parameters, state, latency, editor,
+# crash and hang handling, processed audio and shutdown.
+foreach(fixture IN ITEMS qindatk_test_clap qindatk_test_broken_clap)
+    if(fixture STREQUAL "qindatk_test_clap")
+        add_library(${fixture} MODULE plugins/qindatk_test_base.cpp plugins/qindatk_test_plugins.cpp
+            plugins/qindatk_test_plugins.h)
+        set_target_properties(${fixture} PROPERTIES OUTPUT_NAME "qindatk-test"
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/clap-fixtures")
+    else()
+        add_library(${fixture} MODULE plugins/qindatk_broken_plugin.cpp)
+        set_target_properties(${fixture} PROPERTIES OUTPUT_NAME "qindatk-test-broken"
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/clap-broken")
+    endif()
+    set_target_properties(${fixture} PROPERTIES PREFIX "" SUFFIX ".clap" AUTOMOC OFF CXX_VISIBILITY_PRESET hidden)
+    target_include_directories(${fixture} PRIVATE "${PROJECT_SOURCE_DIR}/third_party/clap/include")
+endforeach()
+foreach(test IN ITEMS tst_audio_plugin_host tst_audio_plugin_engine)
+    qindatk_add_test(${test})
+    add_dependencies(${test} qindatk-plugin-host qindatk_test_clap qindatk_test_broken_clap)
+    target_compile_definitions(${test} PRIVATE
+        QINDATK_TEST_CLAP="$<TARGET_FILE:qindatk_test_clap>"
+        QINDATK_TEST_BROKEN_CLAP="$<TARGET_FILE:qindatk_test_broken_clap>"
+        QINDATK_TEST_PLUGIN_HOST="$<TARGET_FILE:qindatk-plugin-host>")
+endforeach()
 qindatk_add_test(tst_file_asset_backend)
 # WP-070 media backend: decode, programs/export, playback and catalog/feeds.
 # Tests QSKIP when QindaTK was built without the optional FFmpeg libraries.
