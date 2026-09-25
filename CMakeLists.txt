@@ -80,6 +80,8 @@ if(QINDATK_ENABLE_FFMPEG)
 endif()
 # Native QFileDialog is an optional adapter; base qindatk stays QtQuick-only.
 find_package(Qt6 6.8 QUIET COMPONENTS Widgets)
+# The native print backend (WP-053) joins qindatk_widgets when PrintSupport exists.
+find_package(Qt6 6.8 QUIET COMPONENTS PrintSupport)
 # AGENT-NOTE: QuickPrivate serves layout_info.cpp (anchor/explicit size
 # detection) and StylusHandler's implementation-only tablet event path (D-015).
 # Official Qt SDKs define Qt6::QuickPrivate from the Qt6Quick package;

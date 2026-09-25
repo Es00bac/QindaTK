@@ -260,7 +260,8 @@ QVariantMap RichTextDocument::pageSetupMap() const
             {QStringLiteral("marginBottomPt"), m_page.marginBottomPt},
             {QStringLiteral("marginLeftPt"), m_page.marginLeftPt},
             {QStringLiteral("columns"), m_page.columns},
-            {QStringLiteral("columnGapPt"), m_page.columnGapPt}};
+            {QStringLiteral("columnGapPt"), m_page.columnGapPt},
+            {QStringLiteral("bleedPt"), m_page.bleedPt}};
 }
 
 void RichTextDocument::registerBlock(const Block &block)

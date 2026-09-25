@@ -84,6 +84,7 @@ QJsonObject pageJson(const PageSetup &page)
                                                            page.marginBottomPt, page.marginLeftPt}}};
     if (page.columns != PageSetup{}.columns) o.insert(QStringLiteral("columns"), page.columns);
     if (page.columnGapPt != PageSetup{}.columnGapPt) o.insert(QStringLiteral("columnGapPt"), page.columnGapPt);
+    if (page.bleedPt != PageSetup{}.bleedPt) o.insert(QStringLiteral("bleedPt"), page.bleedPt); // WP-053
     return o;
 }
 
@@ -226,7 +227,8 @@ int RichTextCodec::requiredVersion(const RichTextDocument &document)
     const PageSetup page = document.pageSetupValue();
     if (!document.styleSheet().isEmpty() || !document.frameSet().frames.isEmpty()
         || !document.annotations().isEmpty() // WP-052 fields, sources, comments, changes (D-117)
-        || page.columns != PageSetup{}.columns || page.columnGapPt != PageSetup{}.columnGapPt)
+        || page.columns != PageSetup{}.columns || page.columnGapPt != PageSetup{}.columnGapPt
+        || page.bleedPt != PageSetup{}.bleedPt)
         return 2;
     for (const Block &block : document.blocks())
         if (block.table && usesVersion2(*block.table)) return 2;

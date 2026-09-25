@@ -84,9 +84,11 @@ runs as the `example_document-review` smoke test, and
 `tests/qml/tst_review_example.qml` drives it
 ([references-review.md](../docs/references-review.md)).
 
-The [print and preflight workbench](print-preflight/Main.qml) exercises
-`PrintPreview` and `PreflightPanel` with a live rich-document preview and
-sample host-owned output issues.
+The [print and preflight workbench](print-preflight/Main.qml) binds
+`PrintPreview`, `PrintSheetView` and `PreflightPanel` to one `PrintAdapter`
+over the showcase document: the sheet preview is what the PDF or printer
+job paints, and the issues and repairs are real checks
+([printing.md](../docs/printing.md)).
 
 The [PDF reader and review fixture](pdf-review/Main.qml) exercises `PdfView`
 and `PdfAnnotationTools` on a two-page PDF. The default asset backend renders
