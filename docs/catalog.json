@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-24",
+  "generated": "2026-09-25",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -33752,7 +33752,7 @@
       "name": "SpectrogramView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the host supplies bounded, already-computed tiles and exact sample boundaries plus FFT metadata. This view draws them and requests regions; it does not run FFT, interpret normalization, or apply spectral processing. The reference host is Tk.AudioSpectrogramSource (tiles, boundaries, metadata) plus AudioSession.edits.preview/commitPreview for processRequested (docs/audio-editing.md, D-136/D-137). The committed selection is host state in sample/Hz coordinates, so it keeps its place through zoom.",
+      "description": "AGENT-CONTRACT: the host supplies bounded, already-computed tiles and exact sample boundaries plus FFT metadata. This view draws them and requests regions; it does not run FFT, interpret normalization, or apply spectral processing. The reference host is Tk.AudioSpectrogramSource (tiles, boundaries, metadata) plus AudioSession.edits.preview/commitPreview for processRequested (docs/audio-editing.md, D-136/D-137/D-186). The committed selection and the committed mask are host state in sample/Hz coordinates, so they keep their place through zoom. processRequested's `parameters` ({mask} for a mask) are merged into the edit map as they are.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/SpectrogramView.qml",
@@ -33870,6 +33870,22 @@
           "required": false
         },
         {
+          "name": "selectionMode",
+          "type": "string",
+          "default": "\"rectangle\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "brushRadius",
+          "type": "real",
+          "default": "Tk.Theme.size.grip",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "selectionStartSample",
           "type": "string",
           "default": "\"\"",
@@ -33902,6 +33918,22 @@
           "required": false
         },
         {
+          "name": "maskPolygons",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maskPointLimit",
+          "type": "int",
+          "default": "4096 // AudioDsp::kMaxMaskPoints",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tileCount",
           "type": "int",
           "default": "root.tiles.length",
@@ -33913,6 +33945,14 @@
           "name": "hasSelection",
           "type": "bool",
           "default": "root.selectionStartSample.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasMask",
+          "type": "bool",
+          "default": "root.maskPolygons.length > 0",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -33928,12 +33968,16 @@
           "parameters": "string gestureId, string sourceId, string channelId, string startSample, string endSample, real lowHz, real highHz"
         },
         {
+          "name": "maskCommitted",
+          "parameters": "string gestureId, string sourceId, string channelId, var polygons, string startSample, string endSample, real lowHz, real highHz"
+        },
+        {
           "name": "gestureCanceled",
           "parameters": "string gestureId"
         },
         {
           "name": "processRequested",
-          "parameters": "string gestureId, string sourceId, string channelId, string operation, string startSample, string endSample, real lowHz, real highHz"
+          "parameters": "string gestureId, string sourceId, string channelId, string operation, string startSample, string endSample, real lowHz, real highHz, var parameters"
         },
         {
           "name": "zoomRequested",
@@ -33962,12 +34006,36 @@
           "parameters": "sample"
         },
         {
+          "name": "addSamples",
+          "parameters": "text, offset"
+        },
+        {
+          "name": "compareSamples",
+          "parameters": "a, b"
+        },
+        {
+          "name": "sampleAtX",
+          "parameters": "x"
+        },
+        {
+          "name": "maskExtent",
+          "parameters": "polygons"
+        },
+        {
           "name": "requestProcess",
           "parameters": "operation"
         },
         {
           "name": "frequencyAt",
           "parameters": "y"
+        },
+        {
+          "name": "maskPoint",
+          "parameters": "x, y"
+        },
+        {
+          "name": "dabPolygon",
+          "parameters": "x, y"
         },
         {
           "name": "beginSelectionAt",
@@ -33984,6 +34052,10 @@
         {
           "name": "cancelSelection",
           "parameters": ""
+        },
+        {
+          "name": "maskPointPosition",
+          "parameters": "polygonIndex, pointIndex"
         },
         {
           "name": "yForFrequency",
@@ -34007,6 +34079,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "spectrogramSelection",
         "spectrogramTileCanvas",
         "spectrogramView"
       ]
@@ -41387,7 +41460,7 @@
       "name": "WaveformEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the host owns source samples, edits and sample indexing. `columns` carries bounded extrema and exact decimal sample boundaries; this view only requests a selection or edit gesture and never changes the source snapshot. The reference host is Tk.AudioWaveformSource (columns, zoom, scroll) plus AudioSession.edits.apply for edit requests (docs/audio-editing.md, D-134/D-135).",
+      "description": "AGENT-CONTRACT: the host owns source samples, edits and sample indexing. `columns` carries bounded extrema and exact decimal sample boundaries; this view only requests a selection or edit gesture and never changes the source snapshot. The reference host is Tk.AudioWaveformSource (columns, channelLayout, channelColumns, zoom, scroll) plus AudioSession.edits.apply for edit requests: editRequested's `parameters` ({gainDb} for gain, {shape} for fades) are the edit's own parameters and are merged into the apply() map as they are (docs/audio-editing.md, D-134/D-135/D-187).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/WaveformEditor.qml",
@@ -41412,6 +41485,30 @@
           "name": "columns",
           "type": "var",
           "default": "[] // {minimum, maximum, startSample, endSample}",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelLayout",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "channelColumns",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionChannelId",
+          "type": "string",
+          "default": "\"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -41473,9 +41570,65 @@
           "required": false
         },
         {
+          "name": "gainDb",
+          "type": "real",
+          "default": "0.0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fadeShape",
+          "type": "string",
+          "default": "\"linear\" // or \"equalPower\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gainDbPerPixel",
+          "type": "real",
+          "default": "0.25",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "minimumGainDb",
+          "type": "real",
+          "default": "-96",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maximumGainDb",
+          "type": "real",
+          "default": "48",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "viewState",
           "type": "string",
           "default": "root.columns.length ? \"ready\" : \"empty\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "bandCount",
+          "type": "int",
+          "default": "Math.max(1, root.channelLayout.length)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasSelection",
+          "type": "bool",
+          "default": "root.columns.length > 0",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -41492,7 +41645,7 @@
         },
         {
           "name": "editRequested",
-          "parameters": "string gestureId, string sourceId, string channelId, string operation, string startSample, string endSample"
+          "parameters": "string gestureId, string sourceId, string channelId, string operation, string startSample, string endSample, var parameters"
         },
         {
           "name": "gestureCanceled",
@@ -41517,12 +41670,24 @@
           "parameters": "x"
         },
         {
+          "name": "boundaryNearFraction",
+          "parameters": "fraction"
+        },
+        {
+          "name": "bandAt",
+          "parameters": "y"
+        },
+        {
+          "name": "editChannel",
+          "parameters": ""
+        },
+        {
           "name": "beginSelectionAt",
-          "parameters": "x"
+          "parameters": "x, y"
         },
         {
           "name": "updateSelectionAt",
-          "parameters": "x"
+          "parameters": "x, y"
         },
         {
           "name": "finishSelection",
@@ -41534,11 +41699,39 @@
         },
         {
           "name": "requestEdit",
-          "parameters": "operation"
+          "parameters": "operation, parameters"
+        },
+        {
+          "name": "setGainDb",
+          "parameters": "value"
+        },
+        {
+          "name": "beginHandleDrag",
+          "parameters": "kind"
+        },
+        {
+          "name": "updateHandleDrag",
+          "parameters": "fraction, deltaY"
+        },
+        {
+          "name": "finishHandleDrag",
+          "parameters": ""
+        },
+        {
+          "name": "cancelHandleDrag",
+          "parameters": ""
         },
         {
           "name": "cancelActiveGesture",
           "parameters": ""
+        },
+        {
+          "name": "previewFactor",
+          "parameters": "fraction"
+        },
+        {
+          "name": "formatGain",
+          "parameters": "db"
         },
         {
           "name": "toCss",
@@ -41555,6 +41748,9 @@
       "bridge": false,
       "objectNames": [
         "waveformEditor",
+        "waveformGainDrag",
+        "waveformGainHandle",
+        "waveformGainText",
         "waveformSelectionCanvas",
         "waveformSelectionDrag"
       ]
@@ -43970,6 +44166,20 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "patchBytes",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "patchBudgetBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": false,
+          "constant": false
         }
       ],
       "signals": [
@@ -44458,7 +44668,7 @@
       "name": "AudioWaveformSource",
       "kind": "cpp",
       "base": "AudioAnalysisSource",
-      "description": "Waveform columns with exact extrema from a peak pyramid built once per source revision on a worker thread.",
+      "description": "Waveform columns with exact extrema from a peak pyramid built once per source revision on a worker thread. With splitChannels, channelColumns holds one column list per channel of channelLayout (same boundaries as `columns`), for a WaveformEditor that shows every channel in its own band.",
       "singleton": false,
       "attached": null,
       "file": "src/core/audio_analysis_source.h",
@@ -44469,9 +44679,35 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "splitChannels",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "channelColumns",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "channelLayout",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
-      "signals": [],
+      "signals": [
+        {
+          "name": "splitChannelsChanged",
+          "parameters": ""
+        }
+      ],
       "methods": [
         {
           "name": "extrema",

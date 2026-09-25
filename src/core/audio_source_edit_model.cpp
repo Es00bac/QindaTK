@@ -2,7 +2,9 @@
 #include "audio_source_edit_model.h"
 
 #include <QFutureWatcher>
+#include <QSet>
 #include <QtConcurrentRun>
+#include <map>
 
 namespace QindaTK {
 namespace {
@@ -95,18 +97,80 @@ void AudioSourceEditModel::fold(Source &entry)
         entry.folded = 0;
         entry.problems.clear();
     }
+    // AGENT-NOTE (D-187): the replay owns one working copy and edits it in
+    // place; only a length change allocates another. Published buffers are
+    // never written: `work` is private until it becomes `current`.
+    std::shared_ptr<AudioBuffer> work;
     for (; entry.folded < entry.edits.size(); ++entry.folded) {
         AudioSourceEdit &edit = entry.edits[entry.folded];
+        const AudioBuffer &base = work ? *work : *entry.current;
         QString problem;
-        if (!edit.patch && !edit.changesLength()) AudioSourceEditing::prepare(*entry.current, edit, {}, &problem);
-        else problem = AudioSourceEditing::validate(*entry.current, edit);
+        if (edit.needsPatch() && !edit.patch) AudioSourceEditing::prepare(base, edit, {}, &problem);
+        else problem = AudioSourceEditing::validate(base, edit);
         if (!problem.isEmpty()) {
             // An edit that no longer fits (a relinked, shorter file) is reported
             // and skipped; the later edits still apply where they fit.
             entry.problems.push_back(tr("%1: %2").arg(edit.label(), problem));
             continue;
         }
-        entry.current = AudioSourceEditing::apply(*entry.current, edit);
+        if (edit.changesLength()) {
+            work = std::const_pointer_cast<AudioBuffer>(AudioSourceEditing::apply(base, edit));
+        } else {
+            if (!work) work = std::make_shared<AudioBuffer>(*entry.current);
+            AudioSourceEditing::applyInPlace(*work, edit);
+        }
+    }
+    if (work) entry.current = std::move(work);
+    enforcePatchBudget(); // patches the replay recomputed count like any other
+}
+
+qint64 AudioSourceEditModel::heldPatchBytes() const
+{
+    QSet<const AudioBuffer *> seen;
+    qint64 bytes = 0;
+    const auto count = [&](const AudioSourceEdit &edit) {
+        if (!edit.patch || seen.contains(edit.patch.get())) return;
+        seen.insert(edit.patch.get());
+        bytes += qint64(edit.patch->samples.size() * sizeof(float));
+    };
+    for (const Source &entry : m_sources)
+        for (const AudioSourceEdit &edit : entry.edits) count(edit);
+    for (const Step &step : m_history) count(step.edit);
+    return bytes;
+}
+
+void AudioSourceEditModel::setPatchBudgetBytes(qint64 bytes)
+{
+    bytes = std::max<qint64>(0, bytes);
+    if (bytes == m_patchBudget) return;
+    m_patchBudget = bytes;
+    enforcePatchBudget();
+    emit historyChanged();
+}
+
+void AudioSourceEditModel::enforcePatchBudget()
+{
+    // Every patch by commit order; a step and its committed edit share one.
+    std::map<quint64, const AudioBuffer *> byAge;
+    const auto note = [&](const AudioSourceEdit &edit) {
+        if (edit.patch) byAge.emplace(edit.sequence, edit.patch.get());
+    };
+    for (const Source &entry : m_sources)
+        for (const AudioSourceEdit &edit : entry.edits) note(edit);
+    for (const Step &step : m_history) note(step.edit);
+    qint64 held = heldPatchBytes();
+    // AGENT-GUARD: the newest patch always stays, so an edit just made never
+    // has to be recomputed; dropping is safe because prepare() is deterministic.
+    while (held > m_patchBudget && byAge.size() > 1) {
+        const AudioBuffer *oldest = byAge.begin()->second;
+        byAge.erase(byAge.begin());
+        const auto drop = [oldest](AudioSourceEdit &edit) {
+            if (edit.patch.get() == oldest) edit.patch.reset();
+        };
+        held -= qint64(oldest->samples.size() * sizeof(float));
+        for (Source &entry : m_sources)
+            for (AudioSourceEdit &edit : entry.edits) drop(edit);
+        for (Step &step : m_history) drop(step.edit);
     }
 }
 
@@ -170,12 +234,14 @@ void AudioSourceEditModel::push(const QString &resourceId, AudioSourceEdit edit,
 {
     Source &entry = m_sources[resourceId];
     m_history.resize(m_cursor); // an edit after undo discards the redo steps
+    edit.sequence = ++m_editSequence;
     entry.edits.push_back(edit);
     entry.current = std::move(result);
     entry.folded = int(entry.edits.size());
     m_history.push_back({resourceId, std::move(edit)});
     if (m_history.size() > kHistoryLimit) m_history.removeFirst();
     m_cursor = m_history.size();
+    enforcePatchBudget();
     touch(resourceId);
     emit historyChanged();
 }
@@ -331,7 +397,7 @@ bool AudioSourceEditModel::redo()
         fail(tr("The source %1 has no decoded samples").arg(step.resourceId));
         return false;
     }
-    if (!step.edit.patch && !AudioSourceEditing::prepare(*base, step.edit, {}, &error)) {
+    if (step.edit.needsPatch() && !step.edit.patch && !AudioSourceEditing::prepare(*base, step.edit, {}, &error)) {
         fail(error);
         return false;
     }
@@ -344,6 +410,7 @@ bool AudioSourceEditModel::redo()
     entry.current = AudioSourceEditing::apply(*base, step.edit);
     entry.folded = int(entry.edits.size());
     ++m_cursor;
+    enforcePatchBudget();
     touch(step.resourceId);
     emit historyChanged();
     return true;
