@@ -3,6 +3,7 @@
 // ticket change, and preflight runs again to prove the issue is gone.
 #include "print_adapter_p.h"
 #include "rich_text_ops_p.h"
+#include "rich_text_spans.h"
 
 #include <QUrl>
 
@@ -94,21 +95,25 @@ bool PrintAdapter::replaceFont(const QString &family)
         return false;
     }
     bool ok = true;
+    QString change; // under Track changes the replacement is a tracked formatting change (WP-052)
     const QVector<Paragraph *> paragraphs = doc.paragraphsInOrder();
     for (const Paragraph *p : paragraphs) {
         if (!ok) break;
-        ok = Detail::rewriteFormats(doc, *p, 0, int(p->text.size()), [&](CharFormat &format) {
+        StepSpans step;
+        step.paragraph = p->id;
+        step.before = p->spans;
+        step.after = Spans::mapped(p->spans, [&](int index) {
+            CharFormat format = doc.charFormat(index);
             if (format.family == family) format.family = replacement;
+            return doc.internFormat(format);
         });
-        if (ok && doc.charFormat(p->markFormat).family == family) {
+        if (doc.charFormat(p->markFormat).family == family) {
             CharFormat mark = doc.charFormat(p->markFormat);
             mark.family = replacement;
-            StepSpans step;
-            step.paragraph = p->id;
             step.markBefore = p->markFormat;
             step.markAfter = doc.internFormat(mark);
-            ok = !doc.apply(step);
         }
+        ok = doc.applyFormatStep(step, &change);
     }
     QStringList styles;
     for (const NamedStyle &style : doc.styleSheet())

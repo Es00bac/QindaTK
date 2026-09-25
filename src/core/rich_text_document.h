@@ -4,6 +4,7 @@
 #include "application_contracts.h"
 #include "rich_text_publishing.h"
 #include "rich_text_review.h"
+#include "rich_text_steps.h"
 #include "rich_text_types.h"
 #include <QHash>
 #include <QJsonObject>
@@ -14,112 +15,6 @@
 
 namespace QindaTK {
 namespace RichText {
-
-// Primitive, invertible edit steps. A transaction is an ordered list of them.
-struct StepText {
-    QUuid paragraph;
-    int offset = 0;
-    QString removed;
-    QVector<Span> removedSpans;
-    QString inserted;
-    QVector<Span> insertedSpans;
-    QVector<RichObject> removedObjects;   // objects whose anchor chars leave
-    QVector<RichObject> insertedObjects;  // objects whose anchor chars arrive
-};
-struct StepSpans {
-    QUuid paragraph;
-    int offset = 0;
-    QVector<Span> before;                 // same total length as after
-    QVector<Span> after;
-    int markBefore = -1;                  // -1: mark format unchanged
-    int markAfter = -1;
-};
-struct StepParagraphFormat {
-    QUuid paragraph;
-    ParagraphFormat before;
-    ParagraphFormat after;
-};
-struct StepSplit {                        // inverse: merge at offset
-    QUuid paragraph;
-    int offset = 0;
-    ParagraphPtr created;                 // keeps its identity across redo
-};
-struct StepMerge {                        // inverse: split at joinOffset
-    QUuid paragraph;
-    ParagraphPtr next;
-    int joinOffset = 0;
-};
-struct StepBlocks {
-    ContainerSpec container;
-    int index = 0;
-    QVector<Block> blocks;
-    QVector<RichObject> objects;          // objects anchored inside the blocks
-    bool insert = true;
-};
-struct StepMove {                         // body blocks keep identity and anchors
-    int from = 0;
-    int count = 0;
-    int to = 0;                           // index before the move; inverse swaps
-};
-struct StepList {
-    QString listId;
-    std::optional<ListDefinition> before;
-    std::optional<ListDefinition> after;
-};
-struct StepObject {
-    QString objectId;
-    RichObject before;
-    RichObject after;
-};
-struct StepDocument {
-    PageSetup pageBefore;
-    PageSetup pageAfter;
-    DocumentDefaults defaultsBefore;
-    DocumentDefaults defaultsAfter;
-};
-// Replaces one table's grid (rows, columns, widths, header rows) in place of
-// the registered one. AGENT-NOTE: `before` and `after` share the Paragraph
-// objects of unchanged cells, so those keep their IDs, revisions and
-// anchors. Later edits inside cells mutate the live grid; linear history
-// undoes them before this step, so swapping the pointers back is exact.
-struct StepTable {
-    QUuid tableId;
-    TablePtr before;
-    TablePtr after;
-    QVector<RichObject> removedObjects; // objects in removed rows/columns
-};
-// Creates (no `before`), replaces or removes (no `after`) one named style.
-// Paragraph styles also rewrite their paragraphs' resolved formats with
-// separate StepParagraphFormat steps of the same transaction.
-struct StepStyle {
-    QString styleId;
-    std::optional<NamedStyle> before;
-    std::optional<NamedStyle> after;
-};
-struct StepFrames {                       // the whole frame set (frames are few)
-    FrameSet before;
-    FrameSet after;
-};
-// Creates (no `before`), replaces or removes (no `after`) one annotation
-// record (WP-052). The marks in the text change through StepSpans/StepText.
-struct StepAnnotation {
-    QString id;
-    std::optional<Annotation> before;
-    std::optional<Annotation> after;
-};
-using Step = std::variant<StepText, StepSpans, StepParagraphFormat, StepSplit, StepMerge,
-                          StepBlocks, StepMove, StepList, StepObject, StepDocument, StepTable,
-                          StepStyle, StepFrames, StepAnnotation>;
-
-struct Transaction {
-    QUuid id;
-    QString label;
-    QString mergeKey;
-    QVector<Step> steps;
-    Selection before;
-    Selection after;
-    quint64 bytes = 0;
-};
 
 // What one applied transaction, undo or redo touched; views invalidate from it.
 struct ChangeSet {
@@ -298,6 +193,9 @@ public:
     Q_INVOKABLE bool splitTableCell(const QString &tableId, const QString &cellId);
     Q_INVOKABLE bool setTableStyle(const QString &tableId, const QString &styleId);
     std::optional<RichText::Position> insertPageBreak(const RichText::Position &at);
+    // Applies a character-format StepSpans; under trackChanges it records the
+    // former formats in a tracked format change (`changeId` joins or names it).
+    bool applyFormatStep(RichText::StepSpans step, QString *changeId);
     bool setPageSetup(const RichText::PageSetup &page);
     bool setDefaults(const RichText::DocumentDefaults &defaults);
     // Sections are body ranges separated by pageBreakBefore paragraphs; the
@@ -373,6 +271,10 @@ public:
     Q_INVOKABLE bool updateSource(const QString &sourceId, const QVariantMap &patch);
     Q_INVOKABLE bool removeSource(const QString &sourceId);
     Q_INVOKABLE bool updateFields();
+    // Notes (rich_text_notes.cpp): `kind` is "footnote" or "endnote". The
+    // reference is a numbered field; pagination places the note text.
+    Q_INVOKABLE QString insertNote(const QString &paragraphId, int offset, const QString &kind, const QString &text);
+    Q_INVOKABLE bool setNoteText(const QString &noteId, const QString &text);
     std::optional<RichText::Position> insertField(const RichText::Position &at, RichText::ReferenceField field);
     // Review (rich_text_review_edit.cpp): comments and tracked changes.
     QVariantList reviewItems() const;
@@ -385,6 +287,13 @@ public:
     Q_INVOKABLE bool acceptChange(const QString &changeId);
     Q_INVOKABLE bool rejectChange(const QString &changeId);
     Q_INVOKABLE QString reviewContextAt(const QString &paragraphId, int offset) const;
+    // Navigation (rich_text_review_track.cpp): an item's anchored range as
+    // {paragraphId, offset, endParagraphId, endOffset} ({} when orphaned), and
+    // the item after (or before) a position in document order, wrapping
+    // around; `kind` "comment" or "change" limits it ("" when none).
+    Q_INVOKABLE QVariantMap reviewItemLocation(const QString &itemId) const;
+    Q_INVOKABLE QString adjacentReviewItem(const QString &paragraphId, int offset, bool forward,
+                                           const QString &kind = {}) const;
     // The first position at or after `position` that is not tracked-deleted text.
     RichText::Position afterTrackedDeletion(const RichText::Position &position) const;
 
@@ -470,6 +379,20 @@ private:
     void expandOverFields(RichText::Position *start, RichText::Position *end) const;
     bool markDeleted(const RichText::Position &start, const RichText::Position &end);
     bool resolveChange(const QString &changeId, bool accept);
+    // Tracking helpers (rich_text_review_track.cpp, rich_text_review_structure.cpp).
+    // Content edits under trackChanges are recorded or refused; nothing
+    // applies untracked (docs/references-review.md#tracked-changes).
+    bool refuseWhileTracking(const QString &operation);
+    bool applyParagraphFormatStep(const RichText::StepParagraphFormat &step, QString *changeId);
+    bool setMarkFormat(RichText::Paragraph *p, int format);
+    bool joinWithNext(RichText::Paragraph *p);  // the break's marks go, the next mark stays
+    bool markParagraphBreak(RichText::Paragraph *p, const QString &insertionId);
+    bool restoreFormats(const RichText::TrackedChange &change);
+    bool trackStructureDeletion(const RichText::Table &table, const QUuid &row, const QUuid &column);
+    bool removeTableRowNow(const QString &tableId, const QString &rowId);
+    bool removeTableColumnNow(const QString &tableId, const QString &columnId);
+    bool replaceEquationTracked(const RichText::RichObject &current, const RichText::RichObject &next);
+    bool replaceFieldTracked(const RichText::ReferenceField &current, RichText::ReferenceField next);
     QVector<RichText::Block> *bodyOrNull(const RichText::ContainerSpec &spec);
     QVector<RichText::ParagraphPtr> *cellParagraphs(const RichText::ContainerSpec &spec);
     void registerBlock(const RichText::Block &block);
@@ -503,6 +426,7 @@ private:
     RichText::Annotations m_annotations;
     bool m_trackChanges = false;
     QString m_reviewAuthor;
+    QString m_insertionHint; // the tracked insertion a paste's paragraph breaks join
     QString m_lastErrorCode;
     mutable QHash<QString, RichText::CharFormatPatch> m_resolvedCharacter; // cleared by style steps
     mutable QVector<RichText::Paragraph *> m_flat;

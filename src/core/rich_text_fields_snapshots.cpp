@@ -68,6 +68,13 @@ QVariantList RichTextDocument::referenceSnapshots() const
                     ? Fields::sourceLabel(m_annotations.sources.value(field.target)) : tr("Missing source");
                 break;
             case FieldKind::Bibliography: label = tr("Bibliography"); break;
+            case FieldKind::Footnote:
+            case FieldKind::Endnote: {
+                const QString kind = field.kind == FieldKind::Footnote ? tr("Footnote") : tr("Endnote");
+                const QString text = field.text.simplified();
+                label = kind + QStringLiteral(" · ") + (text.size() > 40 ? text.left(39) + QChar(0x2026) : text);
+                break;
+            }
             }
         }
         // "stale" only after loading a file whose results were edited by hand;
@@ -84,6 +91,7 @@ QVariantList RichTextDocument::referenceSnapshots() const
                                 {QStringLiteral("formattedText"), current},
                                 {QStringLiteral("expectedText"), result.text},
                                 {QStringLiteral("error"), result.error},
+                                {QStringLiteral("noteText"), field.text},
                                 {QStringLiteral("location"), locationMap(at)}});
     }
     return list;

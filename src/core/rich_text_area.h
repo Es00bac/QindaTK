@@ -170,6 +170,12 @@ public:
     Q_INVOKABLE QString insertReference(const QString &type, const QString &targetId);
     Q_INVOKABLE bool selectRange(const QString &startParagraphId, int startOffset,
                                  const QString &endParagraphId, int endOffset);
+    // Review navigation (OFF-11): selects a review item's anchored range and
+    // scrolls to it; the adjacent form steps from the selection's start in
+    // document order (wrapping), optionally only "comment" or "change"
+    // items, and returns the ID it went to ("" when there is none).
+    Q_INVOKABLE bool goToReviewItem(const QString &itemId);
+    Q_INVOKABLE QString goToAdjacentReviewItem(bool forward, const QString &kind = {});
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 
 signals:

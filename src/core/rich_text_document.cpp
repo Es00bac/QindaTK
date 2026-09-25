@@ -215,9 +215,9 @@ int RichTextDocument::formatIndexAt(const Position &position) const
 {
     const Paragraph *p = paragraph(position.paragraph);
     if (!p) return 0;
-    if (p->text.isEmpty()) return p->markFormat;
     const int offset = qBound(0, position.offset, int(p->text.size()));
-    int index = spanFormatAt(*p, offset > 0 ? offset - 1 : 0);
+    // An empty paragraph types in its mark's format, without the mark's review marks.
+    int index = p->text.isEmpty() ? p->markFormat : spanFormatAt(*p, offset > 0 ? offset - 1 : 0);
     CharFormat format = charFormat(index);
     const CharFormat *next = offset > 0 && offset < p->text.size() ? &charFormat(spanFormatAt(*p, offset)) : nullptr;
     // Typing never copies an object identity, and only extends a link from inside it.
@@ -228,13 +228,16 @@ int RichTextDocument::formatIndexAt(const Position &position) const
     for (const QString &id : std::as_const(format.commentIds))
         if (next && next->commentIds.contains(id)) comments.append(id);
     if (format.objectId.isEmpty() && (format.href.isEmpty() || insideLink) && format.fieldId.isEmpty()
-        && format.insertionId.isEmpty() && format.deletionId.isEmpty() && comments == format.commentIds)
+        && format.insertionId.isEmpty() && format.deletionId.isEmpty() && format.formatChangeId.isEmpty()
+        && comments == format.commentIds)
         return index;
     format.objectId.clear();
     if (!insideLink) format.href.clear();
     format.fieldId.clear();
     format.insertionId.clear();
     format.deletionId.clear();
+    format.formatChangeId.clear();
+    format.formatSlot = -1;
     format.commentIds = comments;
     return const_cast<RichTextDocument *>(this)->internFormat(format);
 }

@@ -7,7 +7,8 @@ import "review.js" as Fixture
 // edit: ReferenceManager, ReviewPane and EquationEditor only send requests,
 // and each accepted request is one document undo step. Captions, the
 // cross-reference, citations and the bibliography are generated fields that
-// renumber inside the edit that moved them; the comment and the tracked
+// renumber inside the edit that moved them; the footnote's number is a field
+// and its text is set at the foot of its page; the comment and the tracked
 // replacement are marks in the text, so they follow edits and undo exactly;
 // the equation is laid out and drawn on the page from its source.
 // Run: qtk-preview examples/document-review/Main.qml --size 1280x900
@@ -59,6 +60,9 @@ Rectangle {
         view.area.selectRange(p[Fixture.Estimates], 0, p[Fixture.Estimates], 7)
         view.area.insertText("Provisional")
         document.trackChanges = false
+        // A footnote: its number is a field, its text sits at the page foot.
+        document.insertNote(p[Fixture.Estimates], text(Fixture.Estimates).length - 1, "footnote",
+                            "Readings between 02:00 and 04:00 were excluded after a logger fault.")
         document.reviewAuthor = qsTr("You")
         const opened = document.loadJson(document.toJson())
         selectedEquationId = document.equations.length ? document.equations[0].id : ""
@@ -180,11 +184,8 @@ Rectangle {
                         id: reviewPane
                         objectName: "reviewPane"
                         items: document.reviewItems
-                        onNavigateRequested: function(id, location) {
-                            if (location)
-                                view.area.selectRange(location.paragraphId, location.offset,
-                                                      location.endParagraphId, location.endOffset)
-                        }
+                        // The document selects the item's anchored range (OFF-11 navigation).
+                        onNavigateRequested: function(id, location) { view.area.goToReviewItem(id) }
                         onAcceptChangeRequested: function(id) {
                             scene.report(document.acceptChange(id), qsTr("Change accepted"))
                         }

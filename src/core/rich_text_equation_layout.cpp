@@ -43,6 +43,13 @@ void place(Box &into, const Box &item, double x, double y)
     }
     for (const QRectF &rule : item.rules) into.rules.append(rule.translated(x, y));
     for (const QPolygonF &stroke : item.strokes) into.strokes.append(stroke.translated(x, y));
+    for (Stop stop : item.stops) {
+        stop.x += x;
+        stop.top += y;
+        stop.bottom += y;
+        into.stops.append(stop);
+    }
+    for (const QRectF &slot : item.placeholders) into.placeholders.append(slot.translated(x, y));
     into.strokeWidth = qMax(into.strokeWidth, item.strokeWidth);
 }
 
@@ -109,10 +116,12 @@ Box centred(const QString &text, double glyphSize, double size)
 
 class Builder {
 public:
-    explicit Builder(double base) : m_base(base) {}
+    Builder(double base, bool editing) : m_base(base), m_editing(editing) {}
 
-    Box build(const Node &node, double size, int depth) const
+    // `path` is the node's child-index path from the root (editing layouts).
+    Box build(const Node &node, double size, int depth, const QVector<int> &path = {}) const
     {
+        m_path = path;
         switch (node.kind) {
         case NodeKind::Row: return row(node, size, depth);
         case NodeKind::Identifier: return atom(node.text, size, italicIdentifier(node.text));
@@ -138,13 +147,26 @@ public:
 private:
     double scriptSize(double size) const { return qMax(size * ScriptScale, m_base * 0.5); }
 
+    // Child `index` of the node being built, remembering where it sits.
+    Box child(const Node &node, std::size_t index, double size, int depth) const
+    {
+        const QVector<int> path = m_path;
+        QVector<int> childPath = path;
+        childPath.append(int(index));
+        Box box = build(node.children.at(index), size, depth, childPath);
+        m_path = path;
+        return box;
+    }
+
     Box row(const Node &node, double size, int depth) const
     {
         Box box;
         double x = 0;
+        const QVector<int> path = m_path;
+        QVector<double> stops;
         for (std::size_t i = 0; i < node.children.size(); ++i) {
             const Node &child = node.children.at(i);
-            const Box item = build(child, size, depth);
+            const Box item = this->child(node, i, size, depth);
             double before = 0;
             double after = 0;
             const bool unary = i == 0 || node.children.at(i - 1).kind == NodeKind::Operator;
@@ -156,6 +178,7 @@ private:
             const Node &head = child.kind == NodeKind::Scripts ? child.children.front() : child;
             if ((head.kind == NodeKind::Function || head.kind == NodeKind::LargeOperator) && i + 1 < node.children.size())
                 after += 0.17 * size;
+            stops.append(x + before / 2);
             x += before;
             place(box, item, x, 0);
             x += item.width + after;
@@ -163,14 +186,26 @@ private:
             box.descent = qMax(box.descent, item.descent);
         }
         box.width = qMax(0.0, x);
+        if (!m_editing) return box;
+        stops.append(box.width);
+        if (node.children.empty()) {
+            // An empty slot shows a placeholder the caret sits in.
+            box.width = 0.6 * size;
+            box.ascent = 0.7 * size;
+            box.descent = 0.15 * size;
+            box.placeholders.append(QRectF(0.05 * size, -box.ascent, 0.5 * size, box.height()));
+            stops.last() = 0.3 * size;
+        }
+        for (qsizetype i = 0; i < stops.size(); ++i)
+            box.stops.append({path, int(i), stops.at(i), -qMax(box.ascent, 0.7 * size), qMax(box.descent, 0.15 * size)});
         return box;
     }
 
     Box fraction(const Node &node, double size, int depth) const
     {
         const double part = depth == 0 ? size : scriptSize(size);
-        const Box num = build(node.children.at(0), part, depth + 1);
-        const Box den = build(node.children.at(1), part, depth + 1);
+        const Box num = child(node, 0, part, depth + 1);
+        const Box den = child(node, 1, part, depth + 1);
         const double axis = AxisEm * size;
         const double rule = qMax(RuleEm * size, 0.4);
         const double gap = 0.15 * size;
@@ -189,7 +224,7 @@ private:
 
     Box root(const Node &node, double size, int depth) const
     {
-        const Box radicand = build(node.children.at(0), size, depth);
+        const Box radicand = child(node, 0, size, depth);
         const double rule = qMax(RuleEm * size, 0.4);
         const double gap = 0.12 * size;
         const double sign = 0.6 * size;
@@ -199,7 +234,7 @@ private:
         Box index;
         double indent = 0;
         if (node.children.size() > 1) {
-            index = build(node.children.at(1), qMax(size * 0.5, m_base * 0.4), depth + 1);
+            index = child(node, 1, qMax(size * 0.5, m_base * 0.4), depth + 1);
             indent = qMax(0.0, index.width - 0.35 * sign);
         }
         Box box;
@@ -223,11 +258,11 @@ private:
     Box scripts(const Node &node, double size, int depth) const
     {
         const Node &baseNode = node.children.at(0);
-        const Box base = build(baseNode, size, depth);
+        const Box base = child(node, 0, size, depth);
         const double small = scriptSize(size);
         std::size_t next = 1;
-        const Box sub = node.hasSub ? build(node.children.at(next++), small, depth + 1) : Box{};
-        const Box sup = node.hasSup ? build(node.children.at(next), small, depth + 1) : Box{};
+        const Box sub = node.hasSub ? child(node, next++, small, depth + 1) : Box{};
+        const Box sup = node.hasSup ? child(node, next, small, depth + 1) : Box{};
         Box box;
         if (baseNode.kind == NodeKind::LargeOperator && !integral(baseNode.text)) {
             // Limits above and below, centred.
@@ -275,7 +310,7 @@ private:
 
     Box fenced(const Node &node, double size, int depth) const
     {
-        const Box content = build(node.children.at(0), size, depth);
+        const Box content = child(node, 0, size, depth);
         const double axis = AxisEm * size;
         const double half = qMax(content.ascent - axis, content.descent + axis) + 0.05 * size;
         auto delimiter = [&](const QString &source) {
@@ -299,6 +334,8 @@ private:
     }
 
     double m_base;
+    bool m_editing = false;
+    mutable QVector<int> m_path; // path of the node being built
 };
 
 } // namespace
@@ -309,9 +346,9 @@ QStringList mathFamilies()
             QStringLiteral("serif")};
 }
 
-Box layout(const Node &root, double sizePt)
+Box layout(const Node &root, double sizePt, bool editing)
 {
-    return Builder(sizePt).build(root, sizePt, 0);
+    return Builder(sizePt, editing).build(root, sizePt, 0);
 }
 
 void paint(QPainter *painter, const QRectF &rect, const Box &box, const QColor &ink)

@@ -47,12 +47,14 @@ namespace {
 const QStringList &fieldKindNames()
 {
     static const QStringList names{QStringLiteral("sequence"), QStringLiteral("crossReference"),
-                                   QStringLiteral("citation"), QStringLiteral("bibliography")};
+                                   QStringLiteral("citation"), QStringLiteral("bibliography"),
+                                   QStringLiteral("footnote"), QStringLiteral("endnote")};
     return names;
 }
 const QStringList &changeKindNames()
 {
-    static const QStringList names{QStringLiteral("insertion"), QStringLiteral("deletion")};
+    static const QStringList names{QStringLiteral("insertion"), QStringLiteral("deletion"),
+                                   QStringLiteral("format")};
     return names;
 }
 QString tr(const char *text) { return QCoreApplication::translate("QindaTK::RichTextDocument", text); }
@@ -94,6 +96,14 @@ QString brokenReferenceResult() { return QStringLiteral("[?]"); }
 
 QString citationResult(int number) { return QStringLiteral("[%1]").arg(number); }
 
+QString noteResult(FieldKind kind, int number)
+{
+    // AGENT-NOTE: endnotes count in lower-case roman numerals, as word
+    // processors do by default, so the two series never read alike.
+    return kind == FieldKind::Endnote ? listMarkerText(ListKind::LowerRoman, number).chopped(1)
+                                      : QString::number(number);
+}
+
 QString bibliographyEntry(const ReferenceSource &source, int number)
 {
     // A part that already ends a sentence ("Wu, L.") takes no second period.
@@ -123,6 +133,7 @@ QString annotationsProblem(const Annotations &a)
         if (it.key() != it->id || !unique(it->id)) return QStringLiteral("Invalid or duplicate field identifier");
         if (it->kind == FieldKind::Sequence && !validSequenceName(it->sequence))
             return QStringLiteral("Invalid sequence name");
+        if (it->text.size() > MaximumNoteText) return QStringLiteral("Note text too long");
     }
     for (auto it = a.sources.cbegin(); it != a.sources.cend(); ++it)
         if (it.key() != it->id || !unique(it->id)) return QStringLiteral("Invalid or duplicate source identifier");
@@ -131,8 +142,10 @@ QString annotationsProblem(const Annotations &a)
         for (const CommentReply &reply : it->replies)
             if (!unique(reply.id)) return QStringLiteral("Invalid or duplicate reply identifier");
     }
-    for (auto it = a.changes.cbegin(); it != a.changes.cend(); ++it)
+    for (auto it = a.changes.cbegin(); it != a.changes.cend(); ++it) {
         if (it.key() != it->id || !unique(it->id)) return QStringLiteral("Invalid or duplicate change identifier");
+        if (it->formats.size() > MaximumFormerFormats) return QStringLiteral("Too many former formats");
+    }
     return {};
 }
 

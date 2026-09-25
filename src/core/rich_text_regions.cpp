@@ -56,7 +56,7 @@ bool RichTextLayout::buildPage(int index, const FlowState &start, Page *page, Fl
     FlowState state = start;
     const bool paged = m_mode == Mode::Paged;
     const auto &blocks = m_document->blocks();
-    bool more = state.block < blocks.size();
+    bool more = state.block < blocks.size() || state.notes;
     for (const Region &region : regions(index)) {
         if (!more) break;
         FlowBuilder builder(*this, *m_document, region.rect.width(), region.rect.height(), paged);

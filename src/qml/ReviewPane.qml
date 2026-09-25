@@ -35,6 +35,19 @@ Item {
         if (enabled && selectedItem)
             navigateRequested(selectedItem.id, selectedItem.location || null)
     }
+    // Steps to the next (or previous) anchored item in document order,
+    // wrapping around, and asks the host to go there (orphans are skipped).
+    function selectAdjacent(forward) {
+        if (!enabled) return
+        const anchored = items.filter(function(item) { return item.status !== "orphaned" && !!item.location })
+        if (anchored.length === 0) return
+        let index = -1
+        for (let i = 0; i < anchored.length; ++i) if (anchored[i].id === selectedItemId) index = i
+        const next = index < 0 ? (forward ? 0 : anchored.length - 1)
+                               : (index + (forward ? 1 : anchored.length - 1)) % anchored.length
+        selectedItemId = anchored[next].id
+        navigateRequested(anchored[next].id, anchored[next].location)
+    }
     function sendReply() {
         if (enabled && selectedItem && selectedItem.threadId && replyDraft.trim().length > 0)
             replyRequested(selectedItem.threadId, replyDraft.trim())
@@ -52,6 +65,20 @@ Item {
             align: Tk.Flex.Center
             Tk.Overline { title: qsTr("REVIEW"); Tk.Flex.grow: 1; Tk.Flex.basis: 0 }
             Tk.Caption { text: qsTr("%1 open").arg(control.items.length) }
+            Tk.IconButton {
+                objectName: "reviewPrevious"
+                iconName: "chevron-up"
+                tooltip: qsTr("Go to the previous comment or change")
+                enabled: control.items.length > 0
+                onClicked: control.selectAdjacent(false)
+            }
+            Tk.IconButton {
+                objectName: "reviewNext"
+                iconName: "chevron-down"
+                tooltip: qsTr("Go to the next comment or change")
+                enabled: control.items.length > 0
+                onClicked: control.selectAdjacent(true)
+            }
         }
         Tk.Caption {
             objectName: "reviewError"

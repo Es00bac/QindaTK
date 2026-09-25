@@ -11,6 +11,7 @@ using namespace RichText::Detail;
 std::optional<Position> RichTextDocument::insertTable(const Position &at, int rows, int columns,
                                                       int headerRows)
 {
+    if (refuseWhileTracking(tr("Inserting a table"))) return std::nullopt;
     Paragraph *p = paragraph(at.paragraph);
     if (!isValidPosition(at) || rows < 1 || columns < 1 || rows > 10000 || columns > 64) {
         reject(ErrorCode::InvalidArgument, QStringLiteral("Invalid table size or position"));
@@ -81,7 +82,8 @@ std::optional<Position> RichTextDocument::insertPageBreak(const Position &at)
     if (ok && !breakParagraph->format.pageBreakBefore) {
         ParagraphFormat after = breakParagraph->format;
         after.pageBreakBefore = true;
-        ok = !apply(StepParagraphFormat{breakParagraph->id, breakParagraph->format, after});
+        QString change; // tracked like any paragraph format (WP-052)
+        ok = applyParagraphFormatStep(StepParagraphFormat{breakParagraph->id, breakParagraph->format, after}, &change);
     }
     const Position caret{target.paragraph, 0};
     if (!transaction.finish(ok, caret)) return std::nullopt;
@@ -138,6 +140,7 @@ QVector<QUuid> RichTextDocument::sectionIds() const
 
 bool RichTextDocument::moveSection(const QUuid &section, int targetIndex)
 {
+    if (refuseWhileTracking(tr("Moving a section"))) return false;
     const QVector<QUuid> ids = sectionIds();
     const int from = int(ids.indexOf(section));
     if (from < 0 || targetIndex < 0 || targetIndex > ids.size()) {

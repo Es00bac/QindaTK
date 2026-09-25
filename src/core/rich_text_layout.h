@@ -71,7 +71,7 @@ struct ParagraphMetrics {
 // `x` and `width` are those of the region (page column or frame column) the
 // item was laid out in; lines and tables are shaped at that width.
 struct PageItem {
-    enum Kind : quint8 { Lines, TableRows, Float, PageObject };
+    enum Kind : quint8 { Lines, TableRows, Float, PageObject, Note };
     Kind kind = Lines;
     QUuid block;                // paragraph (Lines, Float, PageObject) or table
     int first = 0;              // first line or row
@@ -91,6 +91,11 @@ struct PageItem {
     QVector<Exclusion> exclusions; // Lines: context the paragraph was laid out in
     QVector<WidthBreak> widths;    // Lines: per-line widths of a paragraph continued across regions
     QString frameId;               // text frame the item flows in (frame layouts)
+    // Note (WP-052, docs/references-review.md#notes): `objectId` is the note
+    // field, `block` its reference's paragraph, `text` "number\ttext", and
+    // `rule` draws the separator above the first note of a note area.
+    QString text;
+    bool rule = false;
 };
 
 // Where flow content goes on a page, in content-box coordinates: one page
@@ -108,6 +113,7 @@ struct FlowState {
     QVector<int> cellLine;      // continuation of a split row
     QVector<Exclusion> exclusions; // a continued paragraph keeps its first page's context
     QVector<WidthBreak> widths;    // and the widths its lines were laid out at
+    bool notes = false;            // in the end-note area after the last block; `line` is the next note
     friend bool operator==(const FlowState &, const FlowState &) = default;
 };
 
@@ -291,6 +297,9 @@ private:
     bool buildPage(int index, const RichText::FlowState &start, RichText::Page *page, RichText::FlowState *next);
     void paintFrames(QPainter *painter, int page, const RichText::PaintContext &context);
     void paintRegions(QPainter *painter, int page, const RichText::PaintContext &context);
+    void paintNote(QPainter *painter, const RichText::PageItem &item, const RichText::PaintContext &context);
+    qreal noteHeight(const QString &text, qreal width); // px, the note area gap excluded
+    bool hasNotes() const;
     bool rebuildMarkers() const;
     void pageRange(RichText::Page &page);
     QVector<int> pagesContaining(const RichText::Paragraph *p) const;
@@ -339,6 +348,7 @@ private:
     quint64 m_revisionCounter = 0;
     int m_shapedCount = 0;
     RichText::LayoutStats m_stats;
+    QHash<QString, qreal> m_noteHeights; // "width|text" -> height
 };
 
 } // namespace QindaTK

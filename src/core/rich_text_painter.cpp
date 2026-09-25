@@ -241,6 +241,9 @@ void RichTextLayout::paintPage(QPainter *painter, int pageIndex, const PaintCont
             if (const RichObject *object = m_document->object(item.objectId))
                 paintObject(painter, itemRect, *object, context);
             break;
+        case PageItem::Note:
+            paintNote(painter, item, context);
+            break;
         }
     }
     paintRegions(painter, pageIndex, context);

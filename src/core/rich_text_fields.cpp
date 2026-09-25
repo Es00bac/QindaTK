@@ -22,33 +22,46 @@ Scan scan(const RichTextDocument &doc)
     Scan out;
     const Annotations &a = doc.annotations();
     if (a.fields.isEmpty()) return out;
+    struct Run {
+        QString id;
+        Placement at;
+        bool deleted;
+    };
+    QVector<Run> runs;
     for (const Paragraph *p : doc.paragraphsInOrder()) {
         int position = 0;
-        int start = 0;
-        QString current;
-        auto close = [&](int end) {
-            if (current.isEmpty()) return;
-            const Placement placement{p, start, end - start};
-            if (out.placed.contains(current)) {
-                out.duplicates.append(placement);
-            } else {
-                out.placed.insert(current, placement);
-                out.order.append(current);
-            }
-            current.clear();
-        };
         for (const Span &span : p->spans) {
-            const QString &id = doc.charFormat(span.format).fieldId;
+            const CharFormat &format = doc.charFormat(span.format);
             // A mark naming no record is plain text (the codec drops such marks).
-            const QString known = a.fields.contains(id) ? id : QString();
-            if (known != current) {
-                close(position);
-                current = known;
-                start = position;
+            if (a.fields.contains(format.fieldId)) {
+                const bool deleted = !format.deletionId.isEmpty();
+                Run *last = runs.isEmpty() ? nullptr : &runs.last();
+                if (last && last->id == format.fieldId && last->at.paragraph == p
+                    && last->at.offset + last->at.length == position && last->deleted == deleted)
+                    last->at.length += span.length;
+                else
+                    runs.append({format.fieldId, {p, position, span.length}, deleted});
             }
             position += span.length;
         }
-        close(position);
+    }
+    // AGENT-NOTE: a tracked move leaves the field on the deleted source and
+    // on the pasted text. The live run is the field; runs on deleted text
+    // stay marked, so rejecting the deletion or the paste keeps its identity.
+    QHash<QString, qsizetype> chosen;
+    for (qsizetype i = 0; i < runs.size(); ++i) {
+        const auto found = chosen.constFind(runs.at(i).id);
+        if (found == chosen.constEnd()) chosen.insert(runs.at(i).id, i);
+        else if (runs.at(*found).deleted && !runs.at(i).deleted) chosen[runs.at(i).id] = i;
+    }
+    for (qsizetype i = 0; i < runs.size(); ++i) {
+        const Run &run = runs.at(i);
+        if (chosen.value(run.id) == i) {
+            out.placed.insert(run.id, run.at);
+            out.order.append(run.id);
+        } else if (!run.deleted) {
+            out.duplicates.append(run.at);
+        }
     }
     return out;
 }
@@ -67,6 +80,10 @@ QHash<QString, Result> results(const RichTextDocument &doc, const Scan &scan)
         if (field.kind == FieldKind::Sequence) {
             const int number = ++counters[field.sequence];
             out.insert(id, Result{sequenceResult(field.sequence, number), {}, number, false});
+        } else if (field.isNote()) {
+            // Footnotes and endnotes count separately, in document order.
+            const int number = ++counters[QStringLiteral("\n") + fieldKindName(field.kind)];
+            out.insert(id, Result{noteResult(field.kind, number), {}, number, false});
         } else if (field.kind == FieldKind::Citation && a.sources.contains(field.target)
                    && !ranks.contains(field.target)) {
             cited.append(field.target);
@@ -78,6 +95,8 @@ QHash<QString, Result> results(const RichTextDocument &doc, const Scan &scan)
         Result result;
         switch (field.kind) {
         case FieldKind::Sequence:
+        case FieldKind::Footnote:
+        case FieldKind::Endnote:
             continue;
         case FieldKind::CrossReference: {
             // AGENT-GUARD (OFF-10): a reference whose target is gone reports
@@ -116,7 +135,8 @@ QHash<QString, Result> results(const RichTextDocument &doc, const Scan &scan)
 const QStringList &typeNames()
 {
     static const QStringList names{QStringLiteral("caption"), QStringLiteral("cross-reference"),
-                                   QStringLiteral("citation"), QStringLiteral("bibliography")};
+                                   QStringLiteral("citation"), QStringLiteral("bibliography"),
+                                   QStringLiteral("footnote"), QStringLiteral("endnote")};
     return names;
 }
 
@@ -150,12 +170,21 @@ QString targetProblem(const RichTextDocument &doc, ReferenceField *field, const 
         return {};
     case FieldKind::Bibliography:
         return {};
+    case FieldKind::Footnote:
+    case FieldKind::Endnote:
+        // A note has no target: the request's target is its text.
+        field->text = targetId.trimmed();
+        if (field->text.isEmpty()) return RichTextDocument::tr("A note needs text.");
+        if (field->text.size() > MaximumNoteText)
+            return RichTextDocument::tr("A note is longer than %1 characters.").arg(MaximumNoteText);
+        return {};
     }
     return {};
 }
 
 QString targetIdOf(const ReferenceField &field)
 {
+    if (field.isNote()) return {};
     return field.kind == FieldKind::Sequence ? QStringLiteral("sequence:") + field.sequence : field.target;
 }
 
@@ -229,6 +258,7 @@ std::optional<Position> RichTextDocument::insertField(const Position &requested,
     if (ok) {
         format.fieldId = field.id;
         format.insertionId = *insertion;
+        if (field.isNote()) format.verticalAlign = VerticalAlign::Superscript; // a note's number is raised
         // A placeholder: the commit writes the field's result text.
         ok = !apply(textStep(*this, *paragraph(at.paragraph), at.offset, 0, QStringLiteral("?"),
                              {{1, internFormat(format)}}));
@@ -247,11 +277,14 @@ QString RichTextDocument::insertReference(const QString &paragraphId, int offset
 {
     const std::optional<FieldKind> kind = Fields::kindFromType(type);
     if (!kind) {
-        // AGENT-NOTE: footnotes need a note area at the page foot, which the
-        // paged layout does not model (docs/references-review.md#scope).
-        reject(ErrorCode::Unsupported, type == u"footnote"
-                   ? tr("Footnotes are not supported: pages have no note area.")
-                   : tr("Unsupported reference type: %1").arg(type));
+        reject(ErrorCode::Unsupported, tr("Unsupported reference type: %1").arg(type));
+        return {};
+    }
+    // AGENT-NOTE: a footnote's text is set at the foot of the page column its
+    // reference is in; a table row is laid out as a whole, so a table cell
+    // takes endnotes only (docs/references-review.md#notes).
+    if (const Paragraph *p = paragraph(QUuid(paragraphId)); *kind == FieldKind::Footnote && p && p->table) {
+        reject(ErrorCode::Unsupported, tr("Footnotes cannot be placed in a table cell. Use an endnote."));
         return {};
     }
     ReferenceField field;
@@ -276,9 +309,18 @@ bool RichTextDocument::editReference(const QString &referenceId, const QVariantM
         if (!kind) return !reject(ErrorCode::Unsupported, tr("Unsupported reference type: %1").arg(patch.value(QStringLiteral("type")).toString()));
         if (*kind != next.kind && (*kind == FieldKind::Bibliography || next.kind == FieldKind::Bibliography))
             return !reject(ErrorCode::Unsupported, tr("A bibliography cannot become another kind of reference."));
+        const bool note = *kind == FieldKind::Footnote || *kind == FieldKind::Endnote;
+        if (*kind != next.kind && note != next.isNote())
+            return !reject(ErrorCode::Unsupported, tr("A note cannot become another kind of reference."));
         next.kind = *kind;
     }
-    if (patch.contains(QStringLiteral("targetId")) || next.kind != found->kind) {
+    if (next.isNote()) {
+        // A note keeps its text unless the patch gives new text.
+        if (patch.contains(QStringLiteral("text")))
+            if (const QString problem = Fields::targetProblem(*this, &next, patch.value(QStringLiteral("text")).toString());
+                !problem.isEmpty())
+                return !reject(ErrorCode::InvalidArgument, problem);
+    } else if (patch.contains(QStringLiteral("targetId")) || next.kind != found->kind) {
         const QString target = patch.value(QStringLiteral("targetId"), Fields::targetIdOf(*found)).toString();
         if (const QString problem = Fields::targetProblem(*this, &next, target); !problem.isEmpty())
             return !reject(ErrorCode::InvalidArgument, problem);
@@ -286,6 +328,11 @@ bool RichTextDocument::editReference(const QString &referenceId, const QVariantM
     if (next == *found) return true;
     AutoTransaction transaction(this, tr("Edit reference"));
     if (!transaction.valid) return false;
+    // The panel label is not document text; anything else is, and is tracked.
+    ReferenceField relabelled = *found;
+    relabelled.label = next.label;
+    if (m_trackChanges && !(next == relabelled))
+        return transaction.finish(replaceFieldTracked(*found, next), {});
     return transaction.finish(!apply(StepAnnotation{referenceId, Annotation(*found), Annotation(next)}), {});
 }
 

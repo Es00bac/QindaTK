@@ -87,6 +87,16 @@ struct Glyph {
     friend bool operator==(const Glyph &, const Glyph &) = default;
 };
 
+// A caret stop of an editing layout: position `index` of the row at
+// `row` (child indices from the root), with the row's vertical extent.
+struct Stop {
+    QVector<int> row;
+    int index = 0;
+    double x = 0;
+    double top = 0;
+    double bottom = 0;
+};
+
 struct Box {
     double width = 0;
     double ascent = 0;
@@ -95,12 +105,16 @@ struct Box {
     QVector<QRectF> rules;      // fraction bars and radical overbars
     QVector<QPolygonF> strokes; // radical signs
     double strokeWidth = 0;
+    QVector<Stop> stops;          // editing layouts only
+    QVector<QRectF> placeholders; // editing layouts only: empty slots
     double height() const { return ascent + descent; }
 };
 
 // Families tried in order for every glyph (a math font where installed).
 QStringList mathFamilies();
-Box layout(const Node &root, double sizePt);
+// `editing` also records caret stops and gives empty rows a placeholder
+// box (EquationCanvas); `root` is then a normalized tree (Editor).
+Box layout(const Node &root, double sizePt, bool editing = false);
 // Paints `box` scaled into `rect`, glyph outlines filled with `ink`.
 void paint(QPainter *painter, const QRectF &rect, const Box &box, const QColor &ink);
 // Parses, lays out (cached) and paints an equation object; false when its

@@ -102,6 +102,13 @@ private:
     qreal firstLineHeight(int block);
     QVector<FloatBox> floatsOf(const Paragraph &p, qreal top, bool rightToLeft) const;
     void addObjects(const Paragraph &p, const QVector<FloatBox> &floats, Page &page);
+    // Notes (rich_text_notes.cpp). Footnotes of placed lines take room at
+    // the region's foot (m_height shrinks by it); finishNotes sets them
+    // there. End notes follow the last block.
+    qreal noteRoom(qreal height) const;
+    void reserveNote(const Paragraph &p, const QString &fieldId, const QString &text, qreal height);
+    void finishNotes(Page &page);
+    bool placeEndNotes(FlowState &state, Page &page);
 
     RichTextLayout &m_layout;
     const RichTextDocument &m_document;
@@ -111,7 +118,25 @@ private:
     qreal m_y = 0;
     bool m_hasContent = false;
     QVector<FloatBox> m_floats;
+    qreal m_regionHeight = 0;     // m_height before footnotes took room
+    QVector<PageItem> m_notes;    // footnotes of this region, set by finishNotes
 };
+
+// A note reference in a paragraph (rich_text_notes.cpp): the field, its
+// reference's offset and the note as a note area shows it ("number\ttext").
+struct NoteReference {
+    QString fieldId;
+    int offset = 0;
+    bool footnote = true;
+    QString text;
+};
+QVector<NoteReference> noteReferences(const RichTextDocument &doc, const Paragraph &p);
+// The notes set after the last block, in document order: endnotes, and
+// footnotes whose reference is in a table cell (or every footnote when
+// `allFootnotes`: continuous layouts have no page foot).
+QVector<std::pair<QUuid, NoteReference>> endNotes(const RichTextDocument &doc, bool allFootnotes);
+// Gap above a note area, holding its separator rule (px).
+inline constexpr qreal NoteGapPx = 8.0;
 
 // Flow states match when they resume the same content in the same context;
 // block indexes may differ after insertions earlier in the document.

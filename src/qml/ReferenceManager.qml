@@ -6,17 +6,22 @@ import QindaTK as Tk
 // stable-ID requests; resolution and formatting stay in the field engine.
 Item {
     id: control
-    property var references: [] // [{id,label,type,targetId,status,formattedText,error,location}]
+    property var references: [] // [{id,label,type,targetId,noteText,status,formattedText,error,location}]
     property var targets: [] // [{id,label,type}]
     property var supportedTypes: ["citation", "footnote", "caption", "cross-reference"]
     property string selectedReferenceId: ""
     property string draftLabel: ""
     property string draftType: "citation"
     property string draftTargetId: ""
+    property string draftNoteText: ""
+    // Footnotes and endnotes carry text instead of a target; the add request
+    // passes that text as its targetId.
+    readonly property bool draftIsNote: draftType === "footnote" || draftType === "endnote"
     property string errorText: ""
     property string tooltip: qsTr("Manage citations, notes, captions and cross-references")
     readonly property var selectedReference: referenceById(selectedReferenceId)
-    readonly property bool canAdd: supportedTypes.indexOf(draftType) >= 0 && draftTargetId.length > 0
+    readonly property bool canAdd: supportedTypes.indexOf(draftType) >= 0
+                                   && (draftIsNote ? draftNoteText.trim().length > 0 : draftTargetId.length > 0)
     signal addReferenceRequested(string type, string targetId)
     signal editReferenceRequested(string referenceId, var patch)
     signal removeReferenceRequested(string referenceId)
@@ -47,6 +52,7 @@ Item {
         draftLabel = value.label || ""
         draftType = value.type || "citation"
         draftTargetId = value.targetId || ""
+        draftNoteText = value.noteText || ""
     }
     function selectReference(id) {
         if (!enabled || !referenceById(id)) return
@@ -54,13 +60,14 @@ Item {
         syncDraftFromSelection()
     }
     function addReference() {
-        if (enabled && canAdd) addReferenceRequested(draftType, draftTargetId)
+        if (enabled && canAdd) addReferenceRequested(draftType, draftIsNote ? draftNoteText.trim() : draftTargetId)
     }
     function saveEdit() {
         if (!enabled || !selectedReference) return
-        editReferenceRequested(selectedReference.id, {
-            label: draftLabel.trim(), type: draftType, targetId: draftTargetId
-        })
+        const patch = { label: draftLabel.trim(), type: draftType }
+        if (draftIsNote) patch.text = draftNoteText.trim()
+        else patch.targetId = draftTargetId
+        editReferenceRequested(selectedReference.id, patch)
     }
     function navigate() {
         if (enabled && selectedReference)
@@ -139,6 +146,7 @@ Item {
             }
             Tk.ComboBox {
                 objectName: "referenceTarget"
+                visible: !control.draftIsNote
                 model: control.targets
                 textRole: "label"
                 currentIndex: {
@@ -152,6 +160,15 @@ Item {
                 Tk.Flex.grow: 1
                 Tk.Flex.basis: 0
             }
+        }
+        Tk.TextArea {
+            objectName: "referenceNoteText"
+            visible: control.draftIsNote
+            rows: 2
+            text: control.draftNoteText
+            placeholderText: qsTr("Note text")
+            tooltip: qsTr("Text of the footnote or endnote")
+            onTextChanged: control.draftNoteText = text
         }
         Tk.TextField {
             objectName: "referenceLabel"

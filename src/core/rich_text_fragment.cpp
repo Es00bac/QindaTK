@@ -182,6 +182,8 @@ struct FragmentImporter {
             if (!reanchored.contains(format.fieldId)) format.fieldId.clear();
             format.commentIds.removeIf([this](const QString &id) { return !reanchored.contains(id); });
             format.deletionId.clear();
+            format.formatChangeId.clear();
+            format.formatSlot = -1;
             format.insertionId = insertion;
             formats.append(doc.internFormat(format));
         }
@@ -210,7 +212,11 @@ struct FragmentImporter {
         p->id = QUuid::createUuid();
         p->text = source.text;
         p->spans = Spans::mapped(source.spans, [this](int f) { return format(f); });
-        p->markFormat = format(source.markFormat);
+        // A pasted break is new: its mark takes only the paste's insertion.
+        CharFormat mark = doc.charFormat(format(source.markFormat));
+        mark.fieldId.clear();
+        mark.commentIds.clear();
+        p->markFormat = doc.internFormat(mark);
         p->format = source.format;
         p->format.listId = listIds.value(source.format.listId, source.format.listId);
         p->format.styleId = styleIds.value(source.format.styleId);
@@ -254,16 +260,21 @@ std::optional<Position> RichTextDocument::insertFragment(const Position &request
     FragmentImporter importer{*this, fragment, {}, {}, {}, {}, {}, {}};
     for (auto it = m_annotations.fields.keyBegin(); it != m_annotations.fields.keyEnd(); ++it) importer.reanchored.insert(*it);
     for (auto it = m_annotations.threads.keyBegin(); it != m_annotations.threads.keyEnd(); ++it) importer.reanchored.insert(*it);
+    // AGENT-GUARD: text marked deleted by tracking is on its way out, so a
+    // field or comment left only there is being moved; the paste anchors
+    // it again (a tracked cut and paste keeps its identity, D-116).
     if (!importer.reanchored.isEmpty())
         for (const Paragraph *p : paragraphsInOrder())
             for (const Span &span : p->spans) {
                 const CharFormat &format = charFormat(span.format);
+                if (!format.deletionId.isEmpty()) continue;
                 importer.reanchored.remove(format.fieldId);
                 for (const QString &id : format.commentIds) importer.reanchored.remove(id);
             }
     const std::optional<QString> insertion = trackedInsertionId(at);
     if (!insertion) return transaction.finish(false, at), std::nullopt;
     importer.insertion = *insertion;
+    const ScopedValue hint(m_insertionHint, *insertion);
     if (!importer.prepare()) return transaction.finish(false, at), std::nullopt;
     const bool inCell = paragraph(at.paragraph)->table;
     const Block &single = fragment.blocks.first();

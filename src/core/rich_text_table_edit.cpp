@@ -222,6 +222,7 @@ OperationError RichTextDocument::applyTable(const StepTable &step, bool forward,
 
 bool RichTextDocument::insertTableRow(const QString &tableId, int index)
 {
+    if (refuseWhileTracking(tr("Inserting a table row"))) return false;
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     if (!current || index < 0 || index > current->rows.size() || current->rows.size() >= MaximumTableRows)
         return !reject(ErrorCode::InvalidArgument, QStringLiteral("Invalid table row insertion"));
@@ -251,7 +252,7 @@ bool RichTextDocument::insertTableRow(const QString &tableId, int index)
     return commitGrid(*this, tr("Insert table row"), current, next);
 }
 
-bool RichTextDocument::removeTableRow(const QString &tableId, const QString &rowId)
+bool RichTextDocument::removeTableRowNow(const QString &tableId, const QString &rowId)
 {
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     const int index = current ? rowIndex(*current, QUuid(rowId)) : -1;
@@ -289,6 +290,7 @@ bool RichTextDocument::removeTableRow(const QString &tableId, const QString &row
 
 bool RichTextDocument::insertTableColumn(const QString &tableId, int index)
 {
+    if (refuseWhileTracking(tr("Inserting a table column"))) return false;
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     if (!current || index < 0 || index > current->columnWeights.size()
         || current->columnWeights.size() >= MaximumTableColumns)
@@ -317,7 +319,7 @@ bool RichTextDocument::insertTableColumn(const QString &tableId, int index)
     return commitGrid(*this, tr("Insert table column"), current, next);
 }
 
-bool RichTextDocument::removeTableColumn(const QString &tableId, const QString &columnId)
+bool RichTextDocument::removeTableColumnNow(const QString &tableId, const QString &columnId)
 {
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     const int index = current ? columnIndex(*current, QUuid(columnId)) : -1;
@@ -354,6 +356,7 @@ bool RichTextDocument::removeTableColumn(const QString &tableId, const QString &
 
 bool RichTextDocument::setTableColumnWidth(const QString &tableId, const QString &columnId, double width)
 {
+    if (refuseWhileTracking(tr("Changing a column width"))) return false;
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     const int index = current ? columnIndex(*current, QUuid(columnId)) : -1;
     if (index < 0 || !std::isfinite(width) || width < 1 || width > MaximumColumnWeight)

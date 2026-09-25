@@ -127,7 +127,7 @@ struct Reader {
         const QJsonObject o = v.toObject();
         checkKeys(o, path, {"family", "sizePt", "weight", "italic", "underline", "strike", "color",
                             "background", "href", "verticalAlign", "object", "style", "field", "comments",
-                            "insertion", "deletion"});
+                            "insertion", "deletion", "formatChange", "formatSlot"});
         CharFormat f;
         f.family = o.value(QStringLiteral("family")).toString();
         f.href = o.value(QStringLiteral("href")).toString();
