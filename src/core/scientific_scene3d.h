@@ -61,9 +61,11 @@ class ScientificScene3D : public QObject {
     Q_PROPERTY(QColor backgroundColor MEMBER m_background NOTIFY styleChanged)
     Q_PROPERTY(QColor textColor MEMBER m_text NOTIFY styleChanged)
     Q_PROPERTY(QColor selectionColor MEMBER m_selection NOTIFY styleChanged)
-    // fontFamily, fontSize, pointRadius, lineWidth, hitRadius (pixels).
+    // fontFamily, fontSize, pointRadius, lineWidth, hitRadius, labelPadding (pixels).
     Q_PROPERTY(QVariantMap metrics MEMBER m_metrics NOTIFY styleChanged)
     Q_PROPERTY(QString title MEMBER m_title NOTIFY styleChanged)
+    // The textual alternative (textSummary()); notifies on data, style and camera changes.
+    Q_PROPERTY(QString summary READ textSummary NOTIFY summaryChanged)
 public:
     static constexpr int ResolutionLimit = 256;
     struct Mesh {
@@ -128,6 +130,9 @@ public:
     Q_INVOKABLE void dolly(double factor);
     // Sets the six domain limits from the grid and points (with 3D extents).
     Q_INVOKABLE bool fitDomain();
+    // Corner labels {text, x, y, visible}: anchor pixels of the domain corners
+    // (min corner, +x, +y, +z) in a width x height view. Painters clamp them.
+    Q_INVOKABLE QVariantList axisLabels(double width, double height) const;
     Q_INVOKABLE QString hitPoint(double pixelX, double pixelY, double width, double height) const;
     Q_INVOKABLE bool selectPoint(const QString &id);
     // Surface value of the displayed lattice node {row, column, x, y, z, missing}.
@@ -147,6 +152,7 @@ signals:
     void styleChanged();
     void selectionChanged();
     void pointSelected(const QString &id);
+    void summaryChanged();
 private:
     void setDomain(int index, double value);
     void invalidate();
