@@ -295,6 +295,17 @@ int main(int argc, char **argv)
         return 1;
     }
     QObject *root = component.create();
+    // AGENT-GUARD: the root, and a window made for it, are destroyed here,
+    // while the engine and the application still exist. Toolkit objects
+    // finish worker threads in their destructors (JobModel waits for its
+    // pool); a leaked root left MediaCatalog's test-signal job painting
+    // during static teardown, and --check crashed with SIGSEGV
+    // (example_grading-scopes-live, which starts that job on load).
+    struct RootCleanup {
+        QObject *root = nullptr;
+        QQuickWindow *window = nullptr;
+        ~RootCleanup() { delete root; delete window; }
+    } cleanup{root, nullptr};
     if (root == nullptr || component.isError()) {
         for (const QQmlError &error : component.errors()) {
             fprintf(stderr, "%s\n", qPrintable(error.toString()));
@@ -322,6 +333,7 @@ int main(int argc, char **argv)
             return 1;
         }
         window = new QQuickWindow();
+        cleanup.window = window;
         window->setColor(theme->color()->bg());
         window->setTitle(QStringLiteral("qtk-preview: ") + info.fileName());
         if (!parser.isSet(QStringLiteral("size"))) {

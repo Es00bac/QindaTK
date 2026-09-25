@@ -18,6 +18,21 @@ T.Control {
     property string tooltip: "CPU scopes of the encoded signal; the status line states matrix, range and space"
     // Canvas row of an 8-bit code; waveform and parade rows index codes (row 0 = 255).
     function codeY(code, height) { return (255 - code) / 256 * height }
+    // AGENT-GUARD: a 100% target's label sits outside its box, away from the
+    // centre, but must stay on the canvas: in a near-square canvas the
+    // vectorscope square starts one inset from the edge and the yellow label
+    // was cut to one glyph (examples/grading-scopes-live at compact density).
+    // A label that would leave the canvas sideways moves above or below its
+    // box instead. tst_video_scopes_header checks the placement.
+    function targetLabelPlacement(tx, ty, box, textWidth, centerX, centerY, canvasWidth) {
+        const right = tx >= centerX
+        const x = tx + (right ? box : -box)
+        if (right ? x + textWidth <= canvasWidth : x - textWidth >= 0)
+            return {x: x, y: ty, align: right ? "left" : "right", baseline: "middle"}
+        const above = ty <= centerY
+        return {x: Math.max(textWidth / 2, Math.min(canvasWidth - textWidth / 2, tx)),
+                y: ty + (above ? -box : box), align: "center", baseline: above ? "bottom" : "top"}
+    }
     implicitWidth: Tk.Theme.size.controlLg * 12
     implicitHeight: Tk.Theme.size.waveformHeight * 8
     padding: Tk.Theme.space.md
@@ -42,11 +57,17 @@ T.Control {
                 width: parent.width
                 direction: Tk.Flex.Row
                 gap: Tk.Theme.space.sm
+                // AGENT-GUARD: the mode keeps its width and the frame ID
+                // takes what is left, elided in the middle. A player-bound
+                // model's frameId is a presentedFrameKey (file URI@rev#frame);
+                // with both texts shrinking, the ID was painted over the mode
+                // (tst_video_scopes_header, examples/grading-scopes-live).
                 Text {
                     text: control.scopeMode.toUpperCase()
                     color: Tk.Theme.color.text
                     font.pixelSize: Tk.Theme.font.small
                     objectName: "videoScopesMode"
+                    Tk.Flex.shrink: 0
                 }
                 Text {
                     text: control.snapshot.valid ? String(control.snapshot.frameId || "") : "NO FRAME"
@@ -54,6 +75,11 @@ T.Control {
                     font.family: Tk.Theme.font.monoFamily
                     font.pixelSize: Tk.Theme.font.body
                     objectName: "videoScopesFrameId"
+                    elide: Text.ElideMiddle
+                    horizontalAlignment: Text.AlignRight
+                    Tk.Flex.grow: 1
+                    Tk.Flex.shrink: 1
+                    Tk.Flex.basis: 0
                 }
             }
             Canvas {
@@ -123,11 +149,12 @@ T.Control {
                             const tx = gx + targets[t].x * gw, ty = gy + targets[t].y * gh
                             ctx.strokeRect(tx - box / 2, ty - box / 2, box, box)
                             if (targets[t].level !== 100) continue
-                            // Labels sit outside the target, away from the centre.
-                            const right = tx >= gx + gw / 2
-                            ctx.textAlign = right ? "left" : "right"
-                            ctx.textBaseline = "middle"
-                            ctx.fillText(String(targets[t].label), tx + (right ? box : -box), ty)
+                            const label = String(targets[t].label)
+                            const place = control.targetLabelPlacement(tx, ty, box, ctx.measureText(label).width,
+                                                                       gx + gw / 2, gy + gh / 2, width)
+                            ctx.textAlign = place.align
+                            ctx.textBaseline = place.baseline
+                            ctx.fillText(label, place.x, place.y)
                         }
                     } else if (control.scopeMode === "parade") {
                         const bins = control.snapshot.parade || []

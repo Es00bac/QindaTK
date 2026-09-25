@@ -63,6 +63,18 @@ rewritten in place on each start.
 The [color-grade fixture](color-grade/Main.qml) applies a tagged CPU image
 transform and compares before/after pixels and scopes. Its edit session groups
 each wheel gesture into one undo step; the host still supplies decoded frames.
+The [live grading and scopes example](grading-scopes-live/Main.qml) runs the
+same stack on a decoded clip: it writes a 4 s 640×360 test signal to
+`<temp>/qindatk-grading-scopes-live`, decodes it through `MediaPlayer`, and
+attaches a `VideoFinishing` (the `ColorGradeEditSession` program grade, then
+two `CaptionTrackModel` cues burned in) so the program monitor shows graded,
+captioned pixels. A `VideoScopesModel` bound to the player draws the
+waveform, RGB parade, vectorscope and histogram of the presented frame, under
+a selectable range and matrix. Wheel drags and exposure edits are one undo
+step each; Undo/Redo, the Grade bypass and Burn captions switches re-render the
+frame and the scopes. It opens with a three-step starting look. Captures:
+[compact](../docs/universal-toolkit/implementation/evidence/WP-072-grading-scopes-live-compact.png),
+[comfortable](../docs/universal-toolkit/implementation/evidence/WP-072-grading-scopes-live-comfortable.png).
 The [caption model fixture](caption-model/Main.qml) connects `CaptionEditor`
 to exact-millisecond cue edits, undo, local JSON and WebVTT/SRT sidecars.
 The [caption render fixture](caption-render/Main.qml) burns active cues into

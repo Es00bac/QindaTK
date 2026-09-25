@@ -144,6 +144,17 @@ bool ColorGradeEditSession::render(const QVariantMap &candidate)
     OperationError error;
     const auto parsed = ColorGradeParameters::fromVariantMap(candidate, &error);
     if (!parsed) { m_error = error; m_processedImage = {}; m_afterUrl.clear(); emit changed(); return false; }
+    if (m_sourceImage.isNull() && m_scope == ProgramGrade) {
+        // AGENT-NOTE: a program grade renders in MediaProgram::render, so a
+        // QML host that cannot feed setFrame (MediaPlayer exposes no image)
+        // still edits it; there is just no before/after still to show.
+        m_processedImage = {};
+        m_afterUrl.clear();
+        m_afterScopes = {};
+        m_error = {};
+        emit changed();
+        return true;
+    }
     const auto result = m_processor.process(m_sourceImage, *parsed, renderContext());
     if (!result) { m_error = result.error; m_processedImage = {}; m_afterUrl.clear(); emit changed(); return false; }
     m_processedImage = result.image;
@@ -177,7 +188,12 @@ bool ColorGradeEditSession::reject(const QString &id, const QString &message)
 bool ColorGradeEditSession::beginGesture(const QString &gestureId)
 {
     if (gestureId.isEmpty() || editing()) return reject(gestureId, QStringLiteral("A non-empty gesture ID is required and only one gesture may be open"));
-    if (m_sourceImage.isNull()) return reject(gestureId, QStringLiteral("A tagged source frame is required"));
+    // AGENT-GUARD: only a frame or clip grade needs the host's frame to edit;
+    // requiring it for ProgramGrade left a MediaPlayer-attached session from
+    // QML (examples/grading-scopes-live) with disabled wheels and every
+    // gesture rejected (tst_media_finishing_live).
+    if (m_sourceImage.isNull() && m_scope != ProgramGrade)
+        return reject(gestureId, QStringLiteral("A tagged source frame is required"));
     m_gestureId = gestureId;
     m_error = {};
     if (!m_transaction.begin()) { m_gestureId.clear(); return reject(gestureId, m_transaction.errorMessage()); }
@@ -311,7 +327,7 @@ QVariantList ColorGradeEditSession::wheels() const
             {QStringLiteral("minimumX"), -1.0}, {QStringLiteral("maximumX"), 1.0},
             {QStringLiteral("minimumY"), -1.0}, {QStringLiteral("maximumY"), 1.0},
             {QStringLiteral("stepX"), 0.01}, {QStringLiteral("stepY"), 0.01},
-            {QStringLiteral("enabled"), !m_sourceImage.isNull()}});
+            {QStringLiteral("enabled"), !m_sourceImage.isNull() || m_scope == ProgramGrade}});
     }
     return result;
 }
