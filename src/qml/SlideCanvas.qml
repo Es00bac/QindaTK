@@ -4,8 +4,14 @@ import QindaTK as Tk
 
 // Host snapshots own geometry and text. Gestures preview locally, then report
 // one request; the surface resumes from the host snapshot until it is acked.
+// AGENT-CONTRACT (docs/slides.md#output, D-160): with `deck` set, the page is
+// painted by Tk.SlideFrameView (the audience/export painter, every build
+// complete) and object delegates draw only placeholder and selection chrome
+// on top; without it the delegates draw a schematic of the host `objects`.
 Item {
     id: control
+    property Tk.SlideDeck deck: null
+    readonly property bool rendered: !!control.deck && control.slideId.length > 0
     property string documentId: ""
     property string slideId: ""
     property string masterId: ""
@@ -123,6 +129,16 @@ Item {
                 clip: true
                 Accessible.ignored: true
 
+                Tk.SlideFrameView {
+                    objectName: "slideCanvasRender"
+                    anchors.fill: parent
+                    visible: control.rendered
+                    deck: control.deck
+                    slideId: control.slideId
+                    step: -1
+                    Accessible.role: Accessible.Graphic
+                    Accessible.name: qsTr("Slide %1 as the audience sees it").arg(control.slideId)
+                }
                 Repeater {
                     model: control.objects.filter(function(obj) { return obj.visible !== false })
                     delegate: Item {
@@ -145,13 +161,20 @@ Item {
                         opacity: modelData.visible === false ? Tk.Theme.opacity.hidden : Tk.Theme.opacity.full
 
                         Rectangle {
+                            objectName: "slideObjectChrome"
                             anchors.fill: parent
-                            color: modelData.fill || (modelData.kind === "shape" ? Tk.Theme.color.controlBg : Tk.Theme.color.panelAlt)
-                            border.color: slideObject.selected ? Tk.Theme.color.accent : Tk.Theme.color.border
+                            // Rendered: the painter draws the content; a drag shows a ghost.
+                            color: control.rendered
+                                   ? (moveHandler.active ? Tk.Theme.alpha(Tk.Theme.color.accent, Tk.Theme.opacity.ghost * Tk.Theme.opacity.disabled) : "transparent")
+                                   : modelData.fill || (modelData.kind === "shape" ? Tk.Theme.color.controlBg : Tk.Theme.color.panelAlt)
+                            border.color: slideObject.selected ? Tk.Theme.color.accent
+                                        : control.rendered ? Tk.Theme.alpha(Tk.Theme.color.borderStrong, Tk.Theme.opacity.muted)
+                                        : Tk.Theme.color.border
                             border.width: slideObject.selected ? Tk.Theme.size.focusRing : Tk.Theme.size.border
-                            radius: modelData.kind === "shape" ? Tk.Theme.radius.sm : 0
+                            radius: modelData.kind === "shape" && !control.rendered ? Tk.Theme.radius.sm : 0
                         }
                         Tk.Label {
+                            visible: !control.rendered
                             anchors.fill: parent
                             anchors.margins: Tk.Theme.space.xs
                             text: modelData.text || (modelData.kind === "shape" ? qsTr("Rectangle") : qsTr("Media object"))
