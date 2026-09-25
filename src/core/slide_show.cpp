@@ -139,12 +139,12 @@ bool SlideShow::fail(const QString &message)
     return false;
 }
 
-void SlideShow::place(const QString &slideId, int step, qint64 ticks, const QString &from)
+void SlideShow::place(QString slideId, int step, qint64 ticks, QString from)
 {
-    m_slideId = slideId;
+    m_slideId = std::move(slideId);
     m_step = step;
     m_ticks = ticks;
-    m_fromSlideId = from;
+    m_fromSlideId = std::move(from);
     m_ended = false;
     m_error.clear();
     updateTimer();

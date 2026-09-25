@@ -105,7 +105,8 @@ signals:
 
 private:
     QStringList shownSlides() const;
-    void place(const QString &slideId, int step, qint64 ticks, const QString &from);
+    // By value: callers pass m_slideId as `from` while slideId is being replaced.
+    void place(QString slideId, int step, qint64 ticks, QString from);
     void deckContentChanged();
     void updateTimer();
     void tick();

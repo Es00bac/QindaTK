@@ -1420,6 +1420,71 @@ one history across mesh, scene and canvas models, undo text and clean
 tracking; a paint stroke is never split. A native session codec for the mesh
 schema is not registered yet; hosts save through `saveToFile`.
 
+## D-174 — A comp is a selection over take ranges, placed by a timeline clip
+
+**Context.** WP-065 comping must select actual source audio, never replace
+or copy it, survive reopen, and move and trim with the arrangement.
+**Decision.** `AudioTakeCompModel` (`session.comps`) owns comps. A comp has
+one sample rate, takes (a resource, its usable frames and the source frame
+at comp sample 0) and sorted, disjoint segments that each play one take
+inside that take's coverage. A timeline clip whose `resourceId` is the comp
+ID places it; its `sourceOffset` is the comp position at its start, exactly
+as for media. Each accepted comp edit is one step of the model's own
+history holding the whole comp before and after (per-owner undo, as D-110
+and D-134); the comp is saved as the session's `comps` part.
+**Consequences.** Take audio is never rewritten, timeline moves, trims and
+undo work on comps unchanged, and comp undo is exact. A take must share the
+comp's rate.
+
+## D-175 — Crossfades sit at take junctions, centred unless a side lacks audio
+
+**Context.** Adjacent segments of different takes click without a fade, a
+fade must not read audio a take does not have, and a split inside one take
+must not change a sample. **Decision.** A junction of two different takes
+fades over `x` samples before it and `y` after it, `x + y` up to the comp's
+fade length: centred when possible, `x` bounded by the right take's audio
+before the junction and half the left segment, `y` by the left take's audio
+after it and half the right segment, a shortfall on one side moving to the
+other. Weights use `t = (s − a + 0.5)/(c − a)`: linear or equal power
+(sin/cos). Same-take junctions, gaps and comp edges are exact cuts. The
+graph plays each resolved piece as an ordinary clip with a frame limit and
+fade regions evaluated per sample. **Consequences.** Boundary samples are
+exact and testable, both fades of a segment never overlap, merges and
+splits within a take are silent, and the realtime path gains no tables or
+allocation.
+
+## D-176 — Comp gestures preview from the committed comp and commit once
+
+**Context.** A swipe must be heard while it moves, a cancelled gesture must
+leave nothing behind, and the view holds exact boundary indices during the
+gesture. **Decision.** `preview()` applies the selection to a copy of the
+committed comp (never to the previous preview) and plays it until
+`commitPreview()` records one step or `cancelPreview()` restores the
+committed comp; any other edit, undo or redo cancels it first. The view's
+boundary table is built from the committed comp only, so it holds still
+while a preview runs. `TakeCompView` reports a cancelled swipe with
+`compProposalPreviewCanceled`. Audition and comparison change what plays,
+not the comp, and are neither saved nor undone. **Consequences.** Swipes
+are audible and reversible, a rejected proposal leaves the committed
+samples, and history holds only accepted comps.
+
+## D-177 — Loop passes are cut from record jumps, and punch selects inside whole takes
+
+**Context.** WP-060 recorded linearly through loop wraps and refused punch.
+Passes must line up with what was heard, and a punch must be undoable and
+widenable. **Decision.** The device thread reports every transport jump
+during a take (loop wrap or seek) through its own bounded ring: the file
+frame where the new position starts and the position. Pass *n* starts at
+`jumpₙ + latency` in the file and is heard from the jump's position. With
+two or more passes (and no dropped frames or lost jumps) the session makes
+one take per pass in a comp, later passes winning. Punch is transport state
+only: the whole pass is recorded, and the session selects the new takes
+inside the punch range, in the comp already on the track, in a media clip
+turned into a comp by one source switch, or in a new comp. **Consequences.**
+Every pass plays exactly what was heard at its position, pre- and post-roll
+stay available, the event ring's acknowledgment guarantee is untouched, and
+a recording with lost jumps falls back to one linear clip.
+
 ## D-194 — Pitch is analysed by YIN on a 5 ms grid in MIDI cents
 
 **Context.** AUD-28/ENG-12 need an actual, declared pitch detector with

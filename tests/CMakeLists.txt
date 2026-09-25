@@ -67,6 +67,8 @@ qindatk_add_test(tst_node_graph_model)
 qindatk_add_test(tst_diagram_document)
 qindatk_add_test(tst_cad_document)
 qindatk_add_test(tst_scene_model_3d)
+qindatk_add_test(tst_notebook_document)
+qindatk_add_test(tst_notebook_services)
 # Skips headless; run under a display with QT_QUICK_BACKEND=rhi (docs/scene-3d.md).
 qindatk_add_test(tst_scene_view_3d_render)
 qindatk_add_test(tst_mesh_rig_document)
@@ -152,6 +154,9 @@ qindatk_add_test(tst_audio_mixer_dsp)
 qindatk_add_test(tst_audio_mixer_engine)
 qindatk_add_test(tst_audio_dsp)
 qindatk_add_test(tst_audio_source_edit)
+# WP-065 take comps: model, renders, persistence, punch, view wiring; loopback passes.
+qindatk_add_test(tst_audio_take_comp)
+qindatk_add_test(tst_audio_take_comp_engine)
 # WP-068 pitch: YIN/TD-PSOLA on known signals; session analysis, edits, previews, render.
 qindatk_add_test(tst_audio_pitch)
 qindatk_add_test(tst_audio_pitch_session)
