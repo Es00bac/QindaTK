@@ -65,14 +65,23 @@ widths everywhere. Columns are centered vertically; column *i* sits at
 top of the source in target order, incoming bands in source order; saved
 edge order breaks ties. Each link row has `edgeId`, `fromNodeId`, `toNodeId`,
 `flow`, `width`, `x0`/`y0` (source side, band center), `x1`/`y1` and
-`feedback` (target not right of the source). Node rows have `x`, `y`,
+`feedback` (target not right of the source). Feedback links return through
+lanes below every bar: the height reserves one gap plus the band width per
+feedback link, and the scale accounts for it. A feedback band leaves the
+source's right edge, turns down at `x0 + loop`, runs left along `laneY`,
+rises at `x1 − loop` and enters the target from the left. Lanes nest: the
+band that leaves lowest takes the innermost (highest) lane and the smallest
+`loop`. Feedback bands stack last on their bars, nearest the lanes. The
+outer columns reserve room for the legs, and `labelInsetRight` /
+`labelInsetLeft` on each node row move that column's labels past them. Node rows have `x`, `y`,
 `width`, `height`, `value`, `inFlow`, `outFlow`, `column` and `role`
 (`source`, `through`, `sink` or `isolated`). An empty graph, a width not
 larger than `nodeWidth`, a negative gap or a column whose gaps exceed the
 height give `{valid: false}`; all-zero flows give scale 0.
 
 `Tk.SankeyDiagram` paints that layout inside a theme margin. Bands use the
-accent role; feedback bands loop in the warning role. Through nodes that do
+accent role; feedback bands follow their return lanes in the warning role,
+so they never cross a bar. Through nodes that do
 not conserve flow turn the warning role and name the imbalance in their
 tooltip and accessible name. The view is read-only; a band tap sets
 `selectedEdgeId` and emits `edgeSelected`. Names are `sankeyDiagram`,
