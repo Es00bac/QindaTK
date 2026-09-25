@@ -2,6 +2,10 @@
 #include "cad_document.h"
 
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QTest>
 #include <cmath>
@@ -13,6 +17,10 @@ class TstCadDocument : public QObject {
 private slots:
     void referenceSketchConstraintsAndPersistence();
     void arcsDimensionsTangencyAndExports();
+    void constraintsRemovableAfterReopen();
+    void transactionsAreOneUndoStep();
+    void reopenAcceptsSketchSavedWithinTolerance();
+    void constrainedExportMatchesModel();
 };
 
 void TstCadDocument::referenceSketchConstraintsAndPersistence()
@@ -196,6 +204,221 @@ void TstCadDocument::arcsDimensionsTangencyAndExports()
         "0\nARC\n10\n5\n20\n-5\n30\n0\n40\n3\n50\n270\n51\n0\n"
         "0\nENDSEC\n0\nEOF\n";
     QCOMPARE(dxf.readAll(), expectedDxf);
+}
+
+// WP-083 audit: a constraint could only be dropped by undo (lost on reopen)
+// or by deleting the geometry it references.
+void TstCadDocument::constraintsRemovableAfterReopen()
+{
+    CadDocument sketch;
+    const QString a = sketch.addPoint(0, 0), b = sketch.addPoint(40, 3);
+    const QString line = sketch.addSegment(a, b);
+    const QString level = sketch.addConstraint(QStringLiteral("horizontal"), line);
+    const QString span = sketch.addConstraint(QStringLiteral("distance"), a, b, 40);
+    QVERIFY(!level.isEmpty() && !span.isEmpty());
+    QTemporaryDir directory;
+    const QString path = directory.filePath(QStringLiteral("mistake.qcad"));
+    QVERIFY(sketch.saveToFile(path));
+    CadDocument reopened;
+    QVERIFY(reopened.loadFromFile(path));
+    QVERIFY(!reopened.canUndo());
+    const QVariantList points = reopened.points();
+    const qulonglong revision = reopened.revision();
+    QVERIFY(reopened.removeConstraint(level));
+    QCOMPARE(reopened.revision(), revision + 1);
+    QCOMPARE(reopened.constraints().size(), 1);
+    QCOMPARE(reopened.points(), points); // removal never moves geometry
+    QCOMPARE(reopened.segments().size(), 1);
+    // The segment is free to tilt now, while the distance still holds.
+    QVERIFY(reopened.movePoint(b, 30, 20));
+    QVERIFY(std::abs(reopened.measure(b).value(QStringLiteral("y")).toDouble()) > 1);
+    QVERIFY(std::abs(reopened.measure(line).value(QStringLiteral("length")).toDouble() - 40) < 1e-5);
+    QVERIFY(reopened.undo());
+    QVERIFY(reopened.undo());
+    QCOMPARE(reopened.constraints().size(), 2);
+    // removeEntity accepts a constraint ID too, as one undo step.
+    QVERIFY(reopened.removeEntity(span));
+    QCOMPARE(reopened.constraints().size(), 1);
+    QCOMPARE(reopened.points(), points);
+    QVERIFY(!reopened.removeConstraint(span));
+    QCOMPARE(reopened.lastError(), QStringLiteral("Unknown CAD constraint"));
+    QVERIFY(!reopened.removeConstraint(line)); // an entity is not a constraint
+    QCOMPARE(reopened.segments().size(), 1);
+    QVERIFY(reopened.undo());
+    QCOMPARE(reopened.constraints().size(), 2);
+}
+
+// D-283: one view gesture (two new points plus a segment) is one undo step,
+// and a cancelled gesture leaves state and history exactly as they were.
+void TstCadDocument::transactionsAreOneUndoStep()
+{
+    CadDocument sketch;
+    const QString seed = sketch.addPoint(-5, -5);
+    QVERIFY(sketch.beginTransaction());
+    const QString a = sketch.addPoint(0, 0);
+    QVERIFY(sketch.beginTransaction()); // nested pairs join the outer one
+    const QString b = sketch.addPoint(10, 0);
+    QVERIFY(sketch.commitTransaction());
+    QVERIFY(!sketch.undo()); // refused while the outer transaction is open
+    QVERIFY(sketch.lastError().contains(QStringLiteral("open CAD edit")));
+    const QString line = sketch.addSegment(a, b);
+    QVERIFY(!line.isEmpty());
+    QVERIFY(sketch.commitTransaction());
+    QVERIFY(!sketch.commitTransaction());
+    QCOMPARE(sketch.points().size(), 3);
+    QVERIFY(sketch.undo());
+    QCOMPARE(sketch.points().size(), 1);
+    QCOMPARE(sketch.segments().size(), 0);
+    QVERIFY(sketch.redo());
+    QCOMPARE(sketch.segments().size(), 1);
+    QVERIFY(sketch.undo());
+
+    // Cancel: restores points, undo stack and redo stack from begin.
+    const QVariantList before = sketch.points();
+    QVERIFY(sketch.canRedo());
+    QVERIFY(sketch.beginTransaction());
+    const QString c = sketch.addPoint(1, 1);
+    QVERIFY(sketch.addSegment(c, c).isEmpty());
+    const QString error = sketch.lastError();
+    QVERIFY(sketch.cancelTransaction());
+    QCOMPARE(sketch.points(), before);
+    QCOMPARE(sketch.lastError(), error); // the reason survives the rollback
+    QVERIFY(sketch.canRedo());
+    QVERIFY(sketch.canUndo());
+    QVERIFY(sketch.undo());
+    QVERIFY(sketch.points().isEmpty());
+    QVERIFY(!sketch.cancelTransaction());
+    QVERIFY(sketch.redo());
+    QCOMPARE(sketch.points().at(0).toMap().value(QStringLiteral("entityId")).toString(), seed);
+    // An empty transaction records nothing.
+    const qulonglong revision = sketch.revision();
+    QVERIFY(sketch.beginTransaction());
+    QVERIFY(sketch.commitTransaction());
+    QCOMPARE(sketch.revision(), revision);
+}
+
+namespace {
+QByteArray angleFixture(double degrees)
+{
+    const double radians = degrees * 3.14159265358979323846 / 180.0;
+    const QJsonArray points{
+        QJsonObject{{QStringLiteral("id"), QStringLiteral("p0")}, {QStringLiteral("xMm"), 0.0},
+                    {QStringLiteral("yMm"), 0.0}},
+        QJsonObject{{QStringLiteral("id"), QStringLiteral("p1")},
+                    {QStringLiteral("xMm"), 1000.0 * std::cos(radians)},
+                    {QStringLiteral("yMm"), 1000.0 * std::sin(radians)}}};
+    return QJsonDocument(QJsonObject{
+        {QStringLiteral("format"), QStringLiteral("qindatk.cad/1")},
+        {QStringLiteral("version"), 1}, {QStringLiteral("units"), QStringLiteral("mm")},
+        {QStringLiteral("points"), points},
+        {QStringLiteral("segments"), QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("s")},
+            {QStringLiteral("start"), QStringLiteral("p0")}, {QStringLiteral("end"), QStringLiteral("p1")}}}},
+        {QStringLiteral("circles"), QJsonArray{}},
+        {QStringLiteral("constraints"), QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("k")},
+            {QStringLiteral("kind"), QStringLiteral("angle")}, {QStringLiteral("first"), QStringLiteral("s")},
+            {QStringLiteral("second"), QString()}, {QStringLiteral("valueMm"), 30.0}}}}}).toJson();
+}
+}
+
+// WP-083 audit: reopen used to run a projection pass and reject any point
+// that moved more than 1e-6 mm. A 1 m segment whose angle residual is inside
+// the 1e-6 degree commit tolerance moves ~8e-6 mm under that pass, so a
+// sketch the solver accepted could fail to reopen.
+void TstCadDocument::reopenAcceptsSketchSavedWithinTolerance()
+{
+    QTemporaryDir directory;
+    const QString path = directory.filePath(QStringLiteral("tolerance.qcad"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write(angleFixture(30.0000009));
+    file.close();
+    CadDocument sketch;
+    QVERIFY2(sketch.loadFromFile(path), qPrintable(sketch.lastError()));
+    // Loaded untouched: bit-exact coordinates from the file.
+    const double radians = 30.0000009 * 3.14159265358979323846 / 180.0;
+    QCOMPARE(sketch.measure(QStringLiteral("p1")).value(QStringLiteral("x")).toDouble(),
+             1000.0 * std::cos(radians));
+    QCOMPARE(sketch.measure(QStringLiteral("p1")).value(QStringLiteral("y")).toDouble(),
+             1000.0 * std::sin(radians));
+    // It saves and reopens again byte for byte.
+    const QString again = directory.filePath(QStringLiteral("again.qcad"));
+    QVERIFY(sketch.saveToFile(again));
+    CadDocument reopened;
+    QVERIFY(reopened.loadFromFile(again));
+    QCOMPARE(reopened.points(), sketch.points());
+    // Outside the tolerance the file is still rejected, atomically.
+    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    file.write(angleFixture(30.00001));
+    file.close();
+    QVERIFY(!reopened.loadFromFile(path));
+    QCOMPARE(reopened.lastError(), QStringLiteral("CAD file violates saved constraints"));
+    QCOMPARE(reopened.points(), sketch.points());
+}
+
+namespace {
+struct Lines { QVector<QLineF> svg; QVector<QLineF> dxf; };
+Lines exportedLines(CadDocument &sketch, const QString &directory)
+{
+    Lines result;
+    const QString svgPath = directory + QStringLiteral("/constrained.svg");
+    const QString dxfPath = directory + QStringLiteral("/constrained.dxf");
+    if (!sketch.exportSvg(svgPath) || !sketch.exportDxf(dxfPath)) return result;
+    QFile svg(svgPath), dxf(dxfPath);
+    if (!svg.open(QIODevice::ReadOnly) || !dxf.open(QIODevice::ReadOnly)) return result;
+    static const QRegularExpression line(
+        QStringLiteral("<line x1=\"([^\"]+)\" y1=\"([^\"]+)\" x2=\"([^\"]+)\" y2=\"([^\"]+)\"/>"));
+    for (auto it = line.globalMatch(QString::fromUtf8(svg.readAll())); it.hasNext();) {
+        const auto m = it.next();
+        result.svg.append(QLineF(m.captured(1).toDouble(), m.captured(2).toDouble(),
+                                 m.captured(3).toDouble(), m.captured(4).toDouble()));
+    }
+    const QStringList codes = QString::fromUtf8(dxf.readAll()).split(QLatin1Char('\n'));
+    for (int i = 0; i + 13 < codes.size(); ++i)
+        if (codes.at(i) == QLatin1String("0") && codes.at(i + 1) == QLatin1String("LINE"))
+            result.dxf.append(QLineF(codes.at(i + 3).toDouble(), codes.at(i + 5).toDouble(),
+                                     codes.at(i + 9).toDouble(), codes.at(i + 11).toDouble()));
+    return result;
+}
+}
+
+// EXT-04 completion check: constrained dimensions survive dimension edits,
+// unit display changes and undo into SVG and DXF output (both millimeters).
+void TstCadDocument::constrainedExportMatchesModel()
+{
+    CadDocument sketch;
+    const QString a = sketch.addPoint(0, 0), b = sketch.addPoint(118, 2);
+    const QString c = sketch.addPoint(121, 83), d = sketch.addPoint(1, 79);
+    const QString ab = sketch.addSegment(a, b), bc = sketch.addSegment(b, c);
+    const QString cd = sketch.addSegment(c, d), da = sketch.addSegment(d, a);
+    QVERIFY(!sketch.addConstraint(QStringLiteral("horizontal"), ab).isEmpty());
+    QVERIFY(!sketch.addConstraint(QStringLiteral("vertical"), bc).isEmpty());
+    QVERIFY(!sketch.addConstraint(QStringLiteral("horizontal"), cd).isEmpty());
+    QVERIFY(!sketch.addConstraint(QStringLiteral("vertical"), da).isEmpty());
+    const QString width = sketch.addConstraint(QStringLiteral("distance"), a, b, 120);
+    const QString height = sketch.addConstraint(QStringLiteral("distance"), b, c, 80);
+    QVERIFY(!width.isEmpty() && !height.isEmpty());
+    QVERIFY(sketch.setDimension(width, 75));
+    QVERIFY(sketch.changeUnits(QStringLiteral("in")));
+    QVERIFY(sketch.setDimension(height, 2)); // 50.8 mm
+    QVERIFY(sketch.setDimension(width, 4));  // 101.6 mm, then undone
+    QVERIFY(sketch.undo());
+    QTemporaryDir directory;
+    const Lines lines = exportedLines(sketch, directory.path());
+    QCOMPARE(lines.svg.size(), 4);
+    QCOMPARE(lines.dxf.size(), 4);
+    const double expected[] = {75.0, 50.8, 75.0, 50.8};
+    const QString ids[] = {ab, bc, cd, da};
+    for (int i = 0; i < 4; ++i) {
+        const double model = sketch.measure(ids[i]).value(QStringLiteral("length")).toDouble() * 25.4;
+        QVERIFY2(std::abs(model - expected[i]) < 1e-5, qPrintable(QString::number(model, 'g', 17)));
+        QVERIFY(std::abs(lines.svg.at(i).length() - model) < 1e-9);
+        QVERIFY(std::abs(lines.dxf.at(i).length() - model) < 1e-9);
+        // DXF negates Y: same endpoints, mirrored.
+        QCOMPARE(lines.dxf.at(i).x1(), lines.svg.at(i).x1());
+        QCOMPARE(lines.dxf.at(i).y1(), -lines.svg.at(i).y1() + 0.0);
+    }
+    QVERIFY(std::abs(lines.svg.at(0).dy()) < 1e-6); // horizontal survives export
+    QVERIFY(std::abs(lines.svg.at(1).dx()) < 1e-6); // vertical survives export
 }
 
 QTEST_MAIN(TstCadDocument)

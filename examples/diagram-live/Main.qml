@@ -30,6 +30,10 @@ Item {
         diagram.setEdgeFlow(diagram.connectPorts(triage, triageNo, rework, reworkIn), 5)
         diagram.setEdgeFlow(diagram.connectPorts(rework, reworkOut, triage, triageIn), 3)
         diagram.setEdgeFlow(diagram.connectPorts(rework, reworkDrop, withdrawn, withdrawnIn), 2)
+        diagram.addGroup([rework, withdrawn], qsTr("Rework loop"))
+        // Two selected cards show the align/distribute strip.
+        canvas.graphView.nodeSelectionToggled(triage)
+        canvas.graphView.nodeSelectionToggled(rework)
     }
 
     Rectangle { anchors.fill: parent; color: Tk.Theme.color.canvas }
@@ -64,7 +68,7 @@ Item {
             }
         }
         Tk.Label {
-            text: qsTr("Wire width shows request volume; the Sankey view places the same quantities as bands. Drag cards (Ctrl+click to multi-select) or choose Auto layout. Activate output then input to connect; middle drag pans.")
+            text: qsTr("Wire width shows request volume; the Sankey view places the same quantities as bands. Drag cards (Ctrl+click to multi-select, then align or Ctrl+G to group) or choose Auto layout. Add cards from the + menu. Activate output then input to connect; middle drag pans.")
             muted: true
             wrapMode: Text.Wrap
         }
@@ -76,6 +80,13 @@ Item {
             flowMode: true
             snapStep: Tk.Theme.space.md
             tooltip: qsTr("Request flow diagram")
+            // Offered by the toolbar's Add menu; one drop is one undo step.
+            stencils: [
+                { type: "process", title: qsTr("Step"),
+                  inputs: [{ label: qsTr("In"), type: "work" }],
+                  outputs: [{ label: qsTr("Out"), type: "work" }] },
+                { type: "output", title: qsTr("Outcome"), inputs: [{ label: qsTr("Done"), type: "work" }] }
+            ]
         }
         Tk.SankeyDiagram {
             objectName: "liveSankeyDiagram"

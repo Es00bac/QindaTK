@@ -52,6 +52,12 @@ public:
                             double startDegrees, double sweepDegrees);
     Q_INVOKABLE bool setDimension(const QString &constraintId, double value);
     Q_INVOKABLE bool removeEntity(const QString &entityId);
+    Q_INVOKABLE bool removeConstraint(const QString &constraintId);
+    // AGENT-CONTRACT (docs/cad.md, D-283): edits between begin and commit are
+    // one undo step; cancel restores the state and history from begin.
+    Q_INVOKABLE bool beginTransaction();
+    Q_INVOKABLE bool commitTransaction();
+    Q_INVOKABLE bool cancelTransaction();
     Q_INVOKABLE bool changeUnits(const QString &units);
     Q_INVOKABLE QVariantMap measure(const QString &entityId) const;
     Q_INVOKABLE QVariantMap snap(double x, double y, double tolerance,
@@ -99,6 +105,11 @@ private:
     QVector<State> m_redo;
     QString m_error;
     quint64 m_revision = 0;
+    int m_transactionDepth = 0;
+    bool m_transactionRecorded = false;
+    State m_transactionBase;
+    QVector<State> m_transactionUndo;
+    QVector<State> m_transactionRedo;
 };
 
 } // namespace QindaTK

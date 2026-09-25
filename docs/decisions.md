@@ -1239,6 +1239,25 @@ uses the accepted WP-076 scene viewport; a solid-modeling kernel remains a
 host-provided extension. **Consequences.** WP-083's CAD qualification
 covers only the declared 2D operations.
 
+## D-283 — Domain documents group a view gesture into one transaction
+
+**Context.** EXT-03 asks that connect, move and align commands share canvas
+transactions. A CAD line gesture creates up to two points and a segment, and
+a diagram stencil drop creates a card and its ports; recording each call
+split one gesture into several undo steps, and a rejected finish left
+orphan points behind. **Decision.** `DiagramDocument` and `CadDocument`
+both expose `beginTransaction()`, `commitTransaction()` and
+`cancelTransaction()`. Inside a transaction only the first edit records the
+pre-transaction snapshot; nested pairs join the outer one; cancel restores
+the state and the undo/redo stacks from begin and keeps `lastError`. Undo
+and redo are refused while a transaction is open, and a load discards it.
+Single commands that already touch many cards (`moveNodes`, `alignNodes`,
+`distributeNodes`, `removeNodes`) stay one step on their own.
+**Consequences.** `revision` still advances per edit, so bindings refresh
+during a gesture; history grows by one entry per gesture.
+`tst_diagram_commands::transactionContractIsShared` drives both documents
+through the meta-object.
+
 ## D-134 — Source edits are an operation list per resource with their own history
 
 **Context.** WP-063 needs real trim, fade, gain and spectral edits that play,

@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QHash>
 #include <QPointF>
+#include <QSet>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
@@ -20,6 +21,7 @@ class DiagramDocument : public QObject {
     QML_ELEMENT
     Q_PROPERTY(QVariantList nodes READ nodes NOTIFY changed)
     Q_PROPERTY(QVariantList edges READ edges NOTIFY changed)
+    Q_PROPERTY(QVariantList groups READ groups NOTIFY changed)
     Q_PROPERTY(qulonglong revision READ revision NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY changed)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY changed)
@@ -29,6 +31,7 @@ public:
 
     QVariantList nodes() const;
     QVariantList edges() const;
+    QVariantList groups() const;
     qulonglong revision() const { return m_revision; }
     bool canUndo() const { return !m_undo.isEmpty(); }
     bool canRedo() const { return !m_redo.isEmpty(); }
@@ -47,6 +50,18 @@ public:
     Q_INVOKABLE bool moveNodes(const QStringList &nodeIds, double dx, double dy);
     Q_INVOKABLE bool setNodeTitle(const QString &nodeId, const QString &title);
     Q_INVOKABLE bool setEdgeFlow(const QString &edgeId, double flow);
+    // Persistent card groups: a card belongs to at most one group.
+    Q_INVOKABLE QString addGroup(const QStringList &nodeIds,
+                                 const QString &title = QStringLiteral("Group"));
+    Q_INVOKABLE bool removeGroup(const QString &groupId);
+    // edge: left | centerX | right | top | centerY | bottom. axis: horizontal | vertical.
+    Q_INVOKABLE bool alignNodes(const QStringList &nodeIds, const QString &edge);
+    Q_INVOKABLE bool distributeNodes(const QStringList &nodeIds, const QString &axis);
+    // AGENT-CONTRACT (docs/diagram.md, D-283): edits between begin and commit
+    // are one undo step; cancel restores the state and history from begin.
+    Q_INVOKABLE bool beginTransaction();
+    Q_INVOKABLE bool commitTransaction();
+    Q_INVOKABLE bool cancelTransaction();
     Q_INVOKABLE bool autoLayout(double columnStep, double rowStep,
                                 double originX = 0, double originY = 0);
     // Obstacle-aware orthogonal routes in document space (docs/diagram.md).
@@ -84,7 +99,8 @@ private:
         QString toPort;
         double flow = 1.0;
     };
-    struct State { QVector<Node> nodes; QVector<Edge> edges; };
+    struct Group { QString id; QString title; QStringList nodeIds; };
+    struct State { QVector<Node> nodes; QVector<Edge> edges; QVector<Group> groups; };
     // Column (depth) and row per node, in m_state.nodes order.
     struct Ranking { QVector<int> depth; QVector<int> row; int columns = 0; };
     struct Metrics {
@@ -101,6 +117,8 @@ private:
     int edgeIndex(const QString &id) const;
     QString portType(const QString &nodeId, const QString &portId, bool output) const;
     void rememberEdit();
+    void dropFromGroups(const QSet<QString> &nodeIds);
+    bool uniqueExistingNodes(const QStringList &nodeIds, int minimum, QStringList *unique) const;
     void setError(const QString &message);
     bool decode(const QByteArray &bytes, State *result);
     Ranking rank() const;
@@ -112,6 +130,11 @@ private:
     QVector<State> m_redo;
     QString m_error;
     quint64 m_revision = 0;
+    int m_transactionDepth = 0;
+    bool m_transactionRecorded = false;
+    State m_transactionBase;
+    QVector<State> m_transactionUndo;
+    QVector<State> m_transactionRedo;
 };
 
 } // namespace QindaTK

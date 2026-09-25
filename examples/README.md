@@ -18,11 +18,15 @@ The [CAD sketch](cad-sketch/Main.qml) renders a constrained mounting plate
 with four circular bores. `CadViewport` can select, drag, snap, and create
 points, segments, circles and arcs against the persistent `CadDocument`
 model. A selected constrained length opens an inline numeric dimension
-editor; the model also exports millimeter SVG and DXF geometry.
+editor, and the property strip adds or removes constraints on the selection
+and edits circle and arc geometry; the model also exports millimeter SVG
+and DXF geometry.
 
 The [live diagram](diagram-live/Main.qml) binds `DiagramCanvas` to a native
 `DiagramDocument`. Moving cards and connecting ports edit persistent stable
-IDs; Undo and Redo operate on the diagram graph. The example shows measured
+IDs; Undo and Redo operate on the diagram graph. Cards come from stencils
+in the Add menu, the Rework loop is a persistent group, and the two selected
+cards show the align and distribute strip. The example shows measured
 wire quantities and per-node totals; Auto layout arranges its feedback cycle
 in one undoable step. Wires are routed around cards, and a `SankeyDiagram`
 below the canvas draws the same conserved quantities as bands.
