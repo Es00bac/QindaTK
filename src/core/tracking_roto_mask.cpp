@@ -75,7 +75,8 @@ bool TrackingRotoModel::setMaskKeyframe(const QString &maskId, int frame,
         return false;
     }
     remember();
-    m_masks[index].keys.insert(frame, parsed);
+    // An edited or accepted key is the user's, even where tracking generated it.
+    m_masks[index].keys.insert(frame, MaskKey{parsed, QStringLiteral("user"), {}});
     setError({});
     emit changed();
     return true;
@@ -114,12 +115,13 @@ QVariantMap TrackingRotoModel::evaluateMask(const QString &maskId, int frame) co
                 {QStringLiteral("error"), QStringLiteral("Mask has no key at or before this frame.")}};
     }
     const auto lower = std::prev(upper);
-    QVector<PathPoint> result = lower.value();
+    QVector<PathPoint> result = lower->points;
     QString interpolation = QStringLiteral("key");
+    bool generated = lower->source == QLatin1String("generated");
     if (lower.key() != frame) {
         interpolation = QStringLiteral("held");
         if (upper != mask.keys.end()) {
-            const QVector<PathPoint> &next = upper.value();
+            const QVector<PathPoint> &next = upper->points;
             bool sameTopology = result.size() == next.size();
             for (int i = 0; sameTopology && i < result.size(); ++i)
                 sameTopology = result[i].id == next[i].id;
@@ -130,102 +132,16 @@ QVariantMap TrackingRotoModel::evaluateMask(const QString &maskId, int frame) co
                     result[i].y += t * (next[i].y - result[i].y);
                 }
                 interpolation = QStringLiteral("linear");
+                generated = generated || upper->source == QLatin1String("generated");
             } else interpolation = QStringLiteral("heldTopology");
         }
     }
+    // `source` is "generated" when a tracker-generated key shapes this frame.
     return {{QStringLiteral("ok"), true}, {QStringLiteral("maskId"), maskId},
             {QStringLiteral("frame"), frame}, {QStringLiteral("points"), pathList(result)},
             {QStringLiteral("feather"), mask.feather},
-            {QStringLiteral("interpolation"), interpolation}};
-}
-
-bool TrackingRotoModel::translatedPath(const QString &maskId, int sourceFrame, const Track &track,
-                                       int targetFrame, QVector<PathPoint> *path, QString *error) const
-{
-    const QVariantMap shape = evaluateMask(maskId, sourceFrame);
-    if (!shape.value(QStringLiteral("ok")).toBool()) {
-        *error = QStringLiteral("Source mask is unavailable.");
-        return false;
-    }
-    const QImage reference = m_frames.value(track.referenceFrame);
-    if (reference.isNull()) {
-        *error = QStringLiteral("Rebind source frames before mask propagation.");
-        return false;
-    }
-    // AGENT-GUARD: only accepted, nonlost points move a mask; a lost frame
-    // holds the last trusted position, which must never read as motion.
-    if (!track.points.contains(sourceFrame) || !track.points.contains(targetFrame)
-        || track.points.value(sourceFrame).state == QLatin1String("lost")
-        || track.points.value(targetFrame).state == QLatin1String("lost")) {
-        *error = QStringLiteral("Accepted tracking points are unavailable or lost.");
-        return false;
-    }
-    const double dx = (track.points.value(targetFrame).x - track.points.value(sourceFrame).x)
-        / reference.width();
-    const double dy = (track.points.value(targetFrame).y - track.points.value(sourceFrame).y)
-        / reference.height();
-    QVector<PathPoint> result;
-    parsePath(shape.value(QStringLiteral("points")).toList(), &result);
-    for (PathPoint &point : result) {
-        point.x = std::clamp(point.x + dx, 0.0, 1.0);
-        point.y = std::clamp(point.y + dy, 0.0, 1.0);
-    }
-    *path = result;
-    return true;
-}
-
-QVariantMap TrackingRotoModel::previewTrackedMask(const QString &maskId, int sourceFrame,
-                                                   int targetFrame, const QString &trackId) const
-{
-    const int index = trackIndex(trackId);
-    QVector<PathPoint> path;
-    QString error = QStringLiteral("Track or source mask is unavailable.");
-    if (index < 0 || !translatedPath(maskId, sourceFrame, m_tracks[index], targetFrame, &path, &error))
-        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), error}};
-    return {{QStringLiteral("ok"), true}, {QStringLiteral("maskId"), maskId},
-            {QStringLiteral("trackId"), trackId}, {QStringLiteral("frame"), targetFrame},
-            {QStringLiteral("points"), pathList(path)}, {QStringLiteral("state"), QStringLiteral("preview")}};
-}
-
-QVariantMap TrackingRotoModel::applyTrackToMask(const QString &maskId, int sourceFrame,
-                                                const QString &trackId, int fromFrame, int toFrame)
-{
-    const int track = trackIndex(trackId);
-    const int mask = maskIndex(maskId);
-    const auto fail = [this](const QString &error) {
-        setError(error);
-        return QVariantMap{{QStringLiteral("ok"), false}, {QStringLiteral("error"), error}};
-    };
-    if (track < 0 || mask < 0 || fromFrame < 0 || toFrame < fromFrame || toFrame - fromFrame >= 512
-        || m_analysis.running)
-        return fail(QStringLiteral("Mask tracking needs a mask, a track and a range of at most 512 frames."));
-    // Source-side checks (mask shape, bound reference frame, trusted source
-    // point) fail the request; a missing or lost target frame is skipped.
-    QString error;
-    QVector<PathPoint> path;
-    if (!translatedPath(maskId, sourceFrame, m_tracks[track], sourceFrame, &path, &error))
-        return fail(error);
-    QMap<int, QVector<PathPoint>> keys = m_masks.at(mask).keys;
-    QVariantList keyed, skipped;
-    for (int frame = fromFrame; frame <= toFrame; ++frame) {
-        if (frame == sourceFrame) continue;
-        if (!translatedPath(maskId, sourceFrame, m_tracks[track], frame, &path, &error)) {
-            skipped.append(frame);
-            continue;
-        }
-        keys.insert(frame, path);
-        keyed.append(frame);
-    }
-    if (keyed.isEmpty()) return fail(QStringLiteral("No accepted, nonlost tracking point in the range."));
-    if (keys.size() > 512) return fail(QStringLiteral("A mask holds at most 512 keyframes."));
-    // One undo step for the whole propagation.
-    remember();
-    m_masks[mask].keys = keys;
-    setError({});
-    emit changed();
-    return {{QStringLiteral("ok"), true}, {QStringLiteral("maskId"), maskId},
-            {QStringLiteral("trackId"), trackId}, {QStringLiteral("keyedFrames"), keyed},
-            {QStringLiteral("skippedFrames"), skipped}};
+            {QStringLiteral("interpolation"), interpolation},
+            {QStringLiteral("source"), generated ? QStringLiteral("generated") : QStringLiteral("user")}};
 }
 
 QImage TrackingRotoModel::applyMask(const QString &maskId, int frame, const QImage &source)

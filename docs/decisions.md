@@ -1338,10 +1338,22 @@ continues around that position with a radius growing per lost frame and
 resumes `tracked` on a match. Mask propagation (`applyTrackToMask`) keys only
 accepted, nonlost frames and reports skipped ones. **Consequences.** Known
 integer shifts track exactly and smooth subpixel shifts within 0.2 px;
-lost frames are visible in data and UI and never move a mask. Translation is
-the motion model: rotation, scale and perspective need rebasing
-(`rebaseTrack`) or corrections, and multi-resolution flow or camera solving
-remain later adapters.
+lost frames are visible in data and UI and never move a mask.
+
+**Amended after the WP-075 audit.** Motion models: a track's `motion` is
+`translation` or `similarity`; similarity searches positions under the prior
+rotation/scale, then refines position, rotation and scale by a bounded compass
+search on bilinear squared error. Perspective is a four-track corner pin
+(`QTransform::quadToQuad`) applied to mask paths, not a patch model. Frames
+above 4 MP are tracked on a smooth downscale with positions mapped back to
+source pixels (up to 64 MP sources). Results are versioned: a preview records
+the frame versions it measured, replacing one discards it, accept refuses a
+stale one, and undo/redo restore accepted data while keeping live previews
+and analysis state. Mask keys record `user` or `generated`; propagation is
+previewed per range, committed in one step and never overwrites user keys.
+`saveToFile` validates its bytes with the loader so every save reopens, and a
+track holds at most 4096 points. 3D camera solving (a camera path from many
+tracks) is not part of this toolkit model.
 
 ## D-150 — MIDI data is musical ticks at MIDI 2.0 resolution, owned by one model per session
 
