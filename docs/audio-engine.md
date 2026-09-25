@@ -40,6 +40,9 @@ per-sample automation and loop wraps.
 
 ## Graph lifetime and scheduling
 
+MIDI tracks, pattern clips, the launcher and audition voices use the same
+graph and rings ([audio-midi.md](audio-midi.md), WP-064).
+
 `AudioRenderGraph::compile()` turns the committed timeline, decoded media and
 an `EngineScheduleSnapshot` into an immutable program at one sample rate. The
 GUI keeps every offered graph alive; the processor adopts the newest pointer
@@ -131,8 +134,8 @@ error`.
 ## Session persistence
 
 `AudioSession` owns `timeline` (clips, edits, undo), `tempo`, `automation`,
-`schedule`, `resources`, `timeMap`, `mixer` and `edits` (source sample edits,
-saved as the `edits` part). `importMedia(file, trackId,
+`schedule`, `resources`, `timeMap`, `mixer`, `edits` (source sample edits,
+saved as the `edits` part), `midi` and `launcher` (WP-064, the `midi` part). `importMedia(file, trackId,
 startTicks)` decodes a RIFF/WAVE file (PCM 8/16/24/32, float 32/64,
 extensible), registers a resource (`media:<uuid>`) and inserts one undoable
 clip. `save(file)` writes `qindatk.audio-session/1` JSON atomically

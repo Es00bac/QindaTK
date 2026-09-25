@@ -1013,7 +1013,6 @@ width (earlier output scaled them), browsers reproduce the appearance, and
 renderers without CSS compositing ignore the blend mode.
 
 
-
 ## D-110 — Mixer state lives in AudioMixerModel; channel values are automation parameters
 
 **Context.** WP-062 mixer and routing controls held host snapshots, so no
@@ -1092,6 +1091,7 @@ thread, and a frame never mixes two slot layouts. A gesture survives a track
 reorder and a bank or visibility change, and a delegate can never commit into
 another channel.
 
+## D-118 — Plan NLE edits in the timeline from clip records, on frame starts
 ## D-126 — Grade and captions are a finishing stage of the media program
 
 **Context.** VID-06/08 require a grade and burned-in captions that the
@@ -1295,6 +1295,71 @@ lost frames are visible in data and UI and never move a mask. Translation is
 the motion model: rotation, scale and perspective need rebasing
 (`rebaseTrack`) or corrections, and multi-resolution flow or camera solving
 remain later adapters.
+
+## D-150 — MIDI data is musical ticks at MIDI 2.0 resolution, owned by one model per session
+
+**Context.** WP-064 needs stable note and event IDs, exact positions that
+follow tempo, high-resolution and per-note expression, and exact
+reversible edits and roundtrips. **Decision.** `MidiSequenceModel`
+(`session.midi`) owns patterns, scenes and launcher slots. Positions are
+musical ticks at the session PPQ relative to the pattern start; velocity is
+16-bit and controller values are 32-bit, with MIDI 2.0 min-centre-max
+scaling to and from 7- and 14-bit values. Per-note events (pitch bend,
+pressure) name their note and stay inside it and on its channel through
+every move, resize and delete. Every change is validated whole and is one
+step of the model's own history, which stores the complete before and after
+content; the session saves it as the `midi` part. Standard MIDI File
+export and import are the declared interchange, and every reduction or
+omission is reported. **Consequences.** Undo is exact, MIDI 1.0 values
+survive any number of roundtrips, tempo changes move notes without editing
+them, and nothing is lost silently at a format boundary.
+
+## D-151 — Step probability is a pure function of seed, row, step and pass
+
+**Context.** Pattern probability must be deterministic across devices,
+file renders, seeks and loops, and a user must be able to re-roll.
+**Decision.** Each pattern stores a 32-bit seed (default derived from its
+ID). Whether step *s* of a row plays on pass *n*, counted from the
+placement origin, is SplitMix64 of (seed, row key, s, n) compared with its
+probability; 0 never and 1 always plays. A new seed is one undoable edit.
+Step rows loop on their own length (steps × step ticks), so rows of
+different lengths are polymetric. **Consequences.** The same placement
+plays the same steps in every render; a loop repeats its passes exactly;
+re-rolling is explicit and reversible.
+
+## D-152 — The engine schedules MIDI statelessly from a compiled musical clock
+
+**Context.** Notes must start on exact samples, the device thread may not
+allocate, graphs are recompiled on every edit, and no note may hang after a
+seek, loop, edit, stop or device loss. **Decision.** Graph compilation
+builds a `MidiClock` (TimeMap's exact tick arithmetic at the graph rate)
+and one plain-array program per pattern; arrangement clips become
+placements. `render()` evaluates the notes that overlap each chunk and the
+built-in test instrument computes every sample from the note alone (cosine
+at the pitch, 1 ms attack, 5 ms release after the note end). The same
+evaluation yields the scheduled event stream (`midiEvents`) that WP-066
+instruments will receive. Audition notes are the only stateful voices;
+note-off, all-notes-off, a transport stop, a device stop or loss and
+detaching the session release them. **Consequences.** Device output equals
+the offline render at any block size, recompiles never cut a note, and a
+note never outlives its end by more than the release.
+
+## D-153 — Clip launches are quantized on the device thread and acknowledged from it
+
+**Context.** Launches must stay quantized when the GUI is late, queued and
+playing must be distinct, and stops and cancellations must be exact.
+**Decision.** Launch and stop commands carry only track and slot keys and a
+quantization (none, beat, bar). The device thread computes the boundary
+from its own position when the command arrives, answers once (queued,
+stop-queued, stopped or rejected) and reports each transition (started,
+stopped) at its exact sample, splitting the period there; a later request
+on the same track cancels a waiting one. A launched clip plays its pattern
+from the boundary's musical tick; a replaced or stopped clip keeps only its
+release. `MidiLauncherModel` changes slot states only from these events.
+Launched clips and the arrangement sum on a track; a file render is the
+arrangement only. **Consequences.** No GUI delay can move a start off the
+grid, the launcher shows queued and playing from engine facts, and a
+transport stop, device loss or detached session leaves nothing playing.
 
 ## D-154 — Mesh paint is a surface-space dab with an exact CPU reference
 

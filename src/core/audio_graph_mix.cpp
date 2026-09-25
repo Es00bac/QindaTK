@@ -121,7 +121,7 @@ void AudioRenderGraph::mix(const Node &node, const Route &route, double *const i
 }
 
 void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channels, double *scratch,
-                                AudioChannelMeterSink *meters) const noexcept
+                                AudioChannelMeterSink *meters, const MidiLaunchState *launch) const noexcept
 {
     for (std::size_t index = 0; index < m_lanes; ++index) std::fill_n(lane(index, 0), frames, 0.0);
     double *gain = scratch;
@@ -131,6 +131,7 @@ void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channe
     for (const Node &node : m_nodes) {
         double *in[2] = {lane(node.buffer, 0), lane(node.buffer, node.lanes > 1 ? 1 : 0)};
         if (!node.clips.empty()) addClips(node, start, frames, in);
+        if (node.midi) addMidi(node, start, frames, in, launch);
         if (!node.audible) continue; // muted: feeds nothing, and its meter reads silence
         evaluate(node.gain, 1.0, start, frames, gain);
         if (meters && node.meterSlot >= 0)
@@ -174,14 +175,14 @@ void AudioRenderGraph::writePorts(int frames, float *out, int channels) const no
 }
 
 void AudioRenderGraph::render(qint64 start, int frames, float *out, int channels, double *scratch,
-                              AudioChannelMeterSink *meters) const noexcept
+                              AudioChannelMeterSink *meters, const MidiLaunchState *launch) const noexcept
 {
     if (frames <= 0 || frames > kMaxBlock || channels <= 0 || !out || !scratch || m_work.empty()) return;
     if (meters) meters->begin(m_generation, meterSlots());
     for (int done = 0; done < frames;) {
         int count = std::min(kChunk, frames - done);
         if (meters) count = std::min(count, meters->remaining());
-        mixChunk(start + done, count, out + std::size_t(done) * std::size_t(channels), channels, scratch, meters);
+        mixChunk(start + done, count, out + std::size_t(done) * std::size_t(channels), channels, scratch, meters, launch);
         if (meters) meters->advance(count);
         done += count;
     }

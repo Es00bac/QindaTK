@@ -259,6 +259,11 @@ void AudioEngine::finishJob()
         m_statistics = job->finalStatistics;
         emit statisticsChanged();
         job->old.reset();
+        // WP-064: the closed processor cleared its voices and launched clips.
+        m_midiRequests.clear();
+        m_lastAuditionVoices = m_lastLaunchedClips = 0;
+        emit midiStateChanged();
+        emit midiReset(job->kind == JobKind::Lost ? m_stateMessage : tr("The audio device stopped"));
     }
     m_lost = false;
     m_live.clear();

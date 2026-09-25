@@ -19,6 +19,12 @@ bool isAudio(const QString &kind)
     return kind.isEmpty() || kind == QLatin1String("audio");
 }
 
+// Tracks that become mixer channels: audio and MIDI (WP-064).
+bool isChannelTrack(const QString &kind)
+{
+    return isAudio(kind) || kind == QLatin1String("midi");
+}
+
 QString tr(const char *text)
 {
     return QCoreApplication::translate("AudioMixer", text);
@@ -163,7 +169,7 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
         graph->m_timebase = timeline->timebase();
         for (const QUuid &id : timeline->trackOrder()) {
             const TimelineTrack *record = timeline->trackRecord(id);
-            if (!record || !isAudio(record->kind)) continue;
+            if (!record || !isChannelTrack(record->kind)) continue;
             const QString channel = AudioMixer::trackChannelId(id);
             channels.push_back(channel);
             if (record->muted) muted.insert(channel);
@@ -222,6 +228,8 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
         }
         std::sort(node.clips.begin(), node.clips.end(), [](const Clip &a, const Clip &b) { return a.start < b.start; });
     }
+
+    graph->compileMidi(sources, trackCount);
 
     // Routes: the output, then the sends. Destinations always come later in
     // the processing order, so one pass mixes the whole graph.

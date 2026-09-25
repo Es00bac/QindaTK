@@ -21,6 +21,8 @@ AudioEngineProcessor::AudioEngineProcessor(const AudioStreamFormat &format, cons
       m_loopEnd(initial.loopEnd)
 {
     m_publishedPosition.store(m_position);
+    for (int pitch = 0; pitch < 128; ++pitch)
+        m_auditionStep[pitch] = MidiTestInstrument::phaseStep(pitch, std::max(1, format.sampleRate));
     if (format.outputChannels > 0 && format.sampleRate > 0) {
         m_outputTap = std::make_unique<AudioMeterTap>(format.sampleRate, format.outputChannels);
         m_channelMeters = std::make_unique<AudioChannelMeterSink>(format.sampleRate);
@@ -34,6 +36,7 @@ const AudioRenderGraph *AudioEngineProcessor::offer(const AudioRenderGraph *grap
 
 void AudioEngineProcessor::closeAfterStop()
 {
+    clearMidi(); // no note or launched clip survives the stream
     if (m_recording) endTake();
     m_recording = false;
     m_playing = false;
@@ -53,6 +56,8 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
     }
     EngineCommand command;
     for (std::size_t n = 0; n < kCommandCapacity && m_commands.pop(command); ++n) apply(command);
+    MidiCommand midi;
+    for (std::size_t n = 0; n < kMidiCommandCapacity && m_midiCommands.pop(midi); ++n) applyMidi(midi);
 
     const int channels = m_format.outputChannels;
     std::fill_n(output, std::size_t(frames) * std::size_t(channels), 0.0f);
@@ -60,11 +65,17 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
     const bool render = m_graph && channels > 0 && m_graph->sampleRate() == m_format.sampleRate;
     AudioChannelMeterSink *meters = render ? m_channelMeters.get() : nullptr;
     for (int done = 0; m_playing && done < frames;) {
+        // AGENT-GUARD (D-153): launcher transitions fall on their exact
+        // sample: a sub-block ends where a queued clip starts or a stop lands.
+        launchTransitions(m_position);
         int count = frames - done;
         const bool looping = m_loopEnabled && m_loopEnd > m_loopStart && m_position < m_loopEnd;
         if (looping) count = int(std::min<qint64>(count, m_loopEnd - m_position));
+        const qint64 transition = nextLaunchTransition(m_position);
+        if (transition < m_position + count) count = int(transition - m_position);
         if (render)
-            m_graph->render(m_position, count, output + std::size_t(done) * channels, channels, m_scratch.get(), meters);
+            m_graph->render(m_position, count, output + std::size_t(done) * channels, channels, m_scratch.get(), meters,
+                            &m_launch);
         m_position += count;
         done += count;
         if (looping && m_position == m_loopEnd) m_position = m_loopStart;
@@ -73,6 +84,7 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
     // they fall on audio time exactly like the output meter (D-113).
     if (m_channelMeters && !(m_playing && render))
         m_channelMeters->silence(m_graph ? m_graph->generation() : 0, m_graph ? m_graph->meterSlots() : 0, frames);
+    if (channels > 0) renderAudition(output, frames, channels);
     // AGENT-GUARD: the meter measures exactly what the device receives, every
     // period (silence included); AudioMeterTap::process never allocates.
     if (m_outputTap) m_outputTap->process(output, frames);
@@ -82,6 +94,7 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
 
 void AudioEngineProcessor::deviceFailed(const char *reason) noexcept
 {
+    clearMidi();
     if (m_recording) endTake(true);
     m_recording = false;
     m_playing = false;
@@ -99,6 +112,8 @@ void AudioEngineProcessor::apply(const EngineCommand &command) noexcept
         m_playing = true;
         return ack(command, true);
     case EngineCommand::Stop:
+        endLaunches(true); // a transport stop is an all-notes-off (WP-064)
+        releaseVoices(-1);
         if (m_recording) endTake();
         m_recording = false;
         m_playing = false;
