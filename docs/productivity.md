@@ -23,6 +23,8 @@ time resolves to the earlier offset (`PreferBefore`). Duration is elapsed
 seconds, so an event crossing a transition may end at a different wall time.
 Expansion is bounded to 1,000 returned rows and 100 years of searched dates;
 callers should request a visible calendar range. This is a focused local rule
-set, not a complete RFC 5545 implementation. Remote calendar sync,
-provider-specific recurrence semantics and stored event transactions remain
+set, not a complete RFC 5545 implementation. `CalDavProvider` maps RRULEs
+in this rule set to and from iCalendar and keeps any other RRULE verbatim
+(`recurrenceRaw`); see [productivity-providers.md](productivity-providers.md).
+Provider-specific recurrence semantics and stored event transactions remain
 host or local-store responsibilities.
