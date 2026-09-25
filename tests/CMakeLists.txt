@@ -133,6 +133,9 @@ qindatk_add_test(tst_audio_mixer_dsp)
 qindatk_add_test(tst_audio_mixer_engine)
 qindatk_add_test(tst_audio_dsp)
 qindatk_add_test(tst_audio_source_edit)
+# WP-065 take comps: model, renders, persistence, punch, view wiring; loopback passes.
+qindatk_add_test(tst_audio_take_comp)
+qindatk_add_test(tst_audio_take_comp_engine)
 # WP-064 MIDI: model/interchange, graph scheduling, live engine (silent built-in devices).
 qindatk_add_test(tst_midi_model)
 qindatk_add_test(tst_midi_schedule)

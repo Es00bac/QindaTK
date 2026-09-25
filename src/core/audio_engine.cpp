@@ -253,7 +253,10 @@ void AudioEngine::finishJob()
     const int previousRate = m_rate;
     if (job->old) {
         const EngineTransportState last = job->old->processor->stateAfterStop();
-        m_idle = {last.position, last.loopEnabled, last.loopStart, last.loopEnd};
+        m_idle.position = last.position;
+        m_idle.loopEnabled = last.loopEnabled;
+        m_idle.loopStart = last.loopStart;
+        m_idle.loopEnd = last.loopEnd;
         drain(*job->old);
         drainMeters(*job->old);
         m_statistics = job->finalStatistics;
@@ -325,6 +328,8 @@ QString AudioEngine::startRun(AudioDeviceStreamPtr stream, const AudioDeviceConf
         m_idle.position = rescaled(m_idle.position, previousRate, run->format.sampleRate);
         m_idle.loopStart = rescaled(m_idle.loopStart, previousRate, run->format.sampleRate);
         m_idle.loopEnd = rescaled(m_idle.loopEnd, previousRate, run->format.sampleRate);
+        m_idle.punchStart = rescaled(m_idle.punchStart, previousRate, run->format.sampleRate);
+        m_idle.punchEnd = rescaled(m_idle.punchEnd, previousRate, run->format.sampleRate);
     }
     run->processor = std::make_unique<AudioEngineProcessor>(
         run->format, EngineTransportState{m_idle.position, m_idle.loopEnabled, m_idle.loopStart, m_idle.loopEnd});

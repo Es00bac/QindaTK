@@ -47,12 +47,20 @@ void AudioRenderGraph::addClips(const Node &node, qint64 start, int frames, doub
         const float *second = media.channel(std::min(1, media.channels - 1));
         const qint64 from = std::max(clip.start, start);
         const qint64 to = std::min(clip.end, stop);
+        const bool faded = clip.faded();
         for (qint64 sample = from; sample < to; ++sample) {
             const qint64 frame = clip.sourceStart + (sample - clip.start);
-            if (frame < 0 || frame >= media.frames) continue;
+            if (frame < 0 || frame >= media.frames || frame < clip.mediaFirst || frame >= clip.mediaEnd) continue;
             const int i = int(sample - start);
-            const double a = double(first[frame]);
-            const double b = double(second[frame]);
+            double a = double(first[frame]);
+            double b = double(second[frame]);
+            if (faded) {
+                // Comp crossfades (D-175): computed per sample, no tables.
+                const double w = AudioComp::fadeWeight(clip.fadeShape, true, sample, clip.fadeInStart, clip.fadeInEnd)
+                               * AudioComp::fadeWeight(clip.fadeShape, false, sample, clip.fadeOutStart, clip.fadeOutEnd);
+                a *= w;
+                b *= w;
+            }
             if (node.lanes == 1) {
                 in[0][i] += media.channels == 1 ? a : (a + b) * 0.5;
             } else {

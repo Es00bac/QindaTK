@@ -3,6 +3,7 @@
 
 #include "audio_media.h"
 #include "audio_mixer_types.h"
+#include "audio_take_comp.h"
 #include "engine_schedule.h"
 #include "midi_program.h"
 
@@ -16,6 +17,7 @@ namespace QindaTK {
 
 class AudioChannelMeterSink;
 class TimelineModel;
+struct TimelineClip;
 
 // AGENT-CONTRACT: an immutable render program compiled on the GUI thread from
 // the committed timeline, decoded media, an EngineScheduleSnapshot and the
@@ -47,7 +49,11 @@ public:
         // MIDI patterns and launcher slots (WP-064). MIDI tracks play the
         // patterns their clips name through the built-in test instrument.
         const MidiContent *midi = nullptr;
+        // Take comps (WP-065): an audio clip whose resourceId starts with
+        // "comp:" plays what this returns for it (invalid: missing).
+        std::function<AudioCompPlayback(const QString &compId)> comp;
     };
+    static bool isCompResource(const QString &resourceId) { return resourceId.startsWith(QLatin1String("comp:")); }
     // Audio, MIDI (or untyped) tracks become channels in timeline order, then the
     // buses in dependency order, then the master. Muted channels, and channels
     // a solo leaves out (D-112), feed nothing.
@@ -106,6 +112,17 @@ private:
         qint64 end = 0;         // exclusive
         qint64 sourceStart = 0; // media frame played at `start`
         AudioBufferPtr media;   // at the graph rate
+        // Comp pieces (WP-065, D-175): media frames outside [mediaFirst,
+        // mediaEnd) are silent, and samples in a fade region are weighted
+        // (AudioComp::fadeWeight). Plain clips leave both regions empty.
+        qint64 mediaFirst = 0;
+        qint64 mediaEnd = std::numeric_limits<qint64>::max();
+        qint64 fadeInStart = 0;
+        qint64 fadeInEnd = 0;
+        qint64 fadeOutStart = 0;
+        qint64 fadeOutEnd = 0;
+        AudioCompFade fadeShape = AudioCompFade::EqualPower;
+        bool faded() const noexcept { return fadeInEnd > fadeInStart || fadeOutEnd > fadeOutStart; }
     };
     // One parameter, constant or evaluated per sample.
     struct Curve {
@@ -153,6 +170,8 @@ private:
     bool constant(int curve) const noexcept { return curve < 0 || !m_curves[std::size_t(curve)].automated; }
     double *lane(std::size_t buffer, int index) const noexcept;
     void addClips(const Node &node, qint64 start, int frames, double *const in[2]) const noexcept;
+    // Expands a comp clip into its pieces (audio_graph_comp.cpp).
+    void addComp(Node &node, const TimelineClip &clip, const Sources &sources);
     void compileMidi(const Sources &sources, qsizetype trackCount);
     template <typename F> void forEachPlacement(const Node &node, const MidiLaunchState *launch, F &&fn) const noexcept;
     void addMidi(const Node &node, qint64 start, int frames, double *const in[2], const MidiLaunchState *launch) const noexcept;

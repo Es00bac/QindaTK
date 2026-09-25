@@ -23,6 +23,8 @@ TestCase {
     property var lastDecision: null
     property var lastAudition: null
     property var lastCompare: null
+    property var lastSelection: null
+    property var lastCanceled: null
 
     Tk.TakeCompView {
         id: control
@@ -48,6 +50,8 @@ TestCase {
         onCompareRequested: function(takeId, referenceId, start, end, takeOffset, referenceOffset) {
             root.lastCompare = [takeId, referenceId, start, end, takeOffset, referenceOffset]
         }
+        onSelectionRequested: function(start, end) { root.lastSelection = [start, end] }
+        onCompProposalPreviewCanceled: function(id) { root.lastCanceled = id }
     }
 
     function test_exact_range_requests_and_host_decision() {
@@ -90,5 +94,76 @@ TestCase {
         control.sampleBoundaries = ["9007199254740990", "9007199254740990"]
         verify(!control.snapshotValid)
         verify(!control.beginSwipe("take-b", 10, 100))
+    }
+
+    function restore() {
+        control.takes = root.lanes
+        control.compSegments = root.segments
+        control.sampleBoundaries = root.boundaries
+        control.selectionStartSample = root.boundaries[1]
+        control.selectionEndSample = root.boundaries[2]
+        control.keyboardTakeIndex = 0
+        control._cursorCell = -1
+        control._anchorCell = -1
+    }
+
+    // WP-065: a pass that starts before the comp origin has a negative offset.
+    function test_signed_source_offsets_are_valid() {
+        restore()
+        control.takes = [{takeId: "take-a", sourceId: "source-a", sourceOffsetSample: "-800", available: true},
+                         {takeId: "take-b", sourceId: "source-b", sourceOffsetSample: "98765432109876543", available: true}]
+        control.compSegments = [{segmentId: "segment-a", takeId: "take-a", startSample: boundaries[0],
+                                 endSample: boundaries[2], sourceOffsetSample: "-800"}]
+        verify(control.snapshotValid)
+        control.takes = [{takeId: "take-a", sourceId: "source-a", sourceOffsetSample: "-", available: true}]
+        verify(!control.snapshotValid)
+        restore()
+    }
+
+    function test_keyboard_selects_exact_cells_and_takes() {
+        restore()
+        control.forceActiveFocus()
+        verify(control.activeFocus)
+        lastSelection = null
+        keyClick(Qt.Key_Right)
+        compare(lastSelection[0], "9007199254740990")
+        compare(lastSelection[1], "9007199254741090")
+        keyClick(Qt.Key_Right, Qt.ShiftModifier)
+        compare(lastSelection[0], "9007199254740990")
+        compare(lastSelection[1], "9007199254741190")
+        keyClick(Qt.Key_End)
+        compare(lastSelection[0], "9007199254741290")
+        compare(lastSelection[1], "9007199254741390")
+        keyClick(Qt.Key_Home, Qt.ShiftModifier)
+        compare(lastSelection[0], "9007199254740990")
+        compare(lastSelection[1], "9007199254741390")
+        keyClick(Qt.Key_Down)
+        compare(control.keyboardTakeId, "take-b")
+        keyClick(Qt.Key_Down)
+        compare(control.keyboardTakeId, "take-b") // clamped at the last lane
+        lastProposal = null
+        keyClick(Qt.Key_Return) // uses the host selection (boundaries 1-2)
+        compare(lastProposal[2], "take-b")
+        compare(lastProposal[3], "9007199254741090")
+        compare(lastProposal[4], "9007199254741190")
+        lastAudition = null
+        keyClick(Qt.Key_Space)
+        compare(lastAudition[0], "take-b")
+        lastCompare = null
+        keyClick(Qt.Key_C)
+        compare(lastCompare[0], "take-b")
+        compare(lastCompare[1], "take-a")
+        keyClick(Qt.Key_Up)
+        compare(control.keyboardTakeId, "take-a")
+    }
+
+    function test_cancelled_swipe_tells_the_host() {
+        restore()
+        lastCanceled = null
+        verify(control.beginSwipe("take-b", 10, 100))
+        verify(control.cancelSwipe())
+        verify(lastCanceled !== null)
+        verify(String(lastCanceled).length > 0)
+        verify(!control.cancelSwipe())
     }
 }
