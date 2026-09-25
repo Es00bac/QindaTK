@@ -2232,7 +2232,7 @@
       "name": "BlockEditor",
       "kind": "qml",
       "base": "Item",
-      "description": "Two modes (docs/notebooks.md#views). Bound to a Tk.NotebookDocument through `notebook`, the editor applies every edit to that persistent model (undo, save and recovery included). Without it, the host owns block IDs, order, data and undo: the editor only emits identified requests. AGENT-GUARD: blocks are virtualized (ListView, reuseItems). Uncommitted text lives in `drafts` keyed by block ID, never only in a delegate, so a recycled or rebuilt delegate restores it; committing clears the draft.",
+      "description": "Two modes (docs/notebooks.md#views). Bound to a Tk.NotebookDocument through `notebook`, the editor applies every edit to that persistent model (undo, save and recovery included). Without it, the host owns block IDs, order, data and undo: the editor only emits identified requests. AGENT-GUARD: blocks are virtualized (ListView, reuseItems). Uncommitted text lives in `drafts` keyed by block ID, never only in a delegate, so a recycled or rebuilt delegate restores it; committing clears the draft. AGENT-GUARD: in notebook mode a draft must reach the model without a focus change, or autosave and the recovery journal never see the typing. It commits after Tk.Theme.motion.gestureIdle without typing (merged into one undo step per block by setBlockText), and every draft commits before the page changes or the editor goes away (docs/notebooks.md#views).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/BlockEditor.qml",
@@ -2390,6 +2390,14 @@
           "required": false
         },
         {
+          "name": "autoCommitDrafts",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "presentedBlocks",
           "type": "var",
           "default": "notebook ? _notebookBlocks : blocks",
@@ -2526,8 +2534,16 @@
           "parameters": "id, text, cursor, committed"
         },
         {
+          "name": "dropDraft",
+          "parameters": "id"
+        },
+        {
           "name": "commitDraft",
           "parameters": "id"
+        },
+        {
+          "name": "flushDrafts",
+          "parameters": ""
         },
         {
           "name": "focusBlock",
@@ -2741,6 +2757,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "pooled",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -2848,7 +2872,7 @@
       "name": "BlockEditorMedia",
       "kind": "qml",
       "base": "Tk.Flex",
-      "description": "Internal part of Tk.BlockEditor: image, ink, embed, divider and preserved unsupported blocks. An image keeps its logical resource ID; availability comes from the editor's Tk.ResourceResolver, so a missing file shows a relink notice instead of losing the block.",
+      "description": "Internal part of Tk.BlockEditor: image, ink, embed, divider and preserved unsupported blocks. An image keeps its logical resource ID; availability comes from the editor's Tk.ResourceResolver, so a missing file shows a relink notice instead of losing the block, and a present one is drawn.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/BlockEditorMedia.qml",
@@ -2902,9 +2926,33 @@
           "required": false
         },
         {
+          "name": "resource",
+          "type": "var",
+          "default": "resourceOf(resourceId, editor && editor.resolver ? editor.resolver.resources : [])",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "availability",
           "type": "string",
-          "default": "availabilityOf(resourceId, editor && editor.resolver ? editor.resolver.resources : [])",
+          "default": "resource ? String(resource.availability)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "imageUrl",
+          "type": "string",
+          "default": "!resource || availability === \"missing\" ? \"\" : fileUrl(String(resource.uri || \"\"))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasProvider",
+          "type": "bool",
+          "default": "!!(editor && editor.provider)",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -2929,8 +2977,12 @@
       "signals": [],
       "methods": [
         {
-          "name": "availabilityOf",
+          "name": "resourceOf",
           "parameters": "id, resources"
+        },
+        {
+          "name": "fileUrl",
+          "parameters": "uri"
         }
       ],
       "enums": {},
@@ -2945,6 +2997,7 @@
         "blockEmbedOpen_",
         "blockEmbed_",
         "blockMediaCaption_",
+        "blockMediaImage_",
         "blockMediaMissing_",
         "blockMediaPreview_",
         "blockMediaRelink_",
@@ -3129,6 +3182,10 @@
       ],
       "signals": [],
       "methods": [
+        {
+          "name": "currentId",
+          "parameters": ""
+        },
         {
           "name": "load",
           "parameters": ""
@@ -61315,6 +61372,11 @@
           "name": "resetFromJson",
           "returns": "bool",
           "parameters": "const QString &json"
+        },
+        {
+          "name": "reconcileJson",
+          "returns": "QVariantMap",
+          "parameters": "const QString &json, const QString &baseJson = {}"
         },
         {
           "name": "saveToFile",

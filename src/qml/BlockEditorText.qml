@@ -25,9 +25,16 @@ Item {
 
     // Shows the committed text or this block's draft. A delegate recycled
     // for another block, or rebuilt after a structural edit, calls it again.
+    // AGENT-GUARD: reads `block` itself, never committedText/blockData. It
+    // runs from onBlockChanged, before those bindings re-evaluate, so a
+    // derived value is the previous block's: an idle commit reloaded the old
+    // text into the field and the next keystroke committed it over the new.
+    function currentId() { return block && block.id ? String(block.id) : "" }
     function load() {
-        if (!editor || blockId.length === 0) return
-        const text = editor.draftText(blockId, committedText)
+        const id = currentId()
+        if (!editor || id.length === 0) return
+        const data = block.data || ({})
+        const text = editor.draftText(id, data.text !== undefined ? String(data.text) : "")
         if (field.text !== text) field.text = text
         claimFocus()
     }
@@ -35,10 +42,13 @@ Item {
     // block (after split, merge, paste or navigation) or, in host mode, when
     // the host's focusedBlockId names it.
     function claimFocus() {
-        if (!editor || blockId.length === 0) return
-        const wanted = editor.notebook ? editor.pendingFocusId === blockId : editor.focusedBlockId === blockId
+        const id = currentId()
+        // A pooled delegate (reuseItems) is hidden but still connected; it
+        // must not consume the request meant for the visible one.
+        if (!editor || id.length === 0 || !root.visible) return
+        const wanted = editor.notebook ? editor.pendingFocusId === id : editor.focusedBlockId === id
         if (!wanted) return
-        const draft = editor.drafts[blockId]
+        const draft = editor.drafts[id]
         const target = draft !== undefined ? draft.cursor : editor.caretOffset
         if (editor.notebook) editor.pendingFocusId = ""
         field.forceActiveFocus()
@@ -136,7 +146,9 @@ Item {
                 ed.formatSelection(root.blockId, start, end, patch)
             } else {
                 handled = false
-                if (ed.hasBlockSelection() && !shift) ed.selection = ({})
+                // A modifier pressed on its own (the Ctrl of Ctrl+C) keeps it.
+                const modifierOnly = [Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta].indexOf(event.key) >= 0
+                if (ed.hasBlockSelection() && !shift && !modifierOnly) ed.selection = ({})
             }
             event.accepted = handled
         }

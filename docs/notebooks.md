@@ -50,7 +50,10 @@ Limits: 1,000 sections, 10,000 pages, 10,000 blocks per page, 250,000 blocks,
 | `divider` | — | — |
 
 Any other type loads and saves verbatim and shows as a preserved,
-unsupported block (`supported: false`).
+unsupported block (`supported: false`). It also travels verbatim through a
+range: copying, cutting and pasting a selection that holds one gives the
+pasted copy a fresh ID and the same type and data (only the type name and
+the 8 MiB data bound are checked).
 
 **Runs.** Text-like blocks except `code` carry inline formatting as
 `runs: [{length, bold?, italic?, underline?, strike?, code?, href?}]`. Run
@@ -69,7 +72,10 @@ previous sibling), `outdentBlock` (after the parent's subtree), `splitBlock`
 `mergeBlocks` (adjacent text-like blocks; the second's children move to the
 first), `removeBlock` (the subtree), and table `setTableCell`,
 `insertTableRow`, `removeTableRow`, `insertTableColumn`, `removeTableColumn`.
-Read-only blocks refuse every edit but unlocking.
+Read-only blocks refuse every edit but unlocking. A deletion that would take
+a read-only block with it is refused as a whole: `removeBlock` on an unlocked
+parent of a locked child, `removePage` and `removeSection` on content that
+holds one, and `deleteSelection` over a range that contains one.
 
 <a id="selection"></a>
 ## Cursor and selection
@@ -108,7 +114,10 @@ notebook range is inserted by `insertRange`, any other range or text by
 heading blocks, list items list blocks, tables table blocks and images image
 blocks.
 
-Every paste is **one undo step**. When the target is a text block, it is
+Every paste is **one undo step** and keeps the per-block limits: a pasted
+line, paragraph or joined endpoint longer than 1 Mi UTF-16 units refuses
+the whole paste (`lastError` says why), so no paste commits a block that
+`decodeNative` would reject and the notebook stays savable. When the target is a text block, it is
 split at the caret; an open first fragment joins the head and an open last
 fragment joins the tail. References inside the pasted range (parents, a
 chart's `sourceBlockId`) are rewritten to the new IDs.
@@ -129,7 +138,10 @@ chart's `sourceBlockId`) are rewritten to the new IDs.
   reports each image block's `availability` from `ResourceResolver`
   (`ready`, `missing`, `modified`, or `unregistered`) without touching files.
   A missing file never changes the block; relinking changes the resolver's
-  mapping, not the notebook.
+  mapping, not the notebook. `BlockEditor` draws a present (`ready` or
+  `modified`) image through the host `provider` when one is set, otherwise
+  straight from the resolver's URI (`blockMediaImage_<id>`), so a notebook
+  with only a resolver shows its images.
 - `evaluateBlock(blockId, runtime)` runs a JavaScript code block in
   `ScriptRuntime` (WP-081). The script sees a JSON copy of the page as
   `app.document` (`blocks: [{id, type, text, columns?, rows?}]`); the
@@ -160,7 +172,27 @@ and `extensions`. `DocumentManager.createDocument("qindatk.notebook.v1")`,
 `toJson`/`loadJson`/`saveToFile`/`loadFromFile` serve standalone use;
 `loadJson` replaces the content as one undoable step, and `resetFromJson`
 replaces it outside history (a template: no undo steps, a new reset
-generation, same document ID, unsaved in a session).
+generation, same document ID, unsaved in a session). `saveToFile` refuses
+to write a file that `loadFromFile` would refuse (over 64 MiB, or any
+limit), the same check a session save makes, so a standalone save never
+leaves an unopenable file.
+
+<a id="reconcile"></a>
+**Reconciling another version.** `reconcileJson(json, baseJson)` merges
+another copy of the same notebook (the file changed on disk while this copy
+was edited, an offline copy) as one undoable step, and **never removes** a
+section, page or block, so no attachment (image resource ID, embed target,
+unsupported block) is dropped. Sections and pages match by stable ID. A
+section or page only the other side has is added (a page after the last page
+of its section). With `baseJson`, the common ancestor, a page changed only on
+the other side takes that version, one changed only here stays, and one
+changed on both sides stays and gains a copy titled "<title> (other
+version)" with fresh block IDs. Without a base, any differing page is kept
+and copied. Block IDs that would collide are renewed and chart sources
+rewired. The result reports `changed`, `sectionsAdded`, `pagesAdded`,
+`pagesUpdated` and `conflictCopies`. A session whose save was refused
+because the file changed on disk (`externalChanged`) reconciles with the
+disk version and then saves over it.
 
 `examples/notebook-authoring` is the live reference: a session-owned notebook
 from a field template with both views bound, clipboard, script runtime and
@@ -181,7 +213,8 @@ app bar.
   and the views only emit identified request signals.
 
 <a id="keyboard"></a>
-`BlockEditor` keys inside a text block: Ctrl+Enter splits at the caret;
+`BlockEditor` keys inside a text block (tested with real key events in
+`tests/qml/tst_notebook_keyboard.qml`): Ctrl+Enter splits at the caret;
 Backspace at the start merges into the previous block; Up/Down on the first
 or last line and Left/Right at the ends move into the neighbouring block;
 Shift+Up/Down there extend a cross-block selection; Tab/Shift+Tab indent and
@@ -194,7 +227,15 @@ The block list is a `ListView` with `reuseItems` whose model is the ordered
 block IDs; it is replaced only when the order changes, so a text commit
 never rebuilds delegates. Uncommitted text is kept in `drafts` by block ID
 and restored when a delegate is created or reused; a structural edit first
-commits the draft of the block it touches. Formatted runs show as a styled
+commits the draft of the block it touches. In notebook mode a draft also
+commits after a pause in typing (`Tk.Theme.motion.gestureIdle`; turn off with
+`autoCommitDrafts: false`), merged into one typing step per block, so the
+session turns dirty and autosave and the recovery journal capture the text
+while the field keeps focus. `flushDrafts()` commits every draft; the editor
+calls it before the page changes and when it is destroyed, and a host calls
+it before saving. A refused commit (a read-only block) keeps its draft. A
+modifier key pressed on its own keeps the cross-block selection, so Ctrl+C
+copies it. Formatted runs show as a styled
 preview while the block is not being edited.
 
 ## Scope notes
