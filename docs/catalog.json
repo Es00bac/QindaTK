@@ -25209,7 +25209,7 @@
       "name": "PrintPreview",
       "kind": "qml",
       "base": "Item",
-      "description": "Settings and print jobs belong to a PrintAdapter. The host inserts the same document page renderer used for export; this panel never paints fake pages.",
+      "description": "Settings and print jobs belong to a PrintAdapter. The host inserts the same document page renderer used for export (Tk.PrintSheetView bound to the adapter, docs/printing.md); this panel never paints fake pages.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PrintPreview.qml",
@@ -25258,6 +25258,14 @@
           "name": "job",
           "type": "var",
           "default": "({ id: \"\", status: \"idle\", progress: 0, error: \"\", affectedStart: 0, affectedEnd: 0 })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "destinations",
+          "type": "var",
+          "default": "[] // [{printerId,label,kind,available,status}] (PrintAdapter.destinations)",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -25368,14 +25376,18 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "printBleed",
         "printCapabilityStatus",
         "printColorMode",
         "printCopies",
+        "printCropMarks",
+        "printDestination",
         "printDuplex",
         "printJobProgress",
         "printJobStatus",
         "printNextPage",
         "printOrientation",
+        "printOutputPath",
         "printPageCount",
         "printPageSurface",
         "printPaper",
@@ -57253,6 +57265,341 @@
           "parameters": "const QString &path, const QSize &size"
         }
       ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PrintAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Printing and publishing preflight for a RichTextDocument (WP-053, docs/printing.md): destinations and their capabilities, one print ticket, the output sheets, a bounded preview cache, print jobs and preflight. AGENT-CONTRACT (D-130/D-131): preview images, jobs and exportPdf share Print::sheetFor/paintSheet; PrintPreview, PrintSheetView and PreflightPanel only draw these properties and send requests back to this object.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/print_adapter.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::RichTextDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "destinations",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "settings",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "capabilities",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheetCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheets",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "job",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "issues",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "preflightStale",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "blockingIssueCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "profileId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "profiles",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "previewCacheLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "previewCacheCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewCacheBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewRenderCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewGeneration",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastErrorCode",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "destinationsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "settingsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "outputChanged",
+          "parameters": ""
+        },
+        {
+          "name": "jobChanged",
+          "parameters": ""
+        },
+        {
+          "name": "jobFinished",
+          "parameters": "const QString &jobId, const QString &status"
+        },
+        {
+          "name": "issuesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewInvalidated",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "refreshDestinations",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "applySettings",
+          "returns": "bool",
+          "parameters": "const QVariantMap &patch"
+        },
+        {
+          "name": "sheetForPage",
+          "returns": "QVariantMap",
+          "parameters": "int pageIndex"
+        },
+        {
+          "name": "print",
+          "returns": "QString",
+          "parameters": "const QVariantMap &patch = {}"
+        },
+        {
+          "name": "cancel",
+          "returns": "bool",
+          "parameters": "const QString &jobId"
+        },
+        {
+          "name": "runPreflight",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "issue",
+          "returns": "QVariantMap",
+          "parameters": "const QString &issueId"
+        },
+        {
+          "name": "repair",
+          "returns": "bool",
+          "parameters": "const QString &issueId, const QString &actionId, const QVariant &argument = {}"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PrintSheetView",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "Shows one output sheet of a PrintAdapter: the page placed on the selected paper with the ticket's scale, bleed, crop marks and colour, as the job will print it (D-130). Images come from the adapter's bounded preview cache and are fetched in updatePolish, on the GUI thread, never while painting.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/print_sheet_view.h",
+      "properties": [
+        {
+          "name": "adapter",
+          "type": "QindaTK::PrintAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pageIndex",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sheetSize",
+          "type": "QSizeF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheetRect",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "ready",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "zoom",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "adapterChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pageIndexChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sheetChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
