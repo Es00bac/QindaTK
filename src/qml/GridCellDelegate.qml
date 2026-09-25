@@ -22,6 +22,9 @@ Item {
                                           ? "" : String(modelData.value)
     readonly property bool merged: (modelData.rowSpan || 1) > 1 || (modelData.columnSpan || 1) > 1
     readonly property bool hasIcon: String(cellStyle.icon || "").length > 0
+    // Outline indentation in levels (cellStyle.indent, e.g. a task tree's
+    // name column); icon and text both move right by indent × space.lg.
+    readonly property real indentWidth: Math.max(0, Math.floor(Number(cellStyle.indent || 0))) * Tk.Theme.space.lg
     readonly property color fill: cellStyle.fillColor ? cellStyle.fillColor : "transparent"
     // AGENT-GUARD: a number is never shown cut short ("…50.00" misreads as 50):
     // when it does not fit, whole # glyphs fill the cell, as in other spreadsheets.
@@ -88,18 +91,22 @@ Item {
         objectName: "gridCellIcon"
         visible: cell.hasIcon
         anchors.left: parent.left
-        anchors.leftMargin: Tk.Theme.space.xs
+        anchors.leftMargin: Tk.Theme.space.xs + cell.indentWidth
         anchors.verticalCenter: parent.verticalCenter
         name: String(cell.cellStyle.icon || "")
         size: Tk.Theme.size.iconSm
+        // Tones: positive, negative, muted, accent; anything else is warning.
         color: cell.cellStyle.iconTone === "positive" ? Tk.Theme.color.success
-             : cell.cellStyle.iconTone === "negative" ? Tk.Theme.color.danger : Tk.Theme.color.warning
+             : cell.cellStyle.iconTone === "negative" ? Tk.Theme.color.danger
+             : cell.cellStyle.iconTone === "muted" ? Tk.Theme.color.textMuted
+             : cell.cellStyle.iconTone === "accent" ? Tk.Theme.color.accent : Tk.Theme.color.warning
     }
     Tk.Label {
         id: cellText
         objectName: "gridCellText"
         anchors.fill: parent
-        anchors.leftMargin: cell.hasIcon ? Tk.Theme.space.xs * 2 + Tk.Theme.size.iconSm : Tk.Theme.space.xs
+        anchors.leftMargin: cell.indentWidth
+                            + (cell.hasIcon ? Tk.Theme.space.xs * 2 + Tk.Theme.size.iconSm : Tk.Theme.space.xs)
         anchors.rightMargin: Tk.Theme.space.xs
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: cell.cellStyle.horizontalAlignment === "right" ? Text.AlignRight
