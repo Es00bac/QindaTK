@@ -40,7 +40,10 @@ TestCase {
         compare(document.reviewItems.length, 3)
         compare(document.equations.length, 1)
         compare(document.canUndo, false) // the fixture opens as a clean document
+        // AGENT-NOTE: entries of a C++ list property read through to the
+        // list by index, so keep the ID, not the entry, across edits.
         const xref = entry(document.references, function(r) { return r.type === "cross-reference" })
+        const xrefId = xref.id
         compare(xref.formattedText, "Figure 1")
         compare(xref.status, "resolved")
 
@@ -48,25 +51,26 @@ TestCase {
         const paragraphs = document.paragraphIds()
         verify(view.area.goToParagraph(paragraphs[0], 0))
         part("referenceManager").addReferenceRequested("caption", "sequence:Figure")
-        compare(entry(document.references, function(r) { return r.id === xref.id }).formattedText, "Figure 2")
+        compare(entry(document.references, function(r) { return r.id === xrefId }).formattedText, "Figure 2")
         compare(document.undoText, "Insert reference")
         verify(document.undo())
-        compare(entry(document.references, function(r) { return r.id === xref.id }).formattedText, "Figure 1")
+        compare(entry(document.references, function(r) { return r.id === xrefId }).formattedText, "Figure 1")
 
         // Accepting the tracked insertion from the pane, and undoing it.
         const pane = part("reviewPane")
         const insertion = entry(document.reviewItems, function(i) { return i.changeKind === "insertion" })
         compare(insertion.author, "M. Chen")
-        pane.acceptChangeRequested(insertion.id)
+        pane.acceptChangeRequested(String(insertion.id))
         compare(document.reviewItems.length, 2)
         verify(document.undo())
         compare(document.reviewItems.length, 3)
 
         // A reply joins the thread.
         const thread = entry(document.reviewItems, function(i) { return i.kind === "comment" })
+        const threadId = thread.threadId
         compare(thread.replies.length, 1)
-        pane.replyRequested(thread.threadId, "Noted")
-        compare(entry(document.reviewItems, function(i) { return i.id === thread.id }).replies.length, 2)
+        pane.replyRequested(threadId, "Noted")
+        compare(entry(document.reviewItems, function(i) { return i.id === threadId }).replies.length, 2)
 
         // The equation editor shows the document's linear text and applies source.
         const editor = part("reviewEquationEditor")

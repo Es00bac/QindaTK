@@ -136,16 +136,18 @@ Rectangle {
                 overflowY: Tk.Scroll.Auto
                 accessibleName: qsTr("Review inspector")
 
+                // The Scroll sizes this column to its viewport; the right
+                // padding keeps the overlay scroll bar off the controls.
                 Tk.Flex {
-                    width: parent.width - Tk.Theme.size.scrollbar - Tk.Theme.space.xs
                     direction: Tk.Flex.Column
+                    align: Tk.Flex.Stretch
                     gap: Tk.Theme.space.md
                     padding: Tk.Theme.space.xs
+                    paddingRight: Tk.Theme.size.scrollbar + Tk.Theme.space.sm
 
                     Tk.ReferenceManager {
                         id: referenceManager
                         objectName: "referenceManager"
-                        width: parent.width
                         references: document.references
                         targets: document.referenceTargets
                         supportedTypes: document.referenceTypes
@@ -177,7 +179,6 @@ Rectangle {
                     Tk.ReviewPane {
                         id: reviewPane
                         objectName: "reviewPane"
-                        width: parent.width
                         items: document.reviewItems
                         onNavigateRequested: function(id, location) {
                             if (location)
@@ -226,7 +227,6 @@ Rectangle {
                     Tk.EquationEditor {
                         id: equationEditor
                         objectName: "reviewEquationEditor"
-                        width: parent.width
                         equation: {
                             document.revision // re-read after every edit
                             return scene.selectedEquationId.length ? document.equationSnapshot(scene.selectedEquationId) : null
