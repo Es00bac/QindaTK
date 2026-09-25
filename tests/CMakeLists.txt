@@ -70,6 +70,14 @@ qindatk_add_test(tst_scene_model_3d)
 # Skips headless; run under a display with QT_QUICK_BACKEND=rhi (docs/scene-3d.md).
 qindatk_add_test(tst_scene_view_3d_render)
 qindatk_add_test(tst_mesh_rig_document)
+qindatk_add_test(tst_mesh_rig_paint)
+qindatk_add_test(tst_mesh_rig_rig)
+# The GPU upload adapter exists only when Qt Quick 3D is installed (src/CMakeLists.txt).
+find_package(Qt6Quick3D 6.8 QUIET)
+if(TARGET Qt6::Quick3D)
+    qindatk_add_test(tst_mesh_rig_geometry)
+    target_link_libraries(tst_mesh_rig_geometry PRIVATE Qt6::Quick3D)
+endif()
 qindatk_add_test(tst_gradient_editor_model)
 target_compile_definitions(tst_color_engine PRIVATE
     QINDATK_COLOR_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/color")

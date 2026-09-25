@@ -12,6 +12,9 @@ T.Control {
     property vector3d cameraPosition: Qt.vector3d(0, 120, 650)
     property vector3d cameraEulerDegrees: Qt.vector3d(-10, 0, 0)
     property vector3d cameraTarget: Qt.vector3d(0, 0, 0)
+    // Vertical field of view in degrees, bound to the renderer's camera and
+    // used by meshRay, so CPU paint rays and GPU pixels share one projection.
+    property real cameraFieldOfView: 60
     function orbitCamera(dx, dy) {
         const offset = cameraPosition.minus(cameraTarget)
         const radius = Math.max(1, offset.length())
@@ -78,11 +81,22 @@ T.Control {
         const farPoint = renderer.item.mapTo3DScene(Qt.vector3d(x, y, 1))
         return {origin: nearPoint, direction: farPoint.minus(nearPoint).normalized()}
     }
+    // AGENT-NOTE (D-154): mesh paint and face picking use the document's CPU
+    // camera model, not GPU unprojection, so a stroke paints the same texels
+    // under any graphics backend, with no renderer, and after device loss.
     function meshRay(x, y) {
-        return meshDocument ? viewRay(x, y) : ({})
+        if (!meshDocument) return ({})
+        return meshDocument.cameraRay(cameraPosition, cameraEulerDegrees, cameraFieldOfView,
+                                      Qt.size(contentItem.width, contentItem.height), Qt.point(x, y))
+    }
+    function pickMeshFace(x, y) {
+        const ray = meshRay(x, y)
+        return ray.origin ? meshDocument.pickFace(ray.origin, ray.direction) : ({})
     }
     signal entityPicked(string entityId, vector3d worldPosition)
     signal meshPicked(vector3d worldPosition)
+    // Selection synchronization: the stable face under a mesh click.
+    signal meshFacePicked(string faceId, point uv)
     implicitWidth: Tk.Theme.size.panelMinWidth * 3
     implicitHeight: Tk.Theme.size.waveformHeight * 8
     focusPolicy: Qt.StrongFocus

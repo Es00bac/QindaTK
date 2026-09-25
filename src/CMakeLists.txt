@@ -63,7 +63,9 @@ qt_add_qml_module(qindatk
         core/scene_model_3d.h core/scene_model_3d.cpp core/scene_model_3d_codec.cpp
         core/scene_model_3d_history.cpp core/scene_model_3d_parse.cpp core/scene_document_codec.cpp
         core/mesh_rig_document.h core/mesh_rig_document.cpp
-        core/mesh_rig_document_persistence.cpp
+        core/mesh_rig_document_persistence.cpp core/mesh_rig_history.cpp
+        core/mesh_rig_pose.cpp core/mesh_rig_uv.cpp core/mesh_rig_paint.cpp
+        core/raster_brush_p.h
         core/application_contracts.cpp core/application_contracts.h
         core/color_profile.cpp core/color_profile.h
         core/color_context.h core/color_engine.cpp core/color_engine.h

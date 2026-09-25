@@ -1295,3 +1295,63 @@ lost frames are visible in data and UI and never move a mask. Translation is
 the motion model: rotation, scale and perspective need rebasing
 (`rebaseTrack`) or corrections, and multi-resolution flow or camera solving
 remain later adapters.
+
+## D-154 — Mesh paint is a surface-space dab with an exact CPU reference
+
+**Context.** VID-24 needs painting across UV seams, camera-aware projection
+and paint transactions shared with canvas tools, and headless tests run on
+the software renderer, where no GPU draws. **Decision.** A mesh dab is a
+sphere on the posed surface whose radius is measured in texels of the hit
+face; every face within reach paints the texels whose centre maps back inside
+it, composited once per texel at its strongest coverage. Coverage and
+source-over compositing are `raster_brush_p.h`, shared with
+`TiledRasterDocument`. Stroke samples are joined by re-cast rays interpolated
+between camera rays. Paint and picking rays are computed on the CPU from the
+same camera parameters the Quick 3D camera binds (`SceneView3D.meshRay`), and
+`MeshRigGeometry` uploads exactly the CPU channel bytes (checked byte for byte
+by `tst_mesh_rig_geometry`). **Consequences.** A dab continues across seams
+without seam-specific code; tests compare exact texels against plain geometry;
+the GPU draws the verified data under any backend. Texels are painted where
+their centre falls inside the sphere, so very oblique faces sample coarsely,
+and GPU-only on-screen qualification is deferred to WP-088..094.
+
+## D-155 — Rig evaluation: keys, then copy-rotation constraints, then limits
+
+**Context.** VID-18 asks for posing within constraints, reset and undo
+without silently baking or destroying animation data. **Decision.** A bone's
+rotation at a frame is its linearly interpolated keys (or static pose), plus
+`influence ×` each `copyRotation` target's evaluated rotation per Euler axis,
+clamped to its limits. Constraint graphs are acyclic by construction: adding
+or loading a constraint through which a bone would depend on itself is
+refused. Evaluation never writes back; limit changes that would exclude a
+stored pose or key are refused; reset clears static poses only; posing an
+animated bone keys the current frame. **Consequences.** Rig edits are
+non-destructive and deterministic; the editor edits the source pose, never
+the evaluated one. Euler-sum composition is exact for single-axis rigs and an
+approximation for combined axes; IK and other constraint types are future
+work.
+
+## D-156 — Mesh materials are three same-size texture channels
+
+**Context.** VID-24 names material channels; the GPU material and exports
+must agree with what is painted. **Decision.** `MeshRigDocument` stores
+`baseColor` (sRGB), `roughness` and `metalness` (linear scalars as gray, read
+from red) at one size; defaults reproduce the earlier material (white,
+roughness 0.8, metal 0). Scalar channels are never colour-converted on load.
+The renderer maps them with material factors of 1. Version 2 files store all
+three; version 1 files open with default scalar channels. **Consequences.** A
+roughness or metal stroke changes the GPU material and the exported PNG by
+the same bytes; further channels (normal, emissive) extend the channel list.
+
+## D-157 — MeshRigDocument records its edits in UndoService
+
+**Context.** The first slice kept a private 16-state stack, so mesh edits
+could not share history with scene or canvas edits in one session.
+**Decision.** `MeshRigDocument` is a `DocumentModel`: each edit or paint
+stroke commits one immutable before/after snapshot command (unchanged texture
+channels share storage) into an `UndoService`, a private one until a host
+adopts it with `adoptModel`. Commands carry content tokens, so a step applies
+only to the exact state it was recorded against. **Consequences.** Hosts get
+one history across mesh, scene and canvas models, undo text and clean
+tracking; a paint stroke is never split. A native session codec for the mesh
+schema is not registered yet; hosts save through `saveToFile`.

@@ -14,6 +14,13 @@ T.Control {
     property var uvIslands: []
     property string selectedFaceId: ""
     property bool seamMode: false
+    // In seam mode, stitch clicks weld a seam edge instead of toggling it.
+    property bool stitchMode: false
+    // Island rectangles from MeshRigDocument.packUvLayout(packMargin), drawn
+    // as a preview outline; the host usually binds it while packHovered.
+    property var packPreview: []
+    property real packMargin: 0.02
+    readonly property bool packHovered: packButton.hovered
     property string tooltip: qsTr("UV editor: drag a corner, or drag a face to move its island")
     property string dragFaceId: ""
     property int dragCorner: -1
@@ -23,6 +30,10 @@ T.Control {
     signal uvCornerMoveRequested(string faceId, int corner, point normalizedUv)
     signal uvIslandTranslateRequested(string faceId, point delta)
     signal seamToggleRequested(string vertexA, string vertexB)
+    signal seamStitchRequested(string vertexA, string vertexB)
+    signal uvIslandTransformRequested(string faceId, point translation, real rotationDegrees, real scale)
+    signal uvUnwrapRequested(string faceId)
+    signal uvPackRequested(real margin)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 3
     implicitHeight: Tk.Theme.size.waveformHeight * 6
@@ -86,8 +97,15 @@ T.Control {
         faceSelected(String(face.faceId))
         if (seamMode) {
             const i = closestEdge(face, point)
-            seamToggleRequested(String(face.vertexIds[i]), String(face.vertexIds[(i + 1) % 3]))
+            const a = String(face.vertexIds[i]), b = String(face.vertexIds[(i + 1) % 3])
+            if (stitchMode && face.seams && face.seams[i]) seamStitchRequested(a, b)
+            else if (!stitchMode) seamToggleRequested(a, b)
         }
+    }
+    function rotateSelectedIsland(degrees) {
+        if (!selectedFaceId) return false
+        uvIslandTransformRequested(selectedFaceId, Qt.point(0, 0), degrees, 1)
+        return true
     }
     function visibleUv(face, index) {
         if (dragFaceId === String(face.faceId) && dragCorner === index
@@ -110,8 +128,48 @@ T.Control {
                 objectName: "uvEditMode"
                 text: control.seamMode ? qsTr("Seams") : qsTr("UVs")
                 variant: control.seamMode ? "accent" : "default"
+                small: true
                 tooltip: qsTr("Toggle between UV corner editing and seam marking")
                 onClicked: control.seamMode = !control.seamMode
+            }
+            Tk.Button {
+                objectName: "uvStitchMode"
+                visible: control.seamMode
+                text: qsTr("Stitch")
+                small: true
+                checkable: true
+                checked: control.stitchMode
+                tooltip: qsTr("Click a seam edge to weld its two UV islands")
+                onClicked: control.stitchMode = !control.stitchMode
+            }
+        }
+        Tk.Flex {
+            direction: Tk.Flex.Row
+            gap: Tk.Theme.space.sm
+            Tk.Button {
+                objectName: "uvRotate"
+                text: qsTr("Rotate")
+                small: true
+                enabled: control.selectedFaceId.length > 0
+                tooltip: qsTr("Rotate the selected UV island 90 degrees (R)")
+                onClicked: control.rotateSelectedIsland(90)
+            }
+            Tk.Button {
+                objectName: "uvUnwrap"
+                text: qsTr("Unwrap")
+                small: true
+                enabled: control.selectedFaceId.length > 0
+                tooltip: qsTr("Project the selected UV island flat onto its best-fit plane")
+                onClicked: control.uvUnwrapRequested(control.selectedFaceId)
+            }
+            Tk.Button {
+                id: packButton
+                objectName: "uvPack"
+                text: qsTr("Pack")
+                small: true
+                enabled: control.uvIslands && control.uvIslands.length > 0
+                tooltip: qsTr("Pack all UV islands into texture space; hover to preview")
+                onClicked: control.uvPackRequested(control.packMargin)
             }
         }
         Item {
@@ -143,6 +201,17 @@ T.Control {
                             ctx.fillStyle = Tk.Theme.color.accent; ctx.fill()
                         }
                     }
+                    ctx.setLineDash([Tk.Theme.space.xs, Tk.Theme.space.xs])
+                    ctx.lineWidth = Tk.Theme.size.border
+                    ctx.strokeStyle = Tk.Theme.color.warning
+                    for (const island of (control.packPreview || [])) {
+                        const r = island.bounds
+                        if (!r) continue
+                        const a = control.uvToPoint(Qt.point(r.x, r.y + r.height))
+                        const b = control.uvToPoint(Qt.point(r.x + r.width, r.y))
+                        ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y)
+                    }
+                    ctx.setLineDash([])
                 }
             }
             TapHandler { onTapped: function(eventPoint) { control.selectAt(eventPoint.position) } }
@@ -173,11 +242,19 @@ T.Control {
                 }
             }
         }
-        Tk.Caption { text: control.seamMode ? qsTr("Click a face edge to request a seam toggle.") : qsTr("Drag a corner to move it; drag elsewhere in a face to move its UV island."); wrapMode: Text.Wrap }
+        Tk.Caption {
+            text: control.seamMode
+                ? (control.stitchMode ? qsTr("Click a red seam edge to weld the two UV islands across it.")
+                                      : qsTr("Click a face edge to cut or clear a seam."))
+                : qsTr("Drag a corner to move it; drag elsewhere in a face to move its UV island.")
+            wrapMode: Text.Wrap
+        }
     }
     onFacesChanged: uvCanvas.requestPaint()
     onSelectedFaceIdChanged: uvCanvas.requestPaint()
+    onPackPreviewChanged: uvCanvas.requestPaint()
     Keys.onPressed: function(event) {
         if (event.key === Qt.Key_S) { seamMode = !seamMode; event.accepted = true }
+        else if (event.key === Qt.Key_R && rotateSelectedIsland(90)) event.accepted = true
     }
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "tiled_raster_document.h"
+#include "raster_brush_p.h"
 
 #include <QBuffer>
 #include <QColorSpace>
@@ -222,8 +223,7 @@ void TiledRasterDocument::paintTile(QImage &tile, int tileIndex, const Sample &s
             const qreal localY = (-dx * sine + dy * cosine) / ry;
             const qreal distance = std::sqrt(localX * localX + localY * localY);
             if (distance >= 1.0) continue;
-            const qreal edgeCoverage = distance <= m_strokeBrush.hardness || m_strokeBrush.hardness >= 1
-                ? 1.0 : (1.0 - distance) / qMax<qreal>(0.0001, 1.0 - m_strokeBrush.hardness);
+            const qreal edgeCoverage = RasterBrush::edgeCoverage(distance, m_strokeBrush.hardness);
             const qreal alpha = qBound<qreal>(0, opacity * edgeCoverage * source.alphaF(), 1);
             if (alpha <= 0) continue;
             const int localXPixel = x - rect.x(), localYPixel = y - rect.y();
@@ -233,13 +233,7 @@ void TiledRasterDocument::paintTile(QImage &tile, int tileIndex, const Sample &s
                 row[localXPixel] = uchar(qBound(0, qRound(source.redF() * alpha * 255 + previous * (1 - alpha) * 255), 255));
             } else {
                 QRgb *row = reinterpret_cast<QRgb *>(tile.scanLine(localYPixel));
-                const QRgb previous = row[localXPixel];
-                const qreal inverse = 1.0 - alpha;
-                const int a = qRound(alpha * 255 + qAlpha(previous) * inverse);
-                const int red = qRound(source.redF() * alpha * 255 + qRed(previous) * inverse);
-                const int green = qRound(source.greenF() * alpha * 255 + qGreen(previous) * inverse);
-                const int blue = qRound(source.blueF() * alpha * 255 + qBlue(previous) * inverse);
-                row[localXPixel] = qRgba(qMin(red, a), qMin(green, a), qMin(blue, a), a);
+                row[localXPixel] = RasterBrush::blendPremultiplied(row[localXPixel], source, alpha);
             }
         }
     }

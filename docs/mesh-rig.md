@@ -2,13 +2,13 @@
 # Mesh, rig, UV and texture document
 
 `Tk.MeshRigDocument` is a bounded, host-owned triangle mesh editing model. It
-contains actual rest geometry, bones, weights, UV corners, seams and sRGB texture
-pixels. It evaluates posed positions and exports an OBJ mesh plus PNG texture.
-This output can be imported by an application renderer. When Qt Quick 3D is
+contains actual rest geometry, bones, constraints, animation keys, weights, UV
+corners, seams and three texture channels. It evaluates posed positions at a
+frame and exports an OBJ mesh plus PNG channels. When Qt Quick 3D is
 available, `SceneView3D.meshDocument` also displays the posed triangles and
-current texture through the toolkit's optional GPU geometry adapter.
+current channels through the toolkit's optional GPU adapter.
 
-## Geometry and rig
+## Geometry and weights
 
 `addVertex(position)` returns a stable vertex ID. `addFace(v0,v1,v2)` returns a
 stable face ID and creates three stable UV corner IDs. Triangles with repeated
@@ -18,63 +18,141 @@ faces are rejected. `setVertexPosition` preserves incident face validity;
 with incident faces cannot be removed. `vertices` contains `vertexId`, rest
 `position`, evaluated `posedPosition`, and `weights`; `faces` contains `faceId`,
 ordered `vertexIds`, `uvIds`, `uv` points and per-edge `seams`. Posed positions
-do not change rest geometry or identities.
+do not change rest geometry or identities. `setVertexWeights(vertexId,map)`
+accepts at most four positive bone weights summing to one; an empty map leaves
+a vertex fixed at its rest position. Weighted vertices use deterministic linear
+blend skinning.
+
+## Rig, constraints and animation
 
 `addBone(name,parentId,head,tail)` creates an ordered, acyclic hierarchy. The
 head and tail are in mesh rest coordinates. An existing parent must precede the
 new bone. `setBoneLimits(id,minimum,maximum)` defines inclusive Euler degree
-limits within −180 to +180 for each axis; a change that invalidates the current
-pose or excludes the zero reset pose is rejected. `setBonePose(id,eulerDegrees)` evaluates a rotation about the
-rest head, composed through its parent's deformation transform. The `bones`
-snapshot exposes these fields. `setVertexWeights(vertexId,map)` accepts at most
-four positive bone weights summing to one; an empty map leaves a vertex fixed
-at its rest position. Weighted vertices use deterministic linear blend skinning.
-`resetPose()` restores all zero rotations without baking vertex positions.
+limits within −180 to +180 for each axis; a change that excludes the static
+pose, any animation key, or the zero reset pose is rejected rather than
+clamping stored data. A bone rotates about its rest head, composed through its
+parent's deformation transform.
 
-## UV and paint
+Each bone's rotation is evaluated at `currentFrame` (D-155):
+
+1. **Source pose.** With no keys, the static `pose`. With keys
+   (`setPoseKey(boneId,frame,euler)`, frames 0–100,000, at most 1,024 per bone),
+   linear interpolation between neighbouring keys, holding the first and last.
+2. **Constraints.** `addConstraint(boneId,"copyRotation",targetId,influence)`
+   adds `influence × target's evaluated rotation` per Euler axis (influence 0–1,
+   at most four per bone). A constraint that would make a bone depend on itself
+   through any chain is refused with a "dependency cycle" error, both when
+   added and when a file is loaded.
+3. **Limits.** The sum is clamped to the bone's limits.
+
+`bones` reports `pose`, `sourcePose` (step 1 at the current frame),
+`evaluatedPose` (after steps 2 and 3), `animated`, `constraints` and `keys`.
+`evaluatedPose(boneId)` returns step 3 directly. Evaluation never writes into
+poses or keys. `setBonePose` on an animated bone keys the current frame
+(auto-key); on a static bone it sets `pose`. `resetPose()` clears static poses
+and keeps keys. `currentFrame` is evaluation input, like a playhead, not an
+undo step. Inverse kinematics and procedural skin weighting are outside this
+model.
+
+## UV topology
 
 Each face corner has its own UV ID and a coordinate in normalized `[0,1]`
 texture space, with `v=0` at the bottom. `setUV(faceId,corner,point)` changes a
-corner without changing mesh topology. `setSeam(v0,v1,bool)` marks an existing
-mesh edge. `uvIslands` groups faces connected across unmarked edges;
-`translateUvIsland(faceId,delta)` moves all UV corners in that group and rejects
-coordinates that would leave `[0,1]`. These operations keep all vertex, face
-and UV corner IDs stable. This is explicit UV editing, not automatic unwrap or
-packing. A seam annotation does not alter UV coordinates by itself.
+corner without changing mesh topology. `setSeam(v0,v1,bool)` cuts or clears an
+existing mesh edge. `uvIslands` groups faces connected across unmarked edges
+and reports each island's `bounds`. All operations below keep every vertex,
+face and UV corner ID and refuse results that leave `[0,1]`:
 
-`resizeTexture(width,height)` creates an opaque white premultiplied RGBA
-texture, up to 1024 pixels per side. Painting is a transaction:
-`beginPaint()` → `paintRay(origin,direction,color,radiusPixels,opacity)` samples
-→ `endPaint()`. The ray selects the nearest forward hit on the **posed** mesh;
-barycentric face-corner UVs map the hit into the texture. Samples paint actual
-pixels with source-over composition. An individual sample can cross a seam by
-issuing rays on each side; no stroke interpolation is claimed. A miss reports
-`lastError` and leaves the stroke open. `cancelPaint()` restores the initial
-pixels. The model allows at most 8,192 samples and 16 million estimated stamp
-pixels per stroke; exceeding the bound cancels it. The texture is a single
-sRGB channel. Perspective camera ray creation and brush spacing are the host's
-responsibility; `TexturePaintView` can request them through a host ray provider.
+- `translateUvIsland(faceId,delta)` and
+  `transformUvIsland(faceId,translation,rotationDegrees,scale)` move the island
+  about its bounds centre.
+- `stitchSeam(v0,v1)` welds a seam edge shared by two faces: the second face's
+  island receives the rotation, uniform scale and translation that land its
+  seam edge on the first face's edge, so its shape is kept and both corners of
+  each seam vertex coincide; the seam mark is removed. Faces already in one
+  island stitch only when their corners already coincide.
+- `unwrapUvIsland(faceId)` projects an island onto the plane of its
+  area-weighted normal, scaled uniformly to fill `[0,1]` on its longer side. An
+  island that folds over that plane (a face turning away from it, or a closed
+  surface) is refused; cut seams first.
+- `packUvLayout(margin)` previews a shelf packing (tallest island first, one
+  uniform scale for every island, `margin` gaps, 0–0.25) as island `bounds`;
+  `packUvIslands(margin)` applies exactly that layout.
+
+Automatic seam placement and conformal unwrapping are outside this model.
+
+## Texture channels and paint
+
+The document holds three channels of the same size (D-156): `baseColor` (sRGB
+colour, default white), `roughness` and `metalness` (linear scalars stored as
+gray, defaults 0.8 and 0). `resizeTexture(width,height)` resets all three, up
+to 1024 pixels per side. `texture(channel)`, `channelDataUrl(channel)` and
+`textureDataUrls` expose them; `textureDataUrl` is the base colour.
+
+Painting is a transaction: `beginPaint(channel)` →
+`paintRay(origin,direction,color,radiusPixels,opacity,hardness)` samples →
+`endPaint()`. Scalar channels paint the colour's gray value. A ray selects the
+nearest forward hit on the **posed** mesh. The dab is a sphere on the surface
+whose radius is `radiusPixels` texels measured on the hit face (D-154): every
+face within reach paints the texels whose centre maps back inside it, so one
+dab continues across a UV seam into the other island. Coverage and
+source-over compositing are the same kernel `TiledRasterDocument` uses
+(`raster_brush_p.h`), so a hardness and opacity mean the same thing on a
+canvas and on a mesh. Consecutive samples within a stroke are joined by dabs
+cast along interpolated camera rays at 0.2 × radius spacing, so a stroke
+follows the surface. A miss reports `lastError` and leaves the stroke open.
+`cancelPaint()` restores the initial pixels. A stroke allows at most 8,192
+dabs and 16 million visited texels; exceeding the bound cancels it.
+`pickFace(origin,direction)` returns the `faceId`, `uv`, `position` and
+`distance` of the hit without painting.
+
+### Camera rays
+
+`cameraRay(position,eulerDegrees,fieldOfView,viewportSize,point)` and the
+static `perspectiveRay` compute a ray on the CPU using Qt Quick 3D's default
+`PerspectiveCamera` convention (looks down −Z, `QQuaternion::fromEulerAngles`,
+vertical field of view). `SceneView3D.meshRay(x,y)` uses it with the view's
+`cameraPosition`, `cameraEulerDegrees` and `cameraFieldOfView`, which also
+drive the GPU camera. Painting therefore produces identical texels with any
+graphics backend, with no renderer at all, and after device loss; headless
+tests check those texels exactly.
+
+## GPU upload
+
+`MeshRigGeometry` packs the posed triangles (position, face normal, UV with v
+flipped for top-first rows) and uploads each channel as raw straight-alpha
+RGBA8 rows. `SceneView3DRenderer` maps base colour, roughness (red) and
+metalness (red) onto a `PrincipledMaterial` whose factors are 1, so the
+uploaded bytes alone decide the material. The static `packVertices` and
+`packTexture` produce exactly the uploaded bytes; `tst_mesh_rig_geometry`
+compares them with the document state. On-screen qualification under real
+backends belongs to WP-088 to WP-094.
 
 ## Undo, persistence and output
 
-Each geometry, rig or UV command is one undo step. A complete paint stroke is
-one step. The last 16 states are retained; redo clears on a new edit. `toJson()`
-and `saveToFile(path)` use version 1 `qindatk.mesh-rig` JSON, including all stable
-IDs, rest geometry, rig, UVs, seams and PNG texture bytes. Saving during a paint
-stroke records the committed pre-stroke state. `fromJson()` and `loadFromFile()`
-validate into temporary state, leaving the current document intact on failure.
-Document input and output are limited to 16 MiB. Reopen preserves the posed
-output and texture, with a fresh document object history.
+Each geometry, rig, UV, key, constraint, resize or load command is one step in
+an `UndoService` history, and a complete paint stroke is one step (D-157). A
+standalone document keeps a private service (16 steps); `undoService` exposes
+it, and `UndoService.adoptModel(document)` moves the history into a shared
+service (a document session, or one service shared with `SceneModel3D` and
+canvas models). Steps are before/after snapshots whose unchanged texture
+channels share storage.
 
-`exportObj(path)` atomically writes posed vertices, per-corner UV coordinates
-and triangle faces; `exportTexturePng(path)` atomically writes the same pixels
-shown by `textureDataUrl`. OBJ does not carry bones, weights, seam marks or
-animation; the native JSON does. The OBJ/PNG pair remains a reusable output
-path when Qt Quick 3D is unavailable or the host uses another renderer.
+`toJson()` and `saveToFile(path)` write version 2 `qindatk.mesh-rig` JSON with
+all stable IDs, rest geometry, rig, constraints, keys, UVs, seams and the three
+PNG channels. Version 1 files (one texture, no constraints or keys) still
+open, with default roughness and metalness. Saving during a paint stroke
+records the committed pre-stroke state. `fromJson()` and `loadFromFile()`
+validate into temporary state, including constraint cycles, key order and key
+limits, leaving the current document intact on failure; a successful load is
+one undo step. Document input and output are limited to 16 MiB.
+
+`exportObj(path)` atomically writes positions evaluated at `currentFrame`,
+per-corner UV coordinates and triangle faces; `exportTexturePng(path,channel)`
+atomically writes one channel's pixels. OBJ does not carry bones, weights,
+constraints, keys or seam marks; the native JSON does.
 
 Limits: 4,096 vertices, 8,192 triangles, 128 bones, four weights per vertex,
-1,024² texture pixels, 16 history states. This slice omits automatic unwrap,
-UV packing, arbitrary topology repair, inverse kinematics, procedural skin
-weighting, material channels and texture tiles. The GPU adapter currently
-uploads posed triangles and one texture; it does not provide mesh selection,
-topology handles or full material editing.
+four constraints and 1,024 keys per bone, 1,024² texture pixels per channel.
+Texture tiles (UDIM), normal/emissive channels and arbitrary topology repair
+are outside this model.
