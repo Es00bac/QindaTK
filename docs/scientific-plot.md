@@ -192,4 +192,6 @@ in-memory bounds above are not provided: hosts window their data into these
 models.
 
 Examples: [scientific-plot/Main.qml](../examples/scientific-plot/Main.qml),
-[scientific-plot-3d/Main.qml](../examples/scientific-plot-3d/Main.qml).
+[scientific-plot-3d/Main.qml](../examples/scientific-plot-3d/Main.qml);
+[scientific-3d-family/Main.qml](../examples/scientific-3d-family/Main.qml) shows it
+beside the volume example ([volume-imaging.md](volume-imaging.md)).

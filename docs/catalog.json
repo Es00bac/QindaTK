@@ -17080,7 +17080,7 @@
       "name": "ImageSliceView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "One calibrated principal plane of a Tk.VoxelVolume, or an oblique world reslice through the cursor (plane Oblique, resliceOrientation): a header (plane, slice n / N, previous/next), the slice fitted by physical spacing with the shared crosshair, and a voxel/value readout. Click moves the shared cursor; wheel, Page Up/Down, Home/End and the chevrons change slice; arrow keys move the crosshair one voxel within the plane. AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one VolumeCursor in voxel coordinates; the provider owns physical transforms.",
+      "description": "One calibrated principal plane of a Tk.VoxelVolume, or an oblique world reslice through the cursor (plane Oblique, resliceOrientation): a header (plane, slice n / N, previous/next), the slice fitted by physical spacing with the shared crosshair, and a voxel/value readout. Click moves the shared cursor; wheel, Page Up/Down, Home/End and the chevrons change slice; arrow keys move the crosshair one voxel within the plane. AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one VolumeCursor in voxel coordinates; the provider owns physical transforms. A cursor on another voxel grid is not linked (linkError, D-260): the view shows its middle slice and never moves that cursor. `overlay` draws a second volume on the same grid through overlayTransfer.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ImageSliceView.qml",
@@ -17166,6 +17166,54 @@
           "required": false
         },
         {
+          "name": "overlay",
+          "type": "alias",
+          "default": "slice.overlay",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overlayTransfer",
+          "type": "alias",
+          "default": "slice.overlayTransfer",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overlayOpacity",
+          "type": "alias",
+          "default": "slice.overlayOpacity",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "linkError",
+          "type": "string",
+          "default": "slice.linkError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overlayError",
+          "type": "string",
+          "default": "slice.overlayError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lastError",
+          "type": "string",
+          "default": "slice.lastError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Image slice\")",
@@ -17222,6 +17270,14 @@
       ],
       "methods": [
         {
+          "name": "saveSettings",
+          "parameters": ""
+        },
+        {
+          "name": "restoreSettings",
+          "parameters": "settings"
+        },
+        {
           "name": "setSliceIndex",
           "parameters": "index"
         },
@@ -17242,6 +17298,7 @@
         "imageSliceCoordinate",
         "imageSliceImage",
         "imageSliceIndex",
+        "imageSliceLinkError",
         "imageSliceNext",
         "imageSlicePrevious",
         "imageSliceView",
@@ -39968,7 +40025,7 @@
       "name": "TransferFunctionEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "Edits a Tk.TransferFunctionModel: measured-value stops on a gradient over the model's domain (click the track to add at the current mapping, drag or arrow-key a stop to move it, Delete or right-click to remove) plus the selected stop's exact value, opacity and color. Sized to its content. A drag or slider press is one undoable step (Escape cancels a drag); Ctrl+Z / Ctrl+Shift+Z and the header buttons undo and redo. AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer settings model. Voxel source data and its revision are never changed here. Gestures use the model's beginEdit/commitEdit/cancelEdit transaction (D-148), so previews repaint views but only the committed step is recorded.",
+      "description": "Edits a Tk.TransferFunctionModel: measured-value stops on a gradient over the model's domain (click the track to add at the current mapping, drag or arrow-key a stop to move it, Delete or right-click to remove) plus the selected stop's exact value, opacity and color. Sized to its content. A drag or slider press is one undoable step (Escape cancels a drag); Ctrl+Z / Ctrl+Shift+Z and the header buttons undo and redo. The header picks a built-in preset; the range row sets what values below or above the domain and missing values map to; `histogram` (a VoxelVolume.histogram() map) draws the value distribution above the gradient with its explicit below/above/missing counts. AGENT-CONTRACT (docs/volume-imaging.md): edits write only the transfer settings model. Voxel source data and its revision are never changed here. Gestures use the model's beginEdit/commitEdit/cancelEdit transaction (D-148), so previews repaint views but only the committed step is recorded. AGENT-GUARD: a gesture this editor opened is closed by this editor: a model swap or the editor's destruction cancels it (_cancelGesture), otherwise the model stays `editing` and refuses undo, redo and every later gesture.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TransferFunctionEditor.qml",
@@ -39993,6 +40050,14 @@
           "name": "tooltip",
           "type": "string",
           "default": "qsTr(\"Transfer function\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "histogram",
+          "type": "var",
+          "default": "null",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -40033,9 +40098,16 @@
       "objectNames": [
         "transferFunctionEditor",
         "transferGradient",
+        "transferHistogram",
+        "transferHistogramBar",
         "transferPointColor",
         "transferPointOpacity",
         "transferPointValue",
+        "transferPreset",
+        "transferRangeCount_",
+        "transferRangeReset_",
+        "transferRange_",
+        "transferRanges",
         "transferRedo",
         "transferUndo"
       ]
@@ -42421,7 +42493,7 @@
       "name": "VolumeView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "Direct volume rendering of a Tk.VoxelVolume: a header (title, Composite / MIP, render-path badge, reset), the rendered volume and a camera readout. Drag orbits, the wheel zooms, a click without a drag picks the voxel under the pointer into the shared cursor. Arrow keys orbit, +/- zoom, Home resets and Escape cancels an orbit drag back to where it started. AGENT-CONTRACT (docs/volume-imaging.md#volume-rendering): the camera, mode, sampling and clip box are view settings (saveSettings/restoreSettings); the view never writes voxels, and the GPU or reference choice is reported in renderPath/fallbackReason by Tk.VolumeViewItem.",
+      "description": "Direct volume rendering of a Tk.VoxelVolume: a header (title, Composite / MIP, render-path badge, reset), the rendered volume and a camera readout. Drag orbits, the wheel zooms, a click without a drag picks the voxel under the pointer into the shared cursor. Arrow keys orbit, +/- zoom, Home resets and Escape cancels an orbit drag back to where it started. AGENT-CONTRACT (docs/volume-imaging.md#volume-rendering): the camera, mode, sampling and clip box are view settings (saveSettings/restoreSettings); the view never writes voxels, and the GPU or reference choice is reported in renderPath/fallbackReason by Tk.VolumeViewItem. Volume reads run in the background (D-261): `busy` is true while a frame is in flight, Escape or cancelRendering() stops it, and linkError says why a transfer function or cursor with incompatible metadata is ignored (D-260).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/VolumeView.qml",
@@ -42579,6 +42651,30 @@
           "required": false
         },
         {
+          "name": "lastError",
+          "type": "string",
+          "default": "rendered.lastError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "rendered.busy",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "linkError",
+          "type": "string",
+          "default": "rendered.linkError",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "orbiting",
           "type": "bool",
           "default": "_drag.active",
@@ -42655,6 +42751,14 @@
           "parameters": "x, y"
         },
         {
+          "name": "cancelRendering",
+          "parameters": ""
+        },
+        {
+          "name": "renderStatistics",
+          "parameters": ""
+        },
+        {
           "name": "cancelOrbit",
           "parameters": ""
         }
@@ -42670,6 +42774,7 @@
       "objectNames": [
         "volumeView",
         "volumeViewItem",
+        "volumeViewLinkError",
         "volumeViewMode",
         "volumeViewPointer",
         "volumeViewReadout",
@@ -56721,7 +56826,7 @@
       "name": "ImageSliceItem",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
-      "description": "Paints one principal voxel-index plane of a VoxelVolume, fitted by physical spacing, or an oblique world-space reslice (plane Oblique), with the shared VolumeCursor crosshair. AGENT-CONTRACT (docs/volume-imaging.md, D-086): the target rectangle spans whole voxel cells (size × spacing), so its edges are continuous indices −0.5 and size−0.5. sliceImage, voxelAt, positionForVoxel and the crosshair share that one mapping; change them together. Oblique planes use the square reslice frame of D-149 (image_slice_reslice.cpp) in all four instead.",
+      "description": "Paints one principal voxel-index plane of a VoxelVolume, fitted by physical spacing, or an oblique world-space reslice (plane Oblique), with the shared VolumeCursor crosshair. AGENT-CONTRACT (docs/volume-imaging.md, D-086): the target rectangle spans whole voxel cells (size × spacing), so its edges are continuous indices −0.5 and size−0.5. sliceImage, voxelAt, positionForVoxel and the crosshair share that one mapping; change them together. Oblique planes use the square reslice frame of D-149 (image_slice_reslice.cpp) in all four instead. AGENT-CONTRACT (docs/volume-imaging.md#linked-views-and-overlays, D-260): a cursor bound to another volume, an overlay, and a transfer function are used only when compatible (VoxelVolume::geometryMismatch, matching value units); otherwise the view says why in linkError/overlayError and ignores them instead of drawing a wrong point or colour.",
       "singleton": false,
       "attached": null,
       "file": "src/core/image_slice_item.h",
@@ -56818,6 +56923,48 @@
           "constant": false
         },
         {
+          "name": "overlay",
+          "type": "QindaTK::VoxelVolume *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "overlayTransfer",
+          "type": "QindaTK::TransferFunctionModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "overlayOpacity",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "linkError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cursorLinked",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "overlayError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "sliceCount",
           "type": "int",
           "default": "",
@@ -56847,9 +56994,23 @@
         {
           "name": "sliceChanged",
           "parameters": ""
+        },
+        {
+          "name": "linkChanged",
+          "parameters": ""
         }
       ],
       "methods": [
+        {
+          "name": "saveSettings",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "restoreSettings",
+          "returns": "bool",
+          "parameters": "const QVariantMap &settings"
+        },
         {
           "name": "stepSlice",
           "returns": "bool",
@@ -73881,7 +74042,7 @@
       "name": "TransferFunctionModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Measured scalar value → color and opacity for image and volume views. Stops have stable IDs, strictly increasing values and endpoints pinned to the domain; RGB and opacity interpolate linearly between neighbouring stops. AGENT-CONTRACT (docs/volume-imaging.md#transfer-functions, D-148): every committed stop edit is one typed, undoable history step (before/after stop lists) in the model's UndoService; a host session may adopt that history. Between beginEdit() and commitEdit() edits are previews: views update but nothing is recorded, and cancelEdit() restores the state at beginEdit(). configure() and restoreSettings() are loads: they reset the history.",
+      "description": "Measured scalar value → color and opacity for image and volume views. Stops have stable IDs, strictly increasing values and endpoints pinned to the domain; RGB and opacity interpolate linearly between neighbouring stops. AGENT-CONTRACT (docs/volume-imaging.md#transfer-functions, D-148): every committed stop edit is one typed, undoable history step (before/after stop lists) in the model's UndoService; a host session may adopt that history. Between beginEdit() and commitEdit() edits are previews: views update but nothing is recorded, and cancelEdit() restores the state at beginEdit(). configure() and restoreSettings() are loads: they reset the history; applySettings() and applyPreset() are ordinary undoable steps (D-262). Out-of-domain and missing values are explicit (EXT-09, D-263): below/above either clamp to the end stop or use their own colour and opacity, and missing (NaN or unavailable) values always use the missing colour.",
       "singleton": false,
       "attached": null,
       "file": "src/core/transfer_function_model.h",
@@ -73910,6 +74071,34 @@
         {
           "name": "points",
           "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "belowRange",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "aboveRange",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "missingValue",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "presetId",
+          "type": "QString",
           "default": "",
           "readonly": true,
           "constant": false
@@ -74050,6 +74239,11 @@
           "parameters": "const QVariantMap &settings"
         },
         {
+          "name": "applySettings",
+          "returns": "bool",
+          "parameters": "const QVariantMap &settings"
+        },
+        {
           "name": "colorAt",
           "returns": "QColor",
           "parameters": "double value"
@@ -74058,6 +74252,36 @@
           "name": "opacityAt",
           "returns": "double",
           "parameters": "double value"
+        },
+        {
+          "name": "classify",
+          "returns": "QString",
+          "parameters": "double value"
+        },
+        {
+          "name": "setRangeColor",
+          "returns": "bool",
+          "parameters": "const QString &which, const QColor &color, double opacity"
+        },
+        {
+          "name": "clampRange",
+          "returns": "bool",
+          "parameters": "const QString &which"
+        },
+        {
+          "name": "presets",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "applyPreset",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "exportRamp",
+          "returns": "QVariantMap",
+          "parameters": "int count = 256"
         },
         {
           "name": "beginEdit",
@@ -75498,7 +75722,7 @@
       "name": "VolumeViewItem",
       "kind": "cpp",
       "base": "QQuickItem",
-      "description": "Direct volume rendering of a VoxelVolume: orthographic orbit camera, composite or maximum-intensity projection, clip box, transfer function (or window ramp) and picking into the shared VolumeCursor. AGENT-CONTRACT (docs/volume-imaging.md#volume-rendering, D-146/D-147): the GPU path (VolumeRenderNode) and the reference path (VolumeRaycaster) draw the same algorithm; updatePaintNode picks one per frame and publishes the choice as renderPath/fallbackReason. Camera, mode, sampling and clip are view settings (saveSettings/restoreSettings); they never touch voxels.",
+      "description": "Direct volume rendering of a VoxelVolume: orthographic orbit camera, composite or maximum-intensity projection, clip box, transfer function (or window ramp) and picking into the shared VolumeCursor. AGENT-CONTRACT (docs/volume-imaging.md#volume-rendering, D-146/D-147): the GPU path (VolumeRenderNode) and the reference path (VolumeRaycaster) draw the same algorithm; updatePaintNode picks one per frame and publishes the choice as renderPath/fallbackReason. Camera, mode, sampling and clip are view settings (saveSettings/restoreSettings); they never touch voxels. D-261: volume reads (the reference image, the texture pack) run on a VolumeRenderWorker, never in updatePaintNode; a newer request cancels and rejects the older one, cancelRendering() stops the current one, and the item shows the last completed frame until a current one arrives.",
       "singleton": false,
       "attached": null,
       "file": "src/core/volume_view_item.h",
@@ -75656,6 +75880,20 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "linkError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -75680,11 +75918,29 @@
           "parameters": ""
         },
         {
+          "name": "busyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "linkChanged",
+          "parameters": ""
+        },
+        {
           "name": "picked",
           "parameters": "const QVariantList &voxel"
         }
       ],
       "methods": [
+        {
+          "name": "cancelRendering",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "renderStatistics",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
         {
           "name": "orbit",
           "returns": "void",
@@ -75735,7 +75991,7 @@
       "name": "VoxelVolume",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Typed, spatially calibrated voxel data in 32³ chunks. A voxel index is the centre of a cell one spacing wide (docs/decisions-domains.md, D-086).",
+      "description": "Typed, spatially calibrated voxel data in 32³ chunks. A voxel index is the centre of a cell one spacing wide (docs/decisions-domains.md, D-086). AGENT-GUARD (D-261): voxel reads (valueAt, sampleValue, copyChunk, histogram) and every storage mutation hold m_lock, because VolumeView renders on a worker thread while the GUI thread may write voxels. Signals are emitted only after the lock is released.",
       "singleton": false,
       "attached": null,
       "file": "src/core/voxel_volume.h",
@@ -75818,6 +76074,27 @@
           "constant": false
         },
         {
+          "name": "datasetId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frameOfReference",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "axisIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "revision",
           "type": "quint64",
           "default": "",
@@ -75854,6 +76131,10 @@
         {
           "name": "errorChanged",
           "parameters": ""
+        },
+        {
+          "name": "aboutToBeDestroyed",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -75886,6 +76167,26 @@
           "name": "voxelFromWorld",
           "returns": "QVariantList",
           "parameters": "double x, double y, double z"
+        },
+        {
+          "name": "geometryMismatch",
+          "returns": "QString",
+          "parameters": "const QindaTK::VoxelVolume *other"
+        },
+        {
+          "name": "identity",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "identityMismatch",
+          "returns": "QString",
+          "parameters": "const QVariantMap &identity"
+        },
+        {
+          "name": "histogram",
+          "returns": "QVariantMap",
+          "parameters": "int bins, double minimum, double maximum, int channel = 0, int frame = 0"
         }
       ],
       "enums": {},

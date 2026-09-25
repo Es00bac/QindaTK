@@ -19,7 +19,11 @@ class UndoService;
 // lists) in the model's UndoService; a host session may adopt that history.
 // Between beginEdit() and commitEdit() edits are previews: views update but
 // nothing is recorded, and cancelEdit() restores the state at beginEdit().
-// configure() and restoreSettings() are loads: they reset the history.
+// configure() and restoreSettings() are loads: they reset the history;
+// applySettings() and applyPreset() are ordinary undoable steps (D-262).
+// Out-of-domain and missing values are explicit (EXT-09, D-263): below/above
+// either clamp to the end stop or use their own colour and opacity, and
+// missing (NaN or unavailable) values always use the missing colour.
 class TransferFunctionModel : public QObject, public DocumentModel {
     Q_OBJECT
     QML_ELEMENT
@@ -27,6 +31,10 @@ class TransferFunctionModel : public QObject, public DocumentModel {
     Q_PROPERTY(double domainMax READ domainMax NOTIFY changed)
     Q_PROPERTY(QString unit READ unit NOTIFY changed)
     Q_PROPERTY(QVariantList points READ points NOTIFY changed)
+    Q_PROPERTY(QVariantMap belowRange READ belowRange NOTIFY changed)
+    Q_PROPERTY(QVariantMap aboveRange READ aboveRange NOTIFY changed)
+    Q_PROPERTY(QVariantMap missingValue READ missingValue NOTIFY changed)
+    Q_PROPERTY(QString presetId READ presetId NOTIFY changed)
     Q_PROPERTY(quint64 revision READ revision NOTIFY changed)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
     Q_PROPERTY(bool editing READ editing NOTIFY editingChanged)
@@ -42,6 +50,14 @@ public:
     double domainMax() const { return m_max; }
     QString unit() const { return m_unit; }
     QVariantList points() const;
+    // {mode: "clamp"|"color", color: "#rrggbb", opacity}: the colour a value
+    // below/above the domain or a missing value maps to (a clamp reports the
+    // end stop it uses). missingValue's mode is always "color".
+    QVariantMap belowRange() const;
+    QVariantMap aboveRange() const;
+    QVariantMap missingValue() const;
+    // The built-in preset this function was made from; cleared by a stop edit.
+    QString presetId() const { return m_preset; }
     quint64 revision() const { return m_revision; }
     QString lastError() const { return m_error; }
     Q_INVOKABLE bool configure(double minimum, double maximum, const QString &unit = {});
@@ -55,8 +71,24 @@ public:
     Q_INVOKABLE QVariantList previewColors(int count = 64) const;
     Q_INVOKABLE QVariantMap saveSettings() const;
     Q_INVOKABLE bool restoreSettings(const QVariantMap &settings);
+    // Undoable counterpart of restoreSettings: one "Restore transfer
+    // settings" step that keeps the history (refused during a gesture).
+    Q_INVOKABLE bool applySettings(const QVariantMap &settings);
     Q_INVOKABLE QColor colorAt(double value) const;
     Q_INVOKABLE double opacityAt(double value) const;
+    // "inside", "below", "above" or "missing" (NaN / infinite).
+    Q_INVOKABLE QString classify(double value) const;
+    // which: "below", "above" or "missing". One undoable step each.
+    Q_INVOKABLE bool setRangeColor(const QString &which, const QColor &color, double opacity);
+    Q_INVOKABLE bool clampRange(const QString &which);
+    // Built-in known ramps ([{id, name}]); applyPreset maps one onto the
+    // current domain as one undoable step and records its presetId.
+    Q_INVOKABLE QVariantList presets() const;
+    Q_INVOKABLE bool applyPreset(const QString &id);
+    // The exported ramp: `count` evenly spaced samples over the domain
+    // ({value, color "#rrggbb", opacity}) plus below/above/missing entries,
+    // the same values colorAt/opacityAt and the render table use.
+    Q_INVOKABLE QVariantMap exportRamp(int count = 256) const;
     bool editing() const { return m_editing; }
     bool canUndo() const;
     bool canRedo() const;
@@ -92,7 +124,24 @@ private:
         QString id; double value; QColor color; double opacity;
         bool operator==(const Point &) const = default;
     };
+    struct Special {
+        bool set = false; QColor color = QColor(Qt::black); double opacity = 0;
+        bool operator==(const Special &) const = default;
+    };
+    // Everything a history step restores (D-262).
+    struct State {
+        double min = 0, max = 255; QString unit; QVector<Point> points;
+        Special below, above, missing; QString preset;
+        bool operator==(const State &) const = default;
+    };
     struct TransferCommand;
+    State state() const;
+    void setState(const State &state);
+    bool apply(State after, const QString &label);
+    bool parseState(const QVariantMap &settings, State *out);
+    const Special *specialFor(double value) const;
+    Special *specialNamed(State *state, const QString &which) const;
+    QVariantMap specialMap(const Special &special, const Point &end) const;
     struct Segment { const Point *left; const Point *right; double t; };
     Segment segmentAt(double value) const;
     void publish();
@@ -107,7 +156,10 @@ private:
     void historyAttached(UndoService *service) override;
     double m_min = 0, m_max = 255;
     QString m_unit;
-    QVector<Point> m_points, m_editBefore;
+    QVector<Point> m_points;
+    Special m_below, m_above, m_missing{true, QColor(Qt::black), 0};
+    QString m_preset;
+    State m_editBefore;
     QString m_editLabel;
     bool m_editing = false;
     quint64 m_revision = 0;

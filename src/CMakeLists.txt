@@ -365,12 +365,15 @@ qt_add_qml_module(qindatk
         core/scientific_figure_composer.cpp core/scientific_figure_composer.h
         core/scientific_scene3d.cpp core/scientific_scene3d.h
         core/scientific_scene3d_render.cpp
-        core/voxel_volume.cpp core/voxel_volume.h
+        core/voxel_volume.cpp core/voxel_volume_info.cpp core/voxel_volume.h
         core/volume_cursor.cpp core/volume_cursor.h
-        core/transfer_function_model.cpp core/transfer_function_history.cpp core/transfer_function_model.h
-        core/image_slice_item.cpp core/image_slice_reslice.cpp core/image_slice_item.h
+        core/transfer_function_model.cpp core/transfer_function_history.cpp
+        core/transfer_function_ramps.cpp core/transfer_function_model.h
+        core/image_slice_item.cpp core/image_slice_reslice.cpp core/image_slice_settings.cpp
+        core/image_slice_item.h
         core/volume_raycast.cpp core/volume_raycast.h
-        core/volume_view_item.cpp core/volume_view_item.h
+        core/volume_view_item.cpp core/volume_view_render.cpp core/volume_view_item.h
+        core/volume_render_worker.cpp core/volume_render_worker.h
         core/volume_render_node.cpp core/volume_render_node.h
         core/chart_series.cpp core/chart_series.h
         core/chart_data.cpp core/chart_data.h

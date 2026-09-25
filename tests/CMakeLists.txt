@@ -54,11 +54,16 @@ qindatk_add_test(tst_volume_imaging)
 qindatk_add_test(tst_volume_slices)
 qindatk_add_test(tst_volume_render)
 qindatk_add_test(tst_volume_edit)
+qindatk_add_test(tst_volume_links)
+qindatk_add_test(tst_volume_async)
 # The same binary on the RHI adaptation: gpuPathMatchesReference compares the
 # GPU raycaster with the reference image and QSKIPs without a hardware RHI.
+# AGENT-NOTE (WP-086 audit): the offscreen platform's GL context has no 3D
+# textures, so this tries the session's real display first (Wayland, then X11)
+# and falls back to offscreen, where it skips. Qt reads the ";" list in order.
 add_test(NAME tst_volume_render_rhi COMMAND tst_volume_render gpuPathMatchesReference)
 set_tests_properties(tst_volume_render_rhi PROPERTIES
-    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
+    ENVIRONMENT "QT_QPA_PLATFORM=wayland\\;xcb\\;offscreen;QT_QUICK_BACKEND=rhi;QML_IMPORT_PATH=${CMAKE_BINARY_DIR}/qml")
 qindatk_add_test(tst_application_contracts)
 qindatk_add_test(tst_color_engine)
 qindatk_add_test(tst_color_grade_processor)

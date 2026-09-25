@@ -22,9 +22,8 @@ QVariantList ImageSliceItem::resliceOrientation() const
     for (double value : m_reslice) result.append(value);
     return result;
 }
-void ImageSliceItem::setResliceOrientation(const QVariantList &matrix)
+bool ImageSliceItem::parseOrientation(const QVariantList &matrix, double m[9])
 {
-    double m[9];
     bool ok = matrix.size() == 9;
     for (int i = 0; ok && i < 9; ++i) {
         m[i] = matrix[i].toDouble(&ok);
@@ -37,7 +36,12 @@ void ImageSliceItem::setResliceOrientation(const QVariantList &matrix)
             for (int row = 0; row < 3; ++row) product += m[row * 3 + a] * m[row * 3 + b];
             ok = std::abs(product - (a == b ? 1.0 : 0.0)) <= 1e-5;
         }
-    if (!ok) {
+    return ok;
+}
+void ImageSliceItem::setResliceOrientation(const QVariantList &matrix)
+{
+    double m[9];
+    if (!parseOrientation(matrix, m)) {
         m_error = QStringLiteral("Reslice orientation must be an orthonormal 3×3 matrix");
         emit changed();
         return;
@@ -68,7 +72,7 @@ ImageSliceItem::ObliqueFrame ImageSliceItem::obliqueFrame() const
     double volumeCentre[3], cursorWorld[3];
     listToTriple(m_volume->worldFromVoxel((shape[0] - 1) / 2.0, (shape[1] - 1) / 2.0,
                                           (shape[2] - 1) / 2.0), volumeCentre);
-    if (m_cursor && listToTriple(m_cursor->worldPoint(), cursorWorld)) {
+    if (m_cursor && m_cursorLinked && listToTriple(m_cursor->worldPoint(), cursorWorld)) {
         const double delta[3] = {cursorWorld[0] - volumeCentre[0], cursorWorld[1] - volumeCentre[1],
                                  cursorWorld[2] - volumeCentre[2]};
         f.offset = dot(delta, f.w);
@@ -121,11 +125,9 @@ QImage ImageSliceItem::obliqueImage(int columns, int rows) const
         const double v = ((row + 0.5) / rows - 0.5) * f.side;
         for (int column = 0; column < columns; ++column) {
             const double h = ((column + 0.5) / columns - 0.5) * f.side;
-            line[column] = qPremultiply(colorFor(m_volume->sampleValue(
-                f.voxelCentre[0] + h * f.voxelU[0] + v * f.voxelV[0],
-                f.voxelCentre[1] + h * f.voxelU[1] + v * f.voxelV[1],
-                f.voxelCentre[2] + h * f.voxelU[2] + v * f.voxelV[2],
-                m_channel, m_frame, m_interpolation)));
+            line[column] = qPremultiply(shadeAt(f.voxelCentre[0] + h * f.voxelU[0] + v * f.voxelV[0],
+                                                f.voxelCentre[1] + h * f.voxelU[1] + v * f.voxelV[1],
+                                                f.voxelCentre[2] + h * f.voxelU[2] + v * f.voxelV[2]));
         }
     }
     return image;
@@ -153,7 +155,7 @@ int ImageSliceItem::sliceIndex() const
 bool ImageSliceItem::moveCursorWorld(const double delta[3])
 {
     double world[3];
-    if (!m_cursor || !listToTriple(m_cursor->worldPoint(), world)) return false;
+    if (!m_cursor || !m_cursorLinked || !listToTriple(m_cursor->worldPoint(), world)) return false;
     const double before[3] = {m_cursor->x(), m_cursor->y(), m_cursor->z()};
     if (!m_cursor->setWorldPoint(world[0] + delta[0], world[1] + delta[1], world[2] + delta[2]))
         return false;
@@ -161,7 +163,7 @@ bool ImageSliceItem::moveCursorWorld(const double delta[3])
 }
 bool ImageSliceItem::stepSlice(int steps)
 {
-    if (!m_cursor || !m_volume || steps == 0) return false;
+    if (!m_cursor || !m_cursorLinked || !m_volume || steps == 0) return false;
     if (m_plane == Oblique) {
         const ObliqueFrame f = obliqueFrame();
         if (!f.valid) return false;
@@ -178,7 +180,7 @@ bool ImageSliceItem::stepSlice(int steps)
 }
 bool ImageSliceItem::moveCrosshair(int dh, int dv)
 {
-    if (!m_cursor || !m_volume || (dh == 0 && dv == 0)) return false;
+    if (!m_cursor || !m_cursorLinked || !m_volume || (dh == 0 && dv == 0)) return false;
     if (m_plane == Oblique) {
         const ObliqueFrame f = obliqueFrame();
         if (!f.valid) return false;

@@ -3,7 +3,9 @@
 
 #include <QByteArray>
 #include <QHash>
+#include <QMutex>
 #include <QObject>
+#include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
@@ -16,7 +18,8 @@ namespace QindaTK {
 // A failed read returns an empty block, which the volume treats as missing.
 // AGENT-CONTRACT (docs/volume-imaging.md): readChunk is synchronous and may
 // run on the scene-graph render thread while the GUI thread is blocked (an
-// ImageSliceItem paint). It must not call back into the VoxelVolume.
+// ImageSliceItem paint) or on a VolumeView worker thread (D-261), always with
+// the volume's lock held. It must not call back into the VoxelVolume.
 class VoxelChunkSource {
 public:
     virtual ~VoxelChunkSource() = default;
@@ -25,6 +28,10 @@ public:
 
 // Typed, spatially calibrated voxel data in 32³ chunks. A voxel index is the
 // centre of a cell one spacing wide (docs/decisions-domains.md, D-086).
+// AGENT-GUARD (D-261): voxel reads (valueAt, sampleValue, copyChunk,
+// histogram) and every storage mutation hold m_lock, because VolumeView
+// renders on a worker thread while the GUI thread may write voxels. Signals
+// are emitted only after the lock is released.
 class VoxelVolume : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -39,6 +46,9 @@ class VoxelVolume : public QObject {
     Q_PROPERTY(QVariantList spacing READ spacing NOTIFY changed)
     Q_PROPERTY(QVariantList origin READ origin NOTIFY changed)
     Q_PROPERTY(QVariantList orientation READ orientation NOTIFY changed)
+    Q_PROPERTY(QString datasetId READ datasetId NOTIFY changed)
+    Q_PROPERTY(QString frameOfReference READ frameOfReference NOTIFY changed)
+    Q_PROPERTY(QStringList axisIds READ axisIds NOTIFY changed)
     Q_PROPERTY(quint64 revision READ revision NOTIFY changed)
     Q_PROPERTY(qint64 residentBytes READ residentBytes NOTIFY changed)
     Q_PROPERTY(qint64 maximumResidentBytes READ maximumResidentBytes WRITE setMaximumResidentBytes NOTIFY changed)
@@ -47,6 +57,7 @@ public:
     enum Interpolation { Nearest = 0, Linear = 1 };
     Q_ENUM(Interpolation)
     explicit VoxelVolume(QObject *parent = nullptr);
+    ~VoxelVolume() override;
     int sizeX() const { return m_shape[0]; }
     int sizeY() const { return m_shape[1]; }
     int sizeZ() const { return m_shape[2]; }
@@ -60,6 +71,11 @@ public:
     QVariantList orientation() const;
     double spacingAt(int axis) const { return axis >= 0 && axis < 3 ? m_spacing[axis] : 1.0; }
     quint64 revision() const { return m_revision; }
+    // Host identity (EXT-07): which dataset this is, which spatial frame its
+    // world coordinates belong to, and the three axis IDs (default x, y, z).
+    QString datasetId() const { return m_datasetId; }
+    QString frameOfReference() const { return m_frame; }
+    QStringList axisIds() const { return m_axisIds; }
     // AGENT-NOTE: provider chunks are cached during const reads (often inside a
     // paint on the render thread), where no signal may be emitted, so
     // residentBytes is a snapshot that changed() does not announce for cache
@@ -75,6 +91,21 @@ public:
                                     int frame = 0, Interpolation interpolation = Nearest) const;
     Q_INVOKABLE QVariantList worldFromVoxel(double x, double y, double z) const;
     Q_INVOKABLE QVariantList voxelFromWorld(double x, double y, double z) const;
+    // Empty when `other` has the same voxel grid and spatial metadata (shape,
+    // spacing, origin, orientation, unit, frame of reference and axis IDs);
+    // otherwise the first difference as a sentence (D-260).
+    Q_INVOKABLE QString geometryMismatch(const QindaTK::VoxelVolume *other) const;
+    // The dataset/geometry description saved with view settings, and the
+    // check that saved settings belong to this volume (D-260): the dataset ID,
+    // frame of reference and spatial unit must match and the saved channel
+    // and frame must exist. Voxel edits (a new revision) never invalidate it.
+    Q_INVOKABLE QVariantMap identity() const;
+    Q_INVOKABLE QString identityMismatch(const QVariantMap &identity) const;
+    // Counts of one channel/frame in `bins` equal bins over [minimum, maximum]
+    // plus explicit below/above/missing counts, read chunk by chunk through
+    // the bounded cache (EXT-09 histogram reference).
+    Q_INVOKABLE QVariantMap histogram(int bins, double minimum, double maximum,
+                                      int channel = 0, int frame = 0) const;
     bool putChunk(int cx, int cy, int cz, int channel, int frame, const QByteArray &bytes);
     // Copies one 32³ chunk (little-endian, X fastest) through the bounded
     // read cache. False when it is missing; without a provider an unwritten
@@ -89,6 +120,9 @@ public:
 signals:
     void changed();
     void errorChanged();
+    // Emitted first thing in the destructor, while voxels are still readable:
+    // a view with a worker reading this volume cancels and waits for it.
+    void aboutToBeDestroyed();
 private:
     enum class Kind : quint8 { UInt8, UInt16, Float32 };
     struct CachedChunk { QByteArray bytes; std::list<quint64>::iterator order; };
@@ -100,6 +134,7 @@ private:
     qsizetype voxelOffset(int x, int y, int z) const;
     quint64 key(int cx, int cy, int cz, int channel, int frame) const;
     const QByteArray *chunkForRead(int cx, int cy, int cz, int channel, int frame) const;
+    double valueAtLocked(int x, int y, int z, int channel, int frame) const;
     bool makeRoom() const;
     void dropCached(quint64 address) const;
     void clearStorage();
@@ -110,6 +145,9 @@ private:
     Kind m_kind = Kind::UInt8;
     QString m_type = QStringLiteral("uint8");
     QString m_unit = QStringLiteral("mm"), m_valueUnit;
+    QString m_datasetId, m_frame;
+    QStringList m_axisIds{QStringLiteral("x"), QStringLiteral("y"), QStringLiteral("z")};
+    mutable QMutex m_lock;
     double m_spacing[3] = {1, 1, 1};
     double m_origin[3] = {0, 0, 0};
     double m_orientation[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
