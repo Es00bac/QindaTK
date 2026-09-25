@@ -85,6 +85,30 @@ void AudioEngine::setBackends(const QList<AudioDeviceBackendPtr> &backends)
     for (const auto &backend : backends)
         if (auto builtin = std::dynamic_pointer_cast<BuiltinAudioBackend>(backend)) m_builtin = builtin;
     refreshDevices();
+    emit backendsChanged();
+}
+
+QVariantList AudioEngine::backends() const
+{
+    // AGENT-CONTRACT (D-203, tests/consumer/qualify): an optional backend the
+    // build omits is listed as unavailable with a reason, never left out.
+    const auto has = [this](const QString &name) {
+        for (const auto &backend : m_backends)
+            if (backend->name() == name) return true;
+        return false;
+    };
+    const auto entry = [](const QString &id, bool available, const QString &reason) {
+        return QVariantMap{{QStringLiteral("id"), id}, {QStringLiteral("available"), available},
+                           {QStringLiteral("reason"), available ? QString() : reason}};
+    };
+#if defined(QINDATK_HAVE_ALSA)
+    const QString alsaReason = tr("The application did not enable the ALSA backend");
+#else
+    const QString alsaReason = tr("QindaTK was built without the ALSA backend");
+#endif
+    return {entry(QStringLiteral("builtin"), has(QStringLiteral("builtin")),
+                  tr("The application did not enable the built-in devices")),
+            entry(QStringLiteral("alsa"), has(QStringLiteral("alsa")), alsaReason)};
 }
 
 BuiltinAudioBackend *AudioEngine::builtinBackend() const

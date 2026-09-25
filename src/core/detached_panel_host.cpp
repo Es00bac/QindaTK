@@ -273,6 +273,12 @@ bool DetachedPanelHost::open(const QString &panelId)
     });
     window->show();
     window->requestActivate();
+    // AGENT-NOTE (WP-088): moveWindow() above may clamp the saved rect or
+    // replace an unavailable screen before these connections exist. On
+    // offscreen and X11 a later geometry signal happened to record that; a
+    // Wayland client gets none, so DockModel kept the vanished screen id.
+    // Record the placement actually used once, on every platform.
+    geometryChanged();
     restoreFocus(*it);
     m_lastError.clear();
     emit panelDetached(panelId);
