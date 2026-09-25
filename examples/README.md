@@ -60,6 +60,19 @@ clip in the source monitor and a two-cut timeline in the program monitor, and
 Export program queues a verified FFV1/PCM Matroska render there. The files are
 rewritten in place on each start.
 
+The [live sequence edit example](sequence-edit-live/Main.qml) is the WP-071
+counterpart of the `video-edit-surfaces` fixture, on the real backend. Run it
+with `qtk-preview examples/sequence-edit-live/Main.qml`: it writes five test
+signals (bars rotated per shot, frame codes, sync pops) into
+`<temp>/qindatk-sequence-edit-live` and cuts them into a nine-second sequence
+with linked picture (V1) and sound (A1): Harbor dissolves into Interview, then
+a synchronized three-camera multicam program. `TrimView` previews and commits
+roll, ripple, slip and slide through `SequenceEditor` at the chosen cut;
+`TransitionEditor` switches dissolve, wipe and dip and loops the window in the
+cut monitor; `MulticamView` switches angles at the program playhead; the
+timeline draws peaks decoded from the same files. Every edit is one undo step,
+and Export queues a verified FFV1/PCM render of what the program monitor shows.
+
 The [color-grade fixture](color-grade/Main.qml) applies a tagged CPU image
 transform and compares before/after pixels and scopes. Its edit session groups
 each wheel gesture into one undo step; the host still supplies decoded frames.

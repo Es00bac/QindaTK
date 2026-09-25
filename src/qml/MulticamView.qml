@@ -23,6 +23,7 @@ Item {
     property string pendingRequestId: ""
     property string statusText: ""
     property string errorText: ""
+    property int angleColumns: 2 // cards per row; more rows scroll
     property string tooltip: qsTr("Synchronized multicamera angles")
     property string _serial: "0"
 
@@ -36,6 +37,13 @@ Item {
     readonly property string effectiveActiveAngleId: root.multicamMode ? root.multicam.activeAngleId : root.activeAngleId
     readonly property string effectiveRateNumerator: root.multicamMode ? root.multicam.frameRateNumerator : root.rateNumerator
     readonly property string effectiveRateDenominator: root.multicamMode ? root.multicam.frameRateDenominator : root.rateDenominator
+    // AGENT-GUARD: angle frames are requested at frameTimeTicks, which are
+    // timeline ticks in multicam mode; the request rate is ticks per second
+    // (docs/assets-jobs.md), so it is the timeline timebase, not the frame rate.
+    readonly property string assetRateNumerator: root.multicamMode && root.multicam.timeline
+        ? root.multicam.timeline.timebaseNumerator : root.effectiveRateNumerator
+    readonly property string assetRateDenominator: root.multicamMode && root.multicam.timeline
+        ? root.multicam.timeline.timebaseDenominator : root.effectiveRateDenominator
     readonly property string effectiveError: root.multicamMode && root.multicam.lastError.length ? root.multicam.lastError : root.errorText
     readonly property int angleCount: effectiveAngles ? effectiveAngles.length : 0
     readonly property bool snapshotValid: root.validateAngles()
@@ -117,84 +125,91 @@ Item {
                   : qsTr("Playhead %1 ticks · switch requests are cut at the acknowledged time").arg(root.playheadTicks)
             color: Tk.Theme.color.textMuted
         }
-        Tk.Grid {
-            id: angleGrid
-            objectName: "multicamAngleGrid"
+        // AGENT-GUARD: angles beyond the rows that fit scroll inside this
+        // viewport; a bare Grid with basis 0 let the third and later cards
+        // spill over the status row below (examples/sequence-edit-live).
+        Tk.Scroll {
+            objectName: "multicamAngleScroll"
             width: parent.width
             Tk.Flex.grow: 1
             Tk.Flex.basis: 0
-            columns: "1fr 1fr"
-            columnGap: Tk.Theme.space.sm
-            rowGap: Tk.Theme.space.sm
-            Repeater {
-                model: root.effectiveAngles || []
-                delegate: T.AbstractButton {
-                    id: card
-                    required property var modelData
-                    readonly property string angleId: String(modelData.angleId)
-                    readonly property bool isProgram: angleId === root.effectiveActiveAngleId
-                    objectName: "multicamAngle_" + angleId
-                    enabled: root.snapshotValid && modelData.available !== false && !isProgram
-                    implicitHeight: Tk.Theme.size.thumbnailHeight + Tk.Theme.size.controlLg * 2
-                    implicitWidth: Tk.Theme.size.thumbnail * 2
-                    Accessible.role: Accessible.Button
-                    Accessible.name: qsTr("Switch program to angle %1").arg(String(modelData.label || angleId))
-                    Accessible.description: (isProgram ? qsTr("Current program angle. ") : "")
-                        + (modelData.available === false ? qsTr("Media missing.") : qsTr("Sync offset %1 ticks.").arg(String(modelData.syncOffsetTicks)))
-                    Accessible.focusable: enabled
-                    focusPolicy: enabled ? Qt.TabFocus : Qt.NoFocus
-                    hoverEnabled: true
-                    onClicked: root.switchTo(angleId)
-                    background: Rectangle {
-                        color: card.isProgram ? Tk.Theme.color.selection : Tk.Theme.color.panelAlt
-                        border.width: card.activeFocus || card.isProgram ? Tk.Theme.size.border : Tk.Theme.size.border
-                        border.color: card.activeFocus ? Tk.Theme.color.focus : card.isProgram ? Tk.Theme.color.accent : Tk.Theme.color.controlBorder
-                        radius: Tk.Theme.radius.sm
-                    }
-                    contentItem: Tk.Flex {
-                        padding: Tk.Theme.space.xs
-                        direction: Tk.Flex.Column
-                        gap: Tk.Theme.space.xs
-                        Tk.AssetThumbnail {
-                            objectName: "multicamFrame_" + card.angleId
-                            provider: root.assetProvider
-                            resourceId: String(modelData.resourceId || "")
-                            requestKind: "frame"
-                            requestOptions: ({frameId: String(modelData.frameId || ""),
-                                timeTicks: String(modelData.frameTimeTicks || root.effectivePlayheadTicks),
-                                rateNumerator: root.effectiveRateNumerator, rateDenominator: root.effectiveRateDenominator,
-                                size: ({width: Math.max(1, card.width), height: Tk.Theme.size.thumbnailHeight})})
-                            document: root.document
-                            viewId: root.viewId + ":angle:" + card.angleId
-                            active: root.enabled && modelData.available !== false && !!root.assetProvider
-                            crop: true
-                            placeholderIcon: "video"
-                            caption: ""
-                            tooltip: qsTr("Angle %1 frame %2").arg(String(modelData.label || card.angleId)).arg(String(modelData.frameId || "—"))
-                            width: parent.width
-                            height: Tk.Theme.size.thumbnailHeight
+            overflowY: Tk.Scroll.Auto
+            Tk.Grid {
+                id: angleGrid
+                objectName: "multicamAngleGrid"
+                columns: new Array(Math.max(1, root.angleColumns)).fill("1fr").join(" ")
+                columnGap: Tk.Theme.space.sm
+                rowGap: Tk.Theme.space.sm
+                Repeater {
+                    model: root.effectiveAngles || []
+                    delegate: T.AbstractButton {
+                        id: card
+                        required property var modelData
+                        readonly property string angleId: String(modelData.angleId)
+                        readonly property bool isProgram: angleId === root.effectiveActiveAngleId
+                        objectName: "multicamAngle_" + angleId
+                        enabled: root.snapshotValid && modelData.available !== false && !isProgram
+                        implicitHeight: Tk.Theme.size.thumbnailHeight + Tk.Theme.size.controlLg * 2
+                        implicitWidth: Tk.Theme.size.thumbnail * 2
+                        Accessible.role: Accessible.Button
+                        Accessible.name: qsTr("Switch program to angle %1").arg(String(modelData.label || angleId))
+                        Accessible.description: (isProgram ? qsTr("Current program angle. ") : "")
+                            + (modelData.available === false ? qsTr("Media missing.") : qsTr("Sync offset %1 ticks.").arg(String(modelData.syncOffsetTicks)))
+                        Accessible.focusable: enabled
+                        focusPolicy: enabled ? Qt.TabFocus : Qt.NoFocus
+                        hoverEnabled: true
+                        onClicked: root.switchTo(angleId)
+                        background: Rectangle {
+                            color: card.isProgram ? Tk.Theme.color.selection : Tk.Theme.color.panelAlt
+                            border.width: card.activeFocus || card.isProgram ? Tk.Theme.size.border : Tk.Theme.size.border
+                            border.color: card.activeFocus ? Tk.Theme.color.focus : card.isProgram ? Tk.Theme.color.accent : Tk.Theme.color.controlBorder
+                            radius: Tk.Theme.radius.sm
                         }
-                        Tk.Flex {
-                            width: parent.width
-                            Tk.Label { text: String(modelData.label || card.angleId); color: Tk.Theme.color.text; Tk.Flex.grow: 1; Tk.Flex.basis: 0 }
-                            Tk.Badge {
-                                visible: card.isProgram
-                                text: qsTr("PROGRAM")
-                                variant: "accent"
-                                tooltip: qsTr("Host-confirmed program angle")
+                        contentItem: Tk.Flex {
+                            padding: Tk.Theme.space.xs
+                            direction: Tk.Flex.Column
+                            gap: Tk.Theme.space.xs
+                            Tk.AssetThumbnail {
+                                objectName: "multicamFrame_" + card.angleId
+                                provider: root.assetProvider
+                                resourceId: String(modelData.resourceId || "")
+                                requestKind: "frame"
+                                requestOptions: ({frameId: String(modelData.frameId || ""),
+                                    timeTicks: String(modelData.frameTimeTicks || root.effectivePlayheadTicks),
+                                    rateNumerator: root.assetRateNumerator, rateDenominator: root.assetRateDenominator,
+                                    size: ({width: Math.max(1, card.width), height: Tk.Theme.size.thumbnailHeight})})
+                                document: root.document
+                                viewId: root.viewId + ":angle:" + card.angleId
+                                active: root.enabled && modelData.available !== false && !!root.assetProvider
+                                crop: true
+                                placeholderIcon: "video"
+                                caption: ""
+                                tooltip: qsTr("Angle %1 frame %2").arg(String(modelData.label || card.angleId)).arg(String(modelData.frameId || "—"))
+                                width: parent.width
+                                height: Tk.Theme.size.thumbnailHeight
+                            }
+                            Tk.Flex {
+                                width: parent.width
+                                Tk.Label { text: String(modelData.label || card.angleId); color: Tk.Theme.color.text; Tk.Flex.grow: 1; Tk.Flex.basis: 0 }
+                                Tk.Badge {
+                                    visible: card.isProgram
+                                    text: qsTr("PROGRAM")
+                                    variant: "accent"
+                                    tooltip: qsTr("Host-confirmed program angle")
+                                }
+                            }
+                            Tk.Caption {
+                                text: modelData.available === false ? qsTr("Media missing")
+                                    : qsTr("Offset %1 ticks · frame %2").arg(String(modelData.syncOffsetTicks)).arg(String(modelData.frameId || "—"))
+                                color: modelData.available === false ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
+                                elide: Text.ElideRight
                             }
                         }
-                        Tk.Caption {
-                            text: modelData.available === false ? qsTr("Media missing")
-                                : qsTr("Offset %1 ticks · frame %2").arg(String(modelData.syncOffsetTicks)).arg(String(modelData.frameId || "—"))
-                            color: modelData.available === false ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
-                            elide: Text.ElideRight
-                        }
+                        Keys.onReturnPressed: root.switchTo(angleId)
+                        Keys.onEnterPressed: root.switchTo(angleId)
+                        Keys.onSpacePressed: root.switchTo(angleId)
+                        Tk.ToolTip { text: card.Accessible.name; visible: card.hovered }
                     }
-                    Keys.onReturnPressed: root.switchTo(angleId)
-                    Keys.onEnterPressed: root.switchTo(angleId)
-                    Keys.onSpacePressed: root.switchTo(angleId)
-                    Tk.ToolTip { text: card.Accessible.name; visible: card.hovered }
                 }
             }
         }

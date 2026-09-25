@@ -294,7 +294,14 @@ int main(int argc, char **argv)
         }
         return 1;
     }
+    // AGENT-GUARD: the scene is destroyed before `app`, in this order: root
+    // first (backends such as JobModel and MediaPlayer cancel and join their
+    // worker threads in their destructors), then a window we created. Leaking
+    // them let workers keep painting while QGuiApplication was torn down,
+    // which crashed --check at random (tests/fixtures/preview_teardown_jobs.qml).
+    std::unique_ptr<QQuickWindow> ownedWindow;
     QObject *root = component.create();
+    std::unique_ptr<QObject> ownedRoot(root);
     if (root == nullptr || component.isError()) {
         for (const QQmlError &error : component.errors()) {
             fprintf(stderr, "%s\n", qPrintable(error.toString()));
@@ -321,7 +328,8 @@ int main(int argc, char **argv)
             fprintf(stderr, "qtk-preview: the root object is neither a Window nor an Item\n");
             return 1;
         }
-        window = new QQuickWindow();
+        ownedWindow = std::make_unique<QQuickWindow>();
+        window = ownedWindow.get();
         window->setColor(theme->color()->bg());
         window->setTitle(QStringLiteral("qtk-preview: ") + info.fileName());
         if (!parser.isSet(QStringLiteral("size"))) {

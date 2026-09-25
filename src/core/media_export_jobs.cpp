@@ -78,9 +78,11 @@ QImage MediaExport::testSignalFrame(qint64 frame, const MediaTestSignalSettings 
         static const QColor bars[] = {QColor(191, 191, 191), QColor(191, 191, 0), QColor(0, 191, 191),
                                       QColor(0, 191, 0), QColor(191, 0, 191), QColor(191, 0, 0),
                                       QColor(0, 0, 191)};
+        const int rotation = ((settings.barRotation % 7) + 7) % 7;
         for (int bar = 0; bar < 7; ++bar) {
             const int left = bar * width / 7;
-            painter.fillRect(QRect(left, 0, (bar + 1) * width / 7 - left, picture), bars[bar]);
+            painter.fillRect(QRect(left, 0, (bar + 1) * width / 7 - left, picture),
+                             bars[(bar + rotation) % 7]);
         }
         const int cell = width / kCodeCells;
         painter.fillRect(QRect(int(frame % kCodeCells) * cell, picture / 3, cell, picture / 3), Qt::black);

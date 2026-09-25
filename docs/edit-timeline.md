@@ -270,6 +270,14 @@ completion)` on any thread (a peak pyramid, a decoder).
 backend: a deterministic envelope-and-carrier signal per resource ID, reduced
 analytically on the thread pool. It decodes no media and reports frame
 requests as unsupported rather than inventing pictures.
+`decodedBackend: true` installs the **decoded** backend
+(`qindatk.decoded-audio`): peaks are the largest absolute sample of every
+channel in each column's exact source span, read by `MediaDecoder` at the
+stream's own rate from the file the bound `resolver` maps the resource ID to
+(the ID itself is the location without a resolver). An offline resource fails
+("The media is offline"), media without sound fails rather than drawing
+silence, frame requests are unsupported, and a resolver `resourceChanged`
+(relink, refresh) invalidates that resource's cached peaks.
 
 ## Transfers (WP-016)
 

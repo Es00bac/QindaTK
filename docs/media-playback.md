@@ -140,6 +140,10 @@ with `MediaTransition`, the one evaluator playback and export share. See
 GUI projection. Play, stop, seek and loop are acknowledged with the resulting
 snapshot on the next event-loop turn, so the caller always holds the request ID
 first. Seeks outside `[0, end]` are refused; record and punch are unavailable.
+`TransportModel` coalesces engine snapshots to one per 33 ms, but a change of
+capability (play, seek, loop, record or punch availability, device error)
+applies at once, so a seek issued when `MediaPlayer.state` turns `ready` is
+accepted in that same turn.
 While playing, an 8 ms precise timer reads the clock; reaching the end stops
 on the last frame, and play at the end restarts from frame 0.
 
@@ -251,7 +255,9 @@ exported frame; the product row then names `subtitleCodec`,
 in the bottom strip (`readTestSignalCode`) and a white flash with a 1 kHz tone
 over the exact sample span of every `popInterval`-th frame, starting at frame
 `popPhase` (default 0). A nonzero phase keeps frame 0, the frame monitors and
-bin thumbnails show first, on bars. Tests and the
+bin thumbnails show first, on bars. `barRotation` (0–6, default 0) rotates the
+seven bars left so several signals (shots, camera angles) are told apart on
+sight; the frame code is unchanged. Tests and the
 `examples/media-source-browser.qml` fixture use it as known-answer media.
 
 ## Limits and ownership

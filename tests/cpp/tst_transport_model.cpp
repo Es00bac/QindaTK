@@ -82,6 +82,21 @@ private slots:
         QCOMPARE(model.formatPosition(QStringLiteral("samples")), QStringLiteral("172800000"));
         QVERIFY(!model.formatPosition(QStringLiteral("ticks")).isEmpty());
     }
+    void capabilityChangesAreNotCoalesced() {
+        TestTransportClock clock;
+        TransportModel model;
+        model.setAdapter(&clock);
+        clock.externalState(100, false, false); // opens a coalescing interval
+        QTRY_COMPARE(model.positionSample(), QStringLiteral("100"));
+        clock.setCanSeek(false, QStringLiteral("No program"));
+        QVERIFY(!model.canSeek()); // at once, not one interval later
+        clock.setCanSeek(true, QString());
+        QVERIFY(model.canSeek());
+        QVERIFY(!model.requestSeek(QStringLiteral("200")).isEmpty()); // same turn as the change
+        clock.externalState(300, false, false); // a position change still waits its turn
+        clock.externalState(400, false, false);
+        QTRY_COMPARE(model.positionSample(), QStringLiteral("400"));
+    }
     void rangesCapabilitiesAndAdapterReplacement() {
         TestTransportClock clock;
         TransportModel model;

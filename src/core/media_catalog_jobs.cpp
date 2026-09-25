@@ -147,6 +147,7 @@ QString MediaCatalog::generateTestSignal(const QString &uri, const QVariantMap &
     settings.popInterval = optionInteger(options, "popInterval", (settings.frameRate.numerator
         + settings.frameRate.denominator / 2) / settings.frameRate.denominator);
     settings.popPhase = optionInteger(options, "popPhase", 0);
+    settings.barRotation = int(((optionInteger(options, "barRotation", 0) % 7) + 7) % 7);
     if (!QDir().mkpath(QFileInfo(path).absolutePath())) return fail(tr("Cannot create %1").arg(path)), QString();
     JobSpec spec;
     spec.label = tr("Write test signal: %1").arg(QFileInfo(path).fileName());

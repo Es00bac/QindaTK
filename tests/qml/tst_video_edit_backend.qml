@@ -34,14 +34,18 @@ TestCase {
         property string lastError: ""
         signal assetChanged(string subscriptionId)
         function requestAsset(resourceId, kind, options, document, viewId) {
-            requests.push({resourceId: resourceId, kind: kind, timeTicks: String(options.timeTicks), viewId: viewId})
+            requests.push({resourceId: resourceId, kind: kind, timeTicks: String(options.timeTicks), viewId: viewId,
+                           rate: String(options.rateNumerator) + "/" + String(options.rateDenominator)})
             return "frame-" + requests.length
         }
         function asset(subscriptionId) { return {subscriptionId: subscriptionId, state: "loading", data: ({}), error: ""} }
         function release(subscriptionId) { return true }
+        // Times are timeline ticks, so the request rate is the timebase in
+        // ticks per second (docs/assets-jobs.md), never the 25 fps frame rate.
         function asked(resourceId, viewSuffix, timeTicks) {
             return requests.some(r => r.resourceId === resourceId && r.kind === "frame"
-                                 && r.viewId.endsWith(viewSuffix) && r.timeTicks === timeTicks)
+                                 && r.viewId.endsWith(viewSuffix) && r.timeTicks === timeTicks
+                                 && r.rate === "705600000/1")
         }
     }
 
@@ -171,7 +175,12 @@ TestCase {
                                       syncOffsetTicks: frames(10), sourceDurationTicks: frames(200)}))
         }
         verify(multicam.insertProgram("one", "0", frames(100)).ok, multicam.lastError)
+        multicamView.assetProvider = frameProvider
+        multicamView.viewId = "cams"
         multicam.playheadTicks = frames(20)
+        // Angle "two" is 10 frames ahead: its frame at the playhead is source 30F.
+        verify(frameProvider.asked(String(Qt.resolvedUrl("tst_video_edit_surfaces.qml")), ":angle:two", frames(30)))
+        multicamView.assetProvider = null
         compare(multicamView.effectiveActiveAngleId, "one")
         verify(multicamView.snapshotValid)
         const card = findChild(multicamView, "multicamAngle_two")
