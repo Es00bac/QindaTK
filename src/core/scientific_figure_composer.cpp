@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "scientific_figure_composer.h"
+#include "scientific_sampling.h"
 
 #include <QBuffer>
 #include <QFontMetricsF>
@@ -95,7 +96,9 @@ QString ScientificFigureComposer::metadataJson(int width, int height) const
     }
     const QJsonObject metadata{{QStringLiteral("schema"), QStringLiteral("QindaTK.scientificComposite.v1")},
         {QStringLiteral("title"), m_title}, {QStringLiteral("columns"), m_columns},
-        {QStringLiteral("width"), width}, {QStringLiteral("height"), height}, {QStringLiteral("panels"), panels}};
+        {QStringLiteral("width"), width}, {QStringLiteral("height"), height}, {QStringLiteral("panels"), panels},
+        {QStringLiteral("style"), ScientificSampling::styleJson(m_metrics,
+            {{QStringLiteral("backgroundColor"), m_background}, {QStringLiteral("textColor"), m_text}})}};
     return QString::fromUtf8(QJsonDocument(metadata).toJson(QJsonDocument::Compact));
 }
 

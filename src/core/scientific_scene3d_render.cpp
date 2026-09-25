@@ -19,6 +19,7 @@ namespace {
 // AGENT-NOTE: headlight shading (light at the camera) keeps every face
 // readable from any orbit; ambient + diffuse * |n . view| stays in [0.4, 1].
 constexpr double Ambient = 0.4, Diffuse = 0.6;
+constexpr int SummaryPointLimit = 8;
 QColor shaded(const QColor &c, double factor)
 {
     return QColor::fromRgbF(float(c.redF() * factor), float(c.greenF() * factor), float(c.blueF() * factor), float(c.alphaF()));
@@ -120,9 +121,12 @@ void ScientificScene3D::drawScene(QPainter *p, const QSizeF &size) const
     }
     p->setBrush(Qt::NoBrush);
     p->setPen(m_text);
-    const QString footer = tr("%1 interpolation, %2 × %3 lattice · %4 triangles · %5 holes · %6 points")
+    const QString points = m_sourcePoints > m_pointPositions.size()
+        ? tr("%1 of %2 points").arg(m_pointPositions.size()).arg(m_sourcePoints)
+        : tr("%1 points").arg(m_pointPositions.size());
+    const QString footer = tr("%1 interpolation, %2 × %3 lattice · %4 triangles · %5 holes · %6")
         .arg(interpolationName(m_interpolation)).arg(m_resolutionX).arg(m_resolutionY)
-        .arg(m_mesh.indices.size() / 3).arg(m_holes).arg(m_pointPositions.size());
+        .arg(m_mesh.indices.size() / 3).arg(m_holes).arg(points);
     p->drawText(QRectF(0, size.height() - fm.height() * 1.5, size.width(), fm.height() * 1.5), Qt::AlignCenter, footer);
 }
 
@@ -151,16 +155,32 @@ QVariantList ScientificScene3D::axisLabels(double width, double height) const
 QString ScientificScene3D::csvData() const
 {
     ensureMesh();
-    QString out = QStringLiteral("row,column,x,y,z,missing,interpolation\n");
+    // AGENT-NOTE: units follow the first-slice columns so older readers keep working.
+    QString out = QStringLiteral("row,column,x,y,z,missing,interpolation,xUnit,yUnit,zUnit\n");
+    const QString units = m_grid ? QStringLiteral(",%1,%2,%3").arg(m_grid->xUnit(), m_grid->yUnit(), m_grid->zUnit()) : QString();
     for (int r = 0; r < m_latticeY.size(); ++r)
         for (int c = 0; c < m_latticeX.size(); ++c) {
             const double z = m_latticeZ[r * m_latticeX.size() + c];
-            out += QStringLiteral("%1,%2,%3,%4,%5,%6,%7\n").arg(r).arg(c)
+            out += QStringLiteral("%1,%2,%3,%4,%5,%6,%7").arg(r).arg(c)
                 .arg(QString::number(m_latticeX[c], 'g', 17), QString::number(m_latticeY[r], 'g', 17),
                      std::isnan(z) ? QString() : QString::number(z, 'g', 17),
-                     std::isnan(z) ? QStringLiteral("true") : QStringLiteral("false"), interpolationName(m_interpolation));
+                     std::isnan(z) ? QStringLiteral("true") : QStringLiteral("false"), interpolationName(m_interpolation))
+                + units + '\n';
         }
     return out;
+}
+QString ScientificScene3D::pointsCsvData() const
+{
+    // Every source sample (drawn or thinned, present or missing) with units.
+    return m_points ? m_points->csvData() : QString();
+}
+QJsonObject ScientificScene3D::pointSamplingJson() const
+{
+    ensureMesh();
+    const bool thinned = m_sourcePoints > m_pointPositions.size();
+    return {{QStringLiteral("method"), thinned ? QStringLiteral("stride-with-xyz-extremes-and-selection") : QStringLiteral("all")},
+            {QStringLiteral("limit"), m_pointLimit}, {QStringLiteral("present"), m_sourcePoints},
+            {QStringLiteral("drawn"), int(m_pointPositions.size())}};
 }
 
 QString ScientificScene3D::textSummary() const
@@ -174,7 +194,29 @@ QString ScientificScene3D::textSummary() const
     if (m_grid && m_grid->count())
         parts << tr("Surface %1 sampled on a %2 by %3 lattice with %4 interpolation, %5 holes from missing values.")
             .arg(m_grid->label()).arg(m_resolutionX).arg(m_resolutionY).arg(interpolationName(m_interpolation)).arg(holeCount());
-    if (m_points) parts << tr("%1 points from %2.").arg(pointCount()).arg(m_points->label());
+    if (m_points) {
+        const QString xu = m_points->xUnit(), yu = m_points->yUnit(), zu = m_points->zUnit();
+        auto describe = [&](const ScientificSample &v) {
+            return tr("%1 at X %2 %3, Y %4 %5, Z %6 %7").arg(v.id, tickLabel(v.x), xu, tickLabel(v.y), yu,
+                                                              tickLabel(v.z), zu).simplified();
+        };
+        parts << (pointCount() < sourcePointCount()
+            ? tr("%1 of %2 points from %3 drawn (stride keeping the X, Y and Z extremes).")
+                  .arg(pointCount()).arg(m_sourcePoints).arg(m_points->label())
+            : tr("%1 points from %2.").arg(pointCount()).arg(m_points->label()));
+        // AGENT-NOTE: a few points are named here; the points table and
+        // pointsCsvData() carry every one, so the summary stays short.
+        QStringList named;
+        for (const ScientificSample &v : m_points->samples()) {
+            if (named.size() == SummaryPointLimit) break;
+            if (!v.missingY) named << describe(v);
+        }
+        if (!named.isEmpty())
+            parts << tr("Points: %1%2.").arg(named.join(QStringLiteral("; ")),
+                m_sourcePoints > named.size() ? tr("; %1 more in the points table").arg(m_sourcePoints - named.size()) : QString());
+        const int selected = m_points->indexOf(m_selectedPoint);
+        if (selected >= 0) parts << tr("Selected point %1.").arg(describe(m_points->samples()[selected]));
+    }
     parts << tr("Camera azimuth %1°, elevation %2°.").arg(tickLabel(m_azimuth), tickLabel(m_elevation));
     return parts.join(' ');
 }
@@ -200,7 +242,15 @@ QString ScientificScene3D::metadataJson(int width, int height) const
         {QStringLiteral("resolution"), QJsonArray{m_resolutionX, m_resolutionY}},
         {QStringLiteral("triangleCount"), int(m_mesh.indices.size() / 3)}, {QStringLiteral("holeCount"), m_holes},
         {QStringLiteral("pointCount"), int(m_pointPositions.size())}, {QStringLiteral("camera"), camera},
-        {QStringLiteral("problem"), problem()}};
+        {QStringLiteral("problem"), problem()},
+        // Everything else drawScene() reads: the selection ring, colours, fonts and metrics (D-141).
+        {QStringLiteral("selectedPoint"), m_selectedPoint.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(m_selectedPoint)},
+        {QStringLiteral("pointSampling"), pointSamplingJson()},
+        {QStringLiteral("style"), ScientificSampling::styleJson(m_metrics,
+            {{QStringLiteral("pointColor"), m_pointColor}, {QStringLiteral("frameColor"), m_frameColor},
+             {QStringLiteral("backgroundColor"), m_background}, {QStringLiteral("textColor"), m_text},
+             {QStringLiteral("selectionColor"), m_selection}},
+            {{QStringLiteral("surfaceColors"), m_surfaceColors}})}};
     return QString::fromUtf8(QJsonDocument(metadata).toJson(QJsonDocument::Compact));
 }
 
@@ -248,6 +298,7 @@ void ScientificScene3DView::setScene(ScientificScene3D *value)
         connect(value, &ScientificScene3D::meshChanged, this, [this] { update(); });
         connect(value, &ScientificScene3D::cameraChanged, this, [this] { update(); });
         connect(value, &ScientificScene3D::changed, this, [this] { update(); });
+        connect(value, &ScientificScene3D::selectionChanged, this, [this] { update(); });
     }
     emit sceneChanged(); update();
 }

@@ -51,6 +51,24 @@ void squares(ScientificDataset &d)
     }
     QVERIFY(d.replaceSamples(rows));
 }
+QByteArray fileBytes(const QString &path)
+{
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+// Builds axes, data and renderer from scratch; returns {PNG, SVG} bytes.
+QPair<QByteArray, QByteArray> freshFigure(const QString &directory, const QString &name)
+{
+    ChartAxis x, y; axes(x, y);
+    ScientificDataset a; squares(a);
+    ScientificPlotRenderer plot; style(plot, x, y);
+    plot.appendSeries(&a);
+    plot.setProperty("title", QStringLiteral("Fresh"));
+    plot.selectSample(0, QStringLiteral("a5"));
+    const QString png = directory + '/' + name + ".png", svg = directory + '/' + name + ".svg";
+    if (!plot.exportPng(png, QSize(640, 400)) || !plot.exportSvg(svg, QSize(640, 400))) return {};
+    return {fileBytes(png), fileBytes(svg)};
+}
 }
 
 class ScientificFigureTest : public QObject {
@@ -62,6 +80,7 @@ private slots:
     void surfaceLayerCursorAndHoles();
     void annotationsAndReproducibleExport();
     void composedPanels();
+    void freshInstancesAndRenderProvenance();
 };
 
 void ScientificFigureTest::multiSeriesProjectionAndSelection()
@@ -278,6 +297,61 @@ void ScientificFigureTest::composedPanels()
     const QImage image(dir.filePath("composite.png"));
     QCOMPARE(image.size(), QSize(1000, 500));
     QVERIFY(image.text("QindaTK.ScientificComposite").contains(QStringLiteral("scientificComposite.v1")));
+}
+
+void ScientificFigureTest::freshInstancesAndRenderProvenance()
+{
+    QTemporaryDir dir; QVERIFY(dir.isValid());
+    const auto first = freshFigure(dir.path(), "first"), second = freshFigure(dir.path(), "second");
+    QVERIFY(!first.first.isEmpty() && !first.second.isEmpty());
+    QCOMPARE(first.first, second.first);   // PNG: independent renderer and dataset instances
+    QCOMPARE(first.second, second.second); // SVG likewise byte-identical
+    // The embedded samples are the input values, bit for bit.
+    const QImage image = QImage::fromData(first.first, "PNG");
+    const QJsonObject meta = QJsonDocument::fromJson(image.text("QindaTK.ScientificFigure").toUtf8()).object();
+    const QJsonArray samples = meta.value("series").toArray().at(0).toObject().value("samples").toArray();
+    QCOMPARE(samples.size(), 11);
+    for (int i = 0; i <= 10; ++i) {
+        const QJsonObject row = samples.at(i).toObject();
+        QCOMPARE(row.value("id").toString(), QStringLiteral("a%1").arg(i));
+        QCOMPARE(row.value("x").toDouble(), double(i));
+        QCOMPARE(row.value("y").toDouble(), double(i * i));
+    }
+    QCOMPARE(samples.at(5).toObject().value("sigmaYLow").toDouble(), 1.0);
+    QCOMPARE(samples.at(5).toObject().value("sigmaYHigh").toDouble(), 2.0);
+    // The SVG carries the same document.
+    const qsizetype open = first.second.indexOf("base64-json\">") + 13;
+    const QByteArray encoded = first.second.mid(open, first.second.indexOf("</metadata>", open) - open);
+    QCOMPARE(QJsonDocument::fromJson(QByteArray::fromBase64(encoded)).object(), meta);
+    // Render state that reaches the pixels is recorded: selection, colours, fonts, metrics.
+    const QJsonObject render = meta.value("render").toObject();
+    QCOMPARE(render.value("selection").toObject().value("sampleId").toString(), QStringLiteral("a5"));
+    QCOMPARE(render.value("selection").toObject().value("series").toInt(), 0);
+    const QJsonObject styleMeta = render.value("style").toObject();
+    QCOMPARE(styleMeta.value("selectionColor").toString(), QStringLiteral("#ffff00ff"));
+    QCOMPARE(styleMeta.value("seriesColors").toArray().at(0).toString(), QStringLiteral("#ff0000ff"));
+    QCOMPARE(styleMeta.value("metrics").toObject().value("leftMargin").toInt(), 64);
+    QCOMPARE(styleMeta.value("metrics").toObject().value("fontFamily").toString(), QStringLiteral("Sans Serif"));
+    QVERIFY(!styleMeta.value("resolvedFontFamily").toString().isEmpty());
+    // Two figures that differ only in selection or colour have different metadata.
+    ChartAxis x, y; axes(x, y);
+    ScientificDataset a; squares(a);
+    ScientificPlotRenderer plot; style(plot, x, y);
+    plot.appendSeries(&a);
+    const QString none = plot.metadataJson(640, 400);
+    QVERIFY(QJsonDocument::fromJson(none.toUtf8()).object().value("render").toObject().value("selection").isNull());
+    QVERIFY(plot.selectSample(0, QStringLiteral("a3")));
+    const QString selected = plot.metadataJson(640, 400);
+    QVERIFY(selected != none);
+    plot.setProperty("gridColor", QColor(Qt::darkGray));
+    QVERIFY(plot.metadataJson(640, 400) != selected);
+    ScientificFigureComposer figure;
+    figure.appendPanel(&plot);
+    figure.setProperty("backgroundColor", QColor(Qt::white));
+    figure.setProperty("metrics", QVariantMap{{"gap", 8}, {"fontSize", 12}, {"fontFamily", "Sans Serif"}});
+    const QJsonObject composite = QJsonDocument::fromJson(figure.metadataJson(800, 400).toUtf8()).object();
+    QCOMPARE(composite.value("style").toObject().value("backgroundColor").toString(), QStringLiteral("#ffffffff"));
+    QCOMPARE(composite.value("style").toObject().value("metrics").toObject().value("gap").toInt(), 8);
 }
 
 QTEST_MAIN(ScientificFigureTest)

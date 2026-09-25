@@ -11,6 +11,11 @@ import QindaTK as Tk
 // renderer (ScientificPlot3DRenderer.qml, GPU backends only) and the software
 // view (ScientificScene3DView, also the export painter) both draw from it, so
 // they agree; see docs/scientific-plot.md and decision D-140.
+// AGENT-NOTE: the GPU renderer follows the WP-076 render-resource lifecycle
+// (docs/scene-3d.md, SceneView3D.qml): one renderer per view, replaced when
+// the window's scene graph is invalidated so every GPU resource is rebuilt
+// from ScientificScene3D. SceneModel3D itself is not used: it is an editable
+// entity document with undo, while plot geometry is derived data (D-140).
 T.Control {
     id: control
     objectName: "scientificPlot3D"
@@ -21,16 +26,29 @@ T.Control {
     property string title: ""
     property string tooltip: qsTr("3D plot: drag to orbit, wheel or +/- to zoom, arrow keys orbit, click a point to select it")
     property bool showDataTable: false
+    // Table and CSV shown by showDataTable: "surface" (interpolated lattice
+    // source nodes) or "points". Defaults to the surface when there is one.
+    property string tableSource: control.grid ? "surface" : "points"
+    // Most points drawn at once; more are thinned keeping X/Y/Z extremes.
+    property int pointLimit: 4096
     // Draw with the software painter even when a GPU backend is available.
     property bool forceSoftware: false
     property real orbitStep: 5
     readonly property alias scene: plotScene
     readonly property bool gpuRenderer: renderer.status === Loader.Ready && renderer.active
+    // Counts GPU renderer instances; each owns a fresh set of Qt Quick 3D resources.
+    readonly property alias renderGeneration: internal.generation
     readonly property string selectedPointId: plotScene.selectedPointId
     signal pointSelected(string id)
     function fitDomain() { return plotScene.fitDomain() }
     function project(x, y, z) { return plotScene.project(x, y, z, contentItem.width, contentItem.height) }
     function csvData() { return plotScene.csvData() }
+    function pointsCsvData() { return plotScene.pointsCsvData() }
+    // Replaces the GPU renderer (also done on scene-graph invalidation).
+    function resetRenderer() {
+        internal.resetting = true
+        Qt.callLater(function() { internal.resetting = false })
+    }
     function textSummary() { return plotScene.textSummary() }
     function metadataJson(width, height) { return plotScene.metadataJson(width, height) }
     function exportPng(path, size) { return plotScene.exportPng(path, size) }
@@ -50,6 +68,7 @@ T.Control {
         interpolation: control.interpolation
         resolutionX: control.resolution
         resolutionY: control.resolution
+        pointLimit: control.pointLimit
         title: control.title
         surfaceColors: Tk.Theme.ramp.thermal.colors
         pointColor: Tk.Theme.color.accent
@@ -61,6 +80,17 @@ T.Control {
                     pointRadius: Tk.Theme.size.iconSm / 3, lineWidth: Tk.Theme.size.border,
                     hitRadius: Tk.Theme.size.controlSm / 2, labelPadding: Tk.Theme.space.xs })
         onPointSelected: function(id) { control.pointSelected(id) }
+    }
+
+    QtObject {
+        id: internal
+        property int generation: 0
+        property bool resetting: false
+    }
+    Connections {
+        target: control.Window.window
+        // Emitted on the render thread; QML delivers it on the GUI thread.
+        function onSceneGraphInvalidated() { control.resetRenderer() }
     }
 
     background: Rectangle {
@@ -76,9 +106,13 @@ T.Control {
             objectName: "scientificPlot3DRendererLoader"
             anchors.fill: parent
             active: control.GraphicsInfo.api !== GraphicsInfo.Software && !control.forceSoftware
+                    && !internal.resetting
             visible: !control.showDataTable
             source: "ScientificPlot3DRenderer.qml"
-            onLoaded: item.plotScene = plotScene
+            onLoaded: {
+                item.plotScene = plotScene
+                ++internal.generation
+            }
         }
         Tk.ScientificScene3DView {
             objectName: "scientificPlot3DSoftware"
@@ -146,19 +180,38 @@ T.Control {
             }
             onWheel: function(wheel) { plotScene.dolly(Math.pow(2, -wheel.angleDelta.y / 480)) }
         }
-        Tk.DataTable {
-            objectName: "scientificPlot3DDataTable"
+        Tk.Flex {
+            objectName: "scientificPlot3DTablePane"
             anchors.fill: parent
             visible: control.showDataTable
-            model: control.grid ? control.grid : control.points
-            tooltip: control.tooltip
-            columns: [
-                Tk.TableColumn { key: "id"; title: qsTr("ID"); width: Tk.Theme.size.fieldWidth; mono: true },
-                Tk.TableColumn { key: "x"; title: qsTr("X"); width: Tk.Theme.size.fieldWidth; mono: true },
-                Tk.TableColumn { key: "y"; title: qsTr("Y"); width: Tk.Theme.size.fieldWidth; mono: true },
-                Tk.TableColumn { key: "z"; title: qsTr("Z"); width: Tk.Theme.size.fieldWidth; mono: true },
-                Tk.TableColumn { key: "zUnit"; title: qsTr("Z unit"); width: Tk.Theme.size.controlLg }
-            ]
+            direction: Tk.Flex.Column
+            gap: Tk.Theme.space.xs
+            // Both sources present: the points stay reachable as a table.
+            Tk.PillSwitcher {
+                objectName: "scientificPlot3DTableSource"
+                visible: control.grid !== null && control.points !== null
+                small: true
+                tooltip: qsTr("Choose the surface lattice or the 3D points table")
+                model: [{ text: qsTr("Surface"), value: "surface", objectName: "scientificPlot3DTableSurface" },
+                        { text: qsTr("Points"), value: "points", objectName: "scientificPlot3DTablePoints" }]
+                currentIndex: control.tableSource === "points" ? 1 : 0
+                onActivated: function(index, value) { control.tableSource = value }
+            }
+            Tk.DataTable {
+                objectName: "scientificPlot3DDataTable"
+                Tk.Flex.flex: 1
+                model: control.tableSource === "points" ? control.points : control.grid
+                tooltip: control.tableSource === "points" ? qsTr("3D points") : qsTr("Surface lattice nodes")
+                columns: [
+                    Tk.TableColumn { key: "id"; title: qsTr("ID"); width: Tk.Theme.size.fieldWidth; mono: true },
+                    Tk.TableColumn { key: "x"; title: qsTr("X"); width: Tk.Theme.size.fieldWidth; mono: true },
+                    Tk.TableColumn { key: "y"; title: qsTr("Y"); width: Tk.Theme.size.fieldWidth; mono: true },
+                    Tk.TableColumn { key: "z"; title: qsTr("Z"); width: Tk.Theme.size.fieldWidth; mono: true },
+                    Tk.TableColumn { key: "xUnit"; title: qsTr("X unit"); width: Tk.Theme.size.fieldWidth },
+                    Tk.TableColumn { key: "yUnit"; title: qsTr("Y unit"); width: Tk.Theme.size.fieldWidth },
+                    Tk.TableColumn { key: "zUnit"; title: qsTr("Z unit"); width: Tk.Theme.size.fieldWidth }
+                ]
+            }
         }
         Tk.Label {
             anchors.centerIn: parent
