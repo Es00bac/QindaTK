@@ -71,6 +71,10 @@ set(qindatk_app_sources
     core/imap_session.cpp core/imap_session.h
     core/imap_mail_jobs.cpp core/imap_mail_jobs.h
     core/imap_mail_provider.cpp core/imap_mail_provider.h
+    core/mail_record.cpp core/mail_record.h
+    core/pop3_session.cpp core/pop3_session.h
+    core/pop3_mail_jobs.cpp core/pop3_mail_jobs.h
+    core/pop3_mail_provider.cpp core/pop3_mail_provider.h
     core/ical_codec.cpp core/ical_overrides.cpp core/ical_codec.h core/ical_codec_p.h
     core/caldav_jobs.cpp core/caldav_jobs.h
     core/caldav_provider.cpp core/caldav_provider.h

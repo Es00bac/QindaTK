@@ -57,7 +57,9 @@ public:
     bool startTls();
     // `shown` replaces the bytes in the transcript (credentials, bodies).
     bool write(const QByteArray &bytes, const QString &shown = {});
-    bool readLine(QByteArray *line);
+    // `record` false keeps the line out of the transcript (POP3 multi-line
+    // bodies, which are summarized as a byte count by the caller).
+    bool readLine(QByteArray *line, bool record = true);
     bool readBytes(qint64 count, QByteArray *out);
     bool readToEnd(QByteArray *out, qint64 limit);
     void close();

@@ -3,6 +3,7 @@
 
 #include "imap_session.h"
 #include "mail_mime.h"
+#include "mail_record.h"
 
 #include <QRegularExpression>
 #include <QSet>
@@ -24,15 +25,6 @@ qint64 uidOf(const Imap::FetchItem &item)
 {
     const Imap::Value *uid = item.find("UID");
     return uid ? uid->text.toLongLong() : 0;
-}
-
-QString threadRoot(const Mime::Parsed &parsed, const QString &fallback)
-{
-    static const QRegularExpression firstId(QStringLiteral("<([^>]+)>"));
-    const QRegularExpressionMatch match = firstId.match(parsed.references);
-    if (match.hasMatch()) return match.captured(1).trimmed();
-    if (!parsed.inReplyTo.isEmpty()) return parsed.inReplyTo;
-    return parsed.messageId.isEmpty() ? fallback : parsed.messageId;
 }
 
 bool syncMailbox(Imap::Session &session, const Job &job, qint64 validity, qint64 exists, QVariantMap *out)
@@ -152,33 +144,14 @@ QString recordId(const QString &accountId, const QString &mailbox, qint64 uidVal
 QVariantMap messageRecord(const Job &job, qint64 uidValidity, qint64 uid, bool unread, bool flagged,
                           qint64 size, const QByteArray &source, bool truncated)
 {
-    const Mime::Parsed parsed = Mime::parse(source);
-    const QString id = recordId(job.accountId, job.mailbox, uidValidity, uid);
-    QVariantList attachments;
-    for (const Mime::Part &part : parsed.attachments)
-        attachments.append(QVariantMap{
-            {QStringLiteral("id"), id + QLatin1Char('/') + part.section},
-            {QStringLiteral("name"), part.name}, {QStringLiteral("mimeType"), part.mimeType},
-            {QStringLiteral("size"), part.size}, {QStringLiteral("section"), part.section},
-            {QStringLiteral("encoding"), part.encoding}, {QStringLiteral("state"), QStringLiteral("remote")}});
-    return {
-        {QStringLiteral("id"), id}, {QStringLiteral("messageId"), id},
-        {QStringLiteral("internetMessageId"), parsed.messageId},
-        {QStringLiteral("threadId"), threadRoot(parsed, id)},
-        {QStringLiteral("sender"), parsed.from.isEmpty() ? parsed.fromAddress : parsed.from},
-        {QStringLiteral("senderAddress"), parsed.fromAddress},
-        {QStringLiteral("to"), parsed.to}, {QStringLiteral("cc"), parsed.cc},
-        {QStringLiteral("subject"), parsed.subject},
-        {QStringLiteral("date"), parsed.date.isValid() ? parsed.date.toUTC().toString(Qt::ISODate) : QString()},
-        {QStringLiteral("snippet"), parsed.plain.simplified().left(160)},
-        {QStringLiteral("bodyPlain"), parsed.plain},
-        {QStringLiteral("bodyTrustMode"), QStringLiteral("plain")},
-        {QStringLiteral("bodyTruncated"), truncated},
-        {QStringLiteral("unread"), unread}, {QStringLiteral("flagged"), flagged},
-        {QStringLiteral("attachments"), attachments},
-        {QStringLiteral("remoteAccount"), job.accountId}, {QStringLiteral("remoteMailbox"), job.mailbox},
-        {QStringLiteral("remoteUidValidity"), QString::number(uidValidity)},
-        {QStringLiteral("remoteUid"), uid}, {QStringLiteral("remoteSize"), size}};
+    QVariantMap record = MailRecord::fromParsed(recordId(job.accountId, job.mailbox, uidValidity, uid),
+                                                Mime::parse(source), truncated);
+    record.insert(QVariantMap{{QStringLiteral("unread"), unread}, {QStringLiteral("flagged"), flagged},
+                              {QStringLiteral("remoteAccount"), job.accountId},
+                              {QStringLiteral("remoteMailbox"), job.mailbox},
+                              {QStringLiteral("remoteUidValidity"), QString::number(uidValidity)},
+                              {QStringLiteral("remoteUid"), uid}, {QStringLiteral("remoteSize"), size}});
+    return record;
 }
 
 QVariantMap run(Kind kind, const Job &job)

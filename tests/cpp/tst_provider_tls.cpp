@@ -2,13 +2,15 @@
 // D-187: the providers' TLS paths against local TLS servers that present a
 // certificate from a test CA (tests/fixtures/tls). Implicit TLS and STARTTLS
 // succeed only when the CA is trusted; an untrusted certificate fails the
-// handshake before any credential is written. Also covers the IMAP XOAUTH2
-// and CalDAV bearer mechanisms that host adapters use (D-189).
+// handshake before any credential is written. Also covers the IMAP and POP3
+// XOAUTH2 and CalDAV bearer mechanisms that host adapters use (D-189).
 #include "caldav_provider.h"
 #include "caldav_test_server.h"
 #include "imap_mail_provider.h"
 #include "local_productivity_store.h"
 #include "mail_test_servers.h"
+#include "pop3_mail_provider.h"
+#include "pop3_test_server.h"
 #include "smtp_mail_provider.h"
 
 #include <QSignalSpy>
@@ -51,6 +53,25 @@ QVariantMap syncImap(ImapMailProvider &provider, const QString &requestId)
     QSignalSpy spy(&provider, &ImapMailProvider::syncFinished);
     provider.sync(requestId);
     return spy.wait(15000) ? spy.takeFirst().at(1).toMap() : QVariantMap();
+}
+
+QVariantMap syncPop3(Pop3MailProvider &provider, const QString &requestId)
+{
+    QSignalSpy spy(&provider, &Pop3MailProvider::syncFinished);
+    provider.sync(requestId);
+    return spy.wait(15000) ? spy.takeFirst().at(1).toMap() : QVariantMap();
+}
+
+void configurePop3(Pop3MailProvider &provider, quint16 port, const QString &security, LocalProductivityStore *store)
+{
+    provider.setProperty("host", QStringLiteral("127.0.0.1"));
+    provider.setProperty("port", port);
+    provider.setProperty("security", security);
+    provider.setProperty("userName", QStringLiteral("ada"));
+    provider.setProperty("accountId", QStringLiteral("home"));
+    provider.setProperty("timeoutMs", 10000);
+    provider.setProperty("autoSave", false);
+    provider.setStore(store);
 }
 
 QString text(const QVariantMap &result)
@@ -194,6 +215,63 @@ private slots:
         QVERIFY(anyStartsWith(server.encryptedLog, QStringLiteral("a4 AUTHENTICATE PLAIN")));
         for (const QString &line : std::as_const(server.log))
             if (line.contains(QStringLiteral("AUTHENTICATE"))) QVERIFY(server.encryptedLog.contains(line));
+    }
+
+    void pop3ImplicitTlsWithXoauth2AndUntrustedCertificate()
+    {
+        LocalProductivityStore store;
+        Pop3TestServer server;
+        server.user = QStringLiteral("ada");
+        server.secret = kToken;
+        server.sasl = {QStringLiteral("XOAUTH2")};
+        server.implicitTlsOnly();
+        server.add("u1", kMessage);
+        Pop3MailProvider provider;
+        configurePop3(provider, server.port(), QStringLiteral("tls"), &store);
+        provider.setSecret(kToken, QStringLiteral("xoauth2"));
+
+        // Untrusted certificate: the handshake fails before any command.
+        QVariantMap result = syncPop3(provider, QStringLiteral("sync-untrusted"));
+        QCOMPARE(result.value(QStringLiteral("state")).toString(), QStringLiteral("rejected"));
+        QVERIFY(result.value(QStringLiteral("error")).toString().contains(QStringLiteral("TLS handshake failed")));
+        QVERIFY(server.log.isEmpty());
+
+        TestTls::trustTestCa(true);
+        result = syncPop3(provider, QStringLiteral("sync-trusted"));
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(text(result)));
+        QVERIFY(server.authenticatedOverTls);
+        QCOMPARE(store.messages().size(), 1);
+        QCOMPARE(server.encryptedLog, server.log);            // every client line was encrypted
+        QVERIFY(text(result).contains(QStringLiteral("AUTH XOAUTH2 <redacted>")));
+        QVERIFY(!text(result).contains(kToken));
+    }
+
+    void pop3StlsUpgradesBeforeCredentials()
+    {
+        TestTls::trustTestCa(true);
+        LocalProductivityStore store;
+        Pop3TestServer server;
+        server.user = QStringLiteral("ada");
+        server.secret = kSecret;
+        server.sasl.clear();                                   // USER/PASS
+        server.enableTls(false);
+        server.add("u7", kMessage);
+        Pop3MailProvider provider;
+        configurePop3(provider, server.port(), QStringLiteral("starttls"), &store);
+        provider.setSecret(kSecret);
+        const QVariantMap result = syncPop3(provider, QStringLiteral("sync-stls"));
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(text(result)));
+        QCOMPARE(store.messages().size(), 1);
+        QVERIFY(text(result).contains(QStringLiteral("* TLS established")));
+        QVERIFY(server.log.contains(QStringLiteral("STLS")));
+        QVERIFY(!server.encryptedLog.contains(QStringLiteral("STLS")));
+        QVERIFY(server.encryptedLog.contains(QStringLiteral("USER ada")));
+        QVERIFY(anyStartsWith(server.encryptedLog, QStringLiteral("PASS ")));
+        for (const QString &line : std::as_const(server.log))
+            if (line.startsWith(QStringLiteral("USER")) || line.startsWith(QStringLiteral("PASS")))
+                QVERIFY(server.encryptedLog.contains(line));
+        QVERIFY(server.authenticatedOverTls);
+        QVERIFY(!text(result).contains(kSecret));
     }
 
     void caldavHttpsWithBearerToken()

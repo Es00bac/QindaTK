@@ -1000,8 +1000,8 @@ date-only and move by whole days (docs/productivity-store.md#calendar-edits).
 sign-in, discovery and private APIs, and the toolkit must not ship client IDs
 or depend on a vendor.
 
-**Decision.** The toolkit implements only SMTP, IMAP and CalDAV. A host
-adapter owns sign-in (OAuth, token refresh, keyring), endpoint discovery and
+**Decision.** The toolkit implements only SMTP, IMAP, POP3 (D-298) and
+CalDAV. A host adapter owns sign-in (OAuth, token refresh, keyring), endpoint discovery and
 special folders, and passes tokens as `xoauth2` (mail) or `bearer` (CalDAV).
 A service reachable only through its own API is served by an adapter object
 with the same invokables, signals and record fields
@@ -1010,6 +1010,39 @@ with the same invokables, signals and record fields
 **Consequences.** Views and the store are unchanged by the account type.
 No hosted account is exercised in the automated tests; qualification of real
 accounts belongs to WP-089/WP-090, which the user deferred on 2026-09-24.
+
+## D-298 — POP3 keeps the local store as the mailbox and deletes only after a complete save
+
+**Context.** QindaMail's `pop3` accounts need a download provider next to
+IMAP. POP3 (RFC 1939) has one mailbox, no server flags or folders, message
+numbers that change between sessions and deletions that commit only on
+QUIT. Classic POP3 use removes mail from the server after download, so a
+bug in the ordering of "save locally" and "delete remotely" loses mail
+irrecoverably.
+
+**Decision.** `Pop3MailProvider` treats the local store as the mailbox:
+records are keyed by UIDL (`pop3:<accountId>:<percent-encoded UIDL>`),
+download is idempotent by UIDL, flags and archive are local edits, and a
+message removed on the server stays local (`remoteOnServer: false`). A
+server copy is deleted — `leaveOnServer: false`, or `deleteAfterDays` by
+the stored `remoteFetchedAt` — only after the provider's own store save
+succeeded and only when the local copy is complete (body not truncated,
+every attachment's bytes imported; sync re-reads a stored message once to
+import them). The deletion is a second session that re-lists UIDLs, DELEs
+and commits with QUIT; a refused DELE sends RSET. `autoSave: false` or a
+store conflict means no deletion. The user's `delete` action DELEs first
+and removes the local record after, so an offline failure keeps the record
+instead of letting the next sync download it again. The record shape is
+IMAP's (`MailRecord::fromParsed`, shared), so MailView and hosts need
+nothing new.
+
+**Consequences.** A crash or failure at any point leaves at least one
+complete copy; a failed deletion is retried by the next sync. Attachments
+of mail that leaves the server live in `LocalAttachmentStore` (8 MiB per
+payload); a message whose attachments or body cannot be stored locally
+stays on the server. A sync that deletes runs two sessions, a deliberate
+exception to one exchange per request (D-186). Oversized mail has headers
+only until a future "download the rest" action.
 
 ## D-178 — A score is written music with its own model, separate from MIDI
 

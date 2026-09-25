@@ -64855,6 +64855,205 @@
       "bridge": false
     },
     {
+      "name": "Pop3MailProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "POP3 download into LocalProductivityStore messages (D-298): the local store is the mailbox. sync() downloads messages whose UIDL is not stored yet; read/unread/flag/unflag/archive are local edits; delete removes the local record and DELEs the server copy; attachments are re-read from the server copy on demand. Each server exchange is one worker-thread POP3 session. AGENT-CONTRACT (MailView.qml, docs/productivity-providers.md): message records keep `id == messageId == \"pop3:<accountId>:<percent-encoded UIDL>\"` plus remoteAccount/remoteMailbox (\"INBOX\")/remoteUidl/remoteFetchedAt/ remoteOnServer and localMailbox, and otherwise the ImapMailProvider record shape (mail_record.h); result.state is \"accepted\", \"rejected\", \"offline\" or \"conflict\" (a store stale-writer rejection) for MailView.acknowledge(). AGENT-GUARD: a server copy is DELEd only after the store holding its complete local copy (body and attachment bytes) was saved; reordering loses mail. The secret lives only in memory (no READ accessor) and is redacted from every result, error and transcript.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/pop3_mail_provider.h",
+      "properties": [
+        {
+          "name": "host",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "security",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "userName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "accountId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fetchLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumMessageBytes",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "allowInsecureAuth",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoSave",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "leaveOnServer",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "deleteAfterDays",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "store",
+          "type": "LocalProductivityStore *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "attachmentStore",
+          "type": "LocalAttachmentStore *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hasSecret",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configChanged",
+          "parameters": ""
+        },
+        {
+          "name": "secretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "syncFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "actionFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "attachmentFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setSecret",
+          "returns": "void",
+          "parameters": "const QString &secret, const QString &mechanism = QStringLiteral(\"auto\""
+        },
+        {
+          "name": "clearSecret",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "sync",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "applyAction",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QString &action"
+        },
+        {
+          "name": "fetchAttachment",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QString &attachmentId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "PresentationWindows",
       "kind": "cpp",
       "base": "QObject",
