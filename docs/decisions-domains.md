@@ -762,3 +762,92 @@ refresh.
 **Consequences.** Only the visible cards and the cache buffer exist.
 Scrolling away and back, or a structural refresh, never loses typing. A host
 that binds its own blocks sees the same behaviour.
+
+## D-260 — Linked views check geometry; saved views name their dataset
+
+**Context.** EXT-07 asks linked views to track one calibrated point and to
+reject overlays with incompatible geometry or metadata. Views read the
+shared cursor in their own voxel indices, so a cursor bound to a volume on
+another grid marks a different physical point. Saved view settings carried
+no volume identity, so settings made for one dataset applied silently to
+another.
+
+**Decision.** `VoxelVolume` carries `datasetId`, `frameOfReference` and
+`axisIds`. `geometryMismatch(other)` compares grid, spatial unit, frame of
+reference, axis IDs, spacing, origin and orientation (relative tolerance
+1e-6) and names the first difference. Slice and volume views use a cursor,
+an overlay (`ImageSliceView.overlay`) or a transfer function only when it is
+compatible (same geometry; transfer `unit` equal to the volume's `valueUnit`
+when both are set); otherwise they ignore it and say why in `linkError` or
+`overlayError`. View settings include the volume's `identity()`;
+`restoreSettings()` rejects another dataset, frame of reference or spatial
+unit, and a missing channel or frame. The revision is recorded, not compared,
+and the cursor keeps its world point when the same named dataset is
+reloaded, so a reload at another resolution keeps picking, the crosshair and
+saved views on the same calibrated point.
+
+**Consequences.** Hosts must set `datasetId` to get the reload guarantee;
+unnamed volumes match each other. Overlays need the same grid: resampling
+between grids is not provided.
+
+## D-261 — Volume reads run on a worker; obsolete frames are rejected
+
+**Context.** The reference raycast (up to 192² rays) and the GPU texture pack
+(up to 256 MiB) read voxels through a provider whose reads are synchronous.
+Doing that in `updatePaintNode` blocked the render and GUI threads, could not
+be cancelled, and thrashed a small cache on out-of-core data (EXT-08 asks for
+manipulation of large data with cancellation).
+
+**Decision.** `VolumeViewItem` hands both jobs to a `VolumeRenderWorker` (a
+private one-thread pool) with copies of everything they read: parameters,
+transfer table, ray geometry, sizes. Each picture-changing edit increments a
+generation; starting a job cancels the running one of the same kind; the
+item accepts only a result for its current generation and size and counts
+the rest as rejected. `cancelRendering()` stops the current job and keeps the
+last frame until the next change. `VoxelVolume` guards storage with a mutex
+(signals are emitted after unlocking) and emits `aboutToBeDestroyed()` so a
+view cancels and waits before its volume goes away.
+
+**Consequences.** The GUI stays responsive while a slow provider is read, an
+obsolete frame is never shown, and cancellation stops provider reads at the
+next ray or chunk. A new view shows nothing (or the last frame) until the
+first result arrives, so tests wait for `renderStatistics().completed`.
+Slice images are still made in the paint call; they read one plane.
+
+## D-262 — Restoring a saved view is an undoable transfer step
+
+**Context.** `TransferFunctionModel.restoreSettings()` is a load (D-148): it
+resets the history. A host "restore view" button that called it threw away
+the user's transfer edits and every undo step with one click.
+
+**Decision.** `applySettings(settings)` validates like `restoreSettings()` and
+applies the result as one "Restore transfer settings" step. A history step
+now records the complete transfer state (domain, unit, stops, below/above/
+missing colors and preset), so undo also restores the domain. Loads keep
+their meaning for opening a document.
+
+**Consequences.** Hosts use `applySettings` for user-facing restores and
+`restoreSettings` only when opening. The volume-imaging example persists its
+saved view to a settings file and restores it this way.
+
+## D-263 — Out-of-range and missing transfer values are explicit settings
+
+**Context.** EXT-09 requires known ramps to preview and export consistently
+with out-of-range and missing values explicitly represented. The model
+clamped silently to the end stops and made NaN transparent, with no way to
+show or change either.
+
+**Decision.** The transfer state has `below`, `above` and `missing` entries.
+Below/above either clamp (the default, reported with the end stop's color) or
+carry their own color and opacity; missing always carries its own (transparent
+black by default). `colorAt`, `opacityAt`, `classify`, `exportRamp`, the slice
+views and both render paths use them: the render table gains three entries
+that the shader receives as uniforms, and the composite raycast classifies a
+missing sample with the missing entry instead of skipping it (amending D-146;
+maximum intensity still ignores missing samples). Built-in presets
+(`grayscale`, `hot`, `viridis`, `cool-warm`) are data, not theme colors, and
+record `presetId`.
+
+**Consequences.** Older saved settings restore as clamped with transparent
+missing values, which is the previous look. A visible missing color makes
+unavailable provider chunks visible in the volume rendering.

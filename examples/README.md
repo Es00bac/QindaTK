@@ -7,8 +7,12 @@ calibrated principal planes; the cross-sections stay round because each view
 fits physical spacing, plus a 30° oblique world reslice and a volume
 rendering (GPU, or the CPU reference on the software renderer) that picks
 into the same cursor. It includes an undoable measured-value transfer
-function, a shared voxel/world cursor whose centre is world (0, 0, 0) mm, and
-Save view / Restore view for the camera and transfer settings.
+function with a value histogram and explicit below/above/missing colors, a
+shared voxel/world cursor whose centre is world (0, 0, 0) mm, and Save view /
+Restore view, which keep the cursor, view and transfer settings in a settings
+file for the next run (only for the same dataset; the transfer restore is
+undoable). Grab it with `--wait 2000`: the volume frame is rendered in the
+background.
 
 The [CAD sketch](cad-sketch/Main.qml) renders a constrained mounting plate
 with four circular bores. `CadViewport` can select, drag, snap, and create
@@ -469,6 +473,13 @@ exponential response with asymmetric host-supplied one-sigma error bars, a gap,
 a model trace and two annotations; and a sampled Gaussian field (`ScientificGrid`,
 bilinear colour map with one missing node) under scatter probes with X and Y
 uncertainty. Run `qtk-preview examples/scientific-plot/Main.qml --grab figure.png --size 1280x680`.
+
+## scientific-3d-family
+
+`scientific-3d-family/Main.qml` joins the scientific 3D family in one window:
+a pill switcher shows the `scientific-plot-3d` surface and scatter page or the
+`volume-imaging` slices and volume page. Both stay loaded, so each keeps its
+state. Run `qtk-preview examples/scientific-3d-family/Main.qml --size 1280x960`.
 
 ## scientific-plot-3d
 
