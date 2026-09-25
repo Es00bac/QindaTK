@@ -187,8 +187,10 @@ T.Control {
             tooltip: control.tooltip + qsTr(" · pan")
             onPressedChanged: if (pressed) control.begin(control.panId(), false)
                               else if (control._panGestureId) control.finish(control.panId(), value, false)
-            onValueModified: if (pressed) control.update(control.panId(), value, false)
-                             else control.finish(control.panId(), value, false)
+            onValueModified: (moved) => {
+                if (panSlider.pressed) control.update(control.panId(), moved, false)
+                else control.finish(control.panId(), moved, false)
+            }
         }
         Tk.Flex {
             width: parent.width
@@ -217,15 +219,18 @@ T.Control {
             tooltip: control.tooltip + qsTr(" · stereo width")
             onPressedChanged: if (pressed) control.begin(control.widthId(), true)
                               else if (control._widthGestureId) control.finish(control.widthId(), value, true)
-            onValueModified: if (pressed) control.update(control.widthId(), value, true)
-                             else control.finish(control.widthId(), value, true)
+            onValueModified: (moved) => {
+                if (widthSlider.pressed) control.update(control.widthId(), moved, true)
+                else control.finish(control.widthId(), moved, true)
+            }
         }
         Item {
             id: padArea
             objectName: "panPad"
             visible: control.pad
             width: parent.width
-            height: Tk.Theme.size.controlLg * 3
+            // Tk.Flex sizes a child from its implicit size; a plain `height` is ignored.
+            implicitHeight: Tk.Theme.size.controlLg * 2
             Accessible.role: Accessible.Graphic
             Accessible.name: qsTr("Pan position and width pad")
             Accessible.description: control.Accessible.description
@@ -265,9 +270,12 @@ T.Control {
         }
     }
     // AGENT-GUARD: the sliders and fields assign their own value while edited;
-    // these re-assert the engine value whenever no edit holds them.
-    Binding { target: panSlider; property: "value"; value: control.shownPan; when: !panSlider.pressed }
-    Binding { target: widthSlider; property: "value"; value: control.shownWidth; when: !widthSlider.pressed }
+    // these re-assert the engine value whenever no edit holds them. A press
+    // (pointer or arrow key) must leave the slider where it is: the default
+    // restoreMode would put back the slider's value from before the first
+    // binding (0), and the key step would start from there.
+    Binding { target: panSlider; property: "value"; value: control.shownPan; when: !panSlider.pressed; restoreMode: Binding.RestoreNone }
+    Binding { target: widthSlider; property: "value"; value: control.shownWidth; when: !widthSlider.pressed; restoreMode: Binding.RestoreNone }
     Binding { target: panField; property: "value"; value: Math.round(control.shownPan * 100) }
     Binding { target: widthField; property: "value"; value: Math.round(control.shownWidth * 100) }
     Tk.ToolTip { visible: control.hovered && control.tooltip.length > 0; text: control.tooltip }

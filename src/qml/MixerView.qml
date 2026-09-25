@@ -23,12 +23,17 @@ T.Control {
     property bool detail: true
     property string tooltip: qsTr("Mixer channels")
     property alias channelList: strips
-    readonly property real stripWidth: detail ? Tk.Theme.size.panelMinWidth : Tk.Theme.size.fieldWidth
+    // A bank is the whole strips that fit the view at their base width; the
+    // strips then stretch so the bank fills the width exactly and no strip is
+    // ever cut at the edge (with SnapToItem, any resting scroll shows whole strips).
+    readonly property real baseStripWidth: detail ? Tk.Theme.size.panelMinWidth : Tk.Theme.size.fieldWidth
+    readonly property int bankSize: Math.max(1, Math.floor((strips.width + strips.spacing) / (baseStripWidth + strips.spacing)))
+    readonly property real stripWidth: Math.max(1, (strips.width - (bankSize - 1) * strips.spacing) / bankSize)
     readonly property int channelCount: strips.count
-    readonly property int bankSize: Math.max(1, Math.floor((strips.width + strips.spacing) / (stripWidth + strips.spacing)))
     readonly property int bankCount: Math.max(1, Math.ceil(channelCount / bankSize))
     readonly property bool held: mixer ? mixer.heldChannels.length > 0 : false
     property int _shownBank: 0
+    property bool _followingScroll: false
 
     signal channelSelected(string channelId)
 
@@ -65,8 +70,18 @@ T.Control {
         const next = row < 0 ? 0 : Math.max(0, Math.min(channelCount - 1, row + direction))
         select(mixer.strips.channelAt(next))
     }
-    onBankChanged: applyBank()
+    // The bank label follows a flick without moving the strips again.
+    function syncBank() {
+        const first = strips.indexAt(strips.contentX + stripWidth / 2, 0)
+        if (first < 0) return
+        _followingScroll = true
+        bank = Math.floor(first / bankSize)
+        _shownBank = bank
+        _followingScroll = false
+    }
+    onBankChanged: if (!_followingScroll) applyBank()
     onHeldChanged: if (!held && _shownBank !== bank) applyBank()
+    onStripWidthChanged: Qt.callLater(view.applyBank) // a resize or mode change keeps the bank aligned
     Keys.onLeftPressed: (event) => { view.step(-1); event.accepted = true }
     Keys.onRightPressed: (event) => { view.step(1); event.accepted = true }
     Keys.onPressed: (event) => {
@@ -168,7 +183,9 @@ T.Control {
                 spacing: Tk.Theme.space.sm
                 reuseItems: true
                 boundsBehavior: Flickable.StopAtBounds
+                snapMode: ListView.SnapToItem
                 interactive: !view.held
+                onMovementEnded: view.syncBank()
                 Accessible.role: Accessible.List
                 Accessible.name: view.tooltip
                 delegate: Item {

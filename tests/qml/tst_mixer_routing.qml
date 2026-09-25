@@ -112,7 +112,7 @@ TestCase {
         const ids = []
         for (let i = 0; i < 40; ++i) ids.push("track:" + session.addTrack("Track " + (i + 1)))
         const view = findChild(root, "testMixerView")
-        compare(view.channelCount, 41) // 40 tracks and the master
+        tryCompare(view, "channelCount", 41) // 40 tracks and the master, after the view's next layout
         tryVerify(() => cellFor(view, ids[1]) !== null)
         verify(stripCells(view).length < 20, "strips created: " + stripCells(view).length)
         const cell = cellFor(view, ids[1])
@@ -128,7 +128,7 @@ TestCase {
         compare(view.channelList.contentX, before)
         // Hiding the held channel keeps its strip; a reorder moves the same delegate.
         verify(session.mixer.setHidden(ids[1], true).ok)
-        compare(view.channelCount, 41)
+        tryCompare(view, "channelCount", 41)
         verify(session.timeline.applyEdit({kind: "reorderTrack", trackId: ids[1].slice(6),
                                            beforeTrackId: ids[0].slice(6)}).ok)
         tryCompare(cell, "index", 0)

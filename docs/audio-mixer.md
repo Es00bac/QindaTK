@@ -143,7 +143,7 @@ no channels.
 
 | View | Model | Notes |
 | --- | --- | --- |
-| `MixerView` | `mixer.strips` (`AudioMixerStripModel`: rows move, never reset) | virtualized `ListView`; banks of one view width; compact/detail strips; group bar; Left/Right, Home/End, Page Up/Down; while a gesture holds a channel, bank changes wait, the held strip stays in view, and a hidden held channel keeps its strip until release |
+| `MixerView` | `mixer.strips` (`AudioMixerStripModel`: rows move, never reset) | virtualized `ListView`; a bank is the whole strips that fit, stretched to fill the width, and scrolling snaps to strip edges; compact/detail strips (only the fader gives up height in a short strip); group bar; Left/Right, Home/End, Page Up/Down; while a gesture holds a channel, bank changes wait, the held strip stays in view, and a hidden held channel keeps its strip until release |
 | `ChannelStrip` | row roles + `mixer` | meter (`AudioMeter` over the channel meter), `Fader` (shared gain binding), `PanningControl`, mute/solo/arm/solo safe/hide, groups, `ChannelRoutingPanel` in detail mode; host mode keeps the request protocol |
 | `ChannelRoutingPanel` | `mixer.destinations(id)`, row `sends` | output selector with refusal explanations; sends with level `Knob`, pre/post toggle and removal; add send |
 | `PanningControl` | pan and width bindings | canonical pan −1…+1 and width 0…2 at 0.01; sliders, percent fields and a position × width pad share the transactions |
