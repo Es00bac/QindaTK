@@ -8,14 +8,17 @@
 
 namespace QindaTK {
 
-// Bounded local checkpoint store for one synchronized PropertyDocument.
-// Checkpoints are immutable QSaveFile snapshots; restore emits one new typed
-// collaboration operation and first saves the current state as a checkpoint.
+// Checkpoint list for one synchronized PropertyDocument. Local mode keeps
+// immutable QSaveFile snapshots owned by this replica. Shared mode sends each
+// checkpoint as a Checkpoint operation, so every replica lists the same
+// versions in the same order from its operation log (D-169). Restore emits a
+// new collaboration operation and first saves the current state.
 class PropertyVersionHistory : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QindaTK::LocalPropertySyncClient *client READ client WRITE setClient NOTIFY changed)
     Q_PROPERTY(QString storagePath READ storagePath WRITE setStoragePath NOTIFY changed)
+    Q_PROPERTY(bool shared READ isShared WRITE setShared NOTIFY changed)
     Q_PROPERTY(QVariantList versions READ versions NOTIFY changed)
     Q_PROPERTY(int count READ count NOTIFY changed)
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
@@ -25,6 +28,8 @@ public:
     void setClient(LocalPropertySyncClient *client);
     QString storagePath() const { return m_storagePath; }
     void setStoragePath(const QString &path);
+    bool isShared() const { return m_shared; }
+    void setShared(bool shared);
     QVariantList versions() const;
     int count() const { return m_entries.size(); }
     QString lastError() const { return m_lastError; }
@@ -45,12 +50,16 @@ private:
         QString createdAt;
         int operationCount = 0;
         QByteArray snapshot;
+        QString logicalTime;   // shared checkpoints only
     };
     const Entry *find(const QString &id) const;
     bool fail(const QString &message);
     bool persist(const QVector<Entry> &entries);
     QVariantList diffSnapshots(const QByteArray &from, const QByteArray &to) const;
+    void loadShared();
     QPointer<LocalPropertySyncClient> m_client;
+    QMetaObject::Connection m_sharedConnection;
+    bool m_shared = false;
     QString m_storagePath;
     QString m_lastError;
     QVector<Entry> m_entries;

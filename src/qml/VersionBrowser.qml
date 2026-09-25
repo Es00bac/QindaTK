@@ -2,8 +2,9 @@
 import QtQuick
 import QindaTK as Tk
 
-// Local immutable checkpoints. Restore saves a safety checkpoint and submits
-// a new collaboration operation through PropertyVersionHistory.
+// Immutable checkpoints, local to this replica or shared with every replica
+// (PropertyVersionHistory.shared). Restore saves a safety checkpoint and
+// submits a new collaboration operation through PropertyVersionHistory.
 Item {
     id: control
     objectName: "versionBrowser"
@@ -76,7 +77,9 @@ Item {
                     delegate: Tk.Button {
                         required property var modelData
                         objectName: "version_" + modelData.id
-                        text: modelData.name + " · " + modelData.revision
+                        text: modelData.shared
+                              ? qsTr("%1 · shared").arg(modelData.name)
+                              : modelData.name + " · " + modelData.revision
                         tooltip: qsTr("Inspect %1 from %2").arg(modelData.name).arg(modelData.createdAt)
                         variant: modelData.id === control.selectedId ? "outline" : "ghost"
                         onClicked: control.selectedId = modelData.id
@@ -111,7 +114,13 @@ Item {
             delegate: Tk.Caption {
                 required property var modelData
                 objectName: "versionDifference_" + modelData.entity + "_" + modelData.property
-                text: modelData.property + ": " + String(modelData.from) + " → " + String(modelData.to)
+                text: modelData.change === "added"
+                      ? qsTr("%1: added in current (%2)").arg(modelData.property).arg(String(modelData.to))
+                      : modelData.change === "removed"
+                        ? qsTr("%1: removed from current (was %2)").arg(modelData.property)
+                                                                    .arg(String(modelData.from))
+                        : modelData.property + ": " + String(modelData.from) + " → "
+                          + String(modelData.to)
                 wrapMode: Text.Wrap
             }
         }

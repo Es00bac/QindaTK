@@ -110,6 +110,13 @@ std::optional<PropertyDescriptor> PropertyDocument::descriptor(const QString &id
     return it.value();
 }
 
+QStringList PropertyDocument::propertyIds() const
+{
+    QStringList ids = m_descriptors.keys();
+    ids.sort();
+    return ids;
+}
+
 bool PropertyDocument::validEntityValues(const QVariantMap &values) const
 {
     for (auto it = values.cbegin(); it != values.cend(); ++it) {
