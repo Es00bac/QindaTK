@@ -73,10 +73,14 @@ QVariantMap AudioTakeCompModel::viewState(const QString &compId, int columns, in
                             {QStringLiteral("sourceOffsetSample"), text(take ? take->sourceOffset : 0)}};
         // The view draws fades inside the segment: the crossfade's end on the
         // right side of a junction and its start on the left side.
-        if (piece.fadeInEnd > piece.fadeInStart && boundaries.count(piece.fadeInEnd))
-            segment.insert(QStringLiteral("fadeInEndSample"), text(piece.fadeInEnd));
-        if (piece.fadeOutEnd > piece.fadeOutStart && boundaries.count(piece.fadeOutStart))
-            segment.insert(QStringLiteral("fadeOutStartSample"), text(piece.fadeOutStart));
+        // A run's fade can reach past this segment (D-175): only the part
+        // inside it is drawn here.
+        const qint64 fadeInEnd = std::min(piece.fadeInEnd, piece.end);
+        const qint64 fadeOutStart = std::max(piece.fadeOutStart, piece.start);
+        if (piece.fadeInEnd > piece.fadeInStart && fadeInEnd > piece.start && boundaries.count(fadeInEnd))
+            segment.insert(QStringLiteral("fadeInEndSample"), text(fadeInEnd));
+        if (piece.fadeOutEnd > piece.fadeOutStart && fadeOutStart < piece.end && boundaries.count(fadeOutStart))
+            segment.insert(QStringLiteral("fadeOutStartSample"), text(fadeOutStart));
         segments.push_back(segment);
     }
     QVariantList takes;

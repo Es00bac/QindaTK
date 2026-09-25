@@ -1443,13 +1443,15 @@ fade must not read audio a take does not have, and a split inside one take
 must not change a sample. **Decision.** A junction of two different takes
 fades over `x` samples before it and `y` after it, `x + y` up to the comp's
 fade length: centred when possible, `x` bounded by the right take's audio
-before the junction and half the left segment, `y` by the left take's audio
-after it and half the right segment, a shortfall on one side moving to the
-other. Weights use `t = (s − a + 0.5)/(c − a)`: linear or equal power
+before the junction and half the left run, `y` by the left take's audio
+after it and half the right run, a shortfall on one side moving to the
+other. A run is the touching segments of one take on that side (the WP-065
+audit found that per-segment bounds let a split beside a long fade move
+it); every piece of a run carries the run's fade regions. Weights use `t = (s − a + 0.5)/(c − a)`: linear or equal power
 (sin/cos). Same-take junctions, gaps and comp edges are exact cuts. The
 graph plays each resolved piece as an ordinary clip with a frame limit and
 fade regions evaluated per sample. **Consequences.** Boundary samples are
-exact and testable, both fades of a segment never overlap, merges and
+exact and testable, both fades of a run never overlap, merges and
 splits within a take are silent, and the realtime path gains no tables or
 allocation.
 
@@ -1463,8 +1465,12 @@ committed comp (never to the previous preview) and plays it until
 committed comp; any other edit, undo or redo cancels it first. The view's
 boundary table is built from the committed comp only, so it holds still
 while a preview runs. `TakeCompView` reports a cancelled swipe with
-`compProposalPreviewCanceled`. Audition and comparison change what plays,
-not the comp, and are neither saved nor undone. **Consequences.** Swipes
+`compProposalPreviewCanceled`. Audition and comparison play one take over
+the requested range (the view's selection) and change what plays, not the
+comp; they are neither saved nor undone, and the view can end them
+(`auditionStopRequested`). Previews and auditions are device-only: the
+offline graph (`renderToFile`, exports) always plays the committed comp.
+**Consequences.** Swipes
 are audible and reversible, a rejected proposal leaves the committed
 samples, and history holds only accepted comps.
 
@@ -1480,7 +1486,11 @@ two or more passes (and no dropped frames or lost jumps) the session makes
 one take per pass in a comp, later passes winning. Punch is transport state
 only: the whole pass is recorded, and the session selects the new takes
 inside the punch range, in the comp already on the track, in a media clip
-turned into a comp by one source switch, or in a new comp. **Consequences.**
+turned into a comp by one source switch, or in a new comp. A recording
+that reaches before comp sample 0 or past the comp end grows the comp: the
+clip switches, in one timeline step, to a grown copy with shifted
+positions, so timeline undo restores the old comp and no comp undo can
+misalign the clip's offset. **Consequences.**
 Every pass plays exactly what was heard at its position, pre- and post-roll
 stay available, the event ring's acknowledgment guarantee is untouched, and
 a recording with lost jumps falls back to one linear clip.

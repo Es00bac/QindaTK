@@ -16,6 +16,9 @@ T.Control {
     property string selectionStartSample: ""
     property string selectionEndSample: ""
     property string referenceTakeId: ""
+    // The take the host is auditioning now ("" when none): its lane button
+    // and Space end the audition, as does Escape outside a swipe.
+    property string auditionTakeId: ""
     property var proposal: null // host response descriptor; status "pending" exposes accept/reject requests
     property string statusText: ""
     property string tooltip: ""
@@ -45,6 +48,7 @@ T.Control {
     signal proposalDecisionRequested(string proposalId, bool accept)
     signal auditionRequested(string takeId, string sourceId,
                              string startSample, string endSample, string sourceOffsetSample)
+    signal auditionStopRequested(string takeId)
     signal compareRequested(string takeId, string referenceTakeId,
                            string startSample, string endSample,
                            string takeOffsetSample, string referenceOffsetSample)
@@ -65,7 +69,7 @@ T.Control {
     Accessible.role: Accessible.Grouping
     Accessible.name: root.tooltip.length ? root.tooltip : qsTr("Take comp editor")
     Accessible.description: root.statusText.length ? root.statusText
-        : (snapshotValid ? qsTr("%1 takes, %2 host comp segments. Left and Right select cells, Shift extends, Up and Down choose a take, Enter uses it, Space auditions.").arg(takeCount).arg(segmentCount)
+        : (snapshotValid ? qsTr("%1 takes, %2 host comp segments. Left and Right select cells, Shift extends, Up and Down choose a take, Enter uses it, Space auditions or stops, Escape cancels.").arg(takeCount).arg(segmentCount)
                          : qsTr("Take comp snapshot is invalid or incomplete."))
     activeFocusOnTab: true
     hoverEnabled: true
@@ -218,7 +222,13 @@ T.Control {
         root.proposalDecisionRequested(id, Boolean(accept))
         return true
     }
+    function stopAudition() {
+        if (!root.auditionTakeId.length) return false
+        root.auditionStopRequested(root.auditionTakeId)
+        return true
+    }
     function requestAudition(takeId) {
+        if (root.auditionTakeId.length && String(takeId) === root.auditionTakeId) return root.stopAudition()
         const take = root.takeById(takeId)
         if (!take || take.available === false
             || !root.validRange(root.selectionStartSample, root.selectionEndSample)) return false
@@ -440,9 +450,12 @@ T.Control {
                     onClicked: root.requestProposalForRange(modelData.takeId)
                 }
                 Tk.Button {
-                    text: qsTr("Audition")
-                    enabled: modelData.available !== false
-                    tooltip: qsTr("Request isolated audition from the host")
+                    readonly property bool auditioning: String(modelData.takeId) === root.auditionTakeId
+                    objectName: "takeAudition_" + String(modelData.takeId)
+                    text: auditioning ? qsTr("Stop") : qsTr("Audition")
+                    enabled: auditioning || modelData.available !== false
+                    tooltip: auditioning ? qsTr("Ask the host to end this audition")
+                                         : qsTr("Request isolated audition of the selected range from the host")
                     onClicked: root.requestAudition(modelData.takeId)
                 }
                 Tk.Button {
@@ -462,7 +475,7 @@ T.Control {
     onWidthChanged: compPaint.requestPaint()
     onHeightChanged: compPaint.requestPaint()
     onEnabledChanged: if (!enabled) cancelSwipe()
-    Keys.onEscapePressed: cancelSwipe()
+    Keys.onEscapePressed: cancelSwipe() || stopAudition()
     Keys.onPressed: function(event) {
         const extend = (event.modifiers & Qt.ShiftModifier) !== 0
         let handled = true

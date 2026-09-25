@@ -12,7 +12,7 @@ to [D-177](decisions.md#d-177--loop-passes-are-cut-from-record-jumps-and-punch-s
 ```
  engine: capture ring ─▶ take WAV     jump ring (wraps, seeks) ─▶ recordingFinished{jumps, punch…}
  AudioSession.placeTake ─▶ passes ─▶ comps (AudioTakeCompModel)   timeline clip (resourceId = comp id)
-                                        │ playback(compId) = committed or preview, or audition
+                                        │ device: committed or preview, or audition · export: committed
  AudioRenderGraph::compile ─ comp clip ─▶ one graph clip per piece (take media, range limit, fades)
  TakeCompView ◀─ comps.viewState(compId) ─ swipe/keys ─▶ comps.preview / commitPreview / cancelPreview
 ```
@@ -43,7 +43,7 @@ strings.
 | `clear(comp, start, end)` | removes the range (silence) |
 | `setFade(comp, samples, shape)` | crossfade length (0 … one second) and shape `linear` or `equalPower` |
 | `preview(comp, take, start, end)` | provisional select from the committed comp; heard and shown until `commitPreview()` (one step) or `cancelPreview()` |
-| `setAudition(comp, take)` / `compare(comp, take, reference)` / `toggleComparison(comp)` | play one take alone (or A/B two) over the comp; not saved, not undone |
+| `setAudition(comp, take, start, end)` / `compare(comp, take, reference, start, end)` / `toggleComparison(comp)` | the device plays one take alone (or A/B two) over `[start, end)` of the comp (both empty: the whole comp) and silence elsewhere in the comp clip; `setAudition(comp, "")` ends it; `auditionRange(comp)` reads it back; not saved, not undone, never exported |
 | `undo()` / `redo()` | per-owner history (128 steps), each step the whole comp before and after |
 
 Every edit answers `{ok, error, changed}`; a refused edit changes nothing
@@ -53,11 +53,13 @@ cancels a running preview first.
 ## Crossfades (D-175)
 
 Where two different takes meet at `b`, they crossfade over `[b − x, b + y)`:
-`x` samples inside the left segment, `y` inside the right one. The fade is
-centred (`x = ⌊F/2⌋`) unless a side lacks material:
+`x` samples inside the left take's run, `y` inside the right one's. A *run*
+is the touching segments of one take on that side of `b`, so splitting or
+merging segments inside a take never changes a fade. The fade is centred
+(`x = ⌊F/2⌋`) unless a side lacks material:
 
-- `x` ≤ what the right take has before `b`, and ≤ half the left segment;
-- `y` ≤ what the left take has after `b`, and ≤ half the right segment;
+- `x` ≤ what the right take has before `b`, and ≤ half the left run;
+- `y` ≤ what the left take has after `b`, and ≤ half the right run;
 - whatever one side cannot take moves to the other, so a pass that starts
   exactly at the junction still gets a full-length fade after it.
 
@@ -75,7 +77,9 @@ per piece: the take's media (the edited buffer at the graph rate, WP-063),
 the frame limit `[sourceStart, sourceEnd)` and the fade regions, clipped to
 the timeline clip. `render()` weights faded samples per sample
 (`AudioComp::fadeWeight`: no tables, no allocation), so the device and
-`renderToFile` play identical samples. Missing take media plays silence and
+`renderToFile` play identical samples for the committed comp. A preview or
+an audition is heard on the device only: the offline graph (`renderToFile`,
+exports) always plays the committed comp. Missing take media plays silence and
 is listed by `session.missingMedia`; `relinkMedia` restores it.
 
 ## Recording, passes and punch (D-177)
@@ -96,6 +100,7 @@ from `recordedSample − latency`.
 | No loop wrap, no punch (or `passTakes` false, dropped frames, lost jumps) | one media clip, as WP-060 |
 | Loop wraps | one take per pass; a comp over a comp clip already there (one comp step) or a new comp clip (the timeline step); later passes win |
 | Punch `[in, out)` over a comp clip | the new takes are selected only inside the punch range (one comp step) |
+| Recording that reaches before comp sample 0 or past the comp end (over a comp clip) | the comp grows to hold all of it: the clip switches to a grown copy (new ID, positions shifted) in one timeline step, keeping its placement; new audio past an edge the clip reaches is selected, so trimming that edge out plays it. Timeline undo returns the old comp unchanged. Other clips of the old comp keep it. |
 | Punch over a media clip | the clip becomes a comp (one timeline step, a source switch at its start) whose first take is the clip's source and whose punch range plays the new take |
 | Punch over nothing | a new comp clip that plays only the punch range |
 
@@ -131,8 +136,10 @@ Tk.TakeCompView {
         if (accept) session.comps.commitPreview(); else session.comps.cancelPreview()
         proposal = null
     }
-    onAuditionRequested: take => session.comps.setAudition(compId, take)
-    onCompareRequested: (take, reference) => session.comps.compare(compId, take, reference)
+    auditionTakeId: snapshot.audition || ""
+    onAuditionRequested: (take, source, start, end) => session.comps.setAudition(compId, take, start, end)
+    onAuditionStopRequested: take => session.comps.setAudition(compId, "")
+    onCompareRequested: (take, reference, start, end) => session.comps.compare(compId, take, reference, start, end)
 }
 ```
 
@@ -141,8 +148,9 @@ boundary table is `columns` equal cells plus every committed segment and
 fade edge, and it stays fixed while a preview runs, because a swipe holds
 indices into it. Takes carry `available` and bounded `peaks`. Keys:
 Left/Right select a cell, Shift extends, Home/End jump, Up/Down choose the
-take, Enter uses it for the selection, Space auditions it, C compares it
-with the reference take, Escape cancels a swipe.
+take, Enter uses it for the selection, Space auditions it (or ends its
+audition), C compares it with the reference take, Escape cancels a swipe or
+else ends the audition. The auditioned take's lane button reads Stop.
 
 ## Not covered here
 

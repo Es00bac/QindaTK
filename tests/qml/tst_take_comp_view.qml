@@ -25,6 +25,7 @@ TestCase {
     property var lastCompare: null
     property var lastSelection: null
     property var lastCanceled: null
+    property var lastStop: null
 
     Tk.TakeCompView {
         id: control
@@ -52,6 +53,7 @@ TestCase {
         }
         onSelectionRequested: function(start, end) { root.lastSelection = [start, end] }
         onCompProposalPreviewCanceled: function(id) { root.lastCanceled = id }
+        onAuditionStopRequested: function(takeId) { root.lastStop = takeId }
     }
 
     function test_exact_range_requests_and_host_decision() {
@@ -103,6 +105,7 @@ TestCase {
         control.selectionStartSample = root.boundaries[1]
         control.selectionEndSample = root.boundaries[2]
         control.keyboardTakeIndex = 0
+        control.auditionTakeId = ""
         control._cursorCell = -1
         control._anchorCell = -1
     }
@@ -165,5 +168,32 @@ TestCase {
         verify(lastCanceled !== null)
         verify(String(lastCanceled).length > 0)
         verify(!control.cancelSwipe())
+    }
+
+    // WP-065: the host's audition ends from the view (lane button, Space, Escape).
+    function test_audition_can_be_stopped() {
+        restore()
+        lastStop = null
+        lastAudition = null
+        verify(!control.stopAudition()) // nothing is auditioned
+        control.auditionTakeId = "take-b"
+        const button = findChild(control, "takeAudition_take-b")
+        verify(button !== null)
+        compare(button.text, "Stop")
+        compare(findChild(control, "takeAudition_take-a").text, "Audition")
+        verify(control.requestAudition("take-b")) // the auditioned take's button stops it
+        compare(lastStop, "take-b")
+        compare(lastAudition, null)
+        verify(control.requestAudition("take-a")) // another take starts its own audition
+        compare(lastAudition[0], "take-a")
+        lastStop = null
+        control.forceActiveFocus()
+        keyClick(Qt.Key_Escape) // no swipe: Escape ends the audition
+        compare(lastStop, "take-b")
+        lastStop = null
+        verify(control.beginSwipe("take-b", 10, 100))
+        keyClick(Qt.Key_Escape) // a swipe in progress is cancelled first
+        compare(lastStop, null)
+        restore()
     }
 }

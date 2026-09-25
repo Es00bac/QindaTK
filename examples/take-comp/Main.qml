@@ -11,6 +11,7 @@ Rectangle {
     color: Tk.Theme.color.canvas
     property string status: qsTr("Ready · fixture snapshots only")
     property var proposal: null
+    property string auditioned: "take-blue-07" // the host's audition; its lane button reads Stop
     property var boundaries: [
         "9007199254740990", "9007199254741990", "9007199254742990",
         "9007199254743990", "9007199254744990", "9007199254745990",
@@ -54,6 +55,7 @@ Rectangle {
             selectionStartSample: root.boundaries[1]
             selectionEndSample: root.boundaries[3]
             referenceTakeId: "take-amber-04"
+            auditionTakeId: root.auditioned
             proposal: root.proposal
             statusText: root.status
             tooltip: qsTr("Vocal take comp lane")
@@ -76,8 +78,13 @@ Rectangle {
                     : qsTr("Host received reject request · comp snapshot remains unchanged")
             }
             onAuditionRequested: function(takeId, sourceId, startSample, endSample, offset) {
+                root.auditioned = takeId
                 root.status = qsTr("Host audition request · %1 · %2:%3–%4 · offset %5")
                     .arg(takeId).arg(sourceId).arg(startSample).arg(endSample).arg(offset)
+            }
+            onAuditionStopRequested: function(takeId) {
+                root.auditioned = ""
+                root.status = qsTr("Host audition stop request · %1").arg(takeId)
             }
             onCompareRequested: function(takeId, referenceId, startSample, endSample, takeOffset, referenceOffset) {
                 root.status = qsTr("Host compare request · %1 vs %2 · offsets %3 / %4")
