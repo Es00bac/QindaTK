@@ -388,7 +388,7 @@ T.Control {
             }
         }
 
-        // Selection handles: gain (drag up/down) and fade in/out (drag inwards).
+        // Selection handles: gain (drag up/down), fade in/out (drag inwards); gain drops below when narrow.
         Rectangle {
             id: gainHandle
             objectName: "waveformGainHandle"
@@ -397,7 +397,8 @@ T.Control {
             height: Tk.Theme.size.handle
             x: Math.max(0, Math.min(parent.width - width,
                                     (selectionPaint.selectionX0 + selectionPaint.selectionX1 - width) / 2))
-            y: Tk.Theme.space.xs
+            y: selectionPaint.selectionX1 - selectionPaint.selectionX0 < width + Tk.Theme.size.handle + Tk.Theme.space.sm
+               ? Tk.Theme.space.xs * 2 + Tk.Theme.size.handle : Tk.Theme.space.xs
             radius: Tk.Theme.radius.sm
             color: Tk.Theme.color.panel
             border.color: root._handleDrag === "gain" ? Tk.Theme.color.focus : Tk.Theme.color.border

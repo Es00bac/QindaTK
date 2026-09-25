@@ -184,6 +184,26 @@ TestCase {
         verify(!gain.visible)
     }
 
+    // A selection narrower than the gain label (examples/waveform-live, a
+    // 10 000-sample silence at full zoom) used to draw the label over both
+    // fade handles; it now drops below them, and returns when there is room.
+    function test_narrowSelectionKeepsHandlesApart() {
+        const waveform = createTemporaryObject(eightColumnComponent, root, { selectionStartSample: "300",
+                                                                             selectionEndSample: "400" })
+        verify(waveform !== null)
+        const gain = findChild(waveform, "waveformGainHandle")
+        const fadeIn = findChild(waveform, "waveformFadeInHandle")
+        const fadeOut = findChild(waveform, "waveformFadeOutHandle")
+        const overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width
+                                   && a.y < b.y + b.height && b.y < a.y + a.height
+        waveform.width = 200 // one column is 25 px, narrower than the label
+        tryVerify(() => gain.visible && !overlaps(gain, fadeIn) && !overlaps(gain, fadeOut))
+        verify(gain.y >= fadeIn.y + fadeIn.height)
+        waveform.selectionEndSample = "700" // 100 px: the label fits between the handles again
+        tryCompare(gain, "y", fadeIn.y)
+        verify(!overlaps(gain, fadeIn) && !overlaps(gain, fadeOut))
+    }
+
     function test_channelLayoutSelectsAndEditsOneChannel() {
         const waveform = createTemporaryObject(stereoComponent, root)
         verify(waveform !== null)

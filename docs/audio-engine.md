@@ -105,6 +105,10 @@ backend" ([D-203](decisions.md#d-203--an-omitted-device-backend-is-reported-not-
 | While recording, or during another apply | `rejected` immediately | unchanged |
 | During a stop/loss teardown | queued, answered after the teardown | — |
 
+The answer comes after the engine state, the device list and the transport
+snapshot are updated, so a handler can start playback directly
+(`transport.requestPlay()` sees `canPlay`).
+
 `stop()` closes the device and clears `activeConfiguration`.
 
 Hot-unplug (ALSA `-ENODEV`, or `setBuiltinDeviceConnected(id, false)`) ends

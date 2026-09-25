@@ -275,6 +275,8 @@ void AudioEngine::finishJob()
     std::unique_ptr<Job> job = std::move(m_job);
     if (!job) return;
     const int previousRate = m_rate;
+    struct Applied { QString requestId, state, message; };
+    std::optional<Applied> applied;
     if (job->old) {
         const EngineTransportState last = job->old->processor->stateAfterStop();
         m_idle.position = last.position;
@@ -320,7 +322,7 @@ void AudioEngine::finishJob()
             else setState(job->previousState == State::Lost ? State::Lost : State::Stopped,
                           job->previousState == State::Lost ? job->previousMessage : job->error);
         }
-        emit configurationApplied(job->requestId, state, activeConfiguration(), message);
+        applied = {job->requestId, state, message};
     } else if (job->kind == JobKind::Stop) {
         m_active.reset(); // nothing is active after an explicit stop; a lost device stays active
         setState(State::Stopped, tr("The audio device is stopped"));
@@ -333,6 +335,11 @@ void AudioEngine::finishJob()
     }
     refreshDevices();
     publishSnapshot(false);
+    // AGENT-GUARD: configurationApplied goes out only after the transport
+    // snapshot above, so a handler that calls transport.requestPlay() sees
+    // the device it was just told about (tst_audio_engine::
+    // transportIsCurrentWhenConfigurationIsApplied).
+    if (applied) emit configurationApplied(applied->requestId, applied->state, activeConfiguration(), applied->message);
     if (m_queuedApply) {
         const auto [requestId, config] = *std::exchange(m_queuedApply, std::nullopt);
         startJob(JobKind::Apply, requestId, config);

@@ -213,7 +213,14 @@ The [calibrated audio controls fixture](audio-controls/Main.qml) exercises
 
 The [waveform and spectrogram fixture](waveform-spectrogram/Main.qml)
 exercises `WaveformEditor` and `SpectrogramView` with exact sample selection
-requests and host-owned spectral snapshots.
+requests and host-owned spectral snapshots. The
+[live waveform example](waveform-live/Main.qml) runs the same editors on the
+real stack ([docs/audio-editing.md](../docs/audio-editing.md)): a generated
+recording imported into an `AudioSession` that loops through the engine on
+the silent null device, worker-thread peaks (`AudioWaveformSource`) and STFT
+tiles (`AudioSpectrogramSource`), and gain, fades, silence, delete, crop and
+spectral band/mask gain (preview, commit, cancel) applied to `session.edits`
+with its undo and redo; the playhead and output meter come from the engine.
 
 The [MIDI editing fixture](midi-editors/Main.qml) exercises `PianoRoll`,
 `MidiControllerLane`, `StepSequencer` and `ClipLauncher` with exact tick strings
