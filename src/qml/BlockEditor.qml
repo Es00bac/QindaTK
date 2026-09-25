@@ -1,34 +1,61 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Templates as T
 import QindaTK as Tk
 
-// The host owns block IDs, ordering, canonical data, undo and persistence.
-// Editors submit snapshots; they never split, merge or reorder local copies.
+// Two modes (docs/notebooks.md#views). Bound to a Tk.NotebookDocument through
+// `notebook`, the editor applies every edit to that persistent model (undo,
+// save and recovery included). Without it, the host owns block IDs, order,
+// data and undo: the editor only emits identified requests.
+// AGENT-GUARD: blocks are virtualized (ListView, reuseItems). Uncommitted
+// text lives in `drafts` keyed by block ID, never only in a delegate, so a
+// recycled or rebuilt delegate restores it; committing clears the draft.
 Item {
     id: control
     property string notebookId: ""
     property string pageId: ""
-    property var blocks: [] // [{id,type,data,locked,error}]
+    property var blocks: [] // host mode: [{id,type,data,locked,error,depth}]
     property string selectedBlockId: ""
     property string focusedBlockId: ""
+    property int caretOffset: -1
     property var blockTypes: [
         { id: "text", label: qsTr("Text") }, { id: "heading", label: qsTr("Heading") },
-        { id: "image", label: qsTr("Image") }, { id: "code", label: qsTr("Code") },
-        { id: "table", label: qsTr("Table") }, { id: "embed", label: qsTr("Embed") }, { id: "ink", label: qsTr("Ink") }
+        { id: "list", label: qsTr("List item") }, { id: "quote", label: qsTr("Quote") },
+        { id: "code", label: qsTr("Code") }, { id: "table", label: qsTr("Table") },
+        { id: "chart", label: qsTr("Chart") }, { id: "image", label: qsTr("Image") },
+        { id: "embed", label: qsTr("Embed") }, { id: "ink", label: qsTr("Ink") }
     ]
-    property var capabilities: ({ canEdit: true, canInsert: true, canMove: true, canSplit: true, canMerge: true, canDelete: true })
+    property var capabilities: ({ canEdit: true, canInsert: true, canMove: true, canSplit: true, canMerge: true, canDelete: true, canNest: true })
+    property Tk.NotebookDocument notebook: null
+    property Tk.ClipboardService clipboard: null
+    property Tk.ScriptRuntime scriptRuntime: null
+    property Tk.ResourceResolver resolver: null
     property var provider: null
     property var document: null
     property string viewId: ""
     property string errorText: ""
     property string tooltip: qsTr("Edit ordered notebook content blocks")
+    // {anchorBlockId, anchorOffset, focusBlockId, focusOffset}; empty when none.
+    property var selection: ({})
+    property var drafts: ({})
+    property var _notebookBlocks: []
+    readonly property var presentedBlocks: notebook ? _notebookBlocks : blocks
+    // The ListView model: block IDs only, replaced only when the order
+    // changes, so a text commit never rebuilds (and unfocuses) delegates.
+    property var presentedIds: []
+    property var _positions: ({})
+    property string pendingFocusId: ""
     readonly property var selectedBlock: findBlock(selectedBlockId)
+    readonly property alias listView: blockList
+    readonly property string activeError: errorText.length > 0 ? errorText : notebook ? notebook.lastError : ""
 
     signal blockSelectionRequested(string blockId)
     signal blockFocusRequested(string blockId)
     signal blockNavigateRequested(string blockId, string direction)
     signal blockInsertRequested(string afterBlockId, string type, var data, string requestId)
     signal blockMoveRequested(string blockId, int targetIndex, string requestId)
+    signal blockNestRequested(string blockId, string direction, string requestId)
     signal blockContentEditRequested(string blockId, var data, string requestId)
     signal blockSplitRequested(string blockId, int cursorPosition, string requestId)
     signal blockMergeRequested(string firstBlockId, string secondBlockId, string requestId)
@@ -40,54 +67,297 @@ Item {
     implicitHeight: Tk.Theme.size.panelMinHeight
     Accessible.role: Accessible.Pane
     Accessible.name: tooltip
-    Accessible.description: qsTr("Page %1, %2 content blocks").arg(pageId).arg(blocks.length)
+    Accessible.description: qsTr("Page %1, %2 content blocks").arg(pageId).arg(presentedBlocks.length)
     activeFocusOnTab: true
 
-    function findBlock(id) {
-        for (let i = 0; i < blocks.length; ++i) if (blocks[i].id === id) return blocks[i]
-        return null
+    function refreshNotebookBlocks() {
+        _notebookBlocks = notebook && pageId.length > 0 ? notebook.blocks(pageId) : []
     }
+    function syncIds() {
+        const ids = [], positions = ({})
+        for (let i = 0; i < presentedBlocks.length; ++i) {
+            ids.push(presentedBlocks[i].id)
+            positions[presentedBlocks[i].id] = i
+        }
+        _positions = positions
+        if (ids.join("\n") !== presentedIds.join("\n")) presentedIds = ids
+        const reveal = indexOf(pendingFocusId)
+        if (reveal >= 0) blockList.positionViewAtIndex(reveal, ListView.Contain)
+    }
+    onPresentedBlocksChanged: syncIds()
+    onNotebookChanged: refreshNotebookBlocks()
+    onPageIdChanged: {
+        drafts = ({})
+        selection = ({})
+        if (notebook) selectedBlockId = ""
+        refreshNotebookBlocks()
+    }
+    Component.onCompleted: { refreshNotebookBlocks(); syncIds() }
+    // Deferred so a structural edit made from a delegate's key handler never
+    // releases that delegate while the handler runs.
+    Connections {
+        target: control.notebook
+        function onChanged() { Qt.callLater(control.refreshNotebookBlocks) }
+    }
+
+    function requestId(kind, id) { return notebookId + ":" + (id || pageId) + ":" + kind + ":" + Date.now() }
     function indexOf(id) {
-        for (let i = 0; i < blocks.length; ++i) if (blocks[i].id === id) return i
-        return -1
+        const position = _positions[id]
+        return position === undefined || position >= presentedBlocks.length
+               || presentedBlocks[position].id !== id ? -1 : position
+    }
+    function findBlock(id) {
+        const index = indexOf(id)
+        return index >= 0 ? presentedBlocks[index] : null
+    }
+    function isTextType(type) {
+        return ["text", "heading", "quote", "list", "todo", "code"].indexOf(type) >= 0
     }
     function makeDefaultData(type) {
-        if (type === "text") return { text: qsTr("Write something…") }
+        if (type === "text" || type === "quote" || type === "list") return { text: "" }
         if (type === "heading") return { text: qsTr("Section heading"), level: 2 }
-        if (type === "code") return { text: "", language: "text" }
-        if (type === "table") return { columns: ["Column 1", "Column 2"], rows: [["", ""], ["", ""]] }
-        if (type === "image") return { resourceId: "", caption: "", state: "missing" }
-        if (type === "embed") return { targetId: "", title: qsTr("Linked content"), state: "unavailable" }
-        if (type === "ink") return { strokes: [], previewUrl: "", state: "empty" }
+        if (type === "code") return { text: "", language: "javascript" }
+        if (type === "table") return { columns: [qsTr("Column 1"), qsTr("Column 2")], rows: [["", ""], ["", ""]] }
+        if (type === "chart") {
+            const source = presentedBlocks.find(function(block) { return block.type === "table" })
+            return { sourceBlockId: source ? source.id : "", kind: "line", xColumn: 0, yColumn: 1, title: qsTr("Chart") }
+        }
+        if (type === "image") return { resourceId: "", caption: "" }
+        if (type === "embed") return { targetId: "", title: qsTr("Linked content") }
+        if (type === "ink") return { strokes: [] }
         return { raw: "", unsupported: true }
+    }
+    function draftText(id, committed) {
+        const draft = drafts[id]
+        return draft !== undefined ? draft.text : committed
+    }
+    function storeDraft(id, text, cursor, committed) {
+        const next = Object.assign({}, drafts)
+        if (text === committed) delete next[id]
+        else next[id] = { text: text, cursor: cursor }
+        drafts = next
+    }
+    function commitDraft(id) {
+        const draft = drafts[id]
+        const block = findBlock(id)
+        if (draft === undefined || !block) return true
+        return submitText(block, draft.text)
+    }
+    // Notebook mode: the block's text field takes focus when its delegate
+    // exists (now or after the deferred refresh). Host mode: a request; the
+    // host moves `focusedBlockId`.
+    // AGENT-GUARD: applied through Qt.callLater, queued after the deferred
+    // block refresh the edit triggered, so the field sees its new text first.
+    property var _focusRequest: null
+    function focusBlock(id, offset) {
+        if (!notebook) {
+            caretOffset = offset === undefined ? -1 : offset
+            blockFocusRequested(id)
+            return
+        }
+        _focusRequest = { id: id, offset: offset === undefined ? -1 : offset }
+        Qt.callLater(control.applyFocusRequest)
+    }
+    function applyFocusRequest() {
+        const request = _focusRequest
+        _focusRequest = null
+        if (!request) return
+        caretOffset = request.offset
+        selectedBlockId = request.id
+        pendingFocusId = ""
+        pendingFocusId = request.id
+        const index = indexOf(request.id)
+        if (index >= 0) blockList.positionViewAtIndex(index, ListView.Contain)
     }
     function insertBlock(type) {
         if (!enabled || !capabilities.canInsert) return
-        const after = selectedBlockId || (blocks.length ? blocks[blocks.length - 1].id : "")
-        blockInsertRequested(after, type, makeDefaultData(type), notebookId + ":" + pageId + ":block:" + Date.now())
+        const after = selectedBlockId || (presentedBlocks.length ? presentedBlocks[presentedBlocks.length - 1].id : "")
+        if (!notebook) {
+            blockInsertRequested(after, type, makeDefaultData(type), requestId("block", ""))
+            return
+        }
+        const id = notebook.insertBlock(pageId, after, type, makeDefaultData(type))
+        if (id.length > 0) focusBlock(id, 0)
     }
     function moveBlock(id, delta) {
         const from = indexOf(id), target = from + delta
-        if (enabled && capabilities.canMove && from >= 0 && target >= 0 && target < blocks.length)
-            blockMoveRequested(id, target, notebookId + ":" + pageId + ":move:" + Date.now())
+        if (!enabled || !capabilities.canMove || from < 0 || target < 0 || target >= presentedBlocks.length) return
+        commitDraft(id)
+        if (!notebook) {
+            blockMoveRequested(id, target, requestId("move", id))
+            return
+        }
+        if (notebook.moveBlockBy(id, delta)) focusBlock(id, caretOffset)
+    }
+    function nestBlock(id, direction) {
+        if (!enabled || !capabilities.canNest) return
+        commitDraft(id)
+        if (!notebook) blockNestRequested(id, direction, requestId(direction, id))
+        else if (direction === "indent") notebook.indentBlock(id)
+        else notebook.outdentBlock(id)
+        focusBlock(id, caretOffset)
+    }
+    function deleteBlock(id) {
+        if (!enabled || !capabilities.canDelete) return
+        const next = Object.assign({}, drafts)
+        delete next[id]
+        drafts = next
+        if (notebook) notebook.removeBlock(id)
+        else blockDeleteRequested(id)
     }
     function submitText(block, text) {
+        if (!capabilities.canEdit || block.locked) return false
+        const next = Object.assign({}, drafts)
+        delete next[block.id]
+        drafts = next
+        if (text === (block.data && block.data.text)) return true
+        if (notebook) return notebook.setBlockText(block.id, text)
+        blockContentEditRequested(block.id, Object.assign({}, block.data || ({}), { text: text }), requestId("edit", block.id))
+        return true
+    }
+    function submitData(block, patch) {
         if (!capabilities.canEdit || block.locked) return
-        blockContentEditRequested(block.id, Object.assign({}, block.data || ({}), { text: text }),
-                                  notebookId + ":" + block.id + ":edit:" + Date.now())
+        if (notebook) notebook.setBlockData(block.id, Object.assign({}, block.data || ({}), patch))
+        else blockContentEditRequested(block.id, Object.assign({}, block.data || ({}), patch), requestId("edit", block.id))
     }
     function splitBlock(block, cursorPosition) {
-        if (capabilities.canSplit && block.type === "text" && !block.locked)
-            blockSplitRequested(block.id, cursorPosition, notebookId + ":" + block.id + ":split:" + Date.now())
+        if (!capabilities.canSplit || !isTextType(block.type) || block.locked) return
+        if (!notebook) {
+            blockSplitRequested(block.id, cursorPosition, requestId("split", block.id))
+            return
+        }
+        commitDraft(block.id)
+        const id = notebook.splitBlock(block.id, cursorPosition)
+        if (id.length > 0) focusBlock(id, 0)
     }
     function mergeWithPrevious(block) {
         const index = indexOf(block.id)
-        if (capabilities.canMerge && index > 0 && block.type === "text" && blocks[index - 1].type === "text")
-            blockMergeRequested(blocks[index - 1].id, block.id, notebookId + ":merge:" + Date.now())
+        if (!capabilities.canMerge || index <= 0 || !isTextType(block.type) || !isTextType(presentedBlocks[index - 1].type)) return
+        const previous = presentedBlocks[index - 1].id
+        if (!notebook) {
+            blockMergeRequested(previous, block.id, requestId("merge", ""))
+            return
+        }
+        commitDraft(block.id)
+        commitDraft(previous)
+        const offset = notebook.mergeBlocks(previous, block.id)
+        if (offset >= 0) focusBlock(previous, offset)
+    }
+    function navigate(id, offset, direction) {
+        if (!notebook) {
+            blockNavigateRequested(id, direction === "up" || direction === "left" ? "previous" : "next")
+            return
+        }
+        commitDraft(id)
+        const target = notebook.moveCaret(id, offset, direction)
+        if (target.moved) focusBlock(target.blockId, target.offset)
+    }
+    function extendSelection(id, offset, direction) {
+        const anchor = selection.anchorBlockId ? selection : { anchorBlockId: id, anchorOffset: offset }
+        const target = notebook ? notebook.moveCaret(selection.focusBlockId || id,
+                                                     selection.focusBlockId ? selection.focusOffset : offset, direction)
+                                : { blockId: id, offset: offset }
+        selection = { anchorBlockId: anchor.anchorBlockId, anchorOffset: anchor.anchorOffset,
+                      focusBlockId: target.blockId, focusOffset: target.offset }
+    }
+    function hasBlockSelection() {
+        return !!selection.anchorBlockId && selection.anchorBlockId !== selection.focusBlockId
+    }
+    function inSelection(id) {
+        if (!hasBlockSelection()) return false
+        const a = indexOf(selection.anchorBlockId), f = indexOf(selection.focusBlockId), i = indexOf(id)
+        return i >= Math.min(a, f) && i <= Math.max(a, f)
+    }
+    // The cross-block selection, or the text selection inside one field.
+    function effectiveSelection(id, start, end) {
+        if (hasBlockSelection()) return selection
+        return { anchorBlockId: id, anchorOffset: start, focusBlockId: id, focusOffset: end }
+    }
+    function copy(id, start, end) {
+        if (!notebook || !clipboard) return false
+        return notebook.copySelection(clipboard, effectiveSelection(id, start, end))
+    }
+    function cut(id, start, end) {
+        if (!notebook || !clipboard) return false
+        commitDraft(id)
+        const caret = notebook.cutSelection(clipboard, effectiveSelection(id, start, end))
+        selection = ({})
+        if (caret.blockId) focusBlock(caret.blockId, caret.offset)
+        return !!caret.pageId
+    }
+    function deleteSelection() {
+        if (!notebook || !hasBlockSelection()) return false
+        const caret = notebook.deleteSelection(selection)
+        selection = ({})
+        if (caret.blockId) focusBlock(caret.blockId, caret.offset)
+        return true
+    }
+    function paste(id, offset) {
+        if (!notebook || !clipboard) return false
+        commitDraft(id)
+        if (hasBlockSelection()) {
+            const caret = notebook.deleteSelection(selection)
+            selection = ({})
+            id = caret.blockId || ""
+            offset = caret.offset || 0
+        }
+        const result = notebook.paste(clipboard, pageId, id, offset)
+        if (result.blockId) focusBlock(result.blockId, result.offset)
+        return !!result.pageId
+    }
+    function formatSelection(id, start, end, patch) {
+        if (!notebook || end <= start) return false
+        commitDraft(id)
+        return notebook.formatText(id, start, end - start, patch)
+    }
+    function evaluate(id) {
+        commitDraft(id)
+        if (notebook && scriptRuntime) notebook.evaluateBlock(id, scriptRuntime)
+        else blockActionRequested(id, "evaluate", requestId("evaluate", id))
+    }
+    function tableEdit(block, action, row, column, text) {
+        if (!capabilities.canEdit || block.locked) return
+        if (!notebook && action === "cell") {
+            const rows = ((block.data && block.data.rows) || []).map(function(cells) { return cells.slice() })
+            if (!rows[row]) return
+            rows[row][column] = text
+            blockContentEditRequested(block.id, Object.assign({}, block.data, { rows: rows }), requestId("cell", block.id))
+            return
+        }
+        if (!notebook) {
+            blockActionRequested(block.id, action, requestId(action, block.id))
+            return
+        }
+        if (action === "cell") notebook.setTableCell(block.id, row, column, text)
+        else if (action === "add-row") notebook.insertTableRow(block.id, -1)
+        else if (action === "remove-row") notebook.removeTableRow(block.id, row)
+        else if (action === "add-column") notebook.insertTableColumn(block.id, -1, "")
+        else if (action === "remove-column") notebook.removeTableColumn(block.id, column)
+    }
+    // Inline runs as StyledText for the unfocused preview of a text block.
+    function runsHtml(data) {
+        const text = String(data && data.text || "")
+        const runs = data && data.runs ? data.runs : [{ length: text.length }]
+        let html = "", position = 0
+        for (let i = 0; i < runs.length; ++i) {
+            let piece = text.substr(position, runs[i].length).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;").replace(/\n/g, "<br>")
+            position += runs[i].length
+            if (runs[i].code) piece = "<code>" + piece + "</code>"
+            if (runs[i].bold) piece = "<b>" + piece + "</b>"
+            if (runs[i].italic) piece = "<i>" + piece + "</i>"
+            if (runs[i].underline) piece = "<u>" + piece + "</u>"
+            if (runs[i].strike) piece = "<s>" + piece + "</s>"
+            if (runs[i].href) piece = "<a href=\"" + String(runs[i].href).replace(/"/g, "&quot;") + "\">" + piece + "</a>"
+            html += piece
+        }
+        return html
+    }
+    function openLink(blockId, href) {
+        blockOpenRequested(blockId, href)
     }
 
     Tk.Flex {
-        id: editorContent
         anchors.fill: parent
         direction: Tk.Flex.Column
         align: Tk.Flex.Stretch
@@ -98,6 +368,22 @@ Item {
             align: Tk.Flex.Center
             gap: Tk.Theme.space.xs
             Tk.Overline { title: qsTr("PAGE CONTENT"); Tk.Flex.grow: 1; Tk.Flex.basis: 0 }
+            Tk.IconButton {
+                objectName: "blockUndo"
+                visible: !!control.notebook
+                iconName: "undo-2"
+                tooltip: qsTr("Undo the last notebook edit")
+                enabled: !!control.notebook && control.notebook.canUndo
+                onClicked: control.notebook.undo()
+            }
+            Tk.IconButton {
+                objectName: "blockRedo"
+                visible: !!control.notebook
+                iconName: "redo-2"
+                tooltip: qsTr("Redo the notebook edit")
+                enabled: !!control.notebook && control.notebook.canRedo
+                onClicked: control.notebook.redo()
+            }
             Tk.ComboBox {
                 id: insertType
                 objectName: "blockInsertType"
@@ -118,302 +404,36 @@ Item {
         }
         Tk.Caption {
             objectName: "blockEditorError"
-            visible: control.errorText.length > 0
-            text: control.errorText
+            visible: control.activeError.length > 0
+            text: control.activeError
             color: Tk.Theme.color.warning
             wrapMode: Text.WordWrap
         }
-        Tk.Scroll {
+        Tk.Caption {
+            objectName: "blockEditorEmpty"
+            visible: control.presentedBlocks.length === 0
+            text: qsTr("This page is empty. Insert a block to begin.")
+            color: Tk.Theme.color.textMuted
+        }
+        ListView {
+            id: blockList
             objectName: "blockEditorList"
-            overflowY: Tk.Scroll.Auto
-            Tk.Flex {
-                id: blockList
-                direction: Tk.Flex.Column
-                align: Tk.Flex.Stretch
-                gap: Tk.Theme.space.sm
-                Repeater {
-                    model: control.blocks
-                    delegate: Tk.Box {
-                        id: blockCard
-                        required property var modelData
-                        required property int index
-                        objectName: "notebookBlock_" + modelData.id
-                        color: control.selectedBlockId === modelData.id ? Tk.Theme.color.panelAlt : Tk.Theme.color.panel
-                        borderColor: control.selectedBlockId === modelData.id ? Tk.Theme.color.accent : Tk.Theme.color.border
-                        radius: Tk.Theme.radius.md
-                        padding: Tk.Theme.space.sm
-                        Accessible.role: Accessible.Grouping
-                        Accessible.name: qsTr("%1 block, %2").arg(modelData.type).arg(modelData.data && (modelData.data.title || modelData.data.text) || modelData.id)
-                        Accessible.description: modelData.locked ? qsTr("Read only") : modelData.error || ""
-                        property var dataSnapshot: modelData.data || ({})
-
-                        Tk.Flex {
-                            anchors.fill: parent
-                            direction: Tk.Flex.Column
-                            gap: Tk.Theme.space.xs
-                            Tk.Flex {
-                                direction: Tk.Flex.Row
-                                align: Tk.Flex.Center
-                                gap: Tk.Theme.space.xs
-                                Tk.Button {
-                                    objectName: "blockSelect_" + modelData.id
-                                    text: modelData.data && (modelData.data.title || modelData.data.language) || modelData.type
-                                    tooltip: qsTr("Select %1 block").arg(modelData.type)
-                                    variant: control.selectedBlockId === modelData.id ? "accent" : "ghost"
-                                    onClicked: control.blockSelectionRequested(modelData.id)
-                                    Tk.Flex.grow: 1
-                                    Tk.Flex.basis: 0
-                                }
-                                Tk.Badge {
-                                    visible: !!modelData.locked
-                                    text: qsTr("Read only")
-                                    variant: "warning"
-                                    tooltip: qsTr("This block is read only")
-                                }
-                                Tk.IconButton {
-                                    objectName: "blockMoveUp_" + modelData.id
-                                    iconName: "arrow-up"
-                                    tooltip: qsTr("Move block earlier")
-                                    enabled: control.capabilities.canMove && !modelData.locked && index > 0
-                                    onClicked: control.moveBlock(modelData.id, -1)
-                                }
-                                Tk.IconButton {
-                                    objectName: "blockMoveDown_" + modelData.id
-                                    iconName: "arrow-down"
-                                    tooltip: qsTr("Move block later")
-                                    enabled: control.capabilities.canMove && !modelData.locked && index < control.blocks.length - 1
-                                    onClicked: control.moveBlock(modelData.id, 1)
-                                }
-                                Tk.IconButton {
-                                    objectName: "blockDelete_" + modelData.id
-                                    iconName: "trash-2"
-                                    tooltip: qsTr("Delete block")
-                                    enabled: control.capabilities.canDelete && !modelData.locked
-                                    onClicked: control.blockDeleteRequested(modelData.id)
-                                }
-                            }
-                            Loader {
-                                id: blockContentLoader
-                                objectName: "blockContent_" + modelData.id
-                                width: parent.width
-                                sourceComponent: modelData.type === "text" || modelData.type === "heading" || modelData.type === "code"
-                                                 ? textComponent : modelData.type === "image" || modelData.type === "ink"
-                                                 ? mediaComponent : modelData.type === "table" ? tableComponent
-                                                 : modelData.type === "embed" ? embedComponent : unsupportedComponent
-                                onLoaded: {
-                                    if (item && item.hasOwnProperty("blockId")) item.blockId = modelData.id
-                                    if (item && item.hasOwnProperty("initialData")) item.initialData = blockCard.dataSnapshot
-                                    if (item && item.hasOwnProperty("blockType")) item.blockType = modelData.type
-                                    if (item && item.hasOwnProperty("locked")) item.locked = !!modelData.locked
-                                }
-                            }
-                            Tk.Flex {
-                                direction: Tk.Flex.Row
-                                gap: Tk.Theme.space.xs
-                                visible: modelData.type === "text"
-                                Tk.Button {
-                                    objectName: "blockSplit_" + modelData.id
-                                    text: qsTr("Split at cursor")
-                                    iconName: "scissors"
-                                    tooltip: qsTr("Request a text split at the active caret")
-                                    enabled: control.capabilities.canSplit && !modelData.locked
-                                    onClicked: {
-                                        const field = blockContentLoader.item ? blockContentLoader.item.textEditor : null
-                                        control.splitBlock(modelData, field ? field.cursorPosition : 0)
-                                    }
-                                }
-                                Tk.Button {
-                                    objectName: "blockMerge_" + modelData.id
-                                    text: qsTr("Merge with previous")
-                                    iconName: "merge"
-                                    tooltip: qsTr("Request merging with the previous text block")
-                                    enabled: control.capabilities.canMerge && !modelData.locked && index > 0
-                                             && control.blocks[index - 1].type === "text"
-                                    onClicked: control.mergeWithPrevious(modelData)
-                                }
-                                Tk.Spacer { size: Tk.Theme.space.xs }
-                            }
-                            Tk.Caption {
-                                objectName: "blockError_" + modelData.id
-                                visible: String(modelData.error || "").length > 0
-                                text: modelData.error || ""
-                                color: Tk.Theme.color.warning
-                                wrapMode: Text.WordWrap
-                            }
-                        }
-                        TapHandler { onTapped: control.blockSelectionRequested(modelData.id) }
-                    }
-                }
-                Tk.Caption { visible: control.blocks.length === 0; text: qsTr("This page is empty. Insert a block to begin."); color: Tk.Theme.color.textMuted }
+            Tk.Flex.grow: 1
+            Tk.Flex.basis: 0
+            clip: true
+            model: control.presentedIds
+            reuseItems: true
+            cacheBuffer: Tk.Theme.size.panelMinHeight
+            spacing: Tk.Theme.space.sm
+            boundsBehavior: Flickable.StopAtBounds
+            keyNavigationEnabled: false
+            Accessible.role: Accessible.List
+            Accessible.name: qsTr("Blocks")
+            T.ScrollBar.vertical: Tk.ScrollBar { }
+            delegate: Tk.BlockEditorBlock {
+                editor: control
+                width: blockList.width - Tk.Theme.space.sm
             }
-        }
-    }
-
-    Component {
-        id: textComponent
-        Item {
-            id: textBlock
-            property string blockId: ""
-            property string blockType: "text"
-            property var initialData: ({})
-            property bool locked: false
-            readonly property alias textEditor: textField
-            implicitHeight: textField.implicitHeight + Tk.Theme.space.xs
-            Tk.TextArea {
-                id: textField
-                objectName: "blockText_" + parent.blockId
-                anchors.left: parent.left
-                anchors.right: parent.right
-                text: parent.initialData.text || ""
-                placeholderText: qsTr("Write in this block")
-                rows: parent.blockType === "heading" ? 1 : parent.blockType === "code" ? 4 : 3
-                mono: parent.blockType === "code"
-                readOnly: parent.locked
-                tooltip: parent.blockType === "code" ? qsTr("Code block content") : qsTr("Text block content")
-                onEditingFinished: if (!parent.locked && text !== parent.initialData.text)
-                                       control.submitText({ id: parent.blockId, data: parent.initialData, locked: parent.locked }, text)
-                Keys.onPressed: function(event) {
-                    if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_Return) {
-                        control.splitBlock({ id: parent.blockId, type: parent.blockType, locked: parent.locked }, cursorPosition)
-                        event.accepted = true
-                    } else if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier)) {
-                        control.blockNavigateRequested(parent.blockId, "next")
-                    } else if (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier)) {
-                        control.blockNavigateRequested(parent.blockId, "previous")
-                    }
-                }
-                onActiveFocusChanged: if (activeFocus) {
-                    control.blockFocusRequested(parent.blockId)
-                    control.blockSelectionRequested(parent.blockId)
-                }
-                Component.onCompleted: if (control.focusedBlockId === parent.blockId) forceActiveFocus()
-                Connections {
-                    target: control
-                    function onFocusedBlockIdChanged() {
-                        if (control.focusedBlockId === textBlock.blockId) textField.forceActiveFocus()
-                    }
-                }
-            }
-        }
-    }
-    Component {
-        id: mediaComponent
-        Tk.Flex {
-            id: mediaBlock
-            property string blockId: ""
-            property string blockType: "image"
-            property var initialData: ({})
-            property bool locked: false
-            direction: Tk.Flex.Column
-            align: Tk.Flex.Stretch
-            gap: Tk.Theme.space.xs
-            Tk.AssetThumbnail {
-                objectName: "blockMediaPreview_" + parent.blockId
-                provider: control.provider
-                resourceId: mediaBlock.initialData.resourceId || ""
-                document: control.document
-                viewId: control.viewId
-                requestKind: "thumbnail"
-                tooltip: parent.blockType === "ink" ? qsTr("Ink preview") : qsTr("Image block preview")
-                active: !!mediaBlock.initialData.resourceId
-                implicitWidth: Tk.Theme.size.thumbnail * 2
-                implicitHeight: Tk.Theme.size.thumbnailHeight
-            }
-            Tk.Caption {
-                text: mediaBlock.blockType === "ink"
-                      ? qsTr("%1 strokes · %2").arg((mediaBlock.initialData.strokes || []).length).arg(mediaBlock.initialData.state || qsTr("No strokes"))
-                      : (mediaBlock.initialData.caption || mediaBlock.initialData.resourceId || qsTr("No image linked"))
-                color: mediaBlock.initialData.state === "missing" ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
-            }
-            Tk.Button {
-                objectName: "blockMediaRelink_" + parent.blockId
-                text: qsTr("Choose media")
-                iconName: "image-plus"
-                tooltip: qsTr("Request a media link for this block")
-                enabled: !mediaBlock.locked
-                visible: mediaBlock.blockType === "image"
-                onClicked: control.blockActionRequested(mediaBlock.blockId, "choose-media", control.notebookId + ":media:" + Date.now())
-            }
-        }
-    }
-    Component {
-        id: tableComponent
-        Item {
-            id: tableBlock
-            property string blockId: ""
-            property var initialData: ({})
-            property bool locked: false
-            property var rows: initialData.rows || []
-            implicitHeight: Math.min(tableRows.implicitHeight + Tk.Theme.size.control, Tk.Theme.size.panelMinHeight * 2)
-            Tk.Flex {
-                anchors.fill: parent
-                direction: Tk.Flex.Column
-                gap: Tk.Theme.size.border
-                Repeater {
-                    model: tableBlock.initialData.rows || []
-                    delegate: Tk.Flex {
-                        required property var modelData
-                        direction: Tk.Flex.Row
-                        Repeater {
-                            model: modelData
-                            delegate: Tk.Box {
-                                id: tableCell
-                                required property var modelData
-                                property string cellText: String(modelData)
-                                color: Tk.Theme.color.panelAlt
-                                borderColor: Tk.Theme.color.border
-                                padding: Tk.Theme.space.xs
-                                radius: Tk.Theme.radius.xs
-                                Tk.Label { text: tableCell.cellText; wrapMode: Text.WordWrap; elide: Text.ElideRight }
-                                Tk.Flex.grow: 1
-                                Tk.Flex.basis: 0
-                            }
-                        }
-                    }
-                }
-                id: tableRows
-            }
-            Tk.Button {
-                objectName: "blockTableEdit_" + parent.blockId
-                anchors.right: parent.right
-                anchors.top: parent.top
-                text: qsTr("Edit table")
-                iconName: "table"
-                tooltip: qsTr("Open this table in the host table editor")
-                onClicked: control.blockActionRequested(tableBlock.blockId, "edit-table", control.notebookId + ":table:" + Date.now())
-            }
-        }
-    }
-    Component {
-        id: embedComponent
-        Tk.Notice {
-            id: embedBlock
-            property string blockId: ""
-            property var initialData: ({})
-            property bool locked: false
-            title: initialData.title || qsTr("Embedded content")
-            text: initialData.description || qsTr("Linked item · %1").arg(initialData.targetId || qsTr("no target"))
-            variant: initialData.state === "ready" ? "info" : "warning"
-            objectName: "blockEmbed_" + blockId
-            Tk.Button {
-                text: qsTr("Open")
-                iconName: "external-link"
-                tooltip: qsTr("Open linked content")
-                visible: !!embedBlock.initialData.targetId
-                onClicked: control.blockOpenRequested(embedBlock.blockId, embedBlock.initialData.targetId)
-            }
-        }
-    }
-    Component {
-        id: unsupportedComponent
-        Tk.Notice {
-            property string blockId: ""
-            property string blockType: ""
-            property var initialData: ({})
-            title: qsTr("Unsupported block type")
-            text: qsTr("%1 is preserved by the host but has no editor in this view.").arg(blockType)
-            variant: "warning"
-            objectName: "blockUnsupported_" + blockId
         }
     }
 }

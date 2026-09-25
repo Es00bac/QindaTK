@@ -33,6 +33,7 @@ pages below are the reference.
 | [publishing.md](publishing.md) | Named styles with inheritance and overrides, merged table cells, table styles, linked text frames, page columns and `qindatk.richtext` version 2 |
 | [printing.md](printing.md) | Print tickets and destination capabilities, one sheet geometry for preview, PDF and printers, bounded preview cache, cancellable jobs, publishing preflight with validated repairs, page bleed |
 | [references-review.md](references-review.md) | Equations (TeX subset, layout, linear text), reference fields that renumber in one undo step, comments and tracked changes with accept/reject |
+| [notebooks.md](notebooks.md) | Persistent notebooks: sections, pages and nested blocks with stable IDs, split/merge/nesting, cross-block selection and paste, search, links, missing media, code evaluation, chart blocks, sessions and recovery |
 | [resource-table.md](resource-table.md) | Stable resource and time-bucket identity, allocation units, conflicts and reversible edits |
 | [persistence.md](persistence.md) | Document sessions of any registered kind, the reference file format, atomic save, multi-document close and recovery behavior |
 | [document-models.md](document-models.md) | Domain model/command/codec contracts, the shared history engine, save clean marks, recovery frames and how a new domain joins |
