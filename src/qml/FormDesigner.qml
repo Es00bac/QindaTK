@@ -75,16 +75,26 @@ Tk.Box {
     function caption(name) { const spec = fieldDesign(name); return String(spec.label || name) }
     function isHidden(name) { return fieldDesign(name).hidden === true }
     function quoteIdentifier(name) { return '"' + String(name).replace(/"/g, '""') + '"' }
+    // AGENT-GUARD (docs/forms-reports.md#designers): record values change
+    // only in edit mode, and an empty entry is null (never 0), so a required
+    // number left blank fails validateRecord instead of saving a zero.
     function setFieldValue(name, value) {
+        if (mode !== "edit") { requestState = "refused"; requestMessage = qsTr("Switch to edit mode to change the record"); return false }
         const field = (schemaSnapshot.fields || []).find(entry => String(entry.name) === name)
         if (!field) return false
         const next = Object.assign({}, workingRecord)
         const type = String(field.type || "").toLowerCase()
-        if (value === "" && field.notNull !== true) next[name] = null
+        if (value === "" || value === null || value === undefined) next[name] = null
         else if (type.includes("int") || type.includes("real") || type.includes("numeric") || type.includes("float") || type.includes("double")) {
-            const number = Number(value); if (!isFinite(number)) return false; next[name] = number
+            const text = String(value).trim()
+            const number = Number(text)
+            if (!text.length || !isFinite(number) || (type.includes("int") && !Number.isInteger(number))) {
+                requestState = "invalid"; requestMessage = qsTr("%1 needs a number").arg(caption(name)); return false
+            }
+            next[name] = number
         } else next[name] = value
         workingRecord = next
+        if (requestState === "invalid" || requestState === "refused") { requestState = "idle"; requestMessage = "" }
         return true
     }
     function validateRecord(values) {
@@ -95,7 +105,9 @@ Tk.Box {
         }
         return ""
     }
+    // Design and preview never issue a record write, whatever calls this.
     function requestRecordSave() {
+        if (mode !== "edit") { requestState = "refused"; requestMessage = qsTr("Records are saved only in edit mode"); return false }
         const validation = validateRecord(workingRecord)
         if (validation.length) { requestState = "invalid"; requestMessage = validation; return false }
         const changes = ({})
@@ -185,7 +197,7 @@ Tk.Box {
             Tk.Button { text: qsTr("Preview"); tooltip: qsTr("Preview without database writes"); onClicked: control.mode = "preview" }
             Tk.Button { text: qsTr("Edit record"); tooltip: qsTr("Edit the selected database record"); onClicked: control.mode = "edit" }
         }
-        Tk.Notice { visible: control.requestState === "invalid" || control.requestState === "rejected"; variant: "danger"; title: qsTr("Form update"); text: control.requestMessage }
+        Tk.Notice { visible: control.requestState === "invalid" || control.requestState === "rejected" || control.requestState === "refused"; variant: "danger"; title: qsTr("Form update"); text: control.requestMessage }
         Repeater {
             model: control.displayFields
             delegate: Tk.Flex {

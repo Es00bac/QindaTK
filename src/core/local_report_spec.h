@@ -36,6 +36,10 @@ struct Spec {
     QString table;
     QString title;
     QString footer;
+    // Running page header/footer bands, printed in every page's margins by
+    // the paginator ({page} and {pages} expand; docs/forms-reports.md#page-bands).
+    QString pageHeader;
+    QString pageFooter;
     QVector<Column> columns;       // detail band
     QVector<Group> groups;         // outermost first, at most MaximumGroups
     QVector<Total> totals;         // report footer
@@ -81,6 +85,8 @@ Output evaluate(const SqliteTableSource &source, const Spec &spec);
 // pageBreakBefore groups. `documentId` keeps the live document's identity.
 QJsonObject documentJson(const Output &output, const Spec &spec, const QString &documentId);
 
+// The page footer band of a design that does not set pageFooterText.
+QString defaultPageFooter();
 // WP-029 aggregate names ("countRows", "sum", ...) and their labels.
 bool functionFromName(const QString &name, QueryMeasure::Function *function);
 QString functionName(QueryMeasure::Function function);

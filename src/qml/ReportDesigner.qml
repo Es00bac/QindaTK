@@ -5,7 +5,7 @@ import QindaTK as Tk
 
 // Preview runs one allow-listed, parameterized read through the local provider.
 // AGENT-CONTRACT (docs/forms-reports.md#designers): with `designDocument`
-// set, the header, footer, group, group total, page break, detail and
+// set, the header, footer, page header/footer, group, group total, page break, detail and
 // filter controls edit the document's report through LocalDataDesignDocument
 // commands (one undo step each) and follow its undo/redo; export requests
 // then carry designDocument.report, the definition LocalReportDocumentModel
@@ -26,6 +26,9 @@ Tk.Box {
     property int pageSize: 20
     property string headerText: qsTr("Data report")
     property string footerText: ""
+    // Running page bands, printed in every page's margins; {page} and {pages} expand.
+    property string pageHeaderText: ""
+    property string pageFooterText: qsTr("Page {page} of {pages}")
     property var previewRows: []
     property var previewColumns: []
     property bool previewTruncated: false
@@ -61,6 +64,8 @@ Tk.Box {
         if (designDocument.tableName.length) tableName = designDocument.tableName
         headerText = String(report.headerText || "")
         footerText = String(report.footerText || "")
+        pageHeaderText = String(report.pageHeaderText || "")
+        pageFooterText = report.pageFooterText === undefined ? qsTr("Page {page} of {pages}") : String(report.pageFooterText)
         showDetail = report.detail !== false
         const group = (report.groups || [])[0] || ({})
         groupField = String(group.field || report.groupField || "")
@@ -83,7 +88,10 @@ Tk.Box {
     }
     function applyText(key, text) {
         if (designDocument) return edited(designDocument.setReportText(key, text))
-        if (key === "headerText") headerText = text; else footerText = text
+        if (key === "headerText") headerText = text
+        else if (key === "footerText") footerText = text
+        else if (key === "pageHeaderText") pageHeaderText = text
+        else pageFooterText = text
         return true
     }
     function applyGroup(field, totalField, fn, pageBreak) {
@@ -144,7 +152,7 @@ Tk.Box {
         const id = "report-export-" + Date.now() + "-" + (++_requestSerial)
         lastRequestId = id; reportState = "export-requested"
         exportRequested(id, designDocument ? designDocument.report
-                                           : ({ headerText: headerText, footerText: footerText, tableName: tableName, filterField: filterField, filterValue: filterValue,
+                                           : ({ headerText: headerText, footerText: footerText, pageHeaderText: pageHeaderText, pageFooterText: pageFooterText, tableName: tableName, filterField: filterField, filterValue: filterValue,
                                                 groups: groupSpec(groupField, sumField, totalFunction, pageBreakPerGroup), detail: showDetail, pageSize: pageSize }))
         return id
     }
@@ -186,6 +194,11 @@ Tk.Box {
             direction: Tk.Flex.Row; gap: Tk.Theme.space.sm
             Tk.TextField { objectName: "reportHeader"; text: control.headerText; tooltip: qsTr("Report header"); Accessible.name: tooltip; onEditingFinished: { if (text !== control.headerText) control.applyText("headerText", text) } Tk.Flex.grow: 1 }
             Tk.TextField { objectName: "reportFooter"; text: control.footerText; placeholderText: qsTr("Footer"); tooltip: qsTr("Report footer"); Accessible.name: tooltip; onEditingFinished: { if (text !== control.footerText) control.applyText("footerText", text) } Tk.Flex.grow: 1 }
+        }
+        Tk.Flex {
+            direction: Tk.Flex.Row; gap: Tk.Theme.space.sm
+            Tk.TextField { objectName: "reportPageHeader"; text: control.pageHeaderText; placeholderText: qsTr("Page header"); tooltip: qsTr("Page header on every page; {page} and {pages} expand"); Accessible.name: tooltip; onEditingFinished: { if (text !== control.pageHeaderText) control.applyText("pageHeaderText", text) } Tk.Flex.grow: 1 }
+            Tk.TextField { objectName: "reportPageFooter"; text: control.pageFooterText; placeholderText: qsTr("Page footer"); tooltip: qsTr("Page footer on every page; {page} and {pages} expand"); Accessible.name: tooltip; onEditingFinished: { if (text !== control.pageFooterText) control.applyText("pageFooterText", text) } Tk.Flex.grow: 1 }
         }
         Tk.Overline { title: control.previewTruncated ? qsTr("PREVIEW · MORE ROWS OMITTED") : qsTr("PREVIEW"); wide: true }
         Repeater {

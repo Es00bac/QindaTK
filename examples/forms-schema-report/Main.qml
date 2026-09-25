@@ -155,34 +155,40 @@ Tk.AppWindow {
                     readOnly: true
                 }
             }
+            // The print panel (sheet, navigation, output settings) is taller
+            // than the document strip, so it scrolls instead of overflowing.
             Item {
                 height: Tk.Theme.size.waveformHeight * 9
                 Tk.Flex.basis: Tk.Theme.size.panelMinWidth * 2.3; Tk.Flex.shrink: 0
-                Tk.PrintPreview {
-                    id: printPreview
-                    objectName: "reportPrintPreview"
+                Tk.Scroll {
+                    objectName: "reportPrintScroll"
                     anchors.fill: parent
-                    pageCount: printer.pageCount
-                    currentPage: Math.min(window.currentPage, Math.max(0, printer.pageCount - 1))
-                    pageRange: printer.settings.pageRange
-                    settings: printer.settings
-                    capabilities: printer.capabilities
-                    destinations: printer.destinations
-                    job: printer.job
-                    onPageRequested: function(index) { window.currentPage = index }
-                    onPageRangeChangeRequested: function(range) { printer.applySettings({ pageRange: range }) }
-                    onSettingsChangeRequested: function(next) { if (!printer.applySettings(next)) window.workflowStatus = printer.lastError }
-                    onPrintRequested: function(settings, range) {
-                        if (printer.print({ pageRange: range }) === "") window.workflowStatus = printer.lastError
-                    }
-                    onCancelPrintRequested: function(id) { printer.cancel(id) }
-                    Tk.PrintSheetView {
-                        objectName: "reportPrintSheet"
-                        anchors.fill: parent
-                        adapter: printer
-                        pageIndex: printPreview.currentPage
-                        Accessible.role: Accessible.Graphic
-                        Accessible.name: qsTr("Printed sheet for report page %1").arg(pageIndex + 1)
+                    accessibleName: qsTr("Print preview and output settings")
+                    Tk.PrintPreview {
+                        id: printPreview
+                        objectName: "reportPrintPreview"
+                        pageCount: printer.pageCount
+                        currentPage: Math.min(window.currentPage, Math.max(0, printer.pageCount - 1))
+                        pageRange: printer.settings.pageRange
+                        settings: printer.settings
+                        capabilities: printer.capabilities
+                        destinations: printer.destinations
+                        job: printer.job
+                        onPageRequested: function(index) { window.currentPage = index }
+                        onPageRangeChangeRequested: function(range) { printer.applySettings({ pageRange: range }) }
+                        onSettingsChangeRequested: function(next) { if (!printer.applySettings(next)) window.workflowStatus = printer.lastError }
+                        onPrintRequested: function(settings, range) {
+                            if (printer.print({ pageRange: range }) === "") window.workflowStatus = printer.lastError
+                        }
+                        onCancelPrintRequested: function(id) { printer.cancel(id) }
+                        Tk.PrintSheetView {
+                            objectName: "reportPrintSheet"
+                            anchors.fill: parent
+                            adapter: printer
+                            pageIndex: printPreview.currentPage
+                            Accessible.role: Accessible.Graphic
+                            Accessible.name: qsTr("Printed sheet for report page %1").arg(pageIndex + 1)
+                        }
                     }
                 }
             }

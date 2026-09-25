@@ -90,6 +90,8 @@ QString numberText(double n)
 }
 } // namespace
 
+QString defaultPageFooter() { return tr("Page {page} of {pages}"); }
+
 bool functionFromName(const QString &name, QueryMeasure::Function *function)
 {
     const int index = functionNames.indexOf(name);
@@ -181,6 +183,12 @@ QString parse(const QVariantMap &report, const QuerySchema &schema, const QVaria
     spec.title = report.value(QStringLiteral("headerText")).toString().trimmed();
     if (spec.title.isEmpty()) spec.title = tr("Data report");
     spec.footer = report.value(QStringLiteral("footerText")).toString().trimmed();
+    // A design without the key gets page numbers; "" turns the band off.
+    spec.pageHeader = report.value(QStringLiteral("pageHeaderText")).toString().trimmed();
+    spec.pageFooter = report.contains(QStringLiteral("pageFooterText"))
+        ? report.value(QStringLiteral("pageFooterText")).toString().trimmed() : defaultPageFooter();
+    if (spec.pageHeader.size() > 500 || spec.pageFooter.size() > 500)
+        return tr("Page header and footer text is limited to 500 characters");
 
     // Detail band: named columns, or every reportable column.
     const QVariantList columns = report.value(QStringLiteral("columns")).toList();

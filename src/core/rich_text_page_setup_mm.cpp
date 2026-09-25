@@ -74,7 +74,7 @@ bool RichTextDocument::applyPageSetupMm(const QVariantMap &settings)
         return false;
     }
     if ((orientation == QStringLiteral("landscape")) != (width > height)) std::swap(width, height);
-    RichText::PageSetup page;
+    RichText::PageSetup page = m_page; // keeps the running page regions
     page.widthPt = width * pointsPerMillimetre;
     page.heightPt = height * pointsPerMillimetre;
     page.marginTopPt = top * pointsPerMillimetre;

@@ -48,6 +48,7 @@ open such a file.
 | --- | --- |
 | `tableName` | The bound table. `LocalDataDesignDocument.report` fills it in |
 | `headerText`, `footerText` | The report header (a level 1 heading) and the closing paragraph |
+| `pageHeaderText`, `pageFooterText` | The page header and page footer bands, one line in every page's top and bottom margin. `{page}` and `{pages}` expand to the page number and count. Without `pageFooterText` a report prints "Page {page} of {pages}"; `""` turns a band off. At most 500 characters |
 | `columns` | The detail band: field names or `{field, label}`. When the list is empty, every column is shown (every bound field, through the document) |
 | `groups` | Up to 3 levels, outermost first: `{field, label, pageBreakBefore, totals: [{field, function}]}` |
 | `totals` | Report-footer totals, `[{field, function}]` |
@@ -111,7 +112,8 @@ document:
 | --- | --- |
 | Report header | Heading 1 |
 | Group header | Heading 2–4, indented by level, kept with the next block. With `pageBreakBefore`, every group of that level except the first starts a new page, but only when it is the outermost group that changed, so a header is never left behind on the previous page |
-| Detail | One table per run of the innermost group. Its first row holds the column labels, and the paginator repeats that row at the top of every continuation page. This row is the page header band |
+| Page header and page footer | <a id="page-bands"></a>The document's running page regions (`page.headerText`, `page.footerText`, [rich text](rich-text.md#running-page-regions)), painted in the 48pt margins of every page, so they never move the body |
+| Detail | One table per run of the innermost group. Its first row holds the column labels, and the paginator repeats that row at the top of every continuation page, above that page's first detail row |
 | Group and report totals | Bold paragraphs |
 
 The document is decoded into the model's single `document`, so a
@@ -132,9 +134,11 @@ of these `errorStage` values:
 | `layout` | The rich-text decoder refused the result |
 | `output` | A PDF path problem |
 
-Running page footers (page numbers) are not available. The rich-text
-paginator has no running page regions, and a report cannot add them
+Page numbers come from the page footer band
 ([D-183](decisions-domains.md#d-183--a-report-is-a-rich-text-document-with-band-paragraphs-and-tables)).
+`tst_local_report_design` checks "Page *n* of *N*" on every page of a
+multi-page report, the inked margins of printed sheets, and that the header
+row repeats with no detail row lost.
 
 ## Design document
 
@@ -154,7 +158,7 @@ rules, it returns false, sets `lastError` and changes nothing:
 | --- | --- |
 | `bindTable(provider, table, fields)` | Bind to *table*: binds the table and records the live column types. Form fields, columns, groups, totals and a filter that name an unbound field are dropped |
 | `setFormTitle`, `setFormFieldLabel`, `setFormFieldHidden`, `moveFormField` | Form layout |
-| `setReportText(headerText \| footerText)`, `setReportColumns`, `setReportDetail` | Report bands |
+| `setReportText(headerText \| footerText \| pageHeaderText \| pageFooterText)`, `setReportColumns`, `setReportDetail` | Report and page bands |
 | `setReportGroups`, `setReportTotal(groupField, field, function, enabled)`, `setGroupPageBreak` | Groups and totals (`groupField` empty: the report footer) |
 | `setReportFilter(predicate, parameters)` | The filter. `QueryEngine::fromJson` checks it first |
 | `setReportPage(paperId, orientation)` | Page rules |
@@ -179,12 +183,29 @@ A changed type on its own is a warning.
 With `designDocument` set, `FormDesigner` shows the document's form in form
 order. In design mode it can edit the title, labels, "Shown" and field order
 (up/down), with undo and redo in its header. `ReportDesigner` edits the
-header, footer, first group level, group total and function, "New page per
+header, footer, page header and page footer, first group level, group total and function, "New page per
 group", "Detail rows" and the equality filter, and its export request
 carries `designDocument.report`. Every change is one document command. The
 panel shows a refused edit in its error notice. Nested groups and other
 report shapes are set through the document API. Without `designDocument`,
 both controls keep their host-snapshot behaviour and request signals.
+
+`FormDesigner` changes record values and emits `recordSaveRequested` only in
+edit mode. In design or preview mode `setFieldValue` and `requestRecordSave`
+return false and set `requestState` to `refused`, whoever calls them. A blank
+entry is null, never 0, and a number column refuses text or, for an INTEGER
+column, a fraction (`requestState` `invalid`). A required (NOT NULL,
+non-key) field left blank fails the save with "*label* is required".
+
+`DatabaseSchemaView` never patches `schemaSnapshot` from a plan. It re-reads
+the provider when the provider changes and when the host acknowledges a
+commit, so a failed commit (`acknowledge(id, "failed", error)`) leaves the
+fields and relationships the database really has and shows the error. A
+previewed plan lists the foreign keys it adds and removes
+(`planRelationships`, from the plan's `relationshipChanges`). A migration
+plan may copy rows with `INSERT INTO t SELECT ...` only into a table the same
+plan creates, the copy step of SQLite's table rebuild, so relationship
+changes on a table with rows can be planned.
 
 ## Verification
 
@@ -194,8 +215,10 @@ both controls keep their host-snapshot behaviour and request signals.
   hostile string), failures at each stage that keep the last document, a
   group page break (1 page without it, 2 with it), printing through a
   `PrintAdapter` backend whose sheets equal the preview, and PDF page counts
-  through the adapter and `exportPdf`. It also checks that a 300-row table
-  paginates.
+  through the adapter and `exportPdf`. A 300-row table paginates with the
+  header row repeated at the top of every later page and no detail row lost
+  or repeated, and every page prints "Page *n* of *N*" and its page header
+  in the margins, on printed sheets equal to the preview.
 - `tst_local_data_design_document`: each command, refused edits, undo/redo
   and a macro; `DocumentManager` create, save, reopen with the same identity,
   and crash recovery; a version 1 file opened with a stable identity; and a
@@ -203,8 +226,15 @@ both controls keep their host-snapshot behaviour and request signals.
   retyped by a table rebuild and back). The design is qualified at each step,
   a failed build keeps the old document, and the report comes back
   identical.
-- `tst_local_database_provider`, `tst_local_data_design_output` and
-  `tst_wp059_database_workflows.qml` (the designers driving a document).
+- `tst_local_database_provider`: relationship changes through table
+  rebuilds preview with their added or removed foreign keys and change
+  nothing; a stale plan fails whole at commit, leaving schema and rows.
+- `tst_wp059_database_workflows.qml`: the designers driving a document,
+  page band edits, form validation (a non-number, a fraction, a blank
+  required field) and no record write in design or preview mode, and
+  `DatabaseSchemaView` through a relationship plan, a failed commit and a
+  successful one.
+- `tst_local_data_design_output`.
 
 Performance, other platforms, screen readers and output-fidelity comparison
 belong to the qualification packages WP-088 to WP-094.

@@ -17,6 +17,7 @@ TestCase {
     Component { id: documentComponent; Tk.LocalDataDesignDocument {} }
     Component { id: reportComponent; Tk.ReportDesigner { provider: root.provider } }
     Component { id: outputComponent; Tk.LocalReportDocumentModel {} }
+    Component { id: schemaComponent; Tk.DatabaseSchemaView { provider: root.provider } }
 
     function init() {
         verify(provider.openMemory())
@@ -56,6 +57,94 @@ TestCase {
         verify(provider.executeMigration(migrationPlan.sql).ok)
     }
 
+    // OFF-33: edits validate before any record write, and design or preview
+    // mode never emits one, whatever calls requestRecordSave.
+    function test_form_validates_and_writes_only_in_edit_mode() {
+        const form = createTemporaryObject(formComponent, root)
+        verify(form)
+        const saved = createTemporaryObject(spyComponent, root, { target: form, signalName: "recordSaveRequested" })
+        verify(!form.setFieldValue("active", "yes"))              // INTEGER column
+        compare(form.requestState, "invalid")
+        verify(form.requestMessage.indexOf("number") >= 0)
+        verify(!form.setFieldValue("active", "1.5"))
+        compare(form.workingRecord.active, 1)
+        verify(form.setFieldValue("active", ""))                  // blank is null, never 0
+        compare(form.workingRecord.active, null)
+        compare(form.requestState, "idle")
+        verify(!form.requestRecordSave())
+        compare(form.requestState, "invalid")
+        compare(form.requestMessage, "active is required")
+        verify(form.setFieldValue("active", "0"))
+        verify(form.setFieldValue("name", "   "))
+        verify(!form.requestRecordSave())
+        compare(form.requestMessage, "name is required")
+        compare(saved.count, 0)
+        verify(form.setFieldValue("name", "Ada"))
+
+        for (const mode of ["design", "preview"]) {
+            form.mode = mode
+            verify(!form.requestRecordSave())
+            compare(form.requestState, "refused")
+            verify(!form.setFieldValue("name", "Changed in " + mode))
+        }
+        compare(saved.count, 0)
+        compare(form.workingRecord.name, "Ada")
+        compare(provider.query("SELECT name, active FROM people WHERE id = 1").rows[0].name, "Mira")
+
+        form.mode = "edit"
+        verify(form.requestRecordSave())
+        compare(saved.count, 1)
+        compare(saved.signalArguments[0][3].name, "Ada")
+        compare(saved.signalArguments[0][3].active, 0)
+    }
+
+    // OFF-34: a relationship change previews as a plan listing the foreign
+    // key; a failed commit leaves the view on the schema the database has.
+    function test_schema_view_relationship_plan_and_failed_commit() {
+        verify(provider.executeMigration("CREATE TABLE orders(id INTEGER PRIMARY KEY, person_id INTEGER)").ok)
+        verify(provider.execute("INSERT INTO orders VALUES(?, ?)", [7, 1]).ok)
+        const view = createTemporaryObject(schemaComponent, root, { selectedTable: "orders" })
+        verify(view)
+        compare(view.schemaSnapshot.relationships.length, 0)
+        const before = JSON.stringify(view.schemaSnapshot)
+        view.migrationStatements = [
+            "CREATE TABLE orders_new(id INTEGER PRIMARY KEY, person_id INTEGER REFERENCES people(id))",
+            "INSERT INTO orders_new(id, person_id) SELECT id, person_id FROM orders",
+            "DROP TABLE orders",
+            "ALTER TABLE orders_new RENAME TO orders"]
+        verify(view.requestPreview())
+        compare(view.requestState, "preview")
+        compare(view.planRelationships.length, 1)
+        compare(view.planRelationships[0].change, "added")
+        compare(view.planRelationships[0].target, "people")
+        waitForRendering(view)
+        const planRow = findChild(view, "schemaPlanRelation_added_0")
+        verify(planRow)
+        compare(planRow.text, "adds orders.person_id → people.id")
+        compare(JSON.stringify(view.schemaSnapshot), before)       // preview changed nothing
+
+        const commits = createTemporaryObject(spyComponent, root, { target: view, signalName: "migrationCommitRequested" })
+        const id = view.requestCommit()
+        compare(commits.count, 1)
+        // The host runs the plan after another change made it stale.
+        verify(provider.executeMigration("CREATE TABLE orders_new(x INTEGER)").ok)
+        const result = provider.executeMigrationPlan(commits.signalArguments[0][1].statements)
+        verify(!result.ok)
+        verify(view.acknowledge(id, "failed", result.error))
+        compare(view.requestState, "failed")
+        compare(JSON.stringify(view.schemaSnapshot), before)
+        compare(view.schemaSnapshot.relationships.length, 0)
+        verify(findChild(view, "schemaMigrationFailed").visible)
+
+        verify(provider.executeMigration("DROP TABLE orders_new").ok)
+        verify(view.requestPreview())
+        const second = view.requestCommit()
+        verify(provider.executeMigrationPlan(view.migrationPlan.statements).ok)
+        verify(view.acknowledge(second, "applied", ""))
+        compare(view.schemaSnapshot.relationships.length, 1)
+        compare(view.schemaSnapshot.relationships[0].table, "people")
+    }
+
     // WP-059: the designers edit a LocalDataDesignDocument through undoable
     // commands, and the exported definition runs through the report engine.
     function test_design_document_drives_designers() {
@@ -93,9 +182,18 @@ TestCase {
         const exported = createTemporaryObject(spyComponent, root, { target: report, signalName: "exportRequested" })
         report.requestExport()
         compare(exported.count, 1)
+        compare(report.pageFooterText, "Page {page} of {pages}")      // new designs number pages
+        verify(report.applyText("pageHeaderText", "People · {page}"))
+        compare(doc.report.pageHeaderText, "People · {page}")
+        compare(doc.undoText, "Edit page header")
         const output = createTemporaryObject(outputComponent, root)
         const built = output.build(root.provider, exported.signalArguments[0][1])
         verify(built.ok, built.error)
+        compare(output.document.pageSetup.footerText, "Page {page} of {pages}")
+        verify(output.build(root.provider, doc.report).ok)
+        compare(output.document.pageSetup.headerText, "People · {page}")
+        verify(doc.undo())
+        compare(report.pageHeaderText, "")
         compare(output.rowCount, 1)
         compare(output.groupCount, 1)
         verify(doc.undo())

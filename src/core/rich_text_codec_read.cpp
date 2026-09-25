@@ -59,6 +59,17 @@ struct Reader {
         return true;
     }
 
+    // A running page region (PageSetup::headerText/footerText): a short string.
+    bool pageRegion(const QJsonObject &o, const char *key, QString *out)
+    {
+        const QJsonValue v = o.value(QLatin1String(key));
+        if (v.isUndefined()) return true;
+        if (!v.isString() || v.toString().size() > PageSetup::MaximumRegionText)
+            return fail(QStringLiteral("page.") + QLatin1String(key), QStringLiteral("Page region text expected"));
+        *out = v.toString();
+        return true;
+    }
+
     bool integer(const QJsonObject &o, const char *key, int *out, int min, int max, const QString &path)
     {
         double value = *out;
@@ -450,6 +461,8 @@ bool RichTextCodec::fromJsonObject(const QJsonObject &root, RichTextDocument &do
         && reader.number(pageJson, "columnGapPt", &page.columnGapPt, 0, 1440, QStringLiteral("page"))
         && reader.number(pageJson, "bleedPt", &page.bleedPt, 0, 72, QStringLiteral("page"))
         && (margins.isEmpty() || margins.size() == 4 || reader.fail(QStringLiteral("page.marginsPt"), QStringLiteral("Four margins expected")))
+        && reader.pageRegion(pageJson, "headerText", &page.headerText)
+        && reader.pageRegion(pageJson, "footerText", &page.footerText)
         && reader.number(defaultsJson, "sizePt", &defaults.sizePt, 1, 1638, QStringLiteral("defaults"))
         && reader.color(defaultsJson, "color", &defaults.color, QStringLiteral("defaults"))
         && reader.common(root) && reader.blocks(root.value(QStringLiteral("blocks")).toArray(), &blocks);

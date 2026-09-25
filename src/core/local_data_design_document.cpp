@@ -108,6 +108,8 @@ QJsonObject LocalDataDesignDocument::emptyDesign()
             {QStringLiteral("tableName"), QString()}, {QStringLiteral("fields"), QVariantList{}}}},
         {QStringLiteral("report"), QVariantMap{{QStringLiteral("tableName"), QString()},
             {QStringLiteral("headerText"), tr("Data report")}, {QStringLiteral("footerText"), QString()},
+            {QStringLiteral("pageHeaderText"), QString()},
+            {QStringLiteral("pageFooterText"), LocalReport::defaultPageFooter()},
             {QStringLiteral("detail"), true}, {QStringLiteral("columns"), QVariantList{}},
             {QStringLiteral("groups"), QVariantList{}}, {QStringLiteral("totals"), QVariantList{}}}}});
 }
@@ -391,12 +393,17 @@ bool LocalDataDesignDocument::moveFormField(const QString &field, int index)
 
 bool LocalDataDesignDocument::setReportText(const QString &key, const QString &text)
 {
-    if (key != QLatin1String("headerText") && key != QLatin1String("footerText"))
-        return fail(tr("Unknown report text %1").arg(key));
+    static const QStringList keys{QStringLiteral("headerText"), QStringLiteral("footerText"),
+                                  QStringLiteral("pageHeaderText"), QStringLiteral("pageFooterText")};
+    const int which = keys.indexOf(key);
+    if (which < 0) return fail(tr("Unknown report text %1").arg(key));
+    if (text.size() > 500) return fail(tr("Report text is limited to 500 characters"));
     QVariantMap next = design();
     QVariantMap report = mapAt(next, QStringLiteral("report"));
     report.insert(key, text);
     next.insert(QStringLiteral("report"), report);
-    return commit(next, key == QLatin1String("headerText") ? tr("Edit report header") : tr("Edit report footer"));
+    const QStringList labels{tr("Edit report header"), tr("Edit report footer"),
+                             tr("Edit page header"), tr("Edit page footer")};
+    return commit(next, labels.at(which));
 }
 } // namespace QindaTK

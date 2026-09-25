@@ -573,15 +573,23 @@ WP-053 already gives rich-text documents one page geometry and one painter.
 
 **Decision.** A report run writes a `qindatk.richtext` document. Headers and
 totals are paragraphs, and detail rows are tables whose first row is the
-column labels, which the paginator repeats on every page (the page header
-band). Group page breaks are `pageBreakBefore` on the outermost group header
-that changed. The model decodes each run into one stable document, and only
-after the whole run succeeded.
+column labels, which the paginator repeats on every continuation page.
+The page header and page footer bands are the document's running page
+regions: `PageSetup::headerText` and `footerText`, one line each, centred in
+the top and bottom margins, with `{page}` and `{pages}` expanded when the
+page is painted. A report without `pageFooterText` prints
+"Page {page} of {pages}". Group page breaks are `pageBreakBefore` on the
+outermost group header that changed. The model decodes each run into one
+stable document, and only after the whole run succeeded.
 
 **Consequences.** `PrintAdapter`, `PrintPreview`, `RichDocumentView` and
-`exportPdf` need no report-specific code. A failed run leaves the last good
-pages on screen. The paginator has no running page regions, so reports have
-no page-footer band and no page numbers.
+`exportPdf` need no report-specific code: `RichTextLayout::paintPage` paints
+the regions for tiles, sheets and PDF pages alike. The regions sit outside
+the content box, so they never change pagination; they are plain text, not
+bands with fields or totals. A document that sets them is written as
+rich-text version 2. When a completed page count changes, every page's
+revision is stamped again so tiles never keep a stale "of N". A failed run
+leaves the last good pages on screen.
 
 ## D-184 — A design is a session document of whole-design steps
 

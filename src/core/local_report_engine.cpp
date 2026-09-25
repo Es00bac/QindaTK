@@ -278,11 +278,17 @@ QJsonObject documentJson(const Output &output, const Spec &spec, const QString &
     else if (spec.paperId == QLatin1String("legal")) { width = 612; height = 1008; }
     else if (spec.paperId == QLatin1String("a5")) { width = 419.528; height = 595.276; }
     if (spec.landscape) std::swap(width, height);
+    // Page header/footer bands are the paginator's running page regions
+    // (PageSetup::headerText/footerText), painted in the 48pt margins.
+    QJsonObject page{{QStringLiteral("widthPt"), width}, {QStringLiteral("heightPt"), height},
+                     {QStringLiteral("marginsPt"), QJsonArray{48, 42, 48, 42}}};
+    if (!spec.pageHeader.isEmpty()) page.insert(QStringLiteral("headerText"), spec.pageHeader);
+    if (!spec.pageFooter.isEmpty()) page.insert(QStringLiteral("footerText"), spec.pageFooter);
+    const bool regions = !spec.pageHeader.isEmpty() || !spec.pageFooter.isEmpty();
     return QJsonObject{
-        {QStringLiteral("schema"), QStringLiteral("qindatk.richtext")}, {QStringLiteral("version"), 1},
+        {QStringLiteral("schema"), QStringLiteral("qindatk.richtext")}, {QStringLiteral("version"), regions ? 2 : 1},
         {QStringLiteral("documentId"), documentId},
-        {QStringLiteral("page"), QJsonObject{{QStringLiteral("widthPt"), width}, {QStringLiteral("heightPt"), height},
-                                             {QStringLiteral("marginsPt"), QJsonArray{48, 42, 48, 42}}}},
+        {QStringLiteral("page"), page},
         {QStringLiteral("defaults"), QJsonObject{{QStringLiteral("family"), QStringLiteral("sans-serif")},
                                                  {QStringLiteral("sizePt"), 9}}},
         {QStringLiteral("formats"), QJsonArray{QJsonObject{}, QJsonObject{{QStringLiteral("weight"), 700}}}},
