@@ -6,6 +6,26 @@
 
 namespace QindaTK {
 
+void AudioSession::connectMidi()
+{
+    // The MIDI model follows the session PPQ by rescaling exactly; a change
+    // it cannot follow is refused at the TimeMap (nothing moves).
+    m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter());
+    m_timeMap->setTicksPerQuarterGuard([this](int ppq) { return m_midi->ticksPerQuarterProblem(ppq); });
+    connect(m_timeMap, &TimeMap::changed, m_midi, [this] { m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter()); });
+    // A pattern that a timeline clip places cannot leave the MIDI content.
+    m_midi->setPatternUse([this](const QUuid &patternId) -> QString {
+        const QString resource = Midi::patternResourceId(patternId);
+        for (const QUuid &trackId : m_timeline->trackOrder())
+            for (const auto &entry : m_timeline->trackIndex(trackId))
+                if (const TimelineClip *clip = m_timeline->clipRecord(entry.id); clip && clip->resourceId == resource)
+                    return tr("A clip on track \"%1\" plays this pattern; delete the clip first")
+                        .arg(m_timeline->trackRecord(trackId)->name);
+        return {};
+    });
+    connect(m_midi, &MidiSequenceModel::contentChanged, this, &AudioSession::rebuild);
+}
+
 QString AudioSession::addMidiTrack(const QString &name)
 {
     clearError();

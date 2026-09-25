@@ -120,7 +120,7 @@ std::optional<QVector<ScoreDuration>> restFill(qint64 offset, qint64 length)
 }
 
 QString writeEvent(ScoreVoice &voice, ScoreEvent event, qint64 measureStart, qint64 measureEnd,
-                   bool fillWholeMeasure)
+                   bool fillWholeMeasure, qint64 phase)
 {
     event.duration = normalized(event.duration);
     const auto length = ticks(event.duration);
@@ -136,9 +136,8 @@ QString writeEvent(ScoreVoice &voice, ScoreEvent event, qint64 measureStart, qin
     std::optional<std::pair<qint64, qint64>> region;
     if (event.duration.actual > 1) {
         const qint64 span = event.duration.normal * baseTicks(event.duration.unit);
-        const qint64 offset = a - measureStart;
-        const qint64 from = measureStart + offset - offset % span;
-        if (b > from + span || from + span > measureEnd)
+        const qint64 from = a - (a - measureStart + phase) % span;
+        if (from < measureStart || b > from + span || from + span > measureEnd)
             return QObject::tr("The %1 does not fit its tuplet group").arg(durationId(event.duration));
         region = std::pair{from, from + span};
     }
@@ -206,7 +205,8 @@ QString writeEvent(ScoreVoice &voice, ScoreEvent event, qint64 measureStart, qin
         }
         for (const auto &[from, to] : pieces) {
             const bool inTuplet = region && from >= region->first && to <= region->second;
-            const auto values = inTuplet ? tupletFill(to - from, event.duration) : restFill(from - measureStart, to - from);
+            const auto values = inTuplet ? tupletFill(to - from, event.duration)
+                                         : restFill(from - measureStart + phase, to - from);
             if (!values) return QObject::tr("No rest fills the %1 ticks left at tick %2").arg(to - from).arg(from);
             qint64 at = from;
             for (const ScoreDuration &value : *values) {
@@ -232,7 +232,7 @@ QString completeVoices(ScoreContent &content)
                 QVector<ScoreEvent> added;
                 for (int m = 0; m + 1 < starts.size(); ++m)
                     for (const auto &[from, to] : gapsIn(voice.events, starts[m], starts[m + 1])) {
-                        const auto values = restFill(from - starts[m], to - from);
+                        const auto values = restFill(from - starts[m] + measurePhase(content.measures[m]), to - from);
                         if (!values) return QObject::tr("No rest fills measure %1").arg(m + 1);
                         qint64 at = from;
                         for (const ScoreDuration &value : *values) {

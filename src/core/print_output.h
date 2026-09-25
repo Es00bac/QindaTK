@@ -44,6 +44,10 @@ QVariantMap sheetToMap(const Sheet &sheet);
 // Pixel size of a sheet rendered at `zoom` (1: 96 pixels per inch).
 QSize sheetPixelSize(const Sheet &sheet, double zoom);
 
+// The largest zoom no greater than `zoom`, in 1/64 steps below it, whose
+// image of `sheet` stays within `maxBytes` at 4 bytes per pixel.
+double previewZoom(const Sheet &sheet, double zoom, qint64 maxBytes);
+
 // Output colours: black ink, no selection, caret or editing guides.
 RichText::PaintContext outputContext(RichTextObjectRenderer *objects);
 // Paints `sheet` with the painter in sheet units of 1/96 inch; `paper` fills

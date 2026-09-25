@@ -36,6 +36,7 @@ bool wholeNumber(const QVariant &value, int minimum, int maximum, int *out)
 } // namespace
 
 VoxelVolume::VoxelVolume(QObject *parent) : QObject(parent) {}
+VoxelVolume::~VoxelVolume() { emit aboutToBeDestroyed(); }
 QVariantList VoxelVolume::spacing() const { return {m_spacing[0], m_spacing[1], m_spacing[2]}; }
 QVariantList VoxelVolume::origin() const { return {m_origin[0], m_origin[1], m_origin[2]}; }
 QVariantList VoxelVolume::orientation() const
@@ -89,9 +90,12 @@ void VoxelVolume::setMaximumResidentBytes(qint64 bytes)
     if (bytes < qint64(m_blocks.size()) * chunkBytes()) {
         fail(QStringLiteral("Resident limit is below stored voxel data")); return;
     }
-    m_maxResidentBytes = bytes;
-    while (m_residentBytes > m_maxResidentBytes && !m_cacheOrder.empty())
-        dropCached(m_cacheOrder.front());
+    {
+        QMutexLocker lock(&m_lock);
+        m_maxResidentBytes = bytes;
+        while (m_residentBytes > m_maxResidentBytes && !m_cacheOrder.empty())
+            dropCached(m_cacheOrder.front());
+    }
     fail({}); emit changed();
 }
 
@@ -143,17 +147,31 @@ bool VoxelVolume::configure(const QVariantMap &description)
     const QString unit = description.value(QStringLiteral("unit"), QStringLiteral("mm")).toString();
     const QString valueUnit = description.value(QStringLiteral("valueUnit")).toString();
     if (unit.isEmpty()) { fail(QStringLiteral("Spatial unit is required")); return false; }
+    QStringList axisIds{QStringLiteral("x"), QStringLiteral("y"), QStringLiteral("z")};
+    if (description.contains(QStringLiteral("axisIds"))) {
+        axisIds = description.value(QStringLiteral("axisIds")).toStringList();
+        if (axisIds.size() != 3 || axisIds.contains(QString()) || axisIds.removeDuplicates() != 0) {
+            fail(QStringLiteral("Axis IDs must be three distinct, non-empty names")); return false;
+        }
+    }
     if (m_maxResidentBytes < chunkBytesFor(kind)) {
         fail(QStringLiteral("Resident limit is smaller than one %1 chunk").arg(type)); return false;
     }
-    std::copy(shape, shape + 3, m_shape);
-    std::copy(spacing, spacing + 3, m_spacing);
-    std::copy(origin, origin + 3, m_origin);
-    std::copy(orientation, orientation + 9, m_orientation);
-    m_channels = channels; m_frames = frames; m_kind = kind; m_type = type;
-    m_unit = unit; m_valueUnit = valueUnit;
-    clearStorage(); m_source.reset();
-    ++m_revision; fail({}); emit changed();
+    {
+        QMutexLocker lock(&m_lock);
+        std::copy(shape, shape + 3, m_shape);
+        std::copy(spacing, spacing + 3, m_spacing);
+        std::copy(origin, origin + 3, m_origin);
+        std::copy(orientation, orientation + 9, m_orientation);
+        m_channels = channels; m_frames = frames; m_kind = kind; m_type = type;
+        m_unit = unit; m_valueUnit = valueUnit;
+        m_datasetId = description.value(QStringLiteral("datasetId")).toString();
+        m_frame = description.value(QStringLiteral("frameOfReference")).toString();
+        m_axisIds = axisIds;
+        clearStorage(); m_source.reset();
+        ++m_revision;
+    }
+    fail({}); emit changed();
     return true;
 }
 
@@ -185,6 +203,11 @@ const QByteArray *VoxelVolume::chunkForRead(int cx, int cy, int cz, int channel,
     return &inserted->bytes;
 }
 double VoxelVolume::valueAt(int x, int y, int z, int channel, int frame) const
+{
+    QMutexLocker lock(&m_lock);
+    return valueAtLocked(x, y, z, channel, frame);
+}
+double VoxelVolume::valueAtLocked(int x, int y, int z, int channel, int frame) const
 {
     if (!validIndex(x, y, z, channel, frame)) return Missing;
     const QByteArray *bytes = chunkForRead(x / Chunk, y / Chunk, z / Chunk, channel, frame);
@@ -248,9 +271,13 @@ QString VoxelVolume::writeVoxel(int x, int y, int z, double value, int channel, 
 }
 bool VoxelVolume::setVoxel(int x, int y, int z, double value, int channel, int frame)
 {
-    const QString error = writeVoxel(x, y, z, value, channel, frame);
-    if (!error.isEmpty()) { fail(error); return false; }
-    ++m_revision; fail({}); emit changed(); return true;
+    {
+        QMutexLocker lock(&m_lock);
+        const QString error = writeVoxel(x, y, z, value, channel, frame);
+        if (!error.isEmpty()) { lock.unlock(); fail(error); return false; }
+        ++m_revision;
+    }
+    fail({}); emit changed(); return true;
 }
 bool VoxelVolume::putChunk(int cx, int cy, int cz, int channel, int frame, const QByteArray &bytes)
 {
@@ -259,15 +286,19 @@ bool VoxelVolume::putChunk(int cx, int cy, int cz, int channel, int frame, const
         || frame >= m_frames || bytes.size() != chunkBytes()) {
         fail(QStringLiteral("Invalid chunk coordinates or byte count")); return false;
     }
-    const quint64 address = key(cx, cy, cz, channel, frame);
-    if (!m_blocks.contains(address)) {
-        // An owned chunk supersedes a cached provider copy of the same block.
-        dropCached(address);
-        if (!makeRoom()) { fail(QStringLiteral("Resident limit exceeded")); return false; }
-        m_residentBytes += chunkBytes();
+    {
+        QMutexLocker lock(&m_lock);
+        const quint64 address = key(cx, cy, cz, channel, frame);
+        if (!m_blocks.contains(address)) {
+            // An owned chunk supersedes a cached provider copy of the same block.
+            dropCached(address);
+            if (!makeRoom()) { lock.unlock(); fail(QStringLiteral("Resident limit exceeded")); return false; }
+            m_residentBytes += chunkBytes();
+        }
+        m_blocks.insert(address, bytes);
+        ++m_revision;
     }
-    m_blocks.insert(address, bytes);
-    ++m_revision; fail({}); emit changed(); return true;
+    fail({}); emit changed(); return true;
 }
 bool VoxelVolume::copyChunk(int cx, int cy, int cz, int channel, int frame, QByteArray *out) const
 {
@@ -275,6 +306,7 @@ bool VoxelVolume::copyChunk(int cx, int cy, int cz, int channel, int frame, QByt
     if (cx < 0 || cy < 0 || cz < 0 || cx >= chunkCount(0) || cy >= chunkCount(1)
         || cz >= chunkCount(2) || channel < 0 || channel >= m_channels || frame < 0
         || frame >= m_frames) return false;
+    QMutexLocker lock(&m_lock);
     if (const QByteArray *bytes = chunkForRead(cx, cy, cz, channel, frame)) {
         *out = *bytes;
         return true;
@@ -285,9 +317,13 @@ bool VoxelVolume::copyChunk(int cx, int cy, int cz, int channel, int frame, QByt
 }
 void VoxelVolume::setSource(std::shared_ptr<VoxelChunkSource> source)
 {
-    m_source = std::move(source);
-    clearStorage();
-    ++m_revision; fail({}); emit changed();
+    {
+        QMutexLocker lock(&m_lock);
+        m_source = std::move(source);
+        clearStorage();
+        ++m_revision;
+    }
+    fail({}); emit changed();
 }
 bool VoxelVolume::fillSpherePhantom(double radiusFraction)
 {
@@ -299,6 +335,7 @@ bool VoxelVolume::fillSpherePhantom(double radiusFraction)
         fail(QStringLiteral("Phantom radius fraction must be greater than 0 and at most 0.5"));
         return false;
     }
+    QMutexLocker lock(&m_lock);
     clearStorage(); m_source.reset();
     // AGENT-NOTE: known answer for tests and examples. The centre is index
     // (size−1)/2; r = fraction × the smallest physical extent (size × spacing).
@@ -324,6 +361,7 @@ bool VoxelVolume::fillSpherePhantom(double radiusFraction)
                     error = writeVoxel(x, y, z, distance <= radius * 0.55 ? peak : peak * 0.5, 0, 0);
             }
     ++m_revision;
+    lock.unlock();
     fail(error.isEmpty() ? QString() : QStringLiteral("Phantom incomplete: %1").arg(error));
     emit changed();
     return error.isEmpty();
@@ -335,6 +373,7 @@ double VoxelVolume::sampleValue(double x, double y, double z, int channel, int f
     // centre, so each axis samples −0.5 … size−0.5. Nearest picks the
     // containing cell; Linear clamps to the outer centres in the edge half cell.
     const double point[3] = {x, y, z};
+    QMutexLocker lock(&m_lock);
     if (m_shape[0] < 1) return Missing;
     int lower[3], upper[3];
     double fraction[3];
@@ -362,7 +401,7 @@ double VoxelVolume::sampleValue(double x, double y, double z, int channel, int f
             index[axis] = high ? upper[axis] : lower[axis];
         }
         if (weight == 0) continue;
-        const double value = valueAt(index[0], index[1], index[2], channel, frame);
+        const double value = valueAtLocked(index[0], index[1], index[2], channel, frame);
         if (!std::isfinite(value)) return Missing;
         total += weight * value;
     }

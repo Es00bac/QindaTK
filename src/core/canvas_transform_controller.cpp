@@ -14,10 +14,14 @@ bool finite(QPointF point)
     return std::isfinite(point.x()) && std::isfinite(point.y());
 }
 
-bool hasLeft(const QString &handle) { return handle.contains(QLatin1String("Left")) || handle == QLatin1String("left"); }
-bool hasRight(const QString &handle) { return handle.contains(QLatin1String("Right")) || handle == QLatin1String("right"); }
-bool hasTop(const QString &handle) { return handle.contains(QLatin1String("Top")) || handle == QLatin1String("top"); }
-bool hasBottom(const QString &handle) { return handle.contains(QLatin1String("Bottom")) || handle == QLatin1String("bottom"); }
+// AGENT-GUARD: SelectionOverlay names corners "topLeft", "bottomRight"...:
+// the vertical part is the lower-case prefix, the horizontal part the
+// capitalised suffix. Matching "Top"/"Bottom" instead made every corner
+// drag scale horizontally only (tst_canvas_transform::cornerHandlesScaleBothAxes).
+bool hasLeft(const QString &handle) { return handle.endsWith(QLatin1String("Left")) || handle == QLatin1String("left"); }
+bool hasRight(const QString &handle) { return handle.endsWith(QLatin1String("Right")) || handle == QLatin1String("right"); }
+bool hasTop(const QString &handle) { return handle.startsWith(QLatin1String("top")); }
+bool hasBottom(const QString &handle) { return handle.startsWith(QLatin1String("bottom")); }
 
 // Shift-move: the nearest 45-degree document direction. Axis directions zero
 // the other component exactly; diagonals project onto (±1, ±1).

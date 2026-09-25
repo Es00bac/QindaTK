@@ -10,10 +10,15 @@ void VideoFinishing::setGradeSession(ColorGradeEditSession *session)
     if (m_session == session) return;
     disconnect(m_sessionLink);
     m_session = session;
-    if (session)
+    if (session) {
+        // AGENT-NOTE: the session attached here is the program's output
+        // grade, so it must not reset when the host feeds it the next frame
+        // (docs/color.md "Output grade"); ProgramGrade also makes its preview
+        // render in the program's pipeline context.
+        session->setScope(ColorGradeEditSession::ProgramGrade);
         m_sessionLink = connect(session, &ColorGradeEditSession::changed, this, &VideoFinishing::sourceChanged);
-    sourceChanged();
-    emit changed();
+    }
+    if (!sourceChanged()) emit changed();
 }
 
 void VideoFinishing::setCaptionTrack(CaptionTrackModel *track)
@@ -22,32 +27,28 @@ void VideoFinishing::setCaptionTrack(CaptionTrackModel *track)
     disconnect(m_trackLink);
     m_track = track;
     if (track) m_trackLink = connect(track, &CaptionTrackModel::changed, this, &VideoFinishing::sourceChanged);
-    sourceChanged();
-    emit changed();
+    if (!sourceChanged()) emit changed();
 }
 
 void VideoFinishing::setGradeEnabled(bool enabled)
 {
     if (m_gradeEnabled == enabled) return;
     m_gradeEnabled = enabled;
-    sourceChanged();
-    emit changed();
+    if (!sourceChanged()) emit changed();
 }
 
 void VideoFinishing::setBurnInCaptions(bool enabled)
 {
     if (m_burnIn == enabled) return;
     m_burnIn = enabled;
-    sourceChanged();
-    emit changed();
+    if (!sourceChanged()) emit changed();
 }
 
 void VideoFinishing::setEmbedCaptions(bool enabled)
 {
     if (m_embed == enabled) return;
     m_embed = enabled;
-    sourceChanged();
-    emit changed();
+    if (!sourceChanged()) emit changed();
 }
 
 MediaFinishing VideoFinishing::value(bool includePreview) const
@@ -81,12 +82,13 @@ QString VideoFinishing::summary() const
     return parts.isEmpty() ? tr("No finishing") : parts.join(QStringLiteral(" · "));
 }
 
-void VideoFinishing::sourceChanged()
+bool VideoFinishing::sourceChanged()
 {
     const QString next = value(true).digest();
-    if (next == m_digest) return;
+    if (next == m_digest) return false;
     m_digest = next;
     emit changed();
+    return true;
 }
 
 } // namespace QindaTK

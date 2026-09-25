@@ -415,9 +415,9 @@ Item {
         columns: analysis.columns
         selectionStartSample: "0"
         selectionEndSample: "1200"
-        onEditRequested: function(gesture, sourceId, channelId, operation, startSample, endSample) {
-            audio.edits.apply(sourceId, { operation: operation, channel: channelId,
-                                          startSample: startSample, endSample: endSample })
+        onEditRequested: function(gesture, sourceId, channelId, operation, startSample, endSample, parameters) {
+            audio.edits.apply(sourceId, Object.assign({ operation: operation, channel: channelId,
+                                                        startSample: startSample, endSample: endSample }, parameters))
         }
         onZoomRequested: function(anchor, factor) { analysis.zoom(anchor, factor) }
     }
@@ -439,7 +439,7 @@ Item {
 
         QVariant accepted;
         QVERIFY(QMetaObject::invokeMethod(editor, "requestEdit", Q_RETURN_ARG(QVariant, accepted),
-                                          Q_ARG(QVariant, QStringLiteral("fadeIn"))));
+                                          Q_ARG(QVariant, QStringLiteral("fadeIn")), Q_ARG(QVariant, QVariantMap{})));
         QVERIFY(accepted.toBool());
         const QVariantList list = session->edits()->edits(id);
         QCOMPARE(list.size(), 1);

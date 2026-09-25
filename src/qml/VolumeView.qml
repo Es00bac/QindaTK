@@ -11,7 +11,10 @@ import QindaTK as Tk
 // AGENT-CONTRACT (docs/volume-imaging.md#volume-rendering): the camera, mode,
 // sampling and clip box are view settings (saveSettings/restoreSettings);
 // the view never writes voxels, and the GPU or reference choice is reported
-// in renderPath/fallbackReason by Tk.VolumeViewItem.
+// in renderPath/fallbackReason by Tk.VolumeViewItem. Volume reads run in the
+// background (D-261): `busy` is true while a frame is in flight, Escape or
+// cancelRendering() stops it, and linkError says why a transfer function or
+// cursor with incompatible metadata is ignored (D-260).
 T.Control {
     id: control
     objectName: "volumeView"
@@ -34,6 +37,9 @@ T.Control {
     property alias maximumTextureBytes: rendered.maximumTextureBytes
     readonly property string renderPath: rendered.renderPath
     readonly property string fallbackReason: rendered.fallbackReason
+    readonly property string lastError: rendered.lastError
+    readonly property bool busy: rendered.busy
+    readonly property string linkError: rendered.linkError
     readonly property bool orbiting: _drag.active
     property string title: qsTr("Volume")
     property string tooltip: qsTr("Volume rendering")
@@ -49,6 +55,12 @@ T.Control {
     function resetView() { rendered.resetView() }
     function orbit(deltaYaw, deltaPitch) { rendered.orbit(deltaYaw, deltaPitch) }
     function pickAt(x, y) { return rendered.pick(x, y) }
+    function cancelRendering() {
+        if (!rendered.busy) return false
+        rendered.cancelRendering()
+        return true
+    }
+    function renderStatistics() { return rendered.renderStatistics() }
     function cancelOrbit() {
         if (!_drag.active) return false
         rendered.yaw = _drag.startYaw
@@ -105,7 +117,7 @@ T.Control {
         case Qt.Key_Equal: control.zoom = control.zoom * control.zoomStep; break
         case Qt.Key_Minus: control.zoom = control.zoom / control.zoomStep; break
         case Qt.Key_Home: control.resetView(); break
-        case Qt.Key_Escape: handled = control.cancelOrbit(); break
+        case Qt.Key_Escape: handled = control.cancelOrbit() || control.cancelRendering(); break
         default: handled = false
         }
         event.accepted = handled
@@ -218,8 +230,16 @@ T.Control {
                     .arg(Math.round(control.yaw)).arg(Math.round(control.pitch)).arg(control.zoom.toFixed(2))
                     .arg(control.volume.sizeX + " × " + control.volume.sizeY + " × " + control.volume.sizeZ)
                     .arg(control.volume.voxelType)
-                    .arg(control.renderPath === "gpu" ? qsTr("· GPU") : qsTr("· CPU reference"))
+                    .arg((control.renderPath === "gpu" ? qsTr("· GPU") : qsTr("· CPU reference"))
+                         + (control.busy ? qsTr(" · rendering (Esc cancels)") : ""))
                 : qsTr("No volume")
+        }
+        Tk.Caption {
+            objectName: "volumeViewLinkError"
+            visible: control.linkError.length > 0
+            text: control.linkError
+            color: Tk.Theme.color.warning
+            wrapMode: Text.Wrap
         }
     }
 }

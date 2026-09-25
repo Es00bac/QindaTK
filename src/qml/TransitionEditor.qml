@@ -146,6 +146,8 @@ Item {
         }
         Tk.Flex {
             width: parent.width
+            align: Tk.Flex.Center
+            gap: Tk.Theme.space.sm
             Tk.Caption { text: qsTr("Between") }
             Tk.Label {
                 text: root.validSnapshot ? String(root.effectiveTransition.leftClipId) + "  →  " + String(root.effectiveTransition.rightClipId) : "—"

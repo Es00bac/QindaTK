@@ -8,7 +8,9 @@
 
 namespace QindaTK {
 
-// Checkpoint list for one synchronized PropertyDocument. Local mode keeps
+// Checkpoint list for one synchronized PropertyDocument. Both modes keep the
+// newest 64 versions: a new checkpoint (including restore's safety version)
+// evicts the oldest instead of failing. Local mode keeps
 // immutable QSaveFile snapshots owned by this replica. Shared mode sends each
 // checkpoint as a Checkpoint operation, so every replica lists the same
 // versions in the same order from its operation log (D-169). Restore emits a
@@ -39,6 +41,9 @@ public:
     Q_INVOKABLE QVariantList diff(const QString &fromId, const QString &toId) const;
     Q_INVOKABLE QVariantList diffCurrent(const QString &fromId) const;
     Q_INVOKABLE bool restore(const QString &id);
+    // Local mode only: deletes one stored version. Shared versions are log
+    // operations; the newest MaxSharedCheckpoints are listed.
+    Q_INVOKABLE bool remove(const QString &id);
 signals:
     void changed();
 private:

@@ -74,7 +74,8 @@ public:
     void consume(const AudioMeterBlock &block);
     // One levelsChanged per drain; `newlyDropped` blocks never reached the GUI.
     void publish(quint64 newlyDropped = 0);
-    // "Mono" -> {"M"}, "Stereo" -> {"L", "R"}, otherwise "1".."n".
+    // "Mono" -> {"M"}, "Stereo" -> {"L", "R"}, "Quad" -> {"L", "R", "Ls", "Rs"},
+    // "5.1" -> {"L", "R", "C", "LFE", "Ls", "Rs"}, otherwise "1".."n".
     static QStringList channelNames(const QString &layout, int channels);
 
     // ---- fixture path ----

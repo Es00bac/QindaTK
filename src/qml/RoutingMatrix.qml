@@ -12,6 +12,13 @@ import QindaTK as Tk
 // is AudioMixerModel.setOutput, answered at once. A connection to a port that
 // is no longer offered (its device went away) stays shown as unavailable; it
 // is never displayed as another port or as disconnected.
+// Selection is a stable input ID (`selectedInputId`, `inputSelected`): bound
+// rows come from mixer.routingInputs, which moves and updates rows in place,
+// so an accepted route (or a reorder) keeps the current row, its delegate and
+// a focused destination editor; host arrays re-find the row by ID. Keys:
+// Up/Down, Home/End and Page Up/Down move the selection; Return or Enter
+// focuses its destination, whose Up/Down propose the neighbouring route;
+// Escape goes back to the rows.
 T.Control {
     id: matrix
     objectName: "routingMatrix"
@@ -19,6 +26,7 @@ T.Control {
     property var inputPorts: [] // [{id,label,layout,available}]
     property var outputPorts: [] // [{id,label,layout,available,reason}]
     property var connections: [] // [{inputId,outputId}]
+    property string selectedInputId: ""
     property string tooltip: qsTr("Audio routing")
     property string _serial: "0"
     property string _pendingRequestId: ""
@@ -27,11 +35,14 @@ T.Control {
     readonly property string routeState: _routeState
     readonly property string routeMessage: _routeMessage
     readonly property alias inputList: routes
+    readonly property var inputModel: mixer ? mixer.routingInputs : inputPorts
+    readonly property int inputCount: mixer ? mixer.routingInputs.count : (inputPorts ? inputPorts.length : 0)
     readonly property var routeOptions: [{id: "", label: qsTr("Disconnected"), available: true}]
             .concat(outputPorts || [])
 
     signal routeRequested(string requestId, string inputPortId, string outputPortId)
     signal routeAcknowledged(string requestId, string state, string message)
+    signal inputSelected(string inputId)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 2
     implicitHeight: Tk.Theme.size.panelMinHeight * 2
@@ -39,12 +50,52 @@ T.Control {
     Accessible.role: Accessible.List
     Accessible.name: tooltip
     Accessible.description: qsTr("%1 input routes to %2 output ports. %3")
-            .arg(inputPorts ? inputPorts.length : 0).arg(outputPorts ? outputPorts.length : 0).arg(_routeMessage)
+            .arg(inputCount).arg(outputPorts ? outputPorts.length : 0).arg(_routeMessage)
 
     Binding { target: matrix; property: "inputPorts"; when: matrix.mixer !== null; value: matrix.mixer ? matrix.mixer.routingSources : [] }
     Binding { target: matrix; property: "outputPorts"; when: matrix.mixer !== null; value: matrix.mixer ? matrix.mixer.routingDestinations : [] }
     Binding { target: matrix; property: "connections"; when: matrix.mixer !== null; value: matrix.mixer ? matrix.mixer.connections : [] }
 
+    function inputIdAt(row) {
+        if (mixer) return mixer.routingInputs.channelAt(row)
+        return inputPorts && row >= 0 && row < inputPorts.length ? String(inputPorts[row].id) : ""
+    }
+    function rowOf(inputId) {
+        if (mixer) return mixer.routingInputs.indexOf(String(inputId))
+        for (let i = 0; inputPorts && i < inputPorts.length; ++i)
+            if (String(inputPorts[i].id) === String(inputId)) return i
+        return -1
+    }
+    function selectInput(inputId) {
+        const row = rowOf(inputId)
+        if (row < 0) return false
+        routes.currentIndex = row
+        if (selectedInputId !== String(inputId)) {
+            selectedInputId = String(inputId)
+            inputSelected(selectedInputId)
+        }
+        return true
+    }
+    function stepInput(delta) {
+        if (inputCount === 0) return
+        const row = rowOf(selectedInputId)
+        selectInput(inputIdAt(row < 0 ? 0 : Math.max(0, Math.min(inputCount - 1, row + delta))))
+    }
+    // AGENT-GUARD: after the rows change the current row is re-found by ID,
+    // never kept by index (a host array replaced, a row inserted above).
+    function followSelection() {
+        const row = rowOf(selectedInputId)
+        if (row >= 0 && routes.currentIndex !== row) routes.currentIndex = row
+    }
+    // Focuses the destination editor of an input (keyboard route editing).
+    function editInput(inputId) {
+        if (!selectInput(inputId)) return false
+        routes.positionViewAtIndex(routes.currentIndex, ListView.Contain)
+        const item = routes.itemAtIndex(routes.currentIndex)
+        if (!item) return false
+        item.edit()
+        return true
+    }
     function find(list, id) {
         for (let i = 0; list && i < list.length; ++i)
             if (String(list[i].id) === String(id)) return list[i]
@@ -78,7 +129,7 @@ T.Control {
         return requestId
     }
     function requestRoute(inputId, outputId) {
-        const input = find(inputPorts, inputId)
+        const input = mixer ? find(mixer.routingSources, inputId) : find(inputPorts, inputId)
         if (!input) return ""
         const target = String(outputId || "")
         const output = target.length ? find(outputPorts, target) : null
@@ -129,7 +180,7 @@ T.Control {
             width: parent.width
             Tk.Overline { title: qsTr("INPUT → DESTINATION") }
             Tk.Spacer { }
-            Tk.Caption { text: qsTr("%1 inputs").arg(matrix.inputPorts ? matrix.inputPorts.length : 0); color: Tk.Theme.color.textMuted }
+            Tk.Caption { text: qsTr("%1 inputs").arg(matrix.inputCount); color: Tk.Theme.color.textMuted }
         }
         Tk.Caption {
             objectName: "routingMatrixStatus"
@@ -147,24 +198,56 @@ T.Control {
             implicitHeight: Tk.Theme.size.panelMinHeight
             Tk.Flex.grow: 1
             clip: true
-            model: matrix.inputPorts
+            model: matrix.inputModel
             reuseItems: true
             boundsBehavior: Flickable.StopAtBounds
-            keyNavigationEnabled: true
+            keyNavigationEnabled: false // the keys below move the selection by ID
             activeFocusOnTab: true
+            currentIndex: -1
+            onCountChanged: Qt.callLater(matrix.followSelection)
+            onModelChanged: Qt.callLater(matrix.followSelection)
+            Keys.onPressed: (event) => {
+                const page = Math.max(1, Math.floor(routes.height / (Tk.Theme.size.control + Tk.Theme.space.xs)))
+                if (event.key === Qt.Key_Up) matrix.stepInput(-1)
+                else if (event.key === Qt.Key_Down) matrix.stepInput(1)
+                else if (event.key === Qt.Key_PageUp) matrix.stepInput(-page)
+                else if (event.key === Qt.Key_PageDown) matrix.stepInput(page)
+                else if (event.key === Qt.Key_Home) matrix.selectInput(matrix.inputIdAt(0))
+                else if (event.key === Qt.Key_End) matrix.selectInput(matrix.inputIdAt(matrix.inputCount - 1))
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                    matrix.editInput(matrix.selectedInputId.length ? matrix.selectedInputId : matrix.inputIdAt(0))
+                else return
+                if (routes.currentIndex >= 0) routes.positionViewAtIndex(routes.currentIndex, ListView.Contain)
+                event.accepted = true
+            }
             highlightMoveDuration: Tk.Theme.motion.instant
             highlight: Rectangle { color: Tk.Theme.color.selection; radius: Tk.Theme.radius.sm }
             Accessible.role: Accessible.List
             Accessible.name: matrix.Accessible.name
-            delegate: Item {
+            // AGENT-GUARD: the row is a FocusScope. When the current row moves
+            // (a reorder), ListView re-focuses it; in a plain Item that took
+            // focus from an open destination editor. Inside the scope the
+            // editor keeps its focus until Escape or another row is current.
+            delegate: FocusScope {
                 id: row
                 required property int index
-                required property var modelData
-                property var inputPort: modelData || ({})
+                required property var model
+                onFocusChanged: if (!focus) destination.focus = false
+                ListView.onReused: destination.focus = false
+                // Bound rows are roles of mixer.routingInputs; host rows are array entries.
+                readonly property var inputPort: matrix.mixer
+                    ? ({id: String(row.model.portId || ""), label: String(row.model.label || ""),
+                        layout: String(row.model.layout || ""), available: row.model.available !== false})
+                    : (row.model.modelData || ({}))
+                function edit() { destination.forceActiveFocus() }
                 readonly property var options: matrix.optionsFor(row.inputPort.id)
                 objectName: "routingMatrixRow"
                 width: routes.width
                 height: Tk.Theme.size.control + Tk.Theme.space.xs
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: { matrix.selectInput(row.inputPort.id); routes.forceActiveFocus() }
+                }
                 Tk.Flex {
                     anchors.fill: parent
                     gap: Tk.Theme.space.sm
@@ -195,6 +278,13 @@ T.Control {
                             matrix.requestRoute(row.inputPort.id, row.options[index].id)
                             currentIndex = matrix.outputIndexFor(row.inputPort.id)
                         }
+                        onActiveFocusChanged: if (activeFocus) matrix.selectInput(row.inputPort.id)
+                        Keys.onEscapePressed: (event) => {
+                            if (destination.popup.visible) { event.accepted = false; return }
+                            destination.focus = false
+                            routes.forceActiveFocus()
+                            event.accepted = true
+                        }
                     }
                 }
                 // AGENT-GUARD: the combo box shows the owner's connection, not
@@ -208,7 +298,7 @@ T.Control {
         }
         Tk.EmptyState {
             objectName: "routingMatrixEmpty"
-            visible: !matrix.inputPorts || matrix.inputPorts.length === 0
+            visible: matrix.inputCount === 0
             width: parent.width
             height: Tk.Theme.size.panelMinHeight
             title: qsTr("NO INPUT PORTS")

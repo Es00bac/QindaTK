@@ -55,30 +55,55 @@ struct RecordJump {
     qint64 position = 0;
 };
 
-// GUI -> realtime MIDI (WP-064): audition notes and the clip launcher.
+// GUI -> realtime MIDI (WP-064): audition notes, the clip launcher and MIDI
+// recording. Reset ends every launched clip, audition note and recording at
+// once (a session leaving the engine); it is never a counted request.
 struct MidiCommand {
-    enum Kind : int { NoteOn, NoteOff, AllNotesOff, Launch, Stop };
+    enum Kind : int { NoteOn, NoteOff, AllNotesOff, Launch, Stop, Reset, RecordStart, RecordStop };
     quint64 serial = 0;
     int kind = NoteOn;
     int pitch = 0;
     quint16 velocity = 0;
-    quint64 lane = 0;   // Launch/Stop: Midi::key(track id); Stop with 0 stops every lane
-    quint64 slot = 0;   // Launch: Midi::key(slot id)
+    quint64 lane = 0;   // Launch/Stop/RecordStart: Midi::key(track id); Stop with 0 stops every lane
+    quint64 slot = 0;   // Launch/RecordStart: Midi::key(slot id)
     int quantize = int(MidiQuantize::Bar);
 };
 
-// Realtime -> GUI launcher events. Every Launch/Stop command gets exactly one
-// answer (Queued, StopQueued, Stopped or Rejected) with its serial; Started
-// and Stopped report transitions later, Canceled a request that was replaced.
+// Realtime -> GUI launcher and recording events. Every Launch/Stop/Record*
+// command gets exactly one answer (Queued, StopQueued, Stopped, Rejected,
+// RecordQueued or RecordStopped) with its serial; Started and Stopped report
+// transitions later, Canceled a request that was replaced. After a transport
+// jump (loop wrap, seek) a waiting launch or stop is re-quantized from the
+// new position and reported again (Queued / StopQueued, same serial).
+// NoteRecorded carries the take-relative tick of an audition note that the
+// device thread applied while a recording ran (velocity 0: note-off, pitch
+// -1: all notes off); RecordStopped carries the take length in ticks (0:
+// nothing was recorded).
 struct MidiEngineEvent {
-    enum Kind : int { Queued, Started, StopQueued, Stopped, Canceled, Rejected };
-    enum Code : int { None, NoGraph, NoSlot, NoLane, TransportStopped };
+    enum Kind : int { Queued, Started, StopQueued, Stopped, Canceled, Rejected, RecordQueued, NoteRecorded, RecordStopped };
+    enum Code : int { None, NoGraph, NoSlot, NoLane, TransportStopped, RecordBusy, NotRecording, Detached };
     int kind = Queued;
     int code = None;
     quint64 serial = 0;
     quint64 lane = 0;
     quint64 slot = 0;
     qint64 sample = 0;
+    qint64 tick = 0;
+    int pitch = 0;
+    quint16 velocity = 0;
+};
+
+// A MIDI recording on the device thread (D-153): armed from its quantized
+// start boundary; ticks are relative to `startTick`, which a transport jump
+// re-bases so a take keeps running forward through a loop wrap.
+struct MidiRecordState {
+    bool armed = false;
+    quint64 serial = 0;
+    quint64 lane = 0;
+    quint64 slot = 0;
+    int quantize = 0;
+    qint64 startTick = 0;
+    qint64 startSample = 0;
 };
 
 // One audition note of the built-in test instrument (MidiTestInstrument).
@@ -166,6 +191,7 @@ private:
     // MIDI, audio_engine_midi_rt.cpp.
     void applyMidi(const MidiCommand &command) noexcept;
     void midiEvent(int kind, quint64 serial, quint64 lane, quint64 slot, qint64 sample, int code = 0) noexcept;
+    void recordEvent(int kind, quint64 serial, qint64 tick, int pitch = 0, quint16 velocity = 0, int code = 0) noexcept;
     MidiLaunchLane *launchLane(quint64 lane, bool create) noexcept;
     void launch(const MidiCommand &command) noexcept;
     void stopLane(MidiLaunchLane &lane, quint64 serial, int quantize) noexcept;
@@ -173,6 +199,11 @@ private:
     void launchTransitions(qint64 position) noexcept;
     qint64 nextLaunchTransition(qint64 position) const noexcept;
     void endLaunches(bool report) noexcept;
+    void rebaseMidi(qint64 from, qint64 to) noexcept; // a transport jump (loop wrap, seek)
+    void resetMidi() noexcept;
+    void startRecord(const MidiCommand &command) noexcept;
+    void stopRecord(quint64 serial, int quantize, int code) noexcept;
+    void recordNote(int pitch, quint16 velocity) noexcept;
     void startVoice(int pitch, quint16 velocity) noexcept;
     void releaseVoices(int pitch) noexcept; // -1: every voice
     void renderAudition(float *output, int frames, int channels) noexcept;
@@ -215,6 +246,7 @@ private:
     AudioSpscRing<MidiCommand> m_midiCommands{kMidiCommandCapacity};
     AudioSpscRing<MidiEngineEvent> m_midiEvents{kMidiEventCapacity};
     MidiLaunchState m_launch;
+    MidiRecordState m_midiRecord;
     AuditionVoice m_voices[kAuditionVoices];
     double m_auditionStep[128] = {};
     quint64 m_voiceOrder = 0;

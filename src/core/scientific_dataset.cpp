@@ -51,6 +51,17 @@ bool offsets(const QVariantMap &row, const QString &name, double *low, double *h
 }
 QJsonValue maybe(bool has, double value) { return has ? QJsonValue(value) : QJsonValue(QJsonValue::Null); }
 QVariant maybeVariant(bool has, double value) { return has ? QVariant(value) : QVariant(); }
+// The UncertaintyModel projection of a Trace: one interval per present sample.
+QVariantList traceIntervals(const QVector<ScientificSample> &samples)
+{
+    QVariantList out; out.reserve(samples.size());
+    for (const ScientificSample &s:samples)
+        if (!s.missingY) out.append(QVariantMap{{QStringLiteral("id"),s.id},
+            {QStringLiteral("sourceId"),s.id},{QStringLiteral("x"),s.x},{QStringLiteral("estimate"),s.y},
+            {QStringLiteral("low"),maybeVariant(s.hasSigmaY,s.y-s.sigmaYLow)},
+            {QStringLiteral("high"),maybeVariant(s.hasSigmaY,s.y+s.sigmaYHigh)}});
+    return out;
+}
 }
 
 ScientificDataset::ScientificDataset(QObject *parent):QAbstractListModel(parent),m_intervals(this)
@@ -75,6 +86,11 @@ void ScientificDataset::setKind(Kind value)
             if (!(m_samples[i].x>m_samples[i-1].x)) {
                 setError(QStringLiteral("Trace requires strictly increasing x; replace samples first")); return;
             }
+    // AGENT-GUARD: `intervals` follows the kind: Trace projects every present
+    // sample, Scatter projects none (the D-138 contract UncertaintyView reads).
+    if (!m_intervals.replaceIntervals(value==Trace ? traceIntervals(m_samples) : QVariantList())) {
+        setError(m_intervals.lastError()); return;
+    }
     m_kind=value; updateMetadata(); emit changed();
 }
 void ScientificDataset::setDimensions(int value)
@@ -127,7 +143,6 @@ bool ScientificDataset::replaceSamples(const QVariantList &rows)
     if (m_sourceId.trimmed().isEmpty()) { setError(QStringLiteral("sourceId is required")); return false; }
     if (rows.size()>SampleLimit) { setError(QStringLiteral("Sample limit is 100000")); return false; }
     QVector<ScientificSample> parsed; parsed.reserve(rows.size());
-    QVariantList intervals; if (m_kind==Trace) intervals.reserve(rows.size());
     QHash<QString,int> ids; int missingCount=0; QString error;
     for (const QVariant &entry:rows) {
         if (entry.metaType().id()!=QMetaType::QVariantMap) {
@@ -139,16 +154,13 @@ bool ScientificDataset::replaceSamples(const QVariantList &rows)
             setError(QStringLiteral("Unique sample IDs and strictly increasing finite numeric x required")); return false;
         }
         if (sample.missingY) ++missingCount;
-        else if (m_kind==Trace) intervals.append(QVariantMap{{QStringLiteral("id"),sample.id},
-            {QStringLiteral("sourceId"),sample.id},{QStringLiteral("x"),sample.x},
-            {QStringLiteral("estimate"),sample.y},
-            {QStringLiteral("low"),maybeVariant(sample.hasSigmaY,sample.y-sample.sigmaYLow)},
-            {QStringLiteral("high"),maybeVariant(sample.hasSigmaY,sample.y+sample.sigmaYHigh)}});
         ids.insert(sample.id,parsed.size()); parsed.append(sample);
     }
     // AGENT-GUARD: validate every row before mutating either representation;
     // the interval adapter receives only drawable, finite estimates.
-    if (!m_intervals.replaceIntervals(intervals)) { setError(m_intervals.lastError()); return false; }
+    if (!m_intervals.replaceIntervals(m_kind==Trace ? traceIntervals(parsed) : QVariantList())) {
+        setError(m_intervals.lastError()); return false;
+    }
     beginResetModel(); m_samples=std::move(parsed); m_ids=std::move(ids);
     m_missingCount=missingCount; endResetModel();
     updateMetadata(); setError({}); emit changed(); return true;
@@ -175,6 +187,14 @@ QVariantMap ScientificDataset::sample(int index) const
         {QStringLiteral("sigmaXHigh"),maybeVariant(v.hasSigmaX,v.sigmaXHigh)},
         {QStringLiteral("missingY"),v.missingY},{QStringLiteral("index"),index}};
     if (m_dimensions==3) out.insert(QStringLiteral("z"),maybeVariant(!v.missingY,v.z));
+    return out;
+}
+QVariantMap ScientificDataset::get(int index) const
+{
+    QVariantMap out=sample(index);
+    if (out.isEmpty()) return out;
+    out.insert(QStringLiteral("xUnit"),m_xUnit); out.insert(QStringLiteral("yUnit"),m_yUnit);
+    if (m_dimensions==3) out.insert(QStringLiteral("zUnit"),m_zUnit);
     return out;
 }
 QVariantMap ScientificDataset::sampleById(const QString &id) const

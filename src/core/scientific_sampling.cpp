@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "scientific_sampling.h"
 
+#include <QFont>
+#include <QFontInfo>
+#include <QJsonArray>
+
 #include <algorithm>
 #include <cmath>
 
@@ -111,6 +115,25 @@ QVector<double> ticks(bool logarithmic, double low, double high, int approximate
 QString tickLabel(double value)
 {
     return QString::number(value, 'g', 6);
+}
+
+QJsonObject styleJson(const QVariantMap &metrics, const QList<QPair<QString, QColor>> &colors,
+                      const QMap<QString, QList<QColor>> &ramps)
+{
+    // AGENT-NOTE: the requested font and the family fontconfig resolved it to
+    // are both recorded: the resolved face is what decides the pixels.
+    QFont font;
+    font.setFamily(metrics.value(QStringLiteral("fontFamily")).toString());
+    font.setPixelSize(std::max(1, metrics.value(QStringLiteral("fontSize")).toInt()));
+    QJsonObject out{{QStringLiteral("metrics"), QJsonObject::fromVariantMap(metrics)},
+                    {QStringLiteral("resolvedFontFamily"), QFontInfo(font).family()}};
+    for (const auto &c : colors) out.insert(c.first, c.second.name(QColor::HexArgb));
+    for (auto it = ramps.cbegin(); it != ramps.cend(); ++it) {
+        QJsonArray ramp;
+        for (const QColor &c : it.value()) ramp.append(c.name(QColor::HexArgb));
+        out.insert(it.key(), ramp);
+    }
+    return out;
 }
 
 } // namespace QindaTK::ScientificSampling

@@ -140,6 +140,27 @@ SlideFrame finalFrame(const DeckState &deck, const QString &slideId)
     return evaluate(deck, slideId, plan.buildCount, plan.stepDurations.value(plan.buildCount));
 }
 
+QVector<PlaybackPosition> playbackPositions(const DeckState &deck, const QString &slideId, int framesPerSecond)
+{
+    const int index = slideIndex(deck, slideId);
+    if (index < 0 || framesPerSecond < 1 || framesPerSecond > 240) return {};
+    const SlideSchedule plan = schedule(deck.slides.at(index));
+    QVector<PlaybackPosition> out;
+    for (int step = 0; step <= plan.buildCount; ++step) {
+        const qint64 end = plan.stepDurations.value(step);
+        for (qint64 n = 0;; ++n) {
+            const auto ticks = TimelineTime::mulDiv(n, quint64(TicksPerSecond), quint64(framesPerSecond),
+                                                    TimeMap::Floor);
+            if (!ticks || *ticks >= end) break;
+            if (out.size() >= MaximumPlaybackFrames) return {};
+            out.append({step, *ticks});
+        }
+        if (out.size() >= MaximumPlaybackFrames) return {};
+        out.append({step, end}); // the completed build
+    }
+    return out;
+}
+
 QVariantMap frameToVariant(const SlideFrame &frame)
 {
     QVariantList objects;
@@ -147,7 +168,9 @@ QVariantMap frameToVariant(const SlideFrame &frame)
         objects << QVariantMap{{"id", o.id}, {"opacity", o.opacity}, {"dx", o.dx}, {"dy", o.dy}, {"scale", o.scale}};
     return {{"slideId", frame.slideId}, {"step", frame.step}, {"ticks", QString::number(frame.ticks)},
             {"transitionKind", frame.transitionKind}, {"transitionProgress", frame.transitionProgress},
-            {"fromSlideId", frame.fromSlideId}, {"blackedOut", frame.blackedOut}, {"objects", objects}};
+            {"fromSlideId", frame.fromSlideId}, {"blackedOut", frame.blackedOut},
+            {"annotationCount", frame.annotations.size()}, {"pointerVisible", frame.pointerVisible},
+            {"objects", objects}};
 }
 
 } // namespace QindaTK::Slides

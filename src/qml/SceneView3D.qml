@@ -93,10 +93,24 @@ T.Control {
         const ray = meshRay(x, y)
         return ray.origin ? meshDocument.pickFace(ray.origin, ray.direction) : ({})
     }
+    // Mesh tools (D-179): "" leaves left clicks to the renderer; "select"
+    // picks faces and bones, "paint" sends camera rays through the pointer.
+    property string meshTool: ""
+    // Selection synchronization in: highlighted face and bone (stable IDs).
+    property string selectedMeshFaceId: ""
+    property string selectedBoneId: ""
+    property bool showMeshBones: true
     signal entityPicked(string entityId, vector3d worldPosition)
     signal meshPicked(vector3d worldPosition)
-    // Selection synchronization: the stable face under a mesh click.
+    // Selection synchronization out: the stable face or bone under a click.
     signal meshFacePicked(string faceId, point uv)
+    signal meshBonePicked(string boneId)
+    // One paint stroke from the camera view; the host routes it to
+    // MeshRigDocument.beginPaint / paintRay / endPaint with its brush.
+    signal meshStrokeBegan()
+    signal meshPaintRayRequested(vector3d origin, vector3d direction)
+    signal meshStrokeFinished()
+    signal meshStrokeCancelled()
     implicitWidth: Tk.Theme.size.panelMinWidth * 3
     implicitHeight: Tk.Theme.size.waveformHeight * 8
     focusPolicy: Qt.StrongFocus
@@ -139,6 +153,12 @@ T.Control {
             translationSnap: control.translationSnap
             rotationSnap: control.rotationSnap
             scaleSnap: control.scaleSnap
+        }
+        Tk.SceneView3DMeshLayer {
+            id: meshLayer
+            anchors.fill: parent
+            view: control
+            visible: Boolean(control.meshDocument)
         }
         Tk.Flex {
             id: transformBar
@@ -191,6 +211,22 @@ T.Control {
                     onClicked: control.transformConstraint = modelData
                 }
             }
+            Repeater {
+                model: control.meshDocument ? [{label: qsTr("Pick"), value: "select"},
+                                               {label: qsTr("Paint"), value: "paint"}] : []
+                delegate: Tk.Button {
+                    required property var modelData
+                    objectName: "sceneMeshTool3D_" + modelData.value
+                    text: modelData.label
+                    small: true
+                    checkable: true
+                    checked: control.meshTool === modelData.value
+                    tooltip: modelData.value === "paint"
+                        ? qsTr("Paint the mesh texture under the pointer from this camera")
+                        : qsTr("Click the mesh to select a face or bone")
+                    onClicked: control.meshTool = control.meshTool === modelData.value ? "" : modelData.value
+                }
+            }
             Tk.Button {
                 objectName: "sceneSpace3D"
                 text: control.transformSpace === "world" ? qsTr("World") : qsTr("Local")
@@ -206,7 +242,10 @@ T.Control {
                 : qsTr("3D rendering requires OpenGL, Vulkan, Metal or Direct3D")
         }
     }
-    Keys.onEscapePressed: if (scene && scene.editing) scene.cancelTransform()
+    Keys.onEscapePressed: {
+        if (meshLayer.cancelStroke()) return
+        if (scene && scene.editing) scene.cancelTransform()
+    }
     Keys.onPressed: function(event) {
         if (!scene || !scene.selectedId.length || scene.editing) return
         let dx = 0, dy = 0

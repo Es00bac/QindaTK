@@ -11,6 +11,9 @@ import QindaTK as Tk
 // crosshair one voxel within the plane.
 // AGENT-CONTRACT (docs/volume-imaging.md): all principal planes use one
 // VolumeCursor in voxel coordinates; the provider owns physical transforms.
+// A cursor on another voxel grid is not linked (linkError, D-260): the view
+// shows its middle slice and never moves that cursor. `overlay` draws a
+// second volume on the same grid through overlayTransfer.
 T.Control {
     id: control
     objectName: "imageSliceView"
@@ -24,6 +27,16 @@ T.Control {
     property alias windowCenter: slice.windowCenter
     property alias windowWidth: slice.windowWidth
     property alias resliceOrientation: slice.resliceOrientation
+    property alias overlay: slice.overlay
+    property alias overlayTransfer: slice.overlayTransfer
+    property alias overlayOpacity: slice.overlayOpacity
+    readonly property string linkError: slice.linkError
+    readonly property string overlayError: slice.overlayError
+    readonly property string lastError: slice.lastError
+    // A cursor this view may read and move (present and on a compatible grid).
+    readonly property bool _linked: !!cursor && !!volume && slice.cursorLinked
+    function saveSettings() { return slice.saveSettings() }
+    function restoreSettings(settings) { return slice.restoreSettings(settings) }
     property string tooltip: qsTr("Image slice")
     readonly property bool oblique: plane === Tk.ImageSliceItem.Oblique
     readonly property string planeName: plane === Tk.ImageSliceItem.Axial ? qsTr("Axial")
@@ -35,11 +48,11 @@ T.Control {
         : plane === Tk.ImageSliceItem.Axial ? volume.sizeZ
         : plane === Tk.ImageSliceItem.Coronal ? volume.sizeY : volume.sizeX
     readonly property int sliceIndex: oblique ? slice.sliceIndex
-        : !cursor ? Math.max(0, Math.round((sliceCount - 1) / 2))
+        : !_linked ? Math.max(0, Math.round((sliceCount - 1) / 2))
         : Math.round(plane === Tk.ImageSliceItem.Axial ? cursor.z
                      : plane === Tk.ImageSliceItem.Coronal ? cursor.y : cursor.x)
     readonly property var selectedSample: {
-        if (!volume || !cursor) return ({valid: false})
+        if (!volume || !_linked) return ({valid: false})
         return volume.revision >= 0
             ? volume.sample(cursor.x, cursor.y, cursor.z, channel, frame, interpolation) : ({valid: false})
     }
@@ -48,7 +61,7 @@ T.Control {
     property real _wheelDelta: 0
 
     function setSliceIndex(index) {
-        if (!cursor || !volume || sliceCount < 1) return false
+        if (!_linked || sliceCount < 1) return false
         const next = Math.max(0, Math.min(sliceCount - 1, Math.round(index)))
         if (oblique) return next !== sliceIndex && slice.stepSlice(next - sliceIndex)
         if (plane === Tk.ImageSliceItem.Axial) return cursor.setVoxelPoint(cursor.x, cursor.y, next)
@@ -58,7 +71,7 @@ T.Control {
     // Moves the crosshair by whole voxels along this plane's horizontal (dh)
     // and downward vertical (dv) axes, snapping the point to voxel centres.
     function moveCrosshair(dh, dv) {
-        if (!cursor || !volume) return false
+        if (!_linked) return false
         if (oblique) return slice.moveCrosshair(dh, dv)
         const x = Math.round(cursor.x), y = Math.round(cursor.y), z = Math.round(cursor.z)
         if (plane === Tk.ImageSliceItem.Axial) return cursor.setVoxelPoint(x + dh, y + dv, z)
@@ -126,8 +139,8 @@ T.Control {
             gap: Tk.Theme.space.xs
             Tk.Label { text: control.planeName; Tk.Flex.grow: 1 }
             Tk.Mono { objectName: "imageSliceIndex"; text: control.sliceCount ? (control.sliceIndex + 1) + " / " + control.sliceCount : "—" }
-            Tk.IconButton { objectName: "imageSlicePrevious"; iconName: "chevron-left"; tooltip: qsTr("Previous slice"); enabled: !!control.cursor && control.sliceIndex > 0; onClicked: control.setSliceIndex(control.sliceIndex - 1) }
-            Tk.IconButton { objectName: "imageSliceNext"; iconName: "chevron-right"; tooltip: qsTr("Next slice"); enabled: !!control.cursor && control.sliceIndex + 1 < control.sliceCount; onClicked: control.setSliceIndex(control.sliceIndex + 1) }
+            Tk.IconButton { objectName: "imageSlicePrevious"; iconName: "chevron-left"; tooltip: qsTr("Previous slice"); enabled: control._linked && control.sliceIndex > 0; onClicked: control.setSliceIndex(control.sliceIndex - 1) }
+            Tk.IconButton { objectName: "imageSliceNext"; iconName: "chevron-right"; tooltip: qsTr("Next slice"); enabled: control._linked && control.sliceIndex + 1 < control.sliceCount; onClicked: control.setSliceIndex(control.sliceIndex + 1) }
         }
         Item {
             id: viewport
@@ -152,7 +165,7 @@ T.Control {
                 acceptedButtons: Qt.LeftButton
                 onClicked: function(mouse) {
                     control.forceActiveFocus()
-                    if (!control.cursor) return
+                    if (!control._linked) return
                     const point = slice.voxelAt(mouse.x, mouse.y)
                     if (point.length === 3 && control.cursor.setVoxelPoint(point[0], point[1], point[2]))
                         control.pointSelected([control.cursor.x, control.cursor.y, control.cursor.z])
@@ -178,13 +191,20 @@ T.Control {
         }
         Tk.Caption {
             objectName: "imageSliceCoordinate"
-            text: control.cursor && control.volume
+            text: control._linked
                 ? qsTr("Voxel %1, %2, %3  ·  %4 %5")
                     .arg(control.cursor.x.toFixed(1)).arg(control.cursor.y.toFixed(1))
                     .arg(control.cursor.z.toFixed(1))
                     .arg(control._formatValue(control.selectedSample))
                     .arg(control.volume.valueUnit)
                 : qsTr("No coordinate")
+        }
+        Tk.Caption {
+            objectName: "imageSliceLinkError"
+            visible: text.length > 0
+            text: [control.linkError, control.overlayError].filter(function(t) { return t.length > 0 }).join("; ")
+            color: Tk.Theme.color.warning
+            wrapMode: Text.Wrap
         }
     }
 }

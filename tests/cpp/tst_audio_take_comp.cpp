@@ -44,6 +44,7 @@ struct Scenario {
         return placed.value(QStringLiteral("ok")).toBool() && !compId.isEmpty() && !t3.isEmpty();
     }
     std::vector<float> out(const char *name, qint64 end = -1) { return render(session, dir.filePath(QString::fromLatin1(name)), end); }
+    std::vector<float> live(qint64 end = 3000) { return device(session, end); }
     bool linear4() { return comps->setFade(compId, QStringLiteral("4"), QStringLiteral("linear")).value(QStringLiteral("ok")).toBool(); }
 };
 
@@ -291,7 +292,7 @@ private slots:
         // A cancelled gesture leaves the committed samples and no history.
         QVERIFY(s.comps->preview(s.compId, s.t1, QStringLiteral("0"), QStringLiteral("1200")).value(QStringLiteral("ok")).toBool());
         QCOMPARE(s.comps->previewCompId(), s.compId);
-        QCOMPARE(mismatches(s.out("preview.wav"), 1800, 3000, [](qint64 t) { return float(take1(t - 1800)); }), 0);
+        QCOMPARE(mismatches(s.live(), 1800, 3000, [](qint64 t) { return float(take1(t - 1800)); }), 0);
         QVERIFY(s.comps->cancelPreview());
         QVERIFY(s.comps->previewCompId().isEmpty());
         QCOMPARE(s.out("cancelled.wav"), committed);
@@ -300,7 +301,7 @@ private slots:
         // Each update previews from the committed comp, not the last preview.
         QVERIFY(s.comps->preview(s.compId, s.t2, QStringLiteral("200"), QStringLiteral("1200")).value(QStringLiteral("ok")).toBool());
         QVERIFY(s.comps->preview(s.compId, s.t1, QStringLiteral("0"), QStringLiteral("100")).value(QStringLiteral("ok")).toBool());
-        QCOMPARE(s.out("second.wav")[1800 + 500], float(take3(500)));
+        QCOMPARE(s.live()[1800 + 500], float(take3(500)));
         QVERIFY(!s.comps->preview(s.compId, s.t2, QStringLiteral("0"), QStringLiteral("100")).value(QStringLiteral("ok")).toBool());
         QCOMPARE(s.comps->previewCompId(), s.compId); // a refused update keeps the preview
         QVERIFY(s.comps->commitPreview().value(QStringLiteral("changed")).toBool());
@@ -311,13 +312,13 @@ private slots:
         // Audition plays one take alone; comparison toggles two; neither is saved.
         QVERIFY(s.comps->setAudition(s.compId, s.t2));
         QCOMPARE(s.comps->audition(s.compId), s.t2);
-        QCOMPARE(mismatches(s.out("audition.wav", 3000), 0, 3000, [](qint64 t) {
+        QCOMPARE(mismatches(s.live(), 0, 3000, [](qint64 t) {
                      return t >= 2000 && t < 3000 ? float(take2(t - 1800)) : 0.0f; }), 0);
         QVERIFY(s.comps->compare(s.compId, s.t3, s.t1));
-        QCOMPARE(mismatches(s.out("compare.wav", 3000), 0, 3000, [](qint64 t) {
+        QCOMPARE(mismatches(s.live(), 0, 3000, [](qint64 t) {
                      return t >= 2000 && t < 2950 ? float(take3(t - 1800)) : 0.0f; }), 0);
         QCOMPARE(s.comps->toggleComparison(s.compId), s.t1);
-        QCOMPARE(mismatches(s.out("toggled.wav", 3000), 0, 3000, [](qint64 t) {
+        QCOMPARE(mismatches(s.live(), 0, 3000, [](qint64 t) {
                      return t >= 1800 ? float(take1(t - 1800)) : 0.0f; }), 0);
         QVERIFY(!s.comps->setAudition(s.compId, QStringLiteral("take:none")));
         QVERIFY(!s.comps->contentMap().value(QStringLiteral("comps")).toList().first().toMap().contains(QStringLiteral("audition")));
@@ -422,6 +423,7 @@ private slots:
             "  width: 900; height: 320\n"
             "  readonly property var snapshot: session.comps.revision >= 0 ? session.comps.viewState(hostCompId, 12, 8) : ({})\n"
             "  takes: snapshot.takes; compSegments: snapshot.compSegments; sampleBoundaries: snapshot.sampleBoundaries\n"
+            "  auditionTakeId: snapshot.audition || \"\"\n"
             "  onCompProposalPreviewRequested: (id, take, start, end) => session.comps.preview(hostCompId, take, start, end)\n"
             "  onCompProposalPreviewCanceled: id => session.comps.cancelPreview()\n"
             "  onCompProposalRequested: (id, segment, take, start, end) => {\n"
@@ -430,7 +432,8 @@ private slots:
             "  onProposalDecisionRequested: (id, accept) => {\n"
             "    if (accept) session.comps.commitPreview(); else session.comps.cancelPreview()\n"
             "    proposal = null }\n"
-            "  onAuditionRequested: take => session.comps.setAudition(hostCompId, take)\n"
+            "  onAuditionRequested: (take, source, start, end) => session.comps.setAudition(hostCompId, take, start, end)\n"
+            "  onAuditionStopRequested: take => session.comps.setAudition(hostCompId, \"\")\n"
             "}\n"), QUrl());
         std::unique_ptr<QObject> view(component.create());
         QVERIFY2(view, qPrintable(component.errorString()));
@@ -497,6 +500,10 @@ private slots:
         view->setProperty("selectionEndSample", QStringLiteral("500"));
         QVERIFY(call("requestAudition", {s.t2}));
         QCOMPARE(s.comps->audition(s.compId), s.t2);
+        QCOMPARE(s.comps->auditionRange(s.compId).value(QStringLiteral("endSample")).toString(), QStringLiteral("500"));
+        QCOMPARE(view->property("auditionTakeId").toString(), s.t2);
+        QVERIFY(call("requestAudition", {s.t2})); // the same take again ends it
+        QVERIFY(s.comps->audition(s.compId).isEmpty());
     }
 };
 

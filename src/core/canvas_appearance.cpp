@@ -196,12 +196,13 @@ QString swatchId(const CanvasPattern &pattern)
 
 QStringList supportedEffects()
 {
-    return {QStringLiteral("drop-shadow"), QStringLiteral("gaussian-blur")};
+    return {QStringLiteral("drop-shadow"), QStringLiteral("gaussian-blur"), QStringLiteral("color-adjust")};
 }
 
 bool supportedEffect(const QString &kind)
 {
-    return kind == QLatin1String("drop-shadow") || kind == QLatin1String("gaussian-blur");
+    return kind == QLatin1String("drop-shadow") || kind == QLatin1String("gaussian-blur")
+        || kind == QLatin1String("color-adjust");
 }
 
 QString effectName(const QString &kind)
@@ -210,6 +211,8 @@ QString effectName(const QString &kind)
         return QCoreApplication::translate("CanvasAppearance", "Drop shadow");
     if (kind == QLatin1String("gaussian-blur"))
         return QCoreApplication::translate("CanvasAppearance", "Gaussian blur");
+    if (kind == QLatin1String("color-adjust"))
+        return QCoreApplication::translate("CanvasAppearance", "Colour adjustment");
     return kind;
 }
 
@@ -247,6 +250,21 @@ OperationError canonicalParameters(const QString &kind, const QVariantMap &value
             return problem(ErrorCode::Validation, QStringLiteral("A blur radius must be from 0 to 250"),
                            QStringLiteral("effects.parameters"));
         json = QJsonObject{{QStringLiteral("radius"), *radius}};
+    } else if (kind == QLatin1String("color-adjust")) {
+        for (auto it = values.cbegin(); it != values.cend(); ++it)
+            if (it.key() != QLatin1String("brightness") && it.key() != QLatin1String("contrast")
+                && it.key() != QLatin1String("saturation"))
+                return unknownKey(kind, it.key());
+        const auto brightness = number(values, "brightness", 0, -1, 1);
+        const auto contrast = number(values, "contrast", 1, 0, MaximumContrast);
+        const auto saturation = number(values, "saturation", 1, 0, 1);
+        if (!brightness || !contrast || !saturation)
+            return problem(ErrorCode::Validation,
+                           QStringLiteral("A colour adjustment needs brightness from -1 to 1, contrast from 0 to 4 "
+                                          "and saturation from 0 to 1"),
+                           QStringLiteral("effects.parameters"));
+        json = QJsonObject{{QStringLiteral("brightness"), *brightness}, {QStringLiteral("contrast"), *contrast},
+                           {QStringLiteral("saturation"), *saturation}};
     } else {
         json = QJsonObject::fromVariantMap(values);
     }
@@ -274,6 +292,13 @@ Shadow shadow(const CanvasEffect &effect)
 qreal blurRadius(const CanvasEffect &effect)
 {
     return parameters(effect).value(QStringLiteral("radius")).toDouble();
+}
+
+ColorAdjust colorAdjust(const CanvasEffect &effect)
+{
+    const QJsonObject json = parameters(effect);
+    return {json.value(QStringLiteral("brightness")).toDouble(), json.value(QStringLiteral("contrast")).toDouble(),
+            json.value(QStringLiteral("saturation")).toDouble()};
 }
 
 OperationError validate(const CanvasObject &o)
@@ -349,7 +374,67 @@ qreal strokeReach(const CanvasObject &o)
 qreal strokeOutset(const CanvasObject &o)
 {
     if (!o.hasStroke() || o.appearance->strokeAlignment == CanvasStrokeAlignment::Inside) return 0;
-    return strokeReach(o);
+    // A square cap's corner lies sqrt(2) half-pens from the path's end.
+    constexpr qreal Diagonal = 1.4142135623730951;
+    bool openEnds = o.shape == CanvasShape::Polyline;
+    if (o.shape == CanvasShape::Path) {
+        openEnds = !o.pathClosed;
+        for (const CanvasPathContour &c : o.extraContours) openEnds = openEnds || !c.closed;
+    }
+    return strokeReach(o) * (o.strokeCap == Qt::SquareCap && openEnds ? Diagonal : 1);
+}
+
+std::optional<QRectF> miterTips(const CanvasObject &o)
+{
+    if (!o.hasStroke() || o.strokeJoin != Qt::MiterJoin
+        || o.appearance->strokeAlignment == CanvasStrokeAlignment::Inside) return std::nullopt;
+    QVector<CanvasPathContour> contours;
+    if (o.shape == CanvasShape::Path) {
+        contours.append(CanvasPathContour{o.pathNodes, o.pathClosed});
+        contours += o.extraContours;
+    } else if (o.shape == CanvasShape::Polyline) {
+        CanvasPathContour line;
+        line.closed = false;
+        for (const QPointF &p : o.points) line.nodes.append({p, p, p});
+        contours.append(line);
+    } else if (o.shape == CanvasShape::Rect || o.shape == CanvasShape::Image) {
+        const QPointF p = o.rect.topLeft(), q = o.rect.bottomRight(), r(q.x(), p.y()), t(p.x(), q.y());
+        contours.append(CanvasPathContour{{{p, p, p}, {r, r, r}, {q, q, q}, {t, t, t}}, true});
+    }
+    const qreal limit = std::max(o.appearance->miterLimit, 1.0);
+    const qreal reach = strokeReach(o);
+    const auto unit = [](QPointF v) {
+        const qreal length = std::hypot(v.x(), v.y());
+        return length > 0 ? v / length : QPointF();
+    };
+    qreal left = qInf(), top = qInf(), right = -qInf(), bottom = -qInf();
+    for (const CanvasPathContour &c : contours) {
+        const qsizetype n = c.nodes.size();
+        if (n < 2) continue;
+        const auto at = [&](qsizetype i) { return c.nodes.at((i + n) % n); };
+        for (qsizetype i = c.closed ? 0 : 1; i < (c.closed ? n : n - 1); ++i) {
+            const CanvasPathNode p = at(i - 1), node = at(i), q = at(i + 1);
+            // Tangents of the cubics ending and starting here, in document
+            // space (a non-uniform transform changes the angle).
+            const QPointF a = o.transform.map(node.anchor);
+            const QPointF in = unit(a - o.transform.map(node.in != node.anchor ? node.in
+                                                        : p.out != p.anchor ? p.out : p.anchor));
+            const QPointF out = unit(o.transform.map(node.out != node.anchor ? node.out
+                                                     : q.in != q.anchor ? q.in : q.anchor) - a);
+            if (in.isNull() || out.isNull()) continue;
+            const qreal cosHalf = std::sqrt((1 + std::clamp(QPointF::dotProduct(in, out), -1.0, 1.0)) / 2);
+            // The painter bevels past the limit; the RHI tessellator clips
+            // its spike at the limit (canvas_tessellator.cpp), so bound both.
+            const qreal ratio = cosHalf > 0 ? std::min(1 / cosHalf, limit) : limit;
+            const QPointF tip = a + unit(in - out) * (reach * ratio);
+            left = std::min(left, tip.x());
+            right = std::max(right, tip.x());
+            top = std::min(top, tip.y());
+            bottom = std::max(bottom, tip.y());
+        }
+    }
+    if (right < left) return std::nullopt;
+    return QRectF(QPointF(left, top), QPointF(right, bottom));
 }
 
 QMarginsF effectMargins(const CanvasObject &o)

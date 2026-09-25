@@ -22,6 +22,7 @@ inline constexpr qsizetype MaximumTokenLength = 64; // effect ids and kinds
 inline constexpr qsizetype MaximumParameterBytes = 16 * 1024;
 inline constexpr qreal MaximumShadowOffset = 1000;
 inline constexpr qreal MaximumBlur = 250; // standard deviation
+inline constexpr qreal MaximumContrast = 4;
 inline constexpr qreal MinimumPatternSpacing = 0.05;
 inline constexpr qreal MaximumPatternSpacing = 10000;
 
@@ -44,7 +45,12 @@ inline constexpr qreal MaximumPatternSpacing = 10000;
 [[nodiscard]] QString swatchId(const CanvasPattern &pattern);
 
 // Effect kinds the reference renderer draws and SVG export writes:
-// "drop-shadow" {offsetX, offsetY, blur, color} and "gaussian-blur" {radius}.
+// "drop-shadow" {offsetX, offsetY, blur, color}, "gaussian-blur" {radius} and
+// the nondestructive adjustment "color-adjust" {brightness -1..1 (0),
+// contrast 0..4 (1), saturation 0..1 (1)}: per pixel on straight sRGB values,
+// saturation as SVG feColorMatrix "saturate", then c * contrast +
+// (0.5 - 0.5 * contrast + brightness) as feComponentTransfer "linear",
+// each clamped to 0..1.
 [[nodiscard]] QStringList supportedEffects();
 [[nodiscard]] bool supportedEffect(const QString &kind);
 [[nodiscard]] QString effectName(const QString &kind);
@@ -63,6 +69,12 @@ struct Shadow {
 // Values of a validated effect of the matching kind.
 [[nodiscard]] Shadow shadow(const CanvasEffect &effect);
 [[nodiscard]] qreal blurRadius(const CanvasEffect &effect);
+struct ColorAdjust {
+    qreal brightness = 0;
+    qreal contrast = 1;
+    qreal saturation = 1;
+};
+[[nodiscard]] ColorAdjust colorAdjust(const CanvasEffect &effect);
 
 // Enum ranges, finite bounded values, closed vector shapes for alignment and
 // patterns, unique token ids and canonical parameters.
@@ -71,8 +83,17 @@ struct Shadow {
 // Distance from the outline that stroke pixels cover on their painted side:
 // half the width when centred, the whole width inside or outside.
 [[nodiscard]] qreal strokeReach(const CanvasObject &object);
-// How far stroke pixels extend OUTSIDE the outline (bounds padding).
+// How far stroke pixels extend OUTSIDE the outline (bounds padding),
+// square caps included; miter joins reach further, see miterTips().
 [[nodiscard]] qreal strokeOutset(const CanvasObject &object);
+// AGENT-GUARD: document-space box of the miter tips (a join turning by t
+// reaches reach/cos(t/2) along its bisector, capped at miterLimit x reach:
+// the painter bevels there, SVG semantics = Qt::SvgMiterJoin in
+// CanvasPath::pen, and the RHI tessellator clips there). documentBounds
+// includes it; without it a spike leaves the spatial index and damage
+// rectangles, and tiles keep stale pixels.
+// Empty when no tip reaches past the outset (a single tip is a 0x0 box).
+[[nodiscard]] std::optional<QRectF> miterTips(const CanvasObject &object);
 // Growth of the painted area beyond documentBounds from enabled effects.
 [[nodiscard]] QMarginsF effectMargins(const CanvasObject &object);
 // Source distance an output pixel can depend on across the whole stack.

@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QindaTK as Tk
+import "CadViewportCommands.js" as Commands
 
 // AGENT-CONTRACT (docs/cad.md): IDs and precise coordinates belong to the
 // document. This viewport owns only gestures, selection and camera pose.
@@ -15,7 +16,12 @@ Item {
     property Tk.CadDocument document: null
     property string mode: "select" // select | point | line | circle | arc
     property string selectedEntityId: ""
-    property string pendingPointId: ""
+    // Ctrl+click multi-selection; selectedEntityId is its focused member.
+    property var selectedEntityIds: []
+    // First location of a two- or three-click tool: {x, y, pointId}. Nothing
+    // is written to the document until the tool finishes (one undo step).
+    property var pending: null
+    property bool inspectorVisible: true
     property int arcStage: 0
     property point arcStartWorld: Qt.point(0, 0)
     property string dragPointId: ""
@@ -26,8 +32,16 @@ Item {
     property string tooltip: qsTr("CAD sketch viewport")
     readonly property real unitFactor: document && document.units === "in" ? 25.4 : 1
     readonly property real gridStep: document && document.units === "in" ? 0.5 : 10
+    readonly property var selection: {
+        const ids = (selectedEntityIds || []).map(String)
+        const chosen = ids.indexOf(selectedEntityId) >= 0 ? ids
+            : selectedEntityId ? [selectedEntityId] : []
+        return document && document.revision >= 0
+            ? chosen.filter(function(id) { return Commands.entityKind(root.document, id) !== "" }) : []
+    }
+    readonly property var constraintOptions: Commands.constraintOptions(document, selection)
     readonly property string statusText: document && document.lastError ? document.lastError
-        : pendingPointId ? (mode === "line" ? qsTr("Choose line endpoint")
+        : pending ? (mode === "line" ? qsTr("Choose line endpoint")
             : mode === "arc" ? (arcStage === 1 ? qsTr("Choose arc start")
                                               : qsTr("Choose arc end"))
             : qsTr("Choose circle radius"))
@@ -109,52 +123,71 @@ Item {
         }
         return result
     }
-    function ensurePoint(snap) {
-        return snap.pointId ? String(snap.pointId) : document.addPoint(snap.x, snap.y)
+    function isSelected(id) { return selection.indexOf(String(id)) >= 0 }
+    function select(id, toggle) {
+        const ids = toggle ? selection.slice() : []
+        const at = ids.indexOf(String(id))
+        if (toggle && at >= 0) ids.splice(at, 1)
+        else if (id) ids.push(String(id))
+        selectedEntityIds = ids
+        selectedEntityId = ids.length ? ids[ids.length - 1] : ""
     }
-    function handleTap(position) {
+    function applyConstraint(kind) {
+        return document ? Commands.applyConstraint(document, selection, kind) : ""
+    }
+    function removeSelection() {
+        const ids = selection
+        if (!document || ids.length === 0) return false
+        document.beginTransaction()
+        for (let i = 0; i < ids.length; ++i) {
+            // Removing a point may already have removed a dependent entity.
+            if (Commands.entityKind(document, ids[i]) === "" && !document.constraints
+                    .some(function(c) { return String(c.constraintId) === ids[i] })) continue
+            if (!document.removeEntity(ids[i])) { document.cancelTransaction(); return false }
+        }
+        document.commitTransaction()
+        select("", false)
+        return true
+    }
+    function cancelTool() {
+        const active = pending !== null
+        pending = null; arcStage = 0; dragPointId = ""
+        return active
+    }
+    function handleTap(position, toggle) {
         if (!document) return
         forceActiveFocus()
-        if (mode === "select") { selectedEntityId = hitEntity(position); return }
+        if (mode === "select") { select(hitEntity(position), toggle === true); return }
         const location = snapAt(position, "")
         if (!location) return
+        const here = { x: Number(location.x), y: Number(location.y),
+                       pointId: location.pointId ? String(location.pointId) : "" }
+        const start = pending
         if (mode === "point") {
-            selectedEntityId = ensurePoint(location)
-        } else if (mode === "line") {
-            const id = ensurePoint(location)
-            if (pendingPointId) {
-                selectedEntityId = document.addSegment(pendingPointId, id)
-                pendingPointId = ""
-            } else pendingPointId = id
-        } else if (mode === "circle") {
-            if (pendingPointId) {
-                const center = pointById(pendingPointId)
-                if (center) selectedEntityId = document.addCircle(pendingPointId,
-                    Math.hypot(location.x - center.x, location.y - center.y))
-                pendingPointId = ""
-            } else pendingPointId = ensurePoint(location)
-        } else if (mode === "arc") {
-            if (!pendingPointId) {
-                pendingPointId = ensurePoint(location)
-                arcStage = 1
-            } else if (arcStage === 1) {
-                arcStartWorld = Qt.point(location.x, location.y)
-                arcStage = 2
-            } else {
-                const center = pointById(pendingPointId)
-                if (center) {
-                    const start = Math.atan2(arcStartWorld.y - center.y,
-                                             arcStartWorld.x - center.x) * 180 / Math.PI
-                    const end = Math.atan2(location.y - center.y,
-                                           location.x - center.x) * 180 / Math.PI
-                    const sweep = ((end - start) % 360 + 360) % 360
-                    selectedEntityId = document.addArc(pendingPointId,
-                        Math.hypot(arcStartWorld.x - center.x, arcStartWorld.y - center.y),
-                        start, sweep)
+            select(here.pointId || document.addPoint(here.x, here.y), false)
+        } else if (!start) {
+            pending = here
+            arcStage = mode === "arc" ? 1 : 0
+        } else if (mode === "arc" && arcStage === 1) {
+            arcStartWorld = Qt.point(here.x, here.y)
+            arcStage = 2
+        } else {
+            const doc = document
+            const arcStart = arcStartWorld
+            pending = null
+            arcStage = 0
+            select(Commands.finishTool(doc, start, function(firstId) {
+                if (mode === "line") {
+                    const endId = here.pointId || doc.addPoint(here.x, here.y)
+                    return endId ? doc.addSegment(firstId, endId) : ""
                 }
-                pendingPointId = ""
-                arcStage = 0
-            }
+                if (mode === "circle")
+                    return doc.addCircle(firstId, Math.hypot(here.x - start.x, here.y - start.y))
+                const from = Math.atan2(arcStart.y - start.y, arcStart.x - start.x) * 180 / Math.PI
+                const to = Math.atan2(here.y - start.y, here.x - start.x) * 180 / Math.PI
+                return doc.addArc(firstId, Math.hypot(arcStart.x - start.x, arcStart.y - start.y),
+                                  from, ((to - from) % 360 + 360) % 360)
+            }), false)
         }
     }
     function zoomAt(value, position) {
@@ -164,14 +197,26 @@ Item {
         panY = position.y - oldY * unitFactor * zoom
     }
 
-    onModeChanged: { pendingPointId = ""; arcStage = 0 }
+    onModeChanged: { pending = null; arcStage = 0 }
+    // Escape cancels a pending tool (nothing was written), then the selection.
+    // H/V/D/A/C/T add the matching constraint to the selection.
     Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_Escape) {
-            pendingPointId = ""; arcStage = 0; dragPointId = ""; event.accepted = true
-        } else if ((event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace)
-                   && selectedEntityId && document) {
-            if (document.removeEntity(selectedEntityId)) selectedEntityId = ""
+        const control = (event.modifiers & Qt.ControlModifier) !== 0
+        const shift = (event.modifiers & Qt.ShiftModifier) !== 0
+        if (control && document && (event.key === Qt.Key_Z || event.key === Qt.Key_Y)) {
+            cancelTool()
+            event.accepted = event.key === Qt.Key_Y || shift ? document.redo() : document.undo()
+        } else if (event.key === Qt.Key_Escape) {
+            if (!cancelTool()) select("", false)
             event.accepted = true
+        } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+            event.accepted = removeSelection()
+        } else if (!control && !shift) {
+            const keys = { [Qt.Key_H]: "horizontal", [Qt.Key_V]: "vertical", [Qt.Key_D]: "distance",
+                           [Qt.Key_A]: "angle", [Qt.Key_C]: "coincident", [Qt.Key_T]: "tangent" }
+            const kind = keys[event.key]
+            if (kind && constraintOptions.indexOf(kind) >= 0)
+                event.accepted = applyConstraint(kind) !== ""
         }
     }
 
@@ -203,7 +248,7 @@ Item {
                 ctx.beginPath()
                 ctx.arc(root.screenX(p.x), root.screenY(p.y), c.radius * root.unitFactor * root.zoom,
                         0, Math.PI * 2)
-                ctx.strokeStyle = String(c.entityId) === root.selectedEntityId
+                ctx.strokeStyle = root.isSelected(c.entityId)
                     ? Tk.Theme.color.accent : Tk.Theme.color.textMuted
                 ctx.lineWidth = Tk.Theme.size.border * 2
                 ctx.stroke()
@@ -216,7 +261,7 @@ Item {
                 ctx.arc(root.screenX(p.x), root.screenY(p.y), arc.radius * root.unitFactor * root.zoom,
                     arc.startDegrees * Math.PI / 180,
                     (arc.startDegrees + arc.sweepDegrees) * Math.PI / 180)
-                ctx.strokeStyle = String(arc.entityId) === root.selectedEntityId
+                ctx.strokeStyle = root.isSelected(arc.entityId)
                     ? Tk.Theme.color.accent : Tk.Theme.color.textMuted
                 ctx.lineWidth = Tk.Theme.size.border * 2
                 ctx.stroke()
@@ -229,7 +274,7 @@ Item {
                 ctx.beginPath()
                 ctx.moveTo(root.screenX(a.x), root.screenY(a.y))
                 ctx.lineTo(root.screenX(b.x), root.screenY(b.y))
-                ctx.strokeStyle = String(s.entityId) === root.selectedEntityId
+                ctx.strokeStyle = root.isSelected(s.entityId)
                     ? Tk.Theme.color.accent : Tk.Theme.color.text
                 ctx.lineWidth = Tk.Theme.size.border * 2
                 ctx.stroke()
@@ -241,9 +286,17 @@ Item {
                 ctx.beginPath()
                 ctx.arc(root.screenX(shown.x), root.screenY(shown.y),
                         Tk.Theme.size.iconSm / 3, 0, Math.PI * 2)
-                ctx.fillStyle = String(p.entityId) === root.selectedEntityId
+                ctx.fillStyle = root.isSelected(p.entityId)
                     ? Tk.Theme.color.accent : Tk.Theme.color.focus
                 ctx.fill()
+            }
+            if (root.pending) {
+                ctx.beginPath()
+                ctx.arc(root.screenX(root.pending.x), root.screenY(root.pending.y),
+                        Tk.Theme.size.iconSm / 2, 0, Math.PI * 2)
+                ctx.strokeStyle = Tk.Theme.color.accent
+                ctx.lineWidth = Tk.Theme.size.border * 2
+                ctx.stroke()
             }
         }
         Connections {
@@ -256,7 +309,8 @@ Item {
             function onPanXChanged() { drawing.requestPaint() }
             function onPanYChanged() { drawing.requestPaint() }
             function onZoomChanged() { drawing.requestPaint() }
-            function onSelectedEntityIdChanged() { drawing.requestPaint() }
+            function onSelectionChanged() { drawing.requestPaint() }
+            function onPendingChanged() { drawing.requestPaint() }
             function onDragWorldChanged() { drawing.requestPaint() }
             function onDragPointIdChanged() { drawing.requestPaint() }
         }
@@ -306,9 +360,24 @@ Item {
         }
     }
 
+    Tk.CadInspector {
+        viewport: root
+        visible: root.inspectorVisible && root.mode === "select" && root.selection.length > 0
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.margins: Tk.Theme.space.md
+        z: 3
+    }
+
     TapHandler {
         acceptedButtons: Qt.LeftButton
-        onTapped: function(eventPoint) { root.handleTap(eventPoint.position) }
+        acceptedModifiers: Qt.NoModifier
+        onTapped: function(eventPoint) { root.handleTap(eventPoint.position, false) }
+    }
+    TapHandler {
+        acceptedButtons: Qt.LeftButton
+        acceptedModifiers: Qt.ControlModifier
+        onTapped: function(eventPoint) { root.handleTap(eventPoint.position, true) }
     }
     DragHandler {
         id: pointDrag

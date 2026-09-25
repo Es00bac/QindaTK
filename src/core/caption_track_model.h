@@ -126,7 +126,9 @@ private:
     void setAck(const QString &status, const QString &message);
     void applyImported(QVector<CaptionCueRecord> records, const QString &language);
     void refreshGeometry();
-    void pushUndo();
+    // `withLanguage`: the step also changes the track language (an import),
+    // so undo restores that language with the cues.
+    void pushUndo(bool withLanguage = false);
     QString allocateId();
     bool rejectEdit(const QString &message);
     void acceptEdit(QVector<CaptionCueRecord> cues, const QString &selected, const QString &message);
@@ -143,7 +145,15 @@ private:
     int m_nextId = 1;
     QVector<CaptionCueRecord> m_cues;
     QVector<CaptionCueRecord> m_preview;
-    QVector<QVector<CaptionCueRecord>> m_undo;
+    // AGENT-GUARD: an import replaces the track language as well as the cues;
+    // its undo entry restores both, or the old cues would be exported under
+    // the imported language (WebVTT header, <lang> spans, embedded tag).
+    struct UndoEntry {
+        QVector<CaptionCueRecord> cues;
+        QString language;
+        bool restoresLanguage = false;
+    };
+    QVector<UndoEntry> m_undo;
     QString m_pendingRequest;
     QString m_pendingCue;
 };

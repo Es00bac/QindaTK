@@ -4,6 +4,10 @@ import QindaTK as Tk
 
 // Edits one canonical stroke descriptor. The host owns preview, persistence,
 // unit conversion and the transaction represented by styleChangeRequested.
+// Each request carries `changed`, the fields the user set, so a host can
+// apply exactly those (a value equal to a mixed key's shown value included).
+// `style.mixed` lists fields whose values differ across a selection: they
+// show "Mixed" until the user sets them.
 Item {
     id: editor
     required property var style
@@ -30,11 +34,14 @@ Item {
     // owner may reject or later undo the edit).
     function syncFields() {
         widthField.value = editor.style.width === undefined ? 1 : editor.style.width
+        widthField.mixed = editor.isMixed("width")
         miterField.value = editor.style.miterLimit === undefined ? 4 : editor.style.miterLimit
+        miterField.mixed = editor.isMixed("miterLimit")
         colorField.color = editor.style.color || Tk.Theme.color.text
     }
+    function isMixed(field) { return (editor.style.mixed || []).indexOf(field) >= 0 }
     function request(patch) {
-        styleChangeRequested(Object.assign({}, style, patch))
+        styleChangeRequested(Object.assign({}, style, patch, { changed: Object.keys(patch) }))
         syncFields()
     }
     onStyleChanged: syncFields()
@@ -68,6 +75,8 @@ Item {
                 to: 10000
                 stepSize: 0.25
                 decimals: 2
+                mixed: editor.isMixed("width")
+                tooltip: qsTr("Stroke width in %1").arg(editor.style.unit || "px")
                 onValueModified: function(value) { editor.request({ width: value }) }
             }
         }
@@ -91,12 +100,19 @@ Item {
                 onColorEdited: function(color) { editor.request({ color: color }) }
             }
         }
+        Tk.Caption {
+            objectName: "strokeColorMixed"
+            visible: editor.isMixed("color")
+            text: qsTr("Mixed colours: a colour you choose applies to every object.")
+            wrapMode: Text.WordWrap
+        }
         Tk.PropertyRow {
             label: qsTr("Alignment")
             Tk.ComboBox {
                 objectName: "strokeAlignment"
                 model: editor.alignments
-                currentIndex: editor.indexOf(model, editor.style.alignment || "center")
+                currentIndex: editor.isMixed("alignment") ? -1 : editor.indexOf(model, editor.style.alignment || "center")
+                placeholderText: qsTr("Mixed")
                 tooltip: qsTr("Stroke alignment")
                 onActivated: function(index) { editor.request({ alignment: model[index] }) }
             }
@@ -106,7 +122,8 @@ Item {
             Tk.ComboBox {
                 objectName: "strokeCap"
                 model: editor.caps
-                currentIndex: editor.indexOf(model, editor.style.cap || "butt")
+                currentIndex: editor.isMixed("cap") ? -1 : editor.indexOf(model, editor.style.cap || "butt")
+                placeholderText: qsTr("Mixed")
                 tooltip: qsTr("Stroke end cap")
                 onActivated: function(index) { editor.request({ cap: model[index] }) }
             }
@@ -116,7 +133,8 @@ Item {
             Tk.ComboBox {
                 objectName: "strokeJoin"
                 model: editor.joins
-                currentIndex: editor.indexOf(model, editor.style.join || "miter")
+                currentIndex: editor.isMixed("join") ? -1 : editor.indexOf(model, editor.style.join || "miter")
+                placeholderText: qsTr("Mixed")
                 tooltip: qsTr("Stroke join")
                 onActivated: function(index) { editor.request({ join: model[index] }) }
             }
@@ -131,6 +149,8 @@ Item {
                 to: 100
                 stepSize: 0.25
                 decimals: 2
+                mixed: editor.isMixed("miterLimit")
+                tooltip: qsTr("Miter limit, in stroke widths")
                 onValueModified: function(value) { editor.request({ miterLimit: value }) }
             }
         }
@@ -139,7 +159,9 @@ Item {
             Tk.ComboBox {
                 objectName: "strokeDashMode"
                 model: editor.dashModes
-                currentIndex: editor.indexOf(model, editor.style.dashMode || (editor.style.dash && editor.style.dash.length ? "custom" : "solid"))
+                currentIndex: editor.isMixed("dash") ? -1
+                    : editor.indexOf(model, editor.style.dashMode || (editor.style.dash && editor.style.dash.length ? "custom" : "solid"))
+                placeholderText: qsTr("Mixed")
                 tooltip: qsTr("Stroke dash pattern")
                 onActivated: function(index) {
                     const mode = model[index]

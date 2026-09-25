@@ -71,7 +71,15 @@ private:
     double m_windowSum = 0.0;
 };
 
-// ---- spectral processing (D-137) ----
+// ---- spectral processing (D-137, masks D-186) ----
+// A mask polygon vertex in source coordinates: sample index and frequency.
+struct SpectralMaskPoint {
+    double sample = 0.0;
+    double hz = 0.0;
+};
+using SpectralMaskPolygon = std::vector<SpectralMaskPoint>;
+inline constexpr int kMaxMaskPoints = 4096; // total over every polygon of one edit
+
 struct SpectralGainSpec {
     qint64 start = 0;      // frames whose centre lies in [start, end) are processed
     qint64 end = 0;
@@ -80,7 +88,17 @@ struct SpectralGainSpec {
     double gain = 0.0;     // linear factor applied to those bins
     int fftSize = 2048;    // hop is fftSize / 4
     int sampleRate = 48000;
+    // AGENT-CONTRACT (D-186): when non-empty, the mask replaces the band. A
+    // frame centred on sample c changes bin k when k * rate / N lies inside
+    // any polygon on the vertical line x = c (even-odd per polygon, union
+    // across polygons; the inside interval [y0, y1] includes its ends).
+    // A lasso is one polygon; a paint stroke is one polygon per dab.
+    std::vector<SpectralMaskPolygon> mask;
 };
+// Bins [first, last] (inclusive, sorted, may overlap) the mask selects for the
+// frame centred on `centre`.
+std::vector<std::pair<int, int>> maskBinRanges(const std::vector<SpectralMaskPolygon> &mask, double centre,
+                                               int fftSize, int sampleRate);
 struct SpectralPatch {
     qint64 start = 0;           // first replaced sample
     std::vector<float> samples; // replacement for [start, start + size)

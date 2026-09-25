@@ -13,6 +13,7 @@
 #include <QPainter>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QTextLayout>
 #include <QSet>
 #include <algorithm>
 
@@ -32,29 +33,93 @@ bool parseMilliseconds(const QString &text, qint64 *milliseconds)
     return true;
 }
 
-QString drawText(QPainter &painter, const ActiveCaption &active, const QRectF &bounds,
-                 int fontSize, qreal outlineWidth)
+QFont captionFont(int pixelSize, bool emphasis)
+{
+    QFont font(QStringLiteral("Sans Serif"));
+    font.setPixelSize(pixelSize);
+    font.setWeight(emphasis ? QFont::DemiBold : QFont::Medium);
+    return font;
+}
+
+// Lays `text` out centred in lines of `width`; returns the laid-out height.
+// Line breaks become U+2028 (QTextLayout does not break on '\n'), and the
+// paragraph direction is the text's first strong character, so an Arabic
+// cue reads right to left as a whole.
+qreal layOut(QTextLayout *layout, const QString &text, const QFont &font, qreal width)
+{
+    QString laid = text;
+    laid.replace(QLatin1Char('\n'), QChar::LineSeparator);
+    layout->setText(laid);
+    layout->setFont(font);
+    QTextOption option(Qt::AlignHCenter);
+    option.setWrapMode(QTextOption::WordWrap);
+    option.setTextDirection(text.isRightToLeft() ? Qt::RightToLeft : Qt::LeftToRight);
+    layout->setTextOption(option);
+    qreal y = 0;
+    layout->beginLayout();
+    for (QTextLine line = layout->createLine(); line.isValid(); line = layout->createLine()) {
+        line.setLineWidth(width);
+        line.setPosition(QPointF(0, y));
+        y += line.height();
+    }
+    layout->endLayout();
+    return y;
+}
+
+void drawText(QPainter &painter, const ActiveCaption &active, const QRectF &bounds,
+              int fontSize, qreal outlineWidth)
 {
     const bool emphasis = active.cue.styleId == QLatin1String("emphasis");
-    QFont font(QStringLiteral("Sans Serif"));
-    font.setPixelSize(fontSize);
-    font.setWeight(emphasis ? QFont::DemiBold : QFont::Medium);
-    painter.setFont(font);
     const QColor fill = emphasis ? QColor(255, 225, 130) : QColor(255, 255, 255);
     const QRectF textBounds = bounds.adjusted(4, 2, -4, -2);
-    constexpr int flags = Qt::AlignHCenter | Qt::AlignVCenter | Qt::TextWordWrap;
+    QTextLayout layout;
+    const qreal height = layOut(&layout, active.cue.text, captionFont(fontSize, emphasis), textBounds.width());
+    const QPointF origin(textBounds.left(), textBounds.center().y() - height / 2);
     const qreal offset = qMax<qreal>(1.0, outlineWidth * 0.65);
     painter.setPen(QColor(0, 0, 0, 230));
     for (int dy = -1; dy <= 1; ++dy) {
         for (int dx = -1; dx <= 1; ++dx) {
             if (!dx && !dy) continue;
-            painter.drawText(textBounds.translated(dx * offset, dy * offset), flags, active.cue.text);
+            layout.draw(&painter, origin + QPointF(dx * offset, dy * offset));
         }
     }
     painter.setPen(fill);
-    painter.drawText(textBounds, flags, active.cue.text);
-    return active.cue.text;
+    layout.draw(&painter, origin);
 }
+}
+
+QList<QGlyphRun> CaptionBurnIn::glyphRuns(const QString &text, int pixelSize, bool emphasis, qreal width)
+{
+    QTextLayout layout;
+    layOut(&layout, text, captionFont(pixelSize, emphasis), width);
+    return layout.glyphRuns(-1, -1, QTextLayout::RetrieveGlyphIndexes | QTextLayout::RetrieveGlyphPositions
+                                        | QTextLayout::RetrieveStringIndexes);
+}
+
+QString CaptionBurnIn::missingCharacters(const QString &text, bool emphasis)
+{
+    // AGENT-NOTE: glyph 0 is the font's .notdef box; with font fallback it
+    // appears only when no installed font covers the character. Whitespace
+    // and format characters carry no ink and are never reported.
+    QString missing;
+    QString laid = text;
+    laid.replace(QLatin1Char('\n'), QChar::LineSeparator);
+    for (const QGlyphRun &run : glyphRuns(text, 32, emphasis, 1.0e6)) {
+        const QList<quint32> glyphs = run.glyphIndexes();
+        const QList<qsizetype> indexes = run.stringIndexes();
+        for (qsizetype i = 0; i < glyphs.size() && i < indexes.size(); ++i) {
+            if (glyphs.at(i) != 0) continue;
+            const qsizetype at = indexes.at(i);
+            if (at < 0 || at >= laid.size()) continue;
+            const QChar ch = laid.at(at);
+            if (ch.isSpace() || ch.category() == QChar::Other_Format || ch.category() == QChar::Other_Control)
+                continue;
+            QString character(ch);
+            if (ch.isHighSurrogate() && at + 1 < laid.size()) character += laid.at(at + 1);
+            if (!missing.contains(character)) missing += character;
+        }
+    }
+    return missing;
 }
 
 QStringList CaptionBurnIn::burn(QImage *image, const QVector<CaptionCueRecord> &cues, qint64 timeMs)

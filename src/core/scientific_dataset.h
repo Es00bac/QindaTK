@@ -81,6 +81,10 @@ public:
     Q_INVOKABLE bool replaceSamples(const QVariantList &rows);
     Q_INVOKABLE QVariantMap sample(int index) const;
     Q_INVOKABLE QVariantMap sampleById(const QString &id) const;
+    // AGENT-CONTRACT: Tk.DataTable reads each row with get(index) (DataTable.qml
+    // recordAt); without it ScientificPlot/ScientificPlot3D tables have empty
+    // cells. sample() plus xUnit, yUnit (and zUnit in 3D).
+    Q_INVOKABLE QVariantMap get(int index) const;
     // Bounded read: at most `limit` (<= 10000) rows with x in [xMin, xMax].
     Q_INVOKABLE QVariantList samplesInRange(double xMin, double xMax, int limit) const;
     // Finite extent of present samples, including uncertainty endpoints.

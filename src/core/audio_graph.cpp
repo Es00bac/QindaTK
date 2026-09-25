@@ -126,6 +126,16 @@ int AudioRenderGraph::addCurve(const EngineScheduleSnapshot *schedule, const QSt
     return int(m_curves.size()) - 1;
 }
 
+AudioRenderGraph::Route AudioRenderGraph::converted(const Node &node, Route route) const
+{
+    // A surround source reaches every destination through a fixed matrix (D-111).
+    const auto from = AudioMixer::layoutForLanes(node.lanes);
+    const int destLanes = route.node >= 0 ? m_nodes[std::size_t(route.node)].lanes : m_ports[std::size_t(route.port)].lanes;
+    const auto to = AudioMixer::layoutForLanes(destLanes);
+    if (from && to && AudioMixer::isSurround(*from)) AudioMixer::surroundMatrix(*from, *to, route.matrix.data());
+    return route;
+}
+
 int AudioRenderGraph::portIndex(const QString &id, const Sources &sources, const QString &from)
 {
     for (std::size_t p = 0; p < m_ports.size(); ++p)
@@ -180,6 +190,13 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
     channels += sortedBuses(mix, graph->m_problems);
     channels.push_back(AudioMixer::masterId());
     const AudioMixer::Audibility audibility = AudioMixer::audibility(mix, channels, muted, soloed);
+    // AGENT-GUARD (D-113): slots go by what is watched, never by processing
+    // order alone, so the master and the strips on screen are always fed.
+    QStringList mixerOrder = channels.mid(0, trackCount);
+    for (const AudioMixerBus &bus : mix.buses) mixerOrder.push_back(bus.id);
+    mixerOrder.push_back(AudioMixer::masterId());
+    const QSet<QString> metered = AudioMixer::meteredChannels(mixerOrder, sources.meterFirst,
+                                                              AudioChannelMeterFrame::kMaxSlots);
     QHash<QString, int> index;
     for (int i = 0; i < int(channels.size()); ++i) index.insert(channels.at(i), i);
 
@@ -195,8 +212,9 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
         node.gain = graph->addCurve(schedule, AudioMixer::parameterId(id, QStringLiteral("gain")));
         node.pan = graph->addCurve(schedule, AudioMixer::parameterId(id, QStringLiteral("pan")));
         node.width = graph->addCurve(schedule, AudioMixer::parameterId(id, QStringLiteral("width")));
-        if (i < AudioChannelMeterFrame::kMaxSlots) {
-            node.meterSlot = i;
+        node.depth = graph->addCurve(schedule, AudioMixer::parameterId(id, QStringLiteral("depth")));
+        if (metered.contains(id)) {
+            node.meterSlot = int(graph->m_meterChannels.size());
             graph->m_meterChannels.push_back(id);
             graph->m_meterLanes.push_back(node.lanes);
         }
@@ -247,7 +265,7 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
             Route route;
             if (index.value(output, -1) > i) route.node = index.value(output);
             else if (AudioMixer::isPort(output)) route.port = graph->portIndex(output, sources, id);
-            if (route.node >= 0 || route.port >= 0) node.routes.push_back(route);
+            if (route.node >= 0 || route.port >= 0) node.routes.push_back(graph->converted(node, route));
         }
         for (const AudioMixerSend &send : settings.sends) {
             if (index.value(send.target, -1) <= i) continue;
@@ -255,7 +273,7 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
             route.node = index.value(send.target);
             route.preFader = send.preFader;
             route.level = graph->addCurve(schedule, AudioMixer::parameterId(send.id, QStringLiteral("level")));
-            node.routes.push_back(route);
+            node.routes.push_back(graph->converted(node, route));
         }
     }
     graph->m_work.assign(graph->m_lanes * std::size_t(kChunk), 0.0);

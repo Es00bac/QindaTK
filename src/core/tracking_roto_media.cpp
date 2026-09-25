@@ -34,7 +34,8 @@ bool TrackingRotoModel::loadMediaFrames(const QString &uri, int firstFrame, int 
     // AGENT-NOTE: the decoder lives and dies on the worker (MediaDecoder is
     // single-thread by contract); proxies are made there too, so the GUI
     // thread only stores finished Grayscale8 images. Frames are decoded at
-    // their coded size: tracking coordinates are source pixels.
+    // their coded size: tracking coordinates are source pixels, and a frame
+    // above 4 MP is tracked on a downscaled proxy mapped back to them.
     m_loadFuture = QtConcurrent::run([this, id, token, uri, firstFrame, count] {
         MediaDecoder decoder;
         OperationError error = decoder.open(uri, token);
@@ -58,8 +59,10 @@ bool TrackingRotoModel::loadMediaFrames(const QString &uri, int firstFrame, int 
             QString proxyError;
             const QImage gray = TrackingEngine::proxy(decoded.image, &proxyError);
             if (gray.isNull()) { error = {ErrorCode::InvalidArgument, proxyError, {}, {}}; break; }
-            QMetaObject::invokeMethod(this, [this, id, frame, gray] { onFrameLoaded(id, frame, gray); },
-                                      Qt::QueuedConnection);
+            const QSize sourceSize = decoded.image.size();
+            QMetaObject::invokeMethod(this, [this, id, frame, gray, sourceSize] {
+                onFrameLoaded(id, frame, gray, sourceSize);
+            }, Qt::QueuedConnection);
         }
         if (token.isCancelled()) return;
         const QString message = error ? error.message : QString();
@@ -81,10 +84,10 @@ void TrackingRotoModel::cancelFrameLoad()
     emit frameLoadFinished(false, m_error);
 }
 
-void TrackingRotoModel::onFrameLoaded(quint64 job, int frame, const QImage &proxy)
+void TrackingRotoModel::onFrameLoaded(quint64 job, int frame, const QImage &proxy, QSize sourceSize)
 {
     if (!m_load.running || m_load.job != job) return;
-    if (!storeProxy(frame, proxy)) {
+    if (!storeProxy(frame, proxy, sourceSize)) {
         const QString error = m_error;
         m_load.cancel.cancel();
         m_load.running = false;

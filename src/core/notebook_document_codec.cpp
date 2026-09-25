@@ -189,6 +189,12 @@ bool NotebookDocument::saveToFile(const QString &path)
 {
     QSaveFile file(path);
     const QByteArray bytes = encodeNative({});
+    // AGENT-GUARD: never write a file loadFromFile would refuse. The model's
+    // own limits allow notebooks past MaxFileBytes; the session path refuses
+    // them in capture() and DocumentStore's inspect(), this is the same check.
+    QString problem;
+    if (!decodeNative(bytes, nullptr, nullptr, nullptr, nullptr, &problem))
+        return fail(QStringLiteral("Cannot save notebook: %1").arg(problem));
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit())
         return fail(QStringLiteral("Cannot save notebook: %1").arg(file.errorString()));
     clearError();

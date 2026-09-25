@@ -33,6 +33,13 @@ class ColorGradeProcessor {
 public:
     ColorGradeResult process(const QImage &source, const ColorGradeParameters &parameters,
                              const ColorContextSnapshot &context) const;
+    // AGENT-CONTRACT (docs/color.md "Output grade", D-096/D-126): the one
+    // context the video program grades in -- the frame's tag into linear
+    // sRGB, output encoded sRGB (the SDR program and lossless export are
+    // sRGB). MediaFinishing grades program frames with it and a
+    // ColorGradeEditSession in ProgramGrade scope previews with it, so the
+    // grade preview, the monitor and the exported file share one pipeline.
+    static ColorContextSnapshot programContext();
 };
 
 } // namespace QindaTK

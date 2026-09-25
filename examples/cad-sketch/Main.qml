@@ -87,7 +87,7 @@ Item {
             }
         }
         Tk.Label {
-            text: qsTr("Mounting plate · 120 × 80 mm · four 12 mm bores and a clearance arc. Drag a point or select a dimension to edit the constrained sketch.")
+            text: qsTr("Mounting plate · 120 × 80 mm · four 12 mm bores and a clearance arc. Drag a point, edit a selected dimension, or constrain the selection (Ctrl+click adds to it) with the property strip or H, V, D, A, C and T. Ctrl+Z undoes; Escape cancels a pending tool.")
             muted: true
             wrapMode: Text.Wrap
         }
@@ -111,7 +111,7 @@ Item {
                     const m = sketch.measure(viewport.selectedEntityId)
                     if (m.kind === "segment") return qsTr("Selected length: %1 %2")
                         .arg(Number(m.length).toFixed(3)).arg(m.units)
-                    if (m.kind === "circle") return qsTr("Selected radius: %1 %2")
+                    if (m.kind === "circle" || m.kind === "arc") return qsTr("Selected radius: %1 %2")
                         .arg(Number(m.radius).toFixed(3)).arg(m.units)
                     return qsTr("Mode: %1 · Revision %2").arg(viewport.mode).arg(sketch.revision)
                 }

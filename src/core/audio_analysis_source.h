@@ -127,17 +127,31 @@ private:
 };
 
 // Waveform columns with exact extrema from a peak pyramid built once per
-// source revision on a worker thread.
+// source revision on a worker thread. With splitChannels, channelColumns
+// holds one column list per channel of channelLayout (same boundaries as
+// `columns`), for a WaveformEditor that shows every channel in its own band.
 class AudioWaveformSource : public AudioAnalysisSource {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QVariantList columns READ columns NOTIFY resultChanged)
+    Q_PROPERTY(bool splitChannels READ splitChannels WRITE setSplitChannels NOTIFY splitChannelsChanged)
+    Q_PROPERTY(QVariantList channelColumns READ channelColumns NOTIFY resultChanged)
+    Q_PROPERTY(QVariantList channelLayout READ channelLayout NOTIFY resultChanged)
 public:
     explicit AudioWaveformSource(QObject *parent = nullptr);
     QVariantList columns() const { return m_columns; }
+    bool splitChannels() const { return m_splitChannels; }
+    void setSplitChannels(bool split);
+    QVariantList channelColumns() const { return m_channelColumns; }
+    // [{id, label}] per channel: ids are the edit channel indices ("0", "1"…),
+    // labels "L"/"R" for stereo, otherwise "1"…"n".
+    QVariantList channelLayout() const;
     // Exact extrema over [startSample, endSample) once the pyramid is ready:
     // {ok, minimum, maximum}.
     Q_INVOKABLE QVariantMap extrema(const QString &startSample, const QString &endSample) const;
+
+signals:
+    void splitChannelsChanged();
 
 protected:
     void run() override;
@@ -149,6 +163,8 @@ private:
     quint64 m_buildingRevision = 0; // revision of the build in flight
     quint64 m_buildSerial = 0;      // request serial of the build in flight; 0 when none
     QVariantList m_columns;
+    QVariantList m_channelColumns;
+    bool m_splitChannels = false;
 };
 
 // Spectrogram cells from cached spectrum tiles (D-136).

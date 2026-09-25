@@ -12,7 +12,7 @@ namespace {
 
 struct Target {
     int part = -1, staff = -1, voice = -1, measure = -1;
-    qint64 tick = 0, measureStart = 0, measureEnd = 0;
+    qint64 tick = 0, measureStart = 0, measureEnd = 0, phase = 0;
 };
 
 // Resolves an entry request's IDs and exact tick against the content.
@@ -34,6 +34,7 @@ QString resolve(const ScoreContent &content, const QString &partId, const QStrin
     const QVector<qint64> starts = Score::measureStarts(content);
     target.measureStart = starts[target.measure];
     target.measureEnd = starts[target.measure + 1];
+    target.phase = Score::measurePhase(content.measures[target.measure]);
     if (!parsed || target.tick < target.measureStart || target.tick >= target.measureEnd)
         return QObject::tr("Tick %1 is not in measure %2").arg(positionTicks).arg(target.measure + 1);
     return {};
@@ -84,7 +85,8 @@ QVariantMap ScoreModel::insertNote(const QString &partId, const QString &staffId
     event.notes.push_back({QUuid::createUuid(), *spelled, false});
     return editContent(tr("Enter note"), [&](ScoreContent &c) {
         ScoreVoice &voice = c.parts[target.part].staves[target.staff].voices[target.voice];
-        const QString problem = Score::writeEvent(voice, event, target.measureStart, target.measureEnd, voice.number == 1);
+        const QString problem = Score::writeEvent(voice, event, target.measureStart, target.measureEnd, voice.number == 1,
+                                                  target.phase);
         Score::dropBrokenTies(c);
         return problem;
     }, {{QStringLiteral("eventId"), Score::idText(event.id)}, {QStringLiteral("noteId"), Score::idText(event.notes.front().id)}});
@@ -105,7 +107,8 @@ QVariantMap ScoreModel::insertRest(const QString &partId, const QString &staffId
     event.rest = true;
     return editContent(tr("Enter rest"), [&](ScoreContent &c) {
         ScoreVoice &voice = c.parts[target.part].staves[target.staff].voices[target.voice];
-        const QString problem = Score::writeEvent(voice, event, target.measureStart, target.measureEnd, voice.number == 1);
+        const QString problem = Score::writeEvent(voice, event, target.measureStart, target.measureEnd, voice.number == 1,
+                                                  target.phase);
         Score::dropBrokenTies(c);
         return problem;
     }, {{QStringLiteral("eventId"), Score::idText(event.id)}});
@@ -127,7 +130,8 @@ QVariantMap ScoreModel::editEvent(const QString &eventId, const QString &edit, c
     };
     const auto rewrite = [&](ScoreContent &c, ScoreEvent event) {
         ScoreVoice &voice = c.parts[ref.part].staves[ref.staff].voices[ref.voice];
-        return Score::writeEvent(voice, event, starts[measure], starts[measure + 1], voice.number == 1);
+        return Score::writeEvent(voice, event, starts[measure], starts[measure + 1], voice.number == 1,
+                                 Score::measurePhase(m_content.measures[measure]));
     };
     const auto apply = [&](const QString &label, const std::function<QString(ScoreContent &, ScoreEvent &)> &change) {
         return editContent(label, [&](ScoreContent &c) {
@@ -150,14 +154,32 @@ QVariantMap ScoreModel::editEvent(const QString &eventId, const QString &edit, c
         });
     }
     if (edit == QLatin1String("tie")) {
-        if (original.rest) return failure(tr("A rest cannot be tied"));
-        return apply(tr("Tie"), [&](ScoreContent &, ScoreEvent &event) {
-            const int only = text.isEmpty() ? -1 : noteIndex(event, text);
-            if (!text.isEmpty() && only < 0) return tr("There is no note %1 in the event").arg(text);
-            bool anyUntied = false;
-            for (int n = 0; n < event.notes.size(); ++n) anyUntied = anyUntied || ((only < 0 || n == only) && !event.notes[n].tie);
+        if (original.rest) return failure(tr("A rest cannot be tied"), QStringLiteral("tie-on-rest"));
+        // AGENT-GUARD: ties are decided here from the committed content, before
+        // apply() drops broken ties; a tie without a note to end on would be
+        // dropped again and the unchanged content reported as accepted.
+        const ScoreVoice &voice = m_content.parts[ref.part].staves[ref.staff].voices[ref.voice];
+        const ScoreEvent *next = ref.event + 1 < voice.events.size() ? &voice.events[ref.event + 1] : nullptr;
+        const bool adjacent = next && next->tick == original.tick + Score::ticks(original.duration).value_or(0);
+        const int only = text.isEmpty() ? -1 : noteIndex(original, text);
+        if (!text.isEmpty() && only < 0) return failure(tr("There is no note %1 in the event").arg(text), QStringLiteral("unknown-note"));
+        bool anyUntied = false;
+        QVector<int> targets; // notes that get a tie
+        for (int n = 0; n < original.notes.size(); ++n) {
+            if (only >= 0 && n != only) continue;
+            anyUntied = anyUntied || !original.notes[n].tie;
+            ScoreNote tied = original.notes[n];
+            tied.tie = true;
+            if (adjacent && Score::tieTarget(tied, *next) >= 0) targets.push_back(n);
+        }
+        // Tying a chord ties the notes that continue; nothing to tie is refused.
+        if (anyUntied && targets.isEmpty())
+            return failure(tr("%1 has no note of the same pitch right after it to tie to")
+                               .arg(Score::pitchName(original.notes[std::max(0, only)].pitch)),
+                           QStringLiteral("tie-target-missing"));
+        return apply(anyUntied ? tr("Tie") : tr("Remove tie"), [&](ScoreContent &, ScoreEvent &event) {
             for (int n = 0; n < event.notes.size(); ++n)
-                if (only < 0 || n == only) event.notes[n].tie = anyUntied;
+                if (only < 0 || n == only) event.notes[n].tie = anyUntied && targets.contains(n);
             return QString();
         });
     }

@@ -42,38 +42,115 @@ class PropertySyncSocketClient;
 // GUI-thread, process-local transport with an optional QSaveFile operation
 // store. Clients hold distinct PropertyDocument instances with the same base
 // snapshot. The service never owns or mutates their documents.
+//
+// An authoritative service holds the document's shared log (the hub; the
+// socket server marks its service). It compacts: once compactAt operations
+// are retained, an attached in-sync replica folds them into a state snapshot
+// (the base) and the log keeps only newer operations and the shared
+// checkpoint window. A non-authoritative service is a replica's durable
+// queue: operations its own clients submit stay in the outbox until the
+// upstream hub acknowledges them, and it adopts the hub's base instead of
+// compacting. See docs/collaboration.md "Compaction" and D-204.
 class LocalPropertySyncService : public QObject {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QString documentId READ documentId WRITE setDocumentId NOTIFY changed)
     Q_PROPERTY(QString storagePath READ storagePath WRITE setStoragePath NOTIFY changed)
+    Q_PROPERTY(bool authoritative READ isAuthoritative WRITE setAuthoritative NOTIFY changed)
+    Q_PROPERTY(int compactAt READ compactAt WRITE setCompactAt NOTIFY changed)
     Q_PROPERTY(QString lastError READ lastError NOTIFY changed)
     Q_PROPERTY(int operationCount READ operationCount NOTIFY changed)
+    Q_PROPERTY(int outboxCount READ outboxCount NOTIFY changed)
+    Q_PROPERTY(QString baseId READ baseId NOTIFY changed)
 public:
-    explicit LocalPropertySyncService(QObject *parent = nullptr) : QObject(parent) {}
+    explicit LocalPropertySyncService(QObject *parent = nullptr);
+    ~LocalPropertySyncService() override;
     QString documentId() const { return m_documentId; }
     void setDocumentId(const QString &id);
     QString storagePath() const { return m_storagePath; }
     void setStoragePath(const QString &path);
+    bool isAuthoritative() const { return m_authoritative; }
+    // Becoming authoritative settles the outbox: this log is now the hub.
+    void setAuthoritative(bool authoritative);
+    int compactAt() const { return m_compactAt; }
+    // Clamped to 16..4096 retained operations.
+    void setCompactAt(int operations);
     QString lastError() const { return m_lastError; }
+    // True when the last refused submit can never succeed (invalid packet or
+    // a reused ID); false for capacity or storage failures worth retrying.
+    bool lastErrorPermanent() const { return m_lastErrorPermanent; }
     int operationCount() const { return m_operations.size(); }
+    int outboxCount() const { return m_outbox.size(); }
     const QVector<PropertySyncOperation> &operations() const { return m_operations; }
+    // Local operations not yet acknowledged upstream, in submit order.
+    QVector<PropertySyncOperation> outbox() const;
+    QString baseId() const { return m_baseId; }
+    const QByteArray &base() const { return m_base; }
     Q_INVOKABLE bool open();
     bool attach(LocalPropertySyncClient *client);
     void detach(LocalPropertySyncClient *client);
+    // Local submit: a client of this service or an authenticated peer of an
+    // authoritative server. On a non-authoritative service it enters the
+    // outbox until settle().
     bool submit(const PropertySyncOperation &operation);
+    // An operation the upstream hub holds; also settles a matching outbox entry.
+    bool submitUpstream(const PropertySyncOperation &operation);
+    // The upstream hub acknowledged this operation.
+    void settle(const QString &operationId);
+    // Removes an unsettled outbox operation that the hub refused for good and
+    // rebuilds every attached replica without it (D-205).
+    bool discard(const QString &operationId);
+    // Whether count more operations fit, compacting first when possible.
+    bool canAccept(int count);
+    // A hub with no replica attached in this process (a headless server)
+    // folds through a scratch replica built from this baseline snapshot and
+    // text property list, which must match every replica's (D-204).
+    void setCompactionBaseline(const QByteArray &snapshot, const QStringList &textProperties);
+    Q_INVOKABLE bool compact();
+    // Replaces this replica's log with the hub's base and retained tail,
+    // keeping unsettled outbox operations, then rebuilds attached replicas.
+    bool adoptBase(const QByteArray &base, const QString &baseId,
+                   const QVector<PropertySyncOperation> &tail);
     void publishPresence(LocalPropertySyncClient *client, const QVariantMap &presence);
+    // Presence of an actor outside this process (a socket peer); empty leaves.
+    void relayPresence(const QString &actorId, const QVariantMap &presence);
+    // Current presence of the clients attached in this process.
+    QHash<QString, QVariantMap> attachedPresence() const;
 signals:
     void changed();
+    // The base changed (compaction or adoption); indices into operations()
+    // taken before are invalid.
+    void compacted();
+    // A client attached here published presence (empty: it left).
+    void presencePublished(const QString &actorId, const QVariantMap &presence);
 private:
-    bool fail(const QString &message);
-    bool persist(const QVector<PropertySyncOperation> &operations);
+    bool fail(const QString &message, bool permanent = false);
+    bool append(const PropertySyncOperation &operation, bool local);
+    bool persist(const QVector<PropertySyncOperation> &operations, const QStringList &outbox);
+    bool persistAs(const QVector<PropertySyncOperation> &operations, const QStringList &outbox,
+                   const QString &baseId);
+    bool writeBase(const QByteArray &base, const QString &baseId);
+    bool loadBase(const QString &baseId);
+    void schedulePersist();
+    void rebuildClients();
+    QString basePath(const QString &baseId) const;
     QString m_documentId;
     QString m_storagePath;
     QString m_lastError;
+    bool m_lastErrorPermanent = false;
     QVector<PropertySyncOperation> m_operations;
+    QStringList m_outbox;
+    QByteArray m_base;
+    QString m_baseId;
     QVector<QPointer<LocalPropertySyncClient>> m_clients;
+    QHash<QString, QVariantMap> m_relayedPresence;
+    QByteArray m_compactionBaseline;
+    QStringList m_compactionText;
+    int m_compactAt = 2048;
+    bool m_authoritative = false;
     bool m_opened = false;
+    bool m_compacting = false;
+    bool m_persistQueued = false;
 };
 
 class LocalPropertySyncClient : public QObject {
@@ -122,6 +199,15 @@ public:
     // UTF-16 code-unit positions in the property's current text.
     Q_INVOKABLE bool replaceText(const QString &entityId, const QString &propertyId,
                                  int start, int removeCount, const QString &text);
+    // Stable caret anchors for presence and selections (D-206). The anchor of
+    // position p names the text element just before p (empty: the start); a
+    // later insert or delete anywhere moves textPosition(anchor) with the
+    // content, and a deleted anchor collapses to where its element was.
+    // textPosition returns -1 for an unknown anchor.
+    Q_INVOKABLE QString textAnchor(const QString &entityId, const QString &propertyId,
+                                   int position);
+    Q_INVOKABLE int textPosition(const QString &entityId, const QString &propertyId,
+                                 const QString &anchor);
     // Selective undo of this actor's own edits, issued as new operations.
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
@@ -129,6 +215,8 @@ public:
     Q_INVOKABLE void setPresence(const QVariantMap &presence);
     // Shares a named snapshot with every replica through the operation log.
     QString shareCheckpoint(const QString &name, const QByteArray &snapshot);
+    // The newest MaxSharedCheckpoints shared checkpoints, oldest first by
+    // operation order; every replica with the same operations lists the same.
     const QVector<PropertySyncOperation> &sharedCheckpoints() const { return m_checkpoints; }
     // Public for protocol adapters and deterministic duplicate/reorder tests.
     bool receive(const PropertySyncOperation &operation);
@@ -140,10 +228,17 @@ signals:
     void ownPresenceChanged(const QVariantMap &presence);
     void presenceChanged(const QString &actorId, const QVariantMap &presence);
     void presenceLeft(const QString &actorId);
+    // The replica was rebuilt from its service (compacted base adopted, or an
+    // operation the hub refused was discarded); the document was reset.
+    void rebuilt();
 private:
     friend class LocalPropertySyncService;
     friend class PropertySyncSocketClient;
     using Kind = PropertySyncOperation::Kind;
+    struct Stamp {
+        quint64 time = 0;
+        QString actorId;
+    };
     struct TextElement {
         QString id;          // "<op>:<index>"
         QChar character;
@@ -161,6 +256,7 @@ private:
     struct HistoryEntry {
         Kind kind = Kind::Set;
         QString operationId;
+        quint64 time = 0;       // logical time of operationId
         QString entityId;
         QString propertyId;
         QVariant previous;
@@ -183,12 +279,23 @@ private:
     bool fail(const QString &message);
     bool flush();
     bool inSync() const;
-    bool readyToEdit();
+    bool readyToEdit(int count = 1);
     PropertySyncOperation makeOperation(Kind kind, const QString &entityId,
                                         const QString &propertyId, const QVariant &value,
                                         const QString &meta = {});
     bool submitLocal(const PropertySyncOperation &operation,
                      const std::optional<HistoryEntry> &entry = std::nullopt);
+    bool queue(const QVector<PropertySyncOperation> &operations);
+    bool foreignSupportSince(const QString &entityId, quint64 time) const;
+    // Compaction and rebuild (local_property_sync_state.cpp).
+    QByteArray exportState(const QString &baseId) const;
+    bool importState(const QByteArray &state);
+    void clearState();
+    bool rebuild();
+    bool materialize();
+    QVariantMap entityValues(const QString &entityId);
+    void compacted(const QString &baseId);
+    bool addCheckpoint(const PropertySyncOperation &operation);
     void record(HistoryEntry entry);
     bool invert(const HistoryEntry &entry, Record into);
     bool setValueImpl(const QString &entityId, const QString &propertyId,
@@ -204,7 +311,7 @@ private:
     bool receiveText(const PropertySyncOperation &operation);
     bool entityAlive(const QString &entityId) const;
     bool reconcileEntity(const QString &entityId);
-    bool addSupport(const QString &entityId, const QString &operationId);
+    bool addSupport(const QString &entityId, const PropertySyncOperation &operation);
     QVariant baseValue(const QString &entityId, const QString &propertyId) const;
     bool isTextProperty(const QString &propertyId) const;
     TextSequence *sequence(const QString &entityId, const QString &propertyId);
@@ -228,13 +335,15 @@ private:
     QHash<QString, PropertySyncOperation> m_winners;
     QSet<QString> m_baselineEntities;
     QHash<QString, QVariant> m_baselineValues;
-    QHash<QString, QSet<QString>> m_support;
+    QHash<QString, QHash<QString, Stamp>> m_support;
     QHash<QString, QSet<QString>> m_removed;
     QHash<QString, TextSequence> m_text;
     QVector<PropertySyncOperation> m_checkpoints;
     QVector<HistoryEntry> m_undo;
     QVector<HistoryEntry> m_redo;
     Record m_recording = Record::Fresh;
+    QString m_syncedBaseId;   // the service base this state was built on
+    bool m_detached = false;  // rebuilding: document writes wait for materialize()
     QVariantMap m_presence;
 };
 

@@ -247,6 +247,125 @@ private slots:
         }
         QCOMPARE(history.diffCurrent(version).size(), 0);
     }
+
+    void historyKeepsTheNewestVersionsSoRestoreNeverStops()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        PropertyDocument base;
+        QVERIFY(base.defineProperty(describe(QStringLiteral("gain"), QMetaType::fromType<double>(), 0.0)));
+        const EntityId entity = EntityId::create();
+        QVERIFY(base.addEntity(entity));
+        const auto snapshot = ReferenceDocumentCodec::capture(base);
+        QVERIFY(snapshot);
+        auto first = ReferenceDocumentCodec::decode(snapshot->payload);
+        auto second = ReferenceDocumentCodec::decode(snapshot->payload);
+        QVERIFY(first && second);
+        LocalPropertySyncService service;
+        service.setDocumentId(base.documentIdString());
+        QVERIFY(service.open());
+        LocalPropertySyncClient a, b;
+        a.setDocument(first->document.get());
+        a.setService(&service);
+        a.setActorId(QStringLiteral("00000000-0000-0000-0000-00000000000a"));
+        b.setDocument(second->document.get());
+        b.setService(&service);
+        b.setActorId(QStringLiteral("00000000-0000-0000-0000-00000000000b"));
+        QVERIFY(a.connectToService());
+        QVERIFY(b.connectToService());
+        PropertyVersionHistory local, sharedA, sharedB;
+        local.setClient(&a);
+        local.setStoragePath(directory.filePath(QStringLiteral("versions.json")));
+        sharedA.setClient(&a);
+        sharedA.setShared(true);
+        sharedB.setClient(&b);
+        sharedB.setShared(true);
+        QVERIFY(local.open() && sharedA.open() && sharedB.open());
+
+        // Past 64 versions both modes keep the newest 64 instead of refusing.
+        for (int i = 0; i < 70; ++i) {
+            QVERIFY(a.setValue(entity.toString(), QStringLiteral("gain"), double(i)));
+            QVERIFY2(!local.checkpoint(QStringLiteral("Local %1").arg(i)).isEmpty(),
+                     qPrintable(local.lastError()));
+            QVERIFY2(!sharedA.checkpoint(QStringLiteral("Shared %1").arg(i)).isEmpty(),
+                     qPrintable(sharedA.lastError()));
+        }
+        QCOMPARE(local.count(), 64);
+        QCOMPARE(sharedB.count(), 64);
+        QCOMPARE(sharedB.versions(), sharedA.versions());
+        QCOMPARE(local.versions().last().toMap().value(QStringLiteral("name")).toString(),
+                 QStringLiteral("Local 6"));
+
+        // Restoring the oldest kept version still works: its safety version
+        // evicts it, but the restore itself goes through.
+        const QString oldest = local.versions().last().toMap().value(QStringLiteral("id")).toString();
+        QVERIFY2(local.restore(oldest), qPrintable(local.lastError()));
+        QCOMPARE(local.count(), 64);
+        QCOMPARE(second->document->value(entity, QStringLiteral("gain")).toDouble(), 6.0);
+        const QString sharedOldest =
+            sharedB.versions().last().toMap().value(QStringLiteral("id")).toString();
+        QVERIFY2(sharedB.restore(sharedOldest), qPrintable(sharedB.lastError()));
+        QCOMPARE(first->document->value(entity, QStringLiteral("gain")).toDouble(), 6.0);
+        QCOMPARE(sharedA.count(), 64);
+
+        // A local version can be removed explicitly; a shared one cannot.
+        QVERIFY(local.remove(oldest) == false);
+        const QString newest = local.versions().first().toMap().value(QStringLiteral("id")).toString();
+        QVERIFY(local.remove(newest));
+        QCOMPARE(local.count(), 63);
+        QVERIFY(!sharedA.remove(sharedOldest));
+    }
+
+    void restoresVersionsLargerThanOnePacket()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        PropertyDocument base;
+        QVERIFY(base.defineProperty(describe(QStringLiteral("body"),
+                                              QMetaType::fromType<QString>(), QString())));
+        const EntityId entity = EntityId::create();
+        QVERIFY(base.addEntity(entity));
+        const auto snapshot = ReferenceDocumentCodec::capture(base);
+        QVERIFY(snapshot);
+        auto first = ReferenceDocumentCodec::decode(snapshot->payload);
+        auto second = ReferenceDocumentCodec::decode(snapshot->payload);
+        QVERIFY(first && second);
+        LocalPropertySyncService service;
+        service.setDocumentId(base.documentIdString());
+        QVERIFY(service.open());
+        LocalPropertySyncClient a, b;
+        for (auto *client : {&a, &b}) {
+            client->setService(&service);
+            client->setTextProperties({QStringLiteral("body")});
+        }
+        a.setDocument(first->document.get());
+        a.setActorId(QStringLiteral("00000000-0000-0000-0000-00000000000a"));
+        b.setDocument(second->document.get());
+        b.setActorId(QStringLiteral("00000000-0000-0000-0000-00000000000b"));
+        QVERIFY(a.connectToService());
+        QVERIFY(b.connectToService());
+        PropertyVersionHistory history;
+        history.setClient(&a);
+        history.setStoragePath(directory.filePath(QStringLiteral("versions.json")));
+        QVERIFY(history.open());
+
+        // 45,000 units: over one 4,096-unit insert and a 40 KiB packet.
+        QString long_(45000, QLatin1Char('a'));
+        for (int i = 0; i < long_.size(); i += 97) long_[i] = QLatin1Char('b');
+        QVERIFY2(a.replaceText(entity.toString(), QStringLiteral("body"), 0, 0, long_),
+                 qPrintable(a.lastError()));
+        QCOMPARE(second->document->value(entity, QStringLiteral("body")).toString(), long_);
+        const QString version = history.checkpoint(QStringLiteral("Long"));
+        QVERIFY2(!version.isEmpty(), qPrintable(history.lastError()));
+        QVERIFY(b.replaceText(entity.toString(), QStringLiteral("body"), 20000, 10,
+                              QStringLiteral("CHANGED")));
+        const qsizetype before = service.operationCount();
+        QVERIFY2(history.restore(version), qPrintable(history.lastError()));
+        QCOMPARE(first->document->value(entity, QStringLiteral("body")).toString(), long_);
+        QCOMPARE(second->document->value(entity, QStringLiteral("body")).toString(), long_);
+        // Restore replaced only the changed middle: one delete, one insert.
+        QCOMPARE(service.operationCount() - before, 3);
+    }
 };
 
 QTEST_GUILESS_MAIN(TstPropertyVersionHistory)

@@ -7,7 +7,8 @@
 
 namespace QindaTK {
 
-// AGENT-NOTE (WP-062, D-113): the MixerView delegate source. update() diffs
+// AGENT-NOTE (WP-062, D-113): the MixerView delegate source (and, with its
+// own roles, RoutingMatrix's input rows). update() diffs
 // the next rows against the current ones by channel ID: departed rows are
 // removed, retained rows MOVE (beginMoveRows) and emit dataChanged only for
 // changed roles, entering rows are inserted in place. A reorder, a hidden
@@ -22,6 +23,8 @@ public:
     // Roles in row order; channelId is the key.
     static QList<QByteArray> roles();
     explicit AudioMixerStripModel(QObject *parent = nullptr);
+    // Another row shape (RoutingMatrix inputs); the first role is the key.
+    AudioMixerStripModel(const QList<QByteArray> &roles, QObject *parent);
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
@@ -36,6 +39,7 @@ signals:
     void countChanged();
 
 private:
+    QList<QByteArray> m_roles;
     QVector<QVariantList> m_rows;
 };
 

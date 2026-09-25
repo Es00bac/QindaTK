@@ -99,11 +99,12 @@ TestCase {
     }
 
     function test_pointer_wheel_drag_emits_preview_and_finish() {
-        mousePress(wheels, 113, 110)
-        mouseMove(wheels, 145, 78)
+        const lift = wheels.wheelGeometry(0)
+        mousePress(wheels, lift.centerX + 3, lift.centerY)
+        mouseMove(wheels, lift.centerX + 35, lift.centerY - 32)
         verify(lastWheel !== null)
         compare(lastWheel[2], "lift")
-        mouseRelease(wheels, 145, 78)
+        mouseRelease(wheels, lift.centerX + 35, lift.centerY - 32)
         verify(finishedWheel !== null)
         compare(finishedWheel[2], "lift")
     }

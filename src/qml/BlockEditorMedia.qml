@@ -5,7 +5,7 @@ import QindaTK as Tk
 // Internal part of Tk.BlockEditor: image, ink, embed, divider and preserved
 // unsupported blocks. An image keeps its logical resource ID; availability
 // comes from the editor's Tk.ResourceResolver, so a missing file shows a
-// relink notice instead of losing the block.
+// relink notice instead of losing the block, and a present one is drawn.
 Tk.Flex {
     id: root
     property var editor: null // the owning Tk.BlockEditor (var: a typed property would make a load cycle)
@@ -14,16 +14,30 @@ Tk.Flex {
     readonly property string blockType: block && block.type ? block.type : ""
     readonly property var blockData: block && block.data ? block.data : ({})
     readonly property string resourceId: String(blockData.resourceId || "")
-    readonly property string availability: availabilityOf(resourceId, editor && editor.resolver ? editor.resolver.resources : [])
+    readonly property var resource: resourceOf(resourceId, editor && editor.resolver ? editor.resolver.resources : [])
+    readonly property string availability: resource ? String(resource.availability)
+                                           : resourceId.length === 0 ? "none"
+                                           : editor && editor.resolver ? "unregistered" : "unknown"
+    // AGENT-NOTE: with a host AssetProvider the image comes through
+    // Tk.AssetThumbnail; without one, a file the resolver reports present
+    // (ready or modified) is drawn straight from its URI, so a notebook with
+    // only a Tk.ResourceResolver still shows its images.
+    readonly property string imageUrl: !resource || availability === "missing" ? "" : fileUrl(String(resource.uri || ""))
+    readonly property bool hasProvider: !!(editor && editor.provider)
     readonly property var link: editor && editor.notebook && String(blockData.targetId || "").indexOf("notebook:") === 0
                                 ? editor.notebook.resolveLink(blockData.targetId) : null
     readonly property bool known: ["image", "ink", "embed", "divider"].indexOf(blockType) >= 0
 
-    function availabilityOf(id, resources) {
-        if (id.length === 0) return "none"
+    function resourceOf(id, resources) {
+        if (id.length === 0) return null
         for (let i = 0; i < resources.length; ++i)
-            if (resources[i].resourceId === id) return resources[i].availability
-        return editor && editor.resolver ? "unregistered" : "unknown"
+            if (resources[i].resourceId === id) return resources[i]
+        return null
+    }
+    // A resolver URI is a URL or a local path (ResourceResolver::localPath).
+    function fileUrl(uri) {
+        if (uri.length === 0 || /^[A-Za-z][A-Za-z0-9+.-]+:/.test(uri)) return uri
+        return uri.charAt(0) === "/" ? "file://" + uri : "file:///" + uri
     }
 
     direction: Tk.Flex.Column
@@ -36,7 +50,7 @@ Tk.Flex {
 
     Tk.AssetThumbnail {
         objectName: "blockMediaPreview_" + root.blockId
-        visible: root.blockType === "image" || root.blockType === "ink"
+        visible: root.blockType === "ink" || (root.blockType === "image" && (root.hasProvider || root.imageUrl.length === 0))
         provider: root.editor ? root.editor.provider : null
         resourceId: root.resourceId
         document: root.editor ? root.editor.document : null
@@ -46,6 +60,15 @@ Tk.Flex {
         active: visible && root.resourceId.length > 0
         implicitWidth: Tk.Theme.size.thumbnail * 2
         implicitHeight: Tk.Theme.size.thumbnailHeight
+    }
+    Tk.Thumbnail {
+        objectName: "blockMediaImage_" + root.blockId
+        visible: root.blockType === "image" && !root.hasProvider && root.imageUrl.length > 0
+        source: visible ? root.imageUrl : ""
+        crop: false
+        tooltip: root.blockData.caption ? String(root.blockData.caption) : qsTr("Image %1").arg(root.resourceId)
+        implicitWidth: Tk.Theme.size.thumbnail * 4
+        implicitHeight: Tk.Theme.size.thumbnailHeight * 4
     }
     Tk.Notice {
         objectName: "blockMediaMissing_" + root.blockId

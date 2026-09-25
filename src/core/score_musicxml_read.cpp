@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // MusicXML 4.0 partwise import (WP-067, D-181, docs/notation.md#interchange).
-// Reads the declared feature set; everything else is reported by element
-// name in `unsupported`, never dropped silently.
+// Reads the declared feature set; every other element is reported by name,
+// in `unsupported` (content not kept) or `recomputed` (engraving hints and
+// metadata the layout and export regenerate), never dropped silently.
 #include "score_model.h"
+#include "score_musicxml_read_p.h"
 
 #include <QFile>
 #include <QXmlStreamReader>
@@ -12,72 +14,7 @@ namespace QindaTK {
 
 namespace {
 
-QUuid fromXmlId(const QString &text)
-{
-    const qsizetype dash = text.indexOf(QLatin1Char('-'));
-    const QUuid id = dash > 0 ? QUuid::fromString(text.mid(dash + 1)) : QUuid();
-    return id.isNull() ? QUuid::createUuid() : id;
-}
-
-// Visits the children of the current element: elements through `element`
-// (which must consume them) and processing instructions through `pi`.
-template<typename Element, typename Instruction>
-void xmlChildren(QXmlStreamReader &xml, Element element, Instruction pi)
-{
-    while (!xml.atEnd()) {
-        xml.readNext();
-        if (xml.isStartElement()) element(xml.name().toString());
-        else if (xml.isEndElement()) return;
-        else if (xml.isProcessingInstruction()) pi(xml.processingInstructionTarget().toString(),
-                                                   xml.processingInstructionData().toString().trimmed());
-    }
-}
-
-template<typename Element>
-void xmlChildren(QXmlStreamReader &xml, Element element)
-{
-    xmlChildren(xml, element, [](const QString &, const QString &) {});
-}
-
-struct XmlNote {
-    bool chord = false, rest = false, grace = false, cue = false, hasType = false;
-    ScorePitch pitch;
-    ScoreDuration duration;
-    qint64 divisions = 0;
-    bool tieStart = false;
-    int staff = 1;
-    QString voice = QStringLiteral("1");
-    QString id;
-    QStringList articulations;
-};
-
-struct PartState {
-    int part = -1;
-    qint64 divisions = 1;
-    int staves = 1;
-    QVector<ScoreClef> clefs{ScoreClef::Treble};
-    QHash<int, QUuid> staffIds;                  // 0-based staff
-    QHash<QPair<int, int>, QUuid> voiceIds;      // (staff, number)
-    QHash<QPair<int, QString>, int> voiceNumbers; // (staff, MusicXML voice) -> 1..4
-    QHash<QPair<int, int>, QVector<ScoreEvent>> events;
-    QHash<QPair<int, QString>, QString> dynamics; // pending, (staff, voice or "")
-    QUuid pendingEvent;
-};
-
-struct Import {
-    ScoreContent content;
-    QHash<QString, int> partIndex; // MusicXML part id -> index
-    QSet<QString> unsupported;
-    int mismatches = 0;
-    int rounded = 0;
-    QString error;
-};
-
-void unsupported(Import &import, QXmlStreamReader &xml, const QString &name)
-{
-    import.unsupported.insert(name);
-    xml.skipCurrentElement();
-}
+using namespace ScoreXml;
 
 void readPartList(QXmlStreamReader &xml, Import &import)
 {
@@ -92,9 +29,10 @@ void readPartList(QXmlStreamReader &xml, Import &import)
             else if (child == QLatin1String("midi-instrument"))
                 xmlChildren(xml, [&](const QString &field) {
                     if (field == QLatin1String("midi-channel")) part.channel = std::clamp(xml.readElementText().toInt() - 1, 0, 15);
-                    else xml.skipCurrentElement();
+                    else unsupported(import, xml, field); // midi-program, volume, pan
                 });
-            else xml.skipCurrentElement(); // score-instrument, part-name-display: presentation only
+            else if (child.endsWith(QLatin1String("-display"))) recomputed(import, xml, child);
+            else unsupported(import, xml, child); // score-instrument, group, ...
         });
         import.partIndex.insert(xmlPartId, int(import.content.parts.size()));
         import.content.parts.push_back(part);
@@ -113,7 +51,7 @@ void readAttributes(QXmlStreamReader &xml, Import &import, PartState &state, int
                     const int fifths = xml.readElementText().toInt();
                     if (first) record.fifths = fifths;
                 } else if (field == QLatin1String("mode")) {
-                    xml.skipCurrentElement();
+                    recomputed(import, xml, QStringLiteral("key/mode"));
                 } else {
                     unsupported(import, xml, QStringLiteral("key/") + field);
                 }
@@ -134,7 +72,7 @@ void readAttributes(QXmlStreamReader &xml, Import &import, PartState &state, int
             xmlChildren(xml, [&](const QString &field) {
                 if (field == QLatin1String("sign")) sign = xml.readElementText();
                 else if (field == QLatin1String("line")) line = xml.readElementText();
-                else xml.skipCurrentElement();
+                else unsupported(import, xml, QStringLiteral("clef/") + field); // octave change
             });
             const ScoreClef clef = sign == QLatin1String("F") ? ScoreClef::Bass
                                    : sign == QLatin1String("C") ? ScoreClef::Alto : ScoreClef::Treble;
@@ -151,176 +89,6 @@ void readAttributes(QXmlStreamReader &xml, Import &import, PartState &state, int
             unsupported(import, xml, name);
         }
     });
-}
-
-XmlNote readNote(QXmlStreamReader &xml, Import &import)
-{
-    XmlNote note;
-    note.id = xml.attributes().value(QStringLiteral("id")).toString();
-    xmlChildren(xml, [&](const QString &name) {
-        if (name == QLatin1String("chord")) { note.chord = true; xml.skipCurrentElement(); }
-        else if (name == QLatin1String("rest")) { note.rest = true; xml.skipCurrentElement(); }
-        else if (name == QLatin1String("grace")) { note.grace = true; xml.skipCurrentElement(); }
-        else if (name == QLatin1String("cue")) { note.cue = true; xml.skipCurrentElement(); }
-        else if (name == QLatin1String("pitch")) {
-            xmlChildren(xml, [&](const QString &field) {
-                const QString text = xml.readElementText();
-                if (field == QLatin1String("step")) note.pitch.step = int(QStringLiteral("CDEFGAB").indexOf(text));
-                else if (field == QLatin1String("alter")) note.pitch.alter = text.toInt();
-                else if (field == QLatin1String("octave")) note.pitch.octave = text.toInt();
-            });
-        } else if (name == QLatin1String("duration")) {
-            note.divisions = xml.readElementText().toLongLong();
-        } else if (name == QLatin1String("tie")) {
-            note.tieStart = note.tieStart || xml.attributes().value(QStringLiteral("type")) == QLatin1String("start");
-            xml.skipCurrentElement();
-        } else if (name == QLatin1String("voice")) {
-            note.voice = xml.readElementText().trimmed();
-        } else if (name == QLatin1String("type")) {
-            const auto base = Score::parseBaseName(xml.readElementText().trimmed());
-            if (base) { note.duration.base = *base; note.duration.unit = *base; note.hasType = true; }
-        } else if (name == QLatin1String("dot")) {
-            ++note.duration.dots;
-            xml.skipCurrentElement();
-        } else if (name == QLatin1String("time-modification")) {
-            xmlChildren(xml, [&](const QString &field) {
-                const QString text = xml.readElementText().trimmed();
-                if (field == QLatin1String("actual-notes")) note.duration.actual = text.toInt();
-                else if (field == QLatin1String("normal-notes")) note.duration.normal = text.toInt();
-                else if (field == QLatin1String("normal-type")) note.duration.unit = Score::parseBaseName(text).value_or(-1);
-            });
-        } else if (name == QLatin1String("staff")) {
-            note.staff = std::max(1, xml.readElementText().toInt());
-        } else if (name == QLatin1String("notations")) {
-            xmlChildren(xml, [&](const QString &kind) {
-                if (kind == QLatin1String("tied")) {
-                    note.tieStart = note.tieStart || xml.attributes().value(QStringLiteral("type")) == QLatin1String("start");
-                    xml.skipCurrentElement();
-                } else if (kind == QLatin1String("tuplet")) {
-                    xml.skipCurrentElement(); // groups follow from the ratios (D-181)
-                } else if (kind == QLatin1String("fermata")) {
-                    note.articulations.push_back(QStringLiteral("fermata"));
-                    xml.skipCurrentElement();
-                } else if (kind == QLatin1String("articulations")) {
-                    xmlChildren(xml, [&](const QString &mark) {
-                        const QString ours = mark == QLatin1String("strong-accent") ? QStringLiteral("marcato") : mark;
-                        if (Score::articulationNames().contains(ours)) note.articulations.push_back(ours);
-                        else import.unsupported.insert(mark);
-                        xml.skipCurrentElement();
-                    });
-                } else {
-                    unsupported(import, xml, kind);
-                }
-            });
-        } else if (name == QLatin1String("stem") || name == QLatin1String("beam") || name == QLatin1String("notehead")
-                   || name == QLatin1String("accidental") || name == QLatin1String("instrument")) {
-            xml.skipCurrentElement(); // engraving hints: the layout recomputes them
-        } else {
-            unsupported(import, xml, name);
-        }
-    });
-    note.duration = Score::normalized(note.duration);
-    return note;
-}
-
-void readDirection(QXmlStreamReader &xml, Import &import, PartState &state)
-{
-    QString dynamic, voice;
-    int staff = 1;
-    xmlChildren(xml, [&](const QString &name) {
-        if (name == QLatin1String("direction-type")) {
-            xmlChildren(xml, [&](const QString &kind) {
-                if (kind == QLatin1String("dynamics"))
-                    xmlChildren(xml, [&](const QString &value) {
-                        if (Score::dynamicNames().contains(value)) dynamic = value;
-                        else import.unsupported.insert(QStringLiteral("dynamics/") + value);
-                        xml.skipCurrentElement();
-                    });
-                else unsupported(import, xml, kind);
-            });
-        } else if (name == QLatin1String("voice")) {
-            voice = xml.readElementText().trimmed();
-        } else if (name == QLatin1String("staff")) {
-            staff = std::max(1, xml.readElementText().toInt());
-        } else if (name == QLatin1String("sound") || name == QLatin1String("offset")) {
-            xml.skipCurrentElement();
-        } else {
-            unsupported(import, xml, name);
-        }
-    });
-    if (!dynamic.isEmpty()) state.dynamics.insert({staff - 1, voice}, dynamic);
-}
-
-int voiceNumber(PartState &state, int staff, const QString &xmlVoice)
-{
-    const QPair<int, QString> key{staff, xmlVoice};
-    if (const auto it = state.voiceNumbers.constFind(key); it != state.voiceNumbers.cend()) return it.value();
-    // QindaTK and common writers number voices staff * 4 + n.
-    int number = xmlVoice.toInt() - staff * Score::kMaxVoices;
-    QSet<int> used;
-    for (auto it = state.voiceNumbers.cbegin(); it != state.voiceNumbers.cend(); ++it)
-        if (it.key().first == staff) used.insert(it.value());
-    if (number < 1 || number > Score::kMaxVoices || used.contains(number)) {
-        number = 1;
-        while (used.contains(number)) ++number;
-    }
-    state.voiceNumbers.insert(key, number);
-    return number;
-}
-
-void addNote(Import &import, PartState &state, const XmlNote &note, qint64 &cursor)
-{
-    if (note.grace || note.cue) {
-        import.unsupported.insert(note.grace ? QStringLiteral("grace") : QStringLiteral("cue"));
-        return;
-    }
-    const int staff = std::min(note.staff, Score::kMaxStaves) - 1;
-    const int number = voiceNumber(state, staff, note.voice);
-    if (number > Score::kMaxVoices) {
-        import.unsupported.insert(QStringLiteral("more than %1 voices on a staff").arg(Score::kMaxVoices));
-        return;
-    }
-    QVector<ScoreEvent> &events = state.events[{staff, number}];
-    const qint64 written = note.divisions * Score::kPpq / state.divisions;
-    if ((note.divisions * Score::kPpq) % state.divisions) ++import.rounded;
-    const auto value = note.hasType ? Score::ticks(note.duration) : std::optional<qint64>();
-    if (value && *value != written) ++import.mismatches;
-    if (note.chord && !events.isEmpty() && !events.back().rest && !note.rest) {
-        events.back().notes.push_back({fromXmlId(note.id), note.pitch, note.tieStart});
-        return;
-    }
-    if (!value) { // a whole-measure rest without a type: fill its duration
-        const auto rests = Score::restFill(0, written);
-        if (!note.rest || !rests) {
-            import.unsupported.insert(QStringLiteral("note without a type"));
-            cursor += written;
-            return;
-        }
-        for (const ScoreDuration &duration : *rests) {
-            ScoreEvent event;
-            event.id = QUuid::createUuid();
-            event.tick = cursor;
-            event.duration = duration;
-            event.rest = true;
-            events.push_back(event);
-            cursor += *Score::ticks(duration);
-        }
-        state.pendingEvent = {};
-        return;
-    }
-    ScoreEvent event;
-    event.id = !state.pendingEvent.isNull() ? state.pendingEvent : note.rest ? fromXmlId(note.id) : QUuid::createUuid();
-    state.pendingEvent = {};
-    event.tick = cursor;
-    event.duration = note.duration;
-    event.rest = note.rest;
-    if (!note.rest) event.notes.push_back({fromXmlId(note.id), note.pitch, note.tieStart});
-    event.articulations = Score::canonicalArticulations(note.articulations);
-    for (const QString &voiceKey : {note.voice, QString()})
-        if (const QString dynamic = state.dynamics.take({staff, voiceKey}); !dynamic.isEmpty() && event.dynamic.isEmpty())
-            event.dynamic = dynamic;
-    events.push_back(event);
-    cursor += *value;
 }
 
 void readPart(QXmlStreamReader &xml, Import &import, bool firstPart)
@@ -350,19 +118,22 @@ void readPart(QXmlStreamReader &xml, Import &import, bool firstPart)
             ScoreMeasure record = measure > 0 ? import.content.measures.back() : ScoreMeasure();
             record.id = fromXmlId(xml.attributes().value(QStringLiteral("id")).toString());
             record.breakAfter = ScoreBreak::None;
+            record.pickup = 0;
             import.content.measures.push_back(record);
         } else if (measure >= import.content.measures.size()) {
             import.error = QObject::tr("The parts have different numbers of measures");
             xml.skipCurrentElement();
             return;
         }
+        const bool implicit = xml.attributes().value(QStringLiteral("implicit")) == QLatin1String("yes");
         const qint64 start = Score::measureStarts(import.content)[measure];
-        qint64 cursor = start;
+        qint64 cursor = start, reached = start;
         xmlChildren(xml, [&](const QString &element) {
             if (element == QLatin1String("attributes")) {
                 readAttributes(xml, import, state, measure, firstPart);
             } else if (element == QLatin1String("note")) {
                 addNote(import, state, readNote(xml, import), cursor);
+                reached = std::max(reached, cursor);
             } else if (element == QLatin1String("backup") || element == QLatin1String("forward")) {
                 const bool back = element == QLatin1String("backup");
                 xmlChildren(xml, [&](const QString &field) {
@@ -372,6 +143,7 @@ void readPart(QXmlStreamReader &xml, Import &import, bool firstPart)
                     if ((divisions * Score::kPpq) % state.divisions) ++import.rounded;
                     cursor += (back ? -1 : 1) * divisions * Score::kPpq / state.divisions;
                 });
+                reached = std::max(reached, cursor);
             } else if (element == QLatin1String("direction")) {
                 readDirection(xml, import, state);
             } else if (element == QLatin1String("print")) {
@@ -381,18 +153,28 @@ void readPart(QXmlStreamReader &xml, Import &import, bool firstPart)
                     else if (xml.attributes().value(QStringLiteral("new-system")) == QLatin1String("yes"))
                         previous.breakAfter = ScoreBreak::System;
                 }
-                xml.skipCurrentElement();
+                recomputed(import, xml, QStringLiteral("print")); // page and system layout
             } else if (element == QLatin1String("barline")) {
                 xmlChildren(xml, [&](const QString &part) {
-                    if (part == QLatin1String("bar-style")) xml.skipCurrentElement();
+                    if (part == QLatin1String("bar-style")) recomputed(import, xml, QStringLiteral("barline/bar-style"));
                     else unsupported(import, xml, part); // repeats, endings
                 });
             } else if (element == QLatin1String("sound")) {
-                xml.skipCurrentElement(); // tempo belongs to the session tempo map
+                unsupported(import, xml, xml.attributes().hasAttribute(QStringLiteral("tempo")) ? QStringLiteral("tempo")
+                                                                                                 : QStringLiteral("sound"));
             } else {
                 unsupported(import, xml, element);
             }
         }, instruction);
+        // A pickup (implicit) measure is as long as its content (D-181).
+        if (implicit && firstPart) {
+            ScoreMeasure &record = import.content.measures[measure];
+            const qint64 length = reached - start;
+            if (length > 0 && length < Score::meterTicks(record)) {
+                record.pickup = length;
+                ++import.pickups;
+            }
+        }
     }, instruction);
     ScorePart &part = import.content.parts[state.part];
     part.staves.clear();
@@ -431,7 +213,7 @@ QVariantMap ScoreModel::importMusicXml(const QString &file)
         if (name == QLatin1String("work")) {
             xmlChildren(xml, [&](const QString &field) {
                 if (field == QLatin1String("work-title")) import.content.title = xml.readElementText();
-                else xml.skipCurrentElement();
+                else unsupported(import, xml, QStringLiteral("work/") + field);
             });
         } else if (name == QLatin1String("movement-title")) {
             const QString title = xml.readElementText();
@@ -440,7 +222,8 @@ QVariantMap ScoreModel::importMusicXml(const QString &file)
             xmlChildren(xml, [&](const QString &field) {
                 if (field == QLatin1String("creator") && xml.attributes().value(QStringLiteral("type")) == QLatin1String("composer"))
                     import.content.composer = xml.readElementText();
-                else xml.skipCurrentElement();
+                else if (field == QLatin1String("encoding")) recomputed(import, xml, QStringLiteral("encoding"));
+                else unsupported(import, xml, QStringLiteral("identification/") + field); // rights, other creators
             });
         } else if (name == QLatin1String("part-list")) {
             readPartList(xml, import);
@@ -448,7 +231,7 @@ QVariantMap ScoreModel::importMusicXml(const QString &file)
             readPart(xml, import, firstPart);
             firstPart = false;
         } else if (name == QLatin1String("defaults") || name == QLatin1String("credit")) {
-            xml.skipCurrentElement(); // page appearance: the layout options own it
+            recomputed(import, xml, name); // page appearance: the layout options own it
         } else {
             unsupported(import, xml, name);
         }
@@ -470,15 +253,16 @@ QVariantMap ScoreModel::importMusicXml(const QString &file)
             for (const ScoreVoice &voice : staff.voices) after += int(voice.events.size());
     QString error;
     if (!commitContent(import.content, tr("Import MusicXML"), &error)) return failure(error);
-    QStringList names(import.unsupported.begin(), import.unsupported.end());
-    names.sort();
+    const QStringList names = sortedList(import.unsupported);
     return ok({{QStringLiteral("parts"), int(import.content.parts.size())},
                {QStringLiteral("measures"), int(import.content.measures.size())},
                {QStringLiteral("events"), after},
                {QStringLiteral("filledRests"), after - before},
                {QStringLiteral("durationMismatches"), import.mismatches},
                {QStringLiteral("roundedPositions"), import.rounded},
-               {QStringLiteral("unsupported"), names}});
+               {QStringLiteral("pickups"), import.pickups},
+               {QStringLiteral("unsupported"), names},
+               {QStringLiteral("recomputed"), sortedList(import.recomputed)}});
 }
 
 } // namespace QindaTK

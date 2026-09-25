@@ -5,9 +5,11 @@
 #include "canvas_style_model.h"
 #include "canvas_appearance.h"
 
+#include <QCryptographicHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
+#include <cmath>
 
 namespace QindaTK {
 namespace {
@@ -54,6 +56,13 @@ QVariantMap describe(const CanvasObject &o)
             {QStringLiteral("blend"), CanvasAppearanceRules::blendName(a.blend)},
             {QStringLiteral("pattern"), patternValue(a.pattern)},
             {QStringLiteral("managedFill"), managedKind(o)},
+            {QStringLiteral("fillKind"), a.pattern.kind != CanvasPatternKind::None ? QStringLiteral("pattern")
+                 : managedKind(o) == QLatin1String("gradient") ? QStringLiteral("gradient")
+                 : o.fill.isValid() && o.fill.alpha() > 0 ? QStringLiteral("solid") : QStringLiteral("none")},
+            // A digest, so two different gradients read as mixed.
+            {QStringLiteral("gradient"), managedKind(o) == QLatin1String("gradient")
+                 ? QVariant(QString::fromLatin1(QCryptographicHash::hash(o.managedFill, QCryptographicHash::Sha1).toHex()))
+                 : QVariant()},
             {QStringLiteral("effectCount"), int(a.effects.size())}};
 }
 
@@ -64,15 +73,19 @@ bool same(const QVariant &a, const QVariant &b)
     return a == b;
 }
 
-QStringList mixedOf(const QVariantMap &style, std::initializer_list<const char *> keys)
+} // namespace
+
+// Mixed style keys under the descriptor field names a panel uses.
+QStringList CanvasStyleModelMixed::fields(const QVariantMap &style,
+                                          std::initializer_list<std::pair<const char *, const char *>> keys)
 {
     const QStringList mixed = style.value(QStringLiteral("mixed")).toStringList();
     QStringList result;
-    for (const char *key : keys)
-        if (mixed.contains(QLatin1String(key))) result.append(QLatin1String(key));
+    for (const auto &[key, field] : keys)
+        if (mixed.contains(QLatin1String(key))) result.append(QLatin1String(field));
     return result;
 }
-} // namespace
+
 
 QVariantList CanvasStyleModel::patterns() const
 {
@@ -84,7 +97,7 @@ QStringList CanvasStyleModel::blendModes() const
     return CanvasAppearanceRules::blendNames();
 }
 
-void CanvasStyleModel::setSelectedIds(const QVariantList &ids)
+void CanvasStyleModel::adoptSelection(const QVariantList &ids)
 {
     if (m_selectedIds == ids) return;
     m_selectedIds = ids;
@@ -118,17 +131,40 @@ QVariantMap CanvasStyleModel::styleOf(const QVariantList &ids) const
     return style;
 }
 
+QVector<CanvasObjectId> CanvasStyleModel::selection() const
+{
+    QVector<CanvasObjectId> ids;
+    for (const QVariant &value : m_selectedIds) {
+        bool ok = false;
+        const CanvasObjectId id = value.toString().toULongLong(&ok);
+        if (ok && id && m_document && m_document->object(id) && !ids.contains(id)) ids.append(id);
+    }
+    return ids;
+}
+
 void CanvasStyleModel::refresh()
 {
+    observe(selection());
+    syncGradientEditor();
     const QVariantMap style = styleOf(m_selectedIds);
     const QVariantList dash = style.value(QStringLiteral("dash")).toList();
     QString mode = dash.isEmpty() ? QStringLiteral("solid")
         : dash == QVariantList{6.0, 3.0} ? QStringLiteral("dash")
         : dash == QVariantList{1.0, 2.0} ? QStringLiteral("dot") : QStringLiteral("custom");
     if (dash.isEmpty() && !m_dashMode.isEmpty()) mode = m_dashMode;
+    const QStringList strokeMixed = CanvasStyleModelMixed::fields(style, {
+        {"stroke", "color"}, {"strokeWidth", "width"}, {"alignment", "alignment"}, {"cap", "cap"},
+        {"join", "join"}, {"miterLimit", "miterLimit"}, {"dash", "dash"}});
+    // The width in the chosen unit; the value last typed in this unit is
+    // shown exactly while the document still holds what it produced.
+    const double documentWidth = style.value(QStringLiteral("strokeWidth"), 0.0).toDouble();
+    double width = documentWidth / documentUnitsPer(m_strokeUnit);
+    if (m_widthIntent.unit == m_strokeUnit && m_widthIntent.documentWidth == documentWidth
+        && !strokeMixed.contains(QStringLiteral("width")))
+        width = m_widthIntent.value;
     const QVariantMap stroke{
-        {QStringLiteral("width"), style.value(QStringLiteral("strokeWidth"), 0.0)},
-        {QStringLiteral("unit"), QStringLiteral("document")},
+        {QStringLiteral("width"), width},
+        {QStringLiteral("unit"), m_strokeUnit},
         {QStringLiteral("color"), style.value(QStringLiteral("stroke"))},
         {QStringLiteral("alignment"), style.value(QStringLiteral("alignment"), QStringLiteral("center"))},
         {QStringLiteral("cap"), style.value(QStringLiteral("cap"), QStringLiteral("butt"))},
@@ -136,26 +172,8 @@ void CanvasStyleModel::refresh()
         {QStringLiteral("miterLimit"), style.value(QStringLiteral("miterLimit"), 4.0)},
         {QStringLiteral("dash"), dash},
         {QStringLiteral("dashMode"), mode},
-        {QStringLiteral("mixed"), mixedOf(style, {"stroke", "strokeWidth", "alignment", "cap", "join",
-                                                  "miterLimit", "dash"})}};
-    const QVariantMap pattern = style.value(QStringLiteral("pattern")).toMap();
-    const QString managed = style.value(QStringLiteral("managedFill")).toString();
-    const QString kind = !pattern.isEmpty() ? QStringLiteral("pattern")
-        : managed == QLatin1String("gradient") ? QStringLiteral("gradient")
-        : !style.value(QStringLiteral("fill")).isNull() || !managed.isEmpty() ? QStringLiteral("solid")
-        : QStringLiteral("none");
-    // An unset or custom pattern suggests the first swatch when the kind changes.
-    QString patternId = pattern.value(QStringLiteral("swatch")).toString();
-    if (pattern.isEmpty()) patternId = CanvasAppearanceRules::patternSwatches().constFirst().toMap()
-                                           .value(QStringLiteral("id")).toString();
-    const QVariantMap fill{
-        {QStringLiteral("kind"), kind},
-        {QStringLiteral("settings"), QVariantMap{
-            {QStringLiteral("solid"), QVariantMap{{QStringLiteral("color"), style.value(QStringLiteral("fill"))}}},
-            {QStringLiteral("gradient"), QVariantMap{{QStringLiteral("gradient"), QVariant()}}},
-            {QStringLiteral("pattern"), QVariantMap{{QStringLiteral("patternId"), patternId}}}}},
-        {QStringLiteral("managed"), !managed.isEmpty()},
-        {QStringLiteral("mixed"), mixedOf(style, {"fill", "pattern", "managedFill"})}};
+        {QStringLiteral("mixed"), strokeMixed}};
+    const QVariantMap fill = fillDescriptor(style);
     if (style == m_selectionStyle && stroke == m_strokeStyle && fill == m_fillStyle) return;
     m_selectionStyle = style;
     m_strokeStyle = stroke;
@@ -165,57 +183,55 @@ void CanvasStyleModel::refresh()
 
 bool CanvasStyleModel::applyStrokeStyle(const QVariantMap &next)
 {
+    const bool listed = next.contains(QStringLiteral("changed"));
+    const QStringList changed = next.value(QStringLiteral("changed")).toStringList();
+    // A listed field was set by the user: it applies even when it equals
+    // the published (first object's) value of a mixed key.
+    const auto wants = [&](const QString &field) {
+        if (!next.contains(field)) return false;
+        return listed ? changed.contains(field) : !same(next.value(field), m_strokeStyle.value(field));
+    };
+    bool presentation = false;
+    const QString unit = next.value(QStringLiteral("unit"), m_strokeUnit).toString();
+    if (unit != m_strokeUnit && (!listed || changed.contains(QStringLiteral("unit")) || wants(QStringLiteral("width")))) {
+        if (documentUnitsPer(unit) <= 0) return fail(tr("Unsupported stroke unit: %1").arg(unit));
+        m_strokeUnit = unit;
+        presentation = true;
+    }
     QVariantMap style;
     const auto take = [&](const char *field, const char *key) {
-        const QString name = QLatin1String(field);
-        if (next.contains(name) && !same(next.value(name), m_strokeStyle.value(name)))
-            style.insert(QLatin1String(key), next.value(name));
+        if (wants(QLatin1String(field))) style.insert(QLatin1String(key), next.value(QLatin1String(field)));
     };
     take("color", "stroke");
-    take("width", "strokeWidth");
     take("alignment", "alignment");
     take("cap", "cap");
     take("join", "join");
     take("miterLimit", "miterLimit");
     take("dash", "dash");
+    if (wants(QStringLiteral("width"))) {
+        bool ok = false;
+        const double typed = next.value(QStringLiteral("width")).toDouble(&ok);
+        if (!ok || !std::isfinite(typed)) return fail(tr("Invalid stroke width"));
+        const double documentWidth = typed * documentUnitsPer(m_strokeUnit);
+        style.insert(QStringLiteral("strokeWidth"), documentWidth);
+        m_widthIntent = {m_strokeUnit, typed, documentWidth};
+    }
     // "custom" with no values yet is presentation state: keep offering the
     // pattern field until a custom dash is entered.
     const QString mode = next.value(QStringLiteral("dashMode")).toString();
-    if (!style.contains(QStringLiteral("dash")) && mode != m_strokeStyle.value(QStringLiteral("dashMode")).toString()) {
+    if (!style.contains(QStringLiteral("dash")) && next.contains(QStringLiteral("dashMode"))
+        && mode != m_strokeStyle.value(QStringLiteral("dashMode")).toString()) {
         m_dashMode = mode == QLatin1String("custom") ? mode : QString();
-        refresh();
+        presentation = true;
     }
-    if (style.isEmpty()) return succeed(0);
+    if (style.isEmpty()) {
+        if (presentation) refresh();
+        return succeed(0);
+    }
     m_dashMode.clear();
-    return apply(m_selectedIds, style);
-}
-
-bool CanvasStyleModel::applyFillStyle(const QVariantMap &next)
-{
-    const QString kind = next.value(QStringLiteral("kind")).toString();
-    const QVariantMap settings = next.value(QStringLiteral("settings")).toMap();
-    const QVariantMap current = m_fillStyle.value(QStringLiteral("settings")).toMap();
-    const bool sameKind = kind == m_fillStyle.value(QStringLiteral("kind")).toString();
-    QVariantMap style;
-    if (kind == QLatin1String("none")) {
-        if (!sameKind) style = {{QStringLiteral("fill"), QVariant()}, {QStringLiteral("pattern"), QVariant()}};
-    } else if (kind == QLatin1String("solid")) {
-        QVariant color = settings.value(QStringLiteral("solid")).toMap().value(QStringLiteral("color"));
-        const QVariant was = current.value(QStringLiteral("solid")).toMap().value(QStringLiteral("color"));
-        if (!sameKind || !same(color, was)) {
-            // Document data default: a neutral grey rather than a theme role.
-            if (color.isNull()) color = QColor(0x80, 0x80, 0x80);
-            style = {{QStringLiteral("fill"), color}, {QStringLiteral("pattern"), QVariant()}};
-        }
-    } else if (kind == QLatin1String("pattern")) {
-        const QString id = settings.value(QStringLiteral("pattern")).toMap().value(QStringLiteral("patternId")).toString();
-        const QString was = current.value(QStringLiteral("pattern")).toMap().value(QStringLiteral("patternId")).toString();
-        if (!sameKind || id != was) style = {{QStringLiteral("pattern"), id}};
-    } else {
-        return fail(tr("Gradient fills are applied with applyGradient"));
-    }
-    if (style.isEmpty()) return succeed(0);
-    return apply(m_selectedIds, style);
+    const bool ok = apply(m_selectedIds, style);
+    if (presentation || !ok) refresh();
+    return ok;
 }
 
 } // namespace QindaTK

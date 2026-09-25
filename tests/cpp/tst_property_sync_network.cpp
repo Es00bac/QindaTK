@@ -1,101 +1,15 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // WP-082 local-network transport: authenticated sealed frames, TCP
 // convergence after offline edits, live permission changes, credential
-// rotation and revocation, and idle-session expiry.
-#include "property_sync_socket.h"
-#include "reference_document_codec.h"
+// rotation and revocation, idle-session expiry, and presence between the
+// hub's own replicas and its peers.
+#include "sync_network_fixture.h"
 #include <QJsonDocument>
 #include <QSignalSpy>
-#include <QTemporaryDir>
 #include <QtTest>
 
 using namespace QindaTK;
-
-namespace {
-constexpr auto ActorA = "00000000-0000-0000-0000-00000000000a";
-constexpr auto ActorB = "00000000-0000-0000-0000-00000000000b";
-constexpr auto CredentialA = "network-credential-aaaa";
-constexpr auto CredentialB = "network-credential-bbbb";
-
-QString gain() { return QStringLiteral("gain"); }
-QString name() { return QStringLiteral("name"); }
-
-PropertyDescriptor describe(const QString &id, QMetaType type, const QVariant &defaultValue)
-{
-    PropertyDescriptor descriptor;
-    descriptor.id = id;
-    descriptor.type = type;
-    descriptor.defaultValue = defaultValue;
-    return descriptor;
-}
-
-// One process-independent peer: its own replica, durable local log and
-// socket bridge, exactly as a second machine would hold them.
-struct Peer {
-    std::unique_ptr<PropertyDocument> document;
-    LocalPropertySyncService local;
-    LocalPropertySyncClient client;
-    PropertySyncSocketClient socket;
-};
-
-struct Network {
-    QTemporaryDir directory;
-    EntityId entity = EntityId::create();
-    QByteArray baseline;
-    QString documentId;
-    LocalPropertySyncService service;
-    PropertySyncSocketServer server;
-
-    bool start()
-    {
-        PropertyDocument base;
-        if (!directory.isValid()
-            || !base.defineProperty(describe(gain(), QMetaType::fromType<double>(), 0.0))
-            || !base.defineProperty(describe(name(), QMetaType::fromType<QString>(),
-                                             QStringLiteral("base")))
-            || !base.addEntity(entity))
-            return false;
-        const auto snapshot = ReferenceDocumentCodec::capture(base);
-        if (!snapshot) return false;
-        baseline = snapshot->payload;
-        documentId = base.documentIdString();
-        service.setDocumentId(documentId);
-        service.setStoragePath(directory.filePath(QStringLiteral("server.json")));
-        server.setService(&service);
-        return service.open()
-            && server.grant(QString::fromLatin1(ActorA), QString::fromLatin1(CredentialA), true)
-            && server.grant(QString::fromLatin1(ActorB), QString::fromLatin1(CredentialB), true)
-            && server.listenNetwork(QHostAddress::LocalHost);
-    }
-
-    std::unique_ptr<Peer> peer(const char *actor, const char *credential)
-    {
-        auto result = std::make_unique<Peer>();
-        auto decoded = ReferenceDocumentCodec::decode(baseline);
-        if (!decoded) return nullptr;
-        result->document = std::move(decoded->document);
-        result->local.setDocumentId(documentId);
-        result->local.setStoragePath(
-            directory.filePath(QString::fromLatin1(actor) + QStringLiteral(".json")));
-        if (!result->local.open()) return nullptr;
-        result->client.setDocument(result->document.get());
-        result->client.setService(&result->local);
-        result->client.setActorId(QString::fromLatin1(actor));
-        if (!result->client.connectToService()) return nullptr;
-        result->socket.setService(&result->local);
-        result->socket.setActorId(QString::fromLatin1(actor));
-        result->socket.setCredential(QString::fromLatin1(credential));
-        result->socket.setHost(QStringLiteral("127.0.0.1"), server.networkPort());
-        result->socket.setLocalClient(&result->client);
-        return result;
-    }
-
-    double valueOf(const Peer &peer) const
-    {
-        return peer.document->value(entity, gain()).toDouble();
-    }
-};
-}
+using namespace sync_test;
 
 class TstPropertySyncNetwork final : public QObject {
     Q_OBJECT
@@ -245,6 +159,67 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(closed.size(), 3, 5000);
         QVERIFY(!a->socket.mayEdit());
         QCOMPARE(network.service.operationCount(), 1);
+    }
+
+    void hubPresenceReachesPeersBothWays()
+    {
+        Network network;
+        QVERIFY(network.start());
+        // The hosting user edits through a replica attached to the hub's own
+        // service, not through a socket bridge.
+        auto hosted = network.replica();
+        QVERIFY(hosted);
+        LocalPropertySyncClient host;
+        host.setDocument(hosted.get());
+        host.setService(&network.service);
+        host.setActorId(QString::fromLatin1(ActorC));
+        QVERIFY(host.connectToService());
+        host.setPresence({{QStringLiteral("label"), QStringLiteral("Host")}});
+        QSignalSpy hostSees(&host, &LocalPropertySyncClient::presenceChanged);
+        QSignalSpy hostLeft(&host, &LocalPropertySyncClient::presenceLeft);
+
+        auto a = network.peer(ActorA, CredentialA);
+        QVERIFY(a);
+        QSignalSpy peerSees(&a->client, &LocalPropertySyncClient::presenceChanged);
+        QSignalSpy peerLeft(&a->client, &LocalPropertySyncClient::presenceLeft);
+        QVERIFY(a->socket.connectToServer());
+        QTRY_VERIFY_WITH_TIMEOUT(a->socket.isConnected(), 5000);
+        // Snapshot on connect, then live updates in both directions.
+        QTRY_COMPARE_WITH_TIMEOUT(peerSees.size(), 1, 5000);
+        QCOMPARE(peerSees.first().at(0).toString(), QString::fromLatin1(ActorC));
+        QCOMPARE(peerSees.first().at(1).toMap().value(QStringLiteral("label")).toString(),
+                 QStringLiteral("Host"));
+        a->client.setPresence({{QStringLiteral("label"), QStringLiteral("Peer")}});
+        QTRY_COMPARE_WITH_TIMEOUT(hostSees.size(), 1, 5000);
+        QCOMPARE(hostSees.first().at(0).toString(), QString::fromLatin1(ActorA));
+        host.setPresence({{QStringLiteral("label"), QStringLiteral("Host moved")}});
+        QTRY_COMPARE_WITH_TIMEOUT(peerSees.size(), 2, 5000);
+
+        // A hub replica that attaches later still sees the peer.
+        auto lateDocument = network.replica();
+        QVERIFY(lateDocument);
+        LocalPropertySyncClient late;
+        late.setDocument(lateDocument.get());
+        late.setService(&network.service);
+        late.setActorId(QString::fromLatin1(ActorB));
+        QSignalSpy lateSees(&late, &LocalPropertySyncClient::presenceChanged);
+        QVERIFY(late.connectToService());
+        QStringList actors;
+        for (const auto &row : lateSees) actors.append(row.at(0).toString());
+        QVERIFY(actors.contains(QString::fromLatin1(ActorA)));
+        QVERIFY(actors.contains(QString::fromLatin1(ActorC)));
+
+        // Leaves travel both ways as well; presence never entered the log.
+        a->socket.disconnectFromServer();
+        QTRY_COMPARE_WITH_TIMEOUT(hostLeft.size(), 1, 5000);
+        QCOMPARE(hostLeft.first().at(0).toString(), QString::fromLatin1(ActorA));
+        QVERIFY(a->socket.connectToServer());
+        QTRY_VERIFY_WITH_TIMEOUT(a->socket.isConnected(), 5000);
+        const qsizetype before = peerLeft.size();
+        host.disconnectFromService();
+        QTRY_VERIFY_WITH_TIMEOUT(peerLeft.size() > before, 5000);
+        QCOMPARE(peerLeft.last().at(0).toString(), QString::fromLatin1(ActorC));
+        QCOMPARE(network.service.operationCount(), 0);
     }
 
     void silentSessionExpiresAndPresenceLeaves()

@@ -2,11 +2,22 @@
 #include "native_print_backend.h"
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
+#include <QHash>
 #include <QPainter>
 #include <QPrinter>
 #include <QPrinterInfo>
+#include <QSaveFile>
 #include <QSet>
+#include <QTemporaryFile>
+
+#ifndef QINDATK_HAVE_CUPS
+#define QINDATK_HAVE_CUPS 0
+#endif
+#if QINDATK_HAVE_CUPS
+#include <cups/cups.h>
+#endif
 
 namespace QindaTK {
 namespace {
@@ -78,29 +89,25 @@ Print::Capabilities capabilitiesOf(const QPrinterInfo &info)
     return c;
 }
 
+// One job: Qt's PDF engine renders into a private temporary file; finish()
+// either commits it to the target through QSaveFile or submits it to the
+// spooler. Nothing outside the temporary file and QSaveFile's own sibling
+// exists before finish() succeeds, and an existing target is replaced
+// atomically or not at all.
 class NativePrintDevice final : public Print::Device {
 public:
-    NativePrintDevice(const Print::Ticket &ticket, const QString &printerName, const QString &filePath)
-        : m_printer(QPrinter::HighResolution), m_filePath(filePath)
+    NativePrintDevice(const Print::Ticket &ticket, const QString &filePath, const QString &printerName,
+                      std::shared_ptr<PrintSpooler> spooler)
+        : m_printer(QPrinter::HighResolution), m_filePath(filePath), m_printerName(printerName),
+          m_spooler(std::move(spooler)), m_options(NativePrintBackend::jobOptions(ticket))
     {
-        if (filePath.isEmpty()) {
-            m_printer.setPrinterName(printerName);
-            m_name = printerName;
-        } else {
-            // The engine writes a temporary file that becomes the target on finish.
-            m_printer.setOutputFormat(QPrinter::PdfFormat);
-            m_partPath = filePath + QStringLiteral(".part");
-            m_printer.setOutputFileName(m_partPath);
-            m_name = filePath;
-        }
+        m_name = filePath.isEmpty() ? printerName : filePath;
+        m_printer.setOutputFormat(QPrinter::PdfFormat);
         m_printer.setResolution(int(Print::DeviceDpi));
         m_printer.setFullPage(true);
         m_printer.setDocName(tr("QindaTK document"));
-        m_printer.setCopyCount(ticket.copies);
-        m_printer.setCollateCopies(ticket.collate);
-        m_printer.setDuplex(ticket.duplex == QLatin1String("long-edge") ? QPrinter::DuplexLongSide
-                            : ticket.duplex == QLatin1String("short-edge") ? QPrinter::DuplexShortSide
-                                                                           : QPrinter::DuplexNone);
+        // Copies, collation and sides are job options for the spooler; the
+        // PDF holds each sheet once.
         m_printer.setColorMode(ticket.colorMode == QLatin1String("grayscale") ? QPrinter::GrayScale : QPrinter::Color);
     }
     ~NativePrintDevice() override { abort(); }
@@ -108,6 +115,7 @@ public:
     bool beginSheet(const Print::Sheet &sheet, int index, QString *error) override
     {
         if (m_done) return fail(error, tr("The print job is already closed"));
+        if (index == 0 && !start(error)) return false;
         const QPageLayout layout = Print::pageLayoutFor(sheet.sizePt);
         const bool sameSize = m_printer.pageLayout().fullRect(QPageLayout::Point).size() == layout.fullRect(QPageLayout::Point).size();
         if (!sameSize && !m_printer.setPageLayout(layout))
@@ -129,52 +137,172 @@ public:
         const bool ended = m_painter.isActive() && m_painter.end();
         const QPrinter::PrinterState state = m_printer.printerState();
         if (!ended || state == QPrinter::Error || state == QPrinter::Aborted) {
-            removePart();
+            discard();
             return fail(error, tr("%1 reported an error; nothing was printed").arg(m_name));
         }
-        if (!m_partPath.isEmpty()) {
-            if (QFile::exists(m_filePath) && !QFile::remove(m_filePath)) {
-                removePart();
-                return fail(error, tr("Cannot replace %1").arg(m_filePath));
-            }
-            if (!QFile::rename(m_partPath, m_filePath)) {
-                removePart();
-                return fail(error, tr("Cannot write %1").arg(m_filePath));
-            }
-        }
-        return true;
+        const bool ok = m_filePath.isEmpty() ? submit(error) : commit(error);
+        discard();
+        return ok;
     }
     void abort() override
     {
         if (m_done) return;
         m_done = true;
         if (m_painter.isActive()) {
-            m_printer.abort(); // the spool job is dropped before CUPS receives it
+            m_printer.abort();
             m_painter.end();
         }
-        removePart();
+        discard();
     }
 
 private:
-    void removePart()
+    bool start(QString *error)
     {
-        if (!m_partPath.isEmpty()) QFile::remove(m_partPath);
+        m_temp.setFileTemplate(QDir::temp().filePath(QStringLiteral("qindatk-print-XXXXXX.pdf")));
+        if (!m_temp.open())
+            return fail(error, tr("Cannot create a temporary file for printing: %1").arg(m_temp.errorString()));
+        m_temp.close(); // the print engine opens it by name; QTemporaryFile still removes it
+        m_printer.setOutputFileName(m_temp.fileName());
+        if (m_filePath.isEmpty()) return true;
+        // Opened now so an unwritable folder fails on the first sheet, not
+        // after the whole job has been rendered.
+        m_target = std::make_unique<QSaveFile>(m_filePath);
+        if (!m_target->open(QIODevice::WriteOnly))
+            return fail(error, tr("Cannot write %1: %2").arg(m_filePath, m_target->errorString()));
+        return true;
     }
+    bool commit(QString *error)
+    {
+        QFile rendered(m_temp.fileName());
+        if (!m_target || !rendered.open(QIODevice::ReadOnly))
+            return fail(error, tr("Cannot read the rendered job for %1").arg(m_filePath));
+        while (!rendered.atEnd()) {
+            const QByteArray chunk = rendered.read(1 << 20);
+            if (chunk.isEmpty() || m_target->write(chunk) != chunk.size())
+                return fail(error, tr("Cannot write %1: %2").arg(m_filePath, m_target->errorString()));
+        }
+        if (!m_target->commit()) return fail(error, tr("Cannot write %1: %2").arg(m_filePath, m_target->errorString()));
+        m_target.reset();
+        return true;
+    }
+    bool submit(QString *error)
+    {
+        if (!m_spooler) return fail(error, tr("No print spooler is available"));
+        const PrintSpooler::Job job{m_printerName, m_printer.docName(), m_temp.fileName(), m_options};
+        QString reason;
+        if (m_spooler->submit(job, &reason) > 0) return true;
+        return fail(error, tr("%1 did not accept the job (%2); nothing was printed")
+                               .arg(m_name, reason.isEmpty() ? tr("no reason given") : reason));
+    }
+    void discard()
+    {
+        if (m_target) m_target->cancelWriting();
+        m_target.reset(); // QSaveFile removes its own temporary file; the target is untouched
+        if (!m_temp.fileName().isEmpty()) m_temp.remove(); // empty until start() opened it
+    }
+
     QPrinter m_printer;
     QPainter m_painter;
+    QTemporaryFile m_temp;
+    std::unique_ptr<QSaveFile> m_target;
     QString m_filePath;
-    QString m_partPath;
+    QString m_printerName;
     QString m_name;
+    std::shared_ptr<PrintSpooler> m_spooler;
+    PrintSpooler::Options m_options;
     bool m_done = false;
 };
 
+QString mediaFor(const QString &paperId)
+{
+    static const QHash<QString, QString> pwg{
+        {QStringLiteral("a3"), QStringLiteral("iso_a3_297x420mm")},
+        {QStringLiteral("a4"), QStringLiteral("iso_a4_210x297mm")},
+        {QStringLiteral("a5"), QStringLiteral("iso_a5_148x210mm")},
+        {QStringLiteral("letter"), QStringLiteral("na_letter_8.5x11in")},
+        {QStringLiteral("legal"), QStringLiteral("na_legal_8.5x14in")},
+        {QStringLiteral("tabloid"), QStringLiteral("na_ledger_11x17in")}};
+    if (paperId.startsWith(QLatin1String("native:"))) return paperId.mid(7);
+    return pwg.value(paperId);
+}
+
 } // namespace
+
+bool CupsSpooler::available()
+{
+    return QINDATK_HAVE_CUPS;
+}
+
+QVector<Print::Capabilities> CupsSpooler::printers()
+{
+    QVector<Print::Capabilities> list;
+    if (!available()) return list;
+    const QList<QPrinterInfo> printers = QPrinterInfo::availablePrinters();
+    for (const QPrinterInfo &info : printers) list.append(capabilitiesOf(info));
+    return list;
+}
+
+QString CupsSpooler::refusal(const QString &printerName)
+{
+#if QINDATK_HAVE_CUPS
+    cups_dest_t *dest = cupsGetNamedDest(CUPS_HTTP_DEFAULT, printerName.toUtf8().constData(), nullptr);
+    if (!dest) return tr("%1 is no longer available").arg(printerName);
+    const char *accepting = cupsGetOption("printer-is-accepting-jobs", dest->num_options, dest->options);
+    const char *state = cupsGetOption("printer-state", dest->num_options, dest->options);
+    QString reason;
+    if (accepting && qstrcmp(accepting, "false") == 0) reason = tr("%1 is not accepting jobs").arg(printerName);
+    else if (state && qstrcmp(state, "5") == 0) reason = tr("%1 is stopped").arg(printerName); // IPP printer-state stopped
+    cupsFreeDests(1, dest);
+    return reason;
+#else
+    return tr("%1 cannot be reached: this build has no CUPS support").arg(printerName);
+#endif
+}
+
+int CupsSpooler::submit(const Job &job, QString *error)
+{
+#if QINDATK_HAVE_CUPS
+    int count = 0;
+    cups_option_t *options = nullptr;
+    for (const auto &option : job.options)
+        count = cupsAddOption(option.first.toUtf8().constData(), option.second.toUtf8().constData(), count, &options);
+    // AGENT-NOTE (PLT-04): Qt's own CUPS engine ignores this call's result,
+    // so a refused job looked printed; the job ID is the proof of acceptance.
+    const int id = cupsPrintFile2(CUPS_HTTP_DEFAULT, job.printerName.toUtf8().constData(),
+                                  QFile::encodeName(job.pdfPath).constData(), job.title.toUtf8().constData(),
+                                  count, options);
+    cupsFreeOptions(count, options);
+    if (id <= 0 && error) *error = QString::fromUtf8(cupsLastErrorString());
+    return qMax(id, 0);
+#else
+    Q_UNUSED(job);
+    if (error) *error = tr("this build has no CUPS support");
+    return 0;
+#endif
+}
+
+NativePrintBackend::NativePrintBackend(std::shared_ptr<PrintSpooler> spooler)
+    : m_spooler(spooler ? std::move(spooler) : std::make_shared<CupsSpooler>())
+{
+}
+
+PrintSpooler::Options NativePrintBackend::jobOptions(const Print::Ticket &ticket)
+{
+    const QString copies = QString::number(qMax(1, ticket.copies));
+    PrintSpooler::Options options{{QStringLiteral("copies"), copies}};
+    if (ticket.copies > 1) options.append({QStringLiteral("collate"), ticket.collate ? QStringLiteral("true") : QStringLiteral("false")});
+    options.append({QStringLiteral("sides"), ticket.duplex == QLatin1String("long-edge") ? QStringLiteral("two-sided-long-edge")
+                                              : ticket.duplex == QLatin1String("short-edge") ? QStringLiteral("two-sided-short-edge")
+                                                                                             : QStringLiteral("one-sided")});
+    options.append({QStringLiteral("print-color-mode"),
+                    ticket.colorMode == QLatin1String("grayscale") ? QStringLiteral("monochrome") : QStringLiteral("color")});
+    if (const QString media = mediaFor(ticket.paperId); !media.isEmpty()) options.append({QStringLiteral("media"), media});
+    return options;
+}
 
 QVector<Print::Capabilities> NativePrintBackend::destinations()
 {
-    QVector<Print::Capabilities> list;
-    const QList<QPrinterInfo> printers = QPrinterInfo::availablePrinters();
-    for (const QPrinterInfo &info : printers) list.append(capabilitiesOf(info));
+    QVector<Print::Capabilities> list = m_spooler->printers();
     Print::Capabilities file = Print::PdfFileBackend::capabilities();
     file.printerId = fileDestinationId();
     file.label = tr("Print to file (system print engine)");
@@ -191,7 +319,7 @@ std::unique_ptr<Print::Device> NativePrintBackend::open(const Print::Ticket &tic
             fail(error, tr("Printing to a file requires a local file path"));
             return nullptr;
         }
-        return std::make_unique<NativePrintDevice>(ticket, QString(), path);
+        return std::make_unique<NativePrintDevice>(ticket, path, QString(), nullptr);
     }
     const QString prefix = printerId(QString());
     if (!destination.printerId.startsWith(prefix)) {
@@ -199,11 +327,11 @@ std::unique_ptr<Print::Device> NativePrintBackend::open(const Print::Ticket &tic
         return nullptr;
     }
     const QString name = destination.printerId.mid(prefix.size());
-    if (QPrinterInfo::printerInfo(name).isNull()) {
-        fail(error, tr("%1 is no longer available").arg(name));
+    if (const QString reason = m_spooler->refusal(name); !reason.isEmpty()) {
+        fail(error, reason);
         return nullptr;
     }
-    return std::make_unique<NativePrintDevice>(ticket, name, QString());
+    return std::make_unique<NativePrintDevice>(ticket, QString(), name, m_spooler);
 }
 
 } // namespace QindaTK

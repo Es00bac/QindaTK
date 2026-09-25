@@ -132,8 +132,11 @@ QHash<QUuid, QString> accidentals(const ScoreContent &content, const ScoreStaff 
             for (const ScoreNote &note : event->notes) {
                 const int d = diatonic(note.pitch);
                 const int current = state.contains(d) ? state.value(d) : keyAlter(content.measures[m].fifths, note.pitch.step);
-                if (!tiedInto.contains(note.id) && note.pitch.alter != current)
-                    shown.insert(note.id, accidentalName(note.pitch.alter));
+                // AGENT-GUARD: a note tied in shows no accidental and sets no
+                // state, so the next untied note of that line restates its
+                // accidental (a sharp tied over the bar line does not carry).
+                if (tiedInto.contains(note.id)) continue;
+                if (note.pitch.alter != current) shown.insert(note.id, accidentalName(note.pitch.alter));
                 state.insert(d, note.pitch.alter);
             }
     }
@@ -188,7 +191,7 @@ void engraveStaff(const ScoreContent &content, const ScoreStaff &staff, ScoreSta
                 run.clear();
             };
             for (ScoreEventLayout &event : voice.events) {
-                const qint64 at = (event.tick - measure.start) / unit;
+                const qint64 at = (event.tick - measure.start + measure.phase) / unit;
                 if (event.rest || event.base < 3 || at != runUnit) flush();
                 runUnit = at;
                 if (!event.rest && event.base >= 3) run.push_back(&event);

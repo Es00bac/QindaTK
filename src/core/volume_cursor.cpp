@@ -26,6 +26,7 @@ void VolumeCursor::setVolume(VoxelVolume *volume)
     m_volume = volume;
     if (volume) {
         recenter();
+        m_dataset = volume->datasetId();
         connect(volume, &VoxelVolume::changed, this, &VolumeCursor::volumeChanged);
     }
     publish();
@@ -37,10 +38,28 @@ void VolumeCursor::volumeChanged()
     // after this cursor was bound to it), so the cursor recentres. The same
     // shape keeps the user's point. A voxel edit leaves the point and its
     // world position alone and must not notify every linked view again.
+    // D-260: a reload of the same named dataset (equal non-empty datasetId)
+    // keeps the calibrated world point instead, whatever its new grid, so
+    // picking, the crosshair and saved views agree after a reload; a
+    // different datasetId is a new dataset and recentres like a new shape.
     const int shape[3] = {m_volume->sizeX(), m_volume->sizeY(), m_volume->sizeZ()};
     const bool reshaped = !std::equal(shape, shape + 3, m_shape);
-    if (reshaped) recenter();
-    if (reshaped || worldPoint() != m_world) publish();
+    const QString dataset = m_volume->datasetId();
+    const bool reloaded = !dataset.isEmpty() && dataset == m_dataset && m_world.size() == 3;
+    const bool otherDataset = dataset != m_dataset;
+    m_dataset = dataset;
+    if (reloaded && worldPoint() != m_world) {
+        std::copy(shape, shape + 3, m_shape);
+        const QVariantList voxel = m_volume->voxelFromWorld(m_world[0].toDouble(), m_world[1].toDouble(),
+                                                            m_world[2].toDouble());
+        for (int axis = 0; axis < 3; ++axis)
+            m_point[axis] = std::clamp(voxel[axis].toDouble(), 0.0, double(std::max(0, shape[axis] - 1)));
+        publish();
+        return;
+    }
+    if ((reshaped || otherDataset) && !reloaded) recenter();
+    else if (reshaped) std::copy(shape, shape + 3, m_shape);
+    if (reshaped || otherDataset || worldPoint() != m_world) publish();
 }
 QVariantList VolumeCursor::worldPoint() const
 {

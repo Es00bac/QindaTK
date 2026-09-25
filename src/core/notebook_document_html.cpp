@@ -183,6 +183,9 @@ QVariantMap NotebookDocument::insertHtml(const QString &pageId, const QString &b
                 && RichText::isListKindOrdered(levels.value(qBound(0, p.format.listLevel, int(levels.size()) - 1)).kind));
         }
         NotebookText::write(&block.data, runsOf(fragment, p));
+        QString problem;
+        block.data = NotebookText::normalized(block.type, block.data, &problem);
+        if (!problem.isEmpty()) { fail(QStringLiteral("A pasted paragraph: %1").arg(problem)); return {}; }
         blocks.append(block);
         for (const RichText::Span &span : p.spans) {
             const QString objectId = fragment.formats.value(span.format).objectId;

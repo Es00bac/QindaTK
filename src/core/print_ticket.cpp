@@ -2,6 +2,8 @@
 #include "print_ticket.h"
 
 #include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QHash>
 #include <QRegularExpression>
 #include <QUrl>
@@ -247,6 +249,9 @@ QVector<ValidationIssue> validateTicket(const Ticket &t, const Capabilities &d, 
             add(QStringLiteral("outputPath"), ErrorCode::InvalidArgument, tr("Choose a file to write"));
         else if (!url.scheme().isEmpty() && !url.isLocalFile())
             add(QStringLiteral("outputPath"), ErrorCode::Unsupported, tr("File output needs a local path"));
+        else if (const QFileInfo file(url.isLocalFile() ? url.toLocalFile() : t.outputPath); !file.absoluteDir().exists())
+            add(QStringLiteral("outputPath"), ErrorCode::InvalidArgument,
+                tr("The folder %1 does not exist").arg(QDir::toNativeSeparators(file.absolutePath())));
     }
     return issues;
 }

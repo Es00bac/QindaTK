@@ -41,6 +41,16 @@ VolumeTransferTable VolumeTransferTable::fromModel(const TransferFunctionModel &
         table.rgba[k * 4 + 2] = quint8(color.blue());
         table.rgba[k * 4 + 3] = channelByte(model.opacityAt(value));
     }
+    // Probe the model's own classification: one span outside each end, NaN.
+    const double span = table.domainMax - table.domainMin;
+    const auto entry = [&model](double value, std::array<quint8, 4> *out) {
+        const QColor color = model.colorAt(value);
+        *out = {quint8(color.red()), quint8(color.green()), quint8(color.blue()),
+                channelByte(model.opacityAt(value))};
+    };
+    entry(table.domainMin - span, &table.below);
+    entry(table.domainMax + span, &table.above);
+    entry(std::numeric_limits<double>::quiet_NaN(), &table.missing);
     return table;
 }
 VolumeTransferTable VolumeTransferTable::fromWindow(double center, double width)
@@ -51,11 +61,18 @@ VolumeTransferTable VolumeTransferTable::fromWindow(double center, double width)
     table.domainMax = center + width / 2;
     for (int k = 0; k < Size; ++k)
         for (int c = 0; c < 4; ++c) table.rgba[k * 4 + c] = quint8(k);
+    table.below = {0, 0, 0, 0};
+    table.above = {255, 255, 255, 255};
     return table;
 }
 void VolumeTransferTable::lookup(double value, double out[4]) const
 {
-    if (!std::isfinite(value)) { out[0] = out[1] = out[2] = out[3] = 0; return; }
+    const auto special = [out](const std::array<quint8, 4> &entry) {
+        for (int c = 0; c < 4; ++c) out[c] = entry[c] / 255.0;
+    };
+    if (!std::isfinite(value)) return special(missing);
+    if (value < domainMin) return special(below);
+    if (value > domainMax) return special(above);
     const double t = std::clamp((value - domainMin) / (domainMax - domainMin), 0.0, 1.0);
     const double position = t * (Size - 1);
     const int low = std::min(int(std::floor(position)), Size - 1);
@@ -153,12 +170,11 @@ void VolumeRaycaster::shade(const VoxelVolume &volume, const VolumeTransferTable
                                                 origin[1] + t * g.direction[1],
                                                 origin[2] + t * g.direction[2],
                                                 params.channel, params.frame, params.interpolation);
-        if (!std::isfinite(value)) continue;
         if (maximum) {
-            if (!found || value > best) { best = value; found = true; }
+            if (std::isfinite(value) && (!found || value > best)) { best = value; found = true; }
             continue;
         }
-        table.lookup(value, rgba);
+        table.lookup(value, rgba); // a missing sample takes the `missing` entry
         if (rgba[3] <= 0) continue;
         const double alpha = 1 - std::pow(1 - rgba[3], g.exponent);
         const double weight = (1 - out[3]) * alpha;
@@ -173,18 +189,27 @@ void VolumeRaycaster::shade(const VoxelVolume &volume, const VolumeTransferTable
     }
 }
 QImage VolumeRaycaster::render(const VoxelVolume &volume, const VolumeTransferTable &table,
-                               const VolumeRayParams &params, const QSize &size)
+                               const VolumeRayParams &params, const QSize &size,
+                               const std::function<bool()> &canceled)
+{
+    if (size.isEmpty()) return {};
+    return render(volume, table, params, VolumeRayGeometry::compute(volume, params, QSizeF(size)),
+                  size, canceled);
+}
+QImage VolumeRaycaster::render(const VoxelVolume &volume, const VolumeTransferTable &table,
+                               const VolumeRayParams &params, const VolumeRayGeometry &g,
+                               const QSize &size, const std::function<bool()> &canceled)
 {
     if (size.isEmpty()) return {};
     QImage image(size, QImage::Format_ARGB32_Premultiplied);
     if (image.isNull()) return {};
     image.fill(Qt::transparent);
-    const VolumeRayGeometry g = VolumeRayGeometry::compute(volume, params, QSizeF(size));
     if (!g.valid) return image;
     double rgba[4];
     for (int row = 0; row < size.height(); ++row) {
         QRgb *line = reinterpret_cast<QRgb *>(image.scanLine(row));
         for (int column = 0; column < size.width(); ++column) {
+            if (canceled && canceled()) return {};
             shade(volume, table, params, g, column + 0.5, row + 0.5, rgba);
             line[column] = qRgba(channelByte(rgba[0]), channelByte(rgba[1]),
                                  channelByte(rgba[2]), channelByte(rgba[3]));
@@ -209,9 +234,8 @@ bool VolumeRaycaster::pick(const VoxelVolume &volume, const VolumeTransferTable 
                              origin[2] + t * g.direction[2]};
         const double value = volume.sampleValue(q[0], q[1], q[2], params.channel, params.frame,
                                                 params.interpolation);
-        if (!std::isfinite(value)) continue;
         if (maximum) {
-            if (!found || value > best) {
+            if (std::isfinite(value) && (!found || value > best)) {
                 best = value; found = true;
                 std::copy(q, q + 3, voxel);
             }
@@ -247,7 +271,8 @@ QString VolumeRaycaster::gpuUnavailableReason(const VoxelVolume *volume, const V
         return QStringLiteral("The volume exceeds the GPU texture budget");
     return {};
 }
-bool VolumeRaycaster::packTexture(const VoxelVolume &volume, int channel, int frame, QByteArray *out)
+bool VolumeRaycaster::packTexture(const VoxelVolume &volume, int channel, int frame, QByteArray *out,
+                                  const std::function<bool()> &canceled)
 {
     out->clear();
     const int sx = volume.sizeX(), sy = volume.sizeY(), sz = volume.sizeZ();
@@ -262,7 +287,11 @@ bool VolumeRaycaster::packTexture(const VoxelVolume &volume, int channel, int fr
     for (int cz = 0; cz * side < sz; ++cz)
         for (int cy = 0; cy * side < sy; ++cy)
             for (int cx = 0; cx * side < sx; ++cx) {
-                if (!volume.copyChunk(cx, cy, cz, channel, frame, &chunk)) { out->clear(); return false; }
+                if (canceled && canceled()) { out->clear(); return false; }
+                // A reconfigure during a background pack changes the chunk
+                // size; the result is obsolete anyway, so stop safely.
+                if (!volume.copyChunk(cx, cy, cz, channel, frame, &chunk)
+                    || chunk.size() != qsizetype(side) * side * side * bpv) { out->clear(); return false; }
                 const int columns = std::min(side, sx - cx * side);
                 for (int z = 0; z < side && cz * side + z < sz; ++z)
                     for (int y = 0; y < side && cy * side + y < sy; ++y) {

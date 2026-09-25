@@ -4,6 +4,8 @@
 #include "slide_timeline.h"
 #include "undo_service.h"
 
+#include <algorithm>
+
 // Construction, QML snapshots and the DocumentModel history half of
 // SlideDeck. Edits are in slide_deck_edit.cpp, persistence in
 // slide_deck_codec.cpp and rendering/export in slide_render.cpp.
@@ -28,22 +30,20 @@ QString effectLabel(const Effect &effect, const QVector<ResolvedObject> &objects
 } // namespace
 
 // AGENT-CONTRACT (docs/document-models.md#commands): one whole-deck step.
-// DeckState shares slide/object vectors implicitly, so before/after cost
-// only what an edit detached; retainedBytes is a deliberate upper estimate.
+// DeckState shares slide/object vectors and text implicitly, so before/after
+// cost only what an edit detached. Slides::retainedBytes charges exactly
+// that, text at its real size, so the UndoService memory limit bounds a
+// history of large text edits (docs/slides.md#limits).
 struct SlideDeck::DeckCommand final : DocumentCommand {
     QString documentId;
     quint64 resetGeneration = 0;
     DeckState before, after;
+    quint64 retained = 0;
     DeckCommand(QString id, quint64 generation, DeckState oldState, DeckState newState)
         : documentId(std::move(id)), resetGeneration(generation),
-          before(std::move(oldState)), after(std::move(newState)) {}
-    quint64 retainedBytes() const override
-    {
-        quint64 objects = 0;
-        for (const DeckState *s : {&before, &after})
-            for (const Slide &slide : s->slides) objects += quint64(slide.objects.size() + slide.effects.size());
-        return sizeof(*this) + objects * 256 + quint64(before.slides.size() + after.slides.size()) * 256;
-    }
+          before(std::move(oldState)), after(std::move(newState)),
+          retained(sizeof(*this) + Slides::retainedBytes(before, after)) {}
+    quint64 retainedBytes() const override { return retained; }
     bool isNoOp() const override { return before == after; }
 };
 
@@ -108,7 +108,7 @@ QVariantList SlideDeck::masterSummaries() const
                     if (o.role == p.role && (o.ownText || o.ownBounds || o.ownFill)) ++overrides;
             }
             placeholders << QVariantMap{{"role", p.role}, {"label", p.label}, {"kind", p.kind},
-                                        {"value", p.text.plain}, {"fill", p.fill},
+                                        {"value", p.text.plain}, {"prompt", p.prompt}, {"fill", p.fill},
                                         {"fontSize", p.fontSize}, {"bounds", rectMap(p.bounds)},
                                         {"overrideCount", overrides}};
         }
@@ -141,6 +141,7 @@ QVariantList SlideDeck::objects(const QString &slideId) const
     QVariantList out;
     for (const ResolvedObject &o : resolveObjects(m_state, m_state.slides.at(i)))
         out << QVariantMap{{"id", o.id}, {"kind", o.kind}, {"role", o.role}, {"text", o.text.plain},
+                           {"prompt", o.prompt}, {"rotation", o.rotation},
                            {"bounds", rectMap(o.bounds)}, {"fill", o.fill}, {"fontSize", o.fontSize},
                            {"locked", o.locked}, {"visible", o.visible},
                            {"inheritedBounds", o.inheritedBounds}, {"inheritedText", o.inheritedText},
@@ -186,6 +187,22 @@ QVariantList SlideDeck::masterChoices() const
 {
     QVariantList out;
     for (const Master &m : m_state.masters) out << QVariantMap{{"id", m.id}, {"label", m.title}};
+    return out;
+}
+
+QStringList SlideDeck::documentColors() const
+{
+    QStringList out{QStringLiteral("#4f8fba")}; // insertObject's shape fill
+    auto add = [&out](const QString &color) {
+        if (!color.isEmpty() && out.size() < 16 && !out.contains(color, Qt::CaseInsensitive)) out << color;
+    };
+    for (const Master &m : m_state.masters) {
+        add(m.background);
+        add(m.foreground);
+        for (const Placeholder &p : m.placeholders) add(p.fill);
+    }
+    for (const Slide &s : m_state.slides)
+        for (const SlideObject &o : s.objects) add(o.fill);
     return out;
 }
 
@@ -240,6 +257,7 @@ UndoService *SlideDeck::history() const
 UndoService *SlideDeck::undoService() const { return history(); }
 bool SlideDeck::canUndo() const { return !textEditing() && history() && history()->canUndo(this); }
 bool SlideDeck::canRedo() const { return !textEditing() && history() && history()->canRedo(this); }
+QString SlideDeck::undoText() const { return history() ? history()->undoText(this) : QString(); }
 
 void SlideDeck::historyAttached(UndoService *service)
 {
@@ -295,7 +313,7 @@ DocumentCommandPtr SlideDeck::composeCommands(const DocumentCommand &first, cons
 bool SlideDeck::commitState(const DeckState &after, const QString &label)
 {
     if (textEditing()) return fail(QStringLiteral("Finish the text box edit first"));
-    const QString problem = validate(after);
+    const QString problem = validate(after, m_encodedLimit);
     if (!problem.isEmpty()) return fail(problem);
     if (after == m_state) {
         m_error.clear();
@@ -320,6 +338,11 @@ bool SlideDeck::redo()
     if (textEditing()) return fail(QStringLiteral("Finish the text box edit first"));
     const OperationError error = history()->redo(this);
     return error ? fail(error.message) : true;
+}
+
+void SlideDeck::setEncodedLimit(qsizetype bytes)
+{
+    m_encodedLimit = std::clamp<qsizetype>(bytes, 128 * 1024, MaximumEncodedBytes);
 }
 
 bool SlideDeck::fail(const QString &message)

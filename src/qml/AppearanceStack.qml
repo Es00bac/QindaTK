@@ -4,9 +4,13 @@ import QindaTK as Tk
 
 // `effects` is the host's ordered appearance graph snapshot. User operations
 // are requests; the host validates capability and writes accepted state back.
+// `paints` lists the object's fixed paint entries (fill, pattern, stroke) in
+// the order they are painted, before any effect; they are inspected here
+// and edited in the fill and stroke panels.
 Item {
     id: stack
     property var effects: [] // [{id, name, kind, enabled, supported, parameters, masked}]
+    property var paints: []  // [{id, kind, name, present, detail}]
     property string tooltip: qsTr("Inspect ordered vector appearance effects")
 
     signal reorderRequested(string effectId, int newIndex)
@@ -44,6 +48,42 @@ Item {
             Tk.Caption { text: qsTr("Top renders first") }
         }
         Repeater {
+            model: stack.paints
+            delegate: Tk.Flex {
+                id: paintRow
+                required property var modelData
+                required property int index
+                objectName: "appearancePaint_" + modelData.id
+                width: column.width
+                direction: Tk.Flex.Row
+                align: Tk.Flex.Center
+                gap: Tk.Theme.space.sm
+                Accessible.role: Accessible.StaticText
+                Accessible.name: qsTr("%1: %2").arg(modelData.name).arg(modelData.detail)
+                Tk.Caption {
+                    text: String(paintRow.index + 1)
+                    color: Tk.Theme.color.textMuted
+                }
+                Tk.Label {
+                    text: paintRow.modelData.name
+                    color: paintRow.modelData.present ? Tk.Theme.color.text : Tk.Theme.color.textDisabled
+                    Tk.Flex.grow: 1
+                    Tk.Flex.basis: 0
+                }
+                Tk.Caption {
+                    objectName: "appearancePaintDetail_" + paintRow.modelData.id
+                    text: paintRow.modelData.detail
+                    color: Tk.Theme.color.textMuted
+                    elide: Text.ElideRight
+                }
+            }
+        }
+        Tk.Caption {
+            visible: stack.paints.length > 0
+            text: qsTr("Effects then apply to the painted result:")
+            color: Tk.Theme.color.textMuted
+        }
+        Repeater {
             model: stack.effects
             delegate: Tk.Box {
                 id: row
@@ -67,16 +107,18 @@ Item {
                         Accessible.name: tooltip
                         onToggled: function(checked) { stack.enabledChangeRequested(row.modelData.id, checked) }
                     }
+                    // AGENT-GUARD: grow on the ROW's axis belongs to this
+                    // column; on the label it collapsed the name to 0 px tall.
                     Tk.Flex {
                         direction: Tk.Flex.Column
                         align: Tk.Flex.Start
                         gap: 0
+                        Tk.Flex.grow: 1
+                        Tk.Flex.basis: 0
                         Tk.Label {
                             objectName: "appearanceName_" + row.modelData.id
                             text: row.modelData.name
                             elide: Text.ElideRight
-                            Tk.Flex.grow: 1
-                            Tk.Flex.basis: 0
                         }
                         Tk.Caption {
                             text: row.modelData.supported === false

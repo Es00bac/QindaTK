@@ -5,7 +5,9 @@ WP-063: sample editing and spectral analysis/processing on the real session
 audio. `WaveformEditor` and `SpectrogramView` stay pure views; the data and
 the edits live in C++ next to the engine ([audio-engine.md](audio-engine.md)).
 Decisions [D-134](decisions.md#d-134--source-edits-are-an-operation-list-per-resource-with-their-own-history)
-to [D-137](decisions.md#d-137--spectral-processing-is-an-stft-gain-with-exact-patch-bounds-and-provisional-previews).
+to [D-137](decisions.md#d-137--spectral-processing-is-an-stft-gain-with-exact-patch-bounds-and-provisional-previews),
+[D-186](decisions.md#d-186--spectral-masks-are-samplehz-polygons-applied-per-analysis-frame) (masks) and
+[D-187](decisions.md#d-187--committed-edits-hold-parameters-spectral-patches-are-a-bounded-cache) (edit memory).
 
 ```
  AudioSession ─ decode ─▶ AudioSourceEditModel (session.edits)
@@ -24,7 +26,12 @@ to [D-137](decisions.md#d-137--spectral-processing-is-an-stft-gain-with-exact-pa
   moment (after the edits before it).
 - **Channels.** `channel` −1 (or `"all"`, or empty) is every channel; `n` is
   channel *n*. Gain, fades, silence and spectral gain can target one channel;
-  delete and crop always apply to every channel.
+  delete and crop always apply to every channel. `AudioWaveformSource`
+  with `splitChannels: true` also gives `channelColumns` (one column list
+  per channel) and `channelLayout` (`[{id, label}]`, ids are the edit
+  channel indices, labels L/R for stereo); a `WaveformEditor` given both
+  draws one band per channel, and a drag inside one band selects that
+  channel (across bands: `"all"`).
 - **Columns.** For a view range `[s, e)` of length `L` and `n` columns
   (`n = min(columnCount, L, 8192)`), column *i* covers
   `[s + ⌊i·L/n⌋, s + ⌊(i+1)·L/n⌋)`. When `L ≤ columnCount` each column is one
@@ -70,7 +77,7 @@ least-recently-used tile cache and computes missing tiles on the thread pool.
 | `silence` | — | zeros |
 | `delete` | every channel | removes the range; later samples move earlier |
 | `crop` | every channel | keeps only the range |
-| `spectralGain` | `lowHz`, `highHz`, `gainDb` (default −150: removal), `fftSize` (default 2048) | see below |
+| `spectralGain` | `lowHz`, `highHz`, `gainDb` (default −150: removal), `fftSize` (default 2048), optional `mask` | see below |
 | `pitch` | `targetPitchCents`, `correctionAmount`, `formantRatio`, `anchorSample`/`targetSample`, analysis settings | TD-PSOLA in place ([audio-pitch.md](audio-pitch.md)) |
 
 `apply(resourceId, edit)` validates, computes and records one undo step
@@ -81,6 +88,14 @@ engine graph (playback and `renderToFile` use the edited samples), and every
 analysis source for that resource drops its pyramid or tiles and recomputes.
 The session saves the edit list as its `edits` part and replays it on open;
 previews and history are not saved.
+
+**Memory (D-187).** Gain, fades and silence store only their parameters;
+their samples are recomputed from the base whenever the list is replayed.
+Spectral and pitch edits keep their computed patch as a cache bounded by
+`edits.patchBudgetBytes` (64 MiB; `edits.patchBytes` reports what is held):
+past it the oldest patches are dropped and recomputed bit for bit when a
+replay or redo needs them. A replay edits one private copy in place, so
+undo costs one buffer copy plus the edits' own ranges.
 
 **Clips.** Clips reference sources by ID and keep their timeline position
 and length. After a delete or crop, a clip reads the shorter source by source
@@ -101,6 +116,14 @@ difference those frames make is added, so every sample outside
 reconstruct to rounding. A range shorter than one hop between frame centres
 is refused.
 
+**Masks (D-186).** `mask: [[{sample, hz}, …], …]` replaces the band: a
+frame centred on sample *c* changes the bins whose frequency lies inside
+any polygon on the line `x = c` (even-odd per polygon, union across
+polygons); frames the mask misses change nothing. Points must lie inside
+`[startSample, endSample]` and 0 … rate/2; at most 4096 points. Without
+`lowHz`/`highHz` the band is the mask's frequency extent (labels). A lasso
+is one polygon; a brush stroke is one octagon per dab.
+
 `edits.preview(requestId, resourceId, edit)` runs the processing on the
 thread pool and answers with `previewReady`, `previewFailed` or
 `previewCanceled`. `cancelPreview` stops it between frames and nothing is
@@ -116,7 +139,8 @@ samples. Any other change to that source cancels the preview first.
 | Peak pyramid | thread pool, once per source revision | token checked every 4096 blocks; superseded builds are never published |
 | Spectrum tiles and reduction | thread pool, per request | token checked per frame and column; a setting change or `cancel()` abandons the request |
 | Spectral preview | thread pool | token checked per frame |
-| Edit fold/apply (linear edits, replaying saved edits) | GUI thread | — |
+| Edit fold/apply (linear edits, replaying saved edits) | GUI thread; one working copy per replay | — |
+| Recomputing a spectral or pitch patch (after open, or dropped by the budget) | GUI thread during a replay or redo, bounded by the edit's range | — |
 | Playback | device thread reads the compiled graph only | the graph holds immutable buffers; no edit code runs there |
 
 The device thread never sees an edit: edits produce new immutable buffers and
@@ -125,13 +149,17 @@ a new graph, adopted at a period boundary like any other recompile.
 ## QML
 
 ```qml
-Tk.AudioWaveformSource { id: peaks; session: session; resourceId: clipResource; channel: 0
+Tk.AudioWaveformSource { id: peaks; session: session; resourceId: clipResource; splitChannels: true
                          columnCount: Math.max(1, editor.width) }
 Tk.WaveformEditor {
     id: editor
-    sourceId: peaks.resourceId; channelId: "0"; columns: peaks.columns
-    onEditRequested: (id, source, channel, operation, start, end) =>
-        session.edits.apply(source, { operation, channel, startSample: start, endSample: end })
+    sourceId: peaks.resourceId; columns: peaks.columns
+    channelLayout: peaks.channelLayout; channelColumns: peaks.channelColumns
+    selectionChannelId: hostSelectionChannel // from onSelectionCommitted's channelId
+    // parameters: {gainDb} from the gain handle / G, {shape} from the fade handles / F.
+    onEditRequested: (id, source, channel, operation, start, end, parameters) =>
+        session.edits.apply(source, Object.assign({ operation, channel, startSample: start,
+                                                    endSample: end }, parameters))
     onZoomRequested: (anchor, factor) => peaks.zoom(anchor, factor)
     onScrollRequested: fraction => peaks.scroll(fraction)
 }
@@ -142,9 +170,11 @@ Tk.SpectrogramView {
     minimumHz: spectrum.minimumHz; maximumHz: spectrum.resolvedMaximumHz
     fftSize: spectrum.fftSize; hopSize: spectrum.effectiveHop
     fftWindow: spectrum.window; fftNormalization: spectrum.normalization
-    onProcessRequested: (id, source, channel, operation, start, end, low, high) =>
-        session.edits.preview(id, source, { operation, channel, startSample: start, endSample: end,
-                                            lowHz: low, highHz: high })
+    maskPolygons: hostMask // set from onMaskCommitted (lasso: L, paint: B)
+    onMaskCommitted: (id, source, channel, polygons) => hostMask = polygons
+    onProcessRequested: (id, source, channel, operation, start, end, low, high, parameters) =>
+        session.edits.preview(id, source, Object.assign({ operation, channel, startSample: start,
+                                                          endSample: end, lowHz: low, highHz: high }, parameters))
 }
 ```
 
@@ -157,5 +187,5 @@ a reader never takes the previous result for the answer.
 Performance measurement of large files, other platforms and screen-reader
 runs are WP-088…WP-094. Pitch, formant and note-timing correction is the
 `pitch` operation ([audio-pitch.md](audio-pitch.md), WP-068). Whole-source
-time stretch, spectral paint/lasso masks and repair tools beyond band gain
-are not part of the reference engine.
+time stretch and repair tools beyond band and mask gain are not part of the
+reference engine.

@@ -158,6 +158,17 @@ void ScientificPlotTest::scatterAnd3DSamples()
     QVERIFY(!trace.replaceSamples({QVariantMap{{"id","a"},{"x",2.0},{"y",1.0}},QVariantMap{{"id","b"},{"x",1.0},{"y",1.0}}}));
     QVERIFY(!trace.replaceSamples({QVariantMap{{"id","a"},{"x",2.0},{"y",1.0},{"z",1.0}}})); // z needs dimensions 3
     QCOMPARE(trace.metadataJson().contains(QStringLiteral("\"kind\":\"trace\"")),true);
+    // Kind changes re-project `intervals`: Scatter projects none, Trace every present sample.
+    QVERIFY(trace.replaceSamples({QVariantMap{{"id","a"},{"x",1.0},{"y",1.0},{"sigmaY",0.5}},
+        QVariantMap{{"id","b"},{"x",2.0},{"missingY",true}},QVariantMap{{"id","c"},{"x",3.0},{"y",4.0}}}));
+    QCOMPARE(trace.intervals()->count(),2);
+    trace.setKind(ScientificDataset::Scatter);
+    QCOMPARE(trace.kind(),ScientificDataset::Scatter);
+    QCOMPARE(trace.intervals()->count(),0);
+    trace.setKind(ScientificDataset::Trace);
+    QCOMPARE(trace.intervals()->count(),2);
+    QCOMPARE(trace.intervals()->interval("a").value("low").toDouble(),0.5);
+    QCOMPARE(trace.intervals()->interval("c").value("estimate").toDouble(),4.0);
 }
 
 void ScientificPlotTest::nonFiniteAndBoundedAccess()

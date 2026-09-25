@@ -18,6 +18,24 @@ bool AudioEngine::auditionNoteOn(int pitch, double velocity)
     return m_run->processor->postMidi(command);
 }
 
+bool AudioEngine::auditionNoteOn16(int pitch, quint16 velocity)
+{
+    if (!m_run || m_job || pitch < 0 || pitch > 127 || velocity == 0) return false;
+    MidiCommand command;
+    command.kind = MidiCommand::NoteOn;
+    command.pitch = pitch;
+    command.velocity = velocity;
+    return m_run->processor->postMidi(command);
+}
+
+bool AudioEngine::releaseMidi()
+{
+    if (!m_run) return true; // closeAfterStop already cleared everything
+    MidiCommand command;
+    command.kind = MidiCommand::Reset;
+    return m_run->processor->postMidi(command);
+}
+
 bool AudioEngine::auditionNoteOff(int pitch)
 {
     if (!m_run || pitch < 0 || pitch > 127) return false;
@@ -83,15 +101,34 @@ quint64 AudioEngine::postLaunchStop(quint64 lane, MidiQuantize quantize, QString
     return postMidiCommand(MidiCommand::Stop, lane, 0, quantize, error);
 }
 
+quint64 AudioEngine::postRecord(quint64 lane, quint64 slot, MidiQuantize quantize, QString *error)
+{
+    if (!lane || !slot) {
+        if (error) *error = tr("The slot is not on a MIDI track");
+        return 0;
+    }
+    return postMidiCommand(MidiCommand::RecordStart, lane, slot, quantize, error);
+}
+
+quint64 AudioEngine::postRecordStop(MidiQuantize quantize, QString *error)
+{
+    return postMidiCommand(MidiCommand::RecordStop, 0, 0, quantize, error);
+}
+
 void AudioEngine::drainMidi(Run &run)
 {
     MidiEngineEvent event;
     while (run.processor->takeMidiEvent(event)) {
         if (event.kind == MidiEngineEvent::Queued || event.kind == MidiEngineEvent::StopQueued
-            || event.kind == MidiEngineEvent::Rejected
+            || event.kind == MidiEngineEvent::Rejected || event.kind == MidiEngineEvent::RecordQueued
+            || event.kind == MidiEngineEvent::RecordStopped
             || (event.kind == MidiEngineEvent::Stopped && event.slot == 0))
             m_midiRequests.remove(event.serial); // the one answer of that command
-        emit midiLaunchEvent(event.kind, event.serial, event.lane, event.slot, event.sample, event.code);
+        if (event.kind >= MidiEngineEvent::RecordQueued)
+            emit midiRecordEvent(event.kind, event.serial, event.slot, event.sample, event.tick, event.pitch,
+                                 event.velocity, event.code);
+        else
+            emit midiLaunchEvent(event.kind, event.serial, event.lane, event.slot, event.sample, event.code);
     }
     const int voices = run.processor->auditionVoices();
     const int launched = run.processor->launchedClips();

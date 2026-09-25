@@ -4,6 +4,10 @@ import QindaTK as Tk
 
 // The fill descriptor is host-owned. `settings` retains one record per kind,
 // so changing kind and returning restores the prior colour/gradient/pattern.
+// Each request carries `changed`: "kind" when the kind changes plus the
+// setting fields the user set, so a host applies exactly those. `fill.mixed`
+// lists "kind", "color", "pattern" or "gradient" when they differ across a
+// selection.
 Item {
     id: editor
     required property var fill
@@ -33,7 +37,9 @@ Item {
         const oldSettings = Object.assign({}, settings)
         const merged = Object.assign({}, oldSettings[nextKind] || defaultSettings(nextKind), patch || {})
         oldSettings[nextKind] = merged
-        fillChangeRequested(Object.assign({}, fill, { kind: nextKind, settings: oldSettings }))
+        const changed = Object.keys(patch || {})
+        if (nextKind !== fill.kind || isMixed("kind")) changed.push("kind")
+        fillChangeRequested(Object.assign({}, fill, { kind: nextKind, settings: oldSettings, changed: changed }))
         syncFields()
     }
     // AGENT-NOTE: as in StrokeStyleEditor, the owner's descriptor is the
@@ -46,6 +52,7 @@ Item {
         solidColorField.color = current.color || Tk.Theme.color.accent
     }
     onFillChanged: syncFields()
+    function isMixed(field) { return (editor.fill.mixed || []).indexOf(field) >= 0 }
     function patternIndex(id) {
         for (let i = 0; i < patterns.length; ++i) if (patterns[i].id === id) return i
         return -1
@@ -64,7 +71,8 @@ Item {
             Tk.ComboBox {
                 objectName: "fillKind"
                 model: editor.kinds
-                currentIndex: editor.kinds.indexOf(editor.fill.kind || "solid")
+                currentIndex: editor.isMixed("kind") ? -1 : editor.kinds.indexOf(editor.fill.kind || "solid")
+                placeholderText: qsTr("Mixed")
                 tooltip: qsTr("Fill kind")
                 onActivated: function(index) { editor.request(model[index], {}) }
             }
@@ -79,6 +87,12 @@ Item {
                 tooltip: qsTr("Solid fill colour")
                 onColorEdited: function(color) { editor.request("solid", { color: color }) }
             }
+        }
+        Tk.Caption {
+            objectName: "fillColorMixed"
+            visible: editor.fill.kind === "solid" && editor.isMixed("color")
+            text: qsTr("Mixed colours: a colour you choose applies to every object.")
+            wrapMode: Text.WordWrap
         }
         Tk.PropertyRow {
             visible: editor.fill.kind === "gradient"

@@ -2,6 +2,8 @@
 #include "color_grade_edit_session.h"
 
 #include <QBuffer>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace QindaTK {
 
@@ -30,12 +32,41 @@ ColorGradeEditSession::ColorGradeEditSession(QObject *parent) : QObject(parent)
     connect(&m_document, &PropertyDocument::changed, this, &ColorGradeEditSession::refresh);
 }
 
+void ColorGradeEditSession::setScope(GradeScope scope)
+{
+    if (m_scope == scope) return;
+    m_scope = scope;
+    refresh(); // a ProgramGrade renders in the program context
+}
+
+bool ColorGradeEditSession::leavesScope(bool clipChanged, bool frameChanged) const
+{
+    // AGENT-GUARD: a program grade (VideoFinishing's source) must survive
+    // every frame the host feeds it; resetting here silently removed the
+    // grade from the monitor and the next export and dropped its undo history.
+    switch (m_scope) {
+    case FrameGrade: return clipChanged || frameChanged;
+    case ClipGrade: return clipChanged;
+    case ProgramGrade: return false;
+    }
+    return true;
+}
+
+ColorContextSnapshot ColorGradeEditSession::renderContext() const
+{
+    if (m_scope != ProgramGrade) return m_context;
+    ColorContextSnapshot context = ColorGradeProcessor::programContext();
+    context.generation = m_context.generation;
+    return context;
+}
+
 void ColorGradeEditSession::setClipId(const QString &id)
 {
     if (id.isEmpty() || m_clipId == id) return;
     if (editing()) cancelGesture(m_gestureId);
     m_clipId = id;
-    resetForTarget();
+    if (leavesScope(true, false)) resetForTarget();
+    else emit changed();
 }
 
 void ColorGradeEditSession::setFrameId(const QString &id)
@@ -43,7 +74,8 @@ void ColorGradeEditSession::setFrameId(const QString &id)
     if (id.isEmpty() || m_frameId == id) return;
     if (editing()) cancelGesture(m_gestureId);
     m_frameId = id;
-    resetForTarget();
+    if (leavesScope(false, true)) resetForTarget();
+    else emit changed();
 }
 
 void ColorGradeEditSession::setSourceImage(const QImage &image)
@@ -61,8 +93,8 @@ void ColorGradeEditSession::setFrame(const QString &clipId, const QString &frame
                                      const ColorContextSnapshot &context)
 {
     if (editing()) cancelGesture(m_gestureId);
-    const bool targetChanged = (!clipId.isEmpty() && clipId != m_clipId)
-        || (!frameId.isEmpty() && frameId != m_frameId);
+    const bool targetChanged = leavesScope(!clipId.isEmpty() && clipId != m_clipId,
+                                           !frameId.isEmpty() && frameId != m_frameId);
     if (!clipId.isEmpty()) m_clipId = clipId;
     if (!frameId.isEmpty()) m_frameId = frameId;
     m_sourceImage = taggedImage;
@@ -112,7 +144,7 @@ bool ColorGradeEditSession::render(const QVariantMap &candidate)
     OperationError error;
     const auto parsed = ColorGradeParameters::fromVariantMap(candidate, &error);
     if (!parsed) { m_error = error; m_processedImage = {}; m_afterUrl.clear(); emit changed(); return false; }
-    const auto result = m_processor.process(m_sourceImage, *parsed, m_context);
+    const auto result = m_processor.process(m_sourceImage, *parsed, renderContext());
     if (!result) { m_error = result.error; m_processedImage = {}; m_afterUrl.clear(); emit changed(); return false; }
     m_processedImage = result.image;
     m_afterUrl = pngDataUrl(result.image);
@@ -217,6 +249,45 @@ bool ColorGradeEditSession::redo()
     const auto error = m_undo.redo(&m_document);
     if (error) { m_error = error; emit changed(); return false; }
     refresh();
+    return true;
+}
+
+QString ColorGradeEditSession::saveJson() const
+{
+    static const char *const scopes[] = {"frame", "clip", "program"};
+    const QJsonObject json{{QStringLiteral("format"), QStringLiteral("qindatk.color-grade/1")},
+                           {QStringLiteral("scope"), QString::fromLatin1(scopes[m_scope])},
+                           {QStringLiteral("clipId"), m_clipId},
+                           {QStringLiteral("grade"), QJsonObject::fromVariantMap(committedParameters())}};
+    return QString::fromUtf8(QJsonDocument(json).toJson(QJsonDocument::Compact));
+}
+
+bool ColorGradeEditSession::loadJson(const QString &text)
+{
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(text.toUtf8(), &parseError);
+    const QJsonObject json = document.object();
+    const auto fail = [this](const QString &message) {
+        m_error = {ErrorCode::InvalidArgument, message, QStringLiteral("json"), QStringLiteral("qindatk.color-grade-session")};
+        emit changed();
+        return false;
+    };
+    if (!document.isObject() || json.value(QStringLiteral("format")).toString() != QLatin1String("qindatk.color-grade/1"))
+        return fail(tr("Not a qindatk.color-grade/1 document"));
+    const QStringList scopes{QStringLiteral("frame"), QStringLiteral("clip"), QStringLiteral("program")};
+    const int scope = scopes.indexOf(json.value(QStringLiteral("scope")).toString(QStringLiteral("frame")));
+    if (scope < 0) return fail(tr("Unknown grade scope"));
+    OperationError gradeError;
+    const QVariantMap grade = json.value(QStringLiteral("grade")).toObject().toVariantMap();
+    const auto parsed = ColorGradeParameters::fromVariantMap(grade, &gradeError);
+    if (!parsed) return fail(gradeError.message);
+    if (editing()) cancelGesture(m_gestureId);
+    m_scope = GradeScope(scope);
+    const QString clipId = json.value(QStringLiteral("clipId")).toString();
+    if (!clipId.isEmpty()) m_clipId = clipId;
+    m_gestureId.clear();
+    m_error = {};
+    m_document.resetModel({{m_entity, {{QStringLiteral("grade"), toMap(*parsed)}}}});
     return true;
 }
 

@@ -31,7 +31,7 @@ struct MediaFinishing {
 
     bool isNull() const { return !grade && burnedCaptions.isEmpty() && embeddedCaptions.isEmpty(); }
     bool changesPictures() const;
-    static ColorContextSnapshot gradeContext();
+    static ColorContextSnapshot gradeContext(); // ColorGradeProcessor::programContext()
     // Grades then burns captions into `frame` in place; the frame keeps its
     // size and alpha format and is tagged sRGB when graded.
     OperationError apply(QImage *frame, qint64 programMs) const;

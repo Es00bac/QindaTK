@@ -33,7 +33,7 @@ Edit only through the client, including while disconnected:
 | `setValue(entity, property, value)` | `Set` | last writer wins per property |
 | `createEntity(values)` | `Create` (+ `Set` per initial value) | returns the new entity UUID |
 | `deleteEntity(entity)` | `Delete` | observed-remove: see [Objects and deletes](#objects-and-deletes) |
-| `replaceText(entity, property, start, removeCount, text)` | `TextDelete` + `TextInsert` | character sequence: see [Text merge](#text-merge) |
+| `replaceText(entity, property, start, removeCount, text)` | `TextDelete` + `TextInsert` (chained inserts past 4,096 units) | character sequence: see [Text merge](#text-merge) |
 | `restoreVersion(snapshot)` | `Restore` (+ `Delete`, text edits) | see [Named versions and restore](#named-versions-and-restore) |
 | `shareCheckpoint(name, snapshot)` | `Checkpoint` | never changes values |
 | `undo()` / `redo()` | new operations | see [Undo](#undo) |
@@ -47,9 +47,43 @@ clusters passes cluster-aligned positions.
 On reconnect, the client replays the service log, then submits each queued
 operation with its original identity and logical time. Repeated delivery is
 idempotent. A fresh client can replay the durable log against the same
-baseline after the service restarts. The service stores at most 4,096
-operations in a 4 MiB file; each encoded value is at most 64 KiB, property
-names at most 256 characters, and up to eight clients may connect.
+baseline after the service restarts. A service retains at most 4,096
+operations in an 8 MiB file; each encoded value is at most 64 KiB, property
+names at most 256 characters, and up to eight clients may connect. The
+service that holds the whole session's log sets `authoritative: true` (a
+socket server sets it on its service): it then compacts, so a document never
+runs out of operations (see [Compaction](#compaction)).
+
+While a client is connected, an edit the service cannot store (a full or
+unwritable store) is refused **before** it shows, or taken back if the store
+fails while writing, and `lastError` says why; a connected replica never shows
+an edit that exists only in memory (D-204). Multi-operation edits
+(`replaceText`, `createEntity` with values, restore) are checked as a whole
+before their first operation applies, so a refused edit leaves nothing
+behind.
+
+## Compaction
+
+An authoritative service compacts once `compactAt` operations (default
+2,048, clamped to 16–4,096) are retained, and whenever an edit would not fit.
+It folds every operation into a **base**: the state a replica derives from
+them (per-property winners, entity supporters and removed sets, and each text
+sequence with its element IDs and tombstones). The log then keeps only newer
+operations and the shared checkpoints (D-204). The base is written next to
+the store (`<storagePath>.base.<id>`) before the store names it, so a crash
+leaves either the old or the new pair. Folding uses a replica attached to the
+service that holds exactly base + log; a headless hub (a server with no
+replica in its process) calls `setCompactionBaseline(snapshot,
+textProperties)` with the shared baseline and folds through a scratch replica.
+
+A replica that joins or reconnects after a compaction rebuilds from the base,
+then re-applies its own queued edits: a `rebuilt` signal and one document
+reset. Every merge rule is idempotent, so an operation delivered again after
+it was folded changes nothing. The hub sends a new base to live socket peers,
+which adopt it into their own store (`baseId`); their unacknowledged edits
+survive adoption and are resent. Logical clocks are never reset, so an edit
+made after a rebuild still outranks the actor's earlier ones, and undo keeps
+reversing this actor's own steps across a fold.
 
 ## Conflict and history rule
 
@@ -100,8 +134,19 @@ after the same anchor order by descending `(logicalTime, actor, operation,
 index)`, so concurrent inserts at one position interleave identically on every
 replica, and a later edit never splits an earlier word. An insert whose anchor
 has not arrived waits for it; a delete of an unknown element is remembered.
-`setValue` on a text property is refused. An insert is at most 4,096 units and
-a sequence at most 65,536 elements including tombstones.
+`setValue` on a text property is refused. One `TextInsert` carries at most
+4,096 units; a longer `replaceText` sends chained inserts, each anchored on
+the previous chunk's last element. A sequence holds at most 65,536 elements
+including tombstones; an edit that would pass it is refused whole, before its
+delete applies.
+
+**Anchors (D-206).** `textAnchor(entity, property, position)` returns the ID
+of the element just before `position` (empty for the start), and
+`textPosition(entity, property, anchor)` returns where that element is now
+(`-1` for an unknown anchor). A caret or selection shared through presence as
+anchors follows concurrent inserts and deletes on every replica; an anchor
+whose character was deleted collapses to the gap it left. A compaction keeps
+element IDs, so anchors stay valid across it.
 
 ## Undo
 
@@ -113,6 +158,11 @@ edit has replaced the value, or the object or text is gone, the step is
 dropped, `undoConflict(operationId, reason)` is emitted and nothing is sent.
 `redo()` is symmetric; a fresh edit clears the redo stack. At most 256 steps
 are kept. Restore and checkpoints are not undo steps.
+
+Undoing a `createEntity` deletes the object only while no other actor has
+touched it since: a newer winning value, text edit or revival by another
+actor makes the step conflict (`undoConflict`), because the delete would name
+that edit as observed and hide it on every replica.
 
 ## Interprocess and network transport
 
@@ -129,10 +179,12 @@ then either `setSocketName(name)` or `setHost(host, port)`, and call
 and it has begun sending this actor's outgoing operations. Listen for
 `operationRejected`, `permissionChanged`, `revoked` and `errorOccurred`.
 
-The local service store doubles as the durable outgoing queue. Editing while
-the socket is disconnected still commits to that store. A new process can
-reopen the same store and baseline replica, attach its local client, then
-reconnect; the bridge resends the actor's operations with their original IDs.
+The local service store doubles as the durable outgoing queue: its
+**outbox** lists the local operations the hub has not acknowledged
+(`outboxCount`). Editing while the socket is disconnected still commits to
+that store. A new process can reopen the same store and baseline replica,
+attach its local client, then reconnect; the bridge resends the outbox with
+the original IDs, and each `ack` settles one entry.
 The server deduplicates exact matches and rejects reused IDs with different
 contents. Frames are bounded to 96 KiB of body and queued output to 8 MiB per
 peer; at most eight sessions connect.
@@ -162,9 +214,16 @@ queueing edits the server will reject. `grant` with a different credential
 (rotation) and `revoke(actor)` close the actor's sessions with `revoked`; the
 old credential no longer authenticates. There is no automatic credential
 provisioning: the host must distribute credentials privately. A viewer receives
-the log but cannot submit. An edit that was queued offline before a permission
-loss stays in that replica's store and is rejected on reconnect; the host must
-discard or reload such a replica.
+the log but cannot submit.
+
+A reject says whether it is **permanent** (no permission, actor or document
+mismatch, invalid packet, reused ID) or transient (a full or unwritable hub
+store). A permanently refused operation, such as an edit queued offline
+before a permission loss, is removed from the replica's store and every local
+replica is rebuilt without it; the bridge emits `operationDiscarded(id,
+reason)` so the host can tell the user which edit was dropped (D-205). The
+replica then matches the hub again and nothing is resent. A transient
+refusal stays queued and is retried on the next reconnect.
 
 ### Heartbeat and idle expiry
 
@@ -185,8 +244,11 @@ remote `presenceChanged`/`presenceLeft` signals back to it. A newly connected
 peer receives current presence; a peer or socket disconnect, idle expiry or a
 replacing session emits one leave for each actor visible through that
 connection. Reconnect sends the local current presence again. Empty presence
-means leave. The map can carry a name and stable selection ID; views must
-decide whether those coordinates remain valid after an edit.
+means leave. The map can carry a name and stable selection ID; for text,
+share [anchors](#text-merge) rather than positions so the selection follows
+edits. Replicas attached to the hub's own service (the hosting user) and
+socket peers see each other's presence both ways, including the snapshot on
+connect and leaves.
 
 `Tk.PresenceLayer` is a passive overlay for that stream. Bind `client` to a
 `LocalPropertySyncClient` or `PropertySyncSocketClient`; each remote packet
@@ -197,8 +259,8 @@ packet)`, returning `{x,y,width,height}` in overlay coordinates, and increment
 control shows readable names and activity alongside its coloured marks; it
 removes actors on leave/disconnect, client replacement or `staleAfterMs` idle
 timeout. Unknown anchors are omitted. It never writes the document or local
-selection. The host still owns selection rebasing and anchor validity; a text
-anchor can use a stable element ID from the text sequence.
+selection. For text, a `mapper` resolves a shared anchor with
+`client.textPosition(entity, property, anchor)`, so the mark follows edits.
 
 ## Named versions and restore
 
@@ -223,9 +285,15 @@ edit that replaces the current text. The `Restore` competes per property in
 the same Lamport order as scalar edits, so a newer concurrent edit can still
 win for its property, and it revives objects the version contains. The old
 state and the restore packets remain in the log; restore never erases history.
-Snapshots are limited to 40 KiB, a restored text to 4,096 units, and the local
-store to 64 checkpoints/4 MiB. Schema (descriptor) changes require a
-domain-specific version backend.
+A version larger than one 40 KiB packet is restored as several `Restore`
+operations (whole objects each; one object must fit a packet), and text is
+restored by replacing only the part that differs, in chained inserts. Both
+histories keep the **newest 64 versions**: a new checkpoint, including
+restore's safety checkpoint, evicts the oldest instead of failing, so
+restore keeps working for the life of the document. A local history stores
+snapshots up to 1 MiB each in a 16 MiB file and `remove(id)` deletes one; a
+shared checkpoint is one log packet (40 KiB). Schema (descriptor) changes
+require a domain-specific version backend.
 
 ## Host adapters
 
@@ -249,4 +317,6 @@ deferred WP-088 to WP-094):
 - Adopting these operations in each domain editor (rich-text formatting spans,
   canvas and timeline objects) and demo applications: WP-090. Rich-text
   formatting is not merged by this backend; a domain maps it to properties.
-- Log compaction/migration and SDK packaging of the transport: WP-093.
+- SDK packaging and API versioning of the transport: WP-093. Log compaction
+  is part of this package ([Compaction](#compaction)); the store format moved
+  to version 2 and still opens version-1 stores.
