@@ -42,6 +42,8 @@ struct Reader {
     bool text(const QJsonValue &value, TextContent *out)
     {
         if (!value.isObject()) return fail(QStringLiteral("Missing text fragment"));
+        // An empty object is empty text (new slides have no notes fragment).
+        if (value.toObject().isEmpty()) { *out = TextContent{}; return true; }
         QString why;
         const auto content = TextContent::fromFragmentJson(value.toObject(), &why);
         if (!content) return fail(why);

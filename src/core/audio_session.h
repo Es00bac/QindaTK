@@ -7,6 +7,7 @@
 #include "audio_mixer_model.h"
 #include "audio_plugin_host.h"
 #include "audio_source_edit_model.h"
+#include "audio_take_comp_model.h"
 #include "automation_model.h"
 #include "midi_launcher_model.h"
 #include "midi_sequence_model.h"
@@ -21,6 +22,8 @@
 #include <QPointer>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
+#include <optional>
+#include <utility>
 
 namespace QindaTK {
 
@@ -30,7 +33,8 @@ namespace QindaTK {
 // (media identity, availability, relink) — and AudioMixerModel (buses,
 // routing, sends, groups; WP-062) and AudioSourceEditModel (sample, fade
 // and spectral edits of each source; WP-063), MidiSequenceModel (patterns,
-// scenes and slots; WP-064) with its MidiLauncherModel, and compiles them into an
+// scenes and slots; WP-064) with its MidiLauncherModel, AudioTakeCompModel
+// (take comps; WP-065, docs/audio-comping.md), and compiles them into an
 // AudioRenderGraph for its engine and for offline renders. It persists as
 // "qindatk.audio-session/1" JSON with media paths relative to the session.
 class AudioSession : public QObject {
@@ -46,6 +50,10 @@ class AudioSession : public QObject {
     Q_PROPERTY(QindaTK::AudioSourceEditModel *edits READ edits CONSTANT)
     Q_PROPERTY(QindaTK::MidiSequenceModel *midi READ midi CONSTANT)
     Q_PROPERTY(QindaTK::MidiLauncherModel *launcher READ launcher CONSTANT)
+    Q_PROPERTY(QindaTK::AudioTakeCompModel *comps READ comps CONSTANT)
+    // A recording that wrapped a loop becomes one take per pass in a comp
+    // (default); false keeps the whole recording as one linear clip.
+    Q_PROPERTY(bool passTakes READ passTakes WRITE setPassTakes NOTIFY passTakesChanged)
     Q_PROPERTY(QindaTK::AudioPluginHost *plugins READ plugins CONSTANT)
     Q_PROPERTY(QindaTK::AudioEngine *engine READ engine WRITE setEngine NOTIFY engineChanged)
     Q_PROPERTY(QString filePath READ filePath NOTIFY filePathChanged)
@@ -69,6 +77,9 @@ public:
     AudioSourceEditModel *edits() const { return m_edits; }
     MidiSequenceModel *midi() const { return m_midi; }
     MidiLauncherModel *launcher() const { return m_launcher; }
+    AudioTakeCompModel *comps() const { return m_comps; }
+    bool passTakes() const { return m_passTakes; }
+    void setPassTakes(bool enabled);
     // Plugin inserts of the mixer channels (WP-066, docs/audio-plugins.md).
     AudioPluginHost *plugins() const { return m_plugins; }
     AudioEngine *engine() const { return m_engine; }
@@ -119,6 +130,14 @@ public:
     Q_INVOKABLE QVariantMap exportMidi(const QString &patternId, const QString &file);
     // Patterns from a MIDI file (one per track); tempo and meter are reported.
     Q_INVOKABLE QVariantMap importMidi(const QString &file);
+    // ---- Take comps (WP-065, docs/audio-comping.md; audio_session_comp.cpp) ----
+    // Places a finished recording (AudioEngine::recordingFinished's map; the
+    // engine's takes arrive here). Loop passes become takes of a comp; with
+    // punch the new takes are selected only inside the punch range, over the
+    // comp or clip already there (D-177). {ok, error, clipId, resourceId, compId}.
+    QVariantMap placeTake(const QVariantMap &take);
+    // The comp a timeline clip plays, or "" for a media clip.
+    Q_INVOKABLE QString compForClip(const QString &clipId) const;
     Q_INVOKABLE QVariantMap renderToFile(const QString &file, const QString &startTicks = QStringLiteral("0"),
                                          const QString &endTicks = {}, int sampleRate = 0, int channels = 2);
 
@@ -128,6 +147,7 @@ signals:
     void mediaDirectoryChanged();
     void mediaChanged();
     void sampleRateChanged();
+    void passTakesChanged();
     void lastErrorChanged();
     void graphCompiled(int clips, const QStringList &missing);
     void takeRecorded(const QString &clipId, const QString &resourceId, const QVariantMap &take);
@@ -137,7 +157,10 @@ private:
     void engineFormatChanged();
     void forwardTransport();
     void updateRecordTarget();
-    void addRecordedTake(const QVariantMap &take);
+    struct TakePass { qint64 fileStart = 0; qint64 fileEnd = 0; qint64 heard = 0; };
+    QVariantMap placeTakeInComp(const QString &trackId, const QString &resourceId, int rate,
+                                const QVector<TakePass> &passes, std::optional<std::pair<qint64, qint64>> punch);
+    QString compClipOver(const QString &trackId, int rate, qint64 from, qint64 to, bool media) const;
     bool decode(const QString &resourceId);
     void sourceEdited(const QString &resourceId);
     QString insertClip(TimelineClip clip, const QString &trackId, qint64 at, QString *error);
@@ -155,6 +178,8 @@ private:
     AudioSourceEditModel *m_edits = nullptr;
     MidiSequenceModel *m_midi = nullptr;
     MidiLauncherModel *m_launcher = nullptr;
+    AudioTakeCompModel *m_comps = nullptr;
+    bool m_passTakes = true;
     AudioPluginHost *m_plugins = nullptr;
     QPointer<AudioEngine> m_engine;
     QList<QMetaObject::Connection> m_engineConnections;

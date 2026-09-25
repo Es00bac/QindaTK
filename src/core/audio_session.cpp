@@ -53,8 +53,12 @@ AudioSession::AudioSession(QObject *parent)
       m_edits(new AudioSourceEditModel(this)),
       m_midi(new MidiSequenceModel(this)),
       m_launcher(new MidiLauncherModel(m_midi, this)),
+      m_comps(new AudioTakeCompModel(this)),
       m_plugins(new AudioPluginHost(this, m_automation, m_mixer))
 {
+    m_comps->setSourceLookup([this](const QString &id) { return m_decoded.contains(id) ? m_edits->buffer(id) : nullptr; });
+    connect(m_comps, &AudioTakeCompModel::changed, this, &AudioSession::rebuild);
+    connect(this, &AudioSession::mediaChanged, m_comps, &AudioTakeCompModel::sourcesChanged);
     m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter());
     connect(m_timeMap, &TimeMap::changed, m_midi, [this] { m_midi->setTicksPerQuarter(m_timeMap->ticksPerQuarter()); });
     connect(m_midi, &MidiSequenceModel::contentChanged, this, &AudioSession::rebuild);
@@ -107,7 +111,7 @@ void AudioSession::setEngine(AudioEngine *engine)
     m_mixer->setEngine(engine);
     if (engine) {
         m_engineConnections << connect(engine, &AudioEngine::formatChanged, this, &AudioSession::engineFormatChanged)
-                            << connect(engine, &AudioEngine::recordingFinished, this, &AudioSession::addRecordedTake)
+                            << connect(engine, &AudioEngine::recordingFinished, this, &AudioSession::placeTake)
                             << connect(engine->transport(), &TransportModel::changed, this, &AudioSession::forwardTransport);
         engine->transport()->setTimeMap(m_timeMap);
         if (!m_mediaDirectory.isEmpty()) engine->setRecordDirectory(m_mediaDirectory);
@@ -166,19 +170,6 @@ QVariantList AudioSession::media() const
         list.push_back(entry);
     }
     return list;
-}
-
-QStringList AudioSession::missingMedia() const
-{
-    QStringList missing;
-    for (const QUuid &track : m_timeline->trackOrder())
-        for (const auto &entry : m_timeline->trackIndex(track)) {
-            const TimelineClip *clip = m_timeline->clipRecord(entry.id);
-            if (clip && isAudio(clip->kind) && !clip->resourceId.isEmpty() && !m_decoded.contains(clip->resourceId)
-                && !missing.contains(clip->resourceId))
-                missing.push_back(clip->resourceId);
-        }
-    return missing;
 }
 
 bool AudioSession::decode(const QString &resourceId)
@@ -342,50 +333,6 @@ void AudioSession::updateRecordTarget()
     if (m_engine) m_engine->setRecordTarget(!armedTrack().isEmpty(), tr("Arm an audio track to record"));
 }
 
-void AudioSession::addRecordedTake(const QVariantMap &take)
-{
-    const QString path = take.value(QStringLiteral("path")).toString();
-    const qint64 frames = take.value(QStringLiteral("frames")).toString().toLongLong();
-    const qint64 start = take.value(QStringLiteral("startSample")).toString().toLongLong();
-    const int rate = take.value(QStringLiteral("sampleRate")).toInt();
-    QString error = take.value(QStringLiteral("error")).toString();
-    const QString trackId = armedTrack();
-    // Latency compensation can place the first samples before the session
-    // start; those are trimmed as a source offset, never moved.
-    const qint64 skip = start < 0 ? -start : 0;
-    const auto toTicks = [&](qint64 samples) {
-        return TimelineTime::rescale(samples, {rate, 1}, m_timeline->timebase(), TimeMap::NearestAway);
-    };
-    const auto at = toTicks(std::max<qint64>(0, start));
-    const auto offset = toTicks(skip);
-    const auto total = toTicks(frames);
-    if (error.isEmpty() && (frames <= skip || rate < 1)) error = tr("The take has no samples after latency compensation");
-    if (error.isEmpty() && trackId.isEmpty()) error = tr("No track is armed; the take was kept at %1").arg(path);
-    if (error.isEmpty() && (!at || !offset || !total)) error = tr("The take is out of the timeline range");
-    const QString resourceId = QStringLiteral("take:") + QUuid::createUuid().toString(QUuid::WithoutBraces);
-    if (error.isEmpty() && !m_resources->registerResource(resourceId, QUrl::fromLocalFile(path).toString()))
-        error = m_resources->lastError();
-    if (error.isEmpty() && !decode(resourceId)) error = tr("The recorded take cannot be read back from %1").arg(path);
-    QString clipId;
-    if (error.isEmpty()) {
-        TimelineClip clip;
-        clip.id = QUuid::createUuid();
-        clip.duration = *total - *offset;
-        clip.sourceOffset = *offset;
-        clip.sourceDuration = *total;
-        clip.resourceId = resourceId;
-        clip.kind = QStringLiteral("audio");
-        clip.label = tr("Take");
-        clipId = insertClip(clip, trackId, *at, &error);
-    }
-    if (!error.isEmpty()) {
-        fail(error);
-        return;
-    }
-    emit mediaChanged();
-    emit takeRecorded(clipId, resourceId, take);
-}
-
 bool AudioSession::relinkMedia(const QString &resourceId, const QString &file)
 {
     clearError();
@@ -423,6 +370,7 @@ bool AudioSession::save(const QString &file)
                            {QStringLiteral("mixer"), QJsonObject::fromVariantMap(m_mixer->contentMap())},
                            {QStringLiteral("edits"), QJsonObject::fromVariantMap(m_edits->contentMap())},
                            {QStringLiteral("midi"), QJsonObject::fromVariantMap(m_midi->contentMap())},
+                           {QStringLiteral("comps"), QJsonObject::fromVariantMap(m_comps->contentMap())},
                            {QStringLiteral("plugins"), QJsonObject::fromVariantMap(m_plugins->saveContent())},
                            {QStringLiteral("media"), media}};
     QSaveFile out(path);
@@ -454,22 +402,24 @@ bool AudioSession::open(const QString &file)
     // The mixer part is last: its routes name buses it defines itself and
     // tracks the timeline part just loaded. A session without one (saved
     // before WP-062) opens with the default mix. The source edits (WP-063)
-    // come next and are empty in older files; the MIDI part (WP-064) is last.
-    static constexpr const char *kParts[] = {"tempo", "automation", "timeline", "mixer", "edits", "midi"};
+    // come next and are empty in older files, then MIDI (WP-064) and take comps (WP-065).
+    static constexpr const char *kParts[] = {"tempo", "automation", "timeline", "mixer", "edits", "midi", "comps"};
     const QVariantMap before[] = {m_tempo->contentMap(), m_automation->contentMap(), m_timeline->contentMap(),
-                                  m_mixer->contentMap(), m_edits->contentMap(), m_midi->contentMap()};
+                                  m_mixer->contentMap(), m_edits->contentMap(), m_midi->contentMap(),
+                                  m_comps->contentMap()};
     const auto loadPart = [this](int part, const QVariantMap &content) {
         return part == 0 ? m_tempo->loadContent(content)
                : part == 1 ? m_automation->loadContent(content)
                : part == 2 ? m_timeline->loadContent(content)
                : part == 3 ? m_mixer->loadContent(content)
-               : part == 4 ? m_edits->loadContent(content) : m_midi->loadContent(content);
+               : part == 4 ? m_edits->loadContent(content)
+               : part == 5 ? m_midi->loadContent(content) : m_comps->loadContent(content);
     };
     // Plugins (WP-066) are validated with the other parts and loaded last.
     if (QString problem; !AudioPluginHost::validateContent(root.value(QStringLiteral("plugins")).toMap(), &problem))
         return fail(tr("The session plugins could not be loaded: %1").arg(problem));
     m_opening = true; // source edits and their originals arrive below; one recompile at the end
-    for (int part = 0; part < 6; ++part) {
+    for (int part = 0; part < 7; ++part) {
         const QString key = QString::fromLatin1(kParts[part]);
         const QVariantMap result = loadPart(part, root.value(key).toMap());
         if (!result.value(QStringLiteral("ok")).toBool()) {

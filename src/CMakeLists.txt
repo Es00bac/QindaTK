@@ -62,6 +62,10 @@ qt_add_qml_module(qindatk
         core/geographic_tile_network.cpp
         core/scene_model_3d.h core/scene_model_3d.cpp core/scene_model_3d_codec.cpp
         core/scene_model_3d_history.cpp core/scene_model_3d_parse.cpp core/scene_document_codec.cpp
+        core/notebook_document.h core/notebook_document_p.h core/notebook_document.cpp
+        core/notebook_document_blocks.cpp core/notebook_document_codec.cpp core/notebook_document_history.cpp
+        core/notebook_document_html.cpp core/notebook_document_selection.cpp
+        core/notebook_document_services.cpp core/notebook_document_text.cpp
         core/mesh_rig_document.h core/mesh_rig_document.cpp
         core/mesh_rig_document_persistence.cpp core/mesh_rig_history.cpp
         core/mesh_rig_pose.cpp core/mesh_rig_uv.cpp core/mesh_rig_paint.cpp
@@ -120,7 +124,9 @@ qt_add_qml_module(qindatk
         core/test_transport_clock.cpp core/test_transport_clock.h
         core/audio_ring.h core/audio_media.cpp core/audio_media.h
         core/audio_device.cpp core/audio_device.h
-        core/audio_graph.cpp core/audio_graph_mix.cpp core/audio_graph_midi.cpp core/audio_graph_plugins.cpp core/audio_graph.h
+        core/audio_graph.cpp core/audio_graph_mix.cpp core/audio_graph_midi.cpp core/audio_graph_comp.cpp core/audio_graph_plugins.cpp core/audio_graph.h
+        core/audio_take_comp.cpp core/audio_take_comp.h
+        core/audio_take_comp_model.cpp core/audio_take_comp_view.cpp core/audio_take_comp_model.h
         core/audio_plugin_ipc_p.h core/audio_plugin_types.cpp core/audio_plugin_types.h
         core/audio_plugin_registry.cpp core/audio_plugin_registry.h
         core/audio_plugin_processor.cpp core/audio_plugin_processor.h
@@ -138,6 +144,7 @@ qt_add_qml_module(qindatk
         core/audio_engine_midi.cpp core/audio_engine_midi_rt.cpp
         core/audio_engine.h core/audio_engine_p.h
         core/audio_session.cpp core/audio_session_transport.cpp core/audio_session_render.cpp core/audio_session_midi.cpp
+        core/audio_session_comp.cpp
         core/audio_session.h
         core/audio_dsp.cpp core/audio_dsp.h core/audio_peaks.cpp core/audio_peaks.h
         core/audio_spectrogram.cpp core/audio_spectrogram.h

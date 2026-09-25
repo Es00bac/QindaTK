@@ -46,6 +46,7 @@ AudioRenderGraphPtr AudioSession::compileGraph(int sampleRate, bool offline)
     sources.mixer = m_mixer ? &m_mixer->content() : nullptr;
     sources.offline = offline;
     sources.midi = &m_midi->content();
+    sources.comp = [this](const QString &id) { return m_comps->playback(id); };
     const AudioPluginInsertsPtr inserts = m_plugins ? m_plugins->inserts() : nullptr; // alive until compile() returns
     sources.plugins = inserts.get();
     // Device ports play on the stream that runs now; a rate or device change

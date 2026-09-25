@@ -5,6 +5,9 @@ import QindaTK as Tk
 
 // Host-owned takes and comp snapshots. Gesture coordinates choose among the
 // supplied decimal-string boundaries; sample values are never Number-coerced.
+// AGENT-CONTRACT (WP-065, docs/audio-comping.md): AudioTakeCompModel.viewState
+// supplies takes/compSegments/sampleBoundaries; a take's sourceOffsetSample is
+// a signed decimal (a pass can start before the comp origin).
 T.Control {
     id: root
     property var takes: [] // {takeId, sourceId, sourceOffsetSample, peaks, available}
@@ -23,10 +26,19 @@ T.Control {
     property int _gestureSerial: 0
     property int _startBoundary: -1
     property int _endBoundary: -1
+    // Keyboard selection: a cursor cell and an anchor cell of the boundary
+    // table, and the take lane the keys act on.
+    property int keyboardTakeIndex: 0
+    property int _cursorCell: -1
+    property int _anchorCell: -1
+    readonly property string keyboardTakeId: takeCount > 0
+        ? String(takes[Math.max(0, Math.min(takeCount - 1, keyboardTakeIndex))].takeId) : ""
 
     signal compProposalPreviewRequested(string proposalId, string takeId,
                                         string startSample, string endSample,
                                         string sourceOffsetSample)
+    // A swipe ended without a proposal (Escape, disabled): drop its preview.
+    signal compProposalPreviewCanceled(string proposalId)
     signal compProposalRequested(string proposalId, string segmentId, string takeId,
                                  string startSample, string endSample,
                                  string sourceId, string sourceOffsetSample)
@@ -36,6 +48,8 @@ T.Control {
     signal compareRequested(string takeId, string referenceTakeId,
                            string startSample, string endSample,
                            string takeOffsetSample, string referenceOffsetSample)
+    // Keyboard selection request; the host owns selectionStart/EndSample.
+    signal selectionRequested(string startSample, string endSample)
 
     readonly property bool snapshotValid: root.validateSnapshot()
     readonly property int takeCount: root.takes ? root.takes.length : 0
@@ -51,13 +65,16 @@ T.Control {
     Accessible.role: Accessible.Grouping
     Accessible.name: root.tooltip.length ? root.tooltip : qsTr("Take comp editor")
     Accessible.description: root.statusText.length ? root.statusText
-        : (snapshotValid ? qsTr("%1 takes, %2 host comp segments. Sample ranges use exact decimal strings.").arg(takeCount).arg(segmentCount)
+        : (snapshotValid ? qsTr("%1 takes, %2 host comp segments. Left and Right select cells, Shift extends, Up and Down choose a take, Enter uses it, Space auditions.").arg(takeCount).arg(segmentCount)
                          : qsTr("Take comp snapshot is invalid or incomplete."))
     activeFocusOnTab: true
     hoverEnabled: true
 
     function isDecimalString(value) {
         return typeof value === "string" && /^[0-9]+$/.test(value)
+    }
+    function isSignedDecimalString(value) {
+        return typeof value === "string" && /^-?[0-9]+$/.test(value)
     }
     function decimalCompare(a, b) {
         const left = String(a), right = String(b)
@@ -87,7 +104,7 @@ T.Control {
             const take = root.takes[i]
             const id = String(take.takeId || "")
             if (!id.length || ids[id] || !String(take.sourceId || "").length
-                || !root.isDecimalString(String(take.sourceOffsetSample))) return false
+                || !root.isSignedDecimalString(String(take.sourceOffsetSample))) return false
             ids[id] = true
         }
         const segmentIds = Object.create(null)
@@ -95,7 +112,7 @@ T.Control {
             const segment = root.compSegments[i]
             const id = String(segment.segmentId || "")
             if (!id.length || segmentIds[id] || !ids[String(segment.takeId)]
-                || !root.isDecimalString(String(segment.sourceOffsetSample))) return false
+                || !root.isSignedDecimalString(String(segment.sourceOffsetSample))) return false
             segmentIds[id] = true
             const start = root.indexForBoundary(segment.startSample)
             const end = root.indexForBoundary(segment.endSample)
@@ -177,8 +194,10 @@ T.Control {
     }
     function cancelSwipe() {
         if (!root._gestureId.length) return false
+        const id = root._gestureId
         root._gestureId = ""
         root._gestureTakeId = ""
+        root.compProposalPreviewCanceled(id)
         compPaint.requestPaint()
         return true
     }
@@ -215,6 +234,25 @@ T.Control {
         root.compareRequested(String(take.takeId), String(reference.takeId),
                               String(root.selectionStartSample), String(root.selectionEndSample),
                               String(take.sourceOffsetSample), String(reference.sourceOffsetSample))
+        return true
+    }
+    // Keyboard: move the cursor cell by `delta` (clamped); `extend` keeps the
+    // anchor, otherwise the selection is the cursor cell alone.
+    function moveCursor(delta, extend) {
+        const cells = root.sampleBoundaries.length - 1
+        if (!root.snapshotValid || cells < 1) return false
+        const from = root._cursorCell < 0 ? (delta < 0 ? cells : -1) : root._cursorCell
+        root._cursorCell = Math.max(0, Math.min(cells - 1, from + delta))
+        if (!extend || root._anchorCell < 0) root._anchorCell = root._cursorCell
+        root._anchorCell = Math.min(root._anchorCell, cells - 1) // the table may have shrunk
+        const first = Math.min(root._anchorCell, root._cursorCell)
+        const last = Math.max(root._anchorCell, root._cursorCell)
+        root.selectionRequested(String(root.sampleBoundaries[first]), String(root.sampleBoundaries[last + 1]))
+        return true
+    }
+    function focusTake(delta) {
+        if (root.takeCount < 1) return false
+        root.keyboardTakeIndex = Math.max(0, Math.min(root.takeCount - 1, root.keyboardTakeIndex + delta))
         return true
     }
     function fractionForSample(sample) {
@@ -343,7 +381,8 @@ T.Control {
                 Tk.Label {
                     width: Tk.Theme.size.fieldWidth
                     text: String(modelData.label || modelData.takeId)
-                    color: Tk.Theme.color.text
+                    color: root.activeFocus && String(modelData.takeId) === root.keyboardTakeId
+                        ? Tk.Theme.color.accent : Tk.Theme.color.text
                     Accessible.ignored: true
                 }
                 Tk.Mono {
@@ -424,5 +463,21 @@ T.Control {
     onHeightChanged: compPaint.requestPaint()
     onEnabledChanged: if (!enabled) cancelSwipe()
     Keys.onEscapePressed: cancelSwipe()
+    Keys.onPressed: function(event) {
+        const extend = (event.modifiers & Qt.ShiftModifier) !== 0
+        let handled = true
+        if (event.key === Qt.Key_Left) handled = root.moveCursor(-1, extend)
+        else if (event.key === Qt.Key_Right) handled = root.moveCursor(1, extend)
+        else if (event.key === Qt.Key_Home) handled = root.moveCursor(-root.sampleBoundaries.length, extend)
+        else if (event.key === Qt.Key_End) handled = root.moveCursor(root.sampleBoundaries.length, extend)
+        else if (event.key === Qt.Key_Up) handled = root.focusTake(-1)
+        else if (event.key === Qt.Key_Down) handled = root.focusTake(1)
+        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+            handled = root.requestProposalForRange(root.keyboardTakeId)
+        else if (event.key === Qt.Key_Space) handled = root.requestAudition(root.keyboardTakeId)
+        else if (event.key === Qt.Key_C) handled = root.requestCompare(root.keyboardTakeId)
+        else handled = false
+        event.accepted = handled
+    }
     Tk.ToolTip { text: root.tooltip; visible: root.tooltip.length > 0 && root.hovered }
 }

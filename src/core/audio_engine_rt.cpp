@@ -78,7 +78,10 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
                             &m_launch);
         m_position += count;
         done += count;
-        if (looping && m_position == m_loopEnd) m_position = m_loopStart;
+        if (looping && m_position == m_loopEnd) {
+            m_position = m_loopStart;
+            if (m_recording) recordJump(m_takeFrames + done, m_position); // a new pass (WP-065)
+        }
     }
     // Stopped (or nothing to render): the channel meters measure silence, so
     // they fall on audio time exactly like the output meter (D-113).
@@ -121,6 +124,7 @@ void AudioEngineProcessor::apply(const EngineCommand &command) noexcept
     case EngineCommand::Seek:
         if (command.position < 0) return ack(command, false, EngineEvent::InvalidPosition);
         m_position = command.position;
+        if (m_recording && m_takeAnnounced) recordJump(m_takeFrames, m_position);
         return ack(command, true);
     case EngineCommand::Loop:
         if (command.enabled && (command.rangeStart < 0 || command.rangeEnd <= command.rangeStart))
@@ -166,6 +170,7 @@ void AudioEngineProcessor::beginTake() noexcept
     m_takeAnnounced = false;
     m_takeFrames = 0;
     m_takeDropped = 0;
+    m_takeJumpsDropped = 0;
     m_takeEndTotal.store(kOpenTake, std::memory_order_relaxed);
     m_takeSerial.fetch_add(1, std::memory_order_release);
 }
@@ -180,7 +185,17 @@ void AudioEngineProcessor::endTake(bool lost) noexcept
     event.code = lost ? EngineEvent::Lost : EngineEvent::None;
     event.frames = m_takeFrames;
     event.dropped = m_takeDropped;
+    event.jumpsDropped = m_takeJumpsDropped;
     m_events.push(event);
+}
+
+void AudioEngineProcessor::recordJump(qint64 frame, qint64 position) noexcept
+{
+    RecordJump jump;
+    jump.take = m_takeSerial.load(std::memory_order_relaxed);
+    jump.frame = frame;
+    jump.position = position;
+    if (!m_jumps.push(jump)) ++m_takeJumpsDropped;
 }
 
 void AudioEngineProcessor::captureBlock(const float *input, int frames, qint64 position) noexcept

@@ -214,6 +214,10 @@ std::shared_ptr<const AudioRenderGraph> AudioRenderGraph::compile(const Sources 
         for (const auto &entry : timeline->trackIndex(AudioMixer::trackOf(node.channelId))) {
             const TimelineClip *clip = timeline->clipRecord(entry.id);
             if (!clip || clip->resourceId.isEmpty() || !isAudio(clip->kind)) continue;
+            if (isCompResource(clip->resourceId)) {
+                graph->addComp(node, *clip, sources); // WP-065 take comps
+                continue;
+            }
             AudioBufferPtr media = sources.media ? sources.media(clip->resourceId, sources.sampleRate) : nullptr;
             if (!media || media->frames == 0 || media->channels < 1) {
                 if (!graph->m_missing.contains(clip->resourceId)) graph->m_missing.push_back(clip->resourceId);

@@ -26,13 +26,14 @@ auto visible(const TransportSnapshot &s)
 {
     return std::tie(s.positionSample, s.playing, s.recording, s.loopEnabled, s.loopStart, s.loopEnd,
                     s.canPlay, s.canSeek, s.canRecord, s.canLoop, s.playUnavailableReason,
-                    s.recordUnavailableReason, s.deviceError);
+                    s.recordUnavailableReason, s.deviceError, s.punchEnabled, s.punchStart, s.punchEnd, s.canPunch);
 }
 
 } // namespace
 
 void AudioEngine::drain(Run &run)
 {
+    drainJumps(run);
     EngineEvent event;
     while (run.processor->takeEvent(event)) handleEvent(run, event);
     drainMidi(run);
@@ -66,12 +67,22 @@ void AudioEngine::handleEvent(Run &run, const EngineEvent &event)
         take->latency = run.format.inputLatency + run.format.outputLatency;
         take->sampleRate = run.format.sampleRate;
         take->channels = run.format.inputChannels;
+        take->loopEnabled = m_idle.loopEnabled;
+        take->loopStart = m_idle.loopStart;
+        take->loopEnd = m_idle.loopEnd;
+        take->punchEnabled = m_idle.punchEnabled;
+        take->punchStart = m_idle.punchStart;
+        take->punchEnd = m_idle.punchEnd;
         return;
     }
     case EngineEvent::RecordEnd: {
         auto &take = m_takes[key];
         if (!take) take = std::make_shared<Take>();
+        // AGENT-GUARD: every jump of this take was pushed before its end
+        // event, so draining here (not only at the next poll) sees them all.
+        drainJumps(run);
         take->dropped = event.dropped;
+        take->jumpsDropped = event.jumpsDropped;
         take->deviceLost = event.code == EngineEvent::Lost;
         take->ended = true;
         return completeTake(key);
@@ -84,6 +95,16 @@ void AudioEngine::handleEvent(Run &run, const EngineEvent &event)
     }
     default:
         return;
+    }
+}
+
+void AudioEngine::drainJumps(Run &run)
+{
+    RecordJump jump;
+    while (run.processor->takeJump(jump)) {
+        auto &take = m_takes[QStringLiteral("%1:%2").arg(run.serial).arg(jump.take)];
+        if (!take) take = std::make_shared<Take>();
+        take->jumps.push_back({jump.frame, jump.position});
     }
 }
 
@@ -103,6 +124,10 @@ void AudioEngine::completeTake(const QString &key)
     const auto take = m_takes.value(key);
     if (!take || !take->ended || !take->written) return;
     m_takes.remove(key);
+    QVariantList jumps;
+    for (const auto &[frame, position] : std::as_const(take->jumps))
+        jumps.push_back(QVariantMap{{QStringLiteral("frame"), QString::number(frame)},
+                                    {QStringLiteral("position"), QString::number(position)}});
     emit recordingFinished({{QStringLiteral("path"), take->path},
                             {QStringLiteral("startSample"), QString::number(take->position - take->latency)},
                             {QStringLiteral("recordedSample"), QString::number(take->position)},
@@ -112,7 +137,15 @@ void AudioEngine::completeTake(const QString &key)
                             {QStringLiteral("droppedFrames"), QString::number(take->dropped)},
                             {QStringLiteral("latencyFrames"), take->latency},
                             {QStringLiteral("deviceLost"), take->deviceLost},
-                            {QStringLiteral("error"), take->error}});
+                            {QStringLiteral("error"), take->error},
+                            {QStringLiteral("jumps"), jumps},
+                            {QStringLiteral("jumpsDropped"), QString::number(take->jumpsDropped)},
+                            {QStringLiteral("loopEnabled"), take->loopEnabled},
+                            {QStringLiteral("loopStart"), QString::number(take->loopStart)},
+                            {QStringLiteral("loopEnd"), QString::number(take->loopEnd)},
+                            {QStringLiteral("punchEnabled"), take->punchEnabled},
+                            {QStringLiteral("punchStart"), QString::number(take->punchStart)},
+                            {QStringLiteral("punchEnd"), QString::number(take->punchEnd)}});
 }
 
 void AudioEngine::rejectPending(const QString &reason)
@@ -146,8 +179,10 @@ TransportSnapshot AudioEngine::compose() const
     s.recordUnavailableReason = !running ? s.playUnavailableReason
                                 : !input ? eventText(EngineEvent::NoInput)
                                          : m_recordReason;
-    s.canPunch = false;
-    s.punchUnavailableReason = tr("Punch recording is not part of the reference engine");
+    s.punchEnabled = m_idle.punchEnabled;
+    s.punchStart = m_idle.punchStart;
+    s.punchEnd = m_idle.punchEnd;
+    s.canPunch = true;
     s.deviceError = m_state == State::Lost || m_state == State::Error ? m_stateMessage : QString();
     return s;
 }
@@ -178,7 +213,19 @@ void AudioEngine::submit(const TransportCommand &command, ReplyCallback completi
         if (completion) completion({command.id, accepted, error, m_last});
     };
     using Kind = TransportCommand::Kind;
-    if (command.kind == Kind::Punch) return reply(false, compose().punchUnavailableReason);
+    if (command.kind == Kind::Punch) {
+        // AGENT-NOTE (D-177): punch is non-destructive. The device records
+        // the whole pass; the session selects [punchStart, punchEnd) of the
+        // new takes in a comp, so pre- and post-roll stay available.
+        if (command.enabled && (command.rangeStart < 0 || command.rangeEnd <= command.rangeStart))
+            return reply(false, eventText(EngineEvent::InvalidRange));
+        m_idle.punchEnabled = command.enabled;
+        if (command.enabled) {
+            m_idle.punchStart = command.rangeStart;
+            m_idle.punchEnd = command.rangeEnd;
+        }
+        return reply(true, {});
+    }
     if (m_job) return reply(false, tr("The audio device is being reconfigured"));
     if (!m_run) {
         switch (command.kind) {
