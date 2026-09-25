@@ -156,6 +156,10 @@ qindatk_add_test(tst_audio_source_edit)
 qindatk_add_test(tst_midi_model)
 qindatk_add_test(tst_midi_schedule)
 qindatk_add_test(tst_midi_engine)
+# WP-067 notation: score model and rhythm, layout/pagination/output, MusicXML and MIDI playback.
+qindatk_add_test(tst_score_model)
+qindatk_add_test(tst_score_layout)
+qindatk_add_test(tst_score_interchange)
 qindatk_add_test(tst_file_asset_backend)
 # WP-070 media backend: decode, programs/export, playback and catalog/feeds.
 # Tests QSKIP when QindaTK was built without the optional FFmpeg libraries.
