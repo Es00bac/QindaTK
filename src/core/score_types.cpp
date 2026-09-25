@@ -274,9 +274,19 @@ int clefKeyOffset(ScoreClef clef)
 
 // ---- measures ----
 
-qint64 measureTicks(const ScoreMeasure &measure)
+qint64 meterTicks(const ScoreMeasure &measure)
 {
     return measure.denominator <= 0 ? 0 : qint64(measure.numerator) * kWholeTicks / measure.denominator;
+}
+
+qint64 measureTicks(const ScoreMeasure &measure)
+{
+    return measure.pickup > 0 ? measure.pickup : meterTicks(measure);
+}
+
+qint64 measurePhase(const ScoreMeasure &measure)
+{
+    return measure.pickup > 0 ? meterTicks(measure) - measure.pickup : 0;
 }
 
 QVector<qint64> measureStarts(const ScoreContent &content)

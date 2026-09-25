@@ -91,6 +91,7 @@ struct ScoreMeasure {
     int denominator = 4;
     int fifths = 0; // key signature: -7 (7 flats) .. 7 (7 sharps)
     ScoreBreak breakAfter = ScoreBreak::None;
+    qint64 pickup = 0; // > 0: a pickup (anacrusis) this many ticks long, shorter than the meter
     friend bool operator==(const ScoreMeasure &, const ScoreMeasure &) = default;
 };
 
@@ -156,7 +157,9 @@ int clefBottomLine(ScoreClef clef);     // diatonic number of the bottom staff l
 int clefKeyOffset(ScoreClef clef);      // staff-step offset of key signatures vs treble
 
 // ---- measures ----
-qint64 measureTicks(const ScoreMeasure &measure);
+qint64 meterTicks(const ScoreMeasure &measure);  // the full bar of its time signature
+qint64 measureTicks(const ScoreMeasure &measure); // its length: the pickup when set
+qint64 measurePhase(const ScoreMeasure &measure); // ticks of the meter before a pickup starts
 QVector<qint64> measureStarts(const ScoreContent &content); // size = measures + 1
 int measureIndexAt(const QVector<qint64> &starts, qint64 tick); // -1 outside
 qint64 totalTicks(const ScoreContent &content);
@@ -181,7 +184,7 @@ std::optional<QVector<ScoreDuration>> restFill(qint64 offset, qint64 length);
 // (whole tuplet groups) are removed and the uncovered remainder becomes rests.
 // Returns an error text and leaves the voice unchanged when it cannot.
 QString writeEvent(ScoreVoice &voice, ScoreEvent event, qint64 measureStart, qint64 measureEnd,
-                   bool fillWholeMeasure);
+                   bool fillWholeMeasure, qint64 phase = 0);
 // Clears ties that no longer end on a note of the same pitch (after an edit
 // replaced or removed the event they led into).
 void dropBrokenTies(ScoreContent &content);

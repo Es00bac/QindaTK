@@ -15,7 +15,7 @@ namespace QindaTK::Score {
 namespace {
 
 // All widths in staff spaces until placement multiplies by the space.
-constexpr double kIndent = 4.0;      // system indent for part labels
+constexpr double kIndent = 6.0;      // system indent for part labels and the bracket
 constexpr double kClefWidth = 3.0;
 constexpr double kTimeWidth = 2.5;
 constexpr double kLeftPad = 1.0;
@@ -222,6 +222,7 @@ ScoreLayout layoutScore(const ScoreContent &content, const ScoreLayoutOptions &o
                 measure.end = starts[m + 1];
                 measure.numerator = record.numerator;
                 measure.denominator = record.denominator;
+                measure.phase = measurePhase(record);
                 measure.x0 = x;
                 double cursor = x + (m == first ? 0.5 * sp : 0.0);
                 if (m == first) {
@@ -303,7 +304,7 @@ QString describe(const ScoreContent &content, const ScoreEvent &event, int measu
     const QVector<qint64> starts = measureStarts(content);
     const ScoreMeasure &measure = content.measures.value(measureIndex);
     const qint64 beatTicks = std::max<qint64>(1, kWholeTicks / std::max(1, measure.denominator));
-    const qint64 offset = event.tick - starts.value(measureIndex);
+    const qint64 offset = event.tick - starts.value(measureIndex) + measurePhase(measure);
     QString beat = QString::number(offset / beatTicks + 1);
     if (const qint64 rest = offset % beatTicks) {
         const qint64 divisor = std::gcd(rest, beatTicks);

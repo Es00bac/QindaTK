@@ -105,6 +105,8 @@ public:
     // Applies to the measure and the following ones that had the same value.
     Q_INVOKABLE QVariantMap setTimeSignature(const QString &measureId, int numerator, int denominator);
     Q_INVOKABLE QVariantMap setKeySignature(const QString &measureId, int fifths);
+    // A pickup (anacrusis) of `ticks` shorter than the meter; "0" restores the full bar.
+    Q_INVOKABLE QVariantMap setPickup(const QString &measureId, const QString &ticks);
     Q_INVOKABLE QVariantMap setBreak(const QString &measureId, const QString &kind); // none | system | page
 
     // ---- entry and notation edits (score_model_edit.cpp) ----
@@ -169,7 +171,7 @@ private:
     void publish();
     void layoutOptionChanged();
     QVariantMap ok(const QVariantMap &extra = {});
-    QVariantMap failure(const QString &message);
+    QVariantMap failure(const QString &message, const QString &code = QStringLiteral("refused"));
     void clearError();
 
     ScoreContent m_content;

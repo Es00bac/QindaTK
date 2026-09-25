@@ -2,7 +2,6 @@
 import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
-import "ScorePaint.js" as ScorePaint
 
 // AGENT-CONTRACT: the notation host owns semantic score records, rhythmic
 // interpretation, engraving coordinates, pagination, selection, and edits.
@@ -15,7 +14,8 @@ import "ScorePaint.js" as ScorePaint
 // exact insertion ticks remain strings and are never parsed as JS numbers.
 // The reference host is Tk.ScoreModel (WP-067, D-178): its layoutSnapshot(page)
 // is this view's snapshot and every request below maps to one of its calls
-// (docs/notation.md#editing). Drawing lives in ScorePaint.js.
+// (docs/notation.md#editing). Drawing is Tk.ScoreCanvasItem, the same C++
+// painter as PDF and image output (D-179).
 T.Control {
     id: root
 
@@ -78,10 +78,6 @@ T.Control {
     activeFocusOnTab: true
     focus: true
 
-    function css(color) {
-        return "rgba(" + Math.round(color.r * 255) + "," + Math.round(color.g * 255) + ","
-               + Math.round(color.b * 255) + "," + color.a + ")"
-    }
     function allStaves() {
         const result = []
         const systems = root.layoutSnapshot && root.layoutSnapshot.systems || []
@@ -273,26 +269,23 @@ T.Control {
         border.color: root.activeFocus ? Tk.Theme.color.focus : Tk.Theme.color.border
         radius: Tk.Theme.radius.sm
     }
-    Canvas {
+    Tk.ScoreCanvasItem {
         id: scoreCanvas
         objectName: "scoreCanvas"
         anchors.fill: parent
-        onPaint: {
-            ScorePaint.paint(getContext("2d"), width, height, root.layoutAvailable ? root.layoutSnapshot : null, {
-                surface: root.css(Tk.Theme.color.surface), ink: root.css(Tk.Theme.color.text),
-                muted: root.css(Tk.Theme.color.textMuted), border: root.css(Tk.Theme.color.border),
-                accent: root.css(Tk.Theme.color.accent), fontFamily: Tk.Theme.font.family,
-                captionSize: Tk.Theme.font.caption, lineWidth: Tk.Theme.size.border
-            }, root.selectedEventId, root.playbackCursorX, root.maximumPaintEvents)
-        }
+        snapshot: root.layoutAvailable ? root.layoutSnapshot : ({})
+        selectedEventId: root.selectedEventId
+        cursorX: root.playbackCursorX
+        maximumEvents: root.maximumPaintEvents
+        surfaceColor: Tk.Theme.color.surface
+        inkColor: Tk.Theme.color.text
+        mutedColor: Tk.Theme.color.textMuted
+        borderColor: Tk.Theme.color.textMuted
+        accentColor: Tk.Theme.color.accent
+        fontFamily: Tk.Theme.font.family
     }
-    function repaint() { scoreCanvas.requestPaint() }
-    onLayoutSnapshotChanged: root.repaint()
+    function repaint() { scoreCanvas.update() }
     onSnapshotRevisionChanged: root.repaint()
-    onSelectedEventIdChanged: root.repaint()
-    onPlaybackCursorXChanged: root.repaint()
-    onWidthChanged: root.repaint()
-    onHeightChanged: root.repaint()
     Tk.Caption {
         objectName: "scoreStatus"
         anchors.left: parent.left

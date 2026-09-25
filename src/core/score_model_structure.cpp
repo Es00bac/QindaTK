@@ -161,6 +161,7 @@ QVariantMap ScoreModel::appendMeasures(int count)
             ScoreMeasure measure = c.measures.back();
             measure.id = id;
             measure.breakAfter = ScoreBreak::None;
+            measure.pickup = 0;
             c.measures.push_back(measure);
         }
         return Score::completeVoices(c);
@@ -177,6 +178,7 @@ QVariantMap ScoreModel::insertMeasures(const QString &beforeMeasureId, int count
         const qint64 at = Score::measureStarts(c)[index];
         ScoreMeasure measure = c.measures[index];
         measure.breakAfter = ScoreBreak::None;
+        measure.pickup = 0;
         shiftEvents(c, at, Score::measureTicks(measure) * count);
         for (int i = 0; i < count; ++i) {
             measure.id = QUuid::createUuid();
@@ -225,12 +227,34 @@ QVariantMap ScoreModel::setTimeSignature(const QString &measureId, int numerator
         ScoreMeasure changed = c.measures[first];
         changed.numerator = numerator;
         changed.denominator = denominator;
+        changed.pickup = 0;
         const qint64 delta = Score::measureTicks(changed) * (last - first + 1) - (starts[last + 1] - starts[first]);
         shiftEvents(c, starts[last + 1], delta);
         for (int m = first; m <= last; ++m) {
+            c.measures[m].pickup = 0;
             c.measures[m].numerator = numerator;
             c.measures[m].denominator = denominator;
         }
+        Score::dropBrokenTies(c);
+        return Score::completeVoices(c);
+    });
+}
+
+QVariantMap ScoreModel::setPickup(const QString &measureId, const QString &ticks)
+{
+    const int index = Score::measureIndex(m_content, QUuid::fromString(measureId));
+    bool parsed = false;
+    const qint64 length = ticks.toLongLong(&parsed);
+    if (index < 0 || !parsed) return failure(tr("Unknown measure or length %1").arg(ticks));
+    return editContent(length > 0 ? tr("Set pickup") : tr("Remove pickup"), [&](ScoreContent &c) {
+        const QVector<qint64> starts = Score::measureStarts(c);
+        if (!onlyRests(c, starts[index], starts[index + 1]))
+            return tr("Measure %1 holds notes; a pickup changes only a measure of rests").arg(index + 1);
+        removeEventsIn(c, starts[index], starts[index + 1]);
+        ScoreMeasure &measure = c.measures[index];
+        const qint64 before = Score::measureTicks(measure);
+        measure.pickup = length >= Score::meterTicks(measure) ? 0 : std::max<qint64>(0, length);
+        shiftEvents(c, starts[index + 1], Score::measureTicks(measure) - before);
         Score::dropBrokenTies(c);
         return Score::completeVoices(c);
     });

@@ -917,13 +917,17 @@ shared columns across staves.
 shared time columns with logarithmic widths, greedy system breaking with
 forced breaks, justification, pages, then accidentals, stems, beams, ties
 and tuplets per staff. `pageSnapshot` normalizes it for ScoreView;
-`paintPage` paints it for PDF and images. ScorePaint.js and paintPage only
-choose glyph shapes.
+`Score::paintSnapshot` (C++, QPainter) paints the snapshot for all of them:
+ScoreView through `ScoreCanvasItem`, PDF and images through `paintPage`. It
+draws clefs, accidentals, noteheads, rests, flags, ties, articulations and
+fermatas as vector paths in staff spaces (score_glyphs.cpp), so no music
+font is needed; it only chooses glyph shapes, never positions.
 
-**Consequences.** A PDF page matches the view's page geometry. Two painters
-exist (QML Canvas and QPainter), so glyph shapes can differ in detail;
-positions cannot. The engraving is plain (no SMuFL font); fidelity against
-other programs is qualification work (WP-088 to WP-094).
+**Consequences.** The view and a PDF page are the same drawing in different
+colours; `tst_score_layout` compares the view's pixels with the page
+image. Vector glyphs avoid bundling a SMuFL font and its licence; their
+shapes are simpler than a professional font. Fidelity against other
+programs is qualification work (WP-089 to WP-094).
 
 ## D-180 — Playback is a derived MIDI pattern with stable note IDs
 
@@ -937,6 +941,11 @@ UUIDv5 of the chain's first score note. `ScorePlayback` writes the result
 as one whole pattern of `session.midi` (one MIDI undo step) and keeps one
 beat-locked clip of it on a MIDI track, so the engine and tempo map time it
 like any pattern; audition uses the engine's cue voices.
+
+The track and pattern IDs are UUIDv5 of the score ID and the clip is the
+pattern's clip on that track, so the link is found again in a reopened
+session and nothing is duplicated. A sync that fails part-way undoes the
+timeline and MIDI steps it made.
 
 **Consequences.** Editing the pattern in a PianoRoll is overwritten by the
 next sync; the score is the source. Re-syncs keep note IDs, so controller
@@ -954,8 +963,12 @@ measure and part UUIDs as prefixed `id` attributes, and score, staff, voice
 and event UUIDs as `qindatk-*` processing instructions, which conforming
 readers ignore. Import reads the declared feature set, maps voices as
 `staff × 4 + voice`, derives values from `type`, dots and time-modification,
-and reports every other element by name (`unsupported`), duration
-mismatches, rounded positions and filled rests.
+keeps pickup (`implicit`) measures as short measures (`pickup`), and
+reports every other element by name: `unsupported` for content it does not
+keep (tempo, words, grace notes, slurs, lyrics, …) and `recomputed` for
+engraving hints and metadata the layout and export regenerate (stems,
+beams, print layout, encoding), plus duration mismatches, rounded positions
+and filled rests.
 
 **Consequences.** A QindaTK file re-imports equal to the original, IDs
 included. Files from other programs import with new IDs and a report of
