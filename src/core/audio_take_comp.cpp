@@ -202,7 +202,8 @@ QString addTakes(AudioTakeComp &comp, const QVector<AudioTake> &takes)
     return {};
 }
 
-QVector<AudioCompPiece> resolve(const AudioTakeComp &comp, const QString &auditionTakeId)
+QVector<AudioCompPiece> resolve(const AudioTakeComp &comp, const QString &auditionTakeId, qint64 auditionStart,
+                                qint64 auditionEnd)
 {
     QVector<AudioCompPiece> pieces;
     const auto plain = [](const QString &segmentId, const QString &takeId, qint64 start, qint64 end) {
@@ -214,9 +215,10 @@ QVector<AudioCompPiece> resolve(const AudioTakeComp &comp, const QString &auditi
         return piece;
     };
     if (!auditionTakeId.isEmpty()) {
+        // An audition range (end < 0: the whole comp) limits what is heard.
         const AudioTake *take = comp.take(auditionTakeId);
-        const qint64 start = take ? std::max<qint64>(0, take->compStart()) : 0;
-        const qint64 end = take ? std::min(comp.length, take->compEnd()) : 0;
+        const qint64 start = take ? std::max<qint64>({0, take->compStart(), auditionStart}) : 0;
+        const qint64 end = take ? std::min({comp.length, take->compEnd(), auditionEnd < 0 ? comp.length : auditionEnd}) : 0;
         if (start < end) pieces.push_back(plain({}, auditionTakeId, start, end));
         return pieces;
     }
@@ -225,41 +227,61 @@ QVector<AudioCompPiece> resolve(const AudioTakeComp &comp, const QString &auditi
     // AGENT-NOTE (D-175): a junction b of two different takes A | B
     // crossfades over [b - x, b + y): x samples inside A, y inside B, centred
     // when it can be (x = ⌊F/2⌋). x never exceeds what B has before b nor half
-    // of A; y never exceeds what A has after b nor half of B. A side that
-    // lacks material moves the fade to the other side, so the fade keeps its
-    // length when a take starts or ends exactly at the junction. The half
-    // bounds keep both fades of one segment apart. A junction inside one
-    // take, a gap and the comp edges are cut exactly.
+    // of A's run; y never exceeds what A has after b nor half of B's run. A
+    // run is the touching segments of one take around the junction: a split
+    // or merge inside a take never changes a run, so it never changes a fade
+    // (the fade regions are set on every piece of the run and weight only the
+    // samples inside them). A side that lacks material moves the fade to the
+    // other side, so the fade keeps its length when a take starts or ends
+    // exactly at the junction. The half bounds keep both fades of one run
+    // apart. A junction inside one take, a gap and the comp edges are cut
+    // exactly.
+    const auto touching = [&pieces](qsizetype k) {
+        return pieces.at(k).end == pieces.at(k + 1).start && pieces.at(k).takeId == pieces.at(k + 1).takeId;
+    };
     for (qsizetype i = 0; i + 1 < pieces.size(); ++i) {
-        AudioCompPiece &a = pieces[i];
-        AudioCompPiece &b = pieces[i + 1];
+        const AudioCompPiece &a = pieces.at(i);
+        const AudioCompPiece &b = pieces.at(i + 1);
         if (a.end != b.start || a.takeId == b.takeId || comp.fadeSamples <= 0) continue;
         const AudioTake *left = comp.take(a.takeId);
         const AudioTake *right = comp.take(b.takeId);
         if (!left || !right) continue;
+        qsizetype first = i;
+        while (first > 0 && touching(first - 1)) --first;
+        qsizetype last = i + 1;
+        while (last + 1 < pieces.size() && touching(last)) ++last;
         const qint64 junction = a.end;
-        const qint64 maxBefore = std::min(std::max<qint64>(0, junction - right->compStart()), (a.end - a.start) / 2);
-        const qint64 maxAfter = std::min(std::max<qint64>(0, left->compEnd() - junction), (b.end - b.start) / 2);
+        const qint64 maxBefore = std::min(std::max<qint64>(0, junction - right->compStart()),
+                                          (junction - pieces.at(first).start) / 2);
+        const qint64 maxAfter = std::min(std::max<qint64>(0, left->compEnd() - junction),
+                                         (pieces.at(last).end - junction) / 2);
         qint64 before = std::min(comp.fadeSamples / 2, maxBefore);
         const qint64 after = std::min(comp.fadeSamples - before, maxAfter);
         before = std::min(comp.fadeSamples - after, maxBefore);
         if (before + after <= 0) continue;
-        a.playEnd = a.fadeOutEnd = junction + after;
-        a.fadeOutStart = junction - before;
-        b.playStart = b.fadeInStart = junction - before;
-        b.fadeInEnd = junction + after;
+        for (qsizetype k = first; k <= i; ++k) {
+            pieces[k].fadeOutStart = junction - before;
+            pieces[k].fadeOutEnd = junction + after;
+        }
+        for (qsizetype k = i + 1; k <= last; ++k) {
+            pieces[k].fadeInStart = junction - before;
+            pieces[k].fadeInEnd = junction + after;
+        }
+        pieces[i].playEnd = junction + after;
+        pieces[i + 1].playStart = junction - before;
     }
     return pieces;
 }
 
-AudioCompPlayback playback(const AudioTakeComp &comp, const QString &auditionTakeId)
+AudioCompPlayback playback(const AudioTakeComp &comp, const QString &auditionTakeId, qint64 auditionStart,
+                           qint64 auditionEnd)
 {
     AudioCompPlayback result;
     result.valid = true;
     result.sampleRate = comp.sampleRate;
     result.length = comp.length;
     result.fadeShape = comp.fadeShape;
-    for (const AudioCompPiece &piece : resolve(comp, auditionTakeId)) {
+    for (const AudioCompPiece &piece : resolve(comp, auditionTakeId, auditionStart, auditionEnd)) {
         const AudioTake *take = comp.take(piece.takeId);
         if (!take) continue;
         result.parts.push_back({piece, take->resourceId, take->sourceOffset, take->sourceStart, take->sourceEnd});

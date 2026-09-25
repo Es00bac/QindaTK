@@ -40,6 +40,20 @@ AudioMeterModel *AudioEngine::channelMeter(const QString &channelId)
     return model;
 }
 
+void AudioEngine::retainChannelMeters(const QSet<QString> &channels)
+{
+    for (auto it = m_channelMeters.begin(); it != m_channelMeters.end();) {
+        if (channels.contains(it.key())) {
+            ++it;
+            continue;
+        }
+        // AGENT-GUARD (WP-062): deleteLater, never delete: a strip may still
+        // hold the model until its row goes; QML then reads null.
+        it.value()->deleteLater();
+        it = m_channelMeters.erase(it);
+    }
+}
+
 void AudioEngine::registerMeterMap(const AudioRenderGraph &graph)
 {
     for (const MeterMap &map : std::as_const(m_meterMaps))
@@ -77,8 +91,9 @@ void AudioEngine::drainChannelMeters(Run &run)
         for (int slot = 0; slot < count; ++slot) {
             AudioMeterModel *model = m_channelMeters.value(map->channels.at(slot));
             if (!model) continue; // nobody asked for this channel's meter
-            const int lanes = std::clamp(map->lanes.value(slot, 2), 1, 2);
-            model->configure(sink->sampleRate(), lanes, lanes == 1 ? QStringLiteral("Mono") : QStringLiteral("Stereo"),
+            const int lanes = std::clamp(map->lanes.value(slot, 2), 1, AudioChannelMeterFrame::kMaxLanes);
+            const auto layout = AudioMixer::layoutForLanes(lanes);
+            model->configure(sink->sampleRate(), lanes, AudioMixer::layoutName(layout.value_or(AudioLayout::Stereo)),
                              sink->blockFrames());
             AudioMeterBlock block;
             block.frames = frame.frames;

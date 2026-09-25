@@ -3,13 +3,12 @@
 
 #include "timeline_model.h"
 
-#include <QColor>
 #include <QCoreApplication>
 #include <algorithm>
 #include <limits>
 
-// Sequence edits (WP-071, docs/sequence-edits.md): roll, slip, slide and
-// transitions. AGENT-NOTE (D-118): every bound comes from the clip records
+// Sequence edits (WP-071, docs/sequence-edits.md): roll, slip and slide
+// (transitions: timeline_planner_transitions.cpp). AGENT-NOTE (D-118): every bound comes from the clip records
 // (sourceOffset, sourceDuration, neighbours), never from decoded media, so an
 // offline clip edits exactly like an online one and keeps its source offsets.
 namespace QindaTK {
@@ -25,43 +24,6 @@ void setError(TimelinePlanner::Context &context, OperationError error)
 {
     context.plan.error = std::move(error);
     context.plan.changes.changes.clear();
-}
-
-bool editableClip(TimelinePlanner::Context &context, const TimelineClip &clip)
-{
-    const TimelineTrack *track = context.model.trackRecord(clip.trackId);
-    if (!clip.locked && !(track && track->locked)) return true;
-    setError(context, TimelinePlanner::error(ErrorCode::Validation,
-        tr("Clip “%1” is locked").arg(TimelinePlanner::clipName(clip))));
-    return false;
-}
-
-// Committed clip on `trackId` that ends exactly at / starts exactly at `tick`.
-const TimelineClip *endingAt(const TimelineModel &model, const QUuid &trackId, qint64 tick,
-                             const QSet<QUuid> &exclude)
-{
-    if (tick == std::numeric_limits<qint64>::min()) return nullptr;
-    for (const QUuid &id : model.clipsInRange(trackId, tick - 1, tick)) {
-        const TimelineClip *clip = model.clipRecord(id);
-        if (clip && clip->end() == tick && !exclude.contains(id)) return clip;
-    }
-    return nullptr;
-}
-
-const TimelineClip *startingAt(const TimelineModel &model, const QUuid &trackId, qint64 tick,
-                               const QSet<QUuid> &exclude)
-{
-    if (tick == std::numeric_limits<qint64>::max()) return nullptr;
-    for (const QUuid &id : model.clipsInRange(trackId, tick, tick + 1)) {
-        const TimelineClip *clip = model.clipRecord(id);
-        if (clip && clip->start == tick && !exclude.contains(id)) return clip;
-    }
-    return nullptr;
-}
-
-qint64 headRoom(const TimelinePlanner::Context &context, const TimelineClip &clip)
-{
-    return context.policy.allowBeyondSource() ? kUnbounded : clip.sourceOffset;
 }
 
 // Bounds on a shared delta, tightened by each constraint.
@@ -98,7 +60,7 @@ bool collect(TimelinePlanner::Context &context, QVector<TimelineClip> &targets)
                                                      tr("A clip in this edit no longer exists")));
             return false;
         }
-        if (!editableClip(context, *clip)) return false;
+        if (!TimelinePlanner::editableClip(context, *clip)) return false;
         targets.push_back(*clip);
     }
     return !targets.isEmpty();
@@ -116,25 +78,42 @@ bool shift(TimelineClip &clip, qint64 startBy, qint64 durationBy, qint64 offsetB
     return true;
 }
 
-OperationError checkParameters(const TimelineTransition &transition)
-{
-    for (auto it = transition.parameters.cbegin(); it != transition.parameters.cend(); ++it) {
-        const QString value = it.value().toString();
-        bool ok = false;
-        if (it.key() == QLatin1String("direction"))
-            ok = QStringList{QStringLiteral("left"), QStringLiteral("right"), QStringLiteral("up"),
-                             QStringLiteral("down")}.contains(value);
-        else if (it.key() == QLatin1String("color"))
-            ok = QColor::isValidColorName(value);
-        else if (it.key() == QLatin1String("curve"))
-            ok = value == QLatin1String("linear") || value == QLatin1String("equalPower");
-        if (!ok)
-            return TimelinePlanner::error(ErrorCode::Validation,
-                tr("Transition parameter “%1” cannot be “%2”").arg(it.key(), value), it.key());
-    }
-    return {};
-}
 } // namespace
+
+bool TimelinePlanner::editableClip(Context &context, const TimelineClip &clip)
+{
+    const TimelineTrack *track = context.model.trackRecord(clip.trackId);
+    if (!clip.locked && !(track && track->locked)) return true;
+    setError(context, error(ErrorCode::Validation, tr("Clip “%1” is locked").arg(clipName(clip))));
+    return false;
+}
+
+const TimelineClip *TimelinePlanner::endingAt(const TimelineModel &model, const QUuid &trackId, qint64 tick,
+                                              const QSet<QUuid> &exclude)
+{
+    if (tick == std::numeric_limits<qint64>::min()) return nullptr;
+    for (const QUuid &id : model.clipsInRange(trackId, tick - 1, tick)) {
+        const TimelineClip *clip = model.clipRecord(id);
+        if (clip && clip->end() == tick && !exclude.contains(id)) return clip;
+    }
+    return nullptr;
+}
+
+const TimelineClip *TimelinePlanner::startingAt(const TimelineModel &model, const QUuid &trackId, qint64 tick,
+                                                const QSet<QUuid> &exclude)
+{
+    if (tick == std::numeric_limits<qint64>::max()) return nullptr;
+    for (const QUuid &id : model.clipsInRange(trackId, tick, tick + 1)) {
+        const TimelineClip *clip = model.clipRecord(id);
+        if (clip && clip->start == tick && !exclude.contains(id)) return clip;
+    }
+    return nullptr;
+}
+
+qint64 TimelinePlanner::headRoom(const Context &context, const TimelineClip &clip)
+{
+    return context.policy.allowBeyondSource() ? kUnbounded : clip.sourceOffset;
+}
 
 std::optional<qint64> TimelinePlanner::framePoint(const TimelineModel &model, qint64 ticks)
 {
@@ -331,167 +310,6 @@ void TimelinePlanner::planSlide(Context &context)
     }
     context.plan.appliedDelta = *legal;
     emitClips(context, after);
-}
-
-// SetTransition into clipIds[0] (and, when linked, into each partner that
-// also starts at a cut). The requested length is placed by alignment and,
-// with frameExact, rounded to whole program frames around the cut.
-void TimelinePlanner::planTransition(Context &context)
-{
-    const auto &request = context.request;
-    if (request.clipIds.size() != 1)
-        return setError(context, error(ErrorCode::InvalidArgument, tr("A transition belongs to one incoming clip")));
-    const bool removing = !request.transition || request.transition->isNull();
-    TimelineTransition wanted = removing ? TimelineTransition{} : *request.transition;
-    if (!removing) {
-        if (auto failure = checkParameters(wanted)) return setError(context, failure);
-        const qint64 length = wanted.duration();
-        if (length < 1)
-            return setError(context, error(ErrorCode::Validation, tr("A transition lasts at least one tick"),
-                                           QStringLiteral("duration")));
-        const QString &alignment = wanted.alignment;
-        if (alignment == QLatin1String("start")) {
-            wanted.beforeCut = 0;
-            wanted.afterCut = length;
-        } else if (alignment == QLatin1String("end")) {
-            wanted.beforeCut = length;
-            wanted.afterCut = 0;
-        } else if (alignment == QLatin1String("center")) {
-            wanted.beforeCut = length - length / 2; // the incoming head takes the odd tick
-            wanted.afterCut = length / 2;
-        } else if (!alignment.isEmpty()) {
-            return setError(context, error(ErrorCode::InvalidArgument,
-                                           tr("Alignment must be start, center or end"), QStringLiteral("alignment")));
-        }
-    }
-    const QVector<QUuid> ids = request.linked ? withLinked(context.model, request.clipIds) : request.clipIds;
-    QHash<QUuid, TimelineClip> after;
-    for (const QUuid &id : ids) {
-        const TimelineClip *incoming = context.model.clipRecord(id);
-        if (!incoming || !editableClip(context, *incoming)) {
-            if (!incoming) setError(context, error(ErrorCode::StaleRevision, tr("A clip in this edit no longer exists")));
-            return;
-        }
-        const bool primary = id == request.clipIds.first();
-        const TimelineClip *outgoing = endingAt(context.model, incoming->trackId, incoming->start, {id});
-        TimelineClip next = *incoming;
-        if (removing) {
-            next.transition = {};
-            after.insert(id, next);
-            continue;
-        }
-        if (!outgoing) {
-            if (!primary) continue;
-            return setError(context, error(ErrorCode::Validation,
-                tr("No clip ends where “%1” starts, so there is no cut to transition").arg(clipName(*incoming))));
-        }
-        TimelineTransition placed = wanted;
-        if (request.frameExact) {
-            // Whole frames around the cut: the frame count nearest the length,
-            // split by alignment with the odd frame before the cut.
-            const auto cutFrame = context.model.ticksToFrames(incoming->start, TimeMap::NearestAway);
-            const TimelineRate rate{context.model.timeMap()->frameRateNumerator(),
-                                    context.model.timeMap()->frameRateDenominator()};
-            const auto frames = TimelineTime::rescale(wanted.duration(), context.model.timebase(), rate,
-                                                      TimeMap::NearestAway);
-            if (!cutFrame || !frames)
-                return setError(context, error(ErrorCode::InvalidArgument, tr("The transition is out of range")));
-            const qint64 count = std::max<qint64>(1, *frames);
-            const qint64 beforeFrames = wanted.afterCut == 0 ? count
-                : wanted.beforeCut == 0 ? 0 : count - count / 2;
-            const auto first = context.model.frameStartTicks(*cutFrame - beforeFrames);
-            const auto last = context.model.frameStartTicks(*cutFrame - beforeFrames + count);
-            const auto beforeCut = first ? TimelineTime::subtract(incoming->start, *first) : std::nullopt;
-            const auto afterCut = last ? TimelineTime::subtract(*last, incoming->start) : std::nullopt;
-            if (!beforeCut || !afterCut)
-                return setError(context, error(ErrorCode::InvalidArgument, tr("The transition is out of range")));
-            // A cut between frame starts keeps the region on its own side.
-            placed.beforeCut = std::max<qint64>(0, *beforeCut);
-            placed.afterCut = std::max<qint64>(0, *afterCut);
-        }
-        if (placed.beforeCut > headRoom(context, *incoming) || placed.afterCut > tailRoom(context, *outgoing))
-            return setError(context, error(ErrorCode::Validation,
-                tr("The source media has insufficient handles for this transition"), QStringLiteral("handles")));
-        if (placed.beforeCut > outgoing->duration || placed.afterCut > incoming->duration)
-            return setError(context, error(ErrorCode::Validation,
-                tr("The transition is longer than the clips beside the cut"), QStringLiteral("duration")));
-        next.transition = placed;
-        after.insert(id, next);
-    }
-    emitClips(context, after);
-}
-
-// AGENT-GUARD (D-120): a transition lives on its incoming clip but depends
-// on the outgoing clip ending exactly at that clip's start. Any edit that
-// moves either side runs through here: a cut that no longer exists drops the
-// transition inside the same change set (undo restores it), and a cut whose
-// handles became too short is a soft error, so the preview shows it and
-// commit refuses it.
-void TimelinePlanner::reconcileTransitions(Context &context)
-{
-    auto &changes = context.plan.changes.changes;
-    QHash<QUuid, TimelineClip> after;
-    QHash<QUuid, int> index;
-    QSet<QUuid> removed, check;
-    for (int i = 0; i < changes.size(); ++i) {
-        const TimelineChange &change = changes.at(i);
-        if (change.kind != TimelineChange::Kind::Clip) continue;
-        index.insert(change.id, i);
-        if (change.clipAfter) {
-            after.insert(change.id, *change.clipAfter);
-            if (!change.clipAfter->transition.isNull()) check.insert(change.id);
-        } else {
-            removed.insert(change.id);
-        }
-        if (change.clipBefore) {
-            const TimelineClip &was = *change.clipBefore;
-            if (const TimelineClip *next = startingAt(context.model, was.trackId, was.end(), {was.id}))
-                if (!next->transition.isNull()) check.insert(next->id);
-        }
-    }
-    QList<QUuid> ordered(check.cbegin(), check.cend());
-    std::sort(ordered.begin(), ordered.end());
-    for (const QUuid &id : ordered) {
-        if (removed.contains(id)) continue;
-        TimelineClip incoming = after.contains(id) ? after.value(id) : *context.model.clipRecord(id);
-        if (incoming.transition.isNull()) continue;
-        // The outgoing clip in the edited state: a changed clip, or a
-        // committed one the edit leaves where it was.
-        std::optional<TimelineClip> outgoing;
-        for (auto it = after.cbegin(); it != after.cend() && !outgoing; ++it)
-            if (it.key() != id && it->trackId == incoming.trackId && it->end() == incoming.start) outgoing = *it;
-        if (!outgoing) {
-            QSet<QUuid> skip = removed;
-            for (auto it = after.cbegin(); it != after.cend(); ++it) skip.insert(it.key());
-            skip.insert(id);
-            if (const TimelineClip *clip = endingAt(context.model, incoming.trackId, incoming.start, skip))
-                outgoing = *clip;
-        }
-        if (!outgoing) {
-            incoming.transition = {};
-            if (index.contains(id)) {
-                changes[index.value(id)].clipAfter = incoming;
-            } else {
-                TimelineChange change;
-                change.kind = TimelineChange::Kind::Clip;
-                change.id = id;
-                change.clipBefore = *context.model.clipRecord(id);
-                change.clipAfter = incoming;
-                changes.push_back(change);
-                index.insert(id, int(changes.size()) - 1);
-            }
-            after.insert(id, incoming);
-            continue;
-        }
-        const TimelineTransition &transition = incoming.transition;
-        if (transition.beforeCut > headRoom(context, incoming) || transition.afterCut > tailRoom(context, *outgoing)
-            || transition.beforeCut > outgoing->duration || transition.afterCut > incoming.duration) {
-            if (!context.plan.error)
-                context.plan.error = error(ErrorCode::Validation,
-                    tr("The transition into “%1” needs more source handle than this edit leaves")
-                        .arg(clipName(incoming)), QStringLiteral("handles"));
-        }
-    }
 }
 
 } // namespace QindaTK

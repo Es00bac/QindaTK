@@ -40,7 +40,7 @@ Rectangle {
             if (!track || track.state !== "ready" || root.initialAnalysisAccepted) return
             root.initialAnalysisAccepted = true
             if (model.acceptAnalysis(root.trackId))
-                root.maskPreview = model.previewTrackedMask(root.maskId, 0, 2, root.trackId)
+                root.maskPreview = model.previewPropagation(root.maskId, 0, [root.trackId], 0, 2)
         }
     }
 
@@ -63,7 +63,25 @@ Rectangle {
                 startFrame: "0"
                 endFrame: "2"
                 currentFrame: "2"
+                analysisProgress: model.analysisProgress
+                loadingFrames: model.loadingFrames
+                frameLoadProgress: model.frameLoadProgress
+                targets: model.masks
+                targetMaskId: root.maskId
+                maskSourceFrame: "0"
                 onTrackSelected: function(id) { root.trackId = id }
+                onTargetSelected: function(id) { root.maskId = id }
+                onOptionsChangeRequested: function(id, radius, searchRadius, motion) {
+                    model.setTrackOptions(id, radius, searchRadius, motion)
+                }
+                onRebaseRequested: function(id, frame) { model.rebaseTrack(id, Number(frame)) }
+                onOffsetRequested: function(id, dx, dy, first, last) {
+                    model.offsetTrack(id, dx, dy, Number(first), Number(last))
+                }
+                onApplyToMaskRequested: function(id, mask, source, first, last) {
+                    root.maskPreview = ({})
+                    model.applyTrackToMask(mask, Number(source), id, Number(first), Number(last))
+                }
                 onStartRequested: function(id, first, last, occlusion) {
                     root.maskPreview = ({})
                     model.startAnalysis(id, Number(first), Number(last), occlusion)
@@ -88,9 +106,19 @@ Rectangle {
                 sourceAspectRatio: 16 / 9
                 trackingTrackId: root.trackId
                 propagationPreview: root.maskPreview
+                propagationFrom: "0"
+                propagationTo: "2"
                 onMaskSelected: function(id) { root.maskId = id }
                 onPropagateRequested: function(id, source, target, track) {
                     root.maskPreview = model.previewTrackedMask(id, Number(source), Number(target), track)
+                }
+                onPropagateRangeRequested: function(id, source, first, last, track) {
+                    root.maskPreview = model.previewPropagation(id, Number(source), [track],
+                                                                Number(first), Number(last))
+                }
+                onAcceptRangeRequested: function(id, source, first, last, tracks) {
+                    if (model.applyPropagation(id, Number(source), tracks, Number(first), Number(last)).ok)
+                        root.maskPreview = ({})
                 }
                 onAcceptPreviewRequested: function(id, frame, points) {
                     if (model.setMaskKeyframe(id, Number(frame), points)) root.maskPreview = ({})
@@ -108,7 +136,7 @@ Rectangle {
             }
         }
         Tk.Caption {
-            text: qsTr("Real patch tracking across three local frames · generated mask preview requires acceptance")
+            text: qsTr("Real patch tracking across three local frames · generated mask keys preview until accepted and stay marked generated")
         }
     }
 }

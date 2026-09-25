@@ -18,6 +18,15 @@ Tk.Box {
     readonly property int depth: block.depth || 0
     readonly property var previous: editor && index > 0 ? editor.presentedBlocks[index - 1] : null
     readonly property var contentItem_: content.item
+    // Header label: the block kind, plus its title or language when it has one.
+    readonly property string typeLabel: {
+        const names = { text: qsTr("Text"), heading: qsTr("Heading"), quote: qsTr("Quote"), list: qsTr("List item"),
+                        todo: qsTr("To-do"), code: qsTr("Code"), table: qsTr("Table"), chart: qsTr("Chart"),
+                        image: qsTr("Image"), embed: qsTr("Embed"), ink: qsTr("Ink"), divider: qsTr("Divider") }
+        const name = names[block.type] || String(block.type || "")
+        const detail = block.data ? (block.data.title || block.data.language || "") : ""
+        return detail.length > 0 ? qsTr("%1 · %2").arg(name).arg(detail) : name
+    }
 
     objectName: "notebookBlock_" + blockId
     color: selected ? Tk.Theme.color.panelAlt : Tk.Theme.color.panel
@@ -40,15 +49,12 @@ Tk.Box {
             direction: Tk.Flex.Row
             align: Tk.Flex.Center
             gap: Tk.Theme.space.xs
-            Tk.Button {
-                objectName: "blockSelect_" + card.blockId
-                text: card.block.data && (card.block.data.title || card.block.data.language) || card.block.type
-                tooltip: qsTr("Select %1 block").arg(card.block.type)
-                variant: card.selected ? "accent" : "ghost"
-                onClicked: {
-                    if (card.editor.notebook) card.editor.selectedBlockId = card.blockId
-                    card.editor.blockSelectionRequested(card.blockId)
-                }
+            Tk.Label {
+                objectName: "blockType_" + card.blockId
+                text: card.typeLabel
+                muted: !card.selected
+                accent: card.selected
+                horizontalAlignment: Text.AlignLeft
                 Tk.Flex.grow: 1
                 Tk.Flex.basis: 0
             }
@@ -160,9 +166,19 @@ Tk.Box {
             wrapMode: Text.WordWrap
         }
     }
+    // AGENT-GUARD: a pooled delegate is only culled by the ListView (Qt
+    // 6.11); it stays `visible`, connected and findable by objectName. Hiding
+    // it keeps a pooled text part from taking a focus request meant for the
+    // visible card (BlockEditorText.claimFocus checks visibility).
+    property bool pooled: false
+    visible: !pooled
+    ListView.onPooled: pooled = true
     // A delegate reused for the same block ID gets no property change, so
     // reload the text part explicitly (drafts may have changed meanwhile).
-    ListView.onReused: if (card.contentItem_ && card.contentItem_.load) card.contentItem_.load()
+    ListView.onReused: {
+        pooled = false
+        if (card.contentItem_ && card.contentItem_.load) card.contentItem_.load()
+    }
     TapHandler {
         onTapped: {
             if (card.editor.notebook) card.editor.selectedBlockId = card.blockId

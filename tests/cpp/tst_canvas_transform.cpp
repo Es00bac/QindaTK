@@ -92,6 +92,7 @@ private slots:
     void handleKeyboardAndInspectorShareOneOperation();
     void shiftMoveConstrainsToDocumentDirections();
     void refusedNumericEntryLeavesNoGesture();
+    void cornerHandlesScaleBothAxes();
 };
 
 void TstCanvasTransform::groupMoveResizeAndUndo()
@@ -128,6 +129,32 @@ void TstCanvasTransform::groupMoveResizeAndUndo()
     QCOMPARE(document.objectInfo(b).value("bounds").toRectF(), QRectF(40, 0, 20, 10));
     QVERIFY(document.undo());
     QCOMPARE(document.objectInfo(a).value("bounds").toRectF(), QRectF(0, 0, 10, 10));
+}
+
+void TstCanvasTransform::cornerHandlesScaleBothAxes()
+{
+    CanvasDocument document;
+    const CanvasObjectId id = square(document, 0, 0);
+    ToolController tools;
+    tools.setDocument(&document);
+    tools.setSelection({id});
+    CanvasTransformController transform;
+    transform.setDocument(&document);
+    transform.setTools(&tools);
+    // SelectionOverlay's corner names: each scales both axes from the
+    // opposite corner.
+    QVERIFY(transform.update(QStringLiteral("bottomRight"), {10, 10}, {20, 30}));
+    QCOMPARE(transform.previewBounds(), QRectF(0, 0, 20, 30));
+    QVERIFY(transform.cancel());
+    QVERIFY(transform.update(QStringLiteral("topLeft"), {0, 0}, {-10, -5}));
+    QCOMPARE(transform.previewBounds(), QRectF(-10, -5, 20, 15));
+    QVERIFY(transform.finish(QStringLiteral("topLeft")));
+    QCOMPARE(document.objectInfo(id).value("bounds").toRectF(), QRectF(-10, -5, 20, 15));
+    QVERIFY(transform.update(QStringLiteral("topRight"), {10, -5}, {20, -15}));
+    QCOMPARE(transform.previewBounds(), QRectF(-10, -15, 30, 25));
+    QVERIFY(transform.cancel());
+    QVERIFY(transform.update(QStringLiteral("bottomLeft"), {-10, 10}, {-20, 20}));
+    QCOMPARE(transform.previewBounds(), QRectF(-20, -5, 30, 25));
 }
 
 void TstCanvasTransform::negativeScaleAndSingularRejection()

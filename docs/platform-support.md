@@ -47,7 +47,10 @@ QuickPrivate where it is a separate package) goes through
 ([D-199](decisions.md#d-199--qt-modules-come-only-from-the-qt-in-use)). The
 SDK has no Quick3D or Shader Tools, so configure reports the SceneView3D
 renderer and the GPU volume shaders unavailable instead of loading the system
-Qt's module configs.
+Qt's module configs. A module switched off with its `QINDATK_ENABLE_*` option
+([D-201](decisions.md#d-201--optional-engines-are-explicit-build-switches-with-a-resolved-feature-summary))
+is not searched at all; `qindatk-features.json` in the build directory records
+what was resolved.
 
 ## Qt upgrade and qualification procedure
 
@@ -78,3 +81,18 @@ inherited `dragThreshold` and `cursorShape` properties of the former private
 base are not proxied. Code using them must migrate, as must C++ casts to the
 former base. Physical tablet and native assistive behavior remain separate
 qualification work.
+
+## WP-088 qualification harness
+
+From WP-088 on, Linux claims come from `tools/qualify/qualify.py`
+([qualification.md](qualification.md)). It covers:
+
+- Qt 6.11 and the Qt 6.8 SDK;
+- offscreen, Wayland (headless Weston) and xcb (private Xwayland), with the
+  software, OpenGL and Vulkan scene graphs;
+- every optional engine omitted, one at a time;
+- install relocation.
+
+The latest recorded result table is
+[evidence/WP-088-results.md](universal-toolkit/implementation/evidence/WP-088-results.md).
+A configuration or operation marked unqualified there is not claimed.

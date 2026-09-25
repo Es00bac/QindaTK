@@ -2,8 +2,12 @@
 import QtQuick
 import QindaTK as Tk
 
-// AGENT-CONTRACT (WP-087): TraceIndex owns exact times and bounded queries;
-// this view only projects normalized coordinates and never edits trace data.
+// AGENT-CONTRACT (WP-087): TraceIndex owns exact times, lanes and the
+// aggregated layout (trace_layout.cpp); this view projects normalized
+// coordinates onto one canvas and never edits trace data.
+// AGENT-GUARD (EXT-11): no per-record delegates. Everything in a window is
+// drawn from layoutWindow's marks, whose count is bounded by rows × pixel
+// columns; a Repeater over records would bring back the 500-record cap.
 Item {
     id: root
     objectName: "traceView"
@@ -15,11 +19,25 @@ Item {
     property real zoom: 1
     property real pan: 0
     property int dataRevision: 0
+    property string pendingExport: ""
     readonly property real windowSize: 1 / zoom
-    readonly property var visibleRecords: {
-        if (dataRevision < 0 || !index) return []
-        return index.queryWindow(pan, pan + windowSize, threadFilter, textFilter, 500)
+    // Deepest zoom leaves a 50 ns window, so any record can get its own pixels.
+    readonly property real maxZoom: {
+        if (dataRevision < 0 || !index || index.count === 0) return 1
+        return Math.max(1, (Number(index.endNs) - Number(index.startNs)) / 50)
     }
+    readonly property var tracks: dataRevision >= 0 && index ? index.tracks(threadFilter) : []
+    readonly property int columns: Math.max(1, Math.floor(timeline.trackWidth))
+    readonly property int firstRow: Math.max(0, Math.floor(timeline.contentY / timeline.rowHeight))
+    readonly property int visibleRows: Math.ceil(timeline.height / timeline.rowHeight) + 1
+    // {rows, matched, drawn, tiles: [{row, x0, x1, count, id, kind, name, threadId}]}
+    readonly property var layout: {
+        if (dataRevision < 0 || !index || timeline.trackWidth <= 0)
+            return ({rows: 0, matched: 0, drawn: 0, tiles: []})
+        return index.layoutWindow(pan, pan + windowSize, columns, threadFilter, textFilter,
+                                  firstRow, visibleRows)
+    }
+    readonly property int mergedMarks: layout.tiles.filter(tile => tile.count > 1).length
     readonly property var selectedRecord: {
         if (dataRevision < 0 || !index || !selectedId) return ({})
         return index.record(selectedId)
@@ -44,13 +62,51 @@ Item {
     implicitHeight: Tk.Theme.size.panelMinHeight * 2
     Accessible.role: Accessible.Grouping
     Accessible.name: tooltip
-    Connections { target: root.index; function onChanged() { ++root.dataRevision } }
+    Connections {
+        target: root.index
+        function onChanged() { ++root.dataRevision }
+        function onExportReady(requestId, json) {
+            if (requestId !== root.pendingExport) return
+            root.pendingExport = ""
+            root.exportRequested(json)
+        }
+    }
+    onLayoutChanged: canvas.requestPaint()
+    onSelectedIdChanged: canvas.requestPaint()
 
     function zoomBy(factor) {
-        const next = Math.max(1, Math.min(64, zoom * factor))
         const midpoint = pan + windowSize / 2
-        zoom = next
+        zoom = Math.max(1, Math.min(maxZoom, zoom * factor))
         pan = Math.max(0, Math.min(1 - windowSize, midpoint - windowSize / 2))
+    }
+    // Zooms onto [x0, x1] of the current window (fractions), with a margin.
+    function zoomToWindow(x0, x1) {
+        const from = pan + x0 * windowSize, to = pan + x1 * windowSize
+        const margin = Math.max((to - from) * 0.1, 1e-12)
+        const midpoint = (from + to) / 2
+        zoom = Math.max(1, Math.min(maxZoom, 1 / (to - from + 2 * margin)))
+        pan = Math.max(0, Math.min(1 - windowSize, midpoint - windowSize / 2))
+    }
+    // Canvas coordinates → layout row and pixel column.
+    function rowAt(y) { return Math.floor((y + timeline.contentY) / timeline.rowHeight) }
+    function columnAt(x) { return Math.floor(x - timeline.labelWidth) }
+    function tileAt(x, y) {
+        const row = rowAt(y), column = columnAt(x)
+        for (const tile of layout.tiles)
+            if (tile.row === row && column >= Math.floor(tile.x0 * columns)
+                && column < Math.max(Math.floor(tile.x0 * columns) + 1, Math.ceil(tile.x1 * columns)))
+                return tile
+        return null
+    }
+    function selectAt(x, y) {
+        if (!index || x < timeline.labelWidth) return ""
+        const id = index.recordAt(pan, pan + windowSize, columns, rowAt(y), columnAt(x),
+                                  threadFilter, textFilter)
+        if (id) selectedId = id
+        return id
+    }
+    function exportTrace() {
+        if (index && !pendingExport) pendingExport = index.exportJsonAsync()
     }
 
     Tk.Flex {
@@ -88,8 +144,10 @@ Item {
             }
             Tk.Button {
                 objectName: "traceExport"
-                text: qsTr("Export"); tooltip: qsTr("Export trace as JSON")
-                onClicked: if (root.index) root.exportRequested(root.index.exportJson())
+                text: root.pendingExport ? qsTr("Exporting…") : qsTr("Export")
+                enabled: !root.pendingExport
+                tooltip: qsTr("Export trace as JSON")
+                onClicked: root.exportTrace()
             }
         }
         Tk.Flex {
@@ -159,69 +217,112 @@ Item {
             implicitHeight: Tk.Theme.size.panelMinHeight
             clip: true
             contentWidth: width
-            contentHeight: Math.max(height, root.visibleRecords.length * rowHeight)
+            contentHeight: Math.max(height, root.layout.rows * rowHeight)
             boundsBehavior: Flickable.StopAtBounds
-            // Ctrl+wheel zooms; a plain wheel still scrolls the rows.
+            readonly property real labelWidth: Tk.Theme.size.panelMinWidth / 2
+            readonly property real rowHeight: Tk.Theme.size.row
+            readonly property real trackWidth: Math.max(0, width - labelWidth)
+            // Ctrl+wheel zooms, Shift+wheel pans; a plain wheel scrolls the tracks.
             WheelHandler {
                 target: null
                 acceptedModifiers: Qt.ControlModifier
                 onWheel: function(event) { root.zoomBy(event.angleDelta.y > 0 ? 2 : 0.5) }
             }
-            readonly property real labelWidth: Tk.Theme.size.panelMinWidth / 2
-            readonly property real rowHeight: Tk.Theme.size.row
-            Rectangle {
-                width: timeline.contentWidth
-                height: timeline.contentHeight
-                color: Tk.Theme.color.surface
-            }
-            Repeater {
-                model: root.visibleRecords
-                delegate: Tk.Caption {
-                    required property var modelData
-                    required property int index
-                    x: Tk.Theme.space.sm
-                    y: index * timeline.rowHeight + Tk.Theme.space.xs
-                    width: timeline.labelWidth - Tk.Theme.space.sm
-                    text: modelData.threadId
-                    elide: Text.ElideRight
+            WheelHandler {
+                target: null
+                acceptedModifiers: Qt.ShiftModifier
+                onWheel: function(event) {
+                    const step = root.windowSize * (event.angleDelta.y > 0 ? -0.1 : 0.1)
+                    root.pan = Math.max(0, Math.min(1 - root.windowSize, root.pan + step))
                 }
             }
-            Repeater {
-                model: root.visibleRecords
-                delegate: Rectangle {
-                    id: traceItem
-                    required property var modelData
-                    required property int index
-                    objectName: "traceRecord_" + modelData.id
-                    readonly property real trackWidth: Math.max(0, timeline.width - timeline.labelWidth)
-                    x: timeline.labelWidth + Math.max(0, (modelData.startFraction - root.pan) * root.zoom) * trackWidth
-                    y: index * timeline.rowHeight + Tk.Theme.space.xs
-                    width: Math.max(Tk.Theme.space.xs,
-                                    (modelData.endFraction - modelData.startFraction) * root.zoom * trackWidth)
-                    height: timeline.rowHeight - 2 * Tk.Theme.space.xs
-                    radius: Tk.Theme.radius.sm
-                    color: root.selectedId === modelData.id ? Tk.Theme.color.accent
-                           : modelData.kind === "event" ? Tk.Theme.color.warning
-                           : Tk.Theme.color.selection
-                    Accessible.role: Accessible.ListItem
-                    Accessible.name: modelData.name + ", " + modelData.threadId
-                    Tk.Caption {
-                        anchors.fill: parent
-                        anchors.leftMargin: Tk.Theme.space.xs
-                        text: traceItem.modelData.name
-                        color: Tk.Theme.color.text
-                        elide: Text.ElideRight
+            onContentYChanged: canvas.requestPaint()
+            Canvas {
+                id: canvas
+                objectName: "traceTracks"
+                y: timeline.contentY
+                width: timeline.width
+                height: timeline.height
+                Accessible.role: Accessible.Chart
+                Accessible.name: qsTr("Trace tracks, %1 records in view").arg(root.layout.matched)
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onPaint: {
+                    const ctx = getContext("2d")
+                    ctx.reset()
+                    const rowHeight = timeline.rowHeight, left = timeline.labelWidth
+                    const offset = timeline.contentY
+                    const inset = Tk.Theme.space.xs
+                    ctx.fillStyle = Tk.Theme.color.surface
+                    ctx.fillRect(0, 0, width, height)
+                    ctx.font = Tk.Theme.font.caption + "px \"" + Tk.Theme.font.family + "\""
+                    ctx.textBaseline = "middle"
+                    // Thread labels and track separators.
+                    for (const track of root.tracks) {
+                        const top = track.firstRow * rowHeight - offset
+                        const bottom = top + track.lanes * rowHeight
+                        if (bottom < 0 || top > height) continue
+                        ctx.fillStyle = Tk.Theme.color.divider
+                        ctx.fillRect(0, bottom - 1, width, 1)
+                        ctx.save()
+                        ctx.beginPath()
+                        ctx.rect(0, top, left - inset, rowHeight)
+                        ctx.clip()
+                        ctx.fillStyle = Tk.Theme.color.textMuted
+                        ctx.fillText(track.threadId, Tk.Theme.space.sm, top + rowHeight / 2)
+                        ctx.restore()
                     }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: root.selectedId = traceItem.modelData.id
+                    // Whole pixel columns, as layoutWindow and recordAt count them.
+                    const trackWidth = root.columns
+                    for (const tile of root.layout.tiles) {
+                        const x = left + tile.x0 * trackWidth
+                        const w = Math.max(1, (tile.x1 - tile.x0) * trackWidth)
+                        const y = tile.row * rowHeight - offset + inset
+                        const h = rowHeight - 2 * inset
+                        ctx.fillStyle = tile.count === 1 && tile.id === root.selectedId
+                            ? Tk.Theme.color.accent
+                            : tile.count > 1 ? Tk.Theme.color.info
+                            : tile.kind === "event" ? Tk.Theme.color.warning
+                            : Tk.Theme.color.selection
+                        ctx.fillRect(x, y, w, h)
+                        if (w < Tk.Theme.font.caption * 3) continue
+                        ctx.save()
+                        ctx.beginPath()
+                        ctx.rect(x, y, w, h)
+                        ctx.clip()
+                        ctx.fillStyle = Tk.Theme.color.text
+                        ctx.fillText(tile.count > 1 ? qsTr("%1 records").arg(tile.count) : tile.name,
+                                     x + inset, y + h / 2)
+                        ctx.restore()
+                    }
+                }
+                MouseArea {
+                    objectName: "traceTracksInput"
+                    anchors.fill: parent
+                    // Click selects the record under the pointer; double-click
+                    // on a merged mark zooms until its records separate.
+                    onClicked: function(mouse) { root.selectAt(mouse.x, mouse.y) }
+                    onDoubleClicked: function(mouse) {
+                        const tile = root.tileAt(mouse.x, mouse.y)
+                        if (tile && tile.count > 1) root.zoomToWindow(tile.x0, tile.x1)
                     }
                 }
             }
         }
         Tk.Caption {
+            objectName: "traceWindowSummary"
+            text: root.mergedMarks > 0
+                  ? qsTr("%1 in view · %2 merged marks, double-click one to zoom in")
+                    .arg(root.layout.matched).arg(root.mergedMarks)
+                  : qsTr("%1 in view").arg(root.layout.matched)
+            color: Tk.Theme.color.textMuted
+            elide: Text.ElideRight
+        }
+        Tk.Caption {
             objectName: "traceInspector"
-            text: root.selectedId ? qsTr("%1 · %2 · %3 ns to %4 ns · %5 · parent %6")
+            text: root.selectedId && root.selectedRecord.id === undefined
+                  ? qsTr("%1 is not in this trace").arg(root.selectedId)
+                  : root.selectedId ? qsTr("%1 · %2 · %3 ns to %4 ns · %5 · parent %6")
                   .arg(root.selectedRecord.name).arg(root.selectedRecord.threadId)
                   .arg(root.selectedRecord.startNs).arg(root.selectedRecord.endNs)
                   .arg(root.selectedRecord.clockDomain)
@@ -231,7 +332,7 @@ Item {
         }
         Tk.Caption {
             objectName: "traceInspectorDetail"
-            visible: !!root.selectedId
+            visible: !!root.selectedId && root.selectedRecord.id !== undefined
             text: qsTr("%1 ns long · depth %2 · path %3 · %4 children")
                   .arg(root.selectedRecord.durationNs || "").arg(root.selectedAncestors.length)
                   .arg(root.selectedAncestors.slice().reverse().concat([root.selectedId])

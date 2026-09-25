@@ -19,6 +19,14 @@ option(QINDATK_BUILD_TOOLS "Build qtk-preview (headless render/dump tool)" ON)
 option(QINDATK_ENABLE_POPPLER_QT6 "Enable the optional Poppler Qt 6 PDF backend" ON)
 option(QINDATK_ENABLE_ALSA "Enable the optional ALSA audio device backend" ON)
 option(QINDATK_ENABLE_FFMPEG "Enable the optional FFmpeg media decode/encode backend" ON)
+# AGENT-NOTE (D-201): every optional Qt module is behind an explicit switch as
+# well as its QUIET find_package, so a package (a Gentoo USE flag) or the
+# WP-088 qualification harness (tools/qualify) can omit it even when it is
+# installed. OFF means "not searched", not merely "not linked".
+option(QINDATK_ENABLE_QUICK3D "Enable the optional Qt Quick 3D renderers (SceneView3D, material and 3D plot views)" ON)
+option(QINDATK_ENABLE_SHADER_TOOLS "Compile the optional GPU volume raycasting shaders with Qt Shader Tools" ON)
+option(QINDATK_ENABLE_WIDGETS "Build the optional qindatk_widgets adapters (native file dialog) with Qt Widgets" ON)
+option(QINDATK_ENABLE_NATIVE_PRINT "Add the native print backend (Qt PrintSupport) to qindatk_widgets" ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Svg Concurrent Network)
 # AGENT-NOTE (D-199): every other Qt module, optional or not, is looked up
@@ -100,9 +108,17 @@ if(QINDATK_ENABLE_FFMPEG)
     endif()
 endif()
 # Native QFileDialog is an optional adapter; base qindatk stays QtQuick-only.
-qindatk_find_qt_module(Widgets QUIET)
+if(QINDATK_ENABLE_WIDGETS)
+    qindatk_find_qt_module(Widgets QUIET)
+endif()
 # The native print backend (WP-053) joins qindatk_widgets when PrintSupport exists.
-qindatk_find_qt_module(PrintSupport QUIET)
+if(QINDATK_ENABLE_WIDGETS AND QINDATK_ENABLE_NATIVE_PRINT)
+    qindatk_find_qt_module(PrintSupport QUIET)
+    # CUPS submits its printer jobs; without it the backend offers print-to-file only.
+    if(TARGET Qt6::PrintSupport)
+        find_package(Cups QUIET)
+    endif()
+endif()
 # AGENT-NOTE: QuickPrivate serves layout_info.cpp (anchor/explicit size
 # detection) and StylusHandler's implementation-only tablet event path (D-015).
 # Official Qt SDKs define Qt6::QuickPrivate from the Qt6Quick package;
@@ -132,6 +148,34 @@ function(qindatk_enable_warnings target)
 endfunction()
 
 add_subdirectory(src)
+
+# AGENT-CONTRACT (tools/qualify/qualify_build.py, D-201): the optional
+# engines this configuration actually resolved, for the qualification harness
+# and packagers. Keys are stable; each value is true or false.
+function(qindatk_write_feature_summary)
+    set(qindatk_features "")
+    foreach(pair IN ITEMS
+            "poppler:QINDATK_ENABLE_POPPLER_QT6;POPPLER_QT6_FOUND"
+            "alsa:QINDATK_ENABLE_ALSA;QINDATK_ALSA_FOUND"
+            "ffmpeg:QINDATK_ENABLE_FFMPEG;FFMPEG_FOUND"
+            "quick3d:QINDATK_WITH_QUICK3D"
+            "shaderTools:QINDATK_WITH_SHADER_TOOLS"
+            "widgets:QINDATK_WITH_WIDGETS"
+            "nativePrint:QINDATK_WIDGETS_PRINT")
+        string(REPLACE ":" ";" parts "${pair}")
+        list(POP_FRONT parts key)
+        set(value true)
+        foreach(variable IN LISTS parts)
+            if(NOT ${variable})
+                set(value false)
+            endif()
+        endforeach()
+        string(APPEND qindatk_features "  \"${key}\": ${value},\n")
+    endforeach()
+    file(WRITE "${CMAKE_BINARY_DIR}/qindatk-features.json"
+        "{\n${qindatk_features}  \"qtVersion\": \"${Qt6_VERSION}\"\n}\n")
+endfunction()
+qindatk_write_feature_summary()
 
 if(QINDATK_BUILD_TOOLS)
     add_subdirectory(tools/preview)

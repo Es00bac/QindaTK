@@ -280,7 +280,9 @@ QVariantMap TimelineModel::beginEdit(const QVariantMap &map)
         || !optionalTicks(map, QStringLiteral("start"), request.start, error)
         || !optionalTicks(map, QStringLiteral("duration"), request.duration, error)
         || !optionalTicks(map, QStringLiteral("sourceOffset"), request.sourceOffset, error)
-        || !optionalTicks(map, QStringLiteral("sourceDuration"), request.sourceDuration, error))
+        || !optionalTicks(map, QStringLiteral("sourceDuration"), request.sourceDuration, error)
+        || !optionalTicks(map, QStringLiteral("linkedSourceOffset"), request.linkedSourceOffset, error)
+        || !optionalTicks(map, QStringLiteral("linkedSourceDuration"), request.linkedSourceDuration, error))
         return failure(error);
     if (map.contains(QStringLiteral("transition")) && !map.value(QStringLiteral("transition")).isNull()) {
         const auto transition = TimelineCodec::transitionFromMap(map.value(QStringLiteral("transition")).toMap(), &error);

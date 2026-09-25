@@ -89,7 +89,7 @@ private slots:
         // Unknown names are refused and leave the convention unchanged.
         model.setMatrix(QStringLiteral("bt2100"));
         QVERIFY(model.error().contains(QStringLiteral("bt2100")));
-        QCOMPARE(model.matrix(), QStringLiteral("bt709"));
+        QCOMPARE(model.matrix(), QStringLiteral("source")); // the default follows the decode
     }
 };
 

@@ -19,8 +19,10 @@ void ImageSliceItem::setVolume(VoxelVolume *volume)
     if (m_volume == volume) return;
     if (m_volume) disconnect(m_volume, nullptr, this, nullptr);
     m_volume = volume;
-    if (volume) connect(volume, &VoxelVolume::changed, this, [this] { invalidate(); emit sliceChanged(); });
-    invalidate(); emit changed(); emit sliceChanged();
+    if (volume) connect(volume, &VoxelVolume::changed, this, [this] {
+        refreshLinks(); invalidate(); emit sliceChanged();
+    });
+    refreshLinks(); invalidate(); emit changed(); emit sliceChanged();
 }
 void ImageSliceItem::setCursor(VolumeCursor *cursor)
 {
@@ -29,16 +31,18 @@ void ImageSliceItem::setCursor(VolumeCursor *cursor)
     m_cursor = cursor;
     // A cursor move always repaints the crosshair; paint() regenerates the
     // slice image only when this plane's slice coordinate changed.
-    if (cursor) connect(cursor, &VolumeCursor::changed, this, [this] { update(); emit sliceChanged(); });
-    invalidate(); emit changed(); emit sliceChanged();
+    if (cursor) connect(cursor, &VolumeCursor::changed, this, [this] {
+        refreshLinks(); update(); emit sliceChanged();
+    });
+    refreshLinks(); invalidate(); emit changed(); emit sliceChanged();
 }
 void ImageSliceItem::setTransfer(TransferFunctionModel *transfer)
 {
     if (m_transfer == transfer) return;
     if (m_transfer) disconnect(m_transfer, nullptr, this, nullptr);
     m_transfer = transfer;
-    if (transfer) connect(transfer, &TransferFunctionModel::changed, this, &ImageSliceItem::invalidate);
-    invalidate(); emit changed();
+    if (transfer) connect(transfer, &TransferFunctionModel::changed, this, [this] { refreshLinks(); invalidate(); });
+    refreshLinks(); invalidate(); emit changed();
 }
 void ImageSliceItem::setPlane(Plane plane)
 {
@@ -107,8 +111,8 @@ double ImageSliceItem::currentSlice() const
 {
     if (!m_volume) return 0;
     if (m_plane == Oblique) return obliqueFrame().offset;
-    if (!m_cursor) {
-        // Without a cursor the view shows the middle slice.
+    if (!m_cursor || !m_cursorLinked) {
+        // Without a (compatible) cursor the view shows the middle slice.
         const int count = m_plane == Axial ? m_volume->sizeZ()
             : m_plane == Coronal ? m_volume->sizeY() : m_volume->sizeX();
         return std::max(0, count - 1) / 2.0;
@@ -155,8 +159,9 @@ QVariantList ImageSliceItem::positionForVoxel(double x, double y, double z) cons
 }
 QRgb ImageSliceItem::colorFor(double value) const
 {
+    // A transfer function represents missing values explicitly (D-263).
+    if (m_transfer && m_transferUsable) return m_transfer->colorAt(value).rgba();
     if (!std::isfinite(value)) return qRgba(0, 0, 0, 0);
-    if (m_transfer) return m_transfer->colorAt(value).rgba();
     const double level = std::clamp((value - m_windowCenter) / m_windowWidth + 0.5, 0.0, 1.0);
     const int gray = int(std::lround(level * 255));
     return qRgb(gray, gray, gray);
@@ -181,8 +186,7 @@ QImage ImageSliceItem::sliceImage(int columns, int rows) const
             const double x = m_plane == Sagittal ? slice : h;
             const double y = m_plane == Sagittal ? h : m_plane == Coronal ? slice : v;
             const double z = m_plane == Axial ? slice : v;
-            line[column] = qPremultiply(colorFor(
-                m_volume->sampleValue(x, y, z, m_channel, m_frame, m_interpolation)));
+            line[column] = qPremultiply(shadeAt(x, y, z));
         }
     }
     return image;
@@ -215,7 +219,7 @@ void ImageSliceItem::paint(QPainter *painter)
     if (m_image.isNull()) return;
     painter->setRenderHint(QPainter::SmoothPixmapTransform, m_interpolation == VoxelVolume::Linear);
     painter->drawImage(rect, m_image);
-    if (!m_cursor || m_crosshairWidth <= 0 || m_crosshair.alpha() == 0) return;
+    if (!m_cursor || !m_cursorLinked || m_crosshairWidth <= 0 || m_crosshair.alpha() == 0) return;
     const QVariantList point = positionForVoxel(m_cursor->x(), m_cursor->y(), m_cursor->z());
     if (point.size() != 2) return;
     const double px = point[0].toDouble(), py = point[1].toDouble();

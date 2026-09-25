@@ -221,7 +221,7 @@ void CaptionTrackModel::applyImported(QVector<CaptionCueRecord> records, const Q
         cue.lane = allocateLane(assigned, cue.inMs, cue.outMs);
         assigned.append(cue);
     }
-    m_undo.append(m_cues); if (m_undo.size() > 100) m_undo.removeFirst();
+    pushUndo(true);
     m_cues = assigned; m_preview.clear(); m_selectedId = m_cues.first().id;
     m_language = language.isEmpty() ? QStringLiteral("und") : language;
     m_error.clear(); setAck(QStringLiteral("accepted"), QStringLiteral("Caption cues loaded.")); emit changed();
@@ -305,7 +305,7 @@ bool CaptionTrackModel::addCue(const QString &inMs, const QString &outMs, const 
     while (indexOf(m_cues, id) >= 0);
     CaptionCueRecord cue{id, in, out, text,
                          language.isEmpty() ? m_language : language, styleId, allocateLane(m_cues, in, out)};
-    m_undo.append(m_cues); if (m_undo.size() > 100) m_undo.removeFirst();
+    pushUndo();
     m_cues.append(cue); sortCues(&m_cues); m_selectedId = cue.id; m_error.clear();
     setAck(QStringLiteral("accepted"), QStringLiteral("Cue added.")); emit changed(); return true;
 }
@@ -353,7 +353,7 @@ bool CaptionTrackModel::commitCueEdit(const QString &requestId, const QString &c
         m_preview.clear(); m_pendingRequest.clear(); m_pendingCue.clear();
         m_error = why; setAck(QStringLiteral("rejected"), why); emit changed(); return false;
     }
-    m_undo.append(m_cues); if (m_undo.size() > 100) m_undo.removeFirst();
+    pushUndo();
     m_cues = candidate; sortCues(&m_cues); m_preview.clear(); m_pendingRequest.clear(); m_pendingCue.clear();
     m_error.clear(); setAck(QStringLiteral("accepted"), QStringLiteral("Cue edit committed.")); emit changed();
     Q_UNUSED(requestId)
@@ -371,7 +371,10 @@ bool CaptionTrackModel::cancelCueEdit(const QString &requestId, const QString &c
 bool CaptionTrackModel::undo()
 {
     if (m_undo.isEmpty()) return false;
-    m_cues = m_undo.takeLast(); m_preview.clear(); m_pendingRequest.clear(); m_pendingCue.clear();
+    const UndoEntry entry = m_undo.takeLast();
+    m_cues = entry.cues; m_preview.clear();
+    if (entry.restoresLanguage) m_language = entry.language;
+    m_pendingRequest.clear(); m_pendingCue.clear();
     if (indexOf(m_cues, m_selectedId) < 0) m_selectedId = m_cues.isEmpty() ? QString() : m_cues.first().id;
     setAck(QStringLiteral("accepted"), QStringLiteral("Last caption edit undone.")); m_error.clear(); emit changed(); return true;
 }

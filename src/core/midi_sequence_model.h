@@ -53,7 +53,16 @@ public:
     // reason) changes nothing. An unchanged content records nothing.
     bool commitContent(const MidiContent &next, const QString &label, QString *error = nullptr);
     int ticksPerQuarter() const { return m_ppq; }
+    // AGENT-GUARD (WP-064): a PPQ change rescales every stored tick — the
+    // content and each history step — so notes keep their musical position;
+    // it is refused (nothing changes) unless every tick converts exactly.
+    // The session installs this as its TimeMap's PPQ guard.
     void setTicksPerQuarter(int ppq);
+    QString ticksPerQuarterProblem(int ppq) const; // empty when the change is exact
+    // AGENT-CONTRACT (WP-064): the session reports patterns that timeline
+    // clips ("pattern:<uuid>") place; a commit, undo or redo that would drop
+    // such a pattern is refused, so no clip is left without its notes.
+    void setPatternUse(std::function<QString(const QUuid &)> use) { m_patternUse = std::move(use); }
     quint64 revisionValue() const { return m_revision; }
     QString revisionText() const { return QString::number(m_revision); }
 
@@ -169,6 +178,7 @@ private:
     bool beginGesture(const QString &requestId, const QUuid &patternId, const QString &label, QString *error);
     QVariantMap previewGesture(const std::function<QString(MidiPattern &)> &edit);
     void publish();
+    QString removalProblem(const MidiContent &next) const;
     QVariantMap ok(const QVariantMap &extra = {});
     QVariantMap failure(const QString &message);
     void clearError();
@@ -180,6 +190,7 @@ private:
     quint64 m_revision = 0;
     int m_ppq = 960;
     QString m_lastError;
+    std::function<QString(const QUuid &)> m_patternUse;
 };
 
 namespace MidiEdit {

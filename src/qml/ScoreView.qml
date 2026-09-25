@@ -12,6 +12,10 @@ import QindaTK as Tk
 // playbackCursorX, and entry-position `x`) are normalized to this control.
 // `staffStep` is the host's diatonic engraving step from the bottom staff line;
 // exact insertion ticks remain strings and are never parsed as JS numbers.
+// The reference host is Tk.ScoreModel (WP-067, D-178): its layoutSnapshot(page)
+// is this view's snapshot and every request below maps to one of its calls
+// (docs/notation.md#editing). Drawing is Tk.ScoreCanvasItem, the same C++
+// painter as PDF and image output (D-179).
 T.Control {
     id: root
 
@@ -38,6 +42,11 @@ T.Control {
     readonly property string effectiveError: root.errorText.length ? root.errorText
         : String(root.layoutSnapshot.error || "")
     readonly property int maximumPaintEvents: 4096
+    // The host's spoken description of the selected event (snapshot `label`).
+    readonly property string selectedLabel: {
+        const event = root.selectedEventId.length ? root.findEvent(root.selectedEventId) : null
+        return event && event.label ? String(event.label) : ""
+    }
 
     signal eventSelectionRequested(string requestId, string scoreId, string eventId,
                                    string partId, string staffId, string voiceId, string measureId)
@@ -51,6 +60,8 @@ T.Control {
                               string voiceId, string measureId, string positionTicks,
                               string durationId)
     signal navigateRequested(string scoreId, string selectedEventId, string direction)
+    signal eventDeleteRequested(string requestId, string scoreId, string eventId)
+    signal notationEditRequested(string requestId, string scoreId, string eventId, string edit, var value)
     signal playbackLocateRequested(string measureId, string positionTicks)
 
     objectName: "scoreView"
@@ -61,15 +72,12 @@ T.Control {
         : (root.scoreName.length ? root.scoreName : qsTr("Score view"))
     Accessible.description: root.effectiveError.length ? root.effectiveError
         : root.unsupportedFeatures.length ? qsTr("Unsupported notation features: %1").arg(root.unsupportedFeatures.join(", "))
+        : root.selectedLabel.length ? root.selectedLabel
         : root.layoutAvailable ? qsTr("Notation score. Use arrow keys to navigate events; Enter requests note or rest entry at the host cursor.")
         : qsTr("Notation layout is not available")
     activeFocusOnTab: true
     focus: true
 
-    function css(color) {
-        return "rgba(" + Math.round(color.r * 255) + "," + Math.round(color.g * 255) + ","
-               + Math.round(color.b * 255) + "," + color.a + ")"
-    }
     function allStaves() {
         const result = []
         const systems = root.layoutSnapshot && root.layoutSnapshot.systems || []
@@ -95,6 +103,32 @@ T.Control {
     function createRequestId(prefix) {
         root._serial += 1
         return prefix + "-" + root._serial
+    }
+    function findEvent(eventId) {
+        const staves = root.allStaves()
+        for (let i = 0; i < staves.length; ++i) {
+            const measures = staves[i].staff.measures || []
+            for (let m = 0; m < measures.length; ++m) {
+                const voices = measures[m].voices || []
+                for (let v = 0; v < voices.length; ++v) {
+                    const events = voices[v].events || []
+                    for (let e = 0; e < events.length; ++e)
+                        if (String(events[e].id) === String(eventId)) return events[e]
+                }
+            }
+        }
+        return null
+    }
+    function requestNotationEdit(edit, value) {
+        if (!root.enabled || !root.layoutAvailable || !root.selectedEventId.length) return false
+        root.notationEditRequested(root.createRequestId("score-edit"), root.scoreId, root.selectedEventId,
+                                   String(edit), value === undefined ? "" : value)
+        return true
+    }
+    function requestDelete() {
+        if (!root.enabled || !root.layoutAvailable || !root.selectedEventId.length) return false
+        root.eventDeleteRequested(root.createRequestId("score-delete"), root.scoreId, root.selectedEventId)
+        return true
     }
     function eventContext(event) {
         const staves = root.allStaves()
@@ -144,19 +178,7 @@ T.Control {
     }
     function requestSelection(eventId) {
         if (!root.enabled || !root.layoutAvailable || !eventId) return false
-        const staves = root.allStaves()
-        let event = null
-        for (let i = 0; i < staves.length && !event; ++i) {
-            const measures = staves[i].staff.measures || []
-            for (let m = 0; m < measures.length && !event; ++m) {
-                const voices = measures[m].voices || []
-                for (let v = 0; v < voices.length && !event; ++v) {
-                    const events = voices[v].events || []
-                    for (let e = 0; e < events.length; ++e)
-                        if (String(events[e].id) === String(eventId)) { event = events[e]; break }
-                }
-            }
-        }
+        const event = root.findEvent(eventId)
         const context = event ? root.eventContext(event) : null
         if (!context) return false
         const requestId = root.createRequestId("score-select")
@@ -247,105 +269,23 @@ T.Control {
         border.color: root.activeFocus ? Tk.Theme.color.focus : Tk.Theme.color.border
         radius: Tk.Theme.radius.sm
     }
-    Canvas {
+    Tk.ScoreCanvasItem {
         id: scoreCanvas
         objectName: "scoreCanvas"
         anchors.fill: parent
-        onPaint: {
-            const ctx = getContext("2d")
-            ctx.reset()
-            const w = width, h = height
-            ctx.fillStyle = root.css(Tk.Theme.color.surface)
-            ctx.fillRect(0, 0, w, h)
-            if (!root.layoutAvailable) return
-            ctx.strokeStyle = root.css(Tk.Theme.color.textMuted)
-            ctx.fillStyle = root.css(Tk.Theme.color.text)
-            ctx.lineWidth = Tk.Theme.size.border
-            ctx.font = Tk.Theme.font.caption + "px " + Tk.Theme.font.family
-            ctx.textBaseline = "middle"
-            const systems = root.layoutSnapshot.systems || []
-            let painted = 0
-            for (let s = 0; s < systems.length; ++s) {
-                const staves = systems[s].staves || []
-                for (let t = 0; t < staves.length; ++t) {
-                    const staff = staves[t]
-                    const x0 = Number(staff.x0) * w, x1 = Number(staff.x1) * w
-                    const top = Number(staff.top) * h, gap = Number(staff.lineGap) * h
-                    for (let line = 0; line < 5; ++line) {
-                        const y = top + line * gap
-                        ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke()
-                    }
-                    ctx.fillStyle = root.css(Tk.Theme.color.textMuted)
-                    ctx.fillText(String(staff.label || staff.clef || ""), Math.max(0, x0 - Tk.Theme.size.labelWidth / 2), top + 2 * gap)
-                    const measures = staff.measures || []
-                    for (let m = 0; m < measures.length; ++m) {
-                        const measure = measures[m]
-                        const mx0 = Number(measure.x0) * w, mx1 = Number(measure.x1) * w
-                        ctx.strokeStyle = root.css(Tk.Theme.color.border)
-                        ctx.beginPath(); ctx.moveTo(mx0, top); ctx.lineTo(mx0, top + 4 * gap); ctx.stroke()
-                        ctx.beginPath(); ctx.moveTo(mx1, top); ctx.lineTo(mx1, top + 4 * gap); ctx.stroke()
-                        ctx.fillStyle = root.css(Tk.Theme.color.textMuted)
-                        ctx.textBaseline = "top"
-                        ctx.fillText(String(measure.number || ""), mx0 + Tk.Theme.space.xs, top - Tk.Theme.size.row)
-                        const key = String(measure.keySignature || "")
-                        if (key.length) ctx.fillText(key, mx0 + Tk.Theme.space.lg, top + 2 * gap)
-                        const time = String(measure.timeSignature || "")
-                        if (time.length) ctx.fillText(time, mx0 + Tk.Theme.size.fieldWidth / 3, top + 2 * gap)
-                        const voices = measure.voices || []
-                        for (let v = 0; v < voices.length && painted < root.maximumPaintEvents; ++v) {
-                            const voice = voices[v], events = voice.events || []
-                            for (let e = 0; e < events.length && painted < root.maximumPaintEvents; ++e, ++painted) {
-                                const event = events[e]
-                                const x = Number(event.x) * w
-                                const y = top + (4 - Number(event.staffStep || 0)) * gap / 2
-                                if (String(event.kind) === "rest") {
-                                    ctx.fillStyle = root.css(event.id === root.selectedEventId ? Tk.Theme.color.accent : Tk.Theme.color.text)
-                                    ctx.fillRect(x - Tk.Theme.space.xs, y - Tk.Theme.size.border, Tk.Theme.space.xs * 2, Tk.Theme.size.border * 2)
-                                    if (Number(event.dotCount) > 0) {
-                                        ctx.beginPath()
-                                        ctx.arc(x + Tk.Theme.space.md, y, Tk.Theme.size.border, 0, Math.PI * 2)
-                                        ctx.fill()
-                                    }
-                                } else {
-                                    const selected = String(event.id) === root.selectedEventId
-                                    ctx.fillStyle = root.css(selected ? Tk.Theme.color.accent : Tk.Theme.color.text)
-                                    ctx.beginPath()
-                                    ctx.ellipse(x, y, Tk.Theme.size.controlSm / 3, Tk.Theme.size.controlSm / 4,
-                                                -0.25, 0, 2 * Math.PI)
-                                    if (event.filledHead !== false) ctx.fill(); else ctx.stroke()
-                                    const stem = String(event.stemDirection || "")
-                                    if (stem.length) {
-                                        const up = stem !== "down"
-                                        const sx = x + (up ? Tk.Theme.size.controlSm / 3 : -Tk.Theme.size.controlSm / 3)
-                                        const sy = y + (up ? 0 : 0)
-                                        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, sy + (up ? -3 : 3) * gap); ctx.stroke()
-                                    }
-                                    const accidental = String(event.accidental || "")
-                                    if (accidental.length) { ctx.fillStyle = root.css(Tk.Theme.color.text); ctx.fillText(accidental, x - Tk.Theme.space.md, y) }
-                                    const dots = Math.max(0, Math.min(3, Number(event.dotCount) || 0))
-                                    for (let d = 0; d < dots; ++d) {
-                                        ctx.beginPath(); ctx.arc(x + Tk.Theme.space.md + d * Tk.Theme.space.sm, y, Tk.Theme.size.border, 0, 2 * Math.PI); ctx.fill()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (root.playbackCursorX >= 0) {
-                const cx = root.playbackCursorX * w
-                ctx.strokeStyle = root.css(Tk.Theme.color.accent)
-                ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke()
-            }
-        }
+        snapshot: root.layoutAvailable ? root.layoutSnapshot : ({})
+        selectedEventId: root.selectedEventId
+        cursorX: root.playbackCursorX
+        maximumEvents: root.maximumPaintEvents
+        surfaceColor: Tk.Theme.color.surface
+        inkColor: Tk.Theme.color.text
+        mutedColor: Tk.Theme.color.textMuted
+        borderColor: Tk.Theme.color.textMuted
+        accentColor: Tk.Theme.color.accent
+        fontFamily: Tk.Theme.font.family
     }
-    function repaint() { scoreCanvas.requestPaint() }
-    onLayoutSnapshotChanged: root.repaint()
+    function repaint() { scoreCanvas.update() }
     onSnapshotRevisionChanged: root.repaint()
-    onSelectedEventIdChanged: root.repaint()
-    onPlaybackCursorXChanged: root.repaint()
-    onWidthChanged: root.repaint()
-    onHeightChanged: root.repaint()
     Tk.Caption {
         objectName: "scoreStatus"
         anchors.left: parent.left
@@ -375,8 +315,29 @@ T.Control {
         if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
             root.navigate(event.key === Qt.Key_Left ? "previous" : "next")
             event.accepted = true
+        } else if ((event.key === Qt.Key_Up || event.key === Qt.Key_Down) && (event.modifiers & Qt.ShiftModifier)) {
+            root.requestNotationEdit("step", event.key === Qt.Key_Up ? 1 : -1)
+            event.accepted = true
         } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down) {
             root.navigate(event.key === Qt.Key_Up ? "voice-up" : "voice-down")
+            event.accepted = true
+        } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+            root.requestDelete()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Period) {
+            root.requestNotationEdit("dot")
+            event.accepted = true
+        } else if (event.key === Qt.Key_T) {
+            root.requestNotationEdit("tie")
+            event.accepted = true
+        } else if (event.key === Qt.Key_J) {
+            root.requestNotationEdit("respell")
+            event.accepted = true
+        } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_7) {
+            // 1 = 64th ... 7 = whole, as in common notation editors.
+            const names = ["64th", "32nd", "16th", "eighth", "quarter", "half", "whole"]
+            root.entryDurationId = names[event.key - Qt.Key_1]
+            root.requestNotationEdit("duration", root.entryDurationId)
             event.accepted = true
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             root.requestCursorEntry()

@@ -39,5 +39,6 @@ private:
     double m_point[3] = {0, 0, 0};
     int m_shape[3] = {0, 0, 0};
     QVariantList m_world;
+    QString m_dataset;
 };
 } // namespace QindaTK

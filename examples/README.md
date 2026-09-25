@@ -7,18 +7,26 @@ calibrated principal planes; the cross-sections stay round because each view
 fits physical spacing, plus a 30° oblique world reslice and a volume
 rendering (GPU, or the CPU reference on the software renderer) that picks
 into the same cursor. It includes an undoable measured-value transfer
-function, a shared voxel/world cursor whose centre is world (0, 0, 0) mm, and
-Save view / Restore view for the camera and transfer settings.
+function with a value histogram and explicit below/above/missing colors, a
+shared voxel/world cursor whose centre is world (0, 0, 0) mm, and Save view /
+Restore view, which keep the cursor, view and transfer settings in a settings
+file for the next run (only for the same dataset; the transfer restore is
+undoable). Grab it with `--wait 2000`: the volume frame is rendered in the
+background.
 
 The [CAD sketch](cad-sketch/Main.qml) renders a constrained mounting plate
 with four circular bores. `CadViewport` can select, drag, snap, and create
 points, segments, circles and arcs against the persistent `CadDocument`
 model. A selected constrained length opens an inline numeric dimension
-editor; the model also exports millimeter SVG and DXF geometry.
+editor, and the property strip adds or removes constraints on the selection
+and edits circle and arc geometry; the model also exports millimeter SVG
+and DXF geometry.
 
 The [live diagram](diagram-live/Main.qml) binds `DiagramCanvas` to a native
 `DiagramDocument`. Moving cards and connecting ports edit persistent stable
-IDs; Undo and Redo operate on the diagram graph. The example shows measured
+IDs; Undo and Redo operate on the diagram graph. Cards come from stencils
+in the Add menu, the Rework loop is a persistent group, and the two selected
+cards show the align and distribute strip. The example shows measured
 wire quantities and per-node totals; Auto layout arranges its feedback cycle
 in one undoable step. Wires are routed around cards, and a `SankeyDiagram`
 below the canvas draws the same conserved quantities as bands.
@@ -107,12 +115,17 @@ presenter/audience snapshots through five toolkit controls.
 The [productivity fixture](productivity-suite/Main.qml) exercises mail,
 calendar, recurrence and task controls. Its recurrence preview uses
 `RecurrenceService`; message and task records remain sample snapshots.
-The [local productivity fixture](local-productivity/Main.qml) connects the
-same kinds of controls to `LocalProductivityStore` for persisted mail, drafts,
-events and task moves with local recovery and undo. `RichMailComposer` edits a
-`RichTextDocument`; autosaved draft rows keep both the compatibility plain
-body and canonical `richDocumentJson`, so formatting reopens with the stable
-draft ID and attachment metadata intact.
+The [local productivity fixture](local-productivity/Main.qml) puts all five
+views over one `LocalProductivityStore`: threaded mail with lazy attachments,
+a composer with validated recipient tokens and attachment jobs, a projected
+calendar with scoped moves and a persisted recurrence editor, and a task board
+with keyboard/pointer reorder and conflict resolution. Its
+`ProductivityHost.qml` routes each request to the store and to the SMTP, IMAP
+and CalDAV providers; with no account configured those requests come back
+rejected by the providers, and `tst_productivity_seam` runs the same file
+against local test servers. `RichMailComposer` edits a `RichTextDocument`;
+autosaved draft rows keep both the compatibility plain body and canonical
+`richDocumentJson`.
 The [attachment fixture](local-attachment-store/Main.qml) imports and rereads
 actual local payload bytes alongside a draft's stable attachment metadata.
 The [local calendar projection fixture](local-calendar-projection/Main.qml)
@@ -206,8 +219,10 @@ The [MIDI editing fixture](midi-editors/Main.qml) exercises `PianoRoll`,
 `MidiControllerLane`, `StepSequencer` and `ClipLauncher` with exact tick strings
 and host-owned pattern and launch state.
 
-The [take-comp fixture](take-comp/Main.qml) exercises `TakeCompView` with
-sample-exact swipe requests and host-owned source and comp snapshots.
+The [take-comp example](take-comp/Main.qml) runs `TakeCompView` on a live
+`AudioSession`: a generated three-pass loop recording becomes takes of a real
+comp with crossfades; swipes preview, Accept/Reject commit or cancel, Audition
+and Compare change what plays, and Undo/Redo walk the comp history.
 
 The [plugin host UI fixture](plugin-host/Main.qml) exercises `PluginBrowser`
 and `PluginRack` with discover, add, reorder, bypass and state acknowledgments
@@ -469,6 +484,13 @@ exponential response with asymmetric host-supplied one-sigma error bars, a gap,
 a model trace and two annotations; and a sampled Gaussian field (`ScientificGrid`,
 bilinear colour map with one missing node) under scatter probes with X and Y
 uncertainty. Run `qtk-preview examples/scientific-plot/Main.qml --grab figure.png --size 1280x680`.
+
+## scientific-3d-family
+
+`scientific-3d-family/Main.qml` joins the scientific 3D family in one window:
+a pill switcher shows the `scientific-plot-3d` surface and scatter page or the
+`volume-imaging` slices and volume page. Both stay loaded, so each keeps its
+state. Run `qtk-preview examples/scientific-3d-family/Main.qml --size 1280x960`.
 
 ## scientific-plot-3d
 

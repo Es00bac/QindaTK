@@ -12,7 +12,6 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QSet>
-#include <QTimeZone>
 #include <algorithm>
 #include <utility>
 
@@ -379,71 +378,6 @@ QVariantMap LocalProductivityStore::undoTaskMove()
     ++m_revision;
     emit dataChanged();
     emit taskHistoryChanged();
-    setStatus(QStringLiteral("modified"));
-    return result(true);
-}
-
-QVariantMap LocalProductivityStore::shiftEventLocal(const QString &eventId, int minutes)
-{
-    if (minutes == 0 || minutes < -1440 || minutes > 1440) {
-        const QString error = QStringLiteral("Event shift must be within one day and nonzero");
-        setStatus(QStringLiteral("error"), error);
-        return result(false, error);
-    }
-    int index = -1;
-    for (int i = 0; i < m_events.size(); ++i)
-        if (idOf(m_events[i].toMap()) == eventId) { index = i; break; }
-    if (index < 0) {
-        const QString error = QStringLiteral("Event %1 was not found").arg(eventId);
-        setStatus(QStringLiteral("error"), error);
-        return result(false, error);
-    }
-    QVariantMap row = m_events[index].toMap();
-    const QTimeZone zone(row.value(QStringLiteral("zone")).toString().toUtf8());
-    auto shift = [&zone, minutes](const QString &value) -> QString {
-        const QString normalized = QString(value).replace(QLatin1Char(' '), QLatin1Char('T'));
-        const QDate date = QDate::fromString(normalized.left(10), Qt::ISODate);
-        const QTime time = QTime::fromString(normalized.mid(11), Qt::ISODate);
-        if (!date.isValid() || !time.isValid() || !zone.isValid()) return {};
-        // AGENT-GUARD: do wall-clock arithmetic before validating in the event
-        // zone; zoned addSecs would move elapsed time and can normalize a DST gap.
-        const QDateTime wall = QDateTime(date, time, Qt::UTC).addSecs(minutes * 60);
-        const QDateTime zoned(wall.date(), wall.time(), zone,
-                              QDateTime::TransitionResolution::Reject);
-        if (!zoned.isValid()) return {};
-        return wall.toString(value.size() > 16 ? QStringLiteral("yyyy-MM-dd HH:mm:ss")
-                                               : QStringLiteral("yyyy-MM-dd HH:mm"));
-    };
-    const QString start = shift(row.value(QStringLiteral("startLocal")).toString());
-    const QString end = shift(row.value(QStringLiteral("endLocal")).toString());
-    if (start.isEmpty() || end.isEmpty()) {
-        const QString error = QStringLiteral("Event shift enters an invalid or ambiguous local time");
-        setStatus(QStringLiteral("error"), error);
-        return result(false, error);
-    }
-    m_eventUndo.append(m_events);
-    if (m_eventUndo.size() > kUndoLimit) m_eventUndo.removeFirst();
-    row.insert(QStringLiteral("startLocal"), start);
-    row.insert(QStringLiteral("endLocal"), end);
-    m_events[index] = row;
-    ++m_revision;
-    emit dataChanged();
-    emit eventHistoryChanged();
-    setStatus(QStringLiteral("modified"));
-    return result(true);
-}
-
-QVariantMap LocalProductivityStore::undoEventChange()
-{
-    if (m_eventUndo.isEmpty()) {
-        const QString error = QStringLiteral("No event change to undo");
-        setStatus(QStringLiteral("error"), error);
-        return result(false, error);
-    }
-    m_events = m_eventUndo.takeLast();
-    ++m_revision;
-    emit dataChanged();
-    emit eventHistoryChanged();
     setStatus(QStringLiteral("modified"));
     return result(true);
 }

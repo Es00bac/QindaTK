@@ -52,7 +52,10 @@ class ScientificScene3D : public QObject {
     Q_PROPERTY(int meshRevision READ meshRevision NOTIFY meshChanged)
     Q_PROPERTY(int triangleCount READ triangleCount NOTIFY meshChanged)
     Q_PROPERTY(int holeCount READ holeCount NOTIFY meshChanged)
+    // Drawn points (at most pointLimit); sourcePointCount counts every present sample.
     Q_PROPERTY(int pointCount READ pointCount NOTIFY meshChanged)
+    Q_PROPERTY(int sourcePointCount READ sourcePointCount NOTIFY meshChanged)
+    Q_PROPERTY(int pointLimit READ pointLimit WRITE setPointLimit NOTIFY changed)
     Q_PROPERTY(QString problem READ problem NOTIFY changed)
     Q_PROPERTY(QString selectedPointId READ selectedPointId NOTIFY selectionChanged)
     Q_PROPERTY(QList<QColor> surfaceColors MEMBER m_surfaceColors NOTIFY styleChanged)
@@ -64,10 +67,15 @@ class ScientificScene3D : public QObject {
     // fontFamily, fontSize, pointRadius, lineWidth, hitRadius, labelPadding (pixels).
     Q_PROPERTY(QVariantMap metrics MEMBER m_metrics NOTIFY styleChanged)
     Q_PROPERTY(QString title MEMBER m_title NOTIFY styleChanged)
-    // The textual alternative (textSummary()); notifies on data, style and camera changes.
+    // The textual alternative (textSummary()); notifies on data, style, camera and selection changes.
     Q_PROPERTY(QString summary READ textSummary NOTIFY summaryChanged)
 public:
     static constexpr int ResolutionLimit = 256;
+    // AGENT-GUARD: every drawn point costs 24 GPU vertices (960 bytes) and a
+    // projection per software frame and per click; 16,384 caps a rebuild at
+    // about 16 MB. Thinning keeps the X/Y/Z extremes and the selected point.
+    static constexpr int PointLimitMaximum = 16384;
+    static constexpr int DefaultPointLimit = 4096;
     struct Mesh {
         QVector<QVector3D> positions, normals;
         QVector<QColor> colors;
@@ -115,6 +123,9 @@ public:
     int triangleCount() const { ensureMesh(); return int(m_mesh.indices.size() / 3); }
     int holeCount() const { ensureMesh(); return m_holes; }
     int pointCount() const { ensureMesh(); return int(m_pointPositions.size()); }
+    int sourcePointCount() const { ensureMesh(); return m_sourcePoints; }
+    int pointLimit() const { return m_pointLimit; }
+    void setPointLimit(int value);
     QString problem() const;
     QString selectedPointId() const { return m_selectedPoint; }
     const Mesh &surfaceMesh() const { ensureMesh(); return m_mesh; }
@@ -137,13 +148,16 @@ public:
     Q_INVOKABLE bool selectPoint(const QString &id);
     // Surface value of the displayed lattice node {row, column, x, y, z, missing}.
     Q_INVOKABLE QVariantMap latticeNode(int row, int column) const;
+    // Lattice CSV (the displayed surface, with units) and the full point source CSV.
     Q_INVOKABLE QString csvData() const;
+    Q_INVOKABLE QString pointsCsvData() const;
     Q_INVOKABLE QString textSummary() const;
     Q_INVOKABLE QString metadataJson(int width, int height) const;
     Q_INVOKABLE QImage renderImage(const QSize &size) const;
     Q_INVOKABLE bool exportPng(const QString &path, const QSize &size) const;
     Q_INVOKABLE bool exportSvg(const QString &path, const QSize &size) const;
     void drawScene(QPainter *painter, const QSizeF &size) const;
+    QJsonObject pointSamplingJson() const;
     QColor rampColor(double z) const;
 signals:
     void changed();
@@ -161,7 +175,7 @@ private:
     QPointer<ScientificGrid> m_grid;
     QPointer<ScientificDataset> m_points;
     ScientificGrid::Interpolation m_interpolation = ScientificGrid::Bilinear;
-    int m_resolutionX = 48, m_resolutionY = 48;
+    int m_resolutionX = 48, m_resolutionY = 48, m_pointLimit = DefaultPointLimit;
     double m_domain[6] = {0, 1, 0, 1, 0, 1};
     double m_azimuth = 35, m_elevation = 25, m_distance = 420, m_fieldOfView = 45;
     int m_revision = 0;
@@ -173,7 +187,7 @@ private:
     mutable bool m_dirty = true;
     mutable Mesh m_mesh;
     mutable QVector<double> m_latticeX, m_latticeY, m_latticeZ;
-    mutable int m_holes = 0;
+    mutable int m_holes = 0, m_sourcePoints = 0;
     mutable QVector<QVector3D> m_pointPositions;
     mutable QStringList m_pointIds;
 };

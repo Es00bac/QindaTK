@@ -98,10 +98,16 @@ QVariantList DiagramDocument::edges() const
 
 void DiagramDocument::rememberEdit()
 {
+    ++m_revision;
+    // AGENT-GUARD (D-283): inside a transaction only the first edit records
+    // the pre-transaction state, so one stencil drop is one undo step.
+    if (m_transactionDepth > 0) {
+        if (m_transactionRecorded) return;
+        m_transactionRecorded = true;
+    }
     m_undo.append(m_state);
     if (m_undo.size() > 128) m_undo.removeFirst();
     m_redo.clear();
-    ++m_revision;
 }
 
 QString DiagramDocument::addNode(const QString &title, double x, double y, const QString &stencilId)
@@ -189,6 +195,7 @@ bool DiagramDocument::removeNode(const QString &nodeId)
     m_state.edges.removeIf([&](const Edge &edge) {
         return edge.fromNode == nodeId || edge.toNode == nodeId;
     });
+    dropFromGroups({nodeId});
     setError({});
     emit changed();
     return true;
@@ -205,6 +212,7 @@ bool DiagramDocument::removeNodes(const QStringList &nodeIds)
     m_state.edges.removeIf([&](const Edge &edge) {
         return unique.contains(edge.fromNode) || unique.contains(edge.toNode);
     });
+    dropFromGroups(unique);
     setError({});
     emit changed();
     return true;
@@ -277,6 +285,7 @@ bool DiagramDocument::setEdgeFlow(const QString &edgeId, double flow)
 
 bool DiagramDocument::undo()
 {
+    if (m_transactionDepth > 0) { setError(QStringLiteral("Finish the open diagram edit first")); return false; }
     if (m_undo.isEmpty()) return false;
     m_redo.append(m_state);
     m_state = m_undo.takeLast();
@@ -288,6 +297,7 @@ bool DiagramDocument::undo()
 
 bool DiagramDocument::redo()
 {
+    if (m_transactionDepth > 0) { setError(QStringLiteral("Finish the open diagram edit first")); return false; }
     if (m_redo.isEmpty()) return false;
     m_undo.append(m_state);
     m_state = m_redo.takeLast();

@@ -4,6 +4,8 @@
 #include "document_model.h"
 
 #include <QColor>
+#include <QHash>
+#include <QMatrix4x4>
 #include <QImage>
 #include <QMap>
 #include <QObject>
@@ -16,9 +18,12 @@
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 #include <array>
+#include <functional>
 
 namespace QindaTK {
+class AutomationModel;
 class UndoService;
+class MeshRigDocumentCodec;
 
 // A bounded triangle-mesh document. Vertex, face, UV-corner, bone and
 // constraint IDs are stable across pose/UV edits, undo, OBJ export and native
@@ -34,6 +39,7 @@ class MeshRigDocument : public QObject, public DocumentModel {
     Q_OBJECT
     QML_ELEMENT
     Q_MOC_INCLUDE("undo_service.h")
+    Q_MOC_INCLUDE("automation_model.h")
     Q_PROPERTY(QVariantList vertices READ vertices NOTIFY changed)
     Q_PROPERTY(QVariantList faces READ faces NOTIFY changed)
     Q_PROPERTY(QVariantList bones READ bones NOTIFY changed)
@@ -44,6 +50,10 @@ class MeshRigDocument : public QObject, public DocumentModel {
     Q_PROPERTY(int textureWidth READ textureWidth NOTIFY changed)
     Q_PROPERTY(int textureHeight READ textureHeight NOTIFY changed)
     Q_PROPERTY(int currentFrame READ currentFrame WRITE setCurrentFrame NOTIFY changed)
+    Q_PROPERTY(QString timeTicks READ timeTicks WRITE setTimeTicks NOTIFY changed)
+    Q_PROPERTY(QString ticksPerFrame READ ticksPerFrame WRITE setTicksPerFrame NOTIFY changed)
+    Q_PROPERTY(QindaTK::AutomationModel *animationModel READ animationModel WRITE setAnimationModel NOTIFY animationModelChanged)
+    Q_PROPERTY(bool editGestureActive READ editGestureActive NOTIFY changed)
     Q_PROPERTY(bool painting READ painting NOTIFY changed)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY changed)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY changed)
@@ -68,6 +78,13 @@ public:
     int textureHeight() const;
     int currentFrame() const { return m_frame; }
     void setCurrentFrame(int frame);
+    QString timeTicks() const { return QString::number(m_ticks); }
+    void setTimeTicks(const QString &ticks);
+    QString ticksPerFrame() const { return QString::number(m_ticksPerFrame); }
+    void setTicksPerFrame(const QString &ticks);
+    AutomationModel *animationModel() const { return m_animation; }
+    void setAnimationModel(AutomationModel *model);
+    bool editGestureActive() const { return m_gestureOpen; }
     bool painting() const { return m_painting; }
     bool canUndo() const;
     bool canRedo() const;
@@ -106,12 +123,26 @@ public:
     Q_INVOKABLE bool setPoseKey(const QString &boneId, int frame, const QVector3D &eulerDegrees);
     Q_INVOKABLE bool removePoseKey(const QString &boneId, int frame);
     Q_INVOKABLE QVector3D evaluatedPose(const QString &boneId) const;
+    // Rig authoring (mesh_rig_authoring.cpp): stable IDs survive every edit.
+    Q_INVOKABLE bool removeBone(const QString &boneId);
+    Q_INVOKABLE bool renameBone(const QString &boneId, const QString &name);
+    Q_INVOKABLE bool setBoneParent(const QString &boneId, const QString &parentId);
+    Q_INVOKABLE bool setBoneRest(const QString &boneId, const QVector3D &head, const QVector3D &tail);
+    // Timeline animation through the WP-073 AutomationModel (mesh_rig_animation.cpp).
+    Q_INVOKABLE QStringList boneAnimationParameters(const QString &boneId) const;
+    Q_INVOKABLE bool isBoneAnimationBound(const QString &boneId) const;
+    Q_INVOKABLE bool bindBoneAnimation(const QString &boneId);
+    // One undo step per gesture: commits between begin and end merge.
+    Q_INVOKABLE bool beginEditGesture();
+    Q_INVOKABLE bool endEditGesture();
     // Texture channels, paint and picking (mesh_rig_paint.cpp).
     Q_INVOKABLE bool resizeTexture(int width, int height);
     Q_INVOKABLE bool beginPaint(const QString &channel = QStringLiteral("baseColor"));
     Q_INVOKABLE bool paintRay(const QVector3D &origin, const QVector3D &direction,
                               const QColor &color, int radiusPixels = 4,
                               qreal opacity = 1.0, qreal hardness = 1.0);
+    Q_INVOKABLE bool paintUv(const QPointF &uv, const QColor &color, int radiusPixels = 4,
+                             qreal opacity = 1.0, qreal hardness = 1.0);
     Q_INVOKABLE bool endPaint();
     Q_INVOKABLE void cancelPaint();
     Q_INVOKABLE QVariantMap pickFace(const QVector3D &origin, const QVector3D &direction) const;
@@ -119,7 +150,14 @@ public:
                                       const QVector3D &cameraEulerDegrees,
                                       qreal verticalFieldOfViewDegrees,
                                       const QSizeF &viewportSize, const QPointF &point) const;
+    // Projected selected face and posed bones for a viewport overlay:
+    // {face: [point x3] or [], bones: [{boneId, head, tail}]} in pixels.
+    Q_INVOKABLE QVariantMap cameraOverlay(const QVector3D &cameraPosition,
+                                          const QVector3D &cameraEulerDegrees,
+                                          qreal verticalFieldOfViewDegrees,
+                                          const QSizeF &viewportSize, const QString &faceId) const;
     Q_INVOKABLE QImage texture(const QString &channel = QStringLiteral("baseColor")) const;
+    Q_INVOKABLE QColor texel(const QString &channel, int x, int y) const;
     Q_INVOKABLE QString channelDataUrl(const QString &channel) const;
     // History, persistence and output.
     Q_INVOKABLE bool undo();
@@ -138,6 +176,11 @@ public:
     static bool perspectiveRay(const QVector3D &cameraPosition, const QVector3D &cameraEulerDegrees,
                                qreal verticalFieldOfViewDegrees, const QSizeF &viewportSize,
                                const QPointF &point, QVector3D *origin, QVector3D *direction);
+    // The inverse of perspectiveRay: the viewport pixel of a world point, or
+    // false when the point is behind the camera.
+    static bool projectPoint(const QVector3D &cameraPosition, const QVector3D &cameraEulerDegrees,
+                             qreal verticalFieldOfViewDegrees, const QSizeF &viewportSize,
+                             const QVector3D &world, QPointF *pixel);
     static int channelIndex(const QString &channel);
 
     // DocumentModel.
@@ -155,7 +198,9 @@ signals:
     void committedChanged();
     void historyChanged();
     void errorChanged();
+    void animationModelChanged();
 private:
+    friend class MeshRigDocumentCodec;
     struct Vertex { QString id; QVector3D rest; QMap<QString, double> weights; };
     struct Face { QString id; int vertices[3]; QString uvIds[3]; QPointF uv[3]; };
     struct Constraint { QString id, type, targetId; double influence = 1; };
@@ -182,7 +227,16 @@ private:
     int boneIndex(const QString &id) const;
     int boneIndexIn(const State &state, const QString &id) const;
     static QVector3D sourcePose(const Bone &bone, int frame);
-    static QVector<QVector3D> evaluatePoses(const State &state, int frame);
+    // Bound bones read their source pose from the AnimationModel at timeTicks.
+    QVector3D boneSource(const Bone &bone) const;
+    static QVector<QVector3D> evaluatePoses(const State &state, int frame,
+                                            const std::function<QVector3D(const Bone &)> &source = {});
+    QVector<QVector3D> currentPoses() const;
+    QVector<QMatrix4x4> boneTransforms() const;
+    bool keyBoundBone(const QString &boneId, qint64 ticks, const QVector3D &euler);
+    bool removeBoundKey(const QString &boneId, qint64 ticks);
+    bool boundLanesWithin(const Bone &bone) const;
+    int faceAtUv(const QPointF &uv, double *l0, double *l1, double *l2) const;
     QVector<QVector3D> posedPositions() const;
     QVector<QVector<int>> islandIndices() const;
     RayHit castRay(const QVector<QVector3D> &posed, const QVector3D &origin,
@@ -200,8 +254,10 @@ private:
     static bool withinLimits(const Bone &bone, const QVector3D &pose);
     static bool constraintReaches(const State &state, const QString &fromBoneId,
                                   const QString &toBoneId);
+    static bool orderBones(QVector<Bone> *bones);
     static QImage blankChannel(int channel, int width, int height);
     bool stateFromJson(const QString &json, State *result) const;
+    static bool parseState(const QByteArray &json, State *result, QString *problem);
 
     State m_state;
     State m_beforePaint;
@@ -213,12 +269,21 @@ private:
     quint64 m_nextToken = 1;
     quint64 m_resetGeneration = 0;
     int m_frame = 0;
+    qint64 m_ticks = 0;
+    qint64 m_ticksPerFrame = 1;
+    AutomationModel *m_animation = nullptr;
+    QList<QMetaObject::Connection> m_animationConnections;
+    bool m_gestureOpen = false;
+    quint64 m_gestureSerial = 0;
+    QHash<QString, QVector3D> m_gesturePoses; // bound-bone previews until the gesture ends
     bool m_painting = false;
     bool m_paintChanged = false;
     int m_paintChannel = BaseColor;
     int m_paintSamples = 0;
     qint64 m_paintPixelWork = 0;
     bool m_hasPreviousRay = false;
+    bool m_hasPreviousUv = false;
+    QPointF m_previousUv;
     QVector3D m_previousOrigin, m_previousDirection, m_previousPoint;
     mutable QString m_error;
 };

@@ -87,70 +87,12 @@ bool MeshRigDocument::resizeTexture(int width, int height) {
     return commit(next, QStringLiteral("Resize texture"));
 }
 
-MeshRigDocument::RayHit MeshRigDocument::castRay(const QVector<QVector3D> &posed, const QVector3D &origin,
-                                                 const QVector3D &direction) const {
-    RayHit best; float nearest = std::numeric_limits<float>::max();
-    for (int i = 0; i < m_state.faces.size(); ++i) {
-        const auto &face = m_state.faces[i];
-        const QVector3D a = posed[face.vertices[0]], b = posed[face.vertices[1]], c = posed[face.vertices[2]];
-        const auto e1 = b - a, e2 = c - a;
-        const auto p = QVector3D::crossProduct(direction, e2);
-        const float det = QVector3D::dotProduct(e1, p);
-        if (qAbs(det) < 1e-8f) continue;
-        const float inv = 1.0f / det;
-        const auto t = origin - a;
-        const float u = QVector3D::dotProduct(t, p) * inv;
-        if (u < -1e-5f || u > 1.00001f) continue;
-        const auto q = QVector3D::crossProduct(t, e1);
-        const float v = QVector3D::dotProduct(direction, q) * inv;
-        if (v < -1e-5f || u + v > 1.00001f) continue;
-        const float along = QVector3D::dotProduct(e2, q) * inv;
-        if (along <= 1e-6f || along >= nearest) continue;
-        nearest = along;
-        best.face = i; best.distance = along;
-        best.point = a * (1 - u - v) + b * u + c * v;
-        best.uv = face.uv[0] * (1 - u - v) + face.uv[1] * u + face.uv[2] * v;
-    }
-    return best;
-}
-QVariantMap MeshRigDocument::pickFace(const QVector3D &origin, const QVector3D &direction) const {
-    if (!finitePoint(origin) || !finitePoint(direction) || direction.lengthSquared() < 1e-12f) return {};
-    const RayHit hit = castRay(posedPositions(), origin, direction);
-    if (hit.face < 0) return {};
-    return {{"faceId", m_state.faces[hit.face].id}, {"uv", hit.uv},
-            {"position", QVariant::fromValue(hit.point)}, {"distance", double(hit.distance)}};
-}
-bool MeshRigDocument::perspectiveRay(const QVector3D &position, const QVector3D &euler, qreal fov,
-                                     const QSizeF &viewport, const QPointF &point,
-                                     QVector3D *origin, QVector3D *direction) {
-    if (!(viewport.width() > 0) || !(viewport.height() > 0) || !finitePoint(position)
-        || !finitePoint(euler) || !(fov > 0 && fov < 180)
-        || !std::isfinite(point.x()) || !std::isfinite(point.y())) return false;
-    // AGENT-CONTRACT: SceneView3DRenderer's PerspectiveCamera binds the same
-    // position, eulerRotation and fieldOfView (vertical orientation, the Qt
-    // Quick 3D default), so this ray passes through the pixel the GPU draws.
-    const double tangent = std::tan(qDegreesToRadians(fov) / 2);
-    const double aspect = viewport.width() / viewport.height();
-    const double nx = 2 * point.x() / viewport.width() - 1;
-    const double ny = 1 - 2 * point.y() / viewport.height();
-    const QVector3D local(float(nx * tangent * aspect), float(ny * tangent), -1.0f);
-    *origin = position;
-    *direction = QQuaternion::fromEulerAngles(euler).rotatedVector(local).normalized();
-    return true;
-}
-QVariantMap MeshRigDocument::cameraRay(const QVector3D &position, const QVector3D &euler, qreal fov,
-                                       const QSizeF &viewport, const QPointF &point) const {
-    QVector3D origin, direction;
-    if (!perspectiveRay(position, euler, fov, viewport, point, &origin, &direction)) return {};
-    return {{"origin", QVariant::fromValue(origin)}, {"direction", QVariant::fromValue(direction)}};
-}
-
 bool MeshRigDocument::beginPaint(const QString &channel) {
     if (m_painting) return fail("Paint stroke already active");
     const int c = channelIndex(channel);
     if (c < 0) return fail("Unknown texture channel");
     m_beforePaint = m_state; m_painting = true; m_paintChanged = false; m_paintChannel = c;
-    m_paintSamples = 0; m_paintPixelWork = 0; m_hasPreviousRay = false;
+    m_paintSamples = 0; m_paintPixelWork = 0; m_hasPreviousRay = false; m_hasPreviousUv = false;
     notify(); return true;
 }
 // AGENT-NOTE (D-154): a dab is a sphere of the brush radius on the posed
@@ -182,10 +124,36 @@ bool MeshRigDocument::dab(const QVector<QVector3D> &posed, const RayHit &hit, co
         for (int k = 0; k < 3; ++k) { U[k] = f.uv[k].x() * width; V[k] = (1 - f.uv[k].y()) * height; }
         const double denom = (V[1] - V[2]) * (U[0] - U[2]) + (U[2] - U[1]) * (V[0] - V[2]);
         if (qAbs(denom) < 1e-12) continue;
-        const int x0 = std::max(0, int(std::floor(std::min({U[0], U[1], U[2]}))));
-        const int x1 = std::min(width - 1, int(std::ceil(std::max({U[0], U[1], U[2]}))));
-        const int y0 = std::max(0, int(std::floor(std::min({V[0], V[1], V[2]}))));
-        const int y1 = std::min(height - 1, int(std::ceil(std::max({V[0], V[1], V[2]}))));
+        // AGENT-GUARD (bounded work): only the dab's footprint on this face is
+        // scanned, never the face's whole UV box. The sphere cuts the face
+        // plane in a disk of radius sqrt(reach^2 - h^2); the face's affine
+        // plane-to-texel map A sends that disk into a box of half extents
+        // r * |row of A|. A long stroke on a large texture therefore costs
+        // about (2 r + 2)^2 texels per dab and face, not w x h.
+        const QVector3D P0 = posed[f.vertices[0]], e1 = posed[f.vertices[1]] - P0, e2 = posed[f.vertices[2]] - P0;
+        QVector3D n = QVector3D::crossProduct(e1, e2);
+        if (n.lengthSquared() < 1e-12f) continue;
+        n.normalize();
+        const QVector3D toCenter = hit.point - P0;
+        const double h = QVector3D::dotProduct(toCenter, n);
+        if (qAbs(h) >= reach) continue;
+        const double disk = std::sqrt(reach * reach - h * h);
+        const QVector3D ua = e1.normalized(), va = QVector3D::crossProduct(n, ua);
+        const double E00 = QVector3D::dotProduct(e1, ua), E01 = QVector3D::dotProduct(e2, ua);
+        const double E11 = QVector3D::dotProduct(e2, va); // e1 . va is zero
+        if (qAbs(E00 * E11) < 1e-12) continue;
+        // Plane (s, t) -> barycentric (a, b) is E^-1 with E = [[E00, E01], [0, E11]].
+        const double I00 = 1 / E00, I01 = -E01 / (E00 * E11), I11 = 1 / E11;
+        const double D00 = U[1] - U[0], D01 = U[2] - U[0], D10 = V[1] - V[0], D11 = V[2] - V[0];
+        const double A00 = D00 * I00, A01 = D00 * I01 + D01 * I11;
+        const double A10 = D10 * I00, A11 = D10 * I01 + D11 * I11;
+        const double sc = QVector3D::dotProduct(toCenter, ua), tc = QVector3D::dotProduct(toCenter, va);
+        const double cu = U[0] + A00 * sc + A01 * tc, cv = V[0] + A10 * sc + A11 * tc;
+        const double hu = disk * std::hypot(A00, A01), hv = disk * std::hypot(A10, A11);
+        const int x0 = std::max(0, int(std::floor(std::max(std::min({U[0], U[1], U[2]}), cu - hu))));
+        const int x1 = std::min(width - 1, int(std::ceil(std::min(std::max({U[0], U[1], U[2]}), cu + hu))));
+        const int y0 = std::max(0, int(std::floor(std::max(std::min({V[0], V[1], V[2]}), cv - hv))));
+        const int y1 = std::min(height - 1, int(std::ceil(std::min(std::max({V[0], V[1], V[2]}), cv + hv))));
         if (x1 < x0 || y1 < y0) continue;
         m_paintPixelWork += qint64(x1 - x0 + 1) * (y1 - y0 + 1);
         if (m_paintPixelWork > MaximumStrokeTexelWork) {
@@ -209,6 +177,7 @@ bool MeshRigDocument::dab(const QVector<QVector3D> &posed, const RayHit &hit, co
             coverage.insert(index, std::max(coverage.value(index, 0.0), alpha));
         }
     }
+    if (!coverage.isEmpty()) m_paintChanged = true;
     QList<int> order = coverage.keys();
     std::sort(order.begin(), order.end());
     for (int index : order) {
@@ -257,14 +226,77 @@ bool MeshRigDocument::paintRay(const QVector3D &origin, const QVector3D &directi
         }
     }
     if (ok) ok = dab(posed, hit, source, radius, opacity, hardness);
-    if (!ok) { const QString reason = m_error; cancelPaint(); return fail(reason); }
+    // AGENT-GUARD: a sample over the stroke's work bound is refused, but the
+    // stroke and every pixel it already painted stay; endPaint commits them.
+    if (!ok) { const QString reason = m_error; emit changed(); return fail(reason); }
     m_previousOrigin = origin; m_previousDirection = unitDirection; m_previousPoint = hit.point;
-    m_hasPreviousRay = true; m_paintChanged = true;
+    m_hasPreviousRay = true; m_hasPreviousUv = false;
+    notify(); return true;
+}
+QColor MeshRigDocument::texel(const QString &channel, int x, int y) const {
+    const int c = channelIndex(channel);
+    if (c < 0 || !m_state.textures[c].valid(x, y)) return {};
+    return QColor::fromRgba(qUnpremultiply(m_state.textures[c].pixel(x, y)));
+}
+int MeshRigDocument::faceAtUv(const QPointF &uv, double *l0, double *l1, double *l2) const {
+    for (int i = 0; i < m_state.faces.size(); ++i) {
+        const QPointF *t = m_state.faces[i].uv;
+        const double denom = (t[1].y() - t[2].y()) * (t[0].x() - t[2].x()) + (t[2].x() - t[1].x()) * (t[0].y() - t[2].y());
+        if (qAbs(denom) < 1e-15) continue;
+        const double a = ((t[1].y() - t[2].y()) * (uv.x() - t[2].x()) + (t[2].x() - t[1].x()) * (uv.y() - t[2].y())) / denom;
+        const double b = ((t[2].y() - t[0].y()) * (uv.x() - t[2].x()) + (t[0].x() - t[2].x()) * (uv.y() - t[2].y())) / denom;
+        if (a < -1e-9 || b < -1e-9 || 1 - a - b < -1e-9) continue;
+        *l0 = a; *l1 = b; *l2 = 1 - a - b;
+        return i; // the first face in document order wins where UVs overlap
+    }
+    return -1;
+}
+// AGENT-NOTE (D-179): texture-space painting. The dab is centred on the
+// surface point whose UV is under the pointer, so TexturePaintView paints the
+// texel it shows; the dab is still a surface sphere, so it crosses seams.
+bool MeshRigDocument::paintUv(const QPointF &uv, const QColor &color, int radius, qreal opacity, qreal hardness) {
+    if (!m_painting || !validUv(uv) || !color.isValid() || radius < 1 || radius > 128
+        || !std::isfinite(opacity) || opacity <= 0 || opacity > 1
+        || !std::isfinite(hardness) || hardness < 0 || hardness > 1)
+        return fail("Invalid paint position or brush");
+    QColor source = color.toRgb();
+    if (m_paintChannel != BaseColor) {
+        const int gray = qGray(source.rgb());
+        source = QColor(gray, gray, gray, source.alpha());
+    }
+    const auto posed = posedPositions();
+    const auto hitAt = [&](const QPointF &at) {
+        RayHit hit; double l0 = 0, l1 = 0, l2 = 0;
+        hit.face = faceAtUv(at, &l0, &l1, &l2);
+        if (hit.face < 0) return hit;
+        const Face &f = m_state.faces[hit.face];
+        hit.point = posed[f.vertices[0]] * float(l0) + posed[f.vertices[1]] * float(l1) + posed[f.vertices[2]] * float(l2);
+        hit.uv = at;
+        return hit;
+    };
+    const RayHit hit = hitAt(uv);
+    if (hit.face < 0) { m_hasPreviousUv = false; return fail("No UV island under the paint position"); }
+    bool ok = true;
+    if (m_hasPreviousUv) {
+        // Samples join in texture space at the raster spacing (texels).
+        const double du = (uv.x() - m_previousUv.x()) * textureWidth();
+        const double dv = (uv.y() - m_previousUv.y()) * textureHeight();
+        const qint64 count = qint64(std::ceil(std::hypot(du, dv) / std::max(1.0, StrokeSpacing * radius)));
+        if (count > MaximumStrokeDabs) { ok = false; m_error = QStringLiteral("Paint stroke work limit reached"); }
+        for (qint64 i = 1; ok && i < count; ++i) {
+            const double t = double(i) / double(count);
+            const RayHit between = hitAt(m_previousUv + (uv - m_previousUv) * t);
+            if (between.face >= 0) ok = dab(posed, between, source, radius, opacity, hardness);
+        }
+    }
+    if (ok) ok = dab(posed, hit, source, radius, opacity, hardness);
+    if (!ok) { const QString reason = m_error; emit changed(); return fail(reason); }
+    m_previousUv = uv; m_hasPreviousUv = true; m_hasPreviousRay = false;
     notify(); return true;
 }
 bool MeshRigDocument::endPaint() {
     if (!m_painting) return fail("No paint stroke active");
-    m_painting = false; m_hasPreviousRay = false;
+    m_painting = false; m_hasPreviousRay = false; m_hasPreviousUv = false;
     if (!m_paintChanged) { m_beforePaint = {}; notify(); return true; }
     const State after = m_state;
     m_state = m_beforePaint; m_beforePaint = {};
@@ -272,7 +304,8 @@ bool MeshRigDocument::endPaint() {
 }
 void MeshRigDocument::cancelPaint() {
     if (!m_painting) return;
-    m_state = m_beforePaint; m_beforePaint = {}; m_painting = false; m_hasPreviousRay = false;
+    m_state = m_beforePaint; m_beforePaint = {}; m_painting = false;
+    m_hasPreviousRay = false; m_hasPreviousUv = false;
     notify();
 }
 bool MeshRigDocument::exportTexturePng(const QString &path, const QString &channel) const {

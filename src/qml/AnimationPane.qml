@@ -3,6 +3,10 @@ import QtQuick
 import QindaTK as Tk
 
 // The host evaluates effects and commits every accepted field edit.
+// Preview: previewRequested/previewCancelRequested drive a host player
+// (Tk.SlidePreview over a Tk.SlideDeck, docs/slides.md#preview) whose state
+// the host binds back to previewState ("idle", "running", "finished",
+// "canceled", "failed").
 Item {
     id: control
     property string documentId: ""
@@ -10,6 +14,9 @@ Item {
     property var effects: [] // [{id,targetId,label,trigger,delay,duration,easing,status}]
     property string selectedEffectId: ""
     property var targetChoices: [] // [{id,label}]
+    property var effectKinds: [{ id: "appear", label: qsTr("Appear") }, { id: "fade-in", label: qsTr("Fade in") },
+                               { id: "fly-in", label: qsTr("Fly in") }, { id: "zoom-in", label: qsTr("Zoom in") },
+                               { id: "fade-out", label: qsTr("Fade out") }]
     property var capabilities: ({ canEdit: true, canPreview: true })
     property string previewState: "idle"
     property string errorText: ""
@@ -36,6 +43,10 @@ Item {
     }
     function effectIndex(id) {
         for (let i = 0; i < effects.length; ++i) if (effects[i].id === id) return i
+        return -1
+    }
+    function kindIndex(kind) {
+        for (let i = 0; i < effectKinds.length; ++i) if (effectKinds[i].id === kind) return i
         return -1
     }
     function editField(effect, field, value) {
@@ -65,14 +76,23 @@ Item {
                 Tk.Flex.grow: 1
                 Tk.Flex.basis: 0
             }
+            Tk.ComboBox {
+                id: kindPicker
+                objectName: "animationKindPicker"
+                model: control.effectKinds
+                textRole: "label"
+                currentIndex: Math.max(0, control.kindIndex("fade-in"))
+                tooltip: qsTr("Effect for the new animation")
+                enabled: control.capabilities.canEdit && control.effectKinds.length > 0
+            }
             Tk.Button {
                 objectName: "animationAddEffect"
-                text: qsTr("Add effect")
+                text: qsTr("Add")
                 iconName: "plus"
-                tooltip: qsTr("Add a fade-in effect to the selected target")
-                enabled: targetPicker.currentIndex >= 0 && control.capabilities.canEdit
+                tooltip: qsTr("Add the chosen effect to the selected target")
+                enabled: targetPicker.currentIndex >= 0 && kindPicker.currentIndex >= 0 && control.capabilities.canEdit
                 onClicked: control.effectAddRequested(control.targetChoices[targetPicker.currentIndex].id,
-                    "fade-in", control.documentId + ":effect:new:" + Date.now())
+                    control.effectKinds[kindPicker.currentIndex].id, control.documentId + ":effect:new:" + Date.now())
             }
         }
         Tk.Caption {
@@ -184,6 +204,17 @@ Item {
                                 align: Tk.Flex.Center
                                 gap: Tk.Theme.space.xs
                                 Tk.ComboBox {
+                                    objectName: "animationKind_" + modelData.id
+                                    model: control.effectKinds
+                                    textRole: "label"
+                                    currentIndex: control.kindIndex(modelData.kind)
+                                    tooltip: qsTr("Effect")
+                                    enabled: control.capabilities.canEdit
+                                    onActivated: function(index) { control.editField(modelData, "kind", control.effectKinds[index].id) }
+                                    Tk.Flex.grow: 1
+                                    Tk.Flex.basis: 0
+                                }
+                                Tk.ComboBox {
                                     objectName: "animationTrigger_" + modelData.id
                                     model: [qsTr("With previous"), qsTr("After previous"), qsTr("On click")]
                                     currentIndex: modelData.trigger === "after" ? 1 : modelData.trigger === "click" ? 2 : 0
@@ -218,7 +249,8 @@ Item {
                 objectName: "animationPreview"
                 text: control.previewState === "running" ? qsTr("Stop preview") : qsTr("Preview selected")
                 iconName: control.previewState === "running" ? "square" : "play"
-                tooltip: qsTr("Preview the selected animation using host evaluation")
+                tooltip: control.previewState === "running" ? qsTr("Stop the preview; the build shows complete")
+                                                            : qsTr("Preview the build step of the selected animation")
                 enabled: !!control.selectedEffect && control.capabilities.canPreview
                 onClicked: control.previewState === "running" ? control.previewCancelRequested(control.selectedEffectId)
                                                                 : control.previewRequested(control.selectedEffectId)

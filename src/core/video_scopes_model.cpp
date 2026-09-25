@@ -25,18 +25,34 @@ void VideoScopesModel::clear()
 
 void VideoScopesModel::setMatrix(const QString &name)
 {
+    if (name == QLatin1String("source")) {
+        if (m_sourceMatrix) return;
+        m_sourceMatrix = true;
+        m_convention.matrix = VideoScopeConvention::Matrix::Bt709;
+        conventionChanged();
+        return;
+    }
     const auto matrix = VideoScopeConvention::matrixFrom(name);
-    if (!matrix) { failed(QStringLiteral("Unknown scope matrix %1 (bt709, bt601, bt2020).").arg(name)); return; }
-    if (*matrix == m_convention.matrix) return;
+    if (!matrix) { failed(QStringLiteral("Unknown scope matrix %1 (source, bt709, bt601, bt2020).").arg(name)); return; }
+    if (!m_sourceMatrix && *matrix == m_convention.matrix) return;
+    m_sourceMatrix = false;
     m_convention.matrix = *matrix;
     conventionChanged();
 }
 
 void VideoScopesModel::setSignalRange(const QString &name)
 {
+    if (name == QLatin1String("source")) {
+        if (m_sourceRange) return;
+        m_sourceRange = true;
+        m_convention.range = VideoScopeConvention::Range::Full;
+        conventionChanged();
+        return;
+    }
     const auto range = VideoScopeConvention::rangeFrom(name);
-    if (!range) { failed(QStringLiteral("Unknown signal range %1 (full, limited).").arg(name)); return; }
-    if (*range == m_convention.range) return;
+    if (!range) { failed(QStringLiteral("Unknown signal range %1 (source, full, limited).").arg(name)); return; }
+    if (!m_sourceRange && *range == m_convention.range) return;
+    m_sourceRange = false;
     m_convention.range = *range;
     conventionChanged();
 }
@@ -52,7 +68,7 @@ void VideoScopesModel::setAnalysisSpace(const QString &name)
 
 void VideoScopesModel::conventionChanged()
 {
-    if (!m_frame.isNull() && m_active) analyzeFrame(m_frame, m_frameId);
+    if (!m_frame.isNull() && m_active) analyzeDecodedFrame(m_frame, m_frameId, m_frameMatrix, m_frameRange);
     else emit changed();
 }
 
@@ -94,7 +110,17 @@ void VideoScopesModel::playerFrameChanged()
     }
     m_stale = false;
     m_playerRevision = revision;
-    analyzeFrame(image, m_player->presentedFrameKey());
+    // Every drawn source must agree on its decode; a mix has no one coding.
+    QString matrix, range;
+    bool first = true;
+    for (const QVariant &value : m_player->presentedSources()) {
+        const QVariantMap source = value.toMap();
+        const QString m = source.value(QStringLiteral("matrix")).toString();
+        const QString r = source.value(QStringLiteral("range")).toString();
+        if (first) { matrix = m; range = r; first = false; }
+        else if (m != matrix || r != range) { matrix = QStringLiteral("mixed"); range.clear(); }
+    }
+    analyzeDecodedFrame(image, m_player->presentedFrameKey(), matrix, range);
 }
 
 QVariantMap VideoScopesModel::analyzeColorBarsFixture(const QString &frameId)
@@ -116,11 +142,37 @@ QVariantMap VideoScopesModel::analyzeColorBarsFixture(const QString &frameId)
 
 QVariantMap VideoScopesModel::analyzeFrame(const QImage &frame, const QString &frameId)
 {
-    const QVariantMap result = VideoScopeAnalysis::analyze(frame, frameId, m_convention);
+    return analyzeDecodedFrame(frame, frameId, {}, {});
+}
+
+QVariantMap VideoScopesModel::analyzeDecodedFrame(const QImage &frame, const QString &frameId,
+                                                  const QString &sourceMatrix, const QString &sourceRange)
+{
+    VideoScopeConvention convention = m_convention;
+    QString matrixOrigin = QStringLiteral("stated");
+    QString rangeOrigin = QStringLiteral("stated");
+    if (m_sourceMatrix) {
+        // "rgb" (no matrix), "mixed", smpte240m/fcc and unknown fall back.
+        const auto matrix = VideoScopeConvention::matrixFrom(sourceMatrix);
+        convention.matrix = matrix.value_or(VideoScopeConvention::Matrix::Bt709);
+        matrixOrigin = matrix ? QStringLiteral("source") : QStringLiteral("default");
+    }
+    if (m_sourceRange) {
+        const auto range = VideoScopeConvention::rangeFrom(sourceRange);
+        convention.range = range.value_or(VideoScopeConvention::Range::Full);
+        rangeOrigin = range ? QStringLiteral("source") : QStringLiteral("default");
+    }
+    QVariantMap result = VideoScopeAnalysis::analyze(frame, frameId, convention);
     if (!result.value(QStringLiteral("valid")).toBool())
         return failed(result.value(QStringLiteral("error")).toString());
+    result.insert(QStringLiteral("matrixOrigin"), matrixOrigin);
+    result.insert(QStringLiteral("rangeOrigin"), rangeOrigin);
+    result.insert(QStringLiteral("sourceCoding"), sourceMatrix.isEmpty() ? QString()
+                  : sourceRange.isEmpty() ? sourceMatrix : sourceMatrix + QLatin1Char('/') + sourceRange);
     m_frame = frame;
     m_frameId = frameId;
+    m_frameMatrix = sourceMatrix;
+    m_frameRange = sourceRange;
     m_error.clear();
     m_snapshot = result;
     ++m_analysisCount;

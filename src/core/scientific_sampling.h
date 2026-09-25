@@ -3,6 +3,9 @@
 
 #include "scientific_dataset.h"
 
+#include <QColor>
+#include <QJsonObject>
+#include <QMap>
 #include <QString>
 #include <QVector>
 
@@ -30,5 +33,11 @@ QVector<double> ticks(bool logarithmic, double low, double high, int approximate
 
 // Shortest decimal text that round-trips to 6 significant digits.
 QString tickLabel(double value);
+
+// Export provenance of the render style (D-141): the metrics map, the font
+// family it resolves to, each named colour and each named colour ramp, as
+// #AARRGGBB. The 2D renderer, the composer and ScientificScene3D embed it.
+QJsonObject styleJson(const QVariantMap &metrics, const QList<QPair<QString, QColor>> &colors,
+                      const QMap<QString, QList<QColor>> &ramps = {});
 
 } // namespace QindaTK::ScientificSampling

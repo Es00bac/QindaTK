@@ -49,7 +49,7 @@ Rectangle {
             Tk.Button {
                 objectName: "scientific3DTable"
                 text: volume.showDataTable ? qsTr("Plot") : qsTr("Table")
-                tooltip: qsTr("Show the source lattice as a table")
+                tooltip: qsTr("Show the surface lattice or the probe points as a table")
                 onClicked: volume.showDataTable = !volume.showDataTable
             }
             Tk.Caption { text: volume.selectedPointId ? qsTr("Selected %1").arg(volume.selectedPointId) : qsTr("Click a probe to select it") }

@@ -11,6 +11,11 @@ import QindaTK as Tk
 // AGENT-GUARD: blocks are virtualized (ListView, reuseItems). Uncommitted
 // text lives in `drafts` keyed by block ID, never only in a delegate, so a
 // recycled or rebuilt delegate restores it; committing clears the draft.
+// AGENT-GUARD: in notebook mode a draft must reach the model without a focus
+// change, or autosave and the recovery journal never see the typing. It
+// commits after Tk.Theme.motion.gestureIdle without typing (merged into one
+// undo step per block by setBlockText), and every draft commits before the
+// page changes or the editor goes away (docs/notebooks.md#views).
 Item {
     id: control
     property string notebookId: ""
@@ -39,6 +44,9 @@ Item {
     // {anchorBlockId, anchorOffset, focusBlockId, focusOffset}; empty when none.
     property var selection: ({})
     property var drafts: ({})
+    // Notebook mode: commit a draft after a pause in typing. False keeps
+    // drafts until focus leaves the block or a structural edit commits them.
+    property bool autoCommitDrafts: true
     property var _notebookBlocks: []
     readonly property var presentedBlocks: notebook ? _notebookBlocks : blocks
     // The ListView model: block IDs only, replaced only when the order
@@ -80,19 +88,29 @@ Item {
             positions[presentedBlocks[i].id] = i
         }
         _positions = positions
-        if (ids.join("\n") !== presentedIds.join("\n")) presentedIds = ids
+        if (ids.join("\n") !== presentedIds.join("\n")) {
+            presentedIds = ids
+            blockList.currentIndex = -1
+        }
         const reveal = indexOf(pendingFocusId)
         if (reveal >= 0) blockList.positionViewAtIndex(reveal, ListView.Contain)
     }
     onPresentedBlocksChanged: syncIds()
     onNotebookChanged: refreshNotebookBlocks()
     onPageIdChanged: {
+        flushDrafts()
         drafts = ({})
         selection = ({})
         if (notebook) selectedBlockId = ""
         refreshNotebookBlocks()
     }
     Component.onCompleted: { refreshNotebookBlocks(); syncIds() }
+    Component.onDestruction: flushDrafts()
+    Timer {
+        id: draftIdle
+        interval: Tk.Theme.motion.gestureIdle
+        onTriggered: control.flushDrafts()
+    }
     // Deferred so a structural edit made from a delegate's key handler never
     // releases that delegate while the handler runs.
     Connections {
@@ -136,12 +154,40 @@ Item {
         if (text === committed) delete next[id]
         else next[id] = { text: text, cursor: cursor }
         drafts = next
+        if (notebook && autoCommitDrafts && next[id] !== undefined) draftIdle.restart()
+    }
+    function dropDraft(id) {
+        if (drafts[id] === undefined) return
+        const next = Object.assign({}, drafts)
+        delete next[id]
+        drafts = next
     }
     function commitDraft(id) {
         const draft = drafts[id]
         const block = findBlock(id)
         if (draft === undefined || !block) return true
         return submitText(block, draft.text)
+    }
+    // Commits every draft; returns false when one was refused (it is kept).
+    // A block no longer presented commits through the model by ID, or in
+    // host mode as an edit request carrying only {text}.
+    function flushDrafts() {
+        draftIdle.stop()
+        const pending = drafts
+        let ok = true
+        for (const id in pending) {
+            const block = findBlock(id)
+            if (block) {
+                ok = submitText(block, pending[id].text) && ok
+            } else if (notebook) {
+                if (notebook.setBlockText(id, pending[id].text)) dropDraft(id)
+                else ok = false
+            } else {
+                dropDraft(id)
+                blockContentEditRequested(id, { text: pending[id].text }, requestId("edit", id))
+            }
+        }
+        return ok
     }
     // Notebook mode: the block's text field takes focus when its delegate
     // exists (now or after the deferred refresh). Host mode: a request; the
@@ -199,19 +245,24 @@ Item {
     }
     function deleteBlock(id) {
         if (!enabled || !capabilities.canDelete) return
-        const next = Object.assign({}, drafts)
-        delete next[id]
-        drafts = next
-        if (notebook) notebook.removeBlock(id)
-        else blockDeleteRequested(id)
+        if (!notebook) {
+            dropDraft(id)
+            blockDeleteRequested(id)
+        } else if (notebook.removeBlock(id)) {
+            dropDraft(id) // a refused delete (read-only content) keeps the draft
+        }
     }
     function submitText(block, text) {
         if (!capabilities.canEdit || block.locked) return false
-        const next = Object.assign({}, drafts)
-        delete next[block.id]
-        drafts = next
+        if (notebook) {
+            // A refused commit keeps the draft, so the typing is not lost.
+            const current = notebook.block(block.id)
+            const ok = !!current.data && (current.data.text === text || notebook.setBlockText(block.id, text))
+            if (ok) dropDraft(block.id)
+            return ok
+        }
+        dropDraft(block.id)
         if (text === (block.data && block.data.text)) return true
-        if (notebook) return notebook.setBlockText(block.id, text)
         blockContentEditRequested(block.id, Object.assign({}, block.data || ({}), { text: text }), requestId("edit", block.id))
         return true
     }
@@ -423,6 +474,11 @@ Item {
             clip: true
             model: control.presentedIds
             reuseItems: true
+            // AGENT-GUARD: no current item. ListView gives its current item
+            // focus after every model reset, which took focus from the text
+            // field a split or merge had just focused (tst_notebook_blocks).
+            currentIndex: -1
+            highlightFollowsCurrentItem: false
             cacheBuffer: Tk.Theme.size.panelMinHeight
             spacing: Tk.Theme.space.sm
             boundsBehavior: Flickable.StopAtBounds

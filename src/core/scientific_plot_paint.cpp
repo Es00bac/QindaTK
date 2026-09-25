@@ -354,6 +354,16 @@ QJsonObject ScientificPlotRenderer::figureMetadata(const QSize &size) const
             {QStringLiteral("scatter"), QStringLiteral("stride-with-extremes")},
             {QStringLiteral("paintedPerSeries"), painted}, {QStringLiteral("omitted"), omittedCount()}}},
         {QStringLiteral("problem"), problem()}};
+    // Everything else drawFigure() reads: selection ring, colours, fonts, metrics (D-141).
+    const ScientificDataset *selected = m_series.value(m_selectedSeries);
+    render.insert(QStringLiteral("selection"), selected && selected->indexOf(m_selectedId) >= 0
+        ? QJsonValue(QJsonObject{{QStringLiteral("series"), m_selectedSeries}, {QStringLiteral("sampleId"), m_selectedId}})
+        : QJsonValue(QJsonValue::Null));
+    render.insert(QStringLiteral("style"), ScientificSampling::styleJson(m_metrics,
+        {{QStringLiteral("backgroundColor"), m_background}, {QStringLiteral("gridColor"), m_grid},
+         {QStringLiteral("textColor"), m_text}, {QStringLiteral("missingColor"), m_missing},
+         {QStringLiteral("selectionColor"), m_selection}, {QStringLiteral("annotationColor"), m_annotation}},
+        {{QStringLiteral("seriesColors"), m_seriesColors}, {QStringLiteral("surfaceColors"), m_surfaceColors}}));
     if (m_surface && m_surface->hasValues())
         render.insert(QStringLiteral("surface"), QJsonObject{
             {QStringLiteral("interpolation"), m_interpolation == ScientificGrid::Nearest ? QStringLiteral("nearest") : QStringLiteral("bilinear")},

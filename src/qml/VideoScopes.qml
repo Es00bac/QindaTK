@@ -72,9 +72,18 @@ T.Control {
                     const muted = Tk.Theme.color.border
                     ctx.strokeStyle = muted
                     ctx.lineWidth = Tk.Theme.size.border
+                    // AGENT-NOTE: the vectorscope is a Cb/Cr plane, so it draws in a
+                    // centred square inset by space.md; stretched to the canvas it
+                    // skewed hue angles and clipped the 100% targets at the edges.
+                    const vector = control.scopeMode === "vectorscope"
+                    const inset = Tk.Theme.space.md
+                    const sq = vector ? Math.max(1, Math.min(width, height) - 2 * inset) : 0
+                    const gx = vector ? (width - sq) / 2 : 0, gy = vector ? (height - sq) / 2 : 0
+                    const gw = vector ? sq : width, gh = vector ? sq : height
+                    if (vector) ctx.strokeRect(gx, gy, gw, gh)
                     for (let i = 1; i < 4; ++i) {
-                        ctx.beginPath(); ctx.moveTo(width * i / 4, 0); ctx.lineTo(width * i / 4, height); ctx.stroke()
-                        ctx.beginPath(); ctx.moveTo(0, height * i / 4); ctx.lineTo(width, height * i / 4); ctx.stroke()
+                        ctx.beginPath(); ctx.moveTo(gx + gw * i / 4, gy); ctx.lineTo(gx + gw * i / 4, gy + gh); ctx.stroke()
+                        ctx.beginPath(); ctx.moveTo(gx, gy + gh * i / 4); ctx.lineTo(gx + gw, gy + gh * i / 4); ctx.stroke()
                     }
                     const scale = control.snapshot.codeScale || ({ black: 0, white: 255 })
                     if (control.scopeMode === "waveform" || control.scopeMode === "parade") {
@@ -97,11 +106,11 @@ T.Control {
                         let peak = 1
                         for (let i = 0; i < bins.length; ++i) peak = Math.max(peak, bins[i])
                         const side = control.snapshot.vectorscopeSide || 64
-                        const cellW = width / side, cellH = height / side
+                        const cellW = gw / side, cellH = gh / side
                         for (let i = 0; i < bins.length; ++i) {
                             if (!bins[i]) continue
                             ctx.globalAlpha = 0.25 + 0.75 * bins[i] / peak
-                            ctx.fillRect((i % side) * cellW, Math.floor(i / side) * cellH,
+                            ctx.fillRect(gx + (i % side) * cellW, gy + Math.floor(i / side) * cellH,
                                          Math.max(Tk.Theme.size.border, cellW), Math.max(Tk.Theme.size.border, cellH))
                         }
                         ctx.globalAlpha = 1
@@ -111,9 +120,14 @@ T.Control {
                         ctx.font = Tk.Theme.font.caption + "px " + Tk.Theme.font.family
                         for (let t = 0; t < targets.length; ++t) {
                             const box = targets[t].level === 75 ? cellW * 2 : cellW * 3
-                            const tx = targets[t].x * width, ty = targets[t].y * height
+                            const tx = gx + targets[t].x * gw, ty = gy + targets[t].y * gh
                             ctx.strokeRect(tx - box / 2, ty - box / 2, box, box)
-                            if (targets[t].level === 100) ctx.fillText(String(targets[t].label), tx + box, ty)
+                            if (targets[t].level !== 100) continue
+                            // Labels sit outside the target, away from the centre.
+                            const right = tx >= gx + gw / 2
+                            ctx.textAlign = right ? "left" : "right"
+                            ctx.textBaseline = "middle"
+                            ctx.fillText(String(targets[t].label), tx + (right ? box : -box), ty)
                         }
                     } else if (control.scopeMode === "parade") {
                         const bins = control.snapshot.parade || []
@@ -168,8 +182,9 @@ T.Control {
                 font.pixelSize: Tk.Theme.font.caption
                 elide: Text.ElideRight
                 text: control.snapshot.valid
-                      ? String(control.snapshot.matrix || "bt709") + " • " + String(control.snapshot.signalRange || "full")
-                        + " range • " + String(control.snapshot.analysisSpace || "srgb") + " (" + String(control.snapshot.transfer || "srgb")
+                      ? String(control.snapshot.matrix || "bt709") + (control.snapshot.matrixOrigin === "source" ? " (source)" : "")
+                        + " • " + String(control.snapshot.signalRange || "full")
+                        + (control.snapshot.rangeOrigin === "source" ? " (source)" : "") + " range • " + String(control.snapshot.analysisSpace || "srgb") + " (" + String(control.snapshot.transfer || "srgb")
                         + ") • " + String(control.snapshot.sampleCount) + " pixels"
                       : String(control.snapshot.error || "Waiting for a decoded frame")
             }

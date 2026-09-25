@@ -16,7 +16,10 @@ namespace QindaTK {
 // the MediaFinishing that MediaPlayer attaches to its program. The monitor
 // shows value(true), which includes an open grade gesture's preview; exports
 // use value(false), the committed grade, so a drag in progress never reaches
-// a file. `changed` fires only when the finishing's digest changes.
+// a file. `changed` fires once per setter call, and on a source change only
+// when the finishing's digest changes. An attached session is switched to
+// ColorGradeEditSession::ProgramGrade: frames the host feeds it replace the
+// preview source and never reset the program grade.
 class VideoFinishing : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -49,7 +52,7 @@ signals:
     void changed();
 
 private:
-    void sourceChanged();
+    bool sourceChanged(); // emits changed() and returns true when the digest moved
 
     QPointer<ColorGradeEditSession> m_session;
     QPointer<CaptionTrackModel> m_track;

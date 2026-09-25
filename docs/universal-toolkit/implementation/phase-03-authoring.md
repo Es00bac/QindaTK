@@ -101,7 +101,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-044"></a>
 ## WP-044 — Implement vector authoring and appearance
 
-**Implementation lead:** Sol. **Status:** active (editable multi-contour paths, clipboard and parametric polygon, star and rounded-rectangle shapes merged; booleans, stroke alignment, patterns and appearance effects remain). **Depends on:** [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043)
+**Implementation lead:** Sol. **Status:** active; [evidence](evidence/WP-044.md) (paths with stable node ids and insert/delete/split/join/node-type editing, parametric shapes, clipboard, booleans, stroke alignment and units, patterns, ordered effects with a colour adjustment, canvas-selection binding and SVG export are implemented; awaiting acceptance review). **Depends on:** [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043)
 
 **Proposal scope:** [CAN-17 StrokeStyleEditor](../proposed/04-canvas-color.md#can-17), [CAN-18 FillStyleEditor](../proposed/04-canvas-color.md#can-18), [CAN-19 PathEditor](../proposed/04-canvas-color.md#can-19), [CAN-20 ShapePalette](../proposed/04-canvas-color.md#can-20), [CAN-24 AppearanceStack](../proposed/04-canvas-color.md#can-24)
 

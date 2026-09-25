@@ -857,7 +857,12 @@ string parameters; its window moves with the cut. Setting one requires an
 outgoing clip ending at the incoming clip's start and enough head and tail
 handle. After any other edit the planner drops a transition whose cut no
 longer exists (in the same change set) and refuses an edit that leaves too
-little handle. `MediaProgram` extends both spans over the window and
+little handle. A clip's two windows (its own lead-in after the cut and the
+lead-out into the next clip before the next cut) must fit in its length
+together: setting or editing into an overlap is refused (field `duration`),
+and a timeline loaded with one keeps the later cut when it becomes a
+program, because the renderer draws a span inside a fade-out only as the
+partner of the incoming span. `MediaProgram` extends both spans over the window and
 `MediaTransition` evaluates it: the weight at each frame's midpoint rounded
 once to 1/65536, an integer channel blend, and per-sample linear or
 equal-power gains for sound. **Consequences.** Transitions need no new
@@ -874,7 +879,11 @@ program track of ordinary clips. A switch is one frame-exact `switchSource`
 transaction: the program clip is cut at the switch time and the part after
 it shows the new angle at `(T − syncStart) + syncOffset`, computed from the
 sync map rather than from the clip being cut; `audioFollowsVideo` decides
-whether the linked sound is cut and switched too. **Consequences.** Switches
+whether the linked sound is cut and switched too. An angle whose sound is a
+separate recording carries that file's own sync offset and length, and the
+switch gives the linked sound part that position and bound
+(`linkedSourceOffset`/`linkedSourceDuration`); `unsyncedClipIds()` checks
+the sound track against it too. **Consequences.** Switches
 never accumulate drift, undo removes one cut at a time, the saved timeline
 plus the angle table reopens the same cuts (the angle is recovered from each
 clip's resource), and program playback and export need no multicam-specific
@@ -1031,14 +1040,28 @@ not undo steps. The session saves the mix as its `mixer` part and loads it
 all or nothing. **Consequences.** Every mixer value has one owner and one
 history, which the controls and automation already share. A track's settings
 stay dormant after the track is deleted, so undo in the timeline brings back
-its routing. Undo is per owner (mixer, timeline, automation) until a host
-joins those histories.
+its routing.
+**Amended after the WP-062 audit.** `session.history` (`AudioSessionHistory`)
+joins the three histories: each model keeps and applies its own steps, and
+the journal records which model took each step, in order, so one Undo always
+reverses the session's newest step; undo on a model directly moves its
+entry, a new step ends every redo, and a model that reloads drops its
+entries. Lanes and dormant settings stay in memory for undo, but a save
+writes only what a reopened session can reach (no settings of deleted
+tracks, no lanes of channels or sends that are gone), and bindings and
+meters of channels that are gone are released. `AudioSession::open` checks
+the mixer part before it replaces any part, so a bad mixer part keeps every
+history and held gesture. A hardware control surface (`AudioControlSurface`,
+Mackie Control over an ALSA sequencer port or host bytes) edits and follows
+the same shared bindings and operations, so automation, strips and hardware
+feedback update one parameter model.
 
 ## D-111 — Pan laws, layouts and conversions
 
 **Context.** AUD-15 needs defined laws and coordinates, and the engine must
-not change what existing sessions play. **Decision.** Channels are Mono or
-Stereo; the master is Stereo. A mono source into a stereo destination follows
+not change what existing sessions play. **Decision.** Tracks are Mono or
+Stereo; buses may also be Quad (L R Ls Rs) or 5.1 (L R C LFE Ls Rs); the
+master is Stereo. A mono source into a stereo destination follows
 the session pan law: `-3dB` constant power (default,
 L = cos((1+p)π/4), R = cos((1−p)π/4)), `-4.5dB`, `-6dB` linear or `0dB`
 balance. Pan p runs from −1 (left) to +1 (right) and width from 0 to 2, both
@@ -1049,7 +1072,17 @@ destination averages. Every route, sends included, passes through the
 channel's panner; a pre-fader send skips only the fader. **Consequences.** The
 default mix (stereo tracks, centre, width 1, 0 dB) is bit-exact with the
 pre-mixer engine, and the laws are exact at the ends and symmetric at the
-centre. Surround layouts are outside the reference engine.
+centre.
+**Amended after the WP-062 audit (spatial panning).** A mono or stereo
+source into a Quad or 5.1 destination is a point at (pan, depth), depth
+−1 rear … +1 front (default front, parameter `<channel>/depth`): the session
+law applies left–right and rear–front, the 5.1 front pans pairwise L–C–R and
+the LFE takes no panned source; each side of a stereo source is a point at
+pan ∓ 1. A surround source converts through a fixed matrix: lane to lane,
+Quad and 5.1 onto each other (a centre into L and R at −3 dB), the ITU-R
+BS.775 stereo downmix (centre and surrounds at −3 dB, no LFE), and its mono
+average. Device ports carry 1, 2, 4 or 6 lanes. Channel meters carry up to
+six lanes.
 
 ## D-112 — The bus graph stays acyclic; solo propagates through it; ports never fall back
 
@@ -1090,6 +1123,13 @@ binding it began on and cancel it if a recycled delegate changes the binding.
 thread, and a frame never mixes two slot layouts. A gesture survives a track
 reorder and a bank or visibility change, and a delegate can never commit into
 another channel.
+**Amended after the WP-062 audit.** Slots are not handed out in processing
+order: while every channel fits, all are metered; with more, the master
+comes first, then the channels a view watches (`watchMeter`, which each
+`ChannelStrip` does for its channel), then the rest, and `meterProblem`
+explains a channel left out. `PanningControl` keeps each gesture on the
+binding it began on as `Fader` and `Knob` do, and `RoutingMatrix` rows come
+from a model that moves rows in place, with selection by input ID.
 
 ## D-126 — Grade and captions are a finishing stage of the media program
 
@@ -1107,7 +1147,11 @@ floor program millisecond. It is part of the program's cache key and JSON.
 the committed grade. **Consequences.** Preview and export cannot drift; a
 neutral grade is an identity; a drag re-renders the presented frame without
 re-probing media; HDR sources are graded into SDR sRGB output, and an HDR or
-wide-gamut output grade is future work.
+wide-gamut output grade is future work. *Amended (WP-072 audit):* the session
+`VideoFinishing` reads is switched to `ProgramGrade` scope, so feeding it new
+frames never resets the program grade, and it previews in
+`ColorGradeProcessor::programContext()`, the one context `MediaFinishing`
+grades with.
 
 ## D-127 — Scopes measure the encoded signal under a stated matrix, range and space
 
@@ -1125,6 +1169,10 @@ snapshot with the player's `presentedFrameKey`. **Consequences.** Known-answer
 bars give exact codes (Rec.709 limited 75% yellow Y′ 168, Cb 44, Cr 136);
 limited range describes the legal-range encoding of the decoded frame, not the
 file's original codes; linear-light and HDR nit scopes are not provided.
+*Amended (WP-072 audit):* the default matrix and range are `source`, the
+Y′CbCr decode the decoder reports for each frame, so a Y′CbCr file's scope
+shows its own codes; stated values remain available and each snapshot names
+the origin of its matrix and range.
 
 ## D-128 — Captions interchange as plain text with BCP 47 languages
 
@@ -1190,6 +1238,25 @@ native reopen, SVG/DXF output). 3D presentation of engineering geometry
 uses the accepted WP-076 scene viewport; a solid-modeling kernel remains a
 host-provided extension. **Consequences.** WP-083's CAD qualification
 covers only the declared 2D operations.
+
+## D-283 — Domain documents group a view gesture into one transaction
+
+**Context.** EXT-03 asks that connect, move and align commands share canvas
+transactions. A CAD line gesture creates up to two points and a segment, and
+a diagram stencil drop creates a card and its ports; recording each call
+split one gesture into several undo steps, and a rejected finish left
+orphan points behind. **Decision.** `DiagramDocument` and `CadDocument`
+both expose `beginTransaction()`, `commitTransaction()` and
+`cancelTransaction()`. Inside a transaction only the first edit records the
+pre-transaction snapshot; nested pairs join the outer one; cancel restores
+the state and the undo/redo stacks from begin and keeps `lastError`. Undo
+and redo are refused while a transaction is open, and a load discards it.
+Single commands that already touch many cards (`moveNodes`, `alignNodes`,
+`distributeNodes`, `removeNodes`) stay one step on their own.
+**Consequences.** `revision` still advances per edit, so bindings refresh
+during a gesture; history grows by one entry per gesture.
+`tst_diagram_commands::transactionContractIsShared` drives both documents
+through the meta-object.
 
 ## D-134 — Source edits are an operation list per resource with their own history
 
@@ -1290,10 +1357,22 @@ continues around that position with a radius growing per lost frame and
 resumes `tracked` on a match. Mask propagation (`applyTrackToMask`) keys only
 accepted, nonlost frames and reports skipped ones. **Consequences.** Known
 integer shifts track exactly and smooth subpixel shifts within 0.2 px;
-lost frames are visible in data and UI and never move a mask. Translation is
-the motion model: rotation, scale and perspective need rebasing
-(`rebaseTrack`) or corrections, and multi-resolution flow or camera solving
-remain later adapters.
+lost frames are visible in data and UI and never move a mask.
+
+**Amended after the WP-075 audit.** Motion models: a track's `motion` is
+`translation` or `similarity`; similarity searches positions under the prior
+rotation/scale, then refines position, rotation and scale by a bounded compass
+search on bilinear squared error. Perspective is a four-track corner pin
+(`QTransform::quadToQuad`) applied to mask paths, not a patch model. Frames
+above 4 MP are tracked on a smooth downscale with positions mapped back to
+source pixels (up to 64 MP sources). Results are versioned: a preview records
+the frame versions it measured, replacing one discards it, accept refuses a
+stale one, and undo/redo restore accepted data while keeping live previews
+and analysis state. Mask keys record `user` or `generated`; propagation is
+previewed per range, committed in one step and never overwrites user keys.
+`saveToFile` validates its bytes with the loader so every save reopens, and a
+track holds at most 4096 points. 3D camera solving (a camera path from many
+tracks) is not part of this toolkit model.
 
 ## D-150 — MIDI data is musical ticks at MIDI 2.0 resolution, owned by one model per session
 
@@ -1342,6 +1421,13 @@ note-off, all-notes-off, a transport stop, a device stop or loss and
 detaching the session release them. **Consequences.** Device output equals
 the offline render at any block size, recompiles never cut a note, and a
 note never outlives its end by more than the release.
+**Amended (WP-064 audit).** A played note lasts at most its pattern's length
+(it would otherwise overlap its own repeat); the stored duration is kept.
+So a render window looks back at most one pass and device-thread work per
+block never grows with playback time. The test instrument follows its
+placement's CC7 volume, CC11 expression, channel pitch bend (±2 semitones)
+and per-note pitch bend (±48); a bent note integrates its phase from its own
+start over fixed change ticks, so it stays stateless and block-independent.
 
 ## D-153 — Clip launches are quantized on the device thread and acknowledged from it
 
@@ -1359,6 +1445,16 @@ Launched clips and the arrangement sum on a track; a file render is the
 arrangement only. **Consequences.** No GUI delay can move a start off the
 grid, the launcher shows queued and playing from engine facts, and a
 transport stop, device loss or detached session leaves nothing playing.
+**Amended (WP-064 audit).** Launcher state is kept in device samples, so a
+transport jump (loop wrap, seek) re-bases it on the device thread: a playing
+clip keeps its musical progress and is heard from the new position; a
+waiting launch or stop is re-quantized from the new position and reported
+again. A destroyed session sends the same reset as a detached one. MIDI
+recording is engine-owned the same way: the device thread quantizes a
+take's start, stamps each audition note (the session's ALSA MIDI input or
+the host) with a take-relative tick at the period that applies it, and
+sizes the take on stop; the launcher commits it as a new pattern in its
+slot, one undo step.
 
 ## D-154 — Mesh paint is a surface-space dab with an exact CPU reference
 
@@ -1417,8 +1513,10 @@ channels share storage) into an `UndoService`, a private one until a host
 adopts it with `adoptModel`. Commands carry content tokens, so a step applies
 only to the exact state it was recorded against. **Consequences.** Hosts get
 one history across mesh, scene and canvas models, undo text and clean
-tracking; a paint stroke is never split. A native session codec for the mesh
-schema is not registered yet; hosts save through `saveToFile`.
+tracking; a paint stroke is never split. The session codec
+`qindatk.mesh-rig.v2` (`meshRigDocumentCodec`) now registers the mesh schema,
+so `DocumentSession` save, autosave and recovery cover it; an edit gesture
+(`beginEditGesture`/`endEditGesture`) is one merged step.
 
 ## D-174 — A comp is a selection over take ranges, placed by a timeline clip
 
@@ -1443,13 +1541,15 @@ fade must not read audio a take does not have, and a split inside one take
 must not change a sample. **Decision.** A junction of two different takes
 fades over `x` samples before it and `y` after it, `x + y` up to the comp's
 fade length: centred when possible, `x` bounded by the right take's audio
-before the junction and half the left segment, `y` by the left take's audio
-after it and half the right segment, a shortfall on one side moving to the
-other. Weights use `t = (s − a + 0.5)/(c − a)`: linear or equal power
+before the junction and half the left run, `y` by the left take's audio
+after it and half the right run, a shortfall on one side moving to the
+other. A run is the touching segments of one take on that side (the WP-065
+audit found that per-segment bounds let a split beside a long fade move
+it); every piece of a run carries the run's fade regions. Weights use `t = (s − a + 0.5)/(c − a)`: linear or equal power
 (sin/cos). Same-take junctions, gaps and comp edges are exact cuts. The
 graph plays each resolved piece as an ordinary clip with a frame limit and
 fade regions evaluated per sample. **Consequences.** Boundary samples are
-exact and testable, both fades of a segment never overlap, merges and
+exact and testable, both fades of a run never overlap, merges and
 splits within a take are silent, and the realtime path gains no tables or
 allocation.
 
@@ -1463,8 +1563,12 @@ committed comp (never to the previous preview) and plays it until
 committed comp; any other edit, undo or redo cancels it first. The view's
 boundary table is built from the committed comp only, so it holds still
 while a preview runs. `TakeCompView` reports a cancelled swipe with
-`compProposalPreviewCanceled`. Audition and comparison change what plays,
-not the comp, and are neither saved nor undone. **Consequences.** Swipes
+`compProposalPreviewCanceled`. Audition and comparison play one take over
+the requested range (the view's selection) and change what plays, not the
+comp; they are neither saved nor undone, and the view can end them
+(`auditionStopRequested`). Previews and auditions are device-only: the
+offline graph (`renderToFile`, exports) always plays the committed comp.
+**Consequences.** Swipes
 are audible and reversible, a rejected proposal leaves the committed
 samples, and history holds only accepted comps.
 
@@ -1480,10 +1584,80 @@ two or more passes (and no dropped frames or lost jumps) the session makes
 one take per pass in a comp, later passes winning. Punch is transport state
 only: the whole pass is recorded, and the session selects the new takes
 inside the punch range, in the comp already on the track, in a media clip
-turned into a comp by one source switch, or in a new comp. **Consequences.**
+turned into a comp by one source switch, or in a new comp. A recording
+that reaches before comp sample 0 or past the comp end grows the comp: the
+clip switches, in one timeline step, to a grown copy with shifted
+positions, so timeline undo restores the old comp and no comp undo can
+misalign the clip's offset. **Consequences.**
 Every pass plays exactly what was heard at its position, pre- and post-roll
 stay available, the event ring's acknowledgment guarantee is untouched, and
 a recording with lost jumps falls back to one linear clip.
+
+## D-178 — Rig timeline animation lives in the WP-073 AutomationModel
+
+**Context.** WP-077 kept bone keys in a private linear list with a manual
+integer frame, so KeyframeTimeline, DopeSheet and CurveEditor could not show
+or edit rig animation and no exact-tick playhead drove it. **Decision.**
+`MeshRigDocument.animationModel` takes an `AutomationModel`;
+`bindBoneAnimation(boneId)` adds three angle lanes
+`meshrig/bone:<boneId>/rotation.x|y|z` and copies the private keys into them.
+A bound bone's source pose is its lanes' values at `timeTicks`, the one
+playhead (`timeTicks = currentFrame × ticksPerFrame`). Pose and key edits on a
+bound bone key the lanes, one automation step per call; a gesture keys once at
+its end. Limits refuse lane values outside them. **Consequences.** Rig keys
+get exact ticks, every curve interpolation and the timeline editors for free;
+the private keys stay in the mesh file, so nothing is lost without the model.
+The host saves the `AutomationModel` beside the mesh, as with
+`MotionComposition`, and orders the two histories.
+
+## D-179 — Mesh painting happens where the pointer is shown
+
+**Context.** `TexturePaintView` drew the flat texture but sent its pointer
+position into a camera ray, so the painted texel was not the one under the
+pointer, and no surface painted from the camera view the user saw.
+**Decision.** Texture space and camera space each paint where they are
+shown. `TexturePaintView` maps its pointer to the UV of the texel drawn under
+it and requests `MeshRigDocument.paintUv`, which centres the usual surface
+sphere dab on the point with that UV. `SceneView3D.meshTool: "paint"` sends
+camera rays through the pixel under the pointer (`meshRay`), and `"select"`
+picks faces and posed bones; the view also draws the host's selected face and
+bone from `cameraOverlay`, the exact inverse of `meshRay`. The layer is
+CPU-only. **Consequences.** Both surfaces paint the texel under the pointer
+under any graphics backend and headless; selection synchronizes both ways
+between the 3D view and the UV and rig editors. `rayProvider` and
+`paintRayRequested` on `TexturePaintView` are gone.
+
+## D-186 — Spectral masks are sample/Hz polygons applied per analysis frame
+
+**Context.** AUD-21 asks for paint and lasso masks, and WP-063 is the only
+package that owns it; a rectangle band gain cannot follow a sweep or a
+harmonic. **Decision.** A mask is a list of polygons whose vertices are
+exact source samples and Hz, carried by the `spectralGain` edit as `mask`
+and saved with it. A lasso is one polygon; a brush stroke adds one octagon
+per dab (dabs at least a brush radius apart), so the mask is a union. A
+frame centred on sample *c* changes bin *k* when `k·rate/N` lies inside any
+polygon on the line `x = c` (even-odd per polygon, half-open edge rule);
+frames the mask misses are skipped and contribute nothing, and a rectangle
+mask gives exactly the band edit. At most 4096 points per edit.
+`SpectrogramView` converts gestures to sample/Hz points (decimal addition
+keeps samples exact past 2^53) and draws the committed mask from them, so
+it keeps its place through zoom. **Consequences.** Masks are reversible,
+persistent and numerically the same machinery as band gain; free-form
+repair tools remain out of scope.
+
+## D-187 — Committed edits hold parameters; spectral patches are a bounded cache
+
+**Context.** Every in-place edit kept a float copy of its range for the
+session, so repeated whole-file gains on long sources grew without limit.
+**Decision.** Gain, fades and silence keep no samples: `apply()` recomputes
+them from the base. Spectral patches are a cache of a deterministic result,
+bounded by `edits.patchBudgetBytes` (64 MiB by default); past it the oldest
+are dropped, the newest always stays, and a fold or redo recomputes a
+dropped one bit for bit. A fold edits one private working copy in place;
+only a length change allocates another. **Consequences.** Memory for edits
+is the current buffer plus at most the budget; an undo past dropped
+spectral patches re-runs their STFT on the GUI thread (bounded by each
+edit's range).
 
 ## D-198 — NumberField never writes its own value
 
@@ -1518,5 +1692,141 @@ exactly `Qt6_VERSION`, and drops a cached `Qt6<Module>_DIR` that points into
 another Qt. **Consequences.** A module missing from the Qt in use is reported
 unavailable instead of being borrowed from another Qt; Qt add-on modules
 installed in a separate prefix are not picked up; a bare
-`find_package(Qt6<Module>)` is a defect.
+`find_package(Qt6<Module>)` is a defect. The D-201 `QINDATK_ENABLE_*`
+switches decide whether the macro is called at all.
 
+## D-201 — Optional engines are explicit build switches with a resolved-feature summary
+
+**Context.** Qt Quick 3D, Qt Shader Tools, Qt Widgets and Qt PrintSupport
+were used whenever `find_package` happened to find them. A package could not
+omit them (Gentoo forbids such automagic dependencies), and the WP-088
+harness could not build the "engine omitted" variants. **Decision.** Every
+optional engine has a `QINDATK_ENABLE_*` switch, default ON:
+`POPPLER_QT6`, `ALSA`, `FFMPEG`, `QUICK3D`, `SHADER_TOOLS`, `WIDGETS` and
+`NATIVE_PRINT`. OFF means the package is not even searched for, and CMake
+code tests `QINDATK_WITH_*`, not bare `TARGET` checks. Configure writes
+`qindatk-features.json` with what the build resolved. **Consequences.**
+`tools/qualify` builds each omission and compares the installed consumer's
+capability report with that file ([qualification](qualification.md)).
+Packagers can map USE flags one to one.
+
+## D-202 — Installed QindaTK is relocatable: relative QML directory and $ORIGIN RUNPATHs
+
+**Context.** The WP-088 relocation check found three developer-path
+assumptions:
+- `qtk-preview` compiled in the build tree's absolute QML directory and
+  searched it first, even when installed;
+- setting its QindaQt RUNPATH replaced Qt's `$ORIGIN/../lib64`, so an
+  installed copy outside `/usr` could not find `libqindatk`;
+- the QML plugins in `<qml>/QindaTK` inherited Qt's bindir-relative RUNPATH,
+  so a QML-only application could not load the plugin from a moved prefix.
+
+Also, the default QML directory pointed into Qt's prefix even when
+installing elsewhere. **Decision.**
+- Installing into Qt's prefix keeps Qt's QML directory. Any other prefix
+  uses the relative `${CMAKE_INSTALL_LIBDIR}/qml`.
+- Each plugin gets `$ORIGIN/<relative path to libdir>`.
+- `qtk-preview` finds its import root relative to its own executable (the
+  build tree is recognized by its `CMakeFiles/` sibling) and appends to
+  `CMAKE_INSTALL_RPATH`.
+
+**Consequences.** A staged install can be moved, and consumers run from it
+with no source, build or old-stage path. `tools/qualify` checks this
+with `QML_IMPORT_TRACE`, `LD_DEBUG`, `ldd` and `strings`. Distro installs
+(`QINDATK_QML_INSTALL_DIR` set by the ebuild) are unchanged.
+
+## D-203 — An omitted device backend is reported, not hidden
+
+**Context.** Without ALSA, `AudioEngine` just listed fewer devices, so an
+application could not tell "no sound card" from "built without ALSA".
+FFmpeg and Poppler already answered with a capability error. **Decision.**
+`AudioEngine.backends` lists every backend the toolkit knows (`builtin`,
+`alsa`) with `available` and a reason: "QindaTK was built without the ALSA
+backend", or "The application did not enable the ALSA backend" after
+`setBackends`. **Consequences.** Device settings and the qualification
+consumer can show why a backend is missing. A new backend adds its entry
+here.
+
+## D-204 — The hub log compacts into a replica state, and connected edits are durable or taken back
+
+**Context.** The operation log had a lifetime cap of 4,096 packets and no
+compaction, so a normal editing session filled a document for good; after
+that an edit showed locally but lived only in memory. **Decision.** The
+authoritative service (the hub; a socket server marks its service) folds its
+log into a base: the state a replica derives from the operations (winners,
+supporters, removed sets, text sequences with element IDs and tombstones).
+The log keeps newer operations and the shared checkpoints; the base is
+written before the store names it. Replicas rebuild from base + log + their
+own queue; socket peers adopt each new base and keep their unacknowledged
+outbox. Every merge rule is idempotent, so a folded operation delivered again
+changes nothing, and clocks never reset. A connected edit that the store
+cannot hold is refused before it applies or taken back, and multi-operation
+edits are checked whole before the first part applies. **Consequences.**
+Documents have no lifetime operation limit; a headless hub needs
+`setCompactionBaseline`; a rebuild resets the document once; replica stores
+move to format 2 (version 1 still opens).
+
+## D-204 — Path node ids are editor state; miter joins follow SVG
+
+**Context.** CAN-19 needs stable node and segment ids so a node selection
+survives segment insertion, but the native path record stores nodes as an
+array, and persisting ids would change the v6 format and every node-level
+equality in history, clipboard and parametric regeneration. Separately, the
+canvas stroked miter joins with `Qt::MiterJoin`, which clips an over-long
+miter at limit x width from the corner, while SVG export writes
+`stroke-miterlimit`, which bevels past limit x width of miter length; and
+bounds padded strokes by half the width only, so a spike under a raised
+limit fell outside the spatial index. **Decision.** `CanvasPathEditModel`
+numbers nodes itself (`n<k>`; a segment is `s` + its start node): its own
+edits carry ids explicitly, geometry it has seen before (undo, redo) gets
+the same ids back from a bounded memory, and other edits keep ids by anchor
+matching (LCS, then equal-length runs by position). Ids are not saved; a
+reopened document numbers afresh. `CanvasPath::pen` uses `Qt::SvgMiterJoin`
+(verified against `QPainterPathStroker`), and `documentBounds` includes each
+join's miter tip up to the limit (`CanvasAppearanceRules::miterTips`), which
+also covers the RHI tessellator's clipped spikes. **Consequences.** The
+format is unchanged and selections survive every edit in a session. Joins
+sharper than the limit now bevel on the canvas as in exported SVG; objects
+with sharp mitred joins have larger (correct) paint bounds.
+
+## D-205 — A permanently refused edit is discarded from the replica
+
+**Context.** An edit queued offline before a permission loss stayed applied
+in the replica and store, and was resent and rejected on every reconnect: the
+replica never converged. **Decision.** The server marks a reject permanent
+(no permission, identity mismatch, invalid packet, reused ID) or transient
+(full or unwritable store). On a permanent reject the bridge removes that
+operation from its outbox and store and rebuilds every local replica without
+it, emitting `operationDiscarded`; transient refusals stay queued.
+**Consequences.** Replicas converge with the hub after a downgrade; the host
+tells the user which edit was dropped. An edit made without permission is
+not kept for a later upgrade.
+
+## D-205 — Panels name the fields they set; fill kinds recall per object
+
+**Context.** Style panels sent whole descriptors and the model applied the
+fields that differed from the published (first object's) values, so setting
+a mixed width to the first object's value did nothing. Choosing fill kind
+`none` and back applied a fixed grey or the first pattern swatch, and stroke
+units were a host concern. **Decision.** StrokeStyleEditor and
+FillStyleEditor add `changed` (the fields the user set) to each request, and
+`CanvasStyleModel` applies exactly those. The model keeps each selected
+object's last colour, pattern (with the colour behind it) and gradient while
+it is bound, and a kind change restores each object's own settings of that
+kind before falling back to the descriptor's. Units (`document`, `px`, `pt`,
+`mm`, `in`; one document unit is one CSS pixel, as SVG export writes it) are
+presentation: the width is converted on request and the last typed value is
+shown exactly while the document still holds what it produced. The
+selection comes from a `CanvasSelectionModel` shared with the
+ToolController. **Consequences.** Mixed selections keep exact intent and
+kind switches are reversible without undo; recall is session state, not
+document data, and ends when the model is destroyed.
+
+## D-206 — Text carets and selections travel as element anchors
+
+**Context.** Presence carried text positions, which point at the wrong place
+after a concurrent edit, and element IDs were private. **Decision.**
+`LocalPropertySyncClient::textAnchor` names the element before a position
+and `textPosition` resolves it on any replica; a deleted element resolves to
+the gap it left. **Consequences.** Shared selections follow edits without
+host rebasing; anchors survive compaction because element IDs do.

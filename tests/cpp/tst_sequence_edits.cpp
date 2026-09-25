@@ -21,8 +21,10 @@ private slots:
     void linkedSplitAndDeleteKeepGroups();
     void transitionsNeedACutAndHandles();
     void editsKeepTransitionsLegal();
+    void transitionsOnAShortClipDoNotOverlap();
     void transitionsPersistAndParseFromMaps();
     void switchSourceCutsLinkedClipsInSync();
+    void switchSourceGivesSeparateSoundItsOwnSync();
     void offlineClipsKeepExactOffsets();
     void undoRestoresEveryLinkedChange();
 };
@@ -256,6 +258,52 @@ void SequenceEditsTest::editsKeepTransitionsLegal()
     QCOMPARE(s.at(ClipB).transition.afterCut, 5 * F);
 }
 
+// A 10F clip between two cuts has room for 10F of transition windows in
+// total: its own lead-in (afterCut) and the lead-out into the next clip
+// (the next transition's beforeCut). Overlapping windows are refused when
+// set and when an edit would create them.
+void SequenceEditsTest::transitionsOnAShortClipDoNotOverlap()
+{
+    Session s;
+    const QString video = QStringLiteral("video");
+    QVERIFY(s.model.setContent({S, 1}, {track(V1, video)},
+                               {clip(ClipA, V1, video, 0, 50 * F, 10 * F, 100 * F, QStringLiteral("a")),
+                                clip(ClipB, V1, video, 50 * F, 10 * F, 20 * F, 100 * F, QStringLiteral("b")),
+                                clip(ClipC, V1, video, 60 * F, 50 * F, 20 * F, 100 * F, QStringLiteral("c"))},
+                               {}));
+    QVERIFY(!s.transition(ClipB, QStringLiteral("dissolve"), 8 * F, QStringLiteral("start")));
+    QCOMPARE(s.at(ClipB).transition.afterCut, 8 * F);
+    // 8F before the B|C cut would share B's frames 52..57 with the A|B window.
+    OperationError error = s.transition(ClipC, QStringLiteral("dissolve"), 8 * F, QStringLiteral("end"));
+    QCOMPARE(error.code, ErrorCode::Validation);
+    QCOMPARE(error.fieldPath, QStringLiteral("duration"));
+    QVERIFY(s.at(ClipC).transition.isNull());
+    // Centred, 4F of the window lands in B: still too much with 8F already used.
+    QCOMPARE(s.transition(ClipC, QStringLiteral("dissolve"), 8 * F, QStringLiteral("center")).code,
+             ErrorCode::Validation);
+    // Exactly the 2F that remain are legal.
+    error = s.transition(ClipC, QStringLiteral("dissolve"), 2 * F, QStringLiteral("end"));
+    QVERIFY2(!error, qPrintable(error.message));
+    QCOMPARE(s.at(ClipC).transition.beforeCut, 2 * F);
+    // Now lengthening the A|B window by editing it is refused from B's side too.
+    QCOMPARE(s.transition(ClipB, QStringLiteral("dissolve"), 9 * F, QStringLiteral("start")).code,
+             ErrorCode::Validation);
+    QCOMPARE(s.at(ClipB).transition.afterCut, 8 * F);
+    // Rolling the B|C cut 1F earlier leaves B 9F for 10F of windows: refused.
+    error = s.edit(TimelineEditKind::Roll, {ClipB, ClipC}, -F, false);
+    QCOMPARE(error.code, ErrorCode::Validation);
+    QCOMPARE(error.fieldPath, QStringLiteral("duration"));
+    QCOMPARE(s.at(ClipB).duration, 10 * F);
+    // So does a slide of C that shortens B.
+    QCOMPARE(s.edit(TimelineEditKind::Slide, {ClipC}, -F, false).code, ErrorCode::Validation);
+    QCOMPARE(s.at(ClipC).start, 60 * F);
+    // A later roll gives B more room, and both windows keep their lengths.
+    QVERIFY(!s.edit(TimelineEditKind::Roll, {ClipB, ClipC}, 3 * F, false));
+    QCOMPARE(s.at(ClipB).duration, 13 * F);
+    QVERIFY(!s.transition(ClipC, QStringLiteral("dissolve"), 5 * F, QStringLiteral("end")));
+    QCOMPARE(s.at(ClipB).transition.afterCut + s.at(ClipC).transition.beforeCut, s.at(ClipB).duration);
+}
+
 void SequenceEditsTest::transitionsPersistAndParseFromMaps()
 {
     Session s;
@@ -345,6 +393,60 @@ void SequenceEditsTest::switchSourceCutsLinkedClipsInSync()
     QCOMPARE(s.model.clipRecord(pictureId)->sourceOffset, 50 * F);
     QCOMPARE(s.model.clipRecord(soundId)->resourceId, QStringLiteral("cam2"));
     QCOMPARE(s.model.clipCount(), 4);
+}
+
+// An angle whose sound is a separate recording: the linked sound part takes
+// that file's own sync position and length, not the picture's.
+void SequenceEditsTest::switchSourceGivesSeparateSoundItsOwnSync()
+{
+    Session s;
+    const QString video = QStringLiteral("video"), audio = QStringLiteral("audio");
+    QVERIFY(s.model.setContent({S, 1}, {track(V1, video), track(A1, audio)},
+                               {clip(31, V1, video, 0, 100 * F, 10 * F, 200 * F, QStringLiteral("cam1"), 93),
+                                clip(32, A1, audio, 0, 100 * F, 10 * F, 200 * F, QStringLiteral("cam1"), 93)}, {}));
+    TimelineEditRequest request;
+    request.kind = TimelineEditKind::SwitchSource;
+    request.clipIds = {uid(31)};
+    request.linked = true;
+    request.frameExact = true;
+    request.resourceId = QStringLiteral("cam2");
+    request.sourceOffset = 40 * F;
+    request.sourceDuration = 200 * F;
+    request.linkedResourceId = QStringLiteral("recorder");
+    request.linkedSourceOffset = 57 * F + 11; // the recorder's own position; not frame-aligned
+    request.linkedSourceDuration = 150 * F;
+    TimelineEditInput input;
+    input.pointerTicks = 30 * F;
+    input.snap = false;
+    OperationError error = s.model.apply(request, input);
+    QVERIFY2(!error, qPrintable(error.message));
+    const QVector<QUuid> picture = s.model.clipsInRange(uid(V1), 30 * F, 30 * F + 1);
+    const QVector<QUuid> sound = s.model.clipsInRange(uid(A1), 30 * F, 30 * F + 1);
+    QCOMPARE(s.model.clipRecord(picture.first())->sourceOffset, 40 * F);
+    QCOMPARE(s.model.clipRecord(picture.first())->sourceDuration, 200 * F);
+    QCOMPARE(s.model.clipRecord(sound.first())->resourceId, QStringLiteral("recorder"));
+    QCOMPARE(s.model.clipRecord(sound.first())->sourceOffset, 57 * F + 11);
+    QCOMPARE(s.model.clipRecord(sound.first())->sourceDuration, 150 * F);
+    QVERIFY(s.model.undo());
+    // The recorder's own length bounds its 70F part (57F + 11 + 70F), even
+    // though the picture's 200F would cover it.
+    request.linkedSourceDuration = 127 * F;
+    error = s.model.apply(request, input);
+    QCOMPARE(error.code, ErrorCode::Validation);
+    QCOMPARE(error.fieldPath, QStringLiteral("sourceOffset"));
+    QCOMPARE(s.model.clipCount(), 2);
+    // The same request from QML maps.
+    const QVariantMap parsed = s.model.applyEdit(
+        {{QStringLiteral("kind"), QStringLiteral("switchSource")},
+         {QStringLiteral("clipIds"), QStringList{uid(31).toString(QUuid::WithoutBraces)}},
+         {QStringLiteral("linked"), true}, {QStringLiteral("frameExact"), true},
+         {QStringLiteral("resourceId"), QStringLiteral("cam2")}, {QStringLiteral("sourceOffset"), QString::number(40 * F)},
+         {QStringLiteral("linkedResourceId"), QStringLiteral("recorder")},
+         {QStringLiteral("linkedSourceOffset"), QString::number(60 * F)},
+         {QStringLiteral("linkedSourceDuration"), QString::number(150 * F)}},
+        {{QStringLiteral("pointerTicks"), QString::number(30 * F)}, {QStringLiteral("snap"), false}});
+    QVERIFY2(parsed.value(QStringLiteral("ok")).toBool(), qPrintable(parsed.value(QStringLiteral("error")).toString()));
+    QCOMPARE(s.model.clipRecord(s.model.clipsInRange(uid(A1), 30 * F, 30 * F + 1).first())->sourceOffset, 60 * F);
 }
 
 void SequenceEditsTest::offlineClipsKeepExactOffsets()

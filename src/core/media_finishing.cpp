@@ -38,12 +38,7 @@ bool MediaFinishing::changesPictures() const
 
 ColorContextSnapshot MediaFinishing::gradeContext()
 {
-    ColorContextSnapshot context;
-    context.document = ColorProfile::sRgb();
-    context.working = ColorProfile::linearSRgb();
-    context.display = ColorProfile::sRgb();
-    context.output = ColorProfile::sRgb();
-    return context;
+    return ColorGradeProcessor::programContext();
 }
 
 OperationError MediaFinishing::apply(QImage *frame, qint64 programMs) const

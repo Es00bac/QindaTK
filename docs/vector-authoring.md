@@ -26,27 +26,59 @@ custom strokes and any non-default appearance to keep output consistent.
 <a id="style-binding"></a>
 ### Binding panels to the selection
 
-Set `CanvasStyleModel.selectedIds` and bind the panels to it:
+Give `CanvasStyleModel.selectionModel` the `CanvasSelectionModel` the
+canvas's `ToolController` uses, so a click on the canvas selects what the
+panels edit (or set `selectedIds` directly when there is no canvas; with a
+selection model, writing `selectedIds` selects there). Bind the panels:
 `StrokeStyleEditor.style: styles.strokeStyle`,
 `FillStyleEditor.fill: styles.fillStyle` and
 `FillStyleEditor.patterns: styles.patterns`. `selectionStyle` (and
 `styleOf(ids)` for any list) reports the first selected object's values plus
 `count` and `mixed`, the keys whose values differ across the selection; the
 panel descriptors carry the `mixed` keys that concern them. All three follow
-every document change, undo and redo included. Route panel requests through
-`applyStrokeStyle(descriptor)` and `applyFillStyle(descriptor)`: only fields
-that differ from the published descriptor become style keys, so changing the
-alignment of a mixed selection leaves each object's own width alone. Choosing
-the `custom` dash mode before typing values is kept as presentation state
-until a dash is entered. A fill kind `pattern` applies the descriptor's
-swatch, `solid` its colour (a neutral grey when none was set) and `none`
-clears both; gradients go through `applyGradient`. The
+every document change, undo and redo included. The panel descriptors name
+mixed fields in their own terms (`width`, `color`, `cap`, ...; for fill
+`kind`, `color`, `pattern`, `gradient`), and the panels show them as
+"Mixed". Route panel requests through `applyStrokeStyle(descriptor)` and
+`applyFillStyle(descriptor)`. The panels add `changed`, the fields the user
+set, and exactly those become style keys (D-205): setting a mixed width to
+the value shown makes every width that value, and changing the alignment of
+a mixed selection leaves each object's own width alone. A descriptor without
+`changed` applies the fields that differ from the published one. Choosing the
+`custom` dash mode before typing values is kept as presentation state until a
+dash is entered.
+
+Fill kinds are recoverable (CAN-18). While bound, the model keeps each
+selected object's last solid colour (typed or plain), pattern (with the
+colour behind its ink) and gradient. A kind change restores each object's
+own settings of that kind: `none` and back to `solid` returns every object's
+colour, a custom pattern comes back exactly, and `gradient` returns the
+object's gradient. Without earlier settings, `solid` keeps a colour already
+under a pattern or takes the descriptor's (else a neutral grey), `pattern`
+applies the descriptor's swatch inked with the stroke, and `gradient` applies
+the `gradientEditor`'s definition (a `GradientEditorModel`, the nested
+editor, which the model also loads with the key object's gradient); with
+neither, the request is refused with a reason. `settings` publishes, per
+kind, what choosing it brings back (`settings.pattern.custom` marks a custom
+pattern). An explicit colour, swatch or gradient (`changed` names it) applies
+to every selected object. Recall is session state; undo is unaffected.
+
+<a id="stroke-units"></a>
+**Stroke units.** `strokeUnits` is `document`, `px`, `pt`, `mm` and `in`.
+One document unit is one CSS pixel (1/96 in): SVG export writes document
+units as user units under a `viewBox`, which viewers size as pixels.
+Choosing a unit (a request whose `changed` is `unit`) is presentation and
+edits nothing; `strokeStyle.width` is then in that unit and a requested
+width is converted to document units. The value last typed is shown exactly
+(no conversion rounding) while the document still holds the width it
+produced, so switching units and back retains exact intent; a mixed
+selection switches units without touching any width. The
 [style scene](../examples/vector-authoring/StyleWorkingScene.qml) wires the
 stroke, fill, opacity and blend controls, an `AppearanceStack` and the path
 operations this way; `tests/qml/tst_vector_appearance_example.qml` drives it.
 
 The stroke panel's `color`, `width`, `dash`, `cap` and `join` map to the matching
-canvas fields after the host converts its chosen unit to document units. The
+canvas fields (`width` through the unit conversion above). The
 solid fill panel's
 `settings.solid.color` maps to `fill`; kind `none` clears it. The reference
 canvas has editable cubic paths: each node stores a local-space anchor plus
@@ -95,6 +127,47 @@ drives it through the palette, the parameter fields, a node drag and undo.
 object transform and view pose, previews node/handle drags, then calls the
 document edit once on release. Escape cancels the preview.
 
+<a id="path-editing"></a>
+### Node editing (CAN-19)
+
+`PathEditor.model` is a `CanvasPathEditModel` over the same object. It
+publishes every node of every contour with a stable id (`n<k>`) and derived
+`type` (`corner`, `smooth` when both handles are collinear on opposite sides,
+`symmetric` when they are also equal), each segment with an id (`s` + its
+start node's id) and each contour's closed state. Ids survive the model's own
+edits, undo and redo of them (it remembers the ids of geometry it has seen)
+and edits made elsewhere (nodes keep their ids by anchor matching); they are
+editor state, not saved (D-204). The node selection is held by id, so it
+survives segment insertion, undo and moves; ids that disappear leave it.
+
+- `insertNode(segmentId, t)` splits the segment's cubic at `t` by de
+  Casteljau, so the outline does not change; it returns the new node's id.
+- `deleteNodes(ids)` removes nodes (the selection by default) in one edit.
+- `setNodeType(type, ids)`: `corner` retracts both handles; `smooth` aligns
+  them on the direction through the neighbouring anchors, keeping their
+  lengths (a retracted handle takes a third of its neighbour distance);
+  `symmetric` also equalizes the lengths.
+- `splitAt(id)` opens a closed contour at the node (it becomes the first
+  node and a copy the last) or cuts an open contour in two there; the copy
+  gets a new id.
+- `join(a, b)`: the two ends of one open contour close it; ends of two open
+  contours become one contour (reversed as needed). Coincident ends merge
+  into one node.
+- `moveNodePart(id, part, x, y)` moves an anchor (with its handles) or a
+  handle in local coordinates.
+
+Each is one undoable `CanvasEdit`, demotes a parametric shape to freeform and
+is validated like any object edit. A contour left with fewer than three
+closed or two open nodes, an interior node given to `join`, an end given to
+`splitAt`, `t` outside (0, 1), a hidden or locked path and unknown ids are
+refused with `lastError`, and nothing changes. In `PathEditor`, a click on an
+anchor selects it (Shift adds or removes), selected anchors are solid, Delete
+removes the selection, and `insertAfterSelection()`, `deleteSelection()`,
+`splitSelection()`, `joinSelection()` and `setSelectionType(type)` report
+refusals through `editRejected(message)`. The
+[path scene](../examples/vector-authoring/PathWorkingScene.qml) wires these
+to buttons; `tests/qml/tst_vector_path_editing_example.qml` drives it.
+
 `CanvasDocument.exportSvg(filePath)` atomically writes the supported SVG 1.1
 subset: page background, rect, ellipse, polyline, cubic path, object transform,
 flat RGBA fill/stroke, fill rule, cap, join, miter limit and dash pattern, plus
@@ -137,7 +210,11 @@ Commits, the native decoder and both models share its rules
   strokes twice the width and masks the unwanted half with the fill area, so
   dashes stay multiples of the visible width. `documentBounds` grows by the
   full width outside and not at all inside; picking reaches the full width.
-- **Miter limit** uses SVG `stroke-miterlimit` semantics (1–100, default 4).
+- **Miter limit** uses SVG `stroke-miterlimit` semantics (1–100, default 4):
+  a join whose miter length exceeds limit x width bevels, on the canvas
+  (`Qt::SvgMiterJoin`) as in exported SVG. `documentBounds` includes each
+  mitred join's tip (up to the limit), so a raised limit never leaves a spike
+  outside the spatial index or damage rectangles (D-204).
 - **Opacity and blend.** Opacity (0–1) and the separable blend modes
   `normal`, `multiply`, `screen`, `overlay`, `darken`, `lighten`,
   `color-dodge`, `color-burn`, `hard-light`, `soft-light`, `difference` and
@@ -157,7 +234,13 @@ Commits, the native decoder and both models share its rules
   pattern and stroke. Each has a stable token `id` (unique in the object), a
   `kind`, an `enabled` flag and canonical JSON parameters. `drop-shadow`
   takes `offsetX`/`offsetY` (±1000), `blur` (Gaussian standard deviation,
-  0–250) and `color`; `gaussian-blur` takes `radius` (standard deviation).
+  0–250) and `color`; `gaussian-blur` takes `radius` (standard deviation);
+  the nondestructive adjustment `color-adjust` takes `brightness` (−1–1,
+  default 0), `contrast` (0–4, default 1) and `saturation` (0–1, default 1)
+  and changes each pixel's straight sRGB values: saturation as SVG
+  `feColorMatrix type="saturate"`, then `c * contrast + (0.5 − 0.5 *
+  contrast + brightness)` as `feComponentTransfer` linear functions, each
+  clamped to 0–1, which is how SVG export writes it.
   Offsets and blurs are document units, like stroke widths. Any other kind is
   kept with its parameters, reported unsupported and neither drawn nor
   exported. The blur is the SVG three-box approximation; shadow offsets snap
@@ -176,9 +259,21 @@ decimal-string id) to `AppearanceStack`: `effects` is the stack in
 AppearanceStack's record shape, `editable` is false for hidden or locked
 objects, and `addEffect(kind, parameters)` (ids `<kind>-<n>`),
 `removeEffect`, `moveEffect(id, index)`, `setEffectEnabled` and
-`setEffectParameters` each commit one undoable edit. Wire
-`reorderRequested` to `moveEffect` and `enabledChangeRequested` to
-`setEffectEnabled`.
+`setEffectParameters` each commit one undoable edit; a partial parameter map
+keeps the values it leaves out. Wire `reorderRequested` to `moveEffect` and
+`enabledChangeRequested` to `setEffectEnabled`. With `selectionModel` the
+object is the selection's key (first) object. `paints` lists the object's
+fixed paint entries — `fill`, `pattern`, `stroke`, in the order they are
+painted, each with `present` and a `detail` — for `AppearanceStack.paints`,
+which shows them above the effects.
+
+Scope (CAN-24, WP-044 item 3): an object has one fill, one pattern and one
+stroke painted in that fixed order, and the stack inspects them; plan item 3
+asks for *reorderable appearance effects*, which the effect stack provides
+(shadows, blurs and the colour adjustment). Several fills or strokes per
+object, reorderable among themselves, would need a multi-paint object model
+and native format change that WP-044's numbered requirements do not ask for;
+they are not offered.
 
 <a id="path-booleans"></a>
 ## Path operations

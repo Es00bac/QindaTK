@@ -23,7 +23,7 @@ QVariantMap AudioMixerModel::applyTrackProperty(const QString &channelId, const 
 QVariantMap AudioMixerModel::addBus(const QString &name, const QString &layout)
 {
     const auto parsed = AudioMixer::layoutFromName(layout);
-    if (!parsed) return reject(tr("Unsupported layout “%1”: buses are Mono or Stereo").arg(layout));
+    if (!parsed) return reject(tr("Unsupported layout “%1”: buses are Mono, Stereo, Quad or 5.1").arg(layout));
     if (m_content.buses.size() >= AudioMixer::kMaxBuses) return reject(tr("A mix holds at most %1 buses").arg(AudioMixer::kMaxBuses));
     AudioMixerContent next = m_content;
     AudioMixerBus bus;
@@ -73,8 +73,10 @@ QVariantMap AudioMixerModel::renameChannel(const QString &channelId, const QStri
 QVariantMap AudioMixerModel::setLayout(const QString &channelId, const QString &layout)
 {
     const auto parsed = AudioMixer::layoutFromName(layout);
-    if (!parsed) return reject(tr("Unsupported layout “%1”: channels are Mono or Stereo").arg(layout));
+    if (!parsed) return reject(tr("Unsupported layout “%1”: channels are Mono, Stereo, Quad or 5.1").arg(layout));
     if (!m_channels.contains(channelId)) return reject(tr("%1 is not a channel of this mix").arg(channelId));
+    if (AudioMixer::isTrack(channelId) && AudioMixer::isSurround(*parsed))
+        return reject(tr("Tracks are Mono or Stereo; surround layouts (%1) are for buses").arg(layout));
     if (channelId == AudioMixer::masterId() && *parsed != AudioLayout::Stereo) return reject(tr("The master bus is stereo"));
     AudioMixerContent next = m_content;
     AudioMixerStrip settings = AudioMixer::strip(next, channelId);

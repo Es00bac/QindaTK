@@ -55,8 +55,12 @@ QVector<const CanvasObject *> paintOrder(const CanvasDocumentAdapter &doc, const
 
 namespace {
 
+// AGENT-GUARD: `base` is a copy. Callers pass painter->transform(), which
+// returns a reference to the painter's live matrix; a reference parameter
+// changed with the setTransform below, so every later image object inherited
+// the previous one's transform (tst_slide_canvas::canvasPixelsMatchTheAudienceOutput).
 void paintImage(QPainter *painter, const CanvasDocumentAdapter &doc, const CanvasObject &o,
-                const QRectF &rect, const QTransform &base)
+                const QRectF &rect, const QTransform base)
 {
     const CanvasTiledImagePtr image = doc.image(o.image);
     const auto inverse = CanvasTransform::invert(o.transform);

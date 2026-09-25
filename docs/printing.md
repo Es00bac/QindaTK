@@ -18,7 +18,8 @@ and [D-133](decisions-domains.md#d-133--bleed-is-page-setup-page-geometry-stays-
 | Tickets, papers, capabilities | `src/core/print_ticket.{h,cpp}` |
 | Sheet geometry, painting, devices, PDF files | `src/core/print_output.{h,cpp}`, `rich_text_pdf_export.cpp` |
 | Preflight checks | `src/core/print_preflight.{h,cpp}` |
-| Adapter, jobs, repairs | `src/core/print_adapter{.h,_p.h,.cpp,_jobs.cpp,_repair.cpp}` |
+| Adapter, jobs, repairs, preview cache | `src/core/print_adapter{.h,_p.h,.cpp,_jobs.cpp,_repair.cpp,_preview.cpp}` |
+| Preview thread | `src/core/print_preview_renderer{_p.h,.cpp}` |
 | Sheet preview item | `src/core/print_sheet_view.{h,cpp}` |
 | Native printers (optional) | `src/platform_widgets/native_print_backend.{h,cpp}` in `qindatk_widgets` |
 
@@ -33,7 +34,7 @@ reported by preflight and refused by `print()`.
 | Key | Values |
 | --- | --- |
 | `printerId` | a destination ID: `pdf`, `print-to-file`, `printer:<name>` |
-| `outputPath` | file destinations: a local path or `file:` URL |
+| `outputPath` | file destinations: a local path or `file:` URL in a folder that exists |
 | `pages` | ranges like `1-3, 5, 8-`; empty prints every page. `pageRange` `{startPage, endPage}` is the one-range form `PrintPreview` sends |
 | `paperId` | `document` (the page's own size), `a3`, `a4`, `a5`, `letter`, `legal`, `tabloid`, or a printer's `native:<key>` |
 | `orientation` | `auto` (follow the page), `portrait`, `landscape` |
@@ -61,8 +62,8 @@ refuses out-of-range pages (`invalidArgument`, field `pages`).
 | Destination | Backend | Notes |
 | --- | --- | --- |
 | `pdf` "Save as PDF" | `Print::PdfFileBackend` (base library) | `QPdfWriter` through `QSaveFile`: the file appears only when the job completes. Colour or grayscale PDF; one copy; no duplex |
-| `print-to-file` | `NativePrintBackend` | The system print engine (`QPrinter`, PDF format) writing `<path>.part`, renamed on success |
-| `printer:<name>` | `NativePrintBackend` | CUPS printers from `QPrinterInfo`: papers, duplex and colour modes, copies and the unprintable edge as the printer reports them. The job reaches CUPS when it completes |
+| `print-to-file` | `NativePrintBackend` | The system print engine (`QPrinter`, PDF format) writing a private temporary file, copied into the target through `QSaveFile` on success: an existing file is replaced in one step or left whole, and no sibling such as `<path>.part` is touched |
+| `printer:<name>` | `NativePrintBackend` | CUPS printers from `QPrinterInfo`: papers, duplex and colour modes, copies and the unprintable edge as the printer reports them. The job is rendered to a temporary PDF and submitted when it completes (see [native printers](#native-printers)) |
 
 The native backend lives in `qindatk_widgets` (built when Qt PrintSupport
 is found) so the base library stays QtQuick-only. An application registers
@@ -74,6 +75,28 @@ QindaTK::PrintAdapter::registerDefaultBackend(std::make_shared<QindaTK::NativePr
 
 An unknown or vanished destination stays selected and reports
 `available: false`; a job never goes somewhere else.
+
+### Native printers
+
+`NativePrintBackend` hands finished jobs to a `PrintSpooler`; the default
+`CupsSpooler` uses libcups (linked when CMake finds CUPS). Before a job
+renders, `refusal(name)` asks CUPS for the queue: a missing queue, one that
+is not accepting jobs, or a stopped one refuses the job with that reason.
+At `finish()` the rendered PDF goes to `cupsPrintFile2`, and only a job ID
+counts as `completed`; a refusal is `failed` with the spooler's message, the
+affected pages and the ticket kept. (Qt's own CUPS engine discards that
+result, which is why the backend submits the file itself.) Without libcups
+the backend lists no printers and offers `print-to-file` only.
+
+`NativePrintBackend::jobOptions(ticket)` is the job's option table:
+
+| Ticket | CUPS/IPP option |
+| --- | --- |
+| `copies` | `copies=<n>`; the PDF holds each sheet once |
+| `collate` (with copies > 1) | `collate=true` / `false` |
+| `duplex` | `sides=one-sided`, `two-sided-long-edge`, `two-sided-short-edge` |
+| `colorMode` | `print-color-mode=color` / `monochrome` (the PDF is grayscale too) |
+| `paperId` | `media=iso_a4_210x297mm` and the other PWG names; `native:<key>` passes the key; `document` sends none |
 
 ## One output description
 
@@ -100,13 +123,26 @@ about them); comments are not printed.
 ## Preview
 
 `Tk.PrintSheetView { adapter; pageIndex }` shows one page's sheet as the
-job will print it, grayscale included. It fetches images in `updatePolish`
-from the adapter's cache, never while painting, at a zoom snapped to 1/64
-steps. `previewImage(page, zoom)` (C++) renders on demand; the cache holds at
-most `previewCacheLimit` images (default 8) and 64 MiB, evicting the least
-recently used. `previewCacheCount`, `previewCacheBytes` and
-`previewRenderCount` report it. Any document or ticket change empties the
-cache and bumps `previewGeneration`.
+job will print it, grayscale included, at a zoom snapped to 1/64 steps.
+Previews render asynchronously (OFF-12): in `updatePolish` the view takes
+the image from the adapter's cache, or calls `requestPreview(page, zoom)`,
+which queues the sheet on the adapter's preview thread and returns at once.
+The view is `pending` (not `ready`) until `previewReady(page)` arrives, and
+meanwhile keeps showing that page's previous image, scaled. The preview
+thread lays out its own copy of the document, taken once per
+`previewGeneration`, and paints through the same `renderSheet` as
+everything else, so its pixels equal a render on the GUI thread. A result for
+an older generation is dropped. `previewImage(page, zoom)` (C++) is the
+blocking form for tests and tools.
+
+The cache holds at most `previewCacheLimit` images (default 8) and 64 MiB,
+evicting the least recently used. No image is larger than a quarter of that
+(`PreviewImageByteLimit`, 16 MiB): a larger request is rendered at the
+largest zoom that fits (`previewZoomFor`), so A3 at zoom 8 (about 456 MB)
+comes back near zoom 1.5 and the view scales it. `previewCacheCount`,
+`previewCacheBytes`, `previewRenderCount` and `previewPendingCount` report
+it. Any document or ticket change empties the cache, forgets pending
+requests and bumps `previewGeneration`.
 
 ## Jobs
 
@@ -123,14 +159,15 @@ destination and the page count, and returns a job ID, or "" with
 
 `cancel(jobId)` sets `cancelling`; the next turn aborts the device and the
 status becomes `cancelled`. Nothing is written or spooled: the PDF file is
-never created, and the print engine drops its spool file. A failed or
+never created, and the temporary file of a native job is deleted. A failed or
 cancelled job reports `affectedPages` (with `affectedStart`, `affectedEnd`)
 — the pages that did not reach paper or disk — and `failedPage`. The ticket
 is kept, so the same print can be retried; `jobFinished(jobId, status)`
 fires at the end. A device that delivers sheets as it goes reports them
 through `Device::deliveredSheets()`, and only the rest are affected. For CUPS
-the adapter reports `completed` when the job is handed to the spooler; it
-does not follow the job on the printer.
+the adapter reports `completed` when the spooler returns a job ID for it; a
+queue that refuses the job makes it `failed`. It does not follow the job on
+the printer after that.
 
 ## Preflight
 
@@ -143,7 +180,7 @@ blockers and errors. Profiles: `print` (office printer, 150 dpi) and `press`
 
 | Issue ID | Severity | Found when | Repair action |
 | --- | --- | --- | --- |
-| `output-<field>` | blocker (unavailable destination), else error | the destination refuses a ticket option, pages are out of range, no file is chosen | `use-supported`, `print-all-pages`, `choose-output-file` (argument: path) |
+| `output-<field>` | blocker (unavailable destination), else error | the destination refuses a ticket option, pages are out of range, no file is chosen or its folder does not exist | `use-supported`, `print-all-pages`, `choose-output-file` (argument: path) |
 | `output-clipped` | warning | a scaled page overruns the sheet | `fit-to-paper` |
 | `output-unprintable-edge` | warning | the text box reaches the printer's unprintable edge | — |
 | `output-bleed-missing` | warning | bleed is requested but the page has none | `disable-bleed` |
@@ -181,10 +218,16 @@ against hand-computed fixtures (document, Letter fit and actual, A4
 landscape, 200 %, bleed with marks), PDF page count and media boxes against
 the plan, preview pixels equal to a raster device's job output, snapshot
 isolation, the bounded cache, grayscale preview, cancellation, device
-failure with affected pages and retry, refused tickets and bleed
-persistence. `tst_print_preflight` drives each check and repair with known
-fixtures. `tst_native_print` (with PrintSupport) lists system destinations,
-prints a range through the system engine, cancels without a file and
-refuses a vanished printer. `tst_print_preflight.qml` binds the controls to
-an adapter. Runs on real printers, output-fidelity comparison and other
+failure (a read-only folder) with affected pages and retry, refused tickets
+and bleed persistence. `tst_print_preview` covers previews rendered on the
+preview thread (pixel-equal to a GUI-thread render, stale results dropped,
+safe teardown) and the byte limit at large zooms. `tst_print_preflight`
+drives each check and repair with known fixtures, including unbreakable page
+overflow and repairs that are rolled back (document and ticket).
+`tst_native_print` (with PrintSupport) lists system destinations, prints a
+range through the system engine, cancels without a file, refuses a vanished
+printer, checks the job options against the ticket, fails a job the queue
+refuses (a test spooler, and libcups against a queue that does not exist),
+and keeps an existing target whole when the folder or temporary folder is
+unusable. `tst_print_preflight.qml` binds the controls to an adapter. Runs on real printers, output-fidelity comparison and other
 platforms are qualification work (WP-088, WP-089).

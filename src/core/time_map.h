@@ -5,6 +5,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -47,6 +48,9 @@ public:
     Q_INVOKABLE bool setFrameRate(qint64 numerator, qint64 denominator);
     int ticksPerQuarter() const { return m_ppq; }
     void setTicksPerQuarter(int ppq);
+    // An owner whose data is in ticks (the session's MIDI, WP-064) can refuse
+    // a PPQ change it cannot follow: a non-empty reason rejects it.
+    void setTicksPerQuarterGuard(std::function<QString(int ppq)> guard) { m_ppqGuard = std::move(guard); }
     QString originSample() const;
     void setOriginSample(const QString &value);
     QVariantList tempoSegments() const;
@@ -92,6 +96,7 @@ private:
     int m_sampleRate = 48000;
     RationalFrameRate m_frameRate;
     int m_ppq = 960;
+    std::function<QString(int)> m_ppqGuard;
     qint64 m_originSample = 0;
     std::vector<Segment> m_segments{{}};
     QString m_lastError;

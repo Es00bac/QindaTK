@@ -114,6 +114,7 @@ src/qml/        QML controls; type name == file name; globbed by CMake
 src/bridge/     QindaTK.QindaQt: QST-1 token bridge for the QindaQt desktop
 tools/preview/  qtk-preview (+ qst_support: optional QindaQt desktop theme publishing)
 tools/scripts/  gen_icons.py (Lucide → icon_data.cpp), gen_catalog.py (docs/catalog.json)
+tools/qualify/  WP-088 Linux qualification harness (docs/qualification.md)
 packaging/      Gentoo ebuild for the qindaqt overlay (dev-libs/qindatk)
 tests/cpp/      QtTest (tst_*.cpp); tests/qml/ QtQuickTest (tst_*.qml, one runner)
 examples/       QML-only examples run by qtk-preview; each is a ctest smoke test

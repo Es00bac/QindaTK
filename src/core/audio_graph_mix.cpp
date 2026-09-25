@@ -74,8 +74,10 @@ void AudioRenderGraph::addClips(const Node &node, qint64 start, int frames, doub
 // One route of one channel: fader (unless pre-fader), send level, then the
 // panner for the lane pair (D-111). Mono to stereo follows the pan law; a
 // stereo source applies width (mid/side) and balance; stereo to mono averages.
-void AudioRenderGraph::mix(const Node &node, const Route &route, double *const in[2], int frames, const double *gain,
-                           const double *pan, const double *width, const double *level) const noexcept
+// A mono or stereo source into a Quad or 5.1 destination is placed by pan and
+// depth (mixSpatial); a surround source converts through its fixed matrix.
+void AudioRenderGraph::mix(const Node &node, const Route &route, double *const in[], int frames,
+                           const Controls &controls) const noexcept
 {
     std::size_t buffer = 0;
     int destLanes = 2;
@@ -88,6 +90,30 @@ void AudioRenderGraph::mix(const Node &node, const Route &route, double *const i
         buffer = port.buffer;
         destLanes = port.lanes;
     }
+    const double *gain = controls.gain;
+    const double *level = controls.level;
+    if (node.lanes > 2) {
+        double *out[AudioMixer::kMaxLanes] = {};
+        for (int d = 0; d < destLanes; ++d) out[d] = lane(buffer, d);
+        for (int i = 0; i < frames; ++i) {
+            const double f = (route.preFader ? 1.0 : gain[i]) * level[i];
+            for (int d = 0; d < destLanes; ++d) {
+                const double *row = route.matrix.data() + std::size_t(d) * AudioMixer::kMaxLanes;
+                double sum = 0.0;
+                for (int l = 0; l < node.lanes; ++l) sum += row[l] * in[l][i];
+                out[d][i] += sum * f;
+            }
+        }
+        return;
+    }
+    if (destLanes > 2) {
+        double *out[AudioMixer::kMaxLanes] = {};
+        for (int d = 0; d < destLanes; ++d) out[d] = lane(buffer, d);
+        mixSpatial(node, out, destLanes, in, frames, controls, route.preFader);
+        return;
+    }
+    const double *pan = controls.pan;
+    const double *width = controls.width;
     double *left = lane(buffer, 0);
     double *right = lane(buffer, destLanes > 1 ? 1 : 0);
     double c0 = 1.0;
@@ -128,6 +154,40 @@ void AudioRenderGraph::mix(const Node &node, const Route &route, double *const i
     }
 }
 
+// D-111 spatial panning: a mono source is one point at (pan, depth); each
+// side of a stereo source (after width) is a point, left at pan - 1 and
+// right at pan + 1 (clamped), so a centred stereo pair keeps its sides.
+void AudioRenderGraph::mixSpatial(const Node &node, double *const out[], int destLanes, double *const in[], int frames,
+                                  const Controls &controls, bool preFader) const noexcept
+{
+    const auto layout = AudioMixer::layoutForLanes(destLanes).value_or(AudioLayout::Quad);
+    double first[AudioMixer::kMaxLanes] = {};
+    double second[AudioMixer::kMaxLanes] = {};
+    const auto place = [&](double x, double y) noexcept {
+        if (node.lanes == 1) {
+            AudioMixer::spatialGains(layout, m_panLaw, x, y, first);
+            return;
+        }
+        AudioMixer::spatialGains(layout, m_panLaw, std::max(-1.0, x - 1.0), y, first);
+        AudioMixer::spatialGains(layout, m_panLaw, std::min(1.0, x + 1.0), y, second);
+    };
+    const bool fixed = constant(node.pan) && constant(node.depth);
+    if (fixed) place(controls.pan[0], controls.depth[0]);
+    for (int i = 0; i < frames; ++i) {
+        if (!fixed) place(controls.pan[i], controls.depth[i]);
+        const double f = (preFader ? 1.0 : controls.gain[i]) * controls.level[i];
+        double l = in[0][i];
+        double r = node.lanes > 1 ? in[1][i] : 0.0;
+        if (node.lanes > 1 && controls.width[i] != 1.0) {
+            const double m = (l + r) * 0.5;
+            const double s = (l - r) * 0.5 * controls.width[i];
+            l = m + s;
+            r = m - s;
+        }
+        for (int d = 0; d < destLanes; ++d) out[d][i] += (l * first[d] + r * second[d]) * f;
+    }
+}
+
 void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channels, double *scratch,
                                 AudioChannelMeterSink *meters, const MidiLaunchState *launch) const noexcept
 {
@@ -136,8 +196,11 @@ void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channe
     double *pan = scratch + kChunk;
     double *width = scratch + 2 * kChunk;
     double *level = scratch + 3 * kChunk;
+    double *depth = scratch + 4 * kChunk;
+    const Controls controls{gain, pan, width, depth, level};
     for (const Node &node : m_nodes) {
-        double *in[2] = {lane(node.buffer, 0), lane(node.buffer, node.lanes > 1 ? 1 : 0)};
+        double *in[AudioMixer::kMaxLanes] = {};
+        for (int l = 0; l < AudioMixer::kMaxLanes; ++l) in[l] = lane(node.buffer, std::min(l, node.lanes - 1));
         if (!node.clips.empty()) addClips(node, start, frames, in);
         if (node.midi) addMidi(node, start, frames, in, launch);
         if (!node.audible) continue; // muted: feeds nothing, and its meter reads silence
@@ -147,9 +210,10 @@ void AudioRenderGraph::mixChunk(qint64 start, int frames, float *out, int channe
         if (node.routes.empty()) continue;
         evaluate(node.pan, 0.0, start, frames, pan);
         evaluate(node.width, 1.0, start, frames, width);
+        evaluate(node.depth, 1.0, start, frames, depth);
         for (const Route &route : node.routes) {
             evaluate(route.level, 1.0, start, frames, level);
-            mix(node, route, in, frames, gain, pan, width, level);
+            mix(node, route, in, frames, controls);
         }
     }
     writePorts(frames, out, channels);
@@ -174,10 +238,9 @@ void AudioRenderGraph::writePorts(int frames, float *out, int channels) const no
             continue;
         }
         if (port.channel + port.lanes > channels) continue;
-        for (int i = 0; i < frames; ++i) {
-            float *frame = out + std::size_t(i) * stride + std::size_t(port.channel);
-            frame[0] += float(a[i]);
-            if (port.lanes > 1) frame[1] += float(b[i]);
+        for (int l = 0; l < port.lanes; ++l) {
+            const double *samples = lane(port.buffer, l);
+            for (int i = 0; i < frames; ++i) out[std::size_t(i) * stride + std::size_t(port.channel + l)] += float(samples[i]);
         }
     }
 }

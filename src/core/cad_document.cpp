@@ -27,10 +27,17 @@ void CadDocument::setError(const QString &message)
 
 void CadDocument::rememberEdit()
 {
+    ++m_revision;
+    // AGENT-GUARD (D-283): inside a transaction only the first edit records
+    // the pre-transaction state; recording each edit would split one tool
+    // gesture into several undo steps.
+    if (m_transactionDepth > 0) {
+        if (m_transactionRecorded) return;
+        m_transactionRecorded = true;
+    }
     m_undo.append(m_state);
     if (m_undo.size() > 128) m_undo.removeFirst();
     m_redo.clear();
-    ++m_revision;
 }
 
 int CadDocument::pointIndex(const State &state, const QString &id) const
@@ -322,6 +329,7 @@ bool CadDocument::setDimension(const QString &constraintId, double value)
 
 bool CadDocument::removeEntity(const QString &entityId)
 {
+    if (constraintIndex(m_state, entityId) >= 0) return removeConstraint(entityId);
     const int p = pointIndex(m_state, entityId);
     const int s = segmentIndex(m_state, entityId);
     const int c = circleIndex(m_state, entityId);
@@ -433,6 +441,7 @@ QVariantMap CadDocument::snap(double x, double y, double tolerance,
 
 bool CadDocument::undo()
 {
+    if (m_transactionDepth > 0) { setError(QStringLiteral("Finish the open CAD edit first")); return false; }
     if (m_undo.isEmpty()) return false;
     m_redo.append(m_state); m_state = m_undo.takeLast(); ++m_revision;
     setError({}); emit changed(); return true;
@@ -440,6 +449,7 @@ bool CadDocument::undo()
 
 bool CadDocument::redo()
 {
+    if (m_transactionDepth > 0) { setError(QStringLiteral("Finish the open CAD edit first")); return false; }
     if (m_redo.isEmpty()) return false;
     m_undo.append(m_state); m_state = m_redo.takeLast(); ++m_revision;
     setError({}); emit changed(); return true;

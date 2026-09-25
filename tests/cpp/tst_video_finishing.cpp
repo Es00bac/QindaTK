@@ -172,6 +172,36 @@ private slots:
         QCOMPARE(CaptionBurnIn::burn(&probe, cues, 200), QStringList{QStringLiteral("b")});
         QCOMPARE(CaptionBurnIn::burn(&probe, cues, 400), QStringList());
 
+        // Multilingual output is drawn, not boxed: burn() paints the layout
+        // glyphRuns() returns, every character has a real glyph, and Arabic
+        // is joined and runs right to left (audit: "pixels changed" alone
+        // would pass tofu or reversed text).
+        for (const CaptionCueRecord &record : cues)
+            QCOMPARE(CaptionBurnIn::missingCharacters(record.text), QString());
+        const QString unassigned = QString::fromUcs4(U"\U0010FFFD"); // plane-16 private use
+        QCOMPARE(CaptionBurnIn::missingCharacters(QStringLiteral("a") + unassigned), unassigned);
+        const QString arabic = QStringLiteral("مرحبا");
+        const QList<QGlyphRun> joined = CaptionBurnIn::glyphRuns(arabic, 24, false, 1000);
+        QCOMPARE(joined.size(), 1);
+        QVERIFY(joined.first().isRightToLeft());
+        const auto glyphAt = [](const QGlyphRun &run, qsizetype stringIndex) {
+            for (qsizetype i = 0; i < run.stringIndexes().size(); ++i)
+                if (run.stringIndexes().at(i) == stringIndex) return i;
+            return qsizetype(-1);
+        };
+        const qsizetype meem = glyphAt(joined.first(), 0);
+        const qsizetype alef = glyphAt(joined.first(), arabic.size() - 1);
+        QVERIFY(meem >= 0 && alef >= 0);
+        QVERIFY(joined.first().positions().at(meem).x() > joined.first().positions().at(alef).x()); // RTL order
+        const QList<QGlyphRun> isolated = CaptionBurnIn::glyphRuns(arabic.left(1), 24, false, 1000);
+        QVERIFY(joined.first().glyphIndexes().at(meem) != isolated.first().glyphIndexes().first()); // initial form
+        CaptionTrackModel boxed;
+        QVERIFY(boxed.addCue(QStringLiteral("0"), QStringLiteral("2000"), QStringLiteral("ok ") + unassigned));
+        bool glyphWarning = false;
+        for (const QVariant &warning : boxed.warnings())
+            glyphWarning = glyphWarning || warning.toMap().value(QStringLiteral("kind")).toString() == QLatin1String("glyphs");
+        QVERIFY(glyphWarning);
+
         MediaDecoderPool pool;
         for (const qint64 frame : {qint64(0), qint64(4), qint64(9)}) {
             const MediaRenderedFrame burned = program->render(frame, program->frameSize, pool, {});

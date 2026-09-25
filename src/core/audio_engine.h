@@ -38,6 +38,9 @@ class AudioEngine : public TransportAdapter {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
+    // [{id: "builtin" | "alsa", available, reason}]: which device backends
+    // this build and this engine offer, and why one is absent (WP-088, D-203).
+    Q_PROPERTY(QVariantList backends READ backends NOTIFY backendsChanged)
     Q_PROPERTY(QindaTK::AudioMeterModel *outputMeter READ outputMeter CONSTANT)
     Q_PROPERTY(QindaTK::AudioLoudnessModel *outputLoudness READ outputLoudness CONSTANT)
     Q_PROPERTY(QVariantMap activeConfiguration READ activeConfiguration NOTIFY stateChanged)
@@ -77,6 +80,7 @@ public:
     State stateValue() const { return m_state; }
 
     QVariantList devices() const { return m_devices; }
+    QVariantList backends() const;
     AudioMeterModel *outputMeter() const { return m_outputMeter; }
     AudioLoudnessModel *outputLoudness() const { return m_outputLoudness; }
     QVariantMap activeConfiguration() const;
@@ -101,14 +105,21 @@ public:
     // "master"), created on first request and owned by the engine. It has no
     // channels while the channel is not in the playing graph or no stream runs.
     Q_INVOKABLE QindaTK::AudioMeterModel *channelMeter(const QString &channelId);
+    // Deletes (deleteLater) the meters of channels not in `channels`, so a
+    // session that removes channels or reopens with new IDs keeps a bounded set.
+    void retainChannelMeters(const QSet<QString> &channels);
 
     // ---- MIDI (WP-064, docs/audio-midi.md; audio_engine_midi.cpp) ----
     // Audition notes of the built-in test instrument on the first two
     // outputs, while a device runs. A transport stop, a device stop or loss
     // and allNotesOff() release every note (no note is ever left sounding).
     Q_INVOKABLE bool auditionNoteOn(int pitch, double velocity = 0.8);
+    bool auditionNoteOn16(int pitch, quint16 velocity); // MIDI input: the exact 16-bit velocity
     Q_INVOKABLE bool auditionNoteOff(int pitch);
     Q_INVOKABLE bool allNotesOff();
+    // Ends every launched clip, audition note and MIDI recording now (a
+    // session leaving the engine). Not a counted launcher request.
+    bool releaseMidi();
     int auditionVoices() const;
     int launchedClips() const;
     // Launcher commands (MidiLauncherModel): lane = Midi::key(track id), slot
@@ -116,9 +127,14 @@ public:
     // serial the answer carries (midiLaunchEvent), or 0 with `error` set.
     quint64 postLaunch(quint64 lane, quint64 slot, MidiQuantize quantize, QString *error);
     quint64 postLaunchStop(quint64 lane, MidiQuantize quantize, QString *error);
+    // MIDI recording (D-153): audition notes applied from the quantized start
+    // are recorded; the stop's quantization rounds the take length up.
+    quint64 postRecord(quint64 lane, quint64 slot, MidiQuantize quantize, QString *error);
+    quint64 postRecordStop(MidiQuantize quantize, QString *error);
 
 signals:
     void devicesChanged();
+    void backendsChanged();
     void stateChanged();
     void formatChanged();
     void statisticsChanged();
@@ -131,6 +147,10 @@ signals:
     void midiStateChanged();
     // kind: MidiEngineEvent::Kind, code: MidiEngineEvent::Code.
     void midiLaunchEvent(int kind, quint64 serial, quint64 lane, quint64 slot, qint64 sample, int code);
+    // RecordQueued / NoteRecorded / RecordStopped (MidiEngineEvent): `tick`
+    // is take-relative (RecordStopped: the take length), velocity 16-bit.
+    void midiRecordEvent(int kind, quint64 serial, quint64 slot, qint64 sample, qint64 tick, int pitch, int velocity,
+                         int code);
     // The stream ended (stop, loss, reconfiguration): nothing plays any more
     // and every launcher request still waiting has no answer coming.
     void midiReset(const QString &reason);

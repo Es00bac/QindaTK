@@ -4,8 +4,10 @@
 // (docs/caption-rendering.md). Timing, validation and undo live in
 // caption_track_model.cpp; every edit here is one undo step.
 #include "caption_track_model.h"
+#include "caption_frame_renderer.h"
 #include "media_captions.h"
 
+#include <QGuiApplication>
 #include <QRegularExpression>
 #include <QSet>
 #include <algorithm>
@@ -55,9 +57,9 @@ int visibleCharacters(const QString &text)
 }
 } // namespace
 
-void CaptionTrackModel::pushUndo()
+void CaptionTrackModel::pushUndo(bool withLanguage)
 {
-    m_undo.append(m_cues);
+    m_undo.append({m_cues, m_language, withLanguage});
     if (m_undo.size() > 100) m_undo.removeFirst();
 }
 
@@ -229,6 +231,13 @@ QVariantList CaptionTrackModel::warnings() const
                 break;
             }
         }
+        // AGENT-NOTE: fonts exist only under a QGuiApplication; a guiless
+        // host (tests, command-line tools) gets no glyph warnings.
+        if (!qobject_cast<QGuiApplication *>(QCoreApplication::instance())) continue;
+        const QString missing = CaptionBurnIn::missingCharacters(cue.text, cue.styleId == QLatin1String("emphasis"));
+        if (!missing.isEmpty())
+            add(cue.id, QStringLiteral("glyphs"),
+                QStringLiteral("No installed font draws %1; burned-in output would show empty boxes.").arg(missing));
     }
     return result;
 }

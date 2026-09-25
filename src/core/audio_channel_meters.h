@@ -13,11 +13,12 @@ namespace QindaTK {
 // AudioRenderGraph generation (D-113). Plain data, copied by the SPSC ring.
 struct AudioChannelMeterFrame {
     static constexpr int kMaxSlots = 128;
+    static constexpr int kMaxLanes = 6; // AudioMixer::kMaxLanes (5.1)
     quint64 generation = 0; // the graph whose meterChannels() name the slots
     int frames = 0;
     int slotCount = 0; // never `slots`: a Qt keyword macro
-    float peak[kMaxSlots][2] = {};     // post-fader sample peak per lane
-    double squares[kMaxSlots][2] = {}; // post-fader sum of squares per lane
+    float peak[kMaxSlots][kMaxLanes] = {};     // post-fader sample peak per lane
+    double squares[kMaxSlots][kMaxLanes] = {}; // post-fader sum of squares per lane
 };
 
 // AGENT-CONTRACT (WP-062, D-113): the per-channel measurement point of one

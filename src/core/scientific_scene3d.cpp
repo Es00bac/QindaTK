@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "scientific_scene3d.h"
+#include "scientific_sampling.h"
 
 #include <QVector4D>
 #include <algorithm>
@@ -16,7 +17,7 @@ ScientificScene3D::ScientificScene3D(QObject *parent) : QObject(parent)
 {
     connect(this, &ScientificScene3D::styleChanged, this, [this] { invalidate(); });
     for (auto signal : {&ScientificScene3D::changed, &ScientificScene3D::cameraChanged,
-                        &ScientificScene3D::meshChanged})
+                        &ScientificScene3D::meshChanged, &ScientificScene3D::selectionChanged})
         connect(this, signal, this, &ScientificScene3D::summaryChanged);
 }
 
@@ -56,6 +57,8 @@ void ScientificScene3D::setResolutionX(int value)
 { value = std::clamp(value, 2, ResolutionLimit); if (m_resolutionX == value) return; m_resolutionX = value; invalidate(); emit changed(); }
 void ScientificScene3D::setResolutionY(int value)
 { value = std::clamp(value, 2, ResolutionLimit); if (m_resolutionY == value) return; m_resolutionY = value; invalidate(); emit changed(); }
+void ScientificScene3D::setPointLimit(int value)
+{ value = std::clamp(value, 16, PointLimitMaximum); if (m_pointLimit == value) return; m_pointLimit = value; invalidate(); emit changed(); }
 void ScientificScene3D::setDomain(int index, double value)
 {
     if (!std::isfinite(value) || m_domain[index] == value) return;
@@ -204,7 +207,7 @@ void ScientificScene3D::ensureMesh() const
     if (!m_dirty) return;
     m_dirty = false;
     m_mesh = {}; m_latticeX.clear(); m_latticeY.clear(); m_latticeZ.clear(); m_holes = 0;
-    m_pointPositions.clear(); m_pointIds.clear();
+    m_pointPositions.clear(); m_pointIds.clear(); m_sourcePoints = 0;
     if (!problem().isEmpty()) return;
     if (m_grid && m_grid->count()) {
         const int rx = m_resolutionX, ry = m_resolutionY;
@@ -242,12 +245,31 @@ void ScientificScene3D::ensureMesh() const
             }
         for (QVector3D &n : m_mesh.normals) n = n.isNull() ? QVector3D(0, 1, 0) : n.normalized();
     }
-    if (m_points)
-        for (const ScientificSample &s : m_points->samples()) {
-            if (s.missingY) continue;
-            m_pointPositions.append(toScene(s.x, s.y, s.z));
-            m_pointIds.append(s.id);
+    if (!m_points) return;
+    const QVector<ScientificSample> &samples = m_points->samples();
+    QVector<int> drawn;
+    drawn.reserve(samples.size());
+    for (int i = 0; i < samples.size(); ++i) if (!samples[i].missingY) drawn.append(i);
+    m_sourcePoints = int(drawn.size());
+    if (drawn.size() > m_pointLimit) {
+        // Stride with X/Y extremes, then the Z extremes and the selection.
+        int zLow = drawn.first(), zHigh = drawn.first();
+        for (int i : drawn) {
+            if (samples[i].z < samples[zLow].z) zLow = i;
+            if (samples[i].z > samples[zHigh].z) zHigh = i;
         }
+        const int selected = m_points->indexOf(m_selectedPoint);
+        drawn = ScientificSampling::scatterStride(samples, drawn, m_pointLimit - 3);
+        drawn << zLow << zHigh;
+        if (selected >= 0 && !samples[selected].missingY) drawn << selected;
+        std::sort(drawn.begin(), drawn.end());
+        drawn.erase(std::unique(drawn.begin(), drawn.end()), drawn.end());
+    }
+    m_pointPositions.reserve(drawn.size()); m_pointIds.reserve(drawn.size());
+    for (int i : drawn) {
+        m_pointPositions.append(toScene(samples[i].x, samples[i].y, samples[i].z));
+        m_pointIds.append(samples[i].id);
+    }
 }
 
 QVector<QVector3D> ScientificScene3D::frameSegments() const
@@ -283,9 +305,16 @@ QString ScientificScene3D::hitPoint(double px, double py, double width, double h
 }
 bool ScientificScene3D::selectPoint(const QString &id)
 {
-    if (!m_points || m_points->indexOf(id) < 0 || !pointIds().contains(id)) return false;
+    const int index = m_points && problem().isEmpty() ? m_points->indexOf(id) : -1;
+    if (index < 0 || m_points->samples()[index].missingY) return false;
     if (m_selectedPoint == id) return true;
-    m_selectedPoint = id; emit selectionChanged(); emit pointSelected(id); ++m_revision; emit meshChanged();
+    // AGENT-GUARD: a selection among drawn points is not a mesh change; only
+    // ScientificGeometry3D's point colours and the painter follow it. A point
+    // thinned away (picked from the table) is added by one re-thinning.
+    const bool drawn = pointIds().contains(id);
+    m_selectedPoint = id;
+    if (!drawn) invalidate();
+    emit selectionChanged(); emit pointSelected(id);
     return true;
 }
 QVariantMap ScientificScene3D::latticeNode(int row, int column) const

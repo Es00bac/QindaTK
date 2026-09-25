@@ -294,66 +294,62 @@ Item {
                             Repeater {
                                 model: control.presentedSections
                                 delegate: Tk.Flex {
+                                    id: sectionGroup
                                     required property var modelData
                                     objectName: "notebookSection_" + modelData.id
                                     direction: Tk.Flex.Column
-                                    gap: Tk.Theme.space.xs
-                                    Tk.Button {
-                                        objectName: "notebookSectionHeader_" + modelData.id
-                                        text: qsTr("%1 · %2").arg(modelData.title).arg(control.pagesInSection(modelData.id).length)
-                                        iconName: modelData.collapsed === true ? "chevron-right" : "chevron-down"
-                                        variant: "ghost"
-                                        tooltip: qsTr("Expand or collapse section %1").arg(modelData.title)
-                                        onClicked: control.setCollapsed(modelData.id, modelData.collapsed !== true)
-                                        Tk.Flex.shrink: 0
+                                    align: Tk.Flex.Stretch
+                                    gap: Tk.Theme.size.border
+                                    // A left-aligned tree: sections at depth 0, their pages at depth 1.
+                                    Tk.TreeRow {
+                                        objectName: "notebookSectionHeader_" + sectionGroup.modelData.id
+                                        depth: 0
+                                        expandable: true
+                                        expanded: sectionGroup.modelData.collapsed !== true
+                                        text: sectionGroup.modelData.title
+                                        secondaryText: ""
+                                        tooltip: qsTr("Expand or collapse section %1").arg(sectionGroup.modelData.title)
+                                        trailing: Tk.Caption {
+                                            text: String(control.pagesInSection(sectionGroup.modelData.id).length)
+                                            color: Tk.Theme.color.textMuted
+                                        }
+                                        onClicked: toggle()
+                                        onExpansionToggled: function(expanded) { control.setCollapsed(sectionGroup.modelData.id, !expanded) }
                                     }
                                     Repeater {
-                                        model: modelData.collapsed ? [] : control.pagesInSection(modelData.id)
-                                        delegate: Tk.Box {
+                                        model: sectionGroup.modelData.collapsed ? [] : control.pagesInSection(sectionGroup.modelData.id)
+                                        delegate: Tk.TreeRow {
+                                            id: pageRow
                                             required property var modelData
                                             objectName: "notebookPageRow_" + modelData.id
-                                            color: control.currentPageId === modelData.id ? Tk.Theme.color.panelAlt : Tk.Theme.color.panel
-                                            borderColor: control.currentPageId === modelData.id ? Tk.Theme.color.accent : Tk.Theme.alpha(Tk.Theme.color.border, Tk.Theme.opacity.hidden)
-                                            radius: Tk.Theme.radius.sm
-                                            padding: Tk.Theme.space.xs
-                                            implicitHeight: Tk.Theme.size.control * 2 + Tk.Theme.space.xs
-                                            Accessible.role: Accessible.ListItem
-                                            Accessible.name: qsTr("%1, section %2").arg(modelData.title).arg(modelData.sectionId)
+                                            depth: 1
+                                            text: modelData.title
+                                            iconName: modelData.status === "attention" ? "alert-circle" : "file-text"
+                                            selected: control.currentPageId === modelData.id
+                                            active: control.currentPageId === modelData.id
+                                            tooltip: qsTr("Open page %1").arg(modelData.title)
                                             Accessible.selected: control.currentPageId === modelData.id
-                                            Tk.Flex {
-                                                anchors.fill: parent
-                                                direction: Tk.Flex.Row
-                                                align: Tk.Flex.Center
-                                                gap: Tk.Theme.space.xs
-                                                Tk.Button {
-                                                    objectName: "notebookPageSelect_" + modelData.id
-                                                    text: modelData.title
-                                                    iconName: modelData.status === "attention" ? "alert-circle" : "file-text"
-                                                    variant: control.currentPageId === modelData.id ? "accent" : "ghost"
-                                                    tooltip: qsTr("Open page %1").arg(modelData.title)
-                                                    onClicked: control.navigateTo(modelData.id)
-                                                    Tk.Flex.grow: 1
-                                                    Tk.Flex.basis: 0
-                                                }
-                                                Tk.IconButton {
-                                                    objectName: "notebookPageAddAfter_" + modelData.id
-                                                    iconName: "plus"
-                                                    tooltip: qsTr("Insert a page after %1").arg(modelData.title)
-                                                    enabled: control.capabilities.canEditStructure
-                                                    onClicked: control.insertPage(modelData.sectionId, modelData.id)
-                                                }
+                                            trailing: Tk.IconButton {
+                                                objectName: "notebookPageAddAfter_" + pageRow.modelData.id
+                                                small: true
+                                                iconName: "plus"
+                                                tooltip: qsTr("Insert a page after %1").arg(pageRow.modelData.title)
+                                                enabled: control.capabilities.canEditStructure
+                                                onClicked: control.insertPage(pageRow.modelData.sectionId, pageRow.modelData.id)
                                             }
-                                            TapHandler { onTapped: control.navigateTo(modelData.id) }
+                                            onClicked: control.navigateTo(modelData.id)
                                         }
                                     }
-                                    Tk.Button {
-                                        objectName: "notebookPageAdd_" + modelData.id
-                                        visible: modelData.collapsed === true || control.pagesInSection(modelData.id).length === 0
+                                    Tk.TreeRow {
+                                        objectName: "notebookPageAdd_" + sectionGroup.modelData.id
+                                        depth: 1
+                                        visible: sectionGroup.modelData.collapsed === true
+                                                 || control.pagesInSection(sectionGroup.modelData.id).length === 0
                                         text: qsTr("Add page")
                                         iconName: "plus"
-                                        tooltip: qsTr("Insert a page in %1").arg(modelData.title)
+                                        tooltip: qsTr("Insert a page in %1").arg(sectionGroup.modelData.title)
                                         enabled: control.capabilities.canEditStructure
-                                        onClicked: control.insertPage(modelData.id, "")
+                                        onClicked: control.insertPage(sectionGroup.modelData.id, "")
                                     }
                                 }
                             }

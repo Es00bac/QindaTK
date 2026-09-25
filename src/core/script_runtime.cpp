@@ -118,8 +118,16 @@ ScriptRuntime::Evaluation ScriptRuntime::evaluate(
         state->engine = &engine;
         if (state->cancelled.load()) engine.setInterrupted(true);
     }
-    engine.globalObject().setProperty(QStringLiteral("__document"), engine.toScriptValue(snapshot));
-    engine.globalObject().setProperty(QStringLiteral("__commands"), engine.toScriptValue(commandInfo));
+    // AGENT-NOTE: values enter as JSON text parsed by the engine. toScriptValue
+    // turns a QVariantList nested in a map into a sequence wrapper that is not
+    // Array.isArray, so freezeDeep copied it into a plain object and scripts
+    // lost map/filter/length on nested lists (tst_notebook_services,
+    // codeBlocksEvaluateThroughTheScriptRuntime). Both inputs are JSON already.
+    const QJSValue parse = engine.globalObject().property(QStringLiteral("JSON")).property(QStringLiteral("parse"));
+    engine.globalObject().setProperty(QStringLiteral("__document"), parse.call({QString::fromUtf8(
+        QJsonDocument(QJsonObject::fromVariantMap(snapshot)).toJson(QJsonDocument::Compact))}));
+    engine.globalObject().setProperty(QStringLiteral("__commands"), parse.call({QString::fromUtf8(
+        QJsonDocument(QJsonArray::fromVariantList(commandInfo)).toJson(QJsonDocument::Compact))}));
     // All JS-visible application values above are copies, never newQObject().
     // QJSEngine is a local automation facility, not a hostile-code sandbox.
     const QString prefix = QStringLiteral(R"JS((function() {

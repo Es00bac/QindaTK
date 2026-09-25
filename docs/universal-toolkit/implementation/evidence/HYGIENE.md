@@ -67,3 +67,24 @@ Observed and left alone (not this branch): the gallery opens scrolled to
 the mail composer, because RichTextEditor's inner area sets `focus: true`
 and the gallery Scroll follows focus. About 20 controls set `focus: true`
 the same way, so the fix belongs to one focus-policy change, not here.
+
+## Second merge with `round/cf1` (2026-09-25, WP-088/WP-044 round)
+
+- CMake: the D-201 `QINDATK_ENABLE_QUICK3D/_SHADER_TOOLS/_WIDGETS/_NATIVE_PRINT`
+  switches gate each lookup, and the lookup inside them is the D-199
+  `qindatk_find_qt_module()` (also for the tests' Quick3D re-find, now under
+  `QINDATK_WITH_QUICK3D`). CUPS is still searched only with PrintSupport.
+- StrokeStyleEditor keeps WP-044's `mixed`/`changed` work; its width and miter
+  fields bind `value` and `mixed` instead of being re-assigned in `syncFields()`.
+- CadInspector's (WP-083) rebind-after-commit workaround and PanningControl's
+  field `Binding` elements became plain bindings (D-198).
+
+| Run | Result |
+|---|---|
+| `tst_qml -input tests/qml` (offscreen, software) | 999 passed, 0 failed |
+| `tst_controls_input` / `_office` / `_structure` / `_telemetry` | 57 / 12 / 22 / 11 passed |
+| `tst_combo_editing`, `tst_combo_popup_motion`, `tst_numberfield_touch_step` | 3, 5, 3 passed |
+| `tst_cad_viewport`, `tst_mixer_routing`, `tst_vector_appearance_example` | 6, 7, 8 passed |
+| Configure, system Qt 6.11.1 | Quick3D and ShaderTools found; `qindatk-features.json` all true |
+| Configure, Qt 6.8.3 SDK (`-DCMAKE_PREFIX_PATH` only) | exit 0; Quick3D and ShaderTools reported unavailable; 0 `/usr/lib64/cmake/Qt6*` cache entries |
+| Configure, system Qt, `QUICK3D`/`SHADER_TOOLS`/`WIDGETS` OFF | exit 0; no `Qt6Quick3D/ShaderTools/Widgets/PrintSupport_DIR` cached |

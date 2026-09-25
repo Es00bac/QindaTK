@@ -16,16 +16,23 @@ layout(location = 0) out vec4 fragColor;
 // params[5] = box high.xyz, mode (0 composite, 1 maximum intensity)
 // params[6] = 1 / size.xyz, value scale of the normalized texture
 // params[7] = domain min, 1 / domain span, termination opacity, maximum steps
+// params[8], [9], [10] = below-domain, above-domain and missing RGBA (D-263)
 layout(std140, binding = 0) uniform buf {
     mat4 mvp;
-    vec4 params[8];
+    vec4 params[11];
 };
 layout(binding = 1) uniform sampler3D volumeTexture;
 layout(binding = 2) uniform sampler2D transferTexture;
 
 vec4 transfer(float value)
 {
-    float t = clamp((value - params[7].x) * params[7].y, 0.0, 1.0);
+    if (isnan(value))
+        return params[10];
+    float t = (value - params[7].x) * params[7].y;
+    if (t < 0.0)
+        return params[8];
+    if (t > 1.0)
+        return params[9];
     // Entry k is centred at texel k: linear filtering between entries.
     return texture(transferTexture, vec2((t * 255.0 + 0.5) / 256.0, 0.5));
 }
@@ -72,10 +79,8 @@ void main()
         if (t >= tFar)
             break;
         float value = sampleAt(origin + t * direction);
-        if (isnan(value))
-            continue;
         if (maximum) {
-            if (!found || value > best) {
+            if (!isnan(value) && (!found || value > best)) {
                 best = value;
                 found = true;
             }

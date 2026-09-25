@@ -27,6 +27,9 @@ class SlideFrameView : public QQuickPaintedItem {
     Q_PROPERTY(QString ticks READ ticks WRITE setTicks NOTIFY sourceChanged)
     Q_PROPERTY(QString displayedSlideId READ displayedSlideId NOTIFY painted)
     Q_PROPERTY(int paintCount READ paintCount NOTIFY painted)
+    // With `show`: Right/Down/Space/Page Down step forward, Left/Up/Page Up/
+    // Backspace back, B or period blanks (the audience window sets it).
+    Q_PROPERTY(bool keyNavigation READ keyNavigation WRITE setKeyNavigation NOTIFY sourceChanged)
 public:
     explicit SlideFrameView(QQuickItem *parent = nullptr);
     SlideShow *show() const { return m_show; }
@@ -40,15 +43,25 @@ public:
     QString ticks() const { return m_ticks; }
     void setTicks(const QString &ticks);
     QString displayedSlideId() const { return m_displayed; }
+    bool keyNavigation() const { return m_keyNavigation; }
+    void setKeyNavigation(bool enabled);
+    // Item point <-> slide pixels through the letterboxed slide rectangle
+    // paintFrame uses (annotation input maps pointer positions with these).
+    Q_INVOKABLE QPointF mapToSlide(const QPointF &point) const;
+    Q_INVOKABLE QPointF mapFromSlide(const QPointF &point) const;
     int paintCount() const { return m_paintCount; }
     void paint(QPainter *painter) override;
     // The exact image paint() would produce at `size` (tests and captures).
     Q_INVOKABLE QImage grabFrame(int width, int height) const;
+protected:
+    void keyPressEvent(QKeyEvent *event) override;
+
 signals:
     void sourceChanged();
     void painted();
 private:
     void reconnect();
+    QRectF slideRect() const;
     QPointer<SlideShow> m_show;
     QPointer<SlideDeck> m_deck;
     QString m_slideId;
@@ -56,6 +69,7 @@ private:
     QString m_ticks = QStringLiteral("0");
     QString m_displayed;
     int m_paintCount = 0;
+    bool m_keyNavigation = false;
     QList<QMetaObject::Connection> m_connections;
 };
 

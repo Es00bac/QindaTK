@@ -43,7 +43,9 @@ distances from the estimate, nonnegative and finite, with finite endpoints:
 `sigmaX` or `sigmaXLow` + `sigmaXHigh`. Mixing both forms, or giving only one
 side, rejects the batch. Error bars are labelled "host supplied ±1σ"; they
 are not confidence intervals. Trace samples also project to an
-`UncertaintyModel` (`intervals`) for `UncertaintyView`.
+`UncertaintyModel` (`intervals`) for `UncertaintyView`; Scatter samples never
+do. Changing `kind` re-projects `intervals` (Scatter empties it, Trace fills
+it from the current samples).
 
 **Units.** Units are strings compared exactly. The renderer never converts
 units: every series, the surface and every annotation must match the axis
@@ -103,6 +105,9 @@ records the method and painted counts.
 series chosen by `tableSource` (−1: the surface nodes). `summary` is a plain
 sentence description (axes, series, ranges, surface, notes, omissions) used
 as the accessible description. `csvData()` is a long table of every series.
+The tables read each row with the model's `get(index)` (`Tk.DataTable`'s row
+contract): `ScientificDataset.get` is `sample()` plus its units and
+`ScientificGrid.get` is the row-major node plus units.
 
 ## 3D plots
 
@@ -123,10 +128,31 @@ as the accessible description. `csvData()` is a long table of every series.
 - **Camera.** An orbit camera around the cube centre: `azimuth`, `elevation`
   (clamped to ±89°), `distance`, vertical `fieldOfView`, near/far clip. Drag
   or arrow keys orbit; wheel or +/− zoom; click selects the nearest point.
+- **Points.** At most `pointLimit` points are drawn (default 4,096, at most
+  16,384). Beyond it the scene keeps every k-th present sample plus the
+  samples with extreme X, Y and Z and the selected point; `pointCount` is
+  the drawn count and `sourcePointCount` the present count, and the footer,
+  summary and export metadata (`pointSampling`) say when points are thinned.
+  Selecting a drawn point is not a mesh change: the GPU buffer rewrites only
+  the two affected points' vertices. Selecting a thinned point (from the
+  table) adds it with one rebuild.
 - **Rendering.** On RHI backends Qt Quick 3D draws the surface, points and
   frame from `ScientificGeometry3D` with a camera bound to the scene's
   camera properties; otherwise (and with `forceSoftware`) the software view
-  draws the same scene with the export painter.
+  draws the same scene with the export painter. The GPU renderer follows the
+  WP-076 render-resource lifecycle ([scene-3d.md](scene-3d.md)): one renderer
+  per view, counted by `renderGeneration`, replaced (`resetRenderer()`) when
+  the window's scene graph is invalidated, so every GPU buffer is rebuilt
+  from `ScientificScene3D`. `tst_scientific_geometry3d` checks the buffers
+  headless; `tst_scientific_plot3d_render` draws, loses and recovers the
+  scene graph and needs a display
+  (`QT_QPA_PLATFORM=xcb QT_QUICK_BACKEND=rhi`); the headless suite skips it.
+- **Textual alternative.** `showDataTable` shows the table chosen by
+  `tableSource`: `"surface"` (source grid nodes) or `"points"` (every 3D
+  sample, drawn or not); with both a surface and points a switcher offers
+  both. `csvData()` is the displayed lattice with units, `pointsCsvData()`
+  the full point source. `summary` names up to eight points with their
+  coordinates and units, and the selected point.
 - **Labels.** Corner labels (`axisLabels()`) name the domain limits with
   units. They are drawn last on background chips and clamped inside the
   view, so the surface never hides or cuts them.
@@ -143,9 +169,14 @@ up to 8,192². Metadata is embedded as a PNG text chunk
 precision, units, host parameters, full samples or a SHA-256 digest of the
 lattice values, and all render parameters: title, axis kinds/domains/units,
 viewport, mode, sampling method and painted counts, surface interpolation,
-colour domain and raster size, annotations, and for 3D the domain, mapping,
-lattice resolution, triangle/hole counts and full camera. Identical inputs,
-size and fonts give byte-identical files. `metadataJson(width, height)` and
+colour domain and raster size, annotations, the selection (`selection`, or
+`selectedPoint` in 3D), and a `style` object with every colour and colour
+ramp (`#AARRGGBB`), the metrics map (margins, font family and size, line
+width, radii) and the font family it resolved to; for 3D also the domain,
+mapping, lattice resolution, triangle/hole counts, point sampling and full
+camera. Identical inputs, size and fonts give byte-identical PNG and SVG
+files, also from freshly built objects (`freshInstancesAndRenderProvenance`,
+`freshInstancesExportIdenticalBytes`). `metadataJson(width, height)` and
 `csvData()` provide sidecars.
 
 `ScientificFigureComposer` lays out `panels` (each `plot.renderer`) in
@@ -153,11 +184,14 @@ size and fonts give byte-identical files. `metadataJson(width, height)` and
 
 ## Scope notes
 
-Performance measurement at scale, other platforms and Qt versions,
-screen-reader runs, translation and output-fidelity comparison belong to the
-qualification packages WP-088 to WP-094. Out-of-core arrays larger than the
+Qualification is planned elsewhere: performance measurement at scale belongs
+to WP-091, output fidelity (comparing the GPU image with the export) to
+WP-089, screen-reader runs and translation to WP-092, and render-context loss
+on each claimed platform/backend to WP-088. Out-of-core arrays larger than the
 in-memory bounds above are not provided: hosts window their data into these
 models.
 
 Examples: [scientific-plot/Main.qml](../examples/scientific-plot/Main.qml),
-[scientific-plot-3d/Main.qml](../examples/scientific-plot-3d/Main.qml).
+[scientific-plot-3d/Main.qml](../examples/scientific-plot-3d/Main.qml);
+[scientific-3d-family/Main.qml](../examples/scientific-3d-family/Main.qml) shows it
+beside the volume example ([volume-imaging.md](volume-imaging.md)).

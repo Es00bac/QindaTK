@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "mesh_rig_document.h"
+#include "automation_model.h"
+#include "timeline_time.h"
 
 #include <QHash>
 #include <QMatrix4x4>
@@ -40,7 +42,28 @@ QVector3D MeshRigDocument::sourcePose(const Bone &b, int frame) {
     }
     return b.keys.last().pose;
 }
-QVector<QVector3D> MeshRigDocument::evaluatePoses(const State &state, int frame) {
+QVector3D MeshRigDocument::boneSource(const Bone &b) const {
+    // AGENT-NOTE (D-178): a bone bound to the AnimationModel reads its three
+    // rotation lanes at timeTicks; an open edit gesture previews its pose
+    // until endEditGesture keys it. Private keys serve unbound bones.
+    if (const auto it = m_gesturePoses.constFind(b.id); it != m_gesturePoses.cend()) return *it;
+    if (isBoneAnimationBound(b.id)) {
+        const QStringList lanes = boneAnimationParameters(b.id);
+        const QString at = timeTicks();
+        QVector3D pose;
+        for (int axis = 0; axis < 3; ++axis) {
+            const double value = m_animation->valueAt(lanes[axis], at);
+            pose[axis] = std::isfinite(value) ? float(value) : b.pose[axis];
+        }
+        return pose;
+    }
+    return sourcePose(b, m_frame);
+}
+QVector<QVector3D> MeshRigDocument::currentPoses() const {
+    return evaluatePoses(m_state, m_frame, [this](const Bone &b) { return boneSource(b); });
+}
+QVector<QVector3D> MeshRigDocument::evaluatePoses(const State &state, int frame,
+                                                  const std::function<QVector3D(const Bone &)> &source) {
     const int count = int(state.bones.size());
     QHash<QString, int> index;
     for (int i = 0; i < count; ++i) index.insert(state.bones[i].id, i);
@@ -49,7 +72,7 @@ QVector<QVector3D> MeshRigDocument::evaluatePoses(const State &state, int frame)
     std::function<QVector3D(int)> eval = [&](int i) -> QVector3D {
         if (mark[i] == 2) return result[i];
         const Bone &b = state.bones[i];
-        QVector3D pose = sourcePose(b, frame);
+        QVector3D pose = source ? source(b) : sourcePose(b, frame);
         // AGENT-GUARD: addConstraint/stateFromJson reject cycles; the mark
         // only keeps a corrupt graph from recursing forever.
         if (mark[i] == 1) return pose;
@@ -68,8 +91,8 @@ QVector<QVector3D> MeshRigDocument::evaluatePoses(const State &state, int frame)
     return result;
 }
 
-QVector<QVector3D> MeshRigDocument::posedPositions() const {
-    const auto poses = evaluatePoses(m_state, m_frame);
+QVector<QMatrix4x4> MeshRigDocument::boneTransforms() const {
+    const auto poses = currentPoses();
     QVector<QMatrix4x4> transforms(m_state.bones.size());
     for (int i = 0; i < m_state.bones.size(); ++i) {
         const auto &b = m_state.bones[i];
@@ -81,6 +104,10 @@ QVector<QVector3D> MeshRigDocument::posedPositions() const {
         transform.translate(-b.head);
         transforms[i] = transform;
     }
+    return transforms;
+}
+QVector<QVector3D> MeshRigDocument::posedPositions() const {
+    const auto transforms = boneTransforms();
     QVector<QVector3D> result; result.reserve(m_state.vertices.size());
     for (const auto &v : m_state.vertices) {
         if (v.weights.isEmpty()) { result.append(v.rest); continue; }
@@ -93,7 +120,8 @@ QVector<QVector3D> MeshRigDocument::posedPositions() const {
 }
 
 QVariantList MeshRigDocument::bones() const {
-    const auto poses = evaluatePoses(m_state, m_frame);
+    const auto poses = currentPoses();
+    const auto transforms = boneTransforms();
     QVariantList result;
     for (int i = 0; i < m_state.bones.size(); ++i) {
         const auto &b = m_state.bones[i];
@@ -108,22 +136,40 @@ QVariantList MeshRigDocument::bones() const {
                                   {"minimum", QVariant::fromValue(b.minimum)},
                                   {"maximum", QVariant::fromValue(b.maximum)},
                                   {"pose", QVariant::fromValue(b.pose)},
-                                  {"sourcePose", QVariant::fromValue(sourcePose(b, m_frame))},
+                                  {"sourcePose", QVariant::fromValue(boneSource(b))},
                                   {"evaluatedPose", QVariant::fromValue(poses[i])},
-                                  {"animated", !b.keys.isEmpty()},
+                                  {"posedHead", QVariant::fromValue(transforms[i].map(b.head))},
+                                  {"posedTail", QVariant::fromValue(transforms[i].map(b.tail))},
+                                  {"animated", !b.keys.isEmpty() || isBoneAnimationBound(b.id)},
+                                  {"animationBound", isBoneAnimationBound(b.id)},
                                   {"constraints", constraints}, {"keys", keys}});
     }
     return result;
 }
 QVector3D MeshRigDocument::evaluatedPose(const QString &boneId) const {
     const int i = boneIndex(boneId);
-    return i < 0 ? QVector3D() : evaluatePoses(m_state, m_frame).at(i);
+    return i < 0 ? QVector3D() : currentPoses().at(i);
 }
+// AGENT-CONTRACT (D-178): one playhead. currentFrame and timeTicks move
+// together (ticks = frame x ticksPerFrame); private keys read the frame and
+// AnimationModel lanes read the exact ticks. Neither is an undoable edit.
 void MeshRigDocument::setCurrentFrame(int frame) {
-    // The frame is evaluation input, like a playhead: not an undoable edit.
     frame = std::clamp(frame, 0, MaximumFrame);
-    if (frame == m_frame) return;
-    m_frame = frame; notify();
+    const qint64 ticks = qint64(frame) * m_ticksPerFrame;
+    if (frame == m_frame && ticks == m_ticks) return;
+    m_frame = frame; m_ticks = ticks; notify();
+}
+void MeshRigDocument::setTimeTicks(const QString &text) {
+    const auto ticks = TimelineTime::parseDecimal(text);
+    if (!ticks || *ticks < 0 || *ticks / m_ticksPerFrame > MaximumFrame) { fail("Invalid rig time ticks"); return; }
+    if (*ticks == m_ticks) return;
+    m_ticks = *ticks; m_frame = int(*ticks / m_ticksPerFrame); notify();
+}
+void MeshRigDocument::setTicksPerFrame(const QString &text) {
+    const auto ticks = TimelineTime::parseDecimal(text);
+    if (!ticks || *ticks < 1 || *ticks > (qint64(1) << 40)) { fail("Ticks per frame must be 1 to 2^40"); return; }
+    if (*ticks == m_ticksPerFrame) return;
+    m_ticksPerFrame = *ticks; m_ticks = qint64(m_frame) * m_ticksPerFrame; notify();
 }
 
 QString MeshRigDocument::addBone(const QString &name, const QString &parentId,
@@ -153,6 +199,7 @@ bool MeshRigDocument::setBoneLimits(const QString &id, const QVector3D &min, con
     if (!withinLimits(candidate, candidate.pose)) return fail("Current pose is outside new limits");
     for (const auto &k : candidate.keys)
         if (!withinLimits(candidate, k.pose)) return fail("An animation key is outside new limits");
+    if (!boundLanesWithin(candidate)) return fail("A timeline key is outside new limits");
     State next = m_state; next.bones[i] = candidate;
     return commit(next, QStringLiteral("Set bone limits"));
 }
@@ -160,6 +207,11 @@ bool MeshRigDocument::setBonePose(const QString &id, const QVector3D &euler) {
     const int i = boneIndex(id);
     if (m_painting || i < 0 || !finitePoint(euler)) return fail("Invalid bone pose");
     if (!withinLimits(m_state.bones[i], euler)) return fail("Bone pose exceeds rotation limits");
+    if (isBoneAnimationBound(id)) {
+        // Inside a gesture the pose previews; endEditGesture keys it once.
+        if (m_gestureOpen) { m_gesturePoses.insert(id, euler); notify(); return true; }
+        return keyBoundBone(id, m_ticks, euler);
+    }
     // An animated bone is posed by keying the current frame (auto-key).
     if (!m_state.bones[i].keys.isEmpty()) return setPoseKey(id, m_frame, euler);
     if (euler == m_state.bones[i].pose) return true;
@@ -218,6 +270,7 @@ bool MeshRigDocument::setPoseKey(const QString &boneId, int frame, const QVector
     if (m_painting || i < 0 || frame < 0 || frame > MaximumFrame || !finitePoint(euler))
         return fail("Invalid pose key");
     if (!withinLimits(m_state.bones[i], euler)) return fail("Pose key exceeds rotation limits");
+    if (isBoneAnimationBound(boneId)) return keyBoundBone(boneId, qint64(frame) * m_ticksPerFrame, euler);
     State next = m_state; auto &keys = next.bones[i].keys;
     auto at = std::lower_bound(keys.begin(), keys.end(), frame,
                                [](const PoseKey &key, int f) { return key.frame < f; });
@@ -233,6 +286,7 @@ bool MeshRigDocument::setPoseKey(const QString &boneId, int frame, const QVector
 bool MeshRigDocument::removePoseKey(const QString &boneId, int frame) {
     const int i = boneIndex(boneId);
     if (m_painting || i < 0) return fail("Invalid pose key");
+    if (isBoneAnimationBound(boneId)) return removeBoundKey(boneId, qint64(frame) * m_ticksPerFrame);
     const auto &keys = m_state.bones[i].keys;
     for (int k = 0; k < keys.size(); ++k)
         if (keys[k].frame == frame) {

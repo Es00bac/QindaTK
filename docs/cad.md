@@ -21,10 +21,13 @@ validated before it replaces the current document; a failed load is atomic.
 | `addPoint(x,y)` | Add a stable point in current units. |
 | `addSegment(startPointId,endPointId)` | Add a segment referencing two distinct points. |
 | `addCircle(centerPointId,radius)`, `addArc(centerPointId,radius,start,sweep)` | Add a circle or partial arc referencing a center point. Arc angles are degrees clockwise from +X in the viewport's Y-down coordinates. Sweep is strictly between 0 and 360 degrees. |
-| `movePoint(id,x,y)`, `setCircleRadius(id,r)`, `setArc(id,r,start,sweep)` | Edit geometry in one undo step. A failed constraint solve leaves it unchanged. |
+| `movePoint(id,x,y)`, `setCircleRadius(id,r)` | Edit geometry in one undo step and solve; a failed solve leaves the sketch unchanged. |
+| `setArc(id,r,start,sweep)` | Edit an arc in one undo step. No constraint references an arc, so no solve runs. |
 | `addConstraint(kind,firstId,secondId,value)` | Add `coincident` or `distance` between points, `horizontal`, `vertical` or absolute `angle` on a segment, or `tangent` between a segment and circle. Distance uses current units; angle uses degrees. |
 | `setDimension(constraintId,value)` | Edit a distance or angle constraint by stable ID and solve atomically. |
-| `removeEntity(id)` | Remove an entity and its dependent geometry/constraints in one step. |
+| `removeEntity(id)` | Remove an entity and its dependent geometry/constraints in one step. A constraint ID removes just that constraint. |
+| `removeConstraint(constraintId)` | Remove one constraint in one undo step. Geometry does not move: the remaining constraints were already satisfied. Works after reopen. |
+| `beginTransaction`, `commitTransaction`, `cancelTransaction` | Group edits into one undo step, or roll them back with the undo/redo history from begin (D-283). Nested pairs join the outer one; undo and redo are refused while one is open; a load discards it. |
 | `measure(id)` | Return point coordinates, segment length/angle, circle radius/diameter/area, or arc radius/sweep/length in current units. |
 | `snap(x,y,tolerance,gridStep,excludeId)` | Prefer an existing point in range, then the display-unit grid, then the input coordinate. |
 | `undo`, `redo`, `saveToFile`, `loadFromFile` | Restore bounded local history or write/reopen a validated atomic JSON file. |
@@ -43,7 +46,11 @@ absolute segment-angle and finite-segment/circle tangency
 relations in canonical millimeters. It applies to a candidate copy and
 commits only after length residuals fall below 0.000001 mm, angle residuals
 fall below 0.000001 degree, and every segment, circle and arc remains
-nondegenerate. A moved point stays at the requested position
+nondegenerate. Residuals are checked before each projection pass, so an
+already-satisfied candidate is returned bit for bit. Reopening a file runs
+the same check and accepts it only if no point moves: a sketch that saved
+within tolerance always reopens unchanged, and a file whose points violate
+their constraints is rejected. A moved point stays at the requested position
 while connected points adjust. The original sketch is preserved when a
 constraint set is contradictory; `lastError` includes the unsatisfied kind,
 constraint ID and residual with its units. Tangency uses the finite segment:
@@ -58,14 +65,34 @@ remain outside its contract.
 `point`, `line`, `circle` or `arc`. Click to select/place a point; two clicks create
 a segment or define a circle center/radius. Three clicks define an arc center,
 start and end. Existing-point and grid snapping
-work in each creation mode. Drag a selected point to solve the sketch at the
-new location. Delete removes the selected entity; Escape cancels a pending
-two-click tool. Middle drag pans and wheel zooms about the pointer. `zoom`
+work in each creation mode. The first click of a tool only records `pending`
+(`{x, y, pointId}`, drawn as a ring); nothing reaches the document until the
+tool finishes, and then the new points and the entity are one transaction,
+so one Undo removes the whole line, circle or arc, and a rejected finish
+(zero length) leaves no orphan point. Escape cancels a pending tool, or
+clears the selection when none is pending. Ctrl+Z undoes; Ctrl+Shift+Z or
+Ctrl+Y redoes. Drag a selected point to solve the sketch at the
+new location. Delete removes the selection in one step. Middle drag pans and wheel zooms about the pointer. `zoom`
 is screen pixels per millimeter, so switching display units does not resize
-the sketch. `panX`/`panY`, `selectedEntityId` and `statusText` describe local
-view state. Selecting a constrained segment replaces its length label with a
-`Tk.NumberField` that calls `setDimension` on commit. Stable objectNames are
-`cadViewport`, `cadViewportDrawing` and `cadDimensionEditor_<entityId>`.
+the sketch.
+
+Ctrl+click adds entities to `selectedEntityIds`; `selectedEntityId` is the
+focused member and `selection` the resolved list. `constraintOptions` lists
+what the selection can take: a segment offers `horizontal`, `vertical`,
+`distance` and `angle`; two points offer `coincident` and `distance`; a
+segment and a circle offer `tangent`. `applyConstraint(kind)` (or the keys
+H, V, D, A, C and T) adds it; distance and angle take the current measured
+value, so the sketch does not jump. In select mode the `cadInspector` strip
+(`Tk.CadInspector`, hidden by `inspectorVisible: false`) shows the constraint
+buttons (`cadConstrain_<kind>`), the radius of a circle or arc
+(`cadRadiusEditor`), an arc's start and sweep (`cadArcStartEditor`,
+`cadArcSweepEditor`), and each constraint on the selection with a remove
+button (`cadRemoveConstraint_<constraintId>`). A rejected edit restores the
+field from the document. Selecting a constrained segment replaces its length label with a
+`Tk.NumberField` that calls `setDimension` on commit. `panX`/`panY`,
+`pending` and `statusText` describe local view state. Stable objectNames are
+`cadViewport`, `cadViewportDrawing`, `cadDimensionEditor_<entityId>` and the
+inspector names above.
 
 The [mounting plate example](../examples/cad-sketch/Main.qml) exercises a
 120 × 80 mm constrained rectangle and four 12 mm bores. The gallery embeds
@@ -94,5 +121,6 @@ operations are the 2D sketch set above (D-125). 3D presentation of
 engineering geometry uses the WP-076 scene viewport; a solid-modeling kernel,
 splines, relative-angle and curve-curve tangency constraints and DXF/SVG
 import are outside the declared set. Large-model precision and performance
-qualification belong to the deferred packages WP-088 to WP-094. See
+qualification belong to the packages the user deferred, WP-089 to WP-094
+(WP-088 is the planned Linux platform package, not a deferral). See
 [WP-083](universal-toolkit/implementation/phase-07-integrations.md#wp-083).

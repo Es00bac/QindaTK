@@ -4,7 +4,7 @@ import QindaTK as Tk
 
 Rectangle {
     width: 900
-    height: 650
+    height: 780
     color: Tk.Theme.color.canvas
     property string fixtureStatus: qsTr("Analyzing synthetic bars…")
     Tk.VideoScopesModel {
@@ -41,7 +41,25 @@ Rectangle {
                 Tk.Flex.flex: 1
                 snapshot: analyzer.snapshot
                 scopeMode: "vectorscope"
-                tooltip: qsTr("Vectorscope: full-range Rec.709 Cb and Cr derived from encoded sRGB")
+                tooltip: qsTr("Vectorscope: full-range Rec.709 Cb and Cr derived from encoded sRGB, with 75% and 100% targets")
+            }
+        }
+        Tk.Flex {
+            direction: Tk.Flex.Row
+            gap: Tk.Theme.space.md
+            Tk.VideoScopes {
+                objectName: "videoScopesParade"
+                Tk.Flex.flex: 1
+                snapshot: analyzer.snapshot
+                scopeMode: "parade"
+                tooltip: qsTr("RGB parade: R prime, G prime and B prime codes side by side")
+            }
+            Tk.VideoScopes {
+                objectName: "videoScopesHistogram"
+                Tk.Flex.flex: 1
+                snapshot: analyzer.snapshot
+                scopeMode: "histogram"
+                tooltip: qsTr("Histogram of Y prime codes")
             }
         }
         Tk.Label { text: fixtureStatus; color: Tk.Theme.color.textMuted; objectName: "videoScopesFixtureStatus" }

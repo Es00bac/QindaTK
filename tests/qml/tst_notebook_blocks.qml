@@ -97,6 +97,8 @@ TestCase {
         const page = doc.addPage(doc.addSection("Notes"), "", "Day")
         const a = doc.insertBlock(page, "", "text", { text: "Hello world" })
         const editor = createTemporaryObject(boundEditorComponent, this, { notebook: doc, pageId: page })
+        // Sized by its Tk.Flex on the first polish; a zero-height delegate is released.
+        tryVerify(function() { return editor.listView.height > 0 })
         tryVerify(function() { return visibleChild(editor, "blockText_" + a) !== null })
         const field = visibleChild(editor, "blockText_" + a)
         field.cursorPosition = 5
@@ -136,7 +138,10 @@ TestCase {
             after = doc.insertBlock(page, after, "text", { text: "Block " + i })
             ids.push(after)
         }
-        const editor = createTemporaryObject(boundEditorComponent, this, { notebook: doc, pageId: page, height: 300 })
+        // Idle commits off: this checks that the draft itself survives reuse.
+        const editor = createTemporaryObject(boundEditorComponent, this,
+                                             { notebook: doc, pageId: page, height: 300, autoCommitDrafts: false })
+        tryVerify(function() { return editor.listView.height > 0 })
         tryVerify(function() { return visibleChild(editor, "blockText_" + ids[0]) !== null })
         // Lazy presentation: only the viewport and its cache are built.
         verify(countVisible(editor, "notebookBlock_") < 40)
@@ -145,7 +150,11 @@ TestCase {
         editor.storeDraft(ids[0], "Edited but not committed", 8, "Block 0")
         editor.listView.positionViewAtEnd()
         tryVerify(function() { return visibleChild(editor, "blockText_" + ids[119]) !== null })
-        verify(visibleChild(editor, "blockText_" + ids[0]) === null)
+        // Still virtualized at the far end; block 0's card was released.
+        verify(countVisible(editor, "notebookBlock_") < 40)
+        verify(editor.listView.contentY > editor.listView.height)
+        // Released once the list finishes its incremental refill.
+        tryVerify(function() { return visibleChild(editor, "blockText_" + ids[0]) === null })
         editor.listView.positionViewAtBeginning()
         tryVerify(function() {
             const field = visibleChild(editor, "blockText_" + ids[0])

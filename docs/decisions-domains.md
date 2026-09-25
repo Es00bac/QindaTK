@@ -252,6 +252,14 @@ preview pixel for pixel, and PDF media boxes match the plan. Devices never
 scale or place pages themselves. A new device only opens, advances and
 finishes sheets. See [printing.md](printing.md#one-output-description).
 
+**Addendum (audit of the code-first round).** OFF-12 asks for asynchronous
+preview. Views request sheets from a preview thread that lays out its own
+copy of the document per preview generation (the D-131 snapshot, reused)
+and paints through the same `renderSheet`; results of an older generation
+are dropped. Layout code reached from that thread must not keep unlocked
+static state. One preview image is at most a quarter of the 64 MiB cache;
+larger zooms are rendered at the largest zoom that fits.
+
 ## D-131 — Print jobs print a snapshot, one sheet per turn
 
 **Context.** The document is GUI-thread only, and a user may keep editing
@@ -261,15 +269,20 @@ lose the settings or pretend success.
 **Decision.** `print()` copies the document through its own codec and lays
 out the copy; the job paints that copy one sheet per event-loop turn.
 `cancel()` is a request that the next turn honours by aborting the device.
-Devices commit only in `finish()` (QSaveFile for PDF, a `.part` file for the
-system engine, the CUPS spool), so an aborted job leaves no output; a device
+Devices commit only in `finish()` (QSaveFile for PDF and the system engine's
+file output, the CUPS spool for printers), so an aborted job leaves no output; a device
 that streams reports `deliveredSheets()`. A failed or cancelled job names the
 pages that did not reach paper or disk, and the ticket stays unchanged.
 
 **Consequences.** Editing during a job is safe, and the GUI stays responsive
 between sheets. Copying costs one encode and decode (about 50 ms for 500
-pages). "Completed" for a printer means handed to CUPS; tracking the job on
-the printer is not part of this package.
+pages). "Completed" for a printer means CUPS returned a job ID for it; a
+refused submission is a failure. Native devices render into a private
+temporary PDF: file output commits it through `QSaveFile` (never deleting
+the old target first, never touching a `<path>.part` sibling), and printer
+output submits it with `cupsPrintFile2` rather than Qt's CUPS engine, which
+ignores the submission result. Tracking the job on the printer is not part
+of this package.
 
 ## D-132 — Preflight issues have derived IDs and validated repairs
 
@@ -361,10 +374,23 @@ software view and PNG/SVG export project the same vertices with the same
 matrices (depth-sorted faces, headlight shading). Coordinates are float32
 only inside the normalized cube; data stays float64.
 
+The GPU view uses the WP-076 scene/render boundary for its resources, not
+`SceneModel3D`: `ScientificPlot3D` loads one renderer per view, counts it
+(`renderGeneration`) and replaces it when the window's scene graph is
+invalidated, exactly as `SceneView3D` does, so a device loss rebuilds every
+buffer from `ScientificScene3D`. `SceneModel3D` is an editable entity
+document (IDs, hierarchy, undo, gizmo transforms); plot geometry is derived,
+read-only data regenerated from the dataset, so storing it as entities would
+duplicate the source of truth and put plot data in an undo history. Drawn
+points are capped (`pointLimit`, at most 16,384, thinned with X/Y/Z extremes
+and the selection kept), and a selection change patches only the affected
+point vertices.
+
 **Consequences.** Projection, picking, interpolation and export are testable
 headless with exact numbers, and 3D figures export reproducibly on any
 machine. The GPU image adds lighting and antialiasing differences only;
-comparing it with the export belongs to WP-092's output-fidelity work.
+comparing it with the export belongs to WP-089 (format, device and output
+fidelity).
 
 ## D-141 — Exports embed complete provenance and are byte-reproducible
 
@@ -375,7 +401,10 @@ provenance; the first slice embedded one series' metadata in PNG/SVG.
 document (PNG text chunk, SVG `<metadata>`): every source's identity, units,
 precision, shape, host parameters and full samples or a SHA-256 of the
 lattice, plus all render parameters (axes, viewport, sampling, interpolation,
-colour domain, camera, size). Painting is deterministic for identical inputs,
+colour domain, camera, size) and all render state the painter reads: the
+selection, every colour and ramp, the metrics map with the requested font and
+the family it resolved to. Anything that changes the pixels changes the
+metadata. Painting is deterministic for identical inputs,
 size and fonts, so repeated exports are byte-identical. A composite embeds
 each panel's full metadata under its (a), (b) label.
 
@@ -492,6 +521,12 @@ matching flag is set. Moving, editing text and setting a fill set the flag;
 inheriting slide reflects immediately, and the editor can count overrides
 per placeholder. Other properties (lock, visibility) are always per object.
 
+**Amended (WP-056 audit).** A flag is set only by a real change: committing
+a text edit whose content equals the inherited text keeps the object
+inheriting. Placeholder prompts ("Click to add title") are a separate
+`prompt` field that only the editing canvas paints while the text is empty;
+a new deck's placeholders carry no text, so prompts never reach an output.
+
 ## D-159 — Slide timing is exact ticks; only eased progress is a double
 
 **Context.** Presentation playback must be deterministic (WP-056 item 3):
@@ -523,9 +558,15 @@ renderer. `SlideFrameView` paints through it, and `renderFrame`,
 through `QTextDocument` from the rich-text fragment's HTML.
 
 **Consequences.** The audience output equals the export for the same
-position, which the tests check pixel for pixel. The slide canvas used for
-editing is still the QML `SlideCanvas`; it shows plain text and geometry,
-not the evaluated animation frame.
+position, which the tests check pixel for pixel.
+
+**Amended (WP-056 audit).** The editing canvas uses the same code: the
+per-object half of the painter (`renderObjectImage`: fill and rich text at
+the object's size) draws each object's image for `SlideCanvasDocument`,
+which presents the slide to the WP-042 canvas stack, so the canvas shows the
+master background, font sizes and formatting while the canvas tools
+(selection, transform, snapping) work unchanged. The animation preview and
+exported playback frames are `paintFrame` at `evaluate` positions too.
 
 ## D-161 — Audience and presenter are separate native windows with a keep-alive audience
 
@@ -545,6 +586,92 @@ is added. Closing the presenter ends the presentation.
 notes, and plugging it back in needs no action. The status is visible to the
 presenter (`audienceStatus`, `displays`). Behaviour on real window managers
 and monitors is left to platform qualification.
+
+**Amended (WP-056 audit).** The presenter window is never placed on the
+audience's display (chosen, or last connected). If the presenter's display
+is removed and only the audience's is left, the presenter window is hidden
+(`presenterStatus` `hidden`) and the audience window's keys keep the show
+controllable, until another display appears.
+
+## D-182 — Reports evaluate in the query engine over a bounded snapshot
+
+**Context.** The first report cut built SQL for one group and a SUM. That SQL
+followed SQLite's own rules for nulls and mixed types, while FilterBar, pivots
+and the grid follow the WP-029 rules. Nested groups, averages, typed
+parameters and data errors would each have needed more hand-built SQL.
+
+**Decision.** `SqliteTableSource` reads a table's reportable columns in one
+bound read, at most 4,000 rows. It maps each declared type to a `QueryType`
+by SQLite affinity and turns a stored value of the wrong kind into an error
+value. Reports run through `QueryEngine`: a detail run for order and cells,
+and a grouped run for every total. Filters and parameters are WP-029 query
+JSON.
+
+**Consequences.** A report total equals a pivot over the same data, nulls
+included. Text stored in a numeric column stops the report, and the error
+names the column. A table larger than the bound cannot be reported yet, even
+with a narrow filter: pushing filters down into SQL is later provider work
+(docs/query-pivot.md#bounds-refresh-and-providers).
+
+## D-183 — A report is a rich-text document with band paragraphs and tables
+
+**Context.** Reports need preview, PDF and printers to agree page for page.
+WP-053 already gives rich-text documents one page geometry and one painter.
+
+**Decision.** A report run writes a `qindatk.richtext` document. Headers and
+totals are paragraphs, and detail rows are tables whose first row is the
+column labels, which the paginator repeats on every continuation page.
+The page header and page footer bands are the document's running page
+regions: `PageSetup::headerText` and `footerText`, one line each, centred in
+the top and bottom margins, with `{page}` and `{pages}` expanded when the
+page is painted. A report without `pageFooterText` prints
+"Page {page} of {pages}". Group page breaks are `pageBreakBefore` on the
+outermost group header that changed. The model decodes each run into one
+stable document, and only after the whole run succeeded.
+
+**Consequences.** `PrintAdapter`, `PrintPreview`, `RichDocumentView` and
+`exportPdf` need no report-specific code: `RichTextLayout::paintPage` paints
+the regions for tiles, sheets and PDF pages alike. The regions sit outside
+the content box, so they never change pagination; they are plain text, not
+bands with fields or totals. A document that sets them is written as
+rich-text version 2. When a completed page count changes, every page's
+revision is stamped again so tiles never keep a stale "of N". A failed run
+leaves the last good pages on screen.
+
+## D-184 — A design is a session document of whole-design steps
+
+**Context.** Form and report designs were loose JSON files. Edits had no undo,
+and the files had no autosave or recovery.
+
+**Decision.** `LocalDataDesignDocument` implements `DocumentModel`. Each edit
+records the whole design before and after as one step (`QJsonObject` is
+implicitly shared, and designs are small), and `LocalDataDesignStore::checkStructure`
+checks it first. The built-in codec `qindatk.local-data-design.v1` writes the
+design map plus a `session` header, so the store's own reader still accepts
+the file. Version 1 files get an identity derived from their `designId`.
+
+**Consequences.** `DocumentManager` sessions, the shared `UndoService`,
+macros, autosave and recovery apply to designs unchanged. A refused edit
+changes nothing. The designers must go through the document to be undoable;
+without one they keep their host request signals.
+
+## D-185 — Saved designs are qualified against the live schema
+
+**Context.** A design outlives schema changes. A column can be renamed,
+dropped or retyped by a table rebuild, and a saved report must not print
+wrong totals or fail silently.
+
+**Decision.** A design records the bound column types. `validate(provider)`
+reports each bound field as `ok`, `missing`, `typeChanged` or `unsupported`,
+and runs the report definition through the report parser against the live
+schema. A missing field or a report that no longer parses is fatal. A type
+change on its own is a warning. Every report run parses again and keeps the
+previous document when parsing fails.
+
+**Consequences.** Reverting a schema change makes the same design valid again
+and gives an identical report, which the tests check for a rename and for a
+retype. Hosts show the non-fatal issues to the user; nothing rewrites a
+design automatically.
 
 ## D-162 — Project dependency scans read off-thread and yield to newer answers
 
@@ -613,7 +740,10 @@ it and bump the generation, so a finished stale result is discarded with
 
 **Consequences.** A cancelled row loop stops within 1,024 rows. JSON parsing
 and the final sort cannot be interrupted, so their result is simply
-discarded. The view never shows a half-applied trace.
+discarded. The view never shows a half-applied trace. A failed analysis
+(invalid JSON, unreadable or oversized file, too many rows) is treated the
+same way: it sets `lastError` and keeps the published snapshot, so picking a
+bad file never erases a loaded trace.
 
 ## D-166 — Collaborative deletes remove only what their author observed
 
@@ -762,3 +892,314 @@ refresh.
 **Consequences.** Only the visible cards and the cache buffer exist.
 Scrolling away and back, or a structural refresh, never loses typing. A host
 that binds its own blocks sees the same behaviour.
+
+**Amended (WP-057 cf2 audit).** A draft that waits for focus to leave is
+invisible to autosave and recovery. In notebook mode a draft now also
+commits after `Tk.Theme.motion.gestureIdle` without typing (one merged
+typing step per block), and every draft commits before the page changes or
+the editor is destroyed (`flushDrafts`). Pooled cards are hidden while in
+the pool, because `reuseItems` only culls them and a hidden-but-connected
+card could take a focus request meant for the visible one.
+## D-186 — Protocol providers run one blocking exchange per request off the GUI thread
+
+**Context.** WP-058 needs SMTP, IMAP and CalDAV clients behind the existing
+request/acknowledge seam of the productivity views. Event-driven state
+machines per protocol would triple the parsing surface, and
+QNetworkAccessManager covers only HTTP.
+
+**Decision.** `SmtpMailProvider`, `ImapMailProvider` and `CalDavProvider`
+copy their configuration and the records they need on the GUI thread, run the
+whole protocol dialogue as sequential blocking reads and writes on a
+`QSslSocket` in a thread-pool job (`Protocol::startWorker`), and apply the
+result map to `LocalProductivityStore` / `LocalAttachmentStore` back on the
+GUI thread before emitting the correlated signal. One shared `Channel`
+provides line/literal/HTTP framing, bounded reads, first-failure
+classification (`offline` vs `rejected`) and a redacted transcript.
+
+**Consequences.** Each exchange reads like the RFC it implements and is
+tested against in-process servers over real TCP. A request cannot be
+cancelled mid-exchange; it ends at `timeoutMs`. Jobs never touch QObjects,
+so destroying a provider only drops the pending result.
+
+## D-187 — Secrets stay in memory and only travel over TLS or loopback
+
+**Context.** Account passwords and OAuth tokens must not reach logs, saved
+store files or QML-visible properties, and a missing STARTTLS offer is the
+classic downgrade path.
+
+**Decision.** `setSecret(secret, mechanism)` is write-only; results carry a
+transcript in which authentication lines are replaced and every secret (and
+its base64 forms) is redacted. Credentials are sent only over TLS, to a
+loopback host, or with an explicit `allowInsecureAuth`. A requested STARTTLS
+that the server does not offer fails the request, and data buffered before
+the TLS handshake is refused.
+
+**Consequences.** Hosts persist secrets themselves (keyring). Tests assert
+the secret is absent from results, captured log output and saved files.
+Plain-text servers on the LAN need `allowInsecureAuth`.
+
+## D-188 — Remote writes are conditional; local edits are detected by digest
+
+**Context.** Offline edits, other clients and rebuilt mailboxes can all
+change a record between reads. Silent last-writer-wins loses work.
+
+**Decision.** CalDAV writes use `If-Match` on the last seen ETag (or
+`If-None-Match: *` for new resources) and deletes use `If-Match`. A local
+edit is a changed SHA-256 digest of the mapped fields against `syncDigest`,
+so store operations need no dirty flag; if the server's ETag also moved and
+its content no longer matches that digest, the record becomes a conflict for
+the host to resolve (`local` or `remote`). Writes start from the server's
+last text so unmapped properties survive. IMAP identities include
+UIDVALIDITY; a change resets that mailbox and stale actions return
+`conflict`. SMTP delivery is all-or-nothing across recipients. A local store
+stale-writer rejection is also reported as `conflict`.
+
+**Consequences.** Nothing is overwritten without the user seeing it. After a
+push the record adopts the canonical mapping of what was sent, so the next
+sync is quiet. Conflict details are in memory only; a restart rediscovers
+them on the next sync.
+
+**Recurrence instances (addendum, WP-058 audit).** Editing one occurrence
+must never rewrite the series, and a moved server instance must appear at
+its moved time. An occurrence is therefore identified by its original local
+start (`recurrenceId`, the RECURRENCE-ID in the master's zone) and stays
+`<eventId>/<local start>` wherever it moves. One-occurrence edits are
+`overrides` entries on the event record, mapped to and from RECURRENCE-ID
+components; "this and following" splits the series into a new record that
+CalDAV creates as a new resource; a series move carries the exclusion and
+override keys with it. Overrides and exclusions a new rule no longer
+produces are dropped rather than kept as hidden state. All-day series are
+date-only and move by whole days (docs/productivity-store.md#calendar-edits).
+
+## D-189 — Hosted services are host adapters over the standard protocols
+
+**Context.** Gmail, Microsoft 365, iCloud and similar services differ in
+sign-in, discovery and private APIs, and the toolkit must not ship client IDs
+or depend on a vendor.
+
+**Decision.** The toolkit implements only SMTP, IMAP and CalDAV. A host
+adapter owns sign-in (OAuth, token refresh, keyring), endpoint discovery and
+special folders, and passes tokens as `xoauth2` (mail) or `bearer` (CalDAV).
+A service reachable only through its own API is served by an adapter object
+with the same invokables, signals and record fields
+(docs/productivity-providers.md#host-adapters-for-hosted-services).
+
+**Consequences.** Views and the store are unchanged by the account type.
+No hosted account is exercised in the automated tests; qualification of real
+accounts belongs to WP-089/WP-090, which the user deferred on 2026-09-24.
+
+## D-178 — A score is written music with its own model, separate from MIDI
+
+**Context.** AUD-27 needs voices, ties, tuplets, spelling and articulations;
+piano-roll timing cannot represent them (F sharp and G flat are one MIDI
+pitch, a triplet is not a rounded tick grid, two tied notes are one sound).
+WP-064 already owns MIDI patterns (D-150).
+
+**Decision.** `ScoreModel` owns a score of measures, parts, staves, voices,
+events and notes with UUIDs, spelled pitches and note values at exact ticks
+(960 PPQ). Every change is validated whole (complete voice 1, no overlap,
+complete tuplet groups inside one measure, ties onto the same pitch) and is
+one step of the model's own history. Entry overwrites the span it covers and
+fills the remainder with aligned rests, so the rhythm always adds up.
+
+**Consequences.** The score and the MIDI pattern never share records; the
+only bridge is the conversion of D-180. Notation that the model does not
+declare (grace notes, slurs, lyrics, repeats) is refused or reported, not
+approximated. Files keep 960 PPQ.
+
+## D-179 — One layout for view, PDF and images; the view never places anything
+
+**Context.** ScoreView (integrated earlier) draws host coordinates. Page
+output and the on-screen score must agree, and multi-voice measures need
+shared columns across staves.
+
+**Decision.** `Score::layoutScore` decides every position in page points:
+shared time columns with logarithmic widths, greedy system breaking with
+forced breaks, justification, pages, then accidentals, stems, beams, ties
+and tuplets per staff. `pageSnapshot` normalizes it for ScoreView;
+`Score::paintSnapshot` (C++, QPainter) paints the snapshot for all of them:
+ScoreView through `ScoreCanvasItem`, PDF and images through `paintPage`. It
+draws clefs, accidentals, noteheads, rests, flags, ties, articulations and
+fermatas as vector paths in staff spaces (score_glyphs.cpp), so no music
+font is needed; it only chooses glyph shapes, never positions.
+
+**Consequences.** The view and a PDF page are the same drawing in different
+colours; `tst_score_layout` compares the view's pixels with the page
+image. Vector glyphs avoid bundling a SMuFL font and its licence; their
+shapes are simpler than a professional font. Fidelity against other
+programs is qualification work (WP-089 to WP-094).
+
+## D-180 — Playback is a derived MIDI pattern with stable note IDs
+
+**Context.** Playback must use WP-064's model and scheduling and the tempo
+map, while expressive notation stays in the score.
+
+**Decision.** `Score::toMidi` converts the score (tie chains merged,
+staccato halves and staccatissimo quarters the last value, dynamics and
+accents set velocity, exact PPQ rescale or failure). MIDI note IDs are
+UUIDv5 of the chain's first score note. `ScorePlayback` writes the result
+as one whole pattern of `session.midi` (one MIDI undo step) and keeps one
+beat-locked clip of it on a MIDI track, so the engine and tempo map time it
+like any pattern; audition uses the engine's cue voices.
+
+The track and pattern IDs are UUIDv5 of the score ID and the clip is the
+pattern's clip on that track, so the link is found again in a reopened
+session and nothing is duplicated. A sync that fails part-way undoes the
+timeline and MIDI steps it made.
+
+**Consequences.** Editing the pattern in a PianoRoll is overwritten by the
+next sync; the score is the source. Re-syncs keep note IDs, so controller
+lanes attached to a note survive unrelated edits only until that note's
+chain changes. MIDI files of a score go through the pattern
+(`session.exportMidi`).
+
+## D-181 — MusicXML carries native IDs in `id` attributes and processing instructions
+
+**Context.** AUD-27 requires a semantic round trip; MusicXML has no voice,
+staff or chord-event IDs.
+
+**Decision.** Export writes MusicXML 4.0 partwise with divisions 960, note,
+measure and part UUIDs as prefixed `id` attributes, and score, staff, voice
+and event UUIDs as `qindatk-*` processing instructions, which conforming
+readers ignore. Import reads the declared feature set, maps voices as
+`staff × 4 + voice`, derives values from `type`, dots and time-modification,
+keeps pickup (`implicit`) measures as short measures (`pickup`), and
+reports every other element by name: `unsupported` for content it does not
+keep (tempo, words, grace notes, slurs, lyrics, …) and `recomputed` for
+engraving hints and metadata the layout and export regenerate (stems,
+beams, print layout, encoding), plus duration mismatches, rounded positions
+and filled rests.
+
+**Consequences.** A QindaTK file re-imports equal to the original, IDs
+included. Files from other programs import with new IDs and a report of
+what was not kept; tuplet groups follow from ratios, not from `<tuplet>`
+brackets.
+
+## D-204 — Trace views draw aggregated lane marks, never one item per record
+
+**Context.** EXT-11 requires inspecting a large trace without per-event
+delegates. A Repeater capped at 500 records hid the rest of a dense window
+without saying so, and one row per record wasted height.
+
+**Decision.** Analysis assigns each record a lane in its thread's track (the
+first lane free at its start, below its same-thread parent; 32 lanes, the
+last shared). `TraceIndex.layoutWindow` bins the window into pixel columns
+per visible row and merges records that would share a pixel into one mark
+with a count and its longest record's ID. `TraceView` paints those marks on
+one Canvas; `recordAt` hit-tests the record under the pointer, and
+double-clicking a merged mark zooms until its records separate. Zoom goes
+down to a 50 ns window.
+
+**Consequences.** Work per frame is one pass over at most 20,000 retained
+records, and the mark count is bounded by rows × columns, whatever the trace
+size. Every record in the window is counted (`matched`) and reachable by
+zooming. Individual marks are not focusable items; keyboard inspection goes
+through the filters and the inspector.
+
+## D-205 — Scans prune what they created; rebuilds need a valid closure
+
+**Context.** Deleted files and removed references stayed in the asset index
+forever, filling the 4,096-asset cap, and Rebuild only looked at the
+selected asset's own diagnostics.
+
+**Decision.** Entries a scan created (`discovered`) are pruned once they are
+missing, have no inputs and nothing uses them. Host-registered assets go only
+through `removeAsset` or `pruneMissing`. A rebuild of X is blocked by a
+missing leaf (a missing asset with no inputs) or a cycle anywhere in X's
+dependency closure; a missing asset with inputs is a generated output that
+the rebuild recreates. `rebuildPlan(changedId)` splits `affectedBy` into
+valid outputs in dependency order and blocked ones with a reason.
+
+**Consequences.** The index size follows the project, not the session. A
+host that wants to keep a missing file visible with no users registers it
+with `upsertAsset`. Rebuild gating costs one closure walk per selection and
+one reverse walk per plan.
+
+## D-260 — Linked views check geometry; saved views name their dataset
+
+**Context.** EXT-07 asks linked views to track one calibrated point and to
+reject overlays with incompatible geometry or metadata. Views read the
+shared cursor in their own voxel indices, so a cursor bound to a volume on
+another grid marks a different physical point. Saved view settings carried
+no volume identity, so settings made for one dataset applied silently to
+another.
+
+**Decision.** `VoxelVolume` carries `datasetId`, `frameOfReference` and
+`axisIds`. `geometryMismatch(other)` compares grid, spatial unit, frame of
+reference, axis IDs, spacing, origin and orientation (relative tolerance
+1e-6) and names the first difference. Slice and volume views use a cursor,
+an overlay (`ImageSliceView.overlay`) or a transfer function only when it is
+compatible (same geometry; transfer `unit` equal to the volume's `valueUnit`
+when both are set); otherwise they ignore it and say why in `linkError` or
+`overlayError`. View settings include the volume's `identity()`;
+`restoreSettings()` rejects another dataset, frame of reference or spatial
+unit, and a missing channel or frame. The revision is recorded, not compared,
+and the cursor keeps its world point when the same named dataset is
+reloaded, so a reload at another resolution keeps picking, the crosshair and
+saved views on the same calibrated point.
+
+**Consequences.** Hosts must set `datasetId` to get the reload guarantee;
+unnamed volumes match each other. Overlays need the same grid: resampling
+between grids is not provided.
+
+## D-261 — Volume reads run on a worker; obsolete frames are rejected
+
+**Context.** The reference raycast (up to 192² rays) and the GPU texture pack
+(up to 256 MiB) read voxels through a provider whose reads are synchronous.
+Doing that in `updatePaintNode` blocked the render and GUI threads, could not
+be cancelled, and thrashed a small cache on out-of-core data (EXT-08 asks for
+manipulation of large data with cancellation).
+
+**Decision.** `VolumeViewItem` hands both jobs to a `VolumeRenderWorker` (a
+private one-thread pool) with copies of everything they read: parameters,
+transfer table, ray geometry, sizes. Each picture-changing edit increments a
+generation; starting a job cancels the running one of the same kind; the
+item accepts only a result for its current generation and size and counts
+the rest as rejected. `cancelRendering()` stops the current job and keeps the
+last frame until the next change. `VoxelVolume` guards storage with a mutex
+(signals are emitted after unlocking) and emits `aboutToBeDestroyed()` so a
+view cancels and waits before its volume goes away.
+
+**Consequences.** The GUI stays responsive while a slow provider is read, an
+obsolete frame is never shown, and cancellation stops provider reads at the
+next ray or chunk. A new view shows nothing (or the last frame) until the
+first result arrives, so tests wait for `renderStatistics().completed`.
+Slice images are still made in the paint call; they read one plane.
+
+## D-262 — Restoring a saved view is an undoable transfer step
+
+**Context.** `TransferFunctionModel.restoreSettings()` is a load (D-148): it
+resets the history. A host "restore view" button that called it threw away
+the user's transfer edits and every undo step with one click.
+
+**Decision.** `applySettings(settings)` validates like `restoreSettings()` and
+applies the result as one "Restore transfer settings" step. A history step
+now records the complete transfer state (domain, unit, stops, below/above/
+missing colors and preset), so undo also restores the domain. Loads keep
+their meaning for opening a document.
+
+**Consequences.** Hosts use `applySettings` for user-facing restores and
+`restoreSettings` only when opening. The volume-imaging example persists its
+saved view to a settings file and restores it this way.
+
+## D-263 — Out-of-range and missing transfer values are explicit settings
+
+**Context.** EXT-09 requires known ramps to preview and export consistently
+with out-of-range and missing values explicitly represented. The model
+clamped silently to the end stops and made NaN transparent, with no way to
+show or change either.
+
+**Decision.** The transfer state has `below`, `above` and `missing` entries.
+Below/above either clamp (the default, reported with the end stop's color) or
+carry their own color and opacity; missing always carries its own (transparent
+black by default). `colorAt`, `opacityAt`, `classify`, `exportRamp`, the slice
+views and both render paths use them: the render table gains three entries
+that the shader receives as uniforms, and the composite raycast classifies a
+missing sample with the missing entry instead of skipping it (amending D-146;
+maximum intensity still ignores missing samples). Built-in presets
+(`grayscale`, `hot`, `viridis`, `cool-warm`) are data, not theme colors, and
+record `presetId`.
+
+**Consequences.** Older saved settings restore as clamped with transparent
+missing values, which is the previous look. A visible missing color makes
+unavailable provider chunks visible in the volume rendering.

@@ -4,7 +4,8 @@ import QindaTK as Tk
 
 // WP-062 fixture: a real AudioSession mix, not a mock host. Twelve tracks,
 // a drum bus, a solo-safe reverb return fed by post-fader sends, a cue bus on
-// a pre-fader send, a group and a mono bass. Every control edits the
+// a pre-fader send, a group, a mono bass and a 5.1 bus the vocal pans into
+// spatially (the pad's y is depth over the speakers). Every control edits the
 // session's mixer and the graph the engine plays; refusals (a feedback loop,
 // an unavailable output) show the mixer's reason. No device or media are
 // opened here, so the meters read silence; examples/audio-session plays
@@ -25,6 +26,8 @@ Item {
         const drums = mixer.addBus(qsTr("Drum bus"), "Stereo").channelId
         const reverb = mixer.addBus(qsTr("Reverb"), "Stereo").channelId
         const cue = mixer.addBus(qsTr("Cue"), "Stereo").channelId
+        const surround = mixer.addBus(qsTr("Surround"), "5.1").channelId
+        mixer.setOutput(tracks[0], surround)
         mixer.setOutput(tracks[1], drums)
         mixer.setOutput(tracks[10], drums)
         mixer.addSend(tracks[0], reverb, false)
@@ -35,6 +38,7 @@ Item {
         mixer.addGroup(qsTr("Rhythm"), [tracks[1], tracks[2], tracks[10]])
         mixer.setMuted(tracks[11], true)
         mixer.clearHistory()
+        session.timeline.clearHistory()
         fixture.selectedChannelId = tracks[0]
     }
 
@@ -55,16 +59,17 @@ Item {
                 Tk.IconButton {
                     objectName: "mixerUndo"
                     iconName: "chevron-left"
-                    enabled: session.mixer.canUndo
-                    tooltip: qsTr("Undo %1").arg(session.mixer.undoText)
-                    onClicked: session.mixer.undo()
+                    // One Undo over mixer, timeline and automation steps (D-110).
+                    enabled: session.history.canUndo
+                    tooltip: qsTr("Undo %1").arg(session.history.undoText)
+                    onClicked: session.history.undo()
                 }
                 Tk.IconButton {
                     objectName: "mixerRedo"
                     iconName: "chevron-right"
-                    enabled: session.mixer.canRedo
-                    tooltip: qsTr("Redo %1").arg(session.mixer.redoText)
-                    onClicked: session.mixer.redo()
+                    enabled: session.history.canRedo
+                    tooltip: qsTr("Redo %1").arg(session.history.redoText)
+                    onClicked: session.history.redo()
                 }
             }
             Tk.Flex {

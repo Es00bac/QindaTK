@@ -3,20 +3,21 @@
 #include "undo_service.h"
 
 namespace QindaTK {
-// AGENT-CONTRACT (docs/document-models.md#commands, D-148): one typed step is
-// the complete stop list before and after the edit (at most 256 stops), tied
+// AGENT-CONTRACT (docs/document-models.md#commands, D-148, D-262): one typed
+// step is the complete transfer state (domain, unit, at most 256 stops, the
+// below/above/missing colours and preset reference) before and after, tied
 // to this model's document ID and reset generation so a step recorded before
 // configure()/restoreSettings() can never apply to the reloaded function.
 struct TransferFunctionModel::TransferCommand final : DocumentCommand {
     QString documentId;
     quint64 resetGeneration = 0;
-    QVector<Point> before, after;
-    TransferCommand(QString id, quint64 generation, QVector<Point> oldPoints, QVector<Point> newPoints)
+    State before, after;
+    TransferCommand(QString id, quint64 generation, State oldState, State newState)
         : documentId(std::move(id)), resetGeneration(generation),
-          before(std::move(oldPoints)), after(std::move(newPoints)) {}
+          before(std::move(oldState)), after(std::move(newState)) {}
     quint64 retainedBytes() const override
     {
-        return sizeof(*this) + quint64(before.size() + after.size()) * (sizeof(Point) + 64);
+        return sizeof(*this) + quint64(before.points.size() + after.points.size()) * (sizeof(Point) + 64);
     }
     bool isNoOp() const override { return before == after; }
 };
@@ -60,14 +61,14 @@ OperationError TransferFunctionModel::prepareCommand(const DocumentCommand &comm
         return {ErrorCode::StaleGeneration, QStringLiteral("Transfer history belongs to another function"), {}, {}};
     if (m_editing)
         return {ErrorCode::Unavailable, QStringLiteral("Finish the transfer edit first"), {}, {}};
-    if (m_points != (forward ? step->before : step->after))
+    if (state() != (forward ? step->before : step->after))
         return {ErrorCode::StaleRevision, QStringLiteral("Transfer function changed outside the recorded step"), {}, {}};
     return {};
 }
 void TransferFunctionModel::publishCommand(const DocumentCommand &command, bool forward)
 {
     const auto &step = static_cast<const TransferCommand &>(command);
-    m_points = forward ? step.after : step.before;
+    setState(forward ? step.after : step.before);
     publish();
     emit committed();
 }
@@ -81,12 +82,29 @@ DocumentCommandPtr TransferFunctionModel::composeCommands(const DocumentCommand 
     return std::make_shared<const TransferCommand>(a->documentId, a->resetGeneration, a->before, b->after);
 }
 
+TransferFunctionModel::State TransferFunctionModel::state() const
+{
+    return {m_min, m_max, m_unit, m_points, m_below, m_above, m_missing, m_preset};
+}
+void TransferFunctionModel::setState(const State &state)
+{
+    m_min = state.min; m_max = state.max; m_unit = state.unit; m_points = state.points;
+    m_below = state.below; m_above = state.above; m_missing = state.missing; m_preset = state.preset;
+}
 bool TransferFunctionModel::apply(QVector<Point> after, const QString &label)
 {
-    if (m_editing) { m_points = std::move(after); publish(); return true; }
-    if (after == m_points) { fail({}); return true; }
+    // A stop edit departs from any preset the stops came from.
+    State next = state();
+    next.points = std::move(after);
+    if (next.points != m_points) next.preset.clear();
+    return apply(std::move(next), label);
+}
+bool TransferFunctionModel::apply(State after, const QString &label)
+{
+    if (m_editing) { setState(after); publish(); return true; }
+    if (after == state()) { fail({}); return true; }
     const auto step = std::make_shared<const TransferCommand>(m_documentId, m_resetGeneration,
-                                                              m_points, std::move(after));
+                                                              state(), std::move(after));
     UndoService *service = history();
     if (!service) { fail(QStringLiteral("Transfer history is unavailable")); return false; }
     if (const OperationError error = service->commit(this, label, {}, step)) {
@@ -96,7 +114,7 @@ bool TransferFunctionModel::apply(QVector<Point> after, const QString &label)
 }
 void TransferFunctionModel::resetHistory()
 {
-    if (m_editing) { m_editing = false; m_editBefore.clear(); emit editingChanged(); }
+    if (m_editing) { m_editing = false; m_editBefore = {}; emit editingChanged(); }
     ++m_resetGeneration;
     invalidateHistory();
     emit historyChanged();
@@ -104,7 +122,7 @@ void TransferFunctionModel::resetHistory()
 bool TransferFunctionModel::beginEdit(const QString &label)
 {
     if (m_editing) { fail(QStringLiteral("A transfer edit is already open")); return false; }
-    m_editBefore = m_points;
+    m_editBefore = state();
     m_editLabel = label.isEmpty() ? tr("Edit transfer function") : label;
     m_editing = true;
     fail({});
@@ -114,14 +132,14 @@ bool TransferFunctionModel::beginEdit(const QString &label)
 bool TransferFunctionModel::commitEdit()
 {
     if (!m_editing) { fail(QStringLiteral("No transfer edit is open")); return false; }
-    QVector<Point> after = m_points;
-    m_points = m_editBefore;
-    m_editBefore.clear();
+    State after = state();
+    setState(m_editBefore);
+    m_editBefore = {};
     m_editing = false;
     emit editingChanged();
-    // AGENT-GUARD: m_points is back at the gesture's start before apply(), so
+    // AGENT-GUARD: the state is back at the gesture's start before apply(), so
     // prepareCommand() sees `before` and the step undoes to the pre-drag state.
-    const bool previewed = after != m_points;
+    const bool previewed = after != state();
     const bool ok = apply(std::move(after), m_editLabel);
     if (!ok && previewed) publish(); // views showed the preview; show the restored state
     emit historyChanged();
@@ -130,9 +148,9 @@ bool TransferFunctionModel::commitEdit()
 bool TransferFunctionModel::cancelEdit()
 {
     if (!m_editing) { fail(QStringLiteral("No transfer edit is open")); return false; }
-    const bool changed = m_points != m_editBefore;
-    m_points = m_editBefore;
-    m_editBefore.clear();
+    const bool changed = state() != m_editBefore;
+    setState(m_editBefore);
+    m_editBefore = {};
     m_editing = false;
     if (changed) publish(); else fail({});
     emit editingChanged(); emit historyChanged();

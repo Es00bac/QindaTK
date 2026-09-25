@@ -78,7 +78,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-053"></a>
 ## WP-053 — Implement printing and publishing preflight
 
-**Implementation lead:** Sol. **Status:** active (PDF file output and preview/preflight controls integrated; native jobs and checks pending). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-051](phase-04-office.md#wp-051)
+**Implementation lead:** Sol. **Status:** active (output, jobs, native printers, asynchronous preview and preflight built and tested; awaiting acceptance review — [evidence](evidence/WP-053.md)). **Depends on:** [WP-019](phase-01-services.md#wp-019), [WP-051](phase-04-office.md#wp-051)
 
 **Proposal scope:** [OFF-12 PrintPreview](../proposed/05-documents-office.md#off-12), [OFF-13 PreflightPanel](../proposed/05-documents-office.md#off-13), [PLT-04 PrintAdapter](../proposed/08-platform-integrations.md#plt-04)
 
@@ -141,7 +141,7 @@ new filenames and interfaces are finalized in the owning package.
 <a id="wp-056"></a>
 ## WP-056 — Implement slide authoring and presentation
 
-**Implementation lead:** Sol. **Status:** active (five slide/presenter controls integrated; persistent model and playback pending). **Depends on:** [WP-018](phase-01-services.md#wp-018), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-049](phase-03-authoring.md#wp-049), [WP-050](phase-04-office.md#wp-050)
+**Implementation lead:** Sol. **Status:** active (persistent deck, canvas on the WP-042 stack, playback, animation preview/export, presenter windows and annotation implemented; audit gaps closed on `work/wp056-cf`, awaiting acceptance review; see [evidence](evidence/WP-056.md)). **Depends on:** [WP-018](phase-01-services.md#wp-018), [WP-042](phase-03-authoring.md#wp-042), [WP-043](phase-03-authoring.md#wp-043), [WP-049](phase-03-authoring.md#wp-049), [WP-050](phase-04-office.md#wp-050)
 
 **Proposal scope:** [OFF-19 SlideCanvas](../proposed/05-documents-office.md#off-19), [OFF-20 SlideSorter](../proposed/05-documents-office.md#off-20), [OFF-21 SlideMasterEditor](../proposed/05-documents-office.md#off-21), [OFF-22 AnimationPane](../proposed/05-documents-office.md#off-22), [OFF-23 PresenterView](../proposed/05-documents-office.md#off-23)
 

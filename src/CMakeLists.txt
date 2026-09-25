@@ -11,9 +11,19 @@
 file(GLOB qindatk_qml_files RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.qml")
 # Scene data stays renderer-independent. SDKs without Quick3D still expose
 # SceneView3D, which reports its renderer unavailable through the lazy Loader.
-qindatk_find_qt_module(Quick3D QUIET)
+if(QINDATK_ENABLE_QUICK3D)
+    qindatk_find_qt_module(Quick3D QUIET)
+endif()
+# AGENT-GUARD: test QINDATK_WITH_QUICK3D, never TARGET Qt6::Quick3D alone;
+# another package may define the target while the option is OFF (D-201).
+if(QINDATK_ENABLE_QUICK3D AND TARGET Qt6::Quick3D)
+    set(QINDATK_WITH_QUICK3D TRUE)
+else()
+    set(QINDATK_WITH_QUICK3D FALSE)
+endif()
+set(QINDATK_WITH_QUICK3D ${QINDATK_WITH_QUICK3D} PARENT_SCOPE)
 set(qindatk_quick3d_sources)
-if(NOT TARGET Qt6::Quick3D)
+if(NOT QINDATK_WITH_QUICK3D)
     list(FILTER qindatk_qml_files EXCLUDE REGEX "(SceneView3DRenderer|MaterialPreviewRenderer|ScientificPlot3DRenderer)\\.qml$")
     message(STATUS "QindaTK: optional SceneView3D renderer unavailable (Qt Quick 3D not installed)")
 else()
@@ -64,17 +74,21 @@ qt_add_qml_module(qindatk
         core/scene_model_3d_history.cpp core/scene_model_3d_parse.cpp core/scene_document_codec.cpp
         core/notebook_document.h core/notebook_document_p.h core/notebook_document.cpp
         core/notebook_document_blocks.cpp core/notebook_document_codec.cpp core/notebook_document_history.cpp
-        core/notebook_document_html.cpp core/notebook_document_selection.cpp
+        core/notebook_document_html.cpp core/notebook_document_reconcile.cpp core/notebook_document_selection.cpp
         core/notebook_document_services.cpp core/notebook_document_text.cpp
         core/mesh_rig_document.h core/mesh_rig_document.cpp
         core/mesh_rig_document_persistence.cpp core/mesh_rig_history.cpp
         core/mesh_rig_pose.cpp core/mesh_rig_uv.cpp core/mesh_rig_paint.cpp
+        core/mesh_rig_animation.cpp core/mesh_rig_authoring.cpp core/mesh_rig_camera.cpp
+        core/mesh_rig_document_codec.cpp
         core/raster_brush_p.h
         core/slide_deck_types.h core/slide_deck_types.cpp
         core/slide_deck.h core/slide_deck.cpp core/slide_deck_edit.cpp core/slide_deck_codec.cpp
+        core/slide_deck_limits.cpp core/slide_canvas_document.h core/slide_canvas_document.cpp
         core/slide_timeline.h core/slide_timeline.cpp
         core/slide_render.h core/slide_render.cpp
-        core/slide_show.h core/slide_show.cpp
+        core/slide_show.h core/slide_show.cpp core/slide_show_annotations.cpp
+        core/slide_preview.h core/slide_preview.cpp
         core/slide_frame_view.h core/slide_frame_view.cpp
         core/presentation_windows.h core/presentation_windows.cpp
         core/application_contracts.cpp core/application_contracts.h
@@ -102,9 +116,19 @@ qt_add_qml_module(qindatk
         core/document_session.cpp core/document_session.h
         core/document_manager.cpp core/document_manager.h
         core/settings_model.cpp core/settings_model.h
-        core/local_productivity_store.cpp core/local_productivity_store.h
+        core/local_productivity_store.cpp core/local_productivity_events.cpp core/local_productivity_store.h
         core/local_attachment_store.cpp core/local_attachment_store.h
         core/local_calendar_projection_model.cpp core/local_calendar_projection_model.h
+        core/protocol_client.cpp core/protocol_client.h
+        core/mail_mime.cpp core/mail_mime_parse.cpp core/mail_mime.h
+        core/mail_address_validator.cpp core/mail_address_validator.h
+        core/smtp_mail_provider.cpp core/smtp_mail_provider.h
+        core/imap_session.cpp core/imap_session.h
+        core/imap_mail_jobs.cpp core/imap_mail_jobs.h
+        core/imap_mail_provider.cpp core/imap_mail_provider.h
+        core/ical_codec.cpp core/ical_overrides.cpp core/ical_codec.h core/ical_codec_p.h
+        core/caldav_jobs.cpp core/caldav_jobs.h
+        core/caldav_provider.cpp core/caldav_provider.h
         core/state_store.cpp core/state_store.h
         core/settings_persistence.cpp core/settings_persistence.h
         core/workspace_session.cpp core/workspace_session.h
@@ -129,14 +153,24 @@ qt_add_qml_module(qindatk
         core/audio_take_comp_model.cpp core/audio_take_comp_view.cpp core/audio_take_comp_model.h
         core/midi_types.cpp core/midi_types.h core/midi_program.cpp core/midi_program.h
         core/midi_sequence_model.cpp core/midi_sequence_edit.cpp core/midi_sequence_ops.cpp core/midi_sequence_model.h
-        core/midi_smf.cpp core/midi_smf.h core/midi_launcher_model.cpp core/midi_launcher_model.h
+        core/midi_smf.cpp core/midi_smf.h core/midi_launcher_model.cpp core/midi_launcher_record.cpp core/midi_launcher_model.h
+        core/midi_input_port.cpp core/midi_input_port.h
+        core/score_types.cpp core/score_rhythm.cpp core/score_codec.cpp core/score_types.h
+        core/score_layout.cpp core/score_layout_notes.cpp core/score_render.cpp core/score_layout.h
+        core/score_paint.cpp core/score_glyphs.cpp core/score_paint.h core/score_canvas_item.cpp core/score_canvas_item.h
+        core/score_model.cpp core/score_model_structure.cpp core/score_model_edit.cpp core/score_model.h
+        core/score_musicxml_write.cpp core/score_musicxml_read.cpp core/score_musicxml_read_notes.cpp
+        core/score_musicxml_read_p.h
+        core/score_midi.cpp core/score_midi.h core/score_playback.cpp core/score_playback.h
         core/audio_channel_meters.cpp core/audio_channel_meters.h
-        core/audio_mixer_types.cpp core/audio_mixer_codec.cpp core/audio_mixer_types.h
-        core/audio_mixer_model.cpp core/audio_mixer_ops.cpp core/audio_mixer_model.h
+        core/audio_mixer_types.cpp core/audio_mixer_codec.cpp core/audio_mixer_spatial.cpp core/audio_mixer_types.h
+        core/audio_mixer_model.cpp core/audio_mixer_ops.cpp core/audio_mixer_model_io.cpp core/audio_mixer_model.h
         core/audio_mixer_strip_model.cpp core/audio_mixer_strip_model.h
+        core/audio_control_surface.cpp core/audio_control_surface_port.cpp core/audio_control_surface.h
         core/audio_engine.cpp core/audio_engine_transport.cpp core/audio_engine_rt.cpp core/audio_engine_meters.cpp
         core/audio_engine_midi.cpp core/audio_engine_midi_rt.cpp
         core/audio_engine.h core/audio_engine_p.h
+        core/audio_session_history.cpp core/audio_session_history.h
         core/audio_session.cpp core/audio_session_transport.cpp core/audio_session_render.cpp core/audio_session_midi.cpp
         core/audio_session_comp.cpp
         core/audio_session.h
@@ -151,7 +185,8 @@ qt_add_qml_module(qindatk
         core/asset_dependency_index.cpp core/asset_dependency_index.h
         core/trace_index.cpp core/trace_index.h
         core/asset_dependency_qml.cpp core/asset_dependency_scan.cpp
-        core/trace_import.cpp
+        core/trace_import.cpp core/trace_layout.cpp
+        core/asset_dependency_graph.cpp
         core/resource_resolver_async.cpp
         core/document_resource_links.cpp core/document_resource_links.h
         core/transfer_payload.cpp core/transfer_payload.h
@@ -162,7 +197,7 @@ qt_add_qml_module(qindatk
         core/timeline_codec.cpp core/timeline_codec.h
         core/timeline_snap.cpp core/timeline_snap.h
         core/timeline_planner.cpp core/timeline_planner_misc.cpp core/timeline_planner_ripple.cpp
-        core/timeline_planner_nle.cpp core/timeline_planner_links.cpp
+        core/timeline_planner_nle.cpp core/timeline_planner_links.cpp core/timeline_planner_transitions.cpp
         core/timeline_planner.h
         core/timeline_model.cpp core/timeline_model_edit.cpp core/timeline_model_history.cpp
         core/timeline_model_io.cpp core/timeline_model_qml.cpp core/timeline_model.h
@@ -175,14 +210,15 @@ qt_add_qml_module(qindatk
         core/motion_effect_registry.cpp core/motion_effect_registry.h
         core/motion_frame_renderer.cpp core/motion_frame_renderer.h
         core/tracking_roto_model.cpp core/tracking_roto_mask.cpp core/tracking_roto_codec.cpp core/tracking_roto_model.h
-        core/tracking_roto_media.cpp core/tracking_engine.cpp core/tracking_engine.h
+        core/tracking_roto_media.cpp core/tracking_roto_analysis.cpp core/tracking_roto_propagation.cpp core/tracking_engine.cpp core/tracking_engine.h
         core/node_graph_model.cpp core/node_graph_types.cpp core/node_graph_groups.cpp
         core/node_graph_render.cpp core/node_graph_codec.cpp core/node_graph_model.h
         core/diagram_document.cpp core/diagram_document_io.cpp core/diagram_document_layout.cpp
         core/diagram_document_flow.cpp core/diagram_document_route.cpp core/diagram_document_export.cpp
+        core/diagram_document_edit.cpp
         core/diagram_document.h
         core/cad_document.cpp core/cad_document_solver.cpp core/cad_document_io.cpp
-        core/cad_document_export.cpp
+        core/cad_document_export.cpp core/cad_document_edit.cpp
         core/cad_document.h
         core/motion_onion_skin_item.cpp core/motion_onion_skin_item.h
         core/engine_schedule.cpp core/engine_schedule.h
@@ -241,7 +277,8 @@ qt_add_qml_module(qindatk
         core/property_document.cpp core/property_document.h
         core/local_property_sync.cpp core/local_property_sync_restore.cpp core/local_property_sync.h
         core/local_property_sync_structure.cpp core/local_property_sync_text.cpp
-        core/local_property_sync_undo.cpp
+        core/local_property_sync_undo.cpp core/local_property_sync_service.cpp
+        core/local_property_sync_state.cpp
         core/property_sync_codec.cpp core/property_sync_detail_p.h
         core/property_sync_channel.cpp core/property_sync_channel.h
         core/property_sync_socket.cpp core/property_sync_socket_client.cpp core/property_sync_socket.h
@@ -267,6 +304,7 @@ qt_add_qml_module(qindatk
         core/print_preflight.cpp core/print_preflight.h
         core/print_adapter.cpp core/print_adapter.h core/print_adapter_p.h
         core/print_adapter_jobs.cpp core/print_adapter_repair.cpp
+        core/print_adapter_preview.cpp core/print_preview_renderer.cpp core/print_preview_renderer_p.h
         core/print_sheet_view.cpp core/print_sheet_view.h
         core/rich_text_codec.cpp core/rich_text_codec_read.cpp core/rich_text_codec_publishing.cpp
         core/rich_text_codec_review.cpp
@@ -320,6 +358,10 @@ qt_add_qml_module(qindatk
         core/local_database_provider.cpp core/local_database_provider.h
         core/local_data_design_store.cpp core/local_data_design_store.h
         core/local_report_document_model.cpp core/local_report_document_model.h
+        core/local_report_spec.cpp core/local_report_spec.h core/local_report_engine.cpp
+        core/sqlite_query_source.cpp core/sqlite_query_source.h
+        core/local_data_design_document.cpp core/local_data_design_document.h
+        core/local_data_design_edits.cpp core/local_data_design_codec.cpp
         core/recurrence_service.cpp core/recurrence_service.h
         core/shortcut_map.cpp core/shortcut_map_metadata.cpp core/shortcut_map.h
         core/density.cpp core/density.h
@@ -338,12 +380,15 @@ qt_add_qml_module(qindatk
         core/scientific_figure_composer.cpp core/scientific_figure_composer.h
         core/scientific_scene3d.cpp core/scientific_scene3d.h
         core/scientific_scene3d_render.cpp
-        core/voxel_volume.cpp core/voxel_volume.h
+        core/voxel_volume.cpp core/voxel_volume_info.cpp core/voxel_volume.h
         core/volume_cursor.cpp core/volume_cursor.h
-        core/transfer_function_model.cpp core/transfer_function_history.cpp core/transfer_function_model.h
-        core/image_slice_item.cpp core/image_slice_reslice.cpp core/image_slice_item.h
+        core/transfer_function_model.cpp core/transfer_function_history.cpp
+        core/transfer_function_ramps.cpp core/transfer_function_model.h
+        core/image_slice_item.cpp core/image_slice_reslice.cpp core/image_slice_settings.cpp
+        core/image_slice_item.h
         core/volume_raycast.cpp core/volume_raycast.h
-        core/volume_view_item.cpp core/volume_view_item.h
+        core/volume_view_item.cpp core/volume_view_render.cpp core/volume_view_item.h
+        core/volume_render_worker.cpp core/volume_render_worker.h
         core/volume_render_node.cpp core/volume_render_node.h
         core/chart_series.cpp core/chart_series.h
         core/chart_data.cpp core/chart_data.h
@@ -421,6 +466,8 @@ qt_add_qml_module(qindatk
         core/canvas_artboard_model.cpp core/canvas_artboard_model.h
         core/canvas_alignment_model.cpp core/canvas_alignment_model.h
         core/canvas_style_model.cpp core/canvas_style_model_selection.cpp core/canvas_style_model.h
+        core/canvas_style_model_fill.cpp
+        core/canvas_path_edit_model.cpp core/canvas_path_edit_model.h core/canvas_path_editing.cpp
         core/canvas_appearance_model.cpp core/canvas_appearance_model.h
         core/canvas_tools.cpp
         core/canvas_render.h
@@ -452,7 +499,7 @@ target_link_libraries(qindatk
     PUBLIC Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network
     PRIVATE Qt6::Svg Qt6::Concurrent PkgConfig::LCMS2 SQLite3::SQLite3
     PUBLIC PkgConfig::VTERM)
-if(TARGET Qt6::Quick3D)
+if(QINDATK_WITH_QUICK3D)
     target_link_libraries(qindatk PRIVATE Qt6::Quick3D)
 endif()
 # GPU volume raycasting (D-147) is optional. Without Qt Shader Tools the
@@ -460,8 +507,12 @@ endif()
 # and draws the reference path. 3D samplers need GLSL 300 es / 330.
 # AGENT-CONTRACT (core/volume_render_node.cpp): PREFIX + file path is the
 # resource path the node loads, ":/qindatk/shaders/volume_raycast.*.qsb".
-qindatk_find_qt_module(ShaderTools QUIET)
-if(TARGET Qt6::ShaderTools)
+if(QINDATK_ENABLE_SHADER_TOOLS)
+    qindatk_find_qt_module(ShaderTools QUIET)
+endif()
+set(QINDATK_WITH_SHADER_TOOLS FALSE PARENT_SCOPE)
+if(QINDATK_ENABLE_SHADER_TOOLS AND TARGET Qt6::ShaderTools)
+    set(QINDATK_WITH_SHADER_TOOLS TRUE PARENT_SCOPE)
     qt_add_shaders(qindatk "qindatk_volume_shaders"
         PREFIX "/qindatk"
         GLSL "300es,330"
@@ -491,7 +542,7 @@ endif()
 # Qt Quick's private tablet-event hook is confined to stylus_handler.cpp.
 target_link_libraries(qindatk PRIVATE Qt6::QuickPrivate)
 
-if(TARGET Qt6::Widgets)
+if(QINDATK_ENABLE_WIDGETS AND TARGET Qt6::Widgets)
     add_library(qindatk_widgets STATIC
         platform_widgets/native_file_dialog_backend.cpp
         platform_widgets/native_file_dialog_backend.h)
@@ -504,12 +555,19 @@ if(TARGET Qt6::Widgets)
     target_link_libraries(qindatk_widgets PUBLIC qindatk Qt6::Widgets)
     # AGENT-NOTE (WP-053): the native print backend needs Qt PrintSupport,
     # which depends on Widgets; base qindatk keeps only the PDF writer.
-    if(TARGET Qt6::PrintSupport)
+    if(QINDATK_ENABLE_NATIVE_PRINT AND TARGET Qt6::PrintSupport)
         target_sources(qindatk_widgets PRIVATE
             platform_widgets/native_print_backend.cpp
             platform_widgets/native_print_backend.h)
         target_link_libraries(qindatk_widgets PUBLIC Qt6::PrintSupport)
         target_compile_definitions(qindatk_widgets PUBLIC QINDATK_HAVE_NATIVE_PRINT=1)
+        # AGENT-NOTE (PLT-04): jobs go to CUPS through cupsPrintFile2, whose
+        # job ID is the only proof the queue accepted them.
+        if(TARGET Cups::Cups)
+            target_link_libraries(qindatk_widgets PRIVATE Cups::Cups)
+            target_compile_definitions(qindatk_widgets PRIVATE QINDATK_HAVE_CUPS=1)
+            set(QINDATK_WIDGETS_CUPS TRUE PARENT_SCOPE)
+        endif()
         install(FILES platform_widgets/native_print_backend.h
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/qindatk)
         set(QINDATK_WIDGETS_PRINT TRUE PARENT_SCOPE)
@@ -538,11 +596,37 @@ qt_add_qml_module(qindatk_qindaqt
 target_link_libraries(qindatk_qindaqt PRIVATE Qt6::Qml)
 
 # ---- install -------------------------------------------------------------
+# AGENT-NOTE (D-202): installing into Qt's own prefix (a distro package)
+# puts the modules on Qt's default import path. Any other prefix keeps them
+# inside that prefix, relative, so a staged install can be moved; the
+# WP-088 relocation check (tools/qualify) runs a consumer from the moved stage.
 if(NOT DEFINED QINDATK_QML_INSTALL_DIR)
-    set(QINDATK_QML_INSTALL_DIR "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_QML}" CACHE PATH
-        "Root QML import directory to install the QindaTK modules into")
+    cmake_path(COMPARE "${CMAKE_INSTALL_PREFIX}" EQUAL "${QT6_INSTALL_PREFIX}" qindatk_into_qt_prefix)
+    if(qindatk_into_qt_prefix)
+        set(qindatk_default_qml_dir "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_QML}")
+    else()
+        set(qindatk_default_qml_dir "${CMAKE_INSTALL_LIBDIR}/qml")
+    endif()
+    set(QINDATK_QML_INSTALL_DIR "${qindatk_default_qml_dir}" CACHE PATH
+        "Root QML import directory to install the QindaTK modules into (relative: under the install prefix)")
 endif()
 set(QINDATK_QML_INSTALL_DIR "${QINDATK_QML_INSTALL_DIR}" PARENT_SCOPE)
+
+# AGENT-GUARD (D-202): the QML plugins live in <qml>/QindaTK and
+# <qml>/QindaTK/QindaQt, not in bindir, so Qt's standard install RPATH
+# ($ORIGIN/../lib) does not reach libqindatk from them. A QML-only
+# application (one that does not link qindatk itself) then fails to load the
+# plugin from any prefix outside the linker's default path. Each plugin gets
+# an $ORIGIN-relative RUNPATH to the library directory instead.
+cmake_path(ABSOLUTE_PATH QINDATK_QML_INSTALL_DIR BASE_DIRECTORY "${CMAKE_INSTALL_PREFIX}"
+    NORMALIZE OUTPUT_VARIABLE qindatk_abs_qml_dir)
+cmake_path(ABSOLUTE_PATH CMAKE_INSTALL_LIBDIR BASE_DIRECTORY "${CMAKE_INSTALL_PREFIX}"
+    NORMALIZE OUTPUT_VARIABLE qindatk_abs_lib_dir)
+file(RELATIVE_PATH qindatk_plugin_to_lib "${qindatk_abs_qml_dir}/QindaTK" "${qindatk_abs_lib_dir}")
+file(RELATIVE_PATH qindatk_bridge_to_lib "${qindatk_abs_qml_dir}/QindaTK/QindaQt" "${qindatk_abs_lib_dir}")
+set_target_properties(qindatkplugin PROPERTIES INSTALL_RPATH "$ORIGIN/${qindatk_plugin_to_lib}")
+set_target_properties(qindatk_qindaqt qindatk_qindaqtplugin PROPERTIES
+    INSTALL_RPATH "$ORIGIN;$ORIGIN/${qindatk_bridge_to_lib}")
 
 install(TARGETS qindatk EXPORT QindaTKTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

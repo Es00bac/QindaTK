@@ -107,19 +107,49 @@ MidiProgram MidiProgram::compile(const MidiPattern &pattern)
     program.key = Midi::key(pattern.id);
     program.length = std::max<qint64>(1, pattern.length);
     program.seed = pattern.seed;
+    // Notes in tick order (the pattern's own order is tick, pitch, channel, id).
+    std::vector<int> order(std::size_t(pattern.notes.size()));
+    for (std::size_t i = 0; i < order.size(); ++i) order[i] = int(i);
+    std::stable_sort(order.begin(), order.end(),
+                     [&](int a, int b) { return pattern.notes.at(a).tick < pattern.notes.at(b).tick; });
+    QHash<QUuid, int> index;
     QHash<QUuid, int> pitches;
-    program.notes.reserve(std::size_t(pattern.notes.size()));
-    for (const MidiNote &note : pattern.notes) {
-        program.notes.push_back({note.tick, note.duration, note.velocity, quint8(note.pitch), quint8(note.channel)});
-        program.reach = std::max(program.reach, note.duration);
+    program.notes.reserve(order.size());
+    for (const int i : order) {
+        const MidiNote &note = pattern.notes.at(i);
+        const qint64 duration = std::min(note.duration, program.length); // never over its own repeat
+        index.insert(note.id, int(program.notes.size()));
         pitches.insert(note.id, note.pitch);
+        program.notes.push_back({note.tick, duration, note.velocity, quint8(note.pitch), quint8(note.channel), 0, 0});
+        program.noteReach = std::max(program.noteReach, duration);
     }
-    std::stable_sort(program.notes.begin(), program.notes.end(), [](const Note &a, const Note &b) { return a.tick < b.tick; });
     program.events.reserve(std::size_t(pattern.events.size()));
-    for (const MidiControlEvent &event : pattern.events)
+    std::vector<std::vector<Point>> bends(program.notes.size());
+    for (const MidiControlEvent &event : pattern.events) {
         program.events.push_back({event.tick, event.value, quint8(event.kind), quint8(event.number), quint8(event.channel),
                                   quint8(pitches.value(event.noteId, 0))});
+        // What the built-in test instrument hears (docs/audio-midi.md).
+        const double unit = double(event.value) / 4294967295.0;
+        const double signedUnit = (double(event.value) - 2147483648.0) / 2147483648.0;
+        const int channel = std::clamp(event.channel, 0, 15);
+        if (event.kind == MidiController::ControlChange && (event.number == 7 || event.number == 11))
+            program.shapes[channel][event.number == 7 ? Volume : Expression].push_back({event.tick, unit});
+        else if (event.kind == MidiController::PitchBend)
+            program.shapes[channel][Bend].push_back({event.tick, signedUnit * kBendSemitones});
+        else if (event.kind == MidiController::NoteBend)
+            if (const auto found = index.constFind(event.noteId); found != index.cend())
+                bends[std::size_t(*found)].push_back({event.tick, signedUnit * kNoteBendSemitones});
+    }
     std::stable_sort(program.events.begin(), program.events.end(), [](const Event &a, const Event &b) { return a.tick < b.tick; });
+    const auto byTick = [](const Point &a, const Point &b) { return a.tick < b.tick; };
+    for (auto &channel : program.shapes)
+        for (std::vector<Point> &points : channel) std::stable_sort(points.begin(), points.end(), byTick);
+    for (std::size_t i = 0; i < bends.size(); ++i) {
+        std::stable_sort(bends[i].begin(), bends[i].end(), byTick);
+        program.notes[i].bendFirst = int(program.noteBends.size());
+        program.notes[i].bendCount = int(bends[i].size());
+        program.noteBends.insert(program.noteBends.end(), bends[i].begin(), bends[i].end());
+    }
     for (const MidiStepRow &row : pattern.rows) {
         if (row.steps.isEmpty() || row.stepTicks < 1) continue;
         Row compiled;
@@ -132,7 +162,7 @@ MidiProgram MidiProgram::compile(const MidiPattern &pattern)
         for (const MidiStep &step : row.steps) {
             const qint64 gate = std::max<qint64>(1, std::llround(step.gate * double(row.stepTicks)));
             program.steps.push_back({step.probability, gate, step.velocity, step.enabled});
-            program.reach = std::max(program.reach, gate);
+            program.rowReach = std::max(program.rowReach, gate);
         }
         program.rows.push_back(compiled);
     }

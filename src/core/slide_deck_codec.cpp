@@ -15,7 +15,7 @@ namespace QindaTK {
 using namespace Slides;
 
 namespace {
-constexpr qsizetype MaximumBytes = qsizetype(64) * 1024 * 1024;
+constexpr qsizetype MaximumBytes = MaximumEncodedBytes;
 const char *const Format = "qindatk.slides";
 
 QJsonArray rectJson(const QRectF &r) { return {r.x(), r.y(), r.width(), r.height()}; }
@@ -32,6 +32,7 @@ QJsonObject placeholderJson(const Placeholder &p, bool master)
     if (master) {
         o["label"] = p.label; o["kind"] = p.kind; o["fill"] = p.fill;
         o["fontSize"] = p.fontSize; o["text"] = p.text.rich;
+        if (!p.prompt.isEmpty()) o["prompt"] = p.prompt;
     }
     return o;
 }
@@ -68,6 +69,7 @@ struct Reader {
         p->kind = o.value("kind").toString(QStringLiteral("text"));
         p->fill = o.value("fill").toString();
         p->fontSize = o.value("fontSize").toDouble(24);
+        p->prompt = o.value("prompt").toString();
         return text(o.value("text"), &p->text);
     }
     bool object(const QJsonObject &o, SlideObject *out)
@@ -80,6 +82,9 @@ struct Reader {
         out->bounds = *bounds;
         out->fill = o.value("fill").toString();
         out->fontSize = o.value("fontSize").toDouble(0);
+        if (o.contains("rotation") && !o.value("rotation").isDouble())
+            return fail(QStringLiteral("Object rotation is a number of degrees"));
+        out->rotation = o.value("rotation").toDouble(0);
         out->locked = o.value("locked").toBool(false);
         out->visible = o.value("visible").toBool(true);
         const QJsonArray own = o.value("own").toArray();
@@ -155,10 +160,12 @@ QByteArray SlideDeck::encodeState(const DeckState &state, const SnapshotHeader &
             if (o.ownBounds) own << QStringLiteral("bounds");
             if (o.ownText) own << QStringLiteral("text");
             if (o.ownFill) own << QStringLiteral("fill");
-            objects << QJsonObject{{"id", o.id}, {"kind", o.kind}, {"role", o.role},
-                                   {"bounds", rectJson(o.bounds)}, {"fill", o.fill},
-                                   {"fontSize", o.fontSize}, {"text", o.text.rich},
-                                   {"locked", o.locked}, {"visible", o.visible}, {"own", own}};
+            QJsonObject object{{"id", o.id}, {"kind", o.kind}, {"role", o.role},
+                               {"bounds", rectJson(o.bounds)}, {"fill", o.fill},
+                               {"fontSize", o.fontSize}, {"text", o.text.rich},
+                               {"locked", o.locked}, {"visible", o.visible}, {"own", own}};
+            if (o.rotation != 0) object["rotation"] = o.rotation;
+            objects << object;
         }
         for (const Effect &e : s.effects)
             effects << QJsonObject{{"id", e.id}, {"targetId", e.targetId}, {"kind", e.kind},
@@ -273,6 +280,9 @@ bool SlideDeck::saveToFile(const QString &path)
 {
     QSaveFile file(path);
     const QByteArray bytes = toJson().toUtf8();
+    // Never write what loadFromFile/decodeState would refuse.
+    if (bytes.size() > MaximumBytes)
+        return fail(QStringLiteral("The slide deck exceeds 64 MiB and cannot be saved"));
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit())
         return fail(QStringLiteral("Cannot save slide deck: %1").arg(file.errorString()));
     m_error.clear();

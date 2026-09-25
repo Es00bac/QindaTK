@@ -5,9 +5,11 @@
 #include "audio_graph.h"
 #include "audio_media.h"
 #include "audio_mixer_model.h"
+#include "audio_session_history.h"
 #include "audio_source_edit_model.h"
 #include "audio_take_comp_model.h"
 #include "automation_model.h"
+#include "midi_input_port.h"
 #include "midi_launcher_model.h"
 #include "midi_sequence_model.h"
 #include "engine_schedule.h"
@@ -46,9 +48,12 @@ class AudioSession : public QObject {
     Q_PROPERTY(QindaTK::EngineSchedule *schedule READ schedule CONSTANT)
     Q_PROPERTY(QindaTK::ResourceResolver *resources READ resources CONSTANT)
     Q_PROPERTY(QindaTK::AudioMixerModel *mixer READ mixer CONSTANT)
+    // One Undo/Redo over the timeline, automation and mixer histories (D-110).
+    Q_PROPERTY(QindaTK::AudioSessionHistory *history READ history CONSTANT)
     Q_PROPERTY(QindaTK::AudioSourceEditModel *edits READ edits CONSTANT)
     Q_PROPERTY(QindaTK::MidiSequenceModel *midi READ midi CONSTANT)
     Q_PROPERTY(QindaTK::MidiLauncherModel *launcher READ launcher CONSTANT)
+    Q_PROPERTY(QindaTK::MidiInputPort *midiInput READ midiInput CONSTANT)
     Q_PROPERTY(QindaTK::AudioTakeCompModel *comps READ comps CONSTANT)
     // A recording that wrapped a loop becomes one take per pass in a comp
     // (default); false keeps the whole recording as one linear clip.
@@ -72,9 +77,11 @@ public:
     EngineSchedule *schedule() const { return m_schedule; }
     ResourceResolver *resources() const { return m_resources; }
     AudioMixerModel *mixer() const { return m_mixer; }
+    AudioSessionHistory *history() const { return m_history; }
     AudioSourceEditModel *edits() const { return m_edits; }
     MidiSequenceModel *midi() const { return m_midi; }
     MidiLauncherModel *launcher() const { return m_launcher; }
+    MidiInputPort *midiInput() const { return m_midiInput; }
     AudioTakeCompModel *comps() const { return m_comps; }
     bool passTakes() const { return m_passTakes; }
     void setPassTakes(bool enabled);
@@ -131,7 +138,13 @@ public:
     // engine's takes arrive here). Loop passes become takes of a comp; with
     // punch the new takes are selected only inside the punch range, over the
     // comp or clip already there (D-177). {ok, error, clipId, resourceId, compId}.
-    QVariantMap placeTake(const QVariantMap &take);
+    Q_INVOKABLE QVariantMap placeTake(const QVariantMap &take);
+    // A mono float WAV test "performance" for fixtures and examples: one
+    // phase-continuous sine per segment {frames, frequency, amplitude, pulse}
+    // (pulse: Hz of a 0.55…1 level swell, default 3). `file` relative or
+    // empty goes to mediaDirectory (or the temp directory); returns the
+    // absolute path, or "" with lastError.
+    Q_INVOKABLE QString generateTestTake(const QString &file, const QVariantMap &options);
     // The comp a timeline clip plays, or "" for a media clip.
     Q_INVOKABLE QString compForClip(const QString &clipId) const;
     Q_INVOKABLE QVariantMap renderToFile(const QString &file, const QString &startTicks = QStringLiteral("0"),
@@ -149,6 +162,7 @@ signals:
     void takeRecorded(const QString &clipId, const QString &resourceId, const QVariantMap &take);
 
 private:
+    void connectMidi(); // audio_session_midi.cpp
     void rebuild();
     void engineFormatChanged();
     void forwardTransport();
@@ -171,9 +185,12 @@ private:
     EngineSchedule *m_schedule = nullptr;
     ResourceResolver *m_resources = nullptr;
     AudioMixerModel *m_mixer = nullptr;
+    AudioSessionHistory *m_history = nullptr;
     AudioSourceEditModel *m_edits = nullptr;
     MidiSequenceModel *m_midi = nullptr;
     MidiLauncherModel *m_launcher = nullptr;
+    MidiInputPort *m_midiInput = nullptr;
+    bool m_meterRebuildQueued = false;
     AudioTakeCompModel *m_comps = nullptr;
     bool m_passTakes = true;
     QPointer<AudioEngine> m_engine;

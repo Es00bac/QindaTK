@@ -8,12 +8,18 @@ import QindaTK as Tk
 // ID, then finished(id,{candidates:[{label,value,valid}]}). Only the current
 // ID, draft and edit revision may publish suggestions. Completion never edits
 // a committed token; choosing a suggestion makes one PropertyBinding edit.
+// `standalone` hosts (RichMailComposer recipients) own `tokens` themselves
+// and receive every edit as tokensEdited(tokens); `validator(label)` may
+// return {label, value, valid, error} to mark each committed token.
 T.Control {
     id: control
     property Tk.PropertyBinding binding: null
+    property bool standalone: false
+    property var validator: null
     property var completionProvider: null
     property string duplicatePolicy: "value" // "value", "label", or "allow"
     property string label: ""
+    property string placeholderText: qsTr("Add token")
     property string tooltip: ""
     property string draft: ""
     property string errorMessage: ""
@@ -25,11 +31,12 @@ T.Control {
     property string completionDocumentRevision: ""
     property int selectedIndex: -1
     property var tokens: binding && !binding.mixed && binding.value ? binding.value : []
-    readonly property bool readOnly: !binding || !binding.writable
+    readonly property bool readOnly: standalone ? !enabled : (!binding || !binding.writable)
     readonly property alias inputItem: input
     signal tokenAdded(string id, string value)
     signal tokenRemoved(string id)
     signal tokenReordered(string id, int from, int to)
+    signal tokensEdited(var tokens)
 
     implicitWidth: body.implicitWidth
     implicitHeight: body.implicitHeight
@@ -41,6 +48,15 @@ T.Control {
     Tk.TokenEditorService { id: tokenService }
 
     function commitTokens(next) {
+        if (standalone && !readOnly) {
+            tokens = next
+            ++editRevision
+            completionRequestId = ""
+            suggestions = []
+            selectedIndex = -1
+            tokensEdited(next)
+            return true
+        }
         if (readOnly || !tokenService.commit(binding, next)) {
             errorMessage = binding ? binding.validationError : qsTr("Read only")
             return false
@@ -62,8 +78,13 @@ T.Control {
     function appendCandidates(candidates) {
         const next = tokens.slice()
         const added = []
+        let invalid = ""
         for (let i = 0; i < candidates.length; ++i) {
-            const candidate = candidates[i]
+            let candidate = candidates[i]
+            if (typeof validator === "function") {
+                candidate = validator(candidate.label || String(candidate))
+                if (candidate.valid === false) invalid = candidate.error || qsTr("Invalid entry: %1").arg(candidate.label)
+            }
             const token = tokenService.createToken(candidate.label || String(candidate),
                                                    candidate.value || "", candidate.valid !== false)
             if (!token.id || isDuplicate(token, next)) continue
@@ -73,6 +94,7 @@ T.Control {
         if (added.length === 0) return false
         if (!commitTokens(next)) return false
         draft = ""
+        errorMessage = invalid
         for (let i = 0; i < added.length; ++i) tokenAdded(added[i].id, added[i].value)
         return true
     }
@@ -180,7 +202,7 @@ T.Control {
                 text: control.draft
                 readOnly: control.readOnly
                 error: control.errorMessage.length > 0
-                placeholderText: qsTr("Add token")
+                placeholderText: control.placeholderText
                 tooltip: control.tooltip || control.label
                 onTextEdited: {
                     control.draft = text

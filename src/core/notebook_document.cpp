@@ -193,6 +193,9 @@ bool NotebookDocument::removeSection(const QString &sectionId)
 {
     const int index = sectionIndex(sectionId);
     if (index < 0) return fail(QStringLiteral("Unknown section %1").arg(sectionId));
+    for (const Page &page : m_state.pages)
+        if (page.sectionId == sectionId && NotebookTree::anyLocked(page.blocks))
+            return fail(QStringLiteral("Section %1 holds a read-only block").arg(sectionId));
     State next = m_state;
     next.sections.removeAt(index);
     next.pages.removeIf([&](const Page &page) { return page.sectionId == sectionId; });
@@ -289,6 +292,8 @@ bool NotebookDocument::removePage(const QString &pageId)
 {
     const int index = pageIndex(pageId);
     if (index < 0) return fail(QStringLiteral("Unknown page %1").arg(pageId));
+    if (NotebookTree::anyLocked(m_state.pages.at(index).blocks))
+        return fail(QStringLiteral("Page %1 holds a read-only block").arg(pageId));
     State next = m_state;
     next.pages.removeAt(index);
     return commit(next, tr("Delete page"));

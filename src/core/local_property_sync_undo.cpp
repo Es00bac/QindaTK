@@ -49,6 +49,11 @@ bool LocalPropertySyncClient::invert(const HistoryEntry &entry, Record into)
     }
     case Kind::Create:
         if (!present) return fail(QStringLiteral("The object was already deleted"));
+        // AGENT-GUARD (D-169): the delete would name every supporter it sees,
+        // so a collaborator's newer edit or revival of this object would
+        // vanish on every replica. Refuse instead of erasing their work.
+        if (foreignSupportSince(entry.entityId, entry.time))
+            return fail(QStringLiteral("Another collaborator edited this object"));
         return deleteEntityImpl(entry.entityId, true);
     case Kind::Delete:
         if (present) return fail(QStringLiteral("The object was already restored"));

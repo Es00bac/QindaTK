@@ -238,6 +238,9 @@ void paintLayered(QPainter *painter, const CanvasObject &o, const QRectF &docume
             CanvasEffects::dropShadow(layer, offset, s.blur * pixels, s.color);
         } else if (effect.kind == QLatin1String("gaussian-blur")) {
             CanvasEffects::gaussianBlur(layer, CanvasAppearanceRules::blurRadius(effect) * pixels);
+        } else if (effect.kind == QLatin1String("color-adjust")) {
+            const auto adjust = CanvasAppearanceRules::colorAdjust(effect);
+            CanvasEffects::colorAdjust(layer, adjust.brightness, adjust.contrast, adjust.saturation);
         }
     }
     painter->save();

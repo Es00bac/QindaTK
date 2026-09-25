@@ -32,6 +32,39 @@ void style(ScientificScene3D &scene)
     scene.setProperty("metrics", QVariantMap{{"fontFamily", "Sans Serif"}, {"fontSize", 11}, {"pointRadius", 3},
                                              {"lineWidth", 1}, {"hitRadius", 8}});
 }
+QVariantList probeRows()
+{
+    return {QVariantMap{{"id", "p0"}, {"x", 0.0}, {"y", 0.0}, {"z", 0.0}},
+            QVariantMap{{"id", "p1"}, {"x", 2.0}, {"y", 2.0}, {"z", 4.0}},
+            QVariantMap{{"id", "p2"}, {"x", 0.5}, {"y", 1.5}, {"z", 2.25}},
+            QVariantMap{{"id", "gap"}, {"x", 1.0}, {"missingY", true}}};
+}
+void probes(ScientificDataset &points, const QVariantList &rows = probeRows())
+{
+    points.setSourceId("probes"); points.setKind(ScientificDataset::Scatter); points.setDimensions(3);
+    points.setXUnit("m"); points.setYUnit("m"); points.setZUnit("K");
+    QVERIFY(points.replaceSamples(rows));
+}
+QByteArray readAll(const QString &path)
+{
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+// Builds every object from scratch, exports PNG and SVG, returns their bytes.
+QPair<QByteArray, QByteArray> freshExport(const QString &directory, const QString &name)
+{
+    ScientificGrid grid; product(grid);
+    ScientificDataset points; probes(points);
+    ScientificScene3D scene; style(scene);
+    scene.setGrid(&grid); scene.setPoints(&points);
+    scene.setProperty("title", QStringLiteral("Fresh"));
+    scene.fitDomain(); scene.setResolutionX(7); scene.setResolutionY(7);
+    scene.setAzimuth(40); scene.setElevation(30);
+    scene.selectPoint("p2");
+    const QString png = directory + '/' + name + ".png", svg = directory + '/' + name + ".svg";
+    if (!scene.exportPng(png, QSize(480, 360)) || !scene.exportSvg(svg, QSize(480, 360))) return {};
+    return {readAll(png), readAll(svg)};
+}
 }
 
 class ScientificScene3DTest : public QObject {
@@ -40,6 +73,9 @@ private slots:
     void mappingAndCameraTransforms();
     void surfaceMeshAndInterpolation();
     void pointsSelectionAndReproducibleExport();
+    void pointBoundsAtScale();
+    void pointsTableAndSummary();
+    void freshInstancesExportIdenticalBytes();
 };
 
 void ScientificScene3DTest::mappingAndCameraTransforms()
@@ -168,6 +204,120 @@ void ScientificScene3DTest::pointsSelectionAndReproducibleExport()
     points.setZUnit("mK");
     QVERIFY(!scene.problem().isEmpty());
     QCOMPARE(scene.triangleCount(), 0);
+}
+
+void ScientificScene3DTest::pointBoundsAtScale()
+{
+    // 100,000 present samples on a helix; z extremes sit mid-series.
+    QVariantList rows;
+    rows.reserve(ScientificDataset::SampleLimit);
+    for (int i = 0; i < ScientificDataset::SampleLimit; ++i) {
+        const double t = i * 0.001;
+        rows.append(QVariantMap{{"id", QStringLiteral("s%1").arg(i)}, {"x", std::cos(t)}, {"y", std::sin(t)},
+                                {"z", i == 31337 ? 9.0 : i == 77777 ? -9.0 : t / 100}});
+    }
+    ScientificDataset points; probes(points, rows);
+    ScientificScene3D scene; style(scene);
+    scene.setPoints(&points);
+    QVERIFY(scene.fitDomain());
+    QCOMPARE(scene.pointLimit(), int(ScientificScene3D::DefaultPointLimit));
+    QCOMPARE(scene.sourcePointCount(), 100000);
+    QVERIFY(scene.pointCount() <= scene.pointLimit());
+    QVERIFY(scene.pointCount() > scene.pointLimit() / 2);
+    for (const char *extreme : {"s31337", "s77777"}) QVERIFY(scene.pointIds().contains(QString::fromLatin1(extreme)));
+    scene.setPointLimit(1 << 30);
+    QCOMPARE(scene.pointLimit(), int(ScientificScene3D::PointLimitMaximum));
+    QVERIFY(scene.pointCount() <= ScientificScene3D::PointLimitMaximum);
+    scene.setPointLimit(1000);
+    QVERIFY(scene.pointCount() <= 1000);
+    // Selecting a drawn point is not a mesh change; a thinned one is added once.
+    QSignalSpy mesh(&scene, &ScientificScene3D::meshChanged);
+    const QString drawn = scene.pointIds().at(10);
+    QVERIFY(scene.selectPoint(drawn));
+    QCOMPARE(mesh.count(), 0);
+    QVERIFY(!scene.pointIds().contains(QStringLiteral("s12345")));
+    QVERIFY(scene.selectPoint("s12345"));
+    QCOMPARE(mesh.count(), 1);
+    QVERIFY(scene.pointIds().contains(QStringLiteral("s12345")));
+    QVERIFY(scene.pointCount() <= 1000);
+    const QVariantMap at = scene.project(std::cos(12.345), std::sin(12.345), 0.12345, 640, 480);
+    QCOMPARE(scene.hitPoint(at.value("x").toDouble(), at.value("y").toDouble(), 640, 480), QStringLiteral("s12345"));
+    const QJsonObject meta = QJsonDocument::fromJson(scene.metadataJson(640, 480).toUtf8()).object();
+    const QJsonObject sampling = meta.value("pointSampling").toObject();
+    QCOMPARE(sampling.value("present").toInt(), 100000);
+    QCOMPARE(sampling.value("drawn").toInt(), scene.pointCount());
+    QCOMPARE(sampling.value("limit").toInt(), 1000);
+    QVERIFY(sampling.value("method").toString().startsWith(QStringLiteral("stride")));
+    QVERIFY(scene.textSummary().contains(QStringLiteral(" of 100000 points")));
+    QVERIFY(!scene.renderImage(QSize(320, 240)).isNull());
+}
+
+void ScientificScene3DTest::pointsTableAndSummary()
+{
+    ScientificGrid grid; product(grid);
+    ScientificDataset points; probes(points);
+    ScientificScene3D scene; style(scene);
+    scene.setGrid(&grid); scene.setPoints(&points);
+    QVERIFY(scene.fitDomain());
+    scene.setResolutionX(3); scene.setResolutionY(3);
+    // The lattice CSV carries units; the points CSV has every source row.
+    const QStringList lattice = scene.csvData().split('\n', Qt::SkipEmptyParts);
+    QCOMPARE(lattice.first(), QStringLiteral("row,column,x,y,z,missing,interpolation,xUnit,yUnit,zUnit"));
+    QCOMPARE(lattice.at(1 + 4), QStringLiteral("1,1,1,1,1,false,bilinear,m,m,K"));
+    const QStringList rows = scene.pointsCsvData().split('\n', Qt::SkipEmptyParts);
+    QCOMPARE(rows.size(), 1 + 4);
+    QVERIFY(rows.at(3).startsWith(QStringLiteral("\"probes\",\"p2\",\"0.5\",\"1.5\"")));
+    QVERIFY(rows.at(3).contains(QStringLiteral("\"2.25\",\"m\",\"m\",\"K\"")));
+    QVERIFY(rows.at(4).contains(QStringLiteral("\"gap\"")));
+    // The summary names the points with coordinates and units, and the selection.
+    QSignalSpy summary(&scene, &ScientificScene3D::summaryChanged);
+    QVERIFY(scene.textSummary().contains(QStringLiteral("p2 at X 0.5 m, Y 1.5 m, Z 2.25 K")));
+    QVERIFY(scene.selectPoint("p1"));
+    QVERIFY(summary.count() >= 1);
+    QVERIFY(scene.textSummary().contains(QStringLiteral("Selected point p1 at X 2 m, Y 2 m, Z 4 K.")));
+}
+
+void ScientificScene3DTest::freshInstancesExportIdenticalBytes()
+{
+    QTemporaryDir dir; QVERIFY(dir.isValid());
+    const auto first = freshExport(dir.path(), "first"), second = freshExport(dir.path(), "second");
+    QVERIFY(!first.first.isEmpty() && !first.second.isEmpty());
+    QCOMPARE(first.first, second.first);   // PNG bytes from independent instances
+    QCOMPARE(first.second, second.second); // SVG bytes too
+    // The embedded provenance holds the input values and every render input.
+    const QImage image = QImage::fromData(first.first, "PNG");
+    const QJsonObject meta = QJsonDocument::fromJson(image.text("QindaTK.Scientific3D").toUtf8()).object();
+    const QJsonArray samples = meta.value("points").toObject().value("samples").toArray();
+    const QVariantList input = probeRows();
+    QCOMPARE(samples.size(), input.size());
+    for (int i = 0; i < input.size(); ++i) {
+        const QVariantMap row = input.at(i).toMap();
+        const QJsonObject out = samples.at(i).toObject();
+        QCOMPARE(out.value("id").toString(), row.value("id").toString());
+        QCOMPARE(out.value("x").toDouble(), row.value("x").toDouble());
+        QCOMPARE(out.value("missingY").toBool(), row.value("missingY").toBool());
+        if (!row.value("missingY").toBool()) {
+            QCOMPARE(out.value("y").toDouble(), row.value("y").toDouble());
+            QCOMPARE(out.value("z").toDouble(), row.value("z").toDouble());
+        }
+    }
+    QCOMPARE(meta.value("selectedPoint").toString(), QStringLiteral("p2"));
+    const QJsonObject styleMeta = meta.value("style").toObject();
+    QCOMPARE(styleMeta.value("selectionColor").toString(), QStringLiteral("#ffff00ff"));
+    QCOMPARE(styleMeta.value("surfaceColors").toArray().at(1).toString(), QStringLiteral("#ffff0000"));
+    QCOMPARE(styleMeta.value("metrics").toObject().value("fontSize").toInt(), 11);
+    QVERIFY(!styleMeta.value("resolvedFontFamily").toString().isEmpty());
+    // Anything that changes the pixels changes the metadata.
+    ScientificGrid grid; product(grid);
+    ScientificDataset points; probes(points);
+    ScientificScene3D scene; style(scene);
+    scene.setGrid(&grid); scene.setPoints(&points); scene.fitDomain();
+    const QString plain = scene.metadataJson(480, 360);
+    QVERIFY(scene.selectPoint("p0"));
+    const QString selected = scene.metadataJson(480, 360);
+    QVERIFY(selected != plain);
+    scene.setProperty("pointColor", QColor(Qt::darkBlue));
+    QVERIFY(scene.metadataJson(480, 360) != selected);
 }
 
 QTEST_MAIN(ScientificScene3DTest)

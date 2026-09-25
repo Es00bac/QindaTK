@@ -18,6 +18,21 @@ T.Control {
     property string currentFrame: "0"
     // Consecutive lost frames the host tracker searches through before stopping.
     property int occlusionFrames: 0
+    // Job progress from TrackingRotoModel (analysisProgress, loadingFrames,
+    // frameLoadProgress); shown while a job runs.
+    property real analysisProgress: 0
+    property bool loadingFrames: false
+    property real frameLoadProgress: 0
+    // Apply-target mapping: masks the selected track can drive
+    // ([{maskId, label}], e.g. TrackingRotoModel.masks) and the frame whose
+    // mask shape is carried along the tracked motion.
+    property var targets: []
+    property string targetMaskId: ""
+    property string maskSourceFrame: startFrame
+    property real offsetX: 0
+    property real offsetY: 0
+    readonly property bool running: track.state === "running"
+    readonly property var target: targets.find(function(item) { return String(item.maskId) === control.targetMaskId }) || ({})
     readonly property var track: tracks.find(function(item) { return String(item.trackId) === control.selectedTrackId }) || ({})
     readonly property var features: (track.previewPoints || []).length
                                     ? track.previewPoints : (track.points || [])
@@ -29,6 +44,12 @@ T.Control {
     signal cancelRequested(string trackId)
     signal acceptRequested(string trackId)
     signal correctionRequested(string trackId, string frame, real x, real y)
+    signal optionsChangeRequested(string trackId, int radius, int searchRadius, string motion)
+    signal rebaseRequested(string trackId, string frame)
+    signal offsetRequested(string trackId, real dx, real dy, string fromFrame, string toFrame)
+    signal targetSelected(string maskId)
+    signal applyToMaskRequested(string trackId, string maskId, string sourceFrame,
+                                string fromFrame, string toFrame)
 
     function rerun() {
         if (!track.trackId || track.state === "running") return false
@@ -54,9 +75,40 @@ T.Control {
         correctionRequested(String(track.trackId), editFrame, px, py)
         return true
     }
+    // Radii are tracking-proxy pixels (source pixels up to 4 MP); motion is
+    // "translation" or "similarity" (also solves rotation and scale).
+    function setOptions(radius, searchRadius, motion) {
+        if (!track.trackId || running) return false
+        const r = Math.round(Number(radius)), s = Math.round(Number(searchRadius))
+        const m = String(motion || track.motion || "translation")
+        if (!(r >= 2 && r <= 16) || !(s >= 1 && s <= 64)
+                || (m !== "translation" && m !== "similarity")) return false
+        optionsChangeRequested(String(track.trackId), r, s, m)
+        return true
+    }
+    function rebase() {
+        if (!track.trackId || running) return false
+        const point = (track.points || []).find(function(item) { return String(item.frame) === String(control.currentFrame) })
+        if (!point || point.state === "lost") return false
+        rebaseRequested(String(track.trackId), String(currentFrame))
+        return true
+    }
+    function offset(dx, dy) {
+        const x = Number(dx === undefined ? offsetX : dx), y = Number(dy === undefined ? offsetY : dy)
+        if (!track.trackId || running || !Number.isFinite(x) || !Number.isFinite(y)
+                || (x === 0 && y === 0) || !(track.points || []).length) return false
+        offsetRequested(String(track.trackId), x, y, String(startFrame), String(endFrame))
+        return true
+    }
+    function applyToMask() {
+        if (!track.trackId || running || !target.maskId || !(track.points || []).length) return false
+        applyToMaskRequested(String(track.trackId), String(target.maskId), String(maskSourceFrame),
+                             String(startFrame), String(endFrame))
+        return true
+    }
 
-    implicitWidth: Tk.Theme.size.controlLg * 13
-    implicitHeight: Tk.Theme.size.controlLg * 9
+    implicitWidth: Tk.Theme.size.controlLg * 16
+    implicitHeight: Tk.Theme.size.controlLg * 15
     padding: Tk.Theme.space.md
     HoverHandler { id: hover }
     Tk.ToolTip { visible: hover.hovered && control.tooltip.length > 0; text: control.tooltip }
@@ -105,6 +157,100 @@ T.Control {
             }
         }
         Tk.Flex {
+            objectName: "trackingRange"
+            width: parent.width
+            direction: Tk.Flex.Row
+            align: Tk.Flex.Center
+            gap: Tk.Theme.space.sm
+            Tk.NumberField {
+                objectName: "trackingStartFrame"
+                Tk.Flex.flex: 1
+                label: qsTr("In"); from: 0; to: 1e7
+                value: Number(control.startFrame)
+                enabled: !control.running
+                tooltip: qsTr("First source frame to analyze")
+                onValueModified: function(value) { control.startFrame = String(Math.round(value)) }
+            }
+            Tk.NumberField {
+                objectName: "trackingEndFrame"
+                Tk.Flex.flex: 1
+                label: qsTr("Out"); from: 0; to: 1e7
+                value: Number(control.endFrame)
+                enabled: !control.running
+                tooltip: qsTr("Last source frame to analyze; below In tracks backwards")
+                onValueModified: function(value) { control.endFrame = String(Math.round(value)) }
+            }
+            Tk.NumberField {
+                objectName: "trackingOcclusion"
+                Tk.Flex.flex: 1
+                label: qsTr("Occl"); from: 0; to: 30
+                value: control.occlusionFrames
+                enabled: !control.running
+                tooltip: qsTr("Lost frames searched through before tracking stops")
+                onValueModified: function(value) { control.occlusionFrames = Math.round(value) }
+            }
+        }
+        Tk.Flex {
+            objectName: "trackingOptions"
+            width: parent.width
+            direction: Tk.Flex.Row
+            align: Tk.Flex.Center
+            gap: Tk.Theme.space.sm
+            Tk.NumberField {
+                objectName: "trackingPatchRadius"
+                Tk.Flex.flex: 1
+                label: qsTr("Patch"); from: 2; to: 16
+                value: Number(control.track.radius || 5)
+                enabled: Boolean(control.track.trackId) && !control.running
+                tooltip: qsTr("Patch radius in tracking pixels")
+                onValueModified: function(value) { control.setOptions(value, control.track.searchRadius || 16, control.track.motion) }
+            }
+            Tk.NumberField {
+                objectName: "trackingSearchRadius"
+                Tk.Flex.flex: 1
+                label: qsTr("Search"); from: 1; to: 64
+                value: Number(control.track.searchRadius || 16)
+                enabled: Boolean(control.track.trackId) && !control.running
+                tooltip: qsTr("Per-frame search radius in tracking pixels")
+                onValueModified: function(value) { control.setOptions(control.track.radius || 5, value, control.track.motion) }
+            }
+            Tk.ComboBox {
+                objectName: "trackingMotion"
+                Tk.Flex.flex: 1
+                model: [{text: qsTr("Translation"), value: "translation"},
+                        {text: qsTr("Rotate + scale"), value: "similarity"}]
+                textRole: "text"
+                currentIndex: control.track.motion === "similarity" ? 1 : 0
+                enabled: Boolean(control.track.trackId) && !control.running
+                tooltip: qsTr("Motion model the tracker solves")
+                onActivated: function(index) {
+                    control.setOptions(control.track.radius || 5, control.track.searchRadius || 16,
+                                       index === 1 ? "similarity" : "translation")
+                }
+            }
+        }
+        Tk.Flex {
+            objectName: "trackingProgressRow"
+            width: parent.width
+            visible: control.running || control.loadingFrames
+            direction: Tk.Flex.Row
+            align: Tk.Flex.Center
+            gap: Tk.Theme.space.sm
+            Tk.ProgressBar {
+                objectName: "trackingProgress"
+                Tk.Flex.grow: 1
+                from: 0; to: 1
+                value: control.loadingFrames ? control.frameLoadProgress : control.analysisProgress
+                tooltip: control.loadingFrames ? qsTr("Decoding source frames") : qsTr("Tracking analysis")
+            }
+            Tk.Caption {
+                objectName: "trackingProgressText"
+                text: (control.loadingFrames ? qsTr("Decoding %1%") : qsTr("Analyzing %1%"))
+                      .arg(Math.round(100 * Math.max(0, Math.min(1, control.loadingFrames
+                          ? control.frameLoadProgress : control.analysisProgress))))
+            }
+        }
+        Tk.Flex {
             width: parent.width
             direction: Tk.Flex.Row
             gap: Tk.Theme.space.xs
@@ -119,7 +265,7 @@ T.Control {
             id: featureList
             objectName: "trackingFeatureList"
             width: parent.width
-            height: Math.min(Tk.Theme.size.control * 7,
+            height: Math.min(Tk.Theme.size.control * 5,
                              Math.max(Tk.Theme.size.control, contentHeight))
             implicitHeight: height
             clip: true
@@ -181,6 +327,74 @@ T.Control {
                     ? qsTr("%1 accepted tracking points.").arg(control.track.points.length)
                     : String(control.track.error || qsTr("Run tracking to generate points."))
         }
-        Tk.Button { objectName: "trackingAccept"; text: qsTr("Accept results"); tooltip: qsTr("Apply this tracking result to the document"); enabled: control.track.state === "ready" && (control.track.previewPoints || []).length > 0; onClicked: control.accept() }
+        Tk.Flex {
+            objectName: "trackingEdits"
+            width: parent.width
+            direction: Tk.Flex.Row
+            align: Tk.Flex.Center
+            gap: Tk.Theme.space.sm
+            Tk.Button { objectName: "trackingAccept"; text: qsTr("Accept results"); tooltip: qsTr("Apply this tracking result to the document"); enabled: control.track.state === "ready" && (control.track.previewPoints || []).length > 0; onClicked: control.accept() }
+            Tk.Button {
+                objectName: "trackingRebase"
+                text: qsTr("Rebase")
+                variant: "outline"
+                tooltip: qsTr("Use the accepted point at the current frame as the new reference")
+                enabled: !control.running && (control.track.points || []).some(function(item) {
+                    return String(item.frame) === String(control.currentFrame) && item.state !== "lost" })
+                onClicked: control.rebase()
+            }
+            Tk.Spacer { Tk.Flex.grow: 1 }
+            Tk.NumberField {
+                objectName: "trackingOffsetX"
+                label: "X"; from: -1e4; to: 1e4; decimals: 1; small: true
+                value: control.offsetX
+                tooltip: qsTr("Horizontal offset in source pixels")
+                onValueModified: function(value) { control.offsetX = value }
+            }
+            Tk.NumberField {
+                objectName: "trackingOffsetY"
+                label: "Y"; from: -1e4; to: 1e4; decimals: 1; small: true
+                value: control.offsetY
+                tooltip: qsTr("Vertical offset in source pixels")
+                onValueModified: function(value) { control.offsetY = value }
+            }
+            Tk.Button {
+                objectName: "trackingOffset"
+                text: qsTr("Offset")
+                variant: "outline"
+                tooltip: qsTr("Shift accepted points in the In–Out range")
+                enabled: !control.running && (control.offsetX !== 0 || control.offsetY !== 0)
+                onClicked: control.offset()
+            }
+        }
+        Tk.Flex {
+            objectName: "trackingApplyRow"
+            width: parent.width
+            direction: Tk.Flex.Row
+            align: Tk.Flex.Center
+            gap: Tk.Theme.space.sm
+            Tk.Caption { text: qsTr("Drive mask") }
+            Tk.ComboBox {
+                objectName: "trackingTargetSelect"
+                Tk.Flex.grow: 1
+                model: control.targets
+                textRole: "label"
+                placeholderText: qsTr("No mask")
+                currentIndex: control.targets.findIndex(function(item) { return String(item.maskId) === control.targetMaskId })
+                tooltip: qsTr("Mask moved by this track")
+                onActivated: function(index) {
+                    control.targetMaskId = String(control.targets[index].maskId)
+                    control.targetSelected(control.targetMaskId)
+                }
+            }
+            Tk.Caption { text: qsTr("from %1").arg(control.maskSourceFrame) }
+            Tk.Button {
+                objectName: "trackingApplyMask"
+                text: qsTr("Apply to mask")
+                tooltip: qsTr("Key the mask along accepted tracking in the In–Out range")
+                enabled: !control.running && Boolean(control.target.maskId) && (control.track.points || []).length > 0
+                onClicked: control.applyToMask()
+            }
+        }
     }
 }

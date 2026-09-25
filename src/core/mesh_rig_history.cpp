@@ -108,7 +108,12 @@ bool MeshRigDocument::commit(const State &next, const QString &label)
     if (!service) return fail("Mesh history is unavailable");
     const auto step = std::make_shared<const MeshCommand>(m_documentId, m_resetGeneration, m_state,
                                                           next, m_token, ++m_nextToken);
-    const auto error = service->commit(this, label, {}, step);
+    // AGENT-GUARD: inside beginEditGesture/endEditGesture every commit shares
+    // one merge key, so a slider drag is one undo step and cannot evict older
+    // edits from the bounded history; outside a gesture each edit is its own.
+    const QString mergeKey = m_gestureOpen
+        ? QStringLiteral("meshrig-gesture-%1").arg(m_gestureSerial) : QString();
+    const auto error = service->commit(this, label, mergeKey, step);
     if (error) return fail(error.message);
     return true;
 }

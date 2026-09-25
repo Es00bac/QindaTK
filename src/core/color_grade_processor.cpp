@@ -135,4 +135,14 @@ ColorGradeResult ColorGradeProcessor::process(const QImage &source,
     return result;
 }
 
+ColorContextSnapshot ColorGradeProcessor::programContext()
+{
+    ColorContextSnapshot context;
+    context.document = ColorProfile::sRgb();
+    context.working = ColorProfile::linearSRgb();
+    context.display = ColorProfile::sRgb();
+    context.output = ColorProfile::sRgb();
+    return context;
+}
+
 } // namespace QindaTK

@@ -35,8 +35,14 @@ class AudioSourceEditModel : public QObject {
     Q_PROPERTY(QString previewState READ previewState NOTIFY previewChanged)
     Q_PROPERTY(QString previewResourceId READ previewResourceId NOTIFY previewChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
+    Q_PROPERTY(QString patchBytes READ patchBytes NOTIFY historyChanged)
+    Q_PROPERTY(qint64 patchBudgetBytes READ patchBudgetBytes WRITE setPatchBudgetBytes NOTIFY historyChanged)
 public:
     static constexpr int kHistoryLimit = 128;
+    // AGENT-NOTE (D-187): spectral patches are a cache of deterministic
+    // results. Past this many bytes the oldest are dropped (the newest always
+    // stays) and recomputed by prepare() when a fold or redo needs them.
+    static constexpr qint64 kDefaultPatchBudgetBytes = qint64(64) * 1024 * 1024;
 
     explicit AudioSourceEditModel(QObject *parent = nullptr);
     ~AudioSourceEditModel() override;
@@ -58,6 +64,11 @@ public:
     QString previewState() const { return m_preview.state; }
     QString previewResourceId() const { return m_preview.resourceId; }
     QString lastError() const { return m_lastError; }
+    // Bytes held by the prepared spectral patches of committed and redo steps.
+    QString patchBytes() const { return QString::number(heldPatchBytes()); }
+    qint64 heldPatchBytes() const;
+    qint64 patchBudgetBytes() const { return m_patchBudget; }
+    void setPatchBudgetBytes(qint64 bytes);
 
     Q_INVOKABLE QString revision(const QString &resourceId) const { return QString::number(revisionNumber(resourceId)); }
     Q_INVOKABLE QString frames(const QString &resourceId);
@@ -123,6 +134,7 @@ private:
 
     Source *source(const QString &resourceId);
     void fold(Source &source);
+    void enforcePatchBudget();
     void touch(const QString &resourceId);
     void push(const QString &resourceId, AudioSourceEdit edit, AudioBufferPtr result);
     void finishPreview(quint64 serial, const PreviewResult &result);
@@ -136,6 +148,8 @@ private:
     Preview m_preview;
     quint64 m_previewSerial = 0;
     quint64 m_revisionSerial = 0;
+    quint64 m_editSequence = 0;
+    qint64 m_patchBudget = kDefaultPatchBudgetBytes;
     QString m_lastError;
 };
 
