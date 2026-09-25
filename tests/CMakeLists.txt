@@ -74,6 +74,7 @@ qindatk_add_test(tst_scene_view_3d_render)
 qindatk_add_test(tst_mesh_rig_document)
 qindatk_add_test(tst_mesh_rig_paint)
 qindatk_add_test(tst_mesh_rig_rig)
+qindatk_add_test(tst_mesh_rig_authoring)
 # The GPU upload adapter exists only when Qt Quick 3D is installed (src/CMakeLists.txt).
 # Imported targets are directory-scoped: find the package again here.
 if(QINDATK_WITH_QUICK3D)

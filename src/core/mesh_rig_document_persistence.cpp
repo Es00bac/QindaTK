@@ -82,9 +82,16 @@ QString MeshRigDocument::toJson() const {
 }
 
 bool MeshRigDocument::stateFromJson(const QString &json, State *result) const {
-    if (json.toUtf8().size() > 16 * 1024 * 1024) return fail("Mesh document exceeds 16 MiB");
+    QString problem;
+    return parseState(json.toUtf8(), result, &problem) || fail(problem);
+}
+// Static so the session codec (mesh_rig_document_codec.cpp) validates files
+// without a live document; every rule applies to both paths.
+bool MeshRigDocument::parseState(const QByteArray &json, State *result, QString *problem) {
+    const auto fail = [problem](const char *message) { *problem = QString::fromLatin1(message); return false; };
+    if (json.size() > 17 * 1024 * 1024) return fail("Mesh document exceeds its size limit");
     QJsonParseError error;
-    const auto parsed = QJsonDocument::fromJson(json.toUtf8(), &error);
+    const auto parsed = QJsonDocument::fromJson(json, &error);
     if (error.error != QJsonParseError::NoError || !parsed.isObject()) return fail("Invalid mesh JSON");
     const auto root = parsed.object();
     // Version 1 files (one sRGB texture, no constraints or keys) still open.
@@ -232,7 +239,10 @@ bool MeshRigDocument::stateFromJson(const QString &json, State *result) const {
     QSize size;
     const QStringList channels = textureChannels();
     for (int c = 0; c < ChannelCount; ++c) {
-        if (!textures.contains(channels[c]) && version == 1) continue;
+        // AGENT-GUARD: version 1 files carry only baseColor ("texturePng");
+        // that channel is still required, so a file with no texture is
+        // refused here instead of loading null images that save unreadably.
+        if (version == 1 && c != BaseColor) continue;
         const auto encoded = textures.value(channels[c]).toString();
         if (encoded.isEmpty() || encoded.size() > 8 * 1024 * 1024) return fail("Invalid texture data");
         QByteArray bytes = QByteArray::fromBase64(encoded.toLatin1());
@@ -253,6 +263,7 @@ bool MeshRigDocument::stateFromJson(const QString &json, State *result) const {
         state.textures[c] = decoded.convertToFormat(QImage::Format_ARGB32_Premultiplied);
         if (c == BaseColor) state.textures[c].setColorSpace(QColorSpace::SRgb);
     }
+    if (!size.isValid()) return fail("Invalid texture data");
     for (int c = 0; c < ChannelCount; ++c)
         if (state.textures[c].isNull()) state.textures[c] = blankChannel(c, size.width(), size.height());
     *result = state; return true;

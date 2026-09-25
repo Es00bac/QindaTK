@@ -8,6 +8,9 @@ import QindaTK as Tk
 // constraint, key and frame edits. Sliders edit `sourcePose` (the static pose
 // or the keyed value at the frame), never the constrained `evaluatedPose`, so
 // the editor cannot bake constraint output into the rig (docs/mesh-rig.md).
+// Slider drags are bracketed by editGestureStarted/editGestureFinished; the
+// host maps them to MeshRigDocument.beginEditGesture/endEditGesture so one
+// drag is one undo step (a per-tick step would evict older history).
 T.Control {
     id: control
     objectName: "rigEditor"
@@ -15,7 +18,7 @@ T.Control {
     property var vertices: []
     property string selectedBoneId: ""
     property string selectedVertexId: ""
-    property string mode: "pose" // "pose" or "weights"
+    property string mode: "pose" // "pose", "weights" or "author" (rig authoring)
     property int currentFrame: 0
     property real constraintInfluence: 1.0
     property string tooltip: qsTr("Rig editor: orthographic skeleton projection and pose controls")
@@ -32,6 +35,15 @@ T.Control {
     signal poseKeyRequested(string boneId, int frame, vector3d eulerDegrees)
     signal poseKeyRemoveRequested(string boneId, int frame)
     signal frameRequested(int frame)
+    signal editGestureStarted()
+    signal editGestureFinished()
+    // Authoring mode (RigAuthoringPanel): rig structure, never poses or keys.
+    signal boneAddRequested(string name, string parentId, vector3d head, vector3d tail)
+    signal boneRemoveRequested(string boneId)
+    signal boneRenameRequested(string boneId, string name)
+    signal boneParentRequested(string boneId, string parentId)
+    signal boneRestRequested(string boneId, vector3d head, vector3d tail)
+    signal boneLimitsRequested(string boneId, vector3d minimum, vector3d maximum)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 3
     implicitHeight: Tk.Theme.size.waveformHeight * 6
@@ -124,13 +136,14 @@ T.Control {
             gap: Tk.Theme.space.sm
             align: Tk.Flex.Center
             Tk.Overline { text: qsTr("Rig") }
-            Tk.Badge { text: control.mode === "pose" ? qsTr("POSE") : qsTr("WEIGHTS"); variant: "accent" }
-            Tk.Button {
+            Tk.Segmented {
                 objectName: "rigEditMode"
-                text: control.mode === "pose" ? qsTr("Weights") : qsTr("Pose")
                 small: true
-                tooltip: qsTr("Switch between bone posing and vertex weight editing")
-                onClicked: control.mode = control.mode === "pose" ? "weights" : "pose"
+                tooltip: qsTr("Pose bones, edit vertex weights, or author the rig itself")
+                model: [{ text: qsTr("Pose"), value: "pose" }, { text: qsTr("Weights"), value: "weights" },
+                        { text: qsTr("Rig"), value: "author" }]
+                currentIndex: control.mode === "weights" ? 1 : control.mode === "author" ? 2 : 0
+                onActivated: function(index) { control.mode = ["pose", "weights", "author"][index] }
             }
             Tk.Spacer { size: Tk.Theme.space.sm }
             Tk.NumberField {
@@ -262,7 +275,9 @@ T.Control {
                     direction: Tk.Flex.Row
                     Tk.Caption { text: modelData }
                     Tk.Slider {
+                        objectName: "rigPoseAxis_" + modelData
                         Tk.Flex.flex: 1
+                        onPressedChanged: pressed ? control.editGestureStarted() : control.editGestureFinished()
                         from: control.axisLimit(index, "min")
                         to: control.axisLimit(index, "max")
                         stepSize: 1
@@ -345,13 +360,25 @@ T.Control {
                 value: control.selectedVertex && control.selectedBoneId
                     ? Number((control.selectedVertex.weights || ({}))[control.selectedBoneId] || 0) : 0
                 tooltip: qsTr("Selected bone influence for vertex %1").arg(control.selectedVertexId)
+                onPressedChanged: pressed ? control.editGestureStarted() : control.editGestureFinished()
                 onValueModified: function(value) { control.requestBoneWeight(value) }
             }
+        }
+        Tk.RigAuthoringPanel {
+            visible: control.mode === "author"
+            bones: control.bones
+            selectedBoneId: control.selectedBoneId
+            onBoneAddRequested: function(name, parentId, head, tail) { control.boneAddRequested(name, parentId, head, tail) }
+            onBoneRemoveRequested: function(id) { control.boneRemoveRequested(id) }
+            onBoneRenameRequested: function(id, name) { control.boneRenameRequested(id, name) }
+            onBoneParentRequested: function(id, parentId) { control.boneParentRequested(id, parentId) }
+            onBoneRestRequested: function(id, head, tail) { control.boneRestRequested(id, head, tail) }
+            onBoneLimitsRequested: function(id, minimum, maximum) { control.boneLimitsRequested(id, minimum, maximum) }
         }
         Tk.Caption {
             objectName: "rigEvaluatedPose"
             mono: true
-            visible: Boolean(control.selectedBone)
+            visible: Boolean(control.selectedBone) && control.mode !== "author"
             text: control.selectedBone && control.selectedBone.evaluatedPose
                 ? qsTr("Evaluated %1°, %2°, %3° at frame %4")
                     .arg(Number(control.selectedBone.evaluatedPose.x).toFixed(1))
@@ -368,7 +395,7 @@ T.Control {
     onBonesChanged: skeleton.requestPaint()
     onSelectedBoneIdChanged: skeleton.requestPaint()
     Keys.onPressed: function(event) {
-        if ((event.key === Qt.Key_Left || event.key === Qt.Key_Right) && selectedBone) {
+        if ((event.key === Qt.Key_Left || event.key === Qt.Key_Right) && selectedBone && mode === "pose") {
             const axis = (event.modifiers & Qt.ShiftModifier) ? 1 : 2
             const pose = editablePose()
             setPoseAxis(axis, pose[axis === 1 ? "y" : "z"] + (event.key === Qt.Key_Left ? -1 : 1))

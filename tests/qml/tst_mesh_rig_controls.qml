@@ -34,9 +34,7 @@ TestCase {
         id: paintComponent
         Tk.TexturePaintView {
             width: 400; height: 380
-            rayProvider: function(point) {
-                return { origin: Qt.vector3d(point.x, point.y, 5), direction: Qt.vector3d(0, 0, -1) }
-            }
+            paintEnabled: true
         }
     }
 
@@ -165,14 +163,21 @@ TestCase {
         verify(face.length > 0)
     }
 
-    function test_texture_input_emits_host_camera_ray() {
-        const paint = createTemporaryObject(paintComponent, this)
+    function test_texture_input_maps_pointer_to_shown_uv() {
+        const paint = createTemporaryObject(paintComponent, this, { textureWidth: 64, textureHeight: 32 })
         verify(paint !== null)
-        raySpy.target = paint; raySpy.signalName = "paintRayRequested"
-        verify(paint.paintingAvailable)
-        verify(paint.sendRay(Qt.point(40, 60)))
+        raySpy.target = paint; raySpy.signalName = "paintUvRequested"
+        const r = paint.textureRect
+        compare(r.width / r.height, 2) // aspect-fitted, like the drawn texture
+        const surface = findChild(paint, "texturePaintSurface")
+        const preview = findChild(paint, "texturePreview")
+        compare(preview.x, r.x); compare(preview.width, r.width)
+        verify(paint.sendUv(Qt.point(r.x + r.width * 0.25, r.y + r.height * 0.75)))
         compare(raySpy.count, 1)
-        compare(raySpy.signalArguments[0][0].z, 5)
-        compare(raySpy.signalArguments[0][1].z, -1)
+        fuzzyCompare(raySpy.signalArguments[0][0].x, 0.25, 1e-9)
+        fuzzyCompare(raySpy.signalArguments[0][0].y, 0.25, 1e-9) // v points up
+        verify(paint.uvAt(Qt.point(r.x - 1, r.y)) === null)
+        verify(!paint.sendUv(Qt.point(r.x - 1, r.y)))
+        verify(surface !== null)
     }
 }

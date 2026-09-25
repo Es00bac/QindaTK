@@ -1477,8 +1477,10 @@ channels share storage) into an `UndoService`, a private one until a host
 adopts it with `adoptModel`. Commands carry content tokens, so a step applies
 only to the exact state it was recorded against. **Consequences.** Hosts get
 one history across mesh, scene and canvas models, undo text and clean
-tracking; a paint stroke is never split. A native session codec for the mesh
-schema is not registered yet; hosts save through `saveToFile`.
+tracking; a paint stroke is never split. The session codec
+`qindatk.mesh-rig.v2` (`meshRigDocumentCodec`) now registers the mesh schema,
+so `DocumentSession` save, autosave and recovery cover it; an edit gesture
+(`beginEditGesture`/`endEditGesture`) is one merged step.
 
 ## D-174 — A comp is a selection over take ranges, placed by a timeline clip
 
@@ -1544,6 +1546,40 @@ turned into a comp by one source switch, or in a new comp. **Consequences.**
 Every pass plays exactly what was heard at its position, pre- and post-roll
 stay available, the event ring's acknowledgment guarantee is untouched, and
 a recording with lost jumps falls back to one linear clip.
+
+## D-178 — Rig timeline animation lives in the WP-073 AutomationModel
+
+**Context.** WP-077 kept bone keys in a private linear list with a manual
+integer frame, so KeyframeTimeline, DopeSheet and CurveEditor could not show
+or edit rig animation and no exact-tick playhead drove it. **Decision.**
+`MeshRigDocument.animationModel` takes an `AutomationModel`;
+`bindBoneAnimation(boneId)` adds three angle lanes
+`meshrig/bone:<boneId>/rotation.x|y|z` and copies the private keys into them.
+A bound bone's source pose is its lanes' values at `timeTicks`, the one
+playhead (`timeTicks = currentFrame × ticksPerFrame`). Pose and key edits on a
+bound bone key the lanes, one automation step per call; a gesture keys once at
+its end. Limits refuse lane values outside them. **Consequences.** Rig keys
+get exact ticks, every curve interpolation and the timeline editors for free;
+the private keys stay in the mesh file, so nothing is lost without the model.
+The host saves the `AutomationModel` beside the mesh, as with
+`MotionComposition`, and orders the two histories.
+
+## D-179 — Mesh painting happens where the pointer is shown
+
+**Context.** `TexturePaintView` drew the flat texture but sent its pointer
+position into a camera ray, so the painted texel was not the one under the
+pointer, and no surface painted from the camera view the user saw.
+**Decision.** Texture space and camera space each paint where they are
+shown. `TexturePaintView` maps its pointer to the UV of the texel drawn under
+it and requests `MeshRigDocument.paintUv`, which centres the usual surface
+sphere dab on the point with that UV. `SceneView3D.meshTool: "paint"` sends
+camera rays through the pixel under the pointer (`meshRay`), and `"select"`
+picks faces and posed bones; the view also draws the host's selected face and
+bone from `cameraOverlay`, the exact inverse of `meshRay`. The layer is
+CPU-only. **Consequences.** Both surfaces paint the texel under the pointer
+under any graphics backend and headless; selection synchronizes both ways
+between the 3D view and the UV and rig editors. `rayProvider` and
+`paintRayRequested` on `TexturePaintView` are gone.
 
 ## D-186 — Spectral masks are sample/Hz polygons applied per analysis frame
 

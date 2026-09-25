@@ -29296,10 +29296,137 @@
       ]
     },
     {
+      "name": "RigAuthoringPanel",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "AGENT-CONTRACT (VID-18 \"authoring and posing modes are explicit\"): RigEditor's authoring mode. It edits the rig itself (bones, hierarchy, rest head/tail, rotation limits) by stable bone ID and never touches poses or keys; the host commits each request through MeshRigDocument addBone, removeBone, renameBone, setBoneParent, setBoneRest and setBoneLimits, which refuse cycles, dangling references and limits that exclude stored poses.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/RigAuthoringPanel.qml",
+      "properties": [
+        {
+          "name": "bones",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedBoneId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Rig authoring: bone hierarchy, rest position and rotation limits\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedBone",
+          "type": "var",
+          "default": "boneById(selectedBoneId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "parentCandidates",
+          "type": "var",
+          "default": "[{ name: qsTr(\"No parent\"), boneId: \"\" }].concat(",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "boneAddRequested",
+          "parameters": "string name, string parentId, vector3d head, vector3d tail"
+        },
+        {
+          "name": "boneRemoveRequested",
+          "parameters": "string boneId"
+        },
+        {
+          "name": "boneRenameRequested",
+          "parameters": "string boneId, string name"
+        },
+        {
+          "name": "boneParentRequested",
+          "parameters": "string boneId, string parentId"
+        },
+        {
+          "name": "boneRestRequested",
+          "parameters": "string boneId, vector3d head, vector3d tail"
+        },
+        {
+          "name": "boneLimitsRequested",
+          "parameters": "string boneId, vector3d minimum, vector3d maximum"
+        }
+      ],
+      "methods": [
+        {
+          "name": "boneById",
+          "parameters": "id"
+        },
+        {
+          "name": "isDescendant",
+          "parameters": "id, ancestorId"
+        },
+        {
+          "name": "axisOf",
+          "parameters": "vector, axis"
+        },
+        {
+          "name": "withAxis",
+          "parameters": "vector, axis, value"
+        },
+        {
+          "name": "requestChild",
+          "parameters": ""
+        },
+        {
+          "name": "requestRest",
+          "parameters": "end, axis, value"
+        },
+        {
+          "name": "requestLimit",
+          "parameters": "side, axis, value"
+        },
+        {
+          "name": "requestParent",
+          "parameters": "parentId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "rigAddBone",
+        "rigAuthor_",
+        "rigAuthoringPanel",
+        "rigBoneName",
+        "rigBoneParent",
+        "rigRemoveBone"
+      ]
+    },
+    {
       "name": "RigEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: consumes MeshRigDocument.bones/vertices snapshots and emits stable bone/vertex/constraint IDs; the host commits pose, weight, constraint, key and frame edits. Sliders edit `sourcePose` (the static pose or the keyed value at the frame), never the constrained `evaluatedPose`, so the editor cannot bake constraint output into the rig (docs/mesh-rig.md).",
+      "description": "AGENT-CONTRACT: consumes MeshRigDocument.bones/vertices snapshots and emits stable bone/vertex/constraint IDs; the host commits pose, weight, constraint, key and frame edits. Sliders edit `sourcePose` (the static pose or the keyed value at the frame), never the constrained `evaluatedPose`, so the editor cannot bake constraint output into the rig (docs/mesh-rig.md). Slider drags are bracketed by editGestureStarted/editGestureFinished; the host maps them to MeshRigDocument.beginEditGesture/endEditGesture so one drag is one undo step (a per-tick step would evict older history).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/RigEditor.qml",
@@ -29339,7 +29466,7 @@
         {
           "name": "mode",
           "type": "string",
-          "default": "\"pose\" // \"pose\" or \"weights\"",
+          "default": "\"pose\" // \"pose\", \"weights\" or \"author\" (rig authoring)",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -29433,6 +29560,38 @@
         {
           "name": "frameRequested",
           "parameters": "int frame"
+        },
+        {
+          "name": "editGestureStarted",
+          "parameters": ""
+        },
+        {
+          "name": "editGestureFinished",
+          "parameters": ""
+        },
+        {
+          "name": "boneAddRequested",
+          "parameters": "string name, string parentId, vector3d head, vector3d tail"
+        },
+        {
+          "name": "boneRemoveRequested",
+          "parameters": "string boneId"
+        },
+        {
+          "name": "boneRenameRequested",
+          "parameters": "string boneId, string name"
+        },
+        {
+          "name": "boneParentRequested",
+          "parameters": "string boneId, string parentId"
+        },
+        {
+          "name": "boneRestRequested",
+          "parameters": "string boneId, vector3d head, vector3d tail"
+        },
+        {
+          "name": "boneLimitsRequested",
+          "parameters": "string boneId, vector3d minimum, vector3d maximum"
         }
       ],
       "methods": [
@@ -29503,6 +29662,7 @@
         "rigEvaluatedPose",
         "rigFrame",
         "rigKey",
+        "rigPoseAxis_",
         "rigProjection",
         "rigRemoveKey",
         "rigSelectedWeight",
@@ -30623,6 +30783,38 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "meshTool",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedMeshFaceId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedBoneId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showMeshBones",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -30637,6 +30829,26 @@
         {
           "name": "meshFacePicked",
           "parameters": "string faceId, point uv"
+        },
+        {
+          "name": "meshBonePicked",
+          "parameters": "string boneId"
+        },
+        {
+          "name": "meshStrokeBegan",
+          "parameters": ""
+        },
+        {
+          "name": "meshPaintRayRequested",
+          "parameters": "vector3d origin, vector3d direction"
+        },
+        {
+          "name": "meshStrokeFinished",
+          "parameters": ""
+        },
+        {
+          "name": "meshStrokeCancelled",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -30687,10 +30899,70 @@
       "bridge": false,
       "objectNames": [
         "sceneAxis3D_",
+        "sceneMeshTool3D_",
         "sceneMode3D_",
         "sceneSpace3D",
         "sceneTransformBar3D",
         "sceneView3D"
+      ]
+    },
+    {
+      "name": "SceneView3DMeshLayer",
+      "kind": "qml",
+      "base": "Item",
+      "description": "AGENT-CONTRACT (D-179): SceneView3D's CPU mesh layer. It draws the selected face and the posed bones from MeshRigDocument.cameraOverlay (the exact inverse of meshRay), and while SceneView3D.meshTool is \"select\" or \"paint\" it owns left-button gestures on the mesh: selection emits stable face/bone IDs, paint emits the camera ray through the pixel under the pointer. It needs no RHI renderer, so selection sync and camera painting behave the same under every backend. Right/middle drags still reach the renderer's camera controls below.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/SceneView3DMeshLayer.qml",
+      "properties": [
+        {
+          "name": "view",
+          "type": "var",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "overlay",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "stroking",
+          "type": "bool",
+          "default": "gesture.stroking",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "boneAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "cancelStroke",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "sceneMeshGesture3D",
+        "sceneMeshLayer3D",
+        "sceneMeshOverlay3D"
       ]
     },
     {
@@ -37233,7 +37505,7 @@
       "name": "TexturePaintView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the host supplies camera picking through rayProvider and routes one requested stroke to MeshRigDocument.beginPaint(channel) / paintRay / endPaint. SceneView3D.meshRay is the reference provider: a CPU perspective ray matching the GPU camera (docs/mesh-rig.md#camera-rays).",
+      "description": "AGENT-CONTRACT (D-179): this surface paints in texture space. The pointer maps to the UV of the texel it shows (the fitted texture rectangle below), and one requested stroke goes to MeshRigDocument.beginPaint(channel) / paintUv / endPaint. Painting from the camera view happens in SceneView3D (meshTool \"paint\"), whose rays pass through the pixel under the pointer; both share this view's brush and channel (docs/mesh-rig.md#painting).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TexturePaintView.qml",
@@ -37242,6 +37514,22 @@
           "name": "textureDataUrl",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "textureWidth",
+          "type": "int",
+          "default": "1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "textureHeight",
+          "type": "int",
+          "default": "1",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -37295,9 +37583,9 @@
           "required": false
         },
         {
-          "name": "rayProvider",
-          "type": "var",
-          "default": "null // function(normalizedPosition) -> {origin, direction}",
+          "name": "paintEnabled",
+          "type": "bool",
+          "default": "false",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -37305,15 +37593,15 @@
         {
           "name": "tooltip",
           "type": "string",
-          "default": "qsTr(\"Texture paint surface: drag to send camera rays to the host\")",
+          "default": "qsTr(\"Texture paint surface: drag to paint the texel under the pointer\")",
           "readonly": false,
           "defaultProperty": false,
           "required": false
         },
         {
-          "name": "paintingAvailable",
-          "type": "bool",
-          "default": "typeof rayProvider === \"function\"",
+          "name": "textureRect",
+          "type": "rect",
+          "default": "{",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -37325,8 +37613,8 @@
           "parameters": "string channel"
         },
         {
-          "name": "paintRayRequested",
-          "parameters": "vector3d origin, vector3d direction, color color, int radiusPixels, real opacity, real hardness"
+          "name": "paintUvRequested",
+          "parameters": "point uv, color color, int radiusPixels, real opacity, real hardness"
         },
         {
           "name": "strokeFinished",
@@ -37351,7 +37639,11 @@
           "parameters": "name"
         },
         {
-          "name": "sendRay",
+          "name": "uvAt",
+          "parameters": "point"
+        },
+        {
+          "name": "sendUv",
           "parameters": "point"
         },
         {
@@ -37368,6 +37660,7 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "texturePaintBrush",
         "texturePaintChannels",
         "texturePaintSurface",
         "texturePaintView",
@@ -58355,6 +58648,34 @@
           "constant": false
         },
         {
+          "name": "timeTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "ticksPerFrame",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "animationModel",
+          "type": "QindaTK::AutomationModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "editGestureActive",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "painting",
           "type": "bool",
           "default": "",
@@ -58419,6 +58740,10 @@
         },
         {
           "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "animationModelChanged",
           "parameters": ""
         }
       ],
@@ -58539,6 +58864,51 @@
           "parameters": "const QString &boneId"
         },
         {
+          "name": "removeBone",
+          "returns": "bool",
+          "parameters": "const QString &boneId"
+        },
+        {
+          "name": "renameBone",
+          "returns": "bool",
+          "parameters": "const QString &boneId, const QString &name"
+        },
+        {
+          "name": "setBoneParent",
+          "returns": "bool",
+          "parameters": "const QString &boneId, const QString &parentId"
+        },
+        {
+          "name": "setBoneRest",
+          "returns": "bool",
+          "parameters": "const QString &boneId, const QVector3D &head, const QVector3D &tail"
+        },
+        {
+          "name": "boneAnimationParameters",
+          "returns": "QStringList",
+          "parameters": "const QString &boneId"
+        },
+        {
+          "name": "isBoneAnimationBound",
+          "returns": "bool",
+          "parameters": "const QString &boneId"
+        },
+        {
+          "name": "bindBoneAnimation",
+          "returns": "bool",
+          "parameters": "const QString &boneId"
+        },
+        {
+          "name": "beginEditGesture",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "endEditGesture",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
           "name": "resizeTexture",
           "returns": "bool",
           "parameters": "int width, int height"
@@ -58552,6 +58922,11 @@
           "name": "paintRay",
           "returns": "bool",
           "parameters": "const QVector3D &origin, const QVector3D &direction, const QColor &color, int radiusPixels = 4, qreal opacity = 1.0, qreal hardness = 1.0"
+        },
+        {
+          "name": "paintUv",
+          "returns": "bool",
+          "parameters": "const QPointF &uv, const QColor &color, int radiusPixels = 4, qreal opacity = 1.0, qreal hardness = 1.0"
         },
         {
           "name": "endPaint",
@@ -58574,9 +58949,19 @@
           "parameters": "const QVector3D &cameraPosition, const QVector3D &cameraEulerDegrees, qreal verticalFieldOfViewDegrees, const QSizeF &viewportSize, const QPointF &point"
         },
         {
+          "name": "cameraOverlay",
+          "returns": "QVariantMap",
+          "parameters": "const QVector3D &cameraPosition, const QVector3D &cameraEulerDegrees, qreal verticalFieldOfViewDegrees, const QSizeF &viewportSize, const QString &faceId"
+        },
+        {
           "name": "texture",
           "returns": "QImage",
           "parameters": "const QString &channel = QStringLiteral(\"baseColor\""
+        },
+        {
+          "name": "texel",
+          "returns": "QColor",
+          "parameters": "const QString &channel, int x, int y"
         },
         {
           "name": "channelDataUrl",
