@@ -901,6 +901,18 @@ push the record adopts the canonical mapping of what was sent, so the next
 sync is quiet. Conflict details are in memory only; a restart rediscovers
 them on the next sync.
 
+**Recurrence instances (addendum, WP-058 audit).** Editing one occurrence
+must never rewrite the series, and a moved server instance must appear at
+its moved time. An occurrence is therefore identified by its original local
+start (`recurrenceId`, the RECURRENCE-ID in the master's zone) and stays
+`<eventId>/<local start>` wherever it moves. One-occurrence edits are
+`overrides` entries on the event record, mapped to and from RECURRENCE-ID
+components; "this and following" splits the series into a new record that
+CalDAV creates as a new resource; a series move carries the exclusion and
+override keys with it. Overrides and exclusions a new rule no longer
+produces are dropped rather than kept as hidden state. All-day series are
+date-only and move by whole days (docs/productivity-store.md#calendar-edits).
+
 ## D-189 — Hosted services are host adapters over the standard protocols
 
 **Context.** Gmail, Microsoft 365, iCloud and similar services differ in
@@ -916,7 +928,7 @@ with the same invokables, signals and record fields
 
 **Consequences.** Views and the store are unchanged by the account type.
 No hosted account is exercised in the automated tests; qualification of real
-accounts belongs to the deferred WP-088 to WP-094.
+accounts belongs to WP-089/WP-090, which the user deferred on 2026-09-24.
 
 ## D-178 — A score is written music with its own model, separate from MIDI
 

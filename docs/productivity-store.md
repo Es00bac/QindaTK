@@ -16,7 +16,7 @@ collection. Message records also provide `messageId`, plain-text body and trust
 metadata. Drafts retain recipients, subject, body and attachment metadata
 (stable attachment ID, name, MIME type, byte size and state), not attachment
 bytes. Events retain local start/end values, an IANA zone, calendar ID,
-recurrence rule and occurrence exceptions verbatim. Tasks retain stable ID,
+recurrence rule, occurrence `exceptions` and single-occurrence `overrides`. Tasks retain stable ID,
 status and integer order alongside title, assignee, due date and priority.
 
 The versioned JSON envelope is `qindatk.productivity/1`; collections are
@@ -70,17 +70,56 @@ one in-memory operation. Each move keeps a bounded whole-task-list checkpoint;
 the move/undo and acknowledges the matching `TaskBoard` request only after the
 save succeeds.
 
-`shiftEventLocal(eventId, minutes)` changes an event's start and end wall-clock
-fields together, rejects nonexistent or ambiguous times in the event's IANA
-zone, and retains bounded local undo. `undoEventChange()` restores the prior
-event collection. The caller saves and acknowledges the matching
-`CalendarView` request after persistence succeeds. Provider sync and edits to
-recurrence exceptions remain host responsibilities.
+## Calendar edits
 
-`examples/local-productivity/Main.qml` shows message actions, formatted draft
-autosave/reopen, calendar proposal rejection without a calendar provider,
-task move/undo and reload against the local store. The fixture never sends to
-a real recipient.
+Every calendar edit below changes memory only, keeps a bounded
+whole-event-list checkpoint for `undoEventChange()`, and returns
+`{ok, error, revision}`. The caller saves and then acknowledges the matching
+`CalendarView` or `RecurrenceEditor` request (an account record is written
+through its provider first; see
+[productivity-providers.md](productivity-providers.md)).
+
+| Call | Effect |
+| --- | --- |
+| `shiftEventLocal(eventId, minutes, scope, occurrenceId)` | Moves by wall-clock minutes (up to 366 days). `scope` is `series` (default), `occurrence` or `following` (ignored for a single event). |
+| `setEventRecurrence(eventId, rule)` | Stores a `RecurrenceService` rule (`frequency`, `interval`, `weekdays`, `endMode`, `count`, `until`); `{}` makes the event single. |
+| `setOccurrenceExcluded(eventId, occurrenceId, excluded)` | Adds or removes an EXDATE-style entry in `exceptions`. |
+| `setOccurrenceOverride(eventId, occurrenceId, fields)` | Sets `title`, `description`, `location`, `startLocal`/`endLocal` of one occurrence; `{}` restores it. |
+
+Scopes keep editing one occurrence separate from changing the series:
+
+- **series** moves `startLocal`/`endLocal`. For a recurring event the rule's
+  anchors follow: weekly `weekdays` rotate and `until` moves by the change of
+  the start date, and the `exceptions` and override `recurrenceId` keys move
+  by the same wall time, so the same instances stay excluded or overridden.
+- **occurrence** records an override `{recurrenceId, startLocal, endLocal}` in
+  the event's `overrides` list. `recurrenceId` is the instance's original
+  local start, so the occurrence keeps its `occurrenceId` wherever it moves; a
+  second move adds to the existing override. The series is unchanged.
+- **following** splits the series at the occurrence: the original ends the
+  day before (UNTIL), or keeps the occurrences already generated (COUNT, with
+  exclusions counted as RFC 5545 does); a new event `<eventId>~<yyyyMMdd>`
+  starts at the moved occurrence with the rest of the count, the later
+  exclusions and overrides, and no remote identity except `remoteAccount`, so
+  CalDAV creates it as a new resource. On the first occurrence it equals
+  **series**.
+
+Wall-clock arithmetic happens before the zone check, so 09:00 stays 09:00
+across a DST change; a result inside a spring-forward gap or a fall-back fold
+is refused. All-day events (`startLocal` "yyyy-MM-dd", as iCalendar
+`VALUE=DATE` maps them) move by whole days only (`minutes % 1440 == 0`) and
+keep whole local days in the projection. An occurrence ID must name an
+instance the rule produces (`RecurrenceService.occurrenceAt`); excluding an
+overridden instance removes its override. A rule change drops exclusions and
+overrides the new rule no longer produces. `upsert` of an event clears the
+calendar undo history, as before.
+
+`examples/local-productivity/Main.qml` shows the five views over one store:
+conversations and lazy attachments, token recipients and attachment jobs,
+scoped moves with undo, a persisted recurrence editor, and task reorder with
+conflict resolution. `ProductivityHost.qml` routes every request; with no
+account configured, mail refresh and send reach the providers and come back
+rejected by them. The example never sends to a real recipient.
 
 ## Attachment payloads
 
@@ -112,8 +151,12 @@ stable `eventId`, stable `occurrenceId` (the event ID plus the exact local
 occurrence wall time), local `startLocal`/`endLocal`, the original IANA `zone`
 and UTC start/end values. One-off events are range filtered directly;
 recurring events pass their stored `recurrenceRule` and `exceptions` to
-`RecurrenceService`. A store `dataChanged` signal reprojects the current
-range. Invalid event times/zones, invalid recurrence and an exceeded result
+`RecurrenceService`. An occurrence with an override takes the override's
+fields and times, keeps its `occurrenceId`, and carries `overridden: true`
+and `recurrenceId`; an instance moved into the range from outside it is
+found through its override. All-day rows span whole local days (the zone's
+start of day, end exclusive). A store `dataChanged` signal reprojects the
+current range. Invalid event times/zones, invalid recurrence and an exceeded result
 limit set `error` and reject that projection.
 
 `examples/local-calendar-projection` navigates seven-day UTC windows over a

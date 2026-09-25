@@ -12,9 +12,12 @@
 // AGENT-CONTRACT (local_calendar_projection_model.cpp, recurrence_service.cpp):
 // events use startLocal/endLocal wall times ("yyyy-MM-dd HH:mm[:ss]", or
 // "yyyy-MM-dd" when allDay), an IANA `zone`, `recurrenceRule` in the
-// RecurrenceService shape, and `exceptions` as "yyyy-MM-ddTHH:mm:ss" local
-// starts. An RRULE outside that shape is kept verbatim in `recurrenceRaw`
-// with `recurrenceRule` null, so the series survives a round trip.
+// RecurrenceService shape, `exceptions` as "yyyy-MM-ddTHH:mm:ss" local
+// starts ("yyyy-MM-dd" for all-day series) and `overrides` as
+// {recurrenceId, startLocal, endLocal, title, description, location} for
+// RECURRENCE-ID instances (a cancelled instance becomes an exception). An
+// RRULE outside that shape is kept verbatim in `recurrenceRaw` with
+// `recurrenceRule` null, so the series survives a round trip.
 namespace QindaTK::ICal {
 
 struct Property {
@@ -38,10 +41,11 @@ struct Mapped {
     QVariantMap fields;
 };
 
-// Maps the first master VEVENT/VTODO (no RECURRENCE-ID).
+// Maps the first master VEVENT/VTODO (no RECURRENCE-ID) and its overrides.
 Mapped toRecord(const QByteArray &ics, const QString &defaultZone);
 // Writes the record's mapped properties into `base` (keeping every other
-// property and component, such as VALARM or overridden instances), or a new
+// property and component, such as VALARM), rewrites the overridden instances
+// the record lists and drops those it no longer lists, or builds a new
 // VCALENDAR when `base` has no master component of that type.
 QByteArray fromRecord(const QString &component, const QString &uid, const QVariantMap &record,
                       const QByteArray &base = {});

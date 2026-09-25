@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "ical_codec.h"
+#include "ical_codec_p.h"
 
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -9,13 +10,14 @@
 #include <QTimeZone>
 
 namespace QindaTK::ICal {
+using namespace detail;
 namespace {
 const QStringList &eventFields()
 {
     static const QStringList fields{QStringLiteral("title"), QStringLiteral("startLocal"), QStringLiteral("endLocal"),
         QStringLiteral("zone"), QStringLiteral("allDay"), QStringLiteral("recurrenceRule"),
         QStringLiteral("recurrenceRaw"), QStringLiteral("exceptions"), QStringLiteral("description"),
-        QStringLiteral("location")};
+        QStringLiteral("location"), QStringLiteral("overrides")};
     return fields;
 }
 const QStringList &taskFields()
@@ -24,17 +26,6 @@ const QStringList &taskFields()
         QStringLiteral("dueDate"), QStringLiteral("priority"), QStringLiteral("assignee"), QStringLiteral("description")};
     return fields;
 }
-const QStringList &managed(const QString &component)
-{
-    static const QStringList event{QStringLiteral("UID"), QStringLiteral("DTSTAMP"), QStringLiteral("SUMMARY"),
-        QStringLiteral("DTSTART"), QStringLiteral("DTEND"), QStringLiteral("DURATION"), QStringLiteral("RRULE"),
-        QStringLiteral("EXDATE"), QStringLiteral("DESCRIPTION"), QStringLiteral("LOCATION")};
-    static const QStringList task{QStringLiteral("UID"), QStringLiteral("DTSTAMP"), QStringLiteral("SUMMARY"),
-        QStringLiteral("STATUS"), QStringLiteral("X-QINDATK-STATUS"), QStringLiteral("X-QINDATK-ORDER"),
-        QStringLiteral("DUE"), QStringLiteral("PRIORITY"), QStringLiteral("X-QINDATK-ASSIGNEE"),
-        QStringLiteral("DESCRIPTION")};
-    return component == QLatin1String("VTODO") ? task : event;
-}
 const QStringList &dayCodes()
 {
     static const QStringList codes{QStringLiteral("MO"), QStringLiteral("TU"), QStringLiteral("WE"),
@@ -42,74 +33,6 @@ const QStringList &dayCodes()
     return codes;
 }
 
-QString resolveZone(const QString &tzid)
-{
-    if (QTimeZone(tzid.toUtf8()).isValid()) return tzid;
-    const QByteArray iana = QTimeZone::windowsIdToDefaultIanaId(tzid.toUtf8());
-    return iana.isEmpty() ? QString() : QString::fromUtf8(iana);
-}
-
-struct Stamp {
-    bool ok = false, allDay = false;
-    QDate date;
-    QTime time;
-    QString zone;
-    QDateTime zoned() const
-    {
-        return QDateTime(date, allDay ? QTime(0, 0) : time, QTimeZone(zone.toUtf8()),
-                         QDateTime::TransitionResolution::PreferBefore);
-    }
-};
-
-Stamp parseStampValue(QString value, const Property &property, const QString &defaultZone)
-{
-    Stamp stamp;
-    value = value.trimmed();
-    stamp.zone = defaultZone;
-    if (property.param(QStringLiteral("VALUE")) == QLatin1String("DATE") || value.size() == 8) {
-        stamp.allDay = true;
-        stamp.date = QDate::fromString(value.left(8), QStringLiteral("yyyyMMdd"));
-        stamp.ok = stamp.date.isValid();
-        return stamp;
-    }
-    const bool utc = value.endsWith(QLatin1Char('Z'));
-    if (utc) value.chop(1);
-    if (value.size() != 15 || value.at(8) != QLatin1Char('T')) return stamp;
-    stamp.date = QDate::fromString(value.left(8), QStringLiteral("yyyyMMdd"));
-    stamp.time = QTime::fromString(value.mid(9), QStringLiteral("HHmmss"));
-    if (utc) stamp.zone = QStringLiteral("UTC");
-    else if (!property.param(QStringLiteral("TZID")).isEmpty()) stamp.zone = resolveZone(property.param(QStringLiteral("TZID")));
-    stamp.ok = stamp.date.isValid() && stamp.time.isValid() && !stamp.zone.isEmpty();
-    return stamp;
-}
-
-QString localText(const QDate &date, const QTime &time, bool allDay)
-{
-    if (allDay) return date.toString(Qt::ISODate);
-    return date.toString(Qt::ISODate) + QLatin1Char(' ')
-        + time.toString(time.second() ? QStringLiteral("HH:mm:ss") : QStringLiteral("HH:mm"));
-}
-
-bool parseLocal(const QString &text, QDate *date, QTime *time)
-{
-    *date = QDate::fromString(text.left(10), Qt::ISODate);
-    *time = QTime(0, 0);
-    if (text.size() > 10) {
-        const QString clock = text.mid(11);
-        *time = QTime::fromString(clock.left(8), clock.size() >= 8 ? QStringLiteral("HH:mm:ss") : QStringLiteral("HH:mm"));
-    }
-    return date->isValid() && time->isValid();
-}
-
-qint64 durationSeconds(const QString &value)
-{
-    static const QRegularExpression pattern(
-        QStringLiteral("^P(?:(\\d+)W)?(?:(\\d+)D)?(?:T(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?)?$"));
-    const QRegularExpressionMatch m = pattern.match(value.trimmed());
-    if (!m.hasMatch()) return -1;
-    return m.captured(1).toLongLong() * 604800 + m.captured(2).toLongLong() * 86400
-        + m.captured(3).toLongLong() * 3600 + m.captured(4).toLongLong() * 60 + m.captured(5).toLongLong();
-}
 
 // RRULE → RecurrenceService rule, or an invalid QVariant when unsupported.
 QVariant parseRule(const QString &rrule, const Stamp &start)
@@ -181,42 +104,6 @@ QString ruleText(const QVariantMap &rule, const QString &zone, bool allDay)
     return text;
 }
 
-QString stampLine(const QString &name, const QDate &date, const QTime &time, const QString &zone, bool allDay)
-{
-    if (allDay) return name + QStringLiteral(";VALUE=DATE:") + date.toString(QStringLiteral("yyyyMMdd"));
-    const QString clock = date.toString(QStringLiteral("yyyyMMdd")) + QLatin1Char('T') + time.toString(QStringLiteral("HHmmss"));
-    if (zone.isEmpty() || zone == QLatin1String("UTC") || zone == QLatin1String("Etc/UTC"))
-        return name + QLatin1Char(':') + clock + QLatin1Char('Z');
-    return name + QStringLiteral(";TZID=") + zone + QLatin1Char(':') + clock;
-}
-
-struct Block {
-    int begin = -1, end = -1, overrides = 0;
-};
-
-Block findMaster(const QList<Property> &lines, const QString &component)
-{
-    Block master;
-    int depth = 0, begin = -1;
-    bool recurrenceId = false;
-    for (int i = 0; i < lines.size(); ++i) {
-        const Property &line = lines.at(i);
-        if (line.name == QLatin1String("BEGIN")) {
-            ++depth;
-            if (depth == 2 && line.value.toUpper() == component) { begin = i; recurrenceId = false; }
-        } else if (line.name == QLatin1String("END")) {
-            if (depth == 2 && begin >= 0 && line.value.toUpper() == component) {
-                if (recurrenceId) ++master.overrides;
-                else if (master.begin < 0) { master.begin = begin; master.end = i; }
-                begin = -1;
-            }
-            --depth;
-        } else if (depth == 2 && begin >= 0 && line.name == QLatin1String("RECURRENCE-ID")) {
-            recurrenceId = true;
-        }
-    }
-    return master;
-}
 
 QStringList recordLines(const QString &component, const QString &uid, const QVariantMap &record)
 {
@@ -254,7 +141,7 @@ QStringList recordLines(const QString &component, const QString &uid, const QVar
         out.append(QStringLiteral("RRULE:") + ruleText(rule, zone, allDay));
     else if (!text("recurrenceRaw").isEmpty())
         out.append(QStringLiteral("RRULE:") + text("recurrenceRaw"));
-    static const QRegularExpression wall(QStringLiteral("(\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}(:\\d{2})?)$"));
+    static const QRegularExpression wall(QStringLiteral("(\\d{4}-\\d{2}-\\d{2}(?:[T ]\\d{2}:\\d{2}(?::\\d{2})?)?)$"));
     for (const QVariant &value : record.value(QStringLiteral("exceptions")).toList()) {
         const QRegularExpressionMatch match = wall.match(value.toString());
         if (match.hasMatch() && parseLocal(match.captured(1), &date, &time))
@@ -446,47 +333,31 @@ Mapped toRecord(const QByteArray &ics, const QString &defaultZone)
         for (const QString &value : p.value.split(QLatin1Char(','), Qt::SkipEmptyParts)) {
             const Stamp stamp = parseStampValue(value, p, start.zone);
             if (!stamp.ok) continue;
-            const QDateTime local = stamp.allDay ? QDateTime(stamp.date, QTime(0, 0)) : stamp.zoned().toTimeZone(zone);
-            exceptions.append(local.toString(QStringLiteral("yyyy-MM-dd'T'HH:mm:ss")));
+            exceptions.append(stamp.allDay || start.allDay ? stamp.date.toString(Qt::ISODate)
+                              : stamp.zoned().toTimeZone(zone).toString(QStringLiteral("yyyy-MM-dd'T'HH:mm:ss")));
         }
     }
     f.insert(QStringLiteral("exceptions"), exceptions);
     f.insert(QStringLiteral("recurrenceOverrides"), block.overrides);
+    readOverrides(lines, mapped.uid, &f);
     mapped.ok = true;
     return mapped;
 }
 
 QByteArray fromRecord(const QString &component, const QString &uid, const QVariantMap &record, const QByteArray &base)
 {
-    const QStringList generated = recordLines(component, uid, record);
-    const QList<Property> lines = parseLines(base);
-    const Block block = findMaster(lines, component);
-    QByteArray out;
-    if (block.begin < 0) {
-        out = foldLine(QStringLiteral("BEGIN:VCALENDAR")) + foldLine(QStringLiteral("VERSION:2.0"))
-            + foldLine(QStringLiteral("PRODID:-//QindaTK//Productivity//EN")) + foldLine(QStringLiteral("BEGIN:") + component);
-        for (const QString &line : generated) out += foldLine(line);
-        return out + foldLine(QStringLiteral("END:") + component) + foldLine(QStringLiteral("END:VCALENDAR"));
-    }
-    int depth = 0;
-    for (int i = 0; i < lines.size(); ++i) {
-        const Property &line = lines.at(i);
-        const bool inside = i > block.begin && i < block.end;
-        if (inside && line.name == QLatin1String("BEGIN")) ++depth;
-        if (inside && depth == 0 && managed(component).contains(line.name)) continue;
-        if (inside && line.name == QLatin1String("END")) --depth;
-        out += foldLine(line.raw);
-        if (i == block.begin)
-            for (const QString &generatedLine : generated) out += foldLine(generatedLine);
-    }
-    return out;
+    return writeCalendar(component, uid, record, base, recordLines(component, uid, record));
 }
 
 QString digest(const QString &component, const QVariantMap &record)
 {
     QJsonObject subset;
-    for (const QString &field : component == QLatin1String("VTODO") ? taskFields() : eventFields())
+    for (const QString &field : component == QLatin1String("VTODO") ? taskFields() : eventFields()) {
+        // AGENT-NOTE: an empty override list is left out so digests saved
+        // before overrides were mapped still match unchanged records.
+        if (field == QLatin1String("overrides") && record.value(field).toList().isEmpty()) continue;
         subset.insert(field, QJsonValue::fromVariant(record.value(field)));
+    }
     return QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(subset).toJson(QJsonDocument::Compact),
                                                         QCryptographicHash::Sha256).toHex());
 }

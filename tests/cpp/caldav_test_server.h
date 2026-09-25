@@ -15,6 +15,8 @@
 #include <QTcpSocket>
 #include <memory>
 
+#include "tls_test_support.h"
+
 class CalDavTestServer {
 public:
     struct Resource {
@@ -35,7 +37,12 @@ public:
         });
     }
     quint16 port() const { return m_server.serverPort(); }
-    QString url() const { return QStringLiteral("http://127.0.0.1:%1%2").arg(port()).arg(collection); }
+    void enableTls() { m_server.tls = true; m_server.implicit = true; }
+    QString url() const
+    {
+        return QStringLiteral("%1://127.0.0.1:%2%3").arg(m_server.tls ? QStringLiteral("https") : QStringLiteral("http"))
+            .arg(port()).arg(collection);
+    }
     QString path(const QString &name) const { return collection + name; }
     QByteArray etagOf(const QString &path) const
     {
@@ -53,6 +60,8 @@ public:
 private:
     void accept(QTcpSocket *socket)
     {
+        if (m_server.implicit)
+            if (QSslSocket *secure = TestTls::ssl(socket)) secure->startServerEncryption();
         auto buffer = std::make_shared<QByteArray>();
         QObject::connect(socket, &QTcpSocket::readyRead, socket, [this, socket, buffer] {
             *buffer += socket->readAll();
@@ -130,6 +139,6 @@ private:
         reply(socket, 405);
     }
 
-    QTcpServer m_server;
+    TestTls::Server m_server;
     int m_nextEtag = 1;
 };

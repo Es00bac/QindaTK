@@ -3,9 +3,10 @@
 
 Three protocol providers connect the local productivity store
 ([productivity-store.md](productivity-store.md)) to standard servers. The
-views (`MailView`, `RichMailComposer`, `CalendarView`, `TaskBoard`) still
-only emit correlated requests; the host calls a provider and passes the
-result's `state` to the view's `acknowledge(requestId, state, message)`.
+views (`MailView`, `RichMailComposer`, `CalendarView`, `RecurrenceEditor`,
+`TaskBoard`) only emit correlated requests; the host calls a provider and
+passes the result's `state` to the view's `acknowledge(requestId, state,
+message)` (see [Wiring the views](#wiring-the-views)).
 
 | Type | Protocol | Local side |
 | --- | --- | --- |
@@ -35,6 +36,29 @@ Invalid input is rejected before connecting and still arrives through the
 signal on the next event-loop turn. Providers never modify a draft; a failed
 send leaves the draft record and its attachment bytes untouched.
 
+## Wiring the views
+
+`examples/local-productivity/ProductivityHost.qml` is the reference host,
+and `tst_productivity_seam` runs it against local SMTP, IMAP and CalDAV test
+servers:
+
+| View request | Host call | Acknowledged with |
+| --- | --- | --- |
+| `MailView.refreshRequested` | `ImapMailProvider.sync` | `syncFinished` state |
+| `MailView.actionRequested` (`read`, `unread`, `flag`, `unflag`, `archive`, `delete`) | `applyAction` for account messages, a store edit for local ones | `actionFinished` state |
+| `MailView.attachmentRequested` | `fetchAttachment` | `acknowledgeAttachment(requestId, state, error)` |
+| `MailView.replyRequested` | a new draft with `inReplyTo`/`references` | none (host action) |
+| `RichMailComposer.sendRequested` | save the draft, then `SmtpMailProvider.send` | `sendFinished` state |
+| `RichMailComposer.attachmentAddRequested` / `attachmentRemoveRequested` | `LocalAttachmentStore.importFile` / `remove` | `acknowledgeAttachment(requestId, state, message, metadata)` |
+| `TaskBoard.moveRequested`, `CalendarView.eventChangeRequested`, `RecurrenceEditor` requests | the store edit, then `CalDavProvider.sync` for account records | `syncFinished` state (`conflict` included) |
+| `TaskBoard.conflictResolutionRequested` | `resolveConflict(requestId, "tasks", id, choice)` | `changeFinished` state |
+
+Account records are written through before the view is acknowledged, so an
+accepted move is on the server; a `conflict` result leaves the local edit in
+place and lists the server version in `CalDavProvider.conflicts`, which the
+board shows with "Keep mine" and "Use server". Local-only records are
+acknowledged after the local save.
+
 ## Credentials
 
 `setSecret(secret, mechanism)` keeps the password or token in memory only.
@@ -47,7 +71,14 @@ keyring. Credentials are sent only over TLS (`security: "tls"` or
 `"starttls"`, `https:` for CalDAV), to a loopback endpoint (local bridges and
 the tests), or when the host sets `allowInsecureAuth` explicitly. A requested
 STARTTLS that the server does not offer fails; the providers never fall back
-to plain text (D-187).
+to plain text (D-187). Certificates are verified against the system trust
+store (hosts add a private CA to `QSslConfiguration::defaultConfiguration()`).
+`tst_provider_tls` runs implicit TLS and STARTTLS for SMTP and IMAP and HTTPS
+for CalDAV against local servers with a test CA (`tests/fixtures/tls`): with
+the CA trusted the exchange succeeds and every credential line arrives inside
+TLS; without it the handshake fails before anything is sent. It also covers
+IMAP `xoauth2` (including the error challenge of an expired token) and
+CalDAV `bearer`.
 
 ## SMTP delivery
 
@@ -131,7 +162,14 @@ from `syncState` and the ETags.
 | `DTEND` (any zone) or `DURATION` | `endLocal` | converted to the start's zone; all-day end is exclusive |
 | `RRULE` FREQ, INTERVAL, BYDAY (weekly), COUNT, UNTIL | `recurrenceRule` | UNTIL becomes the local end date |
 | other `RRULE` parts | `recurrenceRaw` | `recurrenceRule` is null; the raw rule is written back unchanged |
-| `EXDATE` | `exceptions` | local `yyyy-MM-ddTHH:mm:ss` starts, as `RecurrenceService` expects |
+| `EXDATE` | `exceptions` | local `yyyy-MM-ddTHH:mm:ss` starts (`yyyy-MM-dd` for all-day), as `RecurrenceService` expects |
+| `VEVENT` with `RECURRENCE-ID` | `overrides` | `{recurrenceId, startLocal, endLocal, title, description, location}` in the master's zone; `STATUS:CANCELLED` becomes an exception |
+
+An override the record no longer lists is removed from the server copy on
+the next write, a new one is written as its own `RECURRENCE-ID` component,
+and the other properties and nested components of a kept override (alarms,
+attendees) survive. `LocalCalendarProjectionModel` places each override at
+its moved time under the original occurrence ID.
 
 Tasks map `STATUS` NEEDS-ACTION/IN-PROCESS/COMPLETED/CANCELLED to
 `todo`/`doing`/`done`/`cancelled` (other board statuses travel in
@@ -167,7 +205,7 @@ The toolkit ships no hosted-service adapter and no client IDs.
 - IMAP sync reads the whole message source of new mail (bounded by
   `maximumMessageBytes`) to compute bodies and attachment metadata; the
   attachment bytes are stored only when requested.
-- Overridden recurrence instances (`RECURRENCE-ID`) are preserved on the
-  server and counted in `recurrenceOverrides`, but not projected locally.
-- Performance measurement, other platforms, screen-reader runs and hosted
-  account qualification belong to WP-088 to WP-094.
+- Linux platform and backend qualification belongs to WP-088 (planned, Linux
+  only). Hosted-account qualification (WP-089/WP-090), performance
+  measurement (WP-091) and screen-reader runs (WP-092) were deferred by the
+  user on 2026-09-24.

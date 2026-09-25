@@ -2,6 +2,7 @@
 #include "caldav_provider.h"
 #include "caldav_test_server.h"
 #include "ical_codec.h"
+#include "local_calendar_projection_model.h"
 #include "recurrence_service.h"
 
 #include <QFile>
@@ -247,6 +248,135 @@ private slots:
         const QByteArray bytes = saved.readAll();
         QVERIFY(!bytes.contains(kSecret.toUtf8()));
         QVERIFY(!bytes.contains(QByteArray("ada:" + kSecret.toUtf8()).toBase64()));
+    }
+
+    // OFF-31/Req 5: RECURRENCE-ID instances become `overrides` that the
+    // projection places at their moved time; local occurrence edits are
+    // written back as override components, removed ones are dropped, and
+    // unknown properties of the master survive.
+    void recurrenceOverridesSyncBothWays()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        CalDavTestServer server;
+        server.authorization = "Basic " + QByteArray("ada:" + kSecret.toUtf8()).toBase64();
+        const QString path = server.path(QStringLiteral("standup.ics"));
+        server.put(path, "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//EN\r\n"
+            "BEGIN:VEVENT\r\nUID:standup\r\nDTSTAMP:20260901T000000Z\r\nSUMMARY:Standup\r\n"
+            "DTSTART;TZID=America/Denver:20260307T090000\r\nDTEND;TZID=America/Denver:20260307T093000\r\n"
+            "RRULE:FREQ=WEEKLY;COUNT=5\r\nX-CUSTOM-FLAG:keep-me\r\nEND:VEVENT\r\n"
+            "BEGIN:VEVENT\r\nUID:standup\r\nDTSTAMP:20260901T000000Z\r\n"
+            "RECURRENCE-ID;TZID=America/Denver:20260314T090000\r\nSUMMARY:Standup (moved)\r\n"
+            "DTSTART:20260314T180000Z\r\nDTEND:20260314T183000Z\r\n"
+            "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT5M\r\nEND:VALARM\r\nEND:VEVENT\r\n"
+            "BEGIN:VEVENT\r\nUID:standup\r\nRECURRENCE-ID;TZID=America/Denver:20260321T090000\r\n"
+            "STATUS:CANCELLED\r\nDTSTART;TZID=America/Denver:20260321T090000\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n");
+        LocalProductivityStore store;
+        store.setFilePath(directory.filePath(QStringLiteral("calendar.json")));
+        CalDavProvider provider;
+        configure(provider, server.url(), &store);
+        QVariantMap result = syncNow(provider, QStringLiteral("sync-1"));
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(result.value(QStringLiteral("error")).toString()));
+        const QString id = QStringLiteral("caldav:work:standup");
+        QVariantMap event = record(store.events(), id);
+        QCOMPARE(event.value(QStringLiteral("exceptions")).toList(), QVariantList{QStringLiteral("2026-03-21T09:00:00")});
+        const QVariantList overrides = event.value(QStringLiteral("overrides")).toList();
+        QCOMPARE(overrides.size(), 1);
+        QCOMPARE(overrides.first().toMap().value(QStringLiteral("recurrenceId")).toString(), QStringLiteral("2026-03-14T09:00:00"));
+        QCOMPARE(overrides.first().toMap().value(QStringLiteral("startLocal")).toString(), QStringLiteral("2026-03-14 12:00"));
+        QCOMPARE(overrides.first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Standup (moved)"));
+
+        RecurrenceService recurrence;
+        LocalCalendarProjectionModel model;
+        model.setStore(&store);
+        model.setRecurrenceService(&recurrence);
+        QVERIFY(model.project(QStringLiteral("2026-03-01T00:00:00Z"), QStringLiteral("2026-04-15T00:00:00Z")));
+        QStringList starts, titles;
+        for (const QVariant &row : model.occurrences()) {
+            starts.append(row.toMap().value(QStringLiteral("startUtc")).toString());
+            titles.append(row.toMap().value(QStringLiteral("title")).toString());
+        }
+        // 7 Mar (MST), the moved 14 Mar instance, 21 Mar cancelled, 28 Mar, 4 Apr.
+        QCOMPARE(starts, QStringList({QStringLiteral("2026-03-07T16:00:00.000Z"), QStringLiteral("2026-03-14T18:00:00.000Z"),
+            QStringLiteral("2026-03-28T15:00:00.000Z"), QStringLiteral("2026-04-04T15:00:00.000Z")}));
+        QCOMPARE(titles.at(1), QStringLiteral("Standup (moved)"));
+        QVERIFY(syncNow(provider, QStringLiteral("sync-2")).value(QStringLiteral("ok")).toBool());
+        QCOMPARE(server.count(QStringLiteral("PUT")), 0);                       // mapping is stable
+
+        // Restore 14 Mar, move only 28 Mar by one hour, then sync.
+        QVERIFY(store.setOccurrenceOverride(id, id + QStringLiteral("/2026-03-14T09:00:00"), {}).value(QStringLiteral("ok")).toBool());
+        QVERIFY(store.shiftEventLocal(id, 60, QStringLiteral("occurrence"), id + QStringLiteral("/2026-03-28T09:00:00"))
+                    .value(QStringLiteral("ok")).toBool());
+        result = syncNow(provider, QStringLiteral("sync-3"));
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(result.value(QStringLiteral("error")).toString()));
+        const QByteArray body = server.body(path);
+        QVERIFY(!body.contains("RECURRENCE-ID;TZID=America/Denver:20260314T090000"));
+        QVERIFY(!body.contains("TRIGGER:-PT5M"));
+        QVERIFY(body.contains("RECURRENCE-ID;TZID=America/Denver:20260328T090000\r\n"));
+        QVERIFY(body.contains("DTSTART;TZID=America/Denver:20260328T100000\r\n"));
+        QVERIFY(body.contains("RECURRENCE-ID;TZID=America/Denver:20260321T090000\r\nSTATUS:CANCELLED\r\n"));
+        QVERIFY(body.contains("X-CUSTOM-FLAG:keep-me\r\n"));
+        QCOMPARE(body.count("BEGIN:VEVENT"), 3);
+        QCOMPARE(body.count("END:VCALENDAR"), 1);
+        QVERIFY(syncNow(provider, QStringLiteral("sync-4")).value(QStringLiteral("ok")).toBool());
+        QCOMPARE(server.count(QStringLiteral("PUT")), 1);
+        starts.clear();
+        for (const QVariant &row : model.occurrences()) starts.append(row.toMap().value(QStringLiteral("startUtc")).toString());
+        QCOMPARE(starts, QStringList({QStringLiteral("2026-03-07T16:00:00.000Z"), QStringLiteral("2026-03-14T15:00:00.000Z"),
+            QStringLiteral("2026-03-28T16:00:00.000Z"), QStringLiteral("2026-04-04T15:00:00.000Z")}));
+    }
+
+    // A recurring all-day event arrives with a date-only start and expands
+    // into whole local days across the DST change; bearer auth is used.
+    void allDaySeriesAndBearerToken()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        CalDavTestServer server;
+        const QString token = QStringLiteral("ya29.bearer-Token_77");
+        server.authorization = "Bearer " + token.toUtf8();
+        server.put(server.path(QStringLiteral("trip.ics")), "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:trip\r\n"
+            "SUMMARY:Field trip\r\nDTSTART;VALUE=DATE:20260307\r\nDTEND;VALUE=DATE:20260308\r\n"
+            "RRULE:FREQ=DAILY;COUNT=3\r\nEXDATE;VALUE=DATE:20260309\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n");
+        LocalProductivityStore store;
+        store.setFilePath(directory.filePath(QStringLiteral("calendar.json")));
+        CalDavProvider provider;
+        configure(provider, server.url(), &store);
+        provider.setProperty("defaultZone", QStringLiteral("America/Denver"));
+        provider.setSecret(QStringLiteral("wrong"), QStringLiteral("bearer"));
+        QVariantMap result = syncNow(provider, QStringLiteral("sync-a"));
+        QCOMPARE(result.value(QStringLiteral("state")).toString(), QStringLiteral("rejected"));
+        provider.setSecret(token, QStringLiteral("bearer"));
+        result = syncNow(provider, QStringLiteral("sync-b"));
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(result.value(QStringLiteral("error")).toString()));
+        const QString transcript = result.value(QStringLiteral("transcript")).toStringList().join(QLatin1Char('\n'));
+        QVERIFY(transcript.contains(QStringLiteral("[credentials redacted]")));
+        QVERIFY(!transcript.contains(token));
+        const QVariantMap event = record(store.events(), QStringLiteral("caldav:work:trip"));
+        QCOMPARE(event.value(QStringLiteral("startLocal")).toString(), QStringLiteral("2026-03-07"));
+        QCOMPARE(event.value(QStringLiteral("exceptions")).toList(), QVariantList{QStringLiteral("2026-03-09")});
+
+        RecurrenceService recurrence;
+        LocalCalendarProjectionModel model;
+        model.setStore(&store);
+        model.setRecurrenceService(&recurrence);
+        QVERIFY2(model.project(QStringLiteral("2026-03-01T00:00:00Z"), QStringLiteral("2026-03-31T00:00:00Z")),
+                 qPrintable(model.error()));
+        QCOMPARE(model.occurrences().size(), 2);
+        const QVariantMap dstDay = model.occurrences().at(1).toMap();
+        QCOMPARE(dstDay.value(QStringLiteral("occurrenceId")).toString(), QStringLiteral("caldav:work:trip/2026-03-08"));
+        QCOMPARE(dstDay.value(QStringLiteral("startUtc")).toString(), QStringLiteral("2026-03-08T07:00:00.000Z"));
+        QCOMPARE(dstDay.value(QStringLiteral("endUtc")).toString(), QStringLiteral("2026-03-09T06:00:00.000Z"));
+
+        // A whole-day move of the series is written back as VALUE=DATE.
+        QVERIFY(store.shiftEventLocal(QStringLiteral("caldav:work:trip"), 1440).value(QStringLiteral("ok")).toBool());
+        QVERIFY(syncNow(provider, QStringLiteral("sync-c")).value(QStringLiteral("ok")).toBool());
+        const QByteArray body = server.body(server.path(QStringLiteral("trip.ics")));
+        QVERIFY(body.contains("DTSTART;VALUE=DATE:20260308\r\n"));
+        QVERIFY(body.contains("EXDATE;VALUE=DATE:20260310\r\n"));
+        QFile saved(store.filePath());
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QVERIFY(!saved.readAll().contains(token.toUtf8()));
     }
 
     void credentialsOfflineAndPlainHttp()

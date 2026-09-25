@@ -17,6 +17,8 @@
 #include <QTcpSocket>
 #include <memory>
 
+#include "tls_test_support.h"
+
 class LineServer {
 public:
     struct Connection {
@@ -36,6 +38,14 @@ public:
     virtual ~LineServer() = default;
     quint16 port() const { return m_server.serverPort(); }
     QStringList log;       // every client line, as received
+    QStringList encryptedLog;   // the lines that arrived over TLS
+    // implicit: TLS from the first byte; otherwise offered through STARTTLS.
+    void enableTls(bool implicit)
+    {
+        m_server.tls = true;
+        m_server.implicit = implicit;
+    }
+    bool tlsEnabled() const { return m_server.tls; }
 
 protected:
     virtual void greet(Connection &connection) = 0;
@@ -44,6 +54,18 @@ protected:
     {
         connection.socket->write(bytes);
         connection.socket->flush();
+    }
+    static bool encrypted(const Connection &connection)
+    {
+        const QSslSocket *socket = TestTls::ssl(connection.socket);
+        return socket && socket->isEncrypted();
+    }
+    // Replies with `ready`, then runs the server side of the handshake.
+    static void upgrade(Connection &connection, const QByteArray &ready)
+    {
+        send(connection, ready);
+        connection.buffer.clear();
+        if (QSslSocket *socket = TestTls::ssl(connection.socket)) socket->startServerEncryption();
     }
 
 private:
@@ -59,13 +81,20 @@ private:
                 connection->buffer.remove(0, end + 1);
                 if (text.endsWith('\r')) text.chop(1);
                 log.append(QString::fromUtf8(text));
+                if (encrypted(*connection)) encryptedLog.append(QString::fromUtf8(text));
                 line(*connection, text);
             }
         });
         QObject::connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+        QSslSocket *secure = TestTls::ssl(socket);
+        if (m_server.implicit && secure) {
+            QObject::connect(secure, &QSslSocket::encrypted, secure, [this, connection] { greet(*connection); });
+            secure->startServerEncryption();
+            return;
+        }
         greet(*connection);
     }
-    QTcpServer m_server;
+    TestTls::Server m_server;
 };
 
 class SmtpTestServer : public LineServer {
@@ -73,6 +102,7 @@ public:
     QString user, secret;
     QStringList mechanisms{QStringLiteral("PLAIN"), QStringLiteral("LOGIN")};
     bool offerStartTls = false;
+    bool requireTlsForAuth = false;    // answer AUTH with 530 until TLS is active
     QStringList refuse;                // recipients answered with 550
     QList<QByteArray> messages;        // accepted DATA, dot-unstuffed, CRLF lines
     QString envelopeFrom;
@@ -107,9 +137,13 @@ protected:
         const QByteArray verb = text.left(4).toUpper();
         if (verb == "EHLO") {
             QByteArray reply = "250-test.local greets you\r\n";
-            if (offerStartTls) reply += "250-STARTTLS\r\n";
+            if (offerStartTls && !encrypted(c)) reply += "250-STARTTLS\r\n";
             if (!mechanisms.isEmpty()) reply += "250-AUTH " + mechanisms.join(QLatin1Char(' ')).toLatin1() + "\r\n";
             send(c, reply + "250 8BITMIME\r\n");
+        } else if (verb == "STAR" && text.toUpper() == "STARTTLS" && offerStartTls && tlsEnabled() && !encrypted(c)) {
+            upgrade(c, "220 2.0.0 Ready to start TLS\r\n");
+        } else if (verb == "AUTH" && requireTlsForAuth && !encrypted(c)) {
+            send(c, "530 5.7.0 Must issue a STARTTLS command first\r\n");
         } else if (verb == "AUTH") {
             const QList<QByteArray> parts = text.split(' ');
             const QByteArray mechanism = parts.value(1).toUpper();
@@ -171,10 +205,12 @@ public:
     };
     QString user, secret;
     qint64 uidValidity = 1000;
+    bool authenticatedOverTls = false;
     QList<Message> inbox, archive;
     QStringList capabilities{QStringLiteral("IMAP4rev1"), QStringLiteral("AUTH=PLAIN"), QStringLiteral("SASL-IR"),
                              QStringLiteral("UIDPLUS"), QStringLiteral("MOVE")};
 
+    void implicitTlsOnly() { enableTls(true); m_implicitOnly = true; }
     void add(qint64 uid, const QByteArray &source, const QStringList &flags = {})
     {
         inbox.append({uid, source, flags});
@@ -189,14 +225,34 @@ protected:
     void greet(Connection &c) override { send(c, "* OK [CAPABILITY IMAP4rev1] test IMAP ready\r\n"); }
     void line(Connection &c, const QByteArray &text) override
     {
+        if (c.state == 1) {                 // the client's answer to an XOAUTH2 error challenge
+            c.state = 0;
+            send(c, c.data + " NO [AUTHENTICATIONFAILED] Invalid token\r\n");
+            return;
+        }
         const qsizetype space = text.indexOf(' ');
         const QByteArray tag = text.left(space);
         const QByteArray rest = space < 0 ? QByteArray() : text.mid(space + 1);
         const QByteArray upper = rest.toUpper();
         auto ok = [&](const QByteArray &what) { send(c, tag + " OK " + what + " completed\r\n"); };
         if (upper == "CAPABILITY") {
-            send(c, "* CAPABILITY " + capabilities.join(QLatin1Char(' ')).toLatin1() + "\r\n");
+            QStringList offered = capabilities;
+            if (tlsEnabled() && !encrypted(c) && !m_implicitOnly) offered.append(QStringLiteral("STARTTLS"));
+            send(c, "* CAPABILITY " + offered.join(QLatin1Char(' ')).toLatin1() + "\r\n");
             ok("CAPABILITY");
+        } else if (upper == "STARTTLS" && tlsEnabled() && !encrypted(c)) {
+            upgrade(c, tag + " OK Begin TLS negotiation now\r\n");
+        } else if (upper.startsWith("AUTHENTICATE XOAUTH2 ")) {
+            const QByteArray expected = "user=" + user.toUtf8() + "\x01" "auth=Bearer " + secret.toUtf8() + "\x01\x01";
+            c.authenticated = QByteArray::fromBase64(rest.mid(21)) == expected;
+            authenticatedOverTls = c.authenticated && encrypted(c);
+            if (c.authenticated) {
+                send(c, tag + " OK AUTHENTICATE completed\r\n");
+            } else {
+                c.state = 1;
+                c.data = tag;
+                send(c, "+ eyJzdGF0dXMiOiI0MDEiLCJzY2hlbWVzIjoiQmVhcmVyIn0=\r\n");
+            }
         } else if (upper.startsWith("LOGIN ")) {
             static const QRegularExpression quoted(QStringLiteral("^LOGIN \"((?:[^\"\\\\]|\\\\.)*)\" \"((?:[^\"\\\\]|\\\\.)*)\"$"),
                                                    QRegularExpression::CaseInsensitiveOption);
@@ -246,6 +302,7 @@ protected:
     }
 
 private:
+    bool m_implicitOnly = false;
     static QByteArray literal(const QByteArray &bytes) { return "{" + QByteArray::number(bytes.size()) + "}\r\n" + bytes; }
 
     // Raw body of top-level part `index` (1-based) of a multipart fixture.
