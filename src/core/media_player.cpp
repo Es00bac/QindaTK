@@ -381,7 +381,9 @@ QVariantList MediaPlayer::presentedSources() const
         list.append(QVariantMap{{QStringLiteral("clipId"), source.clipId},
                                 {QStringLiteral("resourceId"), source.resourceId},
                                 {QStringLiteral("frame"), QString::number(source.frame)},
-                                {QStringLiteral("pts"), QString::number(source.pts)}});
+                                {QStringLiteral("pts"), QString::number(source.pts)},
+                                {QStringLiteral("matrix"), source.matrix},
+                                {QStringLiteral("range"), source.range}});
     return list;
 }
 

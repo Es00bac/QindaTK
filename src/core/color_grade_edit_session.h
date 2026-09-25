@@ -9,11 +9,16 @@
 
 namespace QindaTK {
 
-// One clip/frame grade gesture adapter. The host supplies a tagged source image
-// and immutable color context; previews stay transient in PropertyDocument.
+// One grade gesture adapter. The host supplies a tagged source image and
+// immutable color context; previews stay transient in PropertyDocument.
+// `scope` says what the grade belongs to: one frame (the default, a still
+// grade), one clip, or the whole program. A new target within the scope only
+// replaces the preview source; leaving the scope starts a fresh neutral
+// grade with its own history.
 class ColorGradeEditSession : public QObject {
     Q_OBJECT
     QML_ELEMENT
+    Q_PROPERTY(GradeScope scope READ scope WRITE setScope NOTIFY changed)
     Q_PROPERTY(QString clipId READ clipId WRITE setClipId NOTIFY changed)
     Q_PROPERTY(QString frameId READ frameId WRITE setFrameId NOTIFY changed)
     Q_PROPERTY(QImage sourceImage READ sourceImage WRITE setSourceImage NOTIFY changed)
@@ -34,7 +39,17 @@ class ColorGradeEditSession : public QObject {
     Q_PROPERTY(double exposure READ exposure NOTIFY changed)
     Q_PROPERTY(QString gradeSpace READ gradeSpace CONSTANT)
 public:
+    enum GradeScope { FrameGrade, ClipGrade, ProgramGrade };
+    Q_ENUM(GradeScope)
+
     explicit ColorGradeEditSession(QObject *parent = nullptr);
+    GradeScope scope() const { return m_scope; }
+    void setScope(GradeScope scope);
+    // The context previews render in: the host's context, except that a
+    // ProgramGrade renders in ColorGradeProcessor::programContext() (keeping
+    // the host generation), the pipeline MediaFinishing uses for the monitor
+    // and the export.
+    ColorContextSnapshot renderContext() const;
     QString clipId() const { return m_clipId; }
     void setClipId(const QString &id);
     QString frameId() const { return m_frameId; }
@@ -71,6 +86,13 @@ public:
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
 
+    // Persistence of the committed grade ("qindatk.color-grade/1": format,
+    // scope, clipId, grade). loadJson replaces the grade as a new document
+    // (no undo step, history cleared) and refuses malformed or out-of-range
+    // grades without changing anything.
+    Q_INVOKABLE QString saveJson() const;
+    Q_INVOKABLE bool loadJson(const QString &json);
+
     // AGENT-CONTRACT (docs/color.md "Grade gestures"; ColorWheels): wheel
     // drags and numeric entry build the same parameter map through
     // withWheel(), so equal x/y give equal parameters and pixels. A drag is
@@ -90,6 +112,7 @@ private:
     bool render(const QVariantMap &candidate);
     void refresh();
     void resetForTarget();
+    bool leavesScope(bool clipChanged, bool frameChanged) const;
     bool reject(const QString &gestureId, const QString &message);
     // parameters() with one wheel (lift, gamma, gain) or "exposure" replaced.
     std::optional<QVariantMap> withWheel(const QString &wheelId, double x, double y) const;
@@ -113,6 +136,7 @@ private:
     QVariantMap m_afterScopes;
     OperationError m_error;
     int m_serial = 0;
+    GradeScope m_scope = FrameGrade;
 };
 
 } // namespace QindaTK

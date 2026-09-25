@@ -29,7 +29,12 @@ keeps every cue's ID, timing, text and language (`tst_caption_track_model`
 ## Structural edits
 
 Each is one undo step (`undo()` restores the previous cue list); a refusal
-changes nothing and sets `error` and a `rejected` acknowledgement.
+changes nothing and sets `error` and a `rejected` acknowledgement. An import
+(`importWebVtt`, `importSrt`, `importEmbedded`) is one undo step that also
+restores the previous track language, so undone cues never export under the
+imported language (`tst_caption_track_model`
+`undoAfterImportRestoresTheLanguage`); `setLanguage` itself is not an undo
+step.
 
 - `splitCue(cueId, atMs, textPosition = -1)`: `atMs` strictly inside the cue;
   the right part gets a new ID. The text splits at `textPosition`, or at the
@@ -50,6 +55,9 @@ cue's messages (and the last error) for `CaptionEditor.warningText`.
 `short`: under `kMinimumDurationMs` (833 ms). `reading-rate`: more than
 `kMaximumCharactersPerSecond` (20) characters per second, line breaks not
 counted. `line-length`: a line over `kMaximumLineLength` (42) characters.
+`glyphs`: characters no installed font draws
+(`CaptionBurnIn::missingCharacters`); burned in they would be empty boxes.
+Glyph warnings need a `QGuiApplication` (fonts); a guiless host gets none.
 Warnings inform; they never block an edit.
 
 ## Embedded captions
@@ -76,6 +84,15 @@ time is the frame's start in whole program milliseconds (floor), which decides
 `[in, out)` exactly: at 25 fps a cue `[120, 400)` is on frames 3–9. Burned-in
 frames reach the monitor and the exported file through the same
 `MediaProgram::render`.
+
+Text is laid out once with `QTextLayout` (font fallback, shaping and bidi;
+line breaks become U+2028; the paragraph direction is the text's first strong
+character) and that layout is drawn for the outline and the fill.
+`CaptionBurnIn::glyphRuns(text, pixelSize, emphasis, width)` returns the runs
+of the same layout, so a test inspects what is painted: `tst_video_finishing`
+checks that the Japanese, Arabic and Greek cues have no `.notdef` glyph, that
+Arabic is one right-to-left run with the first letter drawn rightmost and in
+its joined (initial) form, and that an uncovered character is reported.
 
 ## Frame renderer
 

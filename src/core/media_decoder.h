@@ -19,6 +19,11 @@ struct MediaDecodedFrame {
     qint64 index = -1; // exact presentation index
     qint64 pts = 0;    // stream pts; always equals the indexed pts of `index`
     bool corrupt = false; // the decoder reported concealed damage in this frame
+    // The Y'CbCr decode the pixels went through: matrix bt709, bt601,
+    // bt2020, smpte240m or fcc ("rgb" for RGB-coded video, no matrix) and
+    // range limited or full (docs/video-scopes.md "Source coding").
+    QString matrix;
+    QString range;
     OperationError error;
 };
 

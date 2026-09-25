@@ -7122,6 +7122,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "labelBand",
+          "type": "real",
+          "default": "Tk.Theme.space.xs * 4 + Tk.Theme.font.caption * 3",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -7147,6 +7155,10 @@
         }
       ],
       "methods": [
+        {
+          "name": "wheelGeometry",
+          "parameters": "index"
+        },
         {
           "name": "wheelAt",
           "parameters": "x, y"
@@ -49550,11 +49562,18 @@
       "name": "ColorGradeEditSession",
       "kind": "cpp",
       "base": "QObject",
-      "description": "One clip/frame grade gesture adapter. The host supplies a tagged source image and immutable color context; previews stay transient in PropertyDocument.",
+      "description": "One grade gesture adapter. The host supplies a tagged source image and immutable color context; previews stay transient in PropertyDocument. `scope` says what the grade belongs to: one frame (the default, a still grade), one clip, or the whole program. A new target within the scope only replaces the preview source; leaving the scope starts a fresh neutral grade with its own history.",
       "singleton": false,
       "attached": null,
       "file": "src/core/color_grade_edit_session.h",
       "properties": [
+        {
+          "name": "scope",
+          "type": "GradeScope",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
         {
           "name": "clipId",
           "type": "QString",
@@ -49708,6 +49727,16 @@
           "name": "redo",
           "returns": "bool",
           "parameters": ""
+        },
+        {
+          "name": "saveJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
         },
         {
           "name": "previewWheel",
@@ -73575,7 +73604,7 @@
       "name": "VideoFinishing",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT (docs/media-playback.md \"Finishing\", D-126): gathers the grade of a ColorGradeEditSession and the cues of a CaptionTrackModel into the MediaFinishing that MediaPlayer attaches to its program. The monitor shows value(true), which includes an open grade gesture's preview; exports use value(false), the committed grade, so a drag in progress never reaches a file. `changed` fires only when the finishing's digest changes.",
+      "description": "AGENT-CONTRACT (docs/media-playback.md \"Finishing\", D-126): gathers the grade of a ColorGradeEditSession and the cues of a CaptionTrackModel into the MediaFinishing that MediaPlayer attaches to its program. The monitor shows value(true), which includes an open grade gesture's preview; exports use value(false), the committed grade, so a drag in progress never reaches a file. `changed` fires once per setter call, and on a source change only when the finishing's digest changes. An attached session is switched to ColorGradeEditSession::ProgramGrade: frames the host feeds it replace the preview source and never reset the program grade.",
       "singleton": false,
       "attached": null,
       "file": "src/core/video_finishing.h",
@@ -73651,7 +73680,7 @@
       "name": "VideoScopesModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT (docs/video-scopes.md, D-127): the scope snapshot owner. A snapshot is computed on demand -- analyzeFrame(), a convention change, or a newly presented `player` frame while `active` -- never per repaint; VideoScopes only paints the immutable snapshot. Bound to a MediaPlayer, each snapshot's frameId is the player's presentedFrameKey for the exact frame measured (after the program's finishing), so scrubbing never shows one frame's scope under another frame's identity.",
+      "description": "AGENT-CONTRACT (docs/video-scopes.md, D-127): the scope snapshot owner. A snapshot is computed on demand -- analyzeFrame(), a convention change, or a newly presented `player` frame while `active` -- never per repaint; VideoScopes only paints the immutable snapshot. Bound to a MediaPlayer, each snapshot's frameId is the player's presentedFrameKey for the exact frame measured (after the program's finishing), so scrubbing never shows one frame's scope under another frame's identity. matrix/signalRange \"source\" (the default) read each frame under the Y'CbCr decode it went through (MediaDecodedFrame::matrix/range, reported by the player's presentedSources), so codes equal the file's codes. Without a usable coding (a plain image, RGB-coded video, sources that disagree, or a matrix the scopes lack) they fall back to bt709/full; each snapshot names the origin (stated, source, default) and the source coding it saw.",
       "singleton": false,
       "attached": null,
       "file": "src/core/video_scopes_model.h",

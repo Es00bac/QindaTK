@@ -35,16 +35,32 @@ TestCase {
         onResetRequested: function(grade, wheel) { session.resetWheel(wheel) }
     }
 
+    // Each wheel's label and x, y value lines fit between the wheel and the
+    // status caption (they used to be drawn under the status text).
+    function test_value_labels_clear_the_status_line() {
+        const status = findChild(bound, "colorWheelsStatus")
+        verify(status !== null)
+        bound.statusText = "Grade committed"
+        verify(status.visible)
+        const g = bound.wheelGeometry(0)
+        const valueBottom = g.centerY + g.radius + Tk.Theme.space.xs * 2 + Tk.Theme.font.caption * 2
+        verify(valueBottom <= status.y, valueBottom + " > " + status.y)
+        verify(g.centerY - g.radius >= 0)
+        bound.statusText = ""
+    }
+
     function test_drag_and_numeric_edits_are_single_undo_steps() {
         compare(session.wheels.length, 3)
         compare(session.wheels[0].id, "lift")
         verify(session.wheels[0].enabled)
         verify(!session.canUndo)
-        // Lift is the first of three 220-pixel slots: centre (110, 110).
-        mousePress(bound, 110, 110)
-        mouseMove(bound, 130, 100)
-        mouseMove(bound, 150, 90)
-        mouseRelease(bound, 150, 90)
+        // Lift is the first of three 220-pixel slots, centred above the label band.
+        const lift = bound.wheelGeometry(0)
+        compare(lift.centerX, 110)
+        mousePress(bound, lift.centerX, lift.centerY)
+        mouseMove(bound, lift.centerX + 20, lift.centerY - 10)
+        mouseMove(bound, lift.centerX + 40, lift.centerY - 20)
+        mouseRelease(bound, lift.centerX + 40, lift.centerY - 20)
         verify(!session.editing)
         verify(session.canUndo)
         verify(session.parameters.lift.x > 0)

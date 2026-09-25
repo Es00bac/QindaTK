@@ -43,16 +43,27 @@ T.Control {
     activeFocusOnTab: true
     focus: true
 
+    // AGENT-GUARD: the one wheel geometry (control coordinates) that painting,
+    // hit testing and drags all use. The bottom band holds each wheel's label
+    // and x, y value lines above the status caption; a wheel centred on the
+    // full height drew its value line under the status text.
+    readonly property real labelBand: Tk.Theme.space.xs * 4 + Tk.Theme.font.caption * 3
+    function wheelGeometry(index) {
+        const count = Math.max(1, Math.min(root.wheels.length, root.maximumWheels))
+        const slot = root.width / count
+        const inset = Tk.Theme.space.xs
+        const area = Math.max(1, root.height - root.labelBand - inset)
+        const radius = Math.max(1, Math.min(slot * 0.37, area / 2 - inset))
+        return {centerX: slot * (index + 0.5), centerY: inset + area / 2, radius: radius, slot: slot}
+    }
     function wheelAt(x, y) {
         const count = Math.min(root.wheels.length, root.maximumWheels)
         if (!count) return null
-        const slot = root.width / count
-        const index = Math.max(0, Math.min(count - 1, Math.floor(x / Math.max(1, slot))))
-        const wheel = root.wheels[index]
-        const centerX = slot * (index + 0.5), centerY = root.height / 2
-        const radius = Math.min(slot * 0.37, root.height * 0.36)
-        const dx = x - centerX, dy = y - centerY
-        return dx * dx + dy * dy <= radius * radius ? {wheel:wheel,index:index,centerX:centerX,centerY:centerY,radius:radius} : null
+        const index = Math.max(0, Math.min(count - 1, Math.floor(x / Math.max(1, root.width / count))))
+        const g = root.wheelGeometry(index)
+        const dx = x - g.centerX, dy = y - g.centerY
+        return dx * dx + dy * dy <= g.radius * g.radius
+            ? {wheel:root.wheels[index],index:index,centerX:g.centerX,centerY:g.centerY,radius:g.radius} : null
     }
     function wheelById(id) {
         for (let i = 0; i < Math.min(root.wheels.length, root.maximumWheels); ++i)
@@ -86,9 +97,8 @@ T.Control {
         for (let i = 0; i < count; ++i)
             if (String(root.wheels[i].id) === root._gestureWheelId) index = i
         if (index < 0) return false
-        const slot = root.width / Math.max(1, count)
-        const centerX = slot * (index + 0.5), centerY = root.height / 2
-        const radius = Math.min(slot * 0.37, root.height * 0.36)
+        const g = root.wheelGeometry(index)
+        const centerX = g.centerX, centerY = g.centerY, radius = g.radius
         const nx = Math.max(-1, Math.min(1, (x - centerX) / Math.max(1, radius)))
         const ny = Math.max(-1, Math.min(1, (centerY - y) / Math.max(1, radius)))
         root._targetX = Number(wheel.minimumX) + (nx + 1) * 0.5 * (Number(wheel.maximumX) - Number(wheel.minimumX))
@@ -157,13 +167,14 @@ T.Control {
             const ctx = getContext("2d"); ctx.reset()
             ctx.fillStyle = root.css(Tk.Theme.color.surface); ctx.fillRect(0, 0, width, height)
             const count = Math.min(root.wheels.length, root.maximumWheels)
-            const slot = width / Math.max(1, count), radius = Math.min(slot * 0.37, height * 0.36)
+            const offset = Tk.Theme.space.xs // this canvas is inset by its margins
             const roles = [Tk.Theme.color.accent, Tk.Theme.color.info, Tk.Theme.color.success,
                            Tk.Theme.color.warning, Tk.Theme.color.danger, Tk.Theme.color.focus,
                            Tk.Theme.color.accent, Tk.Theme.color.info]
             ctx.font = Tk.Theme.font.caption + "px " + Tk.Theme.font.family
             for (let i = 0; i < count; ++i) {
-                const wheel = root.wheels[i], cx = slot * (i + 0.5), cy = height / 2
+                const g = root.wheelGeometry(i)
+                const wheel = root.wheels[i], cx = g.centerX - offset, cy = g.centerY - offset, radius = g.radius
                 const selected = String(wheel.id) === root.selectedWheelId || String(wheel.id) === root._gestureWheelId
                 ctx.fillStyle = root.css(Tk.Theme.color.panelAlt)
                 ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill()

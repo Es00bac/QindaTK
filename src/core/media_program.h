@@ -48,6 +48,8 @@ struct MediaSourceFrameRef {
     QString resourceId;
     qint64 frame = -1; // exact source presentation index
     qint64 pts = 0;    // the original's indexed pts of that frame
+    QString matrix;    // MediaDecodedFrame::matrix/range of the decoded frame
+    QString range;
 };
 
 struct MediaRenderedFrame {
