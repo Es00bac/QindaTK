@@ -185,6 +185,37 @@ private slots:
         QVERIFY(!error.isEmpty());
     }
 
+    void generatedTakePlacesFromAQmlMap()
+    {
+        QTemporaryDir dir;
+        AudioSession session;
+        session.setMediaDirectory(dir.path());
+        const QString track = session.addTrack(QStringLiteral("Vocal"));
+        QVERIFY(session.setTrackArmed(track, true));
+        const auto segment = [](int frames, double frequency) {
+            return QVariantMap{{QStringLiteral("frames"), frames}, {QStringLiteral("frequency"), frequency}};
+        };
+        const QString path = session.generateTestTake({}, {{QStringLiteral("sampleRate"), Rate},
+            {QStringLiteral("segments"), QVariantList{segment(1200, 220.0), segment(1000, 330.0), segment(950, 440.0)}}});
+        QVERIFY2(path.startsWith(dir.path()), qPrintable(path + session.lastError()));
+        const std::vector<float> data = readMono(path);
+        QCOMPARE(qint64(data.size()), qint64(3150));
+        QCOMPARE(data[0], 0.0f);
+        QVERIFY(std::all_of(data.begin(), data.end(), [](float v) { return std::abs(v) <= 0.5f; }));
+        QVERIFY(session.generateTestTake({}, {}).isEmpty());
+        QVERIFY(!session.lastError().isEmpty());
+        // The engine's map with numbers where it has strings, as QML passes it.
+        QVariantMap take = loopTake(path);
+        take.insert(QStringLiteral("frames"), 3150);
+        take.insert(QStringLiteral("recordedSample"), 1900);
+        const QVariantMap placed = session.placeTake(take);
+        QVERIFY2(placed.value(QStringLiteral("ok")).toBool(), qPrintable(session.lastError()));
+        QCOMPARE(layout(session.comps(), placed.value(QStringLiteral("compId")).toString()),
+                 QStringLiteral("Take 1:0-200|Take 3:200-1150|Take 2:1150-1200"));
+        QCOMPARE(session.comps()->viewState(placed.value(QStringLiteral("compId")).toString())
+                     .value(QStringLiteral("sampleRate")).toInt(), Rate);
+    }
+
     void loopPassesBecomeTakesOfOneComp()
     {
         Scenario s;

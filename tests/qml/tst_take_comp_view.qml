@@ -166,4 +166,23 @@ TestCase {
         verify(String(lastCanceled).length > 0)
         verify(!control.cancelSwipe())
     }
+
+    // Round-screenshot follow-up: one label column for every lane, offsets in seconds.
+    function test_lane_labels_share_a_column_and_read_seconds() {
+        restore()
+        compare(control.offsetText("98765432109876543"), "offset 98765432109876543")
+        control.sampleRate = 48000
+        compare(control.offsetText("32000"), "offset 0.667 s")
+        compare(control.offsetText("-800"), "offset −0.017 s")
+        const first = findChild(control, "takeLabel_take-a")
+        const second = findChild(control, "takeLabel_take-b")
+        verify(first !== null && second !== null)
+        compare(first.width, Tk.Theme.size.fieldWidth)
+        compare(second.width, Tk.Theme.size.fieldWidth)
+        const a = findChild(control, "takeSwipeSurface_take-a")
+        const b = findChild(control, "takeSwipeSurface_take-b")
+        compare(a.mapToItem(control, 0, 0).x, b.mapToItem(control, 0, 0).x)
+        compare(findChild(control, "takeOffset_take-a").text, "offset 257201643775.720 s")
+        control.sampleRate = 0
+    }
 }

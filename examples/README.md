@@ -206,8 +206,10 @@ The [MIDI editing fixture](midi-editors/Main.qml) exercises `PianoRoll`,
 `MidiControllerLane`, `StepSequencer` and `ClipLauncher` with exact tick strings
 and host-owned pattern and launch state.
 
-The [take-comp fixture](take-comp/Main.qml) exercises `TakeCompView` with
-sample-exact swipe requests and host-owned source and comp snapshots.
+The [take-comp example](take-comp/Main.qml) runs `TakeCompView` on a live
+`AudioSession`: a generated three-pass loop recording becomes takes of a real
+comp with crossfades; swipes preview, Accept/Reject commit or cancel, Audition
+and Compare change what plays, and Undo/Redo walk the comp history.
 
 The [plugin host UI fixture](plugin-host/Main.qml) exercises `PluginBrowser`
 and `PluginRack` with discover, add, reorder, bypass and state acknowledgments

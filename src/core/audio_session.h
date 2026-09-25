@@ -131,7 +131,13 @@ public:
     // engine's takes arrive here). Loop passes become takes of a comp; with
     // punch the new takes are selected only inside the punch range, over the
     // comp or clip already there (D-177). {ok, error, clipId, resourceId, compId}.
-    QVariantMap placeTake(const QVariantMap &take);
+    Q_INVOKABLE QVariantMap placeTake(const QVariantMap &take);
+    // A mono float WAV test "performance" for fixtures and examples: one
+    // phase-continuous sine per segment {frames, frequency, amplitude, pulse}
+    // (pulse: Hz of a 0.55…1 level swell, default 3). `file` relative or
+    // empty goes to mediaDirectory (or the temp directory); returns the
+    // absolute path, or "" with lastError.
+    Q_INVOKABLE QString generateTestTake(const QString &file, const QVariantMap &options);
     // The comp a timeline clip plays, or "" for a media clip.
     Q_INVOKABLE QString compForClip(const QString &clipId) const;
     Q_INVOKABLE QVariantMap renderToFile(const QString &file, const QString &startTicks = QStringLiteral("0"),

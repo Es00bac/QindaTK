@@ -20,6 +20,9 @@ T.Control {
     property string statusText: ""
     property string tooltip: ""
     property bool editingEnabled: true
+    // Rate of the sample strings (AudioTakeCompModel.viewState's sampleRate):
+    // lane offsets read in seconds. 0 shows raw samples.
+    property int sampleRate: 0
 
     property string _gestureTakeId: ""
     property string _gestureId: ""
@@ -255,6 +258,14 @@ T.Control {
         root.keyboardTakeIndex = Math.max(0, Math.min(root.takeCount - 1, root.keyboardTakeIndex + delta))
         return true
     }
+    // Display only (the exact string stays the value): a take's source
+    // offset as seconds when the rate is known.
+    function offsetText(sample) {
+        const exact = String(sample)
+        if (root.sampleRate <= 0) return qsTr("offset %1").arg(exact)
+        const seconds = Number(exact) / root.sampleRate
+        return qsTr("offset %1%2 s").arg(seconds < 0 ? "−" : "").arg(Math.abs(seconds).toFixed(3))
+    }
     function fractionForSample(sample) {
         const index = root.indexForBoundary(sample)
         return index < 0 ? -1 : index / (root.sampleBoundaries.length - 1)
@@ -346,11 +357,14 @@ T.Control {
                             ctx.strokeStyle = root.colorCss(Tk.Theme.color.text)
                             ctx.beginPath(); ctx.moveTo(edge, 0); ctx.lineTo(x1, h); ctx.stroke()
                         }
-                        ctx.fillStyle = root.colorCss(Tk.Theme.color.text)
+                        // The take's name, clipped to its segment (IDs stay in the model).
+                        const owner = root.takeById(segment.takeId)
+                        ctx.save(); ctx.beginPath(); ctx.rect(x0, 0, x1 - x0, h); ctx.clip()
+                        ctx.fillStyle = root.colorCss(Tk.Theme.color.text); ctx.textBaseline = "top"
                         ctx.font = Tk.Theme.font.micro + "px \"" + Tk.Theme.font.family + "\""
-                        ctx.textBaseline = "top"
-                        ctx.fillText(String(segment.segmentId) + " · " + String(segment.takeId),
+                        ctx.fillText(String(owner && owner.label ? owner.label : segment.takeId),
                                      x0 + Tk.Theme.space.xs, Tk.Theme.space.xs)
+                        ctx.restore()
                     }
                     if (root._gestureId.length) {
                         const range = root.swipeRange()
@@ -378,19 +392,29 @@ T.Control {
                 direction: Tk.Flex.Row
                 align: Tk.Flex.Center
                 gap: Tk.Theme.space.xs
-                Tk.Label {
+                // One fixed column for every lane, so the swipe surfaces line
+                // up: the take name over its source offset, both elided.
+                Item {
+                    objectName: "takeLabel_" + String(modelData.takeId)
                     width: Tk.Theme.size.fieldWidth
-                    text: String(modelData.label || modelData.takeId)
-                    color: root.activeFocus && String(modelData.takeId) === root.keyboardTakeId
-                        ? Tk.Theme.color.accent : Tk.Theme.color.text
-                    Accessible.ignored: true
-                }
-                Tk.Mono {
-                    width: Tk.Theme.size.controlLg
-                    text: "@" + String(modelData.sourceOffsetSample)
-                    color: Tk.Theme.color.textMuted
-                    Accessible.ignored: true
+                    implicitWidth: Tk.Theme.size.fieldWidth
+                    height: root.takeLaneHeight
+                    implicitHeight: root.takeLaneHeight
+                    Tk.Flex.shrink: 0
                     clip: true
+                    Tk.Label {
+                        anchors { left: parent.left; right: parent.right; bottom: parent.verticalCenter }
+                        text: String(modelData.label || modelData.takeId) // Label elides on the right
+                        color: root.activeFocus && String(modelData.takeId) === root.keyboardTakeId
+                            ? Tk.Theme.color.accent : Tk.Theme.color.text
+                        Accessible.ignored: true
+                    }
+                    Tk.Caption {
+                        objectName: "takeOffset_" + String(modelData.takeId)
+                        anchors { left: parent.left; right: parent.right; top: parent.verticalCenter }
+                        text: root.offsetText(modelData.sourceOffsetSample)
+                        Accessible.ignored: true
+                    }
                 }
                 Item {
                     id: swipeSurface
@@ -446,10 +470,11 @@ T.Control {
                     onClicked: root.requestAudition(modelData.takeId)
                 }
                 Tk.Button {
-                    visible: root.referenceTakeId.length > 0 && String(modelData.takeId) !== root.referenceTakeId
-                    enabled: modelData.available !== false
-                    text: qsTr("Compare")
-                    tooltip: qsTr("Request host comparison with the reference take")
+                    // On every lane (disabled on the reference): one width and time scale for all swipe surfaces.
+                    visible: root.referenceTakeId.length > 0
+                    enabled: modelData.available !== false && String(modelData.takeId) !== root.referenceTakeId
+                    text: qsTr("Compare"); tooltip: String(modelData.takeId) === root.referenceTakeId ? qsTr("This is the reference take")
+                                                                              : qsTr("Request host comparison with the reference take")
                     onClicked: root.requestCompare(modelData.takeId)
                 }
             }
