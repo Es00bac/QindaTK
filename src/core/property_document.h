@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QHash>
 #include <QSet>
+#include <QStringList>
 #include <QVariant>
 #include <QtQml/qqmlregistration.h>
 
@@ -66,6 +67,8 @@ public:
 
     bool defineProperty(const PropertyDescriptor &descriptor);
     std::optional<PropertyDescriptor> descriptor(const QString &id) const;
+    // Sorted descriptor IDs; collaboration rebuilds revived entities from it.
+    QStringList propertyIds() const;
     bool addEntity(EntityId id, const QVariantMap &values = {});
     bool removeEntity(EntityId id);
     bool contains(EntityId id) const;

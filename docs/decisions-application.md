@@ -564,9 +564,10 @@ is replayed only while the origin remains connected; disconnect emits leave.
 Named local checkpoints keep immutable typed reference snapshots, author and
 revision provenance. Restore creates a safety checkpoint and sends one bounded
 snapshot operation that updates winning property values in a single document
-revision. Collaborative reversal requires a fresh operation;
-generic domain merge, version restore, credential lifecycle and remote-network
-transport remain WP-082 work. See [collaboration.md](collaboration.md).
+revision. Collaborative reversal requires a fresh operation. Object
+lifecycle, text merge, the network protocol and shared versions/undo follow
+in D-166 to D-169 ([decisions-domains.md](decisions-domains.md)). See
+[collaboration.md](collaboration.md).
 
 ## D-087 — Keep dependency edges keyed by stable asset identity
 

@@ -545,3 +545,73 @@ is added. Closing the presenter ends the presentation.
 notes, and plugging it back in needs no action. The status is visible to the
 presenter (`audienceStatus`, `displays`). Behaviour on real window managers
 and monitors is left to platform qualification.
+
+## D-166 — Collaborative deletes remove only what their author observed
+
+**Context.** WP-082 needs object creation and deletion across replicas that
+edit offline. A plain "delete wins" rule erases a concurrent committed edit;
+"edit wins" by Lamport time alone cannot tell an unseen edit from an old one.
+
+**Decision.** A `Delete` operation names the supporters its author observed:
+the baseline token, the object's `Create` operations and the winning operation
+of each property. An object is present while any supporter is not named by a
+delete (observed-remove). Values and text of a deleted object are retained.
+A `Create` of an existing UUID revives it; a `Restore` that wins a property
+supports the object too. See [collaboration.md](collaboration.md#objects-and-deletes).
+
+**Consequences.** Replicas converge for any delivery order, and a concurrent
+edit that wins its property brings the object back rather than vanishing. A
+concurrent edit that loses to a value the deleter saw does not. A delete is
+bounded by the object's property count, not by its edit history.
+
+## D-167 — Plain text merges as a replicated sequence of code units
+
+**Context.** Two people typing in one string property under last-writer-wins
+lose one person's words.
+
+**Decision.** Properties a client lists in `textProperties` merge as an RGA
+sequence: each UTF-16 unit has a stable ID (`base:<n>` or `<operation>:<i>`),
+inserts anchor after an element and order after it by descending
+`(logicalTime, actor, operation, index)`, and deletes leave tombstones. A
+version restore replaces text through ordinary text operations rather than
+the `Restore` packet. Formatting (rich text) is not part of this sequence.
+
+**Consequences.** Concurrent inserts and deletes keep every character on
+every replica, with an identical interleaving. Tombstones grow the sequence;
+it is capped at 65,536 elements per property and fails closed beyond that.
+Positions are code units, so hosts must keep grapheme clusters together.
+
+## D-168 — One authenticated frame protocol for local and network peers
+
+**Context.** The first transport sent the actor credential in its hello over
+an owner-only local socket. A local-network transport must not expose the
+credential and must resist injected, replayed or reordered frames.
+
+**Decision.** Protocol 2 is shared by the local socket and TCP: server
+challenge nonce, client nonce and HMAC-SHA256 proof keyed by the credential,
+a per-connection session key, and sealed frames with a strict per-direction
+sequence number and MAC. Any failed frame closes the connection; operation
+replay on reconnect recovers state. Permissions are read per operation and
+pushed live; rotation and revocation close sessions. Frames are not
+encrypted; confidentiality comes from the network (LAN, WireGuard/Tailscale)
+or a host TLS adapter. No hosted service is part of the toolkit.
+
+**Consequences.** Peers on other Linux machines collaborate without a third
+party, and a network fault becomes a reconnect rather than corrupt state.
+Protocol-1 peers cannot connect to protocol-2 endpoints. Document values are
+visible to anyone who can read the network path.
+
+## D-169 — Shared versions and undo are new operations in the log
+
+**Context.** Local checkpoint files differ per replica, and a linear undo
+chain replays stale inverse values over other people's edits.
+
+**Decision.** A shared checkpoint is a `Checkpoint` operation carrying the
+snapshot and its name/time; every replica lists them sorted by operation
+order. Collaborative undo reverses only this actor's own steps by issuing new
+operations, and refuses a step a newer edit has superseded (`undoConflict`).
+
+**Consequences.** Version lists and restores agree on all replicas and
+survive restart through the durable log. Undo never erases a collaborator's
+work; a superseded step is dropped rather than applied. Checkpoints consume
+log space (40 KiB snapshots within the 4 MiB log).

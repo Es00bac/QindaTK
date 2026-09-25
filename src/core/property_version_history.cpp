@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "property_version_history.h"
+#include "property_sync_detail_p.h"
 #include "reference_document_codec.h"
 #include <QDateTime>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
 #include <QSaveFile>
 #include <QUuid>
+#include <algorithm>
 
 namespace QindaTK {
 namespace {
@@ -43,6 +46,36 @@ void PropertyVersionHistory::setStoragePath(const QString &path)
     emit changed();
 }
 
+void PropertyVersionHistory::setShared(bool shared)
+{
+    if (m_opened || m_shared == shared) return;
+    m_shared = shared;
+    emit changed();
+}
+
+void PropertyVersionHistory::loadShared()
+{
+    if (!m_client) return;
+    QVector<PropertySyncOperation> operations = m_client->sharedCheckpoints();
+    // AGENT-GUARD: sort by the operation order, not arrival, so every replica
+    // lists shared versions identically.
+    std::sort(operations.begin(), operations.end(),
+              [](const PropertySyncOperation &a, const PropertySyncOperation &b) {
+                  return sync_detail::outranks(b, a);
+              });
+    QVector<Entry> loaded;
+    for (const auto &operation : operations) {
+        const auto meta = sync_detail::decodeCheckpointMeta(operation.meta);
+        const auto decoded = ReferenceDocumentCodec::decode(operation.value.toByteArray());
+        if (!meta || !decoded) continue;
+        loaded.append({operation.operationId, meta->name, operation.actorId,
+                       decoded->document->revisionString(), meta->createdAt, 0,
+                       operation.value.toByteArray(), QString::number(operation.logicalTime)});
+    }
+    m_entries = std::move(loaded);
+    emit changed();
+}
+
 bool PropertyVersionHistory::fail(const QString &message)
 {
     m_lastError = message;
@@ -61,8 +94,16 @@ bool PropertyVersionHistory::open()
 {
     if (m_opened) return true;
     if (!m_client || !m_client->document() || !m_client->service()
-        || m_storagePath.isEmpty())
+        || (m_storagePath.isEmpty() && !m_shared))
         return fail(QStringLiteral("Configure a document client and checkpoint path"));
+    if (m_shared) {
+        m_sharedConnection = connect(m_client, &LocalPropertySyncClient::checkpointShared,
+                                     this, &PropertyVersionHistory::loadShared);
+        m_opened = true;
+        m_lastError.clear();
+        loadShared();
+        return true;
+    }
     QFile file(m_storagePath);
     if (!file.exists()) { m_opened = true; return true; }
     if (!file.open(QIODevice::ReadOnly) || file.size() > MaxStoreBytes)
@@ -150,10 +191,16 @@ QString PropertyVersionHistory::checkpoint(const QString &name)
         fail(QStringLiteral("Checkpoint snapshot is unsupported or too large"));
         return {};
     }
+    if (m_shared) {
+        const QString id = m_client->shareCheckpoint(trimmed, snapshot->payload);
+        if (id.isEmpty()) fail(m_client->lastError());
+        else m_lastError.clear();
+        return id;
+    }
     Entry entry{QUuid::createUuid().toString(QUuid::WithoutBraces), trimmed,
                 m_client->actorId(), m_client->document()->revisionString(),
                 QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs),
-                m_client->service()->operationCount(), snapshot->payload};
+                m_client->service()->operationCount(), snapshot->payload, {}};
     auto updated = m_entries;
     updated.append(entry);
     if (!persist(updated)) return {};
@@ -172,7 +219,9 @@ QVariantList PropertyVersionHistory::versions() const
                                   {QStringLiteral("actor"), it->actorId},
                                   {QStringLiteral("revision"), it->revision},
                                   {QStringLiteral("createdAt"), it->createdAt},
-                                  {QStringLiteral("operationCount"), it->operationCount}});
+                                  {QStringLiteral("operationCount"), it->operationCount},
+                                  {QStringLiteral("shared"), !it->logicalTime.isEmpty()},
+                                  {QStringLiteral("logicalTime"), it->logicalTime}});
     return result;
 }
 
@@ -199,18 +248,33 @@ QVariantList PropertyVersionHistory::diffSnapshots(const QByteArray &from,
     const auto old = ReferenceDocumentCodec::decode(from);
     const auto recent = ReferenceDocumentCodec::decode(to);
     if (!old || !recent) return {};
-    const auto left = old->document->committedValues();
-    const auto right = recent->document->committedValues();
-    if (left.size() != right.size()) return {};
+    // Rows are keyed by entity/property, so versions whose objects differ
+    // still compare: an object only on one side reports "added"/"removed".
+    QMap<QString, PropertyChange> left;
+    QMap<QString, PropertyChange> right;
+    for (const auto &change : old->document->committedValues())
+        left.insert(change.target.toString() + QLatin1Char('/') + change.propertyId, change);
+    for (const auto &change : recent->document->committedValues())
+        right.insert(change.target.toString() + QLatin1Char('/') + change.propertyId, change);
+    QStringList keys = left.keys() + right.keys();
+    keys.removeDuplicates();
+    keys.sort();
     QVariantList result;
-    for (qsizetype i = 0; i < left.size(); ++i) {
-        if (left.at(i).target != right.at(i).target
-            || left.at(i).propertyId != right.at(i).propertyId) return {};
-        if (left.at(i).after == right.at(i).after) continue;
-        result.append(QVariantMap{{QStringLiteral("entity"), left.at(i).target.toString()},
-                                  {QStringLiteral("property"), left.at(i).propertyId},
-                                  {QStringLiteral("from"), left.at(i).after},
-                                  {QStringLiteral("to"), right.at(i).after}});
+    for (const QString &key : keys) {
+        const bool before = left.contains(key);
+        const bool after = right.contains(key);
+        const PropertyChange from = left.value(key);
+        const PropertyChange to = right.value(key);
+        const PropertyChange &row = before ? from : to;
+        if (before && after && from.after == to.after) continue;
+        result.append(QVariantMap{
+            {QStringLiteral("entity"), row.target.toString()},
+            {QStringLiteral("property"), row.propertyId},
+            {QStringLiteral("from"), before ? from.after : QVariant{}},
+            {QStringLiteral("to"), after ? to.after : QVariant{}},
+            {QStringLiteral("change"), !before ? QStringLiteral("added")
+                                       : !after ? QStringLiteral("removed")
+                                                : QStringLiteral("changed")}});
     }
     return result;
 }

@@ -1,56 +1,53 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+// PropertySyncSocketServer: local-socket and local-network sync endpoint.
 #include "property_sync_socket.h"
+#include "property_sync_detail_p.h"
 #include <QJsonDocument>
-#include <QUuid>
+#include <algorithm>
 
 namespace QindaTK {
+using sync_detail::canonicalUuid;
+
 namespace {
-constexpr qsizetype MaxFrameBytes = 96 * 1024;
-constexpr qsizetype MaxQueuedBytes = 8 * 1024 * 1024;
+constexpr int MaxPeers = 8;
 
-bool canonicalUuid(const QString &id)
+QJsonObject leaveFrame(const QString &actorId)
 {
-    const QUuid uuid(id);
-    return !uuid.isNull() && uuid.toString(QUuid::WithoutBraces) == id;
-}
-
-bool writeFrame(QLocalSocket *socket, const QJsonObject &object)
-{
-    QByteArray bytes = QJsonDocument(object).toJson(QJsonDocument::Compact);
-    if (bytes.size() > MaxFrameBytes || socket->bytesToWrite() + bytes.size() > MaxQueuedBytes)
-        return false;
-    bytes.append('\n');
-    return socket->write(bytes) == bytes.size();
-}
-
-std::optional<QJsonObject> nextFrame(QByteArray &buffer)
-{
-    const auto end = buffer.indexOf('\n');
-    if (end < 0) return std::nullopt;
-    const QByteArray bytes = buffer.left(end);
-    buffer.remove(0, end + 1);
-    if (bytes.size() > MaxFrameBytes) return QJsonObject{};
-    const auto document = QJsonDocument::fromJson(bytes);
-    return document.isObject() ? document.object() : QJsonObject{};
+    return {{QStringLiteral("type"), QStringLiteral("presenceLeave")},
+            {QStringLiteral("actor"), actorId}};
 }
 }
 
 PropertySyncSocketServer::PropertySyncSocketServer(QObject *parent) : QObject(parent)
 {
     m_server.setSocketOptions(QLocalServer::UserAccessOption);
-    connect(&m_server, &QLocalServer::newConnection, this,
-            &PropertySyncSocketServer::acceptPending);
+    m_clock.start();
+    connect(&m_server, &QLocalServer::newConnection, this, [this] {
+        while (auto *socket = m_server.nextPendingConnection()) addPeer(socket);
+    });
+    connect(&m_tcpServer, &QTcpServer::newConnection, this, [this] {
+        while (auto *socket = m_tcpServer.nextPendingConnection()) addPeer(socket);
+    });
+    connect(&m_idleTimer, &QTimer::timeout, this, &PropertySyncSocketServer::expireIdle);
+    setIdleTimeout(m_idleTimeout);
 }
 
 PropertySyncSocketServer::~PropertySyncSocketServer()
 {
-    const auto sockets = m_peers.keys();
-    for (auto *socket : sockets) {
+    // Sockets still closing gracefully are children of the listeners and die
+    // after m_peers; their disconnect callbacks must not reach this object.
+    for (auto *socket : m_server.findChildren<QLocalSocket *>())
         QObject::disconnect(socket, nullptr, this, nullptr);
-        socket->abort();
+    for (auto *socket : m_tcpServer.findChildren<QTcpSocket *>())
+        QObject::disconnect(socket, nullptr, this, nullptr);
+    const auto devices = m_peers.keys();
+    for (auto *device : devices) {
+        QObject::disconnect(device, nullptr, this, nullptr);
+        closePeer(device, false);
     }
     m_peers.clear();
     m_server.close();
+    m_tcpServer.close();
 }
 
 void PropertySyncSocketServer::setService(LocalPropertySyncService *service)
@@ -60,16 +57,31 @@ void PropertySyncSocketServer::setService(LocalPropertySyncService *service)
     m_service = service;
     if (!service) return;
     m_serviceConnection = connect(service, &LocalPropertySyncService::changed, this, [this] {
-        const auto sockets = m_peers.keys();
-        for (auto *socket : sockets)
-            if (m_peers.contains(socket) && !m_peers[socket].actorId.isEmpty())
-                sendBacklog(socket);
+        const auto devices = m_peers.keys();
+        for (auto *device : devices)
+            if (m_peers.contains(device) && !m_peers[device].actorId.isEmpty())
+                sendBacklog(device);
     });
 }
 
 void PropertySyncSocketServer::setSocketName(const QString &name)
 {
-    if (!isListening()) m_socketName = name;
+    if (!m_server.isListening()) m_socketName = name;
+}
+
+void PropertySyncSocketServer::setIdleTimeout(int milliseconds)
+{
+    m_idleTimeout = std::max(0, milliseconds);
+    m_idleTimer.stop();
+    if (m_idleTimeout > 0) m_idleTimer.start(std::max(20, m_idleTimeout / 4));
+}
+
+int PropertySyncSocketServer::sessionCount() const
+{
+    int count = 0;
+    for (const auto &peer : m_peers)
+        if (!peer.actorId.isEmpty()) ++count;
+    return count;
 }
 
 bool PropertySyncSocketServer::grant(const QString &actorId,
@@ -77,8 +89,39 @@ bool PropertySyncSocketServer::grant(const QString &actorId,
 {
     if (!canonicalUuid(actorId) || credential.size() < 16 || credential.size() > 256)
         return fail(QStringLiteral("Actor ID or credential is invalid"));
+    const auto previous = m_grants.constFind(actorId);
+    const bool rotated = previous != m_grants.cend() && previous->credential != credential;
+    const bool permissionChanged = previous == m_grants.cend() || previous->mayEdit != mayEdit;
     m_grants.insert(actorId, {credential, mayEdit});
+    if (rotated) {
+        endSessions(actorId, QStringLiteral("Credential changed"));
+    } else if (permissionChanged) {
+        const auto devices = m_peers.keys();
+        for (auto *device : devices)
+            if (m_peers.value(device).actorId == actorId)
+                send(device, {{QStringLiteral("type"), QStringLiteral("permission")},
+                              {QStringLiteral("mayEdit"), mayEdit}});
+    }
     return true;
+}
+
+bool PropertySyncSocketServer::revoke(const QString &actorId)
+{
+    if (!m_grants.remove(actorId)) return fail(QStringLiteral("Actor has no grant"));
+    endSessions(actorId, QStringLiteral("Access revoked"));
+    return true;
+}
+
+void PropertySyncSocketServer::endSessions(const QString &actorId, const QString &reason)
+{
+    const auto devices = m_peers.keys();
+    for (auto *device : devices) {
+        if (!m_peers.contains(device) || m_peers.value(device).actorId != actorId) continue;
+        send(device, {{QStringLiteral("type"), QStringLiteral("revoked")},
+                      {QStringLiteral("reason"), reason}});
+        forgetPeer(device);
+        closePeer(device, true);
+    }
 }
 
 bool PropertySyncSocketServer::fail(const QString &message)
@@ -98,104 +141,193 @@ bool PropertySyncSocketServer::listen()
     return true;
 }
 
+bool PropertySyncSocketServer::listenNetwork(const QHostAddress &address, quint16 port)
+{
+    if (m_tcpServer.isListening()) return true;
+    if (!m_service || !canonicalUuid(m_service->documentId()) || address.isNull())
+        return fail(QStringLiteral("Configure an open service and network address"));
+    if (!m_tcpServer.listen(address, port)) return fail(m_tcpServer.errorString());
+    m_lastError.clear();
+    return true;
+}
+
 void PropertySyncSocketServer::close()
 {
     m_server.close();
-    const auto sockets = m_peers.keys();
-    for (auto *socket : sockets) socket->disconnectFromServer();
-    m_peers.clear();
-}
-
-void PropertySyncSocketServer::acceptPending()
-{
-    while (auto *socket = m_server.nextPendingConnection()) {
-        if (m_peers.size() >= 8) { socket->disconnectFromServer(); socket->deleteLater(); continue; }
-        m_peers.insert(socket, {});
-        connect(socket, &QLocalSocket::readyRead, this,
-                [this, socket] { readPeer(socket); });
-        connect(socket, &QLocalSocket::disconnected, this, [this, socket] {
-            const auto peer = m_peers.value(socket);
-            if (!peer.actorId.isEmpty() && !peer.presence.isEmpty())
-                broadcastPresence(socket,
-                    {{QStringLiteral("type"), QStringLiteral("presenceLeave")},
-                     {QStringLiteral("actor"), peer.actorId}});
-            m_peers.remove(socket);
-            socket->deleteLater();
-        });
+    m_tcpServer.close();
+    const auto devices = m_peers.keys();
+    for (auto *device : devices) {
+        forgetPeer(device);
+        closePeer(device, true);
     }
 }
 
-void PropertySyncSocketServer::readPeer(QLocalSocket *socket)
+void PropertySyncSocketServer::addPeer(QIODevice *device)
 {
-    auto it = m_peers.find(socket);
+    if (m_peers.size() >= MaxPeers) { closePeer(device, false); return; }
+    Peer peer;
+    peer.nonce = PropertySyncChannel::createNonce();
+    peer.lastSeen = m_clock.elapsed();
+    m_peers.insert(device, peer);
+    connect(device, &QIODevice::readyRead, this, [this, device] { readPeer(device); });
+    const auto gone = [this, device] {
+        forgetPeer(device);
+        device->deleteLater();
+    };
+    if (auto *local = qobject_cast<QLocalSocket *>(device))
+        connect(local, &QLocalSocket::disconnected, this, gone);
+    else if (auto *tcp = qobject_cast<QAbstractSocket *>(device))
+        connect(tcp, &QAbstractSocket::disconnected, this, gone);
+    if (!writeSyncFrame(device, {{QStringLiteral("type"), QStringLiteral("challenge")},
+                                 {QStringLiteral("version"), 2},
+                                 {QStringLiteral("nonce"), QString::fromLatin1(peer.nonce)}})) {
+        QObject::disconnect(device, nullptr, this, nullptr);
+        forgetPeer(device);
+        closePeer(device, false);
+    }
+}
+
+void PropertySyncSocketServer::forgetPeer(QIODevice *device)
+{
+    const auto it = m_peers.constFind(device);
+    if (it == m_peers.cend()) return;
+    const QString actor = it->actorId;
+    const bool present = !it->presence.isEmpty();
+    m_peers.remove(device);
+    if (!actor.isEmpty() && present) broadcastPresence(device, leaveFrame(actor));
+}
+
+void PropertySyncSocketServer::closePeer(QIODevice *device, bool graceful)
+{
+    if (auto *local = qobject_cast<QLocalSocket *>(device)) {
+        if (graceful) local->disconnectFromServer(); else local->abort();
+    } else if (auto *tcp = qobject_cast<QAbstractSocket *>(device)) {
+        if (graceful) tcp->disconnectFromHost(); else tcp->abort();
+    }
+    if (!graceful) device->deleteLater();
+}
+
+void PropertySyncSocketServer::expireIdle()
+{
+    if (m_idleTimeout <= 0) return;
+    const qint64 now = m_clock.elapsed();
+    const auto devices = m_peers.keys();
+    for (auto *device : devices) {
+        if (!m_peers.contains(device) || now - m_peers.value(device).lastSeen <= m_idleTimeout)
+            continue;
+        // AGENT-GUARD: forget before aborting so the leave broadcast happens
+        // once, and the disconnected callback finds no peer to handle again.
+        QObject::disconnect(device, nullptr, this, nullptr);
+        forgetPeer(device);
+        closePeer(device, false);
+    }
+}
+
+void PropertySyncSocketServer::readPeer(QIODevice *device)
+{
+    auto it = m_peers.find(device);
     if (it == m_peers.end()) return;
-    it->buffer.append(socket->readAll());
-    while (m_peers.contains(socket)) {
-        auto frame = nextFrame(m_peers[socket].buffer);
+    it->buffer.append(device->readAll());
+    it->lastSeen = m_clock.elapsed();
+    while (m_peers.contains(device)) {
+        auto frame = nextSyncFrame(m_peers[device].buffer);
         if (!frame) break;
-        if (frame->isEmpty()) { sendError(socket, QStringLiteral("Invalid frame")); socket->disconnectFromServer(); break; }
-        handleFrame(socket, *frame);
+        Peer &peer = m_peers[device];
+        if (!frame->isEmpty() && !peer.channel.isOpen()) {
+            authenticate(device, *frame);
+            continue;
+        }
+        const auto body = frame->isEmpty() ? std::nullopt : peer.channel.open(*frame);
+        if (!body) {
+            // A bad MAC or sequence: the stream can no longer be trusted.
+            forgetPeer(device);
+            closePeer(device, true);
+            break;
+        }
+        handleFrame(device, *body);
     }
-    if (m_peers.contains(socket) && m_peers[socket].buffer.size() > MaxFrameBytes) {
-        sendError(socket, QStringLiteral("Frame limit exceeded"));
-        socket->disconnectFromServer();
+    if (m_peers.contains(device)
+        && m_peers[device].buffer.size() > PropertySyncChannel::MaxFrameBytes) {
+        forgetPeer(device);
+        closePeer(device, true);
     }
 }
 
-void PropertySyncSocketServer::sendError(QLocalSocket *socket, const QString &message,
+void PropertySyncSocketServer::sendError(QIODevice *device, const QString &message,
                                          const QString &operationId)
 {
-    writeFrame(socket, {{QStringLiteral("type"), QStringLiteral("reject")},
-                        {QStringLiteral("id"), operationId},
-                        {QStringLiteral("reason"), message}});
+    const QJsonObject body{{QStringLiteral("type"), QStringLiteral("reject")},
+                           {QStringLiteral("id"), operationId},
+                           {QStringLiteral("reason"), message}};
+    if (m_peers.contains(device) && m_peers[device].channel.isOpen()) send(device, body);
+    else writeSyncFrame(device, body);
 }
 
-void PropertySyncSocketServer::handleFrame(QLocalSocket *socket, const QJsonObject &frame)
+void PropertySyncSocketServer::authenticate(QIODevice *device, const QJsonObject &frame)
 {
-    auto &peer = m_peers[socket];
+    Peer &peer = m_peers[device];
+    const QString actor = frame.value(QStringLiteral("actor")).toString();
+    const QByteArray clientNonce = frame.value(QStringLiteral("nonce")).toString().toLatin1();
+    const auto grant = m_grants.constFind(actor);
+    const bool valid = frame.value(QStringLiteral("type")).toString() == QStringLiteral("hello")
+        && m_service && grant != m_grants.cend()
+        && frame.value(QStringLiteral("document")).toString() == m_service->documentId()
+        && PropertySyncChannel::validNonce(clientNonce)
+        && PropertySyncChannel::sameDigest(
+               PropertySyncChannel::helloProof(grant->credential, m_service->documentId(),
+                                               actor, peer.nonce, clientNonce),
+               frame.value(QStringLiteral("proof")).toString().toLatin1());
+    if (!valid) {
+        sendError(device, QStringLiteral("Actor authorization failed"));
+        forgetPeer(device);
+        closePeer(device, true);
+        return;
+    }
+    const auto devices = m_peers.keys();
+    for (auto *old : devices) {
+        if (old == device || !m_peers.contains(old) || m_peers.value(old).actorId != actor)
+            continue;
+        forgetPeer(old);   // the newer session replaces a stale one
+        closePeer(old, true);
+    }
+    Peer &current = m_peers[device];
+    current.actorId = actor;
+    current.channel.begin(PropertySyncChannel::Role::Server, grant->credential,
+                          current.nonce, clientNonce);
+    if (!send(device, {{QStringLiteral("type"), QStringLiteral("ready")},
+                       {QStringLiteral("mayEdit"), grant->mayEdit}}))
+        return;
+    sendBacklog(device);
+    if (!m_peers.contains(device)
+        || !send(device, {{QStringLiteral("type"), QStringLiteral("replayEnd")}}))
+        return;
+    for (auto it = m_peers.cbegin(); it != m_peers.cend(); ++it) {
+        if (it.key() == device || it.value().actorId.isEmpty() || it.value().presence.isEmpty())
+            continue;
+        if (!send(device, {{QStringLiteral("type"), QStringLiteral("presence")},
+                           {QStringLiteral("actor"), it.value().actorId},
+                           {QStringLiteral("data"),
+                            QJsonObject::fromVariantMap(it.value().presence)}}))
+            return;
+    }
+}
+
+bool PropertySyncSocketServer::send(QIODevice *device, const QJsonObject &body)
+{
+    auto it = m_peers.find(device);
+    if (it == m_peers.end()) return false;
+    if (writeSyncFrame(device, it->channel.seal(body))) return true;
+    forgetPeer(device);
+    closePeer(device, true);
+    return false;
+}
+
+void PropertySyncSocketServer::handleFrame(QIODevice *device, const QJsonObject &frame)
+{
+    Peer &peer = m_peers[device];
     const QString type = frame.value(QStringLiteral("type")).toString();
-    if (peer.actorId.isEmpty()) {
-        const QString actor = frame.value(QStringLiteral("actor")).toString();
-        const auto grant = m_grants.constFind(actor);
-        if (type != QStringLiteral("hello") || !m_service
-            || frame.value(QStringLiteral("document")).toString() != m_service->documentId()
-            || grant == m_grants.cend()
-            || frame.value(QStringLiteral("credential")).toString() != grant->credential) {
-            sendError(socket, QStringLiteral("Actor authorization failed"));
-            socket->disconnectFromServer();
-            return;
-        }
-        const auto sockets = m_peers.keys();
-        for (auto *oldSocket : sockets) {
-            if (oldSocket == socket || !m_peers.contains(oldSocket)
-                || m_peers.value(oldSocket).actorId != actor) continue;
-            if (!m_peers.value(oldSocket).presence.isEmpty())
-                broadcastPresence(oldSocket,
-                    {{QStringLiteral("type"), QStringLiteral("presenceLeave")},
-                     {QStringLiteral("actor"), actor}});
-            m_peers.remove(oldSocket);
-            oldSocket->disconnectFromServer();
-        }
-        peer.actorId = actor;
-        if (!writeFrame(socket, {{QStringLiteral("type"), QStringLiteral("ready")}})) {
-            socket->disconnectFromServer(); return;
-        }
-        sendBacklog(socket);
-        if (!writeFrame(socket, {{QStringLiteral("type"), QStringLiteral("replayEnd")}})) {
-            socket->disconnectFromServer();
-            return;
-        }
-        for (auto it = m_peers.cbegin(); it != m_peers.cend(); ++it) {
-            if (it.key() == socket || it.value().actorId.isEmpty()
-                || it.value().presence.isEmpty()) continue;
-            if (!writeFrame(socket,
-                {{QStringLiteral("type"), QStringLiteral("presence")},
-                 {QStringLiteral("actor"), it.value().actorId},
-                 {QStringLiteral("data"), QJsonObject::fromVariantMap(it.value().presence)}})) {
-                socket->disconnectFromServer();
-                return;
-            }
-        }
+    if (type == QStringLiteral("ping")) {
+        send(device, {{QStringLiteral("type"), QStringLiteral("pong")}});
         return;
     }
     if (type == QStringLiteral("presence") || type == QStringLiteral("presenceLeave")) {
@@ -204,283 +336,68 @@ void PropertySyncSocketServer::handleFrame(QLocalSocket *socket, const QJsonObje
             if (!frame.value(QStringLiteral("data")).isObject()
                 || QJsonDocument(frame.value(QStringLiteral("data")).toObject())
                        .toJson(QJsonDocument::Compact).size() > 4096) {
-                sendError(socket, QStringLiteral("Invalid presence frame"));
+                sendError(device, QStringLiteral("Invalid presence frame"));
                 return;
             }
             presence = frame.value(QStringLiteral("data")).toObject().toVariantMap();
         }
         if (presence == peer.presence) return;
         peer.presence = presence;
-        broadcastPresence(socket,
-            presence.isEmpty()
-                ? QJsonObject{{QStringLiteral("type"), QStringLiteral("presenceLeave")},
-                              {QStringLiteral("actor"), peer.actorId}}
-                : QJsonObject{{QStringLiteral("type"), QStringLiteral("presence")},
-                              {QStringLiteral("actor"), peer.actorId},
-                              {QStringLiteral("data"), QJsonObject::fromVariantMap(presence)}});
+        broadcastPresence(device, presence.isEmpty()
+            ? leaveFrame(peer.actorId)
+            : QJsonObject{{QStringLiteral("type"), QStringLiteral("presence")},
+                          {QStringLiteral("actor"), peer.actorId},
+                          {QStringLiteral("data"), QJsonObject::fromVariantMap(presence)}});
         return;
     }
     if (type != QStringLiteral("operation") || !frame.value(QStringLiteral("data")).isObject()) {
-        sendError(socket, QStringLiteral("Unsupported frame"));
+        sendError(device, QStringLiteral("Unsupported frame"));
         return;
     }
-    const auto operation = propertySyncOperationFromJson(frame.value(QStringLiteral("data")).toObject());
+    const auto operation =
+        propertySyncOperationFromJson(frame.value(QStringLiteral("data")).toObject());
     const QString operationId = operation ? operation->operationId : QString{};
     if (!operation || operation->actorId != peer.actorId
         || operation->documentId != m_service->documentId()) {
-        sendError(socket, QStringLiteral("Operation actor or document mismatch"), operationId);
+        sendError(device, QStringLiteral("Operation actor or document mismatch"), operationId);
         return;
     }
+    // AGENT-GUARD: permission is read per operation, never cached per
+    // session, so a live grant change applies to the very next edit.
     const auto grant = m_grants.constFind(peer.actorId);
     if (grant == m_grants.cend() || !grant->mayEdit) {
-        sendError(socket, QStringLiteral("Actor has read-only permission"), operationId);
+        sendError(device, QStringLiteral("Actor has read-only permission"), operationId);
         return;
     }
     if (!m_service->submit(*operation)) {
-        sendError(socket, m_service->lastError(), operationId);
+        sendError(device, m_service->lastError(), operationId);
         return;
     }
-    if (!writeFrame(socket, {{QStringLiteral("type"), QStringLiteral("ack")},
-                             {QStringLiteral("id"), operationId}}))
-        socket->disconnectFromServer();
+    if (m_peers.contains(device))
+        send(device, {{QStringLiteral("type"), QStringLiteral("ack")},
+                      {QStringLiteral("id"), operationId}});
 }
 
-void PropertySyncSocketServer::broadcastPresence(QLocalSocket *origin,
-                                                  const QJsonObject &frame)
+void PropertySyncSocketServer::broadcastPresence(QIODevice *origin, const QJsonObject &frame)
 {
-    const auto sockets = m_peers.keys();
-    for (auto *socket : sockets) {
-        if (socket == origin || !m_peers.contains(socket)
-            || m_peers.value(socket).actorId.isEmpty()) continue;
-        if (!writeFrame(socket, frame)) socket->disconnectFromServer();
+    const auto devices = m_peers.keys();
+    for (auto *device : devices) {
+        if (device == origin || !m_peers.contains(device)
+            || m_peers.value(device).actorId.isEmpty()) continue;
+        send(device, frame);
     }
 }
 
-void PropertySyncSocketServer::sendBacklog(QLocalSocket *socket)
+void PropertySyncSocketServer::sendBacklog(QIODevice *device)
 {
-    if (!m_service || !m_peers.contains(socket)) return;
-    auto &peer = m_peers[socket];
+    if (!m_service || !m_peers.contains(device)) return;
     const auto &operations = m_service->operations();
-    while (peer.sentCount < operations.size()) {
-        const auto encoded = propertySyncOperationToJson(operations.at(peer.sentCount));
-        if (!encoded || !writeFrame(socket, {{QStringLiteral("type"), QStringLiteral("operation")},
-                                      {QStringLiteral("data"), *encoded}})) {
-            socket->disconnectFromServer(); return;
-        }
-        ++peer.sentCount;
-    }
-}
-
-PropertySyncSocketClient::PropertySyncSocketClient(QObject *parent) : QObject(parent)
-{
-    connect(&m_socket, &QLocalSocket::connected, this, [this] {
-        if (!m_service || !writeFrame(&m_socket,
-            {{QStringLiteral("type"), QStringLiteral("hello")},
-             {QStringLiteral("actor"), m_actorId},
-             {QStringLiteral("document"), m_service->documentId()},
-             {QStringLiteral("credential"), m_credential}}))
-            fail(QStringLiteral("Cannot send authorization frame"));
-    });
-    connect(&m_socket, &QLocalSocket::readyRead, this, &PropertySyncSocketClient::readFrames);
-    connect(&m_socket, &QLocalSocket::disconnected, this, [this] {
-        m_ready = false;
-        m_sent.clear();
-        m_buffer.clear();
-        leaveRemotePresence();
-        emit disconnected();
-    });
-    connect(&m_socket, &QLocalSocket::errorOccurred, this,
-            [this](QLocalSocket::LocalSocketError) { fail(m_socket.errorString()); });
-}
-
-PropertySyncSocketClient::~PropertySyncSocketClient()
-{
-    // Member hashes are destroyed before the QLocalSocket member. Suppress
-    // its disconnect callback while those hashes still exist.
-    QObject::disconnect(&m_socket, nullptr, this, nullptr);
-    m_socket.abort();
-}
-
-void PropertySyncSocketClient::setService(LocalPropertySyncService *service)
-{
-    if (m_socket.state() != QLocalSocket::UnconnectedState) return;
-    QObject::disconnect(m_serviceConnection);
-    m_service = service;
-    if (service)
-        m_serviceConnection = connect(service, &LocalPropertySyncService::changed,
-                                      this, &PropertySyncSocketClient::sendOutgoing);
-}
-
-void PropertySyncSocketClient::setLocalClient(LocalPropertySyncClient *client)
-{
-    QObject::disconnect(m_localPresenceConnection);
-    QObject::disconnect(m_localDestroyedConnection);
-    if (m_localClient)
-        for (auto it = m_remotePresence.cbegin(); it != m_remotePresence.cend(); ++it)
-            m_localClient->receivePresenceLeft(it.key());
-    m_localClient = client;
-    setPresence(client ? client->m_presence : QVariantMap{});
-    if (!client) return;
-    for (auto it = m_remotePresence.cbegin(); it != m_remotePresence.cend(); ++it)
-        client->receivePresence(it.key(), it.value());
-    m_localPresenceConnection = connect(client, &LocalPropertySyncClient::ownPresenceChanged,
-                                        this, &PropertySyncSocketClient::setPresence);
-    m_localDestroyedConnection = connect(client, &QObject::destroyed, this,
-                                         [this] { m_localClient = nullptr; setPresence({}); });
-}
-
-void PropertySyncSocketClient::setSocketName(const QString &name)
-{
-    if (m_socket.state() == QLocalSocket::UnconnectedState) m_socketName = name;
-}
-
-void PropertySyncSocketClient::setActorId(const QString &actorId)
-{
-    if (m_socket.state() == QLocalSocket::UnconnectedState) m_actorId = actorId;
-}
-
-void PropertySyncSocketClient::setCredential(const QString &credential)
-{
-    if (m_socket.state() == QLocalSocket::UnconnectedState) m_credential = credential;
-}
-
-void PropertySyncSocketClient::setPresence(const QVariantMap &presence)
-{
-    const QJsonDocument document = QJsonDocument::fromVariant(presence);
-    if (!document.isObject() || document.toJson(QJsonDocument::Compact).size() > 4096) {
-        fail(QStringLiteral("Invalid or oversized presence"));
-        return;
-    }
-    if (presence == m_localPresence) return;
-    m_localPresence = presence;
-    if (!m_ready) return;
-    if (presence.isEmpty()) {
-        if (!writeFrame(&m_socket, {{QStringLiteral("type"), QStringLiteral("presenceLeave")}}))
-            fail(QStringLiteral("Cannot send presence leave"));
-    } else {
-        sendCurrentPresence();
-    }
-}
-
-bool PropertySyncSocketClient::fail(const QString &message)
-{
-    m_lastError = message;
-    emit errorOccurred(message);
-    return false;
-}
-
-bool PropertySyncSocketClient::connectToServer()
-{
-    if (m_socket.state() != QLocalSocket::UnconnectedState) return true;
-    if (!m_service || !canonicalUuid(m_service->documentId()) || !canonicalUuid(m_actorId)
-        || m_service->storagePath().isEmpty() || m_credential.isEmpty() || m_socketName.isEmpty())
-        return fail(QStringLiteral("Socket client configuration is incomplete"));
-    if (m_localClient && (m_localClient->service() != m_service
-                          || m_localClient->actorId() != m_actorId))
-        return fail(QStringLiteral("Local presence client identity mismatch"));
-    m_lastError.clear();
-    m_sent.clear();
-    m_socket.connectToServer(m_socketName);
-    return true;
-}
-
-void PropertySyncSocketClient::disconnectFromServer()
-{
-    m_socket.disconnectFromServer();
-}
-
-void PropertySyncSocketClient::readFrames()
-{
-    m_buffer.append(m_socket.readAll());
-    while (true) {
-        auto frame = nextFrame(m_buffer);
-        if (!frame) break;
-        if (frame->isEmpty()) { fail(QStringLiteral("Invalid server frame")); m_socket.abort(); return; }
-        handleFrame(*frame);
-    }
-    if (m_buffer.size() > MaxFrameBytes) {
-        fail(QStringLiteral("Server frame limit exceeded"));
-        m_socket.abort();
-    }
-}
-
-void PropertySyncSocketClient::handleFrame(const QJsonObject &frame)
-{
-    const QString type = frame.value(QStringLiteral("type")).toString();
-    if (type == QStringLiteral("ready")) return;
-    if (type == QStringLiteral("replayEnd")) {
-        m_ready = true;
-        emit connected();
-        sendOutgoing();
-        sendCurrentPresence();
-    } else if (type == QStringLiteral("operation")) {
-        const auto operation = propertySyncOperationFromJson(frame.value(QStringLiteral("data")).toObject());
-        if (!operation || !m_service || !m_service->submit(*operation))
-            fail(m_service ? m_service->lastError() : QStringLiteral("No local service"));
-    } else if (type == QStringLiteral("reject")) {
-        const QString id = frame.value(QStringLiteral("id")).toString();
-        const QString reason = frame.value(QStringLiteral("reason")).toString();
-        fail(reason);
-        emit operationRejected(id, reason);
-    } else if (type == QStringLiteral("presence")) {
-        const QString actor = frame.value(QStringLiteral("actor")).toString();
-        const QJsonValue data = frame.value(QStringLiteral("data"));
-        if (!canonicalUuid(actor) || actor == m_actorId || !data.isObject()
-            || QJsonDocument(data.toObject()).toJson(QJsonDocument::Compact).size() > 4096) {
-            fail(QStringLiteral("Invalid remote presence"));
-            m_socket.abort();
+    while (m_peers.contains(device) && m_peers[device].sentCount < operations.size()) {
+        const auto encoded = propertySyncOperationToJson(operations.at(m_peers[device].sentCount));
+        if (!encoded || !send(device, {{QStringLiteral("type"), QStringLiteral("operation")},
+                                       {QStringLiteral("data"), *encoded}}))
             return;
-        }
-        const QVariantMap presence = data.toObject().toVariantMap();
-        if (presence.isEmpty()) return;
-        m_remotePresence.insert(actor, presence);
-        emit presenceChanged(actor, presence);
-        if (m_localClient) m_localClient->receivePresence(actor, presence);
-    } else if (type == QStringLiteral("presenceLeave")) {
-        const QString actor = frame.value(QStringLiteral("actor")).toString();
-        if (m_remotePresence.remove(actor)) {
-            emit presenceLeft(actor);
-            if (m_localClient) m_localClient->receivePresenceLeft(actor);
-        }
-    } else if (type != QStringLiteral("ack")) {
-        fail(QStringLiteral("Unknown server frame"));
-        m_socket.abort();
-    }
-}
-
-void PropertySyncSocketClient::sendCurrentPresence()
-{
-    if (!m_ready || m_localPresence.isEmpty()) return;
-    if (!writeFrame(&m_socket,
-        {{QStringLiteral("type"), QStringLiteral("presence")},
-         {QStringLiteral("data"), QJsonObject::fromVariantMap(m_localPresence)}}))
-        fail(QStringLiteral("Cannot send presence"));
-}
-
-void PropertySyncSocketClient::leaveRemotePresence()
-{
-    const auto actors = m_remotePresence.keys();
-    m_remotePresence.clear();
-    for (const QString &actor : actors) {
-        emit presenceLeft(actor);
-        if (m_localClient) m_localClient->receivePresenceLeft(actor);
-    }
-}
-
-void PropertySyncSocketClient::sendOutgoing()
-{
-    if (!m_ready || !m_service) return;
-    for (const auto &operation : m_service->operations()) {
-        if (operation.actorId != m_actorId || m_sent.contains(operation.operationId)) continue;
-        const auto encoded = propertySyncOperationToJson(operation);
-        if (!encoded || !writeFrame(&m_socket,
-            {{QStringLiteral("type"), QStringLiteral("operation")},
-             {QStringLiteral("data"), *encoded}})) {
-            fail(QStringLiteral("Cannot send operation frame"));
-            m_socket.abort();
-            return;
-        }
-        m_sent.insert(operation.operationId);
+        ++m_peers[device].sentCount;
     }
 }
 

@@ -15,6 +15,15 @@ constexpr auto ActorViewer = "00000000-0000-0000-0000-00000000000b";
 constexpr auto EditorCredential = "editor-credential-123456";
 constexpr auto ViewerCredential = "viewer-credential-123456";
 
+PropertyDescriptor describe(const QString &id, QMetaType type, const QVariant &defaultValue)
+{
+    PropertyDescriptor descriptor;
+    descriptor.id = id;
+    descriptor.type = type;
+    descriptor.defaultValue = defaultValue;
+    return descriptor;
+}
+
 int worker(const QStringList &arguments)
 {
     // --worker mode baseline local-store actor entity socket credential
@@ -40,7 +49,11 @@ int worker(const QStringList &arguments)
     PropertySyncSocketClient socket;
     socket.setService(&local);
     socket.setActorId(arguments.at(5));
-    socket.setSocketName(arguments.at(7));
+    // "tcp:<port>" selects the local-network transport on this machine.
+    if (arguments.at(7).startsWith(QStringLiteral("tcp:")))
+        socket.setHost(QStringLiteral("127.0.0.1"), arguments.at(7).mid(4).toUShort());
+    else
+        socket.setSocketName(arguments.at(7));
     socket.setCredential(arguments.at(8));
     socket.setLocalClient(&editor);
     int result = 16;
@@ -249,6 +262,68 @@ private slots:
         QCOMPARE(viewer.exitCode(), 17);
         QCOMPARE(service.operationCount(), 1);
         QCOMPARE(parentReplica->document->value(entity, QStringLiteral("gain")).toDouble(), 7.0);
+    }
+
+    void durableOfflineEditCrossesProcessOverNetwork()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        PropertyDocument base;
+        QVERIFY(base.defineProperty(describe(QStringLiteral("gain"), QMetaType::fromType<double>(), 0.0)));
+        const EntityId entity = EntityId::create();
+        QVERIFY(base.addEntity(entity));
+        const auto snapshot = ReferenceDocumentCodec::capture(base);
+        QVERIFY(snapshot);
+        const QString baseline = directory.filePath(QStringLiteral("baseline.json"));
+        QFile file(baseline);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(snapshot->payload), snapshot->payload.size());
+        file.close();
+
+        LocalPropertySyncService service;
+        service.setDocumentId(base.documentIdString());
+        service.setStoragePath(directory.filePath(QStringLiteral("server.json")));
+        QVERIFY(service.open());
+        PropertySyncSocketServer server;
+        server.setService(&service);
+        QVERIFY(server.grant(QString::fromLatin1(ActorEditor),
+                             QString::fromLatin1(EditorCredential), true));
+        QVERIFY(server.listenNetwork(QHostAddress::LocalHost));
+        const QString endpoint = QStringLiteral("tcp:") + QString::number(server.networkPort());
+        auto parentReplica = ReferenceDocumentCodec::decode(snapshot->payload);
+        QVERIFY(parentReplica);
+        LocalPropertySyncClient parentClient;
+        parentClient.setDocument(parentReplica->document.get());
+        parentClient.setService(&service);
+        parentClient.setActorId(QStringLiteral("00000000-0000-0000-0000-00000000000c"));
+        QVERIFY(parentClient.connectToService());
+
+        const QString editorStore = directory.filePath(QStringLiteral("editor.json"));
+        QProcess offline;
+        startWorker(offline, QStringLiteral("offline"), baseline, editorStore,
+                    QString::fromLatin1(ActorEditor), entity.toString(), endpoint,
+                    QString::fromLatin1(EditorCredential));
+        QVERIFY(offline.waitForFinished(5000));
+        QCOMPARE(offline.exitCode(), 0);
+        QCOMPARE(service.operationCount(), 0);
+
+        // A separate process reconnects over TCP and delivers the durable edit.
+        QProcess editor;
+        startWorker(editor, QStringLiteral("connect"), baseline, editorStore,
+                    QString::fromLatin1(ActorEditor), entity.toString(), endpoint,
+                    QString::fromLatin1(EditorCredential));
+        QTRY_COMPARE_WITH_TIMEOUT(service.operationCount(), 1, 5000);
+        QCOMPARE(parentReplica->document->value(entity, QStringLiteral("gain")).toDouble(), 7.0);
+        QTRY_COMPARE_WITH_TIMEOUT(editor.state(), QProcess::NotRunning, 5000);
+        QCOMPARE(editor.exitCode(), 0);
+
+        QProcess impostor;
+        startWorker(impostor, QStringLiteral("connect"), baseline, editorStore,
+                    QString::fromLatin1(ActorEditor), entity.toString(), endpoint,
+                    QStringLiteral("incorrect-credential"));
+        QTRY_COMPARE_WITH_TIMEOUT(impostor.state(), QProcess::NotRunning, 5000);
+        QCOMPARE(impostor.exitCode(), 17);
+        QCOMPARE(service.operationCount(), 1);
     }
 };
 
