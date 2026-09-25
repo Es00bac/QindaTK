@@ -35,11 +35,14 @@ bool TraceIndex::convert(qint64 ticks, const ClockDomain &domain, qint64 *ns)
            && !qAddOverflow(product, domain.offsetNs, ns);
 }
 
-bool TraceIndex::setClockDomains(const QVariantList &domains)
+TraceIndex::~TraceIndex()
 {
-    if (domains.isEmpty() || domains.size() > 16) {
-        m_error = QStringLiteral("Provide one to sixteen clock domains"); emit changed(); return false;
-    }
+    if (m_cancel) m_cancel->store(true);
+}
+
+bool TraceIndex::parseDomains(const QVariantList &domains, QHash<QString, ClockDomain> *out)
+{
+    if (domains.isEmpty() || domains.size() > 16) return false;
     QHash<QString, ClockDomain> next;
     for (const QVariant &raw : domains) {
         const auto row = raw.toMap();
@@ -48,11 +51,24 @@ bool TraceIndex::setClockDomains(const QVariantList &domains)
         if (!validLabel(d.id, 64) || next.contains(d.id)
             || !decimal(row.value(QStringLiteral("nanosPerTick")), &d.nanosPerTick)
             || d.nanosPerTick <= 0
-            || !decimal(row.value(QStringLiteral("offsetNs")), &d.offsetNs)) {
-            m_error = QStringLiteral("Invalid or duplicate clock domain"); emit changed(); return false;
-        }
+            || !decimal(row.value(QStringLiteral("offsetNs")), &d.offsetNs))
+            return false;
         next.insert(d.id, d);
     }
+    *out = std::move(next);
+    return true;
+}
+
+bool TraceIndex::setClockDomains(const QVariantList &domains)
+{
+    QHash<QString, ClockDomain> next;
+    if (!parseDomains(domains, &next)) {
+        m_error = QStringLiteral("Provide one to sixteen valid, distinct clock domains");
+        emit changed();
+        return false;
+    }
+    if (m_cancel) m_cancel->store(true);
+    m_cancel.reset();
     ++m_generation;
     m_domains = std::move(next);
     m_records.clear(); m_byId.clear(); m_threads.clear();
@@ -62,14 +78,19 @@ bool TraceIndex::setClockDomains(const QVariantList &domains)
 }
 
 TraceIndex::Analysis TraceIndex::analyze(const QVariantList &input,
-                                        const QHash<QString, ClockDomain> &domains)
+                                        const QHash<QString, ClockDomain> &domains,
+                                        const CancelFlag &cancel)
 {
     Analysis result;
     if (input.size() > MaxInput) {
         result.error = QStringLiteral("Trace input exceeds 50,000 records"); return result;
     }
     QSet<QString> ids;
+    int visited = 0;
     for (const QVariant &raw : input) {
+        // AGENT-GUARD: cancellation is polled, never forced; keep the poll
+        // inside every loop over input so cancel() stops a 50,000-row job.
+        if ((++visited & 1023) == 0 && cancel->load()) { result.cancelled = true; return result; }
         const auto row = raw.toMap();
         Record r;
         r.id = row.value(QStringLiteral("id")).toString();
@@ -123,25 +144,47 @@ QString TraceIndex::ingestAsync(const QVariantList &records)
     if (m_domains.isEmpty()) {
         m_error = QStringLiteral("Configure clock domains first"); emit changed(); return {};
     }
+    const auto domains = m_domains;
+    return startJob([records, domains](const CancelFlag &cancel) {
+        return analyze(records, domains, cancel);
+    });
+}
+
+QString TraceIndex::startJob(std::function<Analysis(const CancelFlag &)> job)
+{
+    if (m_cancel) m_cancel->store(true);
+    auto cancel = std::make_shared<std::atomic_bool>(false);
+    m_cancel = cancel;
     const quint64 generation = ++m_generation;
     const QString requestId = QString::number(generation);
-    const auto domains = m_domains;
     auto *watcher = new QFutureWatcher<Analysis>(this);
     connect(watcher, &QFutureWatcher<Analysis>::finished, this, [this, watcher, generation, requestId] {
         Analysis result = watcher->result();
         watcher->deleteLater();
-        if (generation != m_generation) { emit analysisDiscarded(requestId); return; }
+        if (generation != m_generation || result.cancelled) { emit analysisDiscarded(requestId); return; }
+        m_cancel.reset();
         publish(std::move(result), generation);
         emit analysisReady(requestId, count());
     });
     m_busy = true; m_error.clear(); emit changed();
-    watcher->setFuture(QtConcurrent::run([records, domains] { return analyze(records, domains); }));
+    watcher->setFuture(QtConcurrent::run([job = std::move(job), cancel] { return job(cancel); }));
     return requestId;
+}
+
+void TraceIndex::cancel()
+{
+    if (!m_cancel) return;
+    m_cancel->store(true);
+    m_cancel.reset();
+    ++m_generation;
+    m_busy = false;
+    emit changed();
 }
 
 void TraceIndex::publish(Analysis result, quint64 generation)
 {
     if (generation != m_generation) return;
+    if (result.replaceDomains && result.error.isEmpty()) m_domains = std::move(result.domains);
     m_records = std::move(result.records);
     m_byId.clear();
     for (int i = 0; i < m_records.size(); ++i) m_byId.insert(m_records[i].id, i);
@@ -154,6 +197,8 @@ void TraceIndex::publish(Analysis result, quint64 generation)
 
 void TraceIndex::clear()
 {
+    if (m_cancel) m_cancel->store(true);
+    m_cancel.reset();
     ++m_generation; m_records.clear(); m_byId.clear(); m_threads.clear();
     m_error.clear(); m_start = m_end = 0; m_rejected = m_truncated = 0; m_busy = false;
     emit changed();
@@ -168,7 +213,10 @@ QVariantMap TraceIndex::recordMap(const Record &r) const
             {QStringLiteral("startTicks"), QString::number(r.startTicks)},
             {QStringLiteral("endTicks"), QString::number(r.endTicks)},
             {QStringLiteral("startNs"), QString::number(r.startNs)},
-            {QStringLiteral("endNs"), QString::number(r.endNs)}};
+            {QStringLiteral("endNs"), QString::number(r.endNs)},
+            // end >= start, so the unsigned difference is exact for any pair.
+            {QStringLiteral("durationNs"), QString::number(static_cast<quint64>(r.endNs)
+                                                            - static_cast<quint64>(r.startNs))}};
 }
 
 QVariantMap TraceIndex::record(const QString &id) const

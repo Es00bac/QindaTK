@@ -23,6 +23,18 @@ Item {
         if (graphRevision < 0 || !index || !selectedId) return []
         return index.dependencies(selectedId)
     }
+    // Outgoing edges with where they were written: {targetId, kind, line, reference}.
+    readonly property var selectedReferences: {
+        if (graphRevision < 0 || !index || !selectedId) return []
+        return index.references(selectedId)
+    }
+    // AGENT-NOTE: relinkCandidates walks the project tree (bounded in C++),
+    // so it is asked only for a missing asset that something still uses.
+    readonly property var relinkCandidates: {
+        if (graphRevision < 0 || !index || !selectedId || selectedAsset.available
+            || selectedDependents.length === 0) return []
+        return index.relinkCandidates(selectedId)
+    }
     readonly property var selectedDependents: {
         if (graphRevision < 0 || !index || !selectedId) return []
         return index.dependents(selectedId)
@@ -38,6 +50,9 @@ Item {
     signal navigateRequested(string assetId)
     signal relinkRequested(string assetId)
     signal rebuildRequested(string assetId)
+    // plan comes from index.relinkPlan: [{sourceId, line, kind, reference,
+    // replacement, note}]. The host applies the edits and rescans the sources.
+    signal relinkChosen(string assetId, string replacementId, var plan)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 2
     implicitHeight: Tk.Theme.size.panelMinHeight
@@ -54,8 +69,20 @@ Item {
             align: Tk.Flex.Center
             gap: Tk.Theme.space.sm
             Tk.Overline { title: qsTr("ASSET DEPENDENCIES"); Tk.Flex.grow: 1 }
-            Tk.Caption { text: root.index ? qsTr("%1 assets · %2 links")
-                                              .arg(root.index.assetCount).arg(root.index.edgeCount) : "" }
+            Tk.Caption {
+                objectName: "dependencyCounts"
+                text: !root.index ? ""
+                      : root.index.scanning ? qsTr("Scanning project…")
+                      : qsTr("%1 assets · %2 links").arg(root.index.assetCount)
+                        .arg(root.index.edgeCount)
+            }
+            Tk.Button {
+                objectName: "dependencyCancelScan"
+                visible: !!root.index && root.index.scanning
+                text: qsTr("Cancel")
+                tooltip: qsTr("Stop scanning the project")
+                onClicked: root.index.cancelProjectScan()
+            }
         }
         Tk.SearchField {
             objectName: "dependencySearch"
@@ -154,13 +181,16 @@ Item {
                     }
                     Tk.Overline { visible: !!root.selectedId; title: qsTr("INPUTS") }
                     Repeater {
-                        model: root.selectedDependencies
+                        model: root.selectedReferences
                         delegate: Tk.ListRow {
-                            required property string modelData
-                            objectName: "dependencyInput_" + modelData
-                            text: modelData
-                            tooltip: qsTr("Inspect input %1").arg(modelData)
-                            onClicked: root.selectedId = modelData
+                            required property var modelData
+                            objectName: "dependencyInput_" + modelData.targetId
+                            text: modelData.targetId
+                            secondaryText: (modelData.line > 0 ? qsTr("line %1 · ").arg(modelData.line) : "")
+                                           + modelData.kind
+                                           + (modelData.available ? "" : qsTr(" · Missing"))
+                            tooltip: qsTr("Inspect input %1").arg(modelData.targetId)
+                            onClicked: root.selectedId = modelData.targetId
                         }
                     }
                     Tk.Overline { visible: !!root.selectedId; title: qsTr("USED BY") }
@@ -180,6 +210,21 @@ Item {
                               .arg(root.selectedImpact.length)
                               .arg(root.selectedImpact.join(", "))
                         wrapMode: Text.Wrap
+                    }
+                    Tk.Overline {
+                        visible: root.relinkCandidates.length > 0
+                        title: qsTr("RELINK TO")
+                    }
+                    Repeater {
+                        model: root.relinkCandidates
+                        delegate: Tk.ListRow {
+                            required property string modelData
+                            objectName: "dependencyCandidate_" + modelData
+                            text: modelData
+                            tooltip: qsTr("Relink %1 to %2").arg(root.selectedId).arg(modelData)
+                            onClicked: root.relinkChosen(root.selectedId, modelData,
+                                                         root.index.relinkPlan(root.selectedId, modelData))
+                        }
                     }
                     Tk.Overline { visible: root.selectedDiagnostics.length > 0; title: qsTr("DIAGNOSTICS") }
                     Repeater {
