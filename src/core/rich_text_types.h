@@ -252,6 +252,13 @@ struct PageSetup {
     int columns = 1;                  // text columns of the content box, 1..24
     double columnGapPt = 18.0;
     double bleedPt = 0.0;             // print bleed around the trim box, 0..72 (WP-053)
+    // Running page regions (WP-059, docs/rich-text.md#running-page-regions):
+    // one line centred in the top and bottom margin of every page, outside
+    // the content box, so they never change pagination. `{page}` and
+    // `{pages}` expand to the page number and the page count.
+    QString headerText;
+    QString footerText;
+    static constexpr int MaximumRegionText = 500;
     friend bool operator==(const PageSetup &, const PageSetup &) = default;
     double contentWidthPt() const { return widthPt - marginLeftPt - marginRightPt; }
     double contentHeightPt() const { return heightPt - marginTopPt - marginBottomPt; }

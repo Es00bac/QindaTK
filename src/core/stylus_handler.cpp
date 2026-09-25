@@ -34,6 +34,16 @@ bool isMouse(const QPointerEvent *event)
     }
 }
 
+bool isTabletDevice(const QPointingDevice *device)
+{
+    if (device == nullptr) {
+        return false;
+    }
+    return device->type() == QInputDevice::DeviceType::Stylus
+        || device->type() == QInputDevice::DeviceType::Airbrush
+        || device->type() == QInputDevice::DeviceType::Puck;
+}
+
 } // namespace
 
 QString StylusSample::pointerTypeName() const
@@ -76,8 +86,13 @@ protected:
         if (!tablet) {
             // AGENT-GUARD: tablet delivery is followed by a synthesized
             // mouse event; accepting both would double every pen sample.
+            // QGuiApplication synthesizes mouse from an unaccepted tablet
+            // event on platforms that do not (xcb, wayland) with source
+            // MouseEventNotSynthesized and the tablet's own device, so the
+            // device type is the reliable test; offscreen never showed it
+            // (WP-088 qualification, tst_stylus_handler competing handlers).
             auto *mouse = static_cast<QMouseEvent *>(event);
-            if (mouse->source() != Qt::MouseEventNotSynthesized) {
+            if (mouse->source() != Qt::MouseEventNotSynthesized || isTabletDevice(mouse->pointingDevice())) {
                 return false;
             }
         }
@@ -93,7 +108,12 @@ protected:
         QEventPoint &point = event->point(0);
         if (event->isBeginEvent()) {
             if (!setExclusiveGrab(event, point, true)) {
-                event->setAccepted(false);
+                // Let the event travel on, unless another handler already
+                // owns this point: un-accepting its press would make Qt
+                // synthesize a mouse press from a pen press already handled.
+                if (!event->exclusiveGrabber(point)) {
+                    event->setAccepted(false);
+                }
                 return;
             }
             const StylusSample sample = sampleFrom(event, point);

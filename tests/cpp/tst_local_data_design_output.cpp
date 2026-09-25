@@ -69,9 +69,9 @@ private slots:
         grouped.insert(QStringLiteral("groupField"), QStringLiteral("team"));
         grouped.insert(QStringLiteral("sumField"), QStringLiteral("id"));
         QVERIFY(output.build(&database, grouped).value("ok").toBool());
-        QCOMPARE(output.rowCount(), 2);
-        QVERIFY(output.document()->text().contains(QStringLiteral("sumValue")));
-        QVERIFY(output.document()->text().contains(QStringLiteral("2550")));
+        QCOMPARE(output.rowCount(), 100); // matched rows; the first-cut keys print a group summary
+        QCOMPARE(output.groupCount(), 2);
+        QVERIFY(output.document()->text().contains(QStringLiteral("team Studio total · Count 50 · Sum of id 2550")));
         QVariantMap summedDesign = design;
         summedDesign.insert(QStringLiteral("report"), grouped);
         QVERIFY(store.saveToFile(designPath, summedDesign, &database).value("ok").toBool());

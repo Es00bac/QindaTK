@@ -101,7 +101,7 @@ the slide's aspect ratio: master background, then each visible object with
 its frame opacity, offset and scale; text through `QTextDocument` from the
 fragment's HTML. A `fade` transition draws the outgoing slide complete and
 the incoming one over it; `push` slides both. `SlideFrameView`,
-`SlideDeck.renderFrame`, `previewDataUrl`, the sorter thumbnails and `exportPdf` all use it, so a
+`SlideDeck.renderFrame`, `previewDataUrl`, the sorter thumbnails, the editing page of a `SlideCanvas` given a `deck`, and `exportPdf` all use it, so a
 sampled frame, the audience window and the export agree pixel for pixel.
 `exportPdf(path, includeNotes)` writes one page per shown slide with every
 build complete (0.75 pt per slide pixel); with notes, a notes page (slide

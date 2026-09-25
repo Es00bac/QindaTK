@@ -80,7 +80,10 @@ Item {
             positions[presentedBlocks[i].id] = i
         }
         _positions = positions
-        if (ids.join("\n") !== presentedIds.join("\n")) presentedIds = ids
+        if (ids.join("\n") !== presentedIds.join("\n")) {
+            presentedIds = ids
+            blockList.currentIndex = -1
+        }
         const reveal = indexOf(pendingFocusId)
         if (reveal >= 0) blockList.positionViewAtIndex(reveal, ListView.Contain)
     }
@@ -423,6 +426,11 @@ Item {
             clip: true
             model: control.presentedIds
             reuseItems: true
+            // AGENT-GUARD: no current item. ListView gives its current item
+            // focus after every model reset, which took focus from the text
+            // field a split or merge had just focused (tst_notebook_blocks).
+            currentIndex: -1
+            highlightFollowsCurrentItem: false
             cacheBuffer: Tk.Theme.size.panelMinHeight
             spacing: Tk.Theme.space.sm
             boundsBehavior: Flickable.StopAtBounds
