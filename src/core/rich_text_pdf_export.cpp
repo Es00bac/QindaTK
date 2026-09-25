@@ -1,25 +1,24 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
+#include "print_output.h"
 #include "rich_text_document.h"
 #include "rich_text_layout.h"
 #include "rich_text_objects.h"
 
-#include <QPageLayout>
-#include <QPageSize>
-#include <QPainter>
-#include <QPdfWriter>
-#include <QSaveFile>
-#include <QUrl>
-
 namespace QindaTK {
 
+// AGENT-NOTE (D-130): exportPdf is the default ticket of PrintAdapter's "pdf"
+// destination (document paper, every page, actual size); it paints through
+// Print::paintSheet like the preview and printer jobs, synchronously.
 bool RichTextDocument::exportPdf(const QString &path)
 {
-    const QUrl url(path);
-    if (path.isEmpty() || (!url.scheme().isEmpty() && !url.isLocalFile())) {
+    Print::Ticket ticket;
+    ticket.outputPath = path;
+    ticket.paperId = QStringLiteral("document");
+    ticket.scaleMode = QStringLiteral("actual");
+    if (Print::localPath(path).isEmpty()) {
         reject(ErrorCode::InvalidArgument, QStringLiteral("PDF output requires a local file path"));
         return false;
     }
-    const QString localPath = url.isLocalFile() ? url.toLocalFile() : path;
     RichTextLayout layout;
     layout.setDocument(this);
     layout.setMode(RichTextLayout::Mode::Paged);
@@ -28,42 +27,14 @@ bool RichTextDocument::exportPdf(const QString &path)
         reject(ErrorCode::BackendFailure, QStringLiteral("Document pagination did not complete"));
         return false;
     }
-
-    QSaveFile file(localPath);
-    if (!file.open(QIODevice::WriteOnly)) {
-        reject(ErrorCode::BackendFailure, QStringLiteral("Cannot write PDF %1: %2").arg(localPath, file.errorString()));
-        return false;
-    }
-    bool painted = false;
-    {
-        QPdfWriter writer(&file);
-        writer.setResolution(96); // RichTextLayout paints at 96 px per inch.
-        const RichText::PageSetup page = pageSetupValue();
-        writer.setPageSize(QPageSize(QSizeF(page.widthPt, page.heightPt), QPageSize::Point));
-        writer.setPageMargins(QMarginsF(), QPageLayout::Point);
-        QPainter painter;
-        if (painter.begin(&writer)) {
-            painter.setRenderHint(QPainter::Antialiasing);
-            painter.setRenderHint(QPainter::TextAntialiasing);
-            RichTextImageRenderer objects;
-            RichText::PaintContext context;
-            context.ink = Qt::black;
-            context.link = QColor(QStringLiteral("#0645ad"));
-            context.border = QColor(QStringLiteral("#888888"));
-            context.objectFill = QColor(QStringLiteral("#f0f0f0"));
-            context.objectText = Qt::black;
-            context.marker = Qt::black;
-            context.objects = &objects;
-            painted = true;
-            for (int pageIndex = 0; pageIndex < layout.pageCount(); ++pageIndex) {
-                if (pageIndex > 0 && !writer.newPage()) { painted = false; break; }
-                layout.paintPage(&painter, pageIndex, context);
-            }
-            painted = painter.end() && painted;
-        }
-    }
-    if (!painted || !file.commit()) {
-        reject(ErrorCode::BackendFailure, QStringLiteral("PDF export failed for %1").arg(localPath));
+    const Print::Paper paper = Print::standardPapers().first(); // the document paper
+    const QVector<Print::Sheet> sheets = Print::planSheets(m_page, layout.pageCount(), ticket, paper);
+    Print::PdfFileBackend backend;
+    QString error;
+    std::unique_ptr<Print::Device> device = backend.open(ticket, Print::PdfFileBackend::capabilities(), &error);
+    RichTextImageRenderer objects;
+    if (!device || !Print::runSynchronously(layout, sheets, *device, &objects, &error)) {
+        reject(ErrorCode::BackendFailure, error.isEmpty() ? QStringLiteral("PDF export failed for %1").arg(path) : error);
         return false;
     }
     return true;

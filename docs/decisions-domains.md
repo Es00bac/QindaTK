@@ -233,6 +233,80 @@ WP-051 version-2 reader reports the new members as ignored and loses them;
 both readers ship in the same round. See
 [references-review.md](references-review.md#persistence).
 
+## D-130 — One output description for preview, files and printers
+
+**Context.** WP-053 needs preview, PDF export and printer output to agree
+page for page. The first PDF export painted layout pages straight into a
+writer, and a preview drawn some other way could drift from it.
+
+**Decision.** `Print::sheetFor` is the only source of output geometry: the
+sheet size, the page's trim box on it, the scale, bleed and crop marks. It is
+a pure function of the page setup, the ticket and the paper.
+`Print::paintSheet` is the only painting path; every device (the preview
+image, `QPdfWriter`, the system print engine) gives it a painter in 1/96-inch
+units, the unit `RichTextLayout` already paints in. `exportPdf` is the same
+path with the default file ticket.
+
+**Consequences.** A test device that rasterises job output matches the
+preview pixel for pixel, and PDF media boxes match the plan. Devices never
+scale or place pages themselves. A new device only opens, advances and
+finishes sheets. See [printing.md](printing.md#one-output-description).
+
+## D-131 — Print jobs print a snapshot, one sheet per turn
+
+**Context.** The document is GUI-thread only, and a user may keep editing
+while a long job prints. Cancel must work mid-job, and a failure must not
+lose the settings or pretend success.
+
+**Decision.** `print()` copies the document through its own codec and lays
+out the copy; the job paints that copy one sheet per event-loop turn.
+`cancel()` is a request that the next turn honours by aborting the device.
+Devices commit only in `finish()` (QSaveFile for PDF, a `.part` file for the
+system engine, the CUPS spool), so an aborted job leaves no output; a device
+that streams reports `deliveredSheets()`. A failed or cancelled job names the
+pages that did not reach paper or disk, and the ticket stays unchanged.
+
+**Consequences.** Editing during a job is safe, and the GUI stays responsive
+between sheets. Copying costs one encode and decode (about 50 ms for 500
+pages). "Completed" for a printer means handed to CUPS; tracking the job on
+the printer is not part of this package.
+
+## D-132 — Preflight issues have derived IDs and validated repairs
+
+**Context.** `PreflightPanel` keys its selection on issue IDs, and OFF-13
+asks that issues clear after a validated repair.
+
+**Decision.** An issue ID is the check plus its target
+(`font-missing:<family>`, `image-missing:<objectId>`, `output-<field>`), so a
+re-run finds the same ID. `PrintAdapter.repair` applies one action, as one
+document transaction or one ticket change, then runs preflight again. It
+succeeds only if the ID is gone; otherwise it undoes the transaction,
+restores the ticket and reports failure. Checks that need the author's
+judgement (overset text, low resolution, open review marks) navigate instead
+of repairing.
+
+**Consequences.** A repair can never leave a half-fix behind, and panels can
+keep their selection across runs. A host with external undo
+(`RichTextDocument.externalUndo`) must accept that a failed repair's undo
+goes through its own history. See [printing.md](printing.md#preflight).
+
+## D-133 — Bleed is page setup; page geometry stays document-wide
+
+**Context.** WP-051 refused bleed and section/page scopes in
+`applyPageSetupMm` and passed both to WP-053.
+
+**Decision.** Bleed is a page property: `PageSetup.bleedPt` (0–72 pt),
+saved in `qindatk.richtext` version 2 and set through `applyPageSetupMm`. A
+ticket chooses whether sheets include it and crop marks. Section and page
+scopes stay refused (`unsupported`): `RichTextLayout`, `RichTextArea`, the
+page model and the tiles all assume one page size, and changing that is a
+layout project of its own, not output work.
+
+**Consequences.** Documents without bleed keep their version-1 bytes.
+`PageSetupDialog` can offer bleed now; its scope choice still gets
+`unsupported` for anything but `document`. Per-section geometry has no owning
+package yet; it needs a plan decision before any work starts.
+
 ## D-138 — Scientific data is float64 with explicit gaps and exact units
 
 **Context.** WP-085 plots measurements whose precision, gaps and units must

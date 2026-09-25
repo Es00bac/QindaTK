@@ -177,15 +177,17 @@ comparison. It is valid `qindatk.richtext/1` but not canonical. Measured on
 `PageSetupDialog`. `applyPageSetupMm(settings)` commits document-wide page
 size, margins, text columns and column gap through the rich-text history in
 one undo step. Landscape and portrait choices orient the physical dimensions
-before conversion to the model's point units. Section/page scopes and bleed
-return `Unsupported` (WP-053); the document stays unchanged on rejection.
+before conversion to the model's point units. Bleed is page setup too
+(WP-053); section/page scopes return `Unsupported` and the document stays
+unchanged ([printing.md](printing.md#bleed-and-page-scope)).
 Columns and linked text frames place the flow in page regions
 ([publishing.md](publishing.md#text-frames)).
 
 `RichTextDocument.exportPdf(path)` paints every paginated page to a local PDF
 file using the same `RichTextLayout::paintPage` path as the on-screen view.
-The file is committed atomically. This is file output; printer discovery,
-job cancellation, preflight and advanced page geometry remain WP-053 work.
+The file is committed atomically. It is the default ticket of
+`Tk.PrintAdapter`'s PDF destination; printers, page ranges, paper and
+scaling, cancellable jobs and preflight are in [printing.md](printing.md).
 
 Each view owns a `RichTextLayout`, while the document stays authoritative,
 so two views with different widths or modes never share line state.
@@ -382,3 +384,4 @@ seams are typed; nothing here is a stand-in contract.
 | UndoService | `PropertyDocument`-only; use `externalUndo` (D-050). |
 | WP-051 | Named styles, merged cells, table styles, linked text frames and page columns are document operations ([publishing.md](publishing.md)). Section and page scopes and bleed belong to WP-053. |
 | WP-052 | Equations, reference fields, comments and tracked changes are document content ([references-review.md](references-review.md)). Footnotes need a page note area and are refused. |
+| WP-053 | Bleed is page setup; section and page scopes stay refused (D-133). Printing and preflight: [printing.md](printing.md). |

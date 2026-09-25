@@ -337,7 +337,7 @@ private slots:
         settings.insert(QStringLiteral("scope"), QStringLiteral("section"));
         QVERIFY(!dialog.applyPageSetupMm(settings));
         settings.insert(QStringLiteral("scope"), QStringLiteral("document"));
-        settings.insert(QStringLiteral("bleedMm"), 3);
+        settings.insert(QStringLiteral("bleedMm"), 30); // WP-053 accepts 0-25.4 mm
         QVERIFY(!dialog.applyPageSetupMm(settings));
         settings.insert(QStringLiteral("bleedMm"), 0);
         settings.insert(QStringLiteral("columns"), 1.5);

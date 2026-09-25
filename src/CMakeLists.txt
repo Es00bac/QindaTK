@@ -236,6 +236,12 @@ qt_add_qml_module(qindatk
         core/rich_text_equation.cpp core/rich_text_equation.h core/rich_text_equation_text.cpp
         core/rich_text_equation_layout.cpp core/rich_text_equation_edit.cpp
         core/rich_text_pdf_export.cpp
+        core/print_ticket.cpp core/print_ticket.h
+        core/print_output.cpp core/print_output.h
+        core/print_preflight.cpp core/print_preflight.h
+        core/print_adapter.cpp core/print_adapter.h core/print_adapter_p.h
+        core/print_adapter_jobs.cpp core/print_adapter_repair.cpp
+        core/print_sheet_view.cpp core/print_sheet_view.h
         core/rich_text_codec.cpp core/rich_text_codec_read.cpp core/rich_text_codec_publishing.cpp
         core/rich_text_codec_review.cpp
         core/rich_text_codec.h core/rich_text_codec_p.h
@@ -449,6 +455,18 @@ if(TARGET Qt6::Widgets)
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform_widgets>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/qindatk>)
     target_link_libraries(qindatk_widgets PUBLIC qindatk Qt6::Widgets)
+    # AGENT-NOTE (WP-053): the native print backend needs Qt PrintSupport,
+    # which depends on Widgets; base qindatk keeps only the PDF writer.
+    if(TARGET Qt6::PrintSupport)
+        target_sources(qindatk_widgets PRIVATE
+            platform_widgets/native_print_backend.cpp
+            platform_widgets/native_print_backend.h)
+        target_link_libraries(qindatk_widgets PUBLIC Qt6::PrintSupport)
+        target_compile_definitions(qindatk_widgets PUBLIC QINDATK_HAVE_NATIVE_PRINT=1)
+        install(FILES platform_widgets/native_print_backend.h
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/qindatk)
+        set(QINDATK_WIDGETS_PRINT TRUE PARENT_SCOPE)
+    endif()
     install(TARGETS qindatk_widgets EXPORT QindaTKWidgetsTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
     install(EXPORT QindaTKWidgetsTargets NAMESPACE QindaTK::
