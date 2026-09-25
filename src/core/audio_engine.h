@@ -155,6 +155,7 @@ private:
     void switchMeterGeneration(quint64 generation);
     void poll();
     void handleEvent(Run &run, const EngineEvent &event);
+    void drainJumps(Run &run); // WP-065 take discontinuities (loop wraps, seeks)
     void takeWritten(const QString &key, const QString &path, qint64 frames, const QString &error);
     void completeTake(const QString &key);
     void rejectPending(const QString &reason);
@@ -205,7 +206,17 @@ private:
     quint64 m_meterGeneration = 0;
     quint64 m_channelMetersDropped = 0;
 
-    struct Idle { qint64 position = 0; bool loopEnabled = false; qint64 loopStart = 0; qint64 loopEnd = 0; };
+    // Punch (WP-065) is GUI-side state: the device records whole passes and
+    // the session selects the punch range in a comp (D-177).
+    struct Idle {
+        qint64 position = 0;
+        bool loopEnabled = false;
+        qint64 loopStart = 0;
+        qint64 loopEnd = 0;
+        bool punchEnabled = false;
+        qint64 punchStart = 0;
+        qint64 punchEnd = 0;
+    };
     Idle m_idle;
     struct Pending { QString id; TransportCommand command; ReplyCallback callback; };
     QHash<quint64, Pending> m_pending;
