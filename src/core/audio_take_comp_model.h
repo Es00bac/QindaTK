@@ -9,6 +9,8 @@
 #include <QVector>
 #include <QtQml/qqmlregistration.h>
 #include <functional>
+#include <optional>
+#include <utility>
 
 namespace QindaTK {
 
@@ -17,10 +19,11 @@ namespace QindaTK {
 // plays that comp through AudioRenderGraph; this model owns what the comp
 // selects. Every accepted edit is one step of the model's own history
 // (per-owner undo, as D-110 and D-134): a step stores the whole comp before
-// and after. A preview is provisional: playback() returns it (heard in the
-// engine and in renders) until commitPreview() records it or cancelPreview()
-// restores the committed comp. Audition and comparison choose what plays
-// without changing the comp; they are neither saved nor undone.
+// and after. A preview is provisional: playback() returns it (heard on the
+// device) until commitPreview() records it or cancelPreview() restores the
+// committed comp. Audition and comparison choose what the device plays
+// without changing the comp; they are neither saved nor undone. Offline
+// renders (exports) always play the committed comp.
 class AudioTakeCompModel : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -44,9 +47,10 @@ public:
     // ---- session side ----
     void setSourceLookup(SourceLookup lookup) { m_sources = std::move(lookup); }
     const AudioTakeComp *comp(const QString &compId) const;
-    // What plays now: the preview of that comp when one is active, else the
-    // committed comp, resolved with its audition take.
-    AudioCompPlayback playback(const QString &compId) const;
+    // What the device plays: the preview of that comp when one is active,
+    // else the committed comp, resolved with its audition take and range.
+    // `committed`: the committed comp alone (offline renders, D-176).
+    AudioCompPlayback playback(const QString &compId, bool committed = false) const;
     // A new comp (a recording or a converted clip). Not a history step: the
     // timeline step that places its clip is the undoable part.
     bool insert(const AudioTakeComp &comp, QString *error = nullptr);
@@ -93,12 +97,18 @@ public:
                                     const QString &endSample);
     Q_INVOKABLE QVariantMap commitPreview();
     Q_INVOKABLE bool cancelPreview();
-    // Plays one take alone over the comp ("" plays the comp again).
-    Q_INVOKABLE bool setAudition(const QString &compId, const QString &takeId);
+    // Plays one take alone ("" plays the comp again) over [startSample,
+    // endSample) of the comp, or over the whole comp when both are empty.
+    Q_INVOKABLE bool setAudition(const QString &compId, const QString &takeId, const QString &startSample = {},
+                                 const QString &endSample = {});
     Q_INVOKABLE QString audition(const QString &compId) const;
-    // A/B comparison: auditions `takeId`; toggleComparison switches between it
-    // and `referenceTakeId` and returns the take now heard.
-    Q_INVOKABLE bool compare(const QString &compId, const QString &takeId, const QString &referenceTakeId);
+    // The audition range as {startSample, endSample} ({} when none).
+    Q_INVOKABLE QVariantMap auditionRange(const QString &compId) const;
+    // A/B comparison over the same range: auditions `takeId`;
+    // toggleComparison switches between it and `referenceTakeId` and returns
+    // the take now heard.
+    Q_INVOKABLE bool compare(const QString &compId, const QString &takeId, const QString &referenceTakeId,
+                             const QString &startSample = {}, const QString &endSample = {});
     Q_INVOKABLE QString toggleComparison(const QString &compId);
     Q_INVOKABLE bool undo();
     Q_INVOKABLE bool redo();
@@ -132,6 +142,8 @@ private:
         QString take;
         QString a;
         QString b;
+        qint64 start = 0;
+        qint64 end = -1; // < 0: the whole comp
     };
     using Edit = std::function<QString(AudioTakeComp &)>;
 
@@ -142,6 +154,9 @@ private:
     void touch();
     QVariantMap fail(const QString &message);
     void clearError();
+    // Parses an audition range for `comp` ("" and "": the whole comp).
+    std::optional<std::pair<qint64, qint64>> listenRange(const AudioTakeComp &comp, const QString &startSample,
+                                                         const QString &endSample) const;
 
     QHash<QString, AudioTakeComp> m_comps;
     QStringList m_order;

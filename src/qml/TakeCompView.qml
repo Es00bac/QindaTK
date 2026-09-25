@@ -16,6 +16,9 @@ T.Control {
     property string selectionStartSample: ""
     property string selectionEndSample: ""
     property string referenceTakeId: ""
+    // The take the host is auditioning now ("" when none): its lane button
+    // and Space end the audition, as does Escape outside a swipe.
+    property string auditionTakeId: ""
     property var proposal: null // host response descriptor; status "pending" exposes accept/reject requests
     property string statusText: ""
     property string tooltip: ""
@@ -37,20 +40,14 @@ T.Control {
     readonly property string keyboardTakeId: takeCount > 0
         ? String(takes[Math.max(0, Math.min(takeCount - 1, keyboardTakeIndex))].takeId) : ""
 
-    signal compProposalPreviewRequested(string proposalId, string takeId,
-                                        string startSample, string endSample,
-                                        string sourceOffsetSample)
+    signal compProposalPreviewRequested(string proposalId, string takeId, string startSample, string endSample, string sourceOffsetSample)
     // A swipe ended without a proposal (Escape, disabled): drop its preview.
     signal compProposalPreviewCanceled(string proposalId)
-    signal compProposalRequested(string proposalId, string segmentId, string takeId,
-                                 string startSample, string endSample,
-                                 string sourceId, string sourceOffsetSample)
+    signal compProposalRequested(string proposalId, string segmentId, string takeId, string startSample, string endSample, string sourceId, string sourceOffsetSample)
     signal proposalDecisionRequested(string proposalId, bool accept)
-    signal auditionRequested(string takeId, string sourceId,
-                             string startSample, string endSample, string sourceOffsetSample)
-    signal compareRequested(string takeId, string referenceTakeId,
-                           string startSample, string endSample,
-                           string takeOffsetSample, string referenceOffsetSample)
+    signal auditionRequested(string takeId, string sourceId, string startSample, string endSample, string sourceOffsetSample)
+    signal auditionStopRequested(string takeId)
+    signal compareRequested(string takeId, string referenceTakeId, string startSample, string endSample, string takeOffsetSample, string referenceOffsetSample)
     // Keyboard selection request; the host owns selectionStart/EndSample.
     signal selectionRequested(string startSample, string endSample)
 
@@ -68,17 +65,13 @@ T.Control {
     Accessible.role: Accessible.Grouping
     Accessible.name: root.tooltip.length ? root.tooltip : qsTr("Take comp editor")
     Accessible.description: root.statusText.length ? root.statusText
-        : (snapshotValid ? qsTr("%1 takes, %2 host comp segments. Left and Right select cells, Shift extends, Up and Down choose a take, Enter uses it, Space auditions.").arg(takeCount).arg(segmentCount)
+        : (snapshotValid ? qsTr("%1 takes, %2 host comp segments. Left and Right select cells, Shift extends, Up and Down choose a take, Enter uses it, Space auditions or stops, Escape cancels.").arg(takeCount).arg(segmentCount)
                          : qsTr("Take comp snapshot is invalid or incomplete."))
     activeFocusOnTab: true
     hoverEnabled: true
 
-    function isDecimalString(value) {
-        return typeof value === "string" && /^[0-9]+$/.test(value)
-    }
-    function isSignedDecimalString(value) {
-        return typeof value === "string" && /^-?[0-9]+$/.test(value)
-    }
+    function isDecimalString(value) { return typeof value === "string" && /^[0-9]+$/.test(value) }
+    function isSignedDecimalString(value) { return typeof value === "string" && /^-?[0-9]+$/.test(value) }
     function decimalCompare(a, b) {
         const left = String(a), right = String(b)
         if (left.length !== right.length) return left.length < right.length ? -1 : 1
@@ -120,12 +113,10 @@ T.Control {
             const start = root.indexForBoundary(segment.startSample)
             const end = root.indexForBoundary(segment.endSample)
             if (start < 0 || end <= start) return false
-            if (segment.fadeInEndSample !== undefined
-                && (root.indexForBoundary(segment.fadeInEndSample) < start
-                    || root.indexForBoundary(segment.fadeInEndSample) > end)) return false
-            if (segment.fadeOutStartSample !== undefined
-                && (root.indexForBoundary(segment.fadeOutStartSample) < start
-                    || root.indexForBoundary(segment.fadeOutStartSample) > end)) return false
+            for (const edge of [segment.fadeInEndSample, segment.fadeOutStartSample]) { // optional, inside the segment
+                const at = edge === undefined ? start : root.indexForBoundary(edge)
+                if (at < start || at > end) return false
+            }
         }
         return true
     }
@@ -221,7 +212,13 @@ T.Control {
         root.proposalDecisionRequested(id, Boolean(accept))
         return true
     }
+    function stopAudition() {
+        if (!root.auditionTakeId.length) return false
+        root.auditionStopRequested(root.auditionTakeId)
+        return true
+    }
     function requestAudition(takeId) {
+        if (root.auditionTakeId.length && String(takeId) === root.auditionTakeId) return root.stopAudition()
         const take = root.takeById(takeId)
         if (!take || take.available === false
             || !root.validRange(root.selectionStartSample, root.selectionEndSample)) return false
@@ -464,17 +461,22 @@ T.Control {
                     onClicked: root.requestProposalForRange(modelData.takeId)
                 }
                 Tk.Button {
-                    text: qsTr("Audition")
-                    enabled: modelData.available !== false
-                    tooltip: qsTr("Request isolated audition from the host")
+                    readonly property bool auditioning: String(modelData.takeId) === root.auditionTakeId
+                    objectName: "takeAudition_" + String(modelData.takeId)
+                    text: auditioning ? qsTr("Stop") : qsTr("Audition")
+                    enabled: auditioning || modelData.available !== false
+                    tooltip: auditioning ? qsTr("Ask the host to end this audition") : qsTr("Request isolated audition of the selected range from the host")
                     onClicked: root.requestAudition(modelData.takeId)
+                    // Stop keeps the Audition width, and Compare shows on every lane (disabled
+                    // on the reference): every swipe surface has one width and time scale.
+                    Tk.Flex.basis: auditionWidth.implicitWidth
+                    Tk.Button { id: auditionWidth; opacity: 0; enabled: false; activeFocusOnTab: false; Accessible.ignored: true; text: qsTr("Audition") }
                 }
                 Tk.Button {
-                    // On every lane (disabled on the reference): one width and time scale for all swipe surfaces.
                     visible: root.referenceTakeId.length > 0
                     enabled: modelData.available !== false && String(modelData.takeId) !== root.referenceTakeId
-                    text: qsTr("Compare"); tooltip: String(modelData.takeId) === root.referenceTakeId ? qsTr("This is the reference take")
-                                                                              : qsTr("Request host comparison with the reference take")
+                    text: qsTr("Compare")
+                    tooltip: String(modelData.takeId) === root.referenceTakeId ? qsTr("This is the reference take") : qsTr("Request host comparison with the reference take")
                     onClicked: root.requestCompare(modelData.takeId)
                 }
             }
@@ -482,12 +484,10 @@ T.Control {
     }
 
     function refreshPaint() { compPaint.requestPaint() }
-    onCompSegmentsChanged: compPaint.requestPaint()
-    onSampleBoundariesChanged: compPaint.requestPaint()
-    onWidthChanged: compPaint.requestPaint()
-    onHeightChanged: compPaint.requestPaint()
+    onCompSegmentsChanged: compPaint.requestPaint(); onSampleBoundariesChanged: compPaint.requestPaint()
+    onWidthChanged: compPaint.requestPaint(); onHeightChanged: compPaint.requestPaint()
     onEnabledChanged: if (!enabled) cancelSwipe()
-    Keys.onEscapePressed: cancelSwipe()
+    Keys.onEscapePressed: cancelSwipe() || stopAudition()
     Keys.onPressed: function(event) {
         const extend = (event.modifiers & Qt.ShiftModifier) !== 0
         let handled = true
