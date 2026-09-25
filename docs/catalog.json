@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-24",
+  "generated": "2026-09-25",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -143,7 +143,7 @@
       "name": "AnimationPane",
       "kind": "qml",
       "base": "Item",
-      "description": "The host evaluates effects and commits every accepted field edit.",
+      "description": "The host evaluates effects and commits every accepted field edit. Preview: previewRequested/previewCancelRequested drive a host player (Tk.SlidePreview over a Tk.SlideDeck, docs/slides.md#preview) whose state the host binds back to previewState (\"idle\", \"running\", \"finished\", \"canceled\", \"failed\").",
       "singleton": false,
       "attached": null,
       "file": "src/qml/AnimationPane.qml",
@@ -184,6 +184,14 @@
           "name": "targetChoices",
           "type": "var",
           "default": "[] // [{id,label}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "effectKinds",
+          "type": "var",
+          "default": "[{ id: \"appear\", label: qsTr(\"Appear\") }, { id: \"fade-in\", label: qsTr(\"Fade in\") },",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -269,6 +277,10 @@
           "parameters": "id"
         },
         {
+          "name": "kindIndex",
+          "parameters": "kind"
+        },
+        {
           "name": "editField",
           "parameters": "effect, field, value"
         }
@@ -291,6 +303,8 @@
         "animationEffectList",
         "animationEffect_",
         "animationError",
+        "animationKindPicker",
+        "animationKind_",
         "animationLater_",
         "animationPreview",
         "animationSelect_",
@@ -25842,7 +25856,7 @@
       "name": "PresenterConsole",
       "kind": "qml",
       "base": "Item",
-      "description": "Presenter window content bound to a running Tk.SlideShow and, when given, the Tk.PresentationWindows that host it (docs/slides.md#windows). The audience preview is a Tk.SlideFrameView of the same frame the audience window paints; speaker notes are bound only here. AGENT-CONTRACT: Tk.PresentationWindows.presenterDelegate instantiates this with the initial properties `show` and `windows`; keep both names.",
+      "description": "Presenter window content bound to a running Tk.SlideShow and, when given, the Tk.PresentationWindows that host it (docs/slides.md#windows). The audience preview is a Tk.SlideFrameView of the same frame the audience window paints; speaker notes are bound only here. Next/Previous step builds like the keys (SlideShow.next/previous), and the annotation tools draw on the audience output: drag with the pen or highlighter to add ink, press and drag with the pointer to show it. AGENT-CONTRACT: Tk.PresentationWindows.presenterDelegate instantiates this with the initial properties `show` and `windows`; keep both names.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PresenterConsole.qml",
@@ -25892,14 +25906,15 @@
       "bridge": false,
       "objectNames": [
         "presenterConsoleView",
-        "presenterCurrentFrame"
+        "presenterCurrentFrame",
+        "presenterInkInput"
       ]
     },
     {
       "name": "PresenterView",
       "kind": "qml",
       "base": "Item",
-      "description": "The presenter UI and audience surface are distinct: notes and controls only appear in the presenter pane; audienceContent is a separate slot.",
+      "description": "The presenter UI and audience surface are distinct: notes and controls only appear in the presenter pane; audienceContent is a separate slot. With stepsBuilds, Previous/Next report stepRequested(-1/+1) (a playback engine steps builds, then slides) and follow canGoPrevious/canGoNext; otherwise they report slideNavigationRequested with the adjacent slide. annotationRequested reports \"pointer\", \"pen\", \"highlight\" or \"clear\".",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PresenterView.qml",
@@ -26025,6 +26040,38 @@
           "required": false
         },
         {
+          "name": "stepsBuilds",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canGoNext",
+          "type": "bool",
+          "default": "currentIndex + 1 < slideCount",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canGoPrevious",
+          "type": "bool",
+          "default": "currentIndex > 0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "annotationTool",
+          "type": "string",
+          "default": "\"pointer\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "capabilities",
           "type": "var",
           "default": "({ canNavigate: true, canControlTimer: true, canBlank: true, canSelectDisplay: true })",
@@ -26073,12 +26120,20 @@
         {
           "name": "reconnectRequested",
           "parameters": "string displayId"
+        },
+        {
+          "name": "stepRequested",
+          "parameters": "int direction"
         }
       ],
       "methods": [
         {
           "name": "navigate",
           "parameters": "nextIndex, id"
+        },
+        {
+          "name": "step",
+          "parameters": "direction"
         }
       ],
       "enums": {},
@@ -26094,6 +26149,7 @@
         "presenterAudienceOutput",
         "presenterAudienceStatus",
         "presenterBlank",
+        "presenterClearInk",
         "presenterDisplayPicker",
         "presenterNext",
         "presenterNextSlide",
@@ -32666,15 +32722,15 @@
       "name": "SlideCanvas",
       "kind": "qml",
       "base": "Item",
-      "description": "Host snapshots own geometry and text. Gestures preview locally, then report one request; the surface resumes from the host snapshot until it is acked.",
+      "description": "AGENT-CONTRACT (docs/controls.md#slide-authoring-and-presentation, docs/slides.md#canvas): the editable slide surface on the WP-042 canvas stack. A Tk.SlideCanvasDocument adapts `deck` + `slideId` to a Tk.CanvasView; Tk.ToolController owns the selection and the select/move/marquee gestures, Tk.SpatialTransform the resize/rotate/nudge gestures with Tk.SnapModel (objects, slide edges and centre guides). Every change reaches the deck as ONE SlideDeck undo step (the adapter's commit, insertObject, removeObjects, setObjectsFill, applyMaster). Text edits go through deck.beginTextEdit and a Tk.RichTextEditor, so formatting survives (never setObjectText). AGENT-NOTE: the canvas pixels are Slides::renderObjectImage, the output painter's own object code; only placeholder prompts are canvas-only.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/SlideCanvas.qml",
       "properties": [
         {
-          "name": "documentId",
-          "type": "string",
-          "default": "\"\"",
+          "name": "deck",
+          "type": "Tk.SlideDeck",
+          "default": "null",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -32688,46 +32744,6 @@
           "required": false
         },
         {
-          "name": "masterId",
-          "type": "string",
-          "default": "\"\"",
-          "readonly": false,
-          "defaultProperty": false,
-          "required": false
-        },
-        {
-          "name": "slideSize",
-          "type": "var",
-          "default": "({ width: 960, height: 540 })",
-          "readonly": false,
-          "defaultProperty": false,
-          "required": false
-        },
-        {
-          "name": "objects",
-          "type": "var",
-          "default": "[] // [{id,kind,text,bounds,fill,locked,visible}]",
-          "readonly": false,
-          "defaultProperty": false,
-          "required": false
-        },
-        {
-          "name": "selectedObjectIds",
-          "type": "var",
-          "default": "[]",
-          "readonly": false,
-          "defaultProperty": false,
-          "required": false
-        },
-        {
-          "name": "masterChoices",
-          "type": "var",
-          "default": "[] // [{id,label}]",
-          "readonly": false,
-          "defaultProperty": false,
-          "required": false
-        },
-        {
           "name": "capabilities",
           "type": "var",
           "default": "({ canEdit: true, canInsertText: true, canInsertShape: true, canApplyMaster: true })",
@@ -32736,9 +32752,17 @@
           "required": false
         },
         {
-          "name": "zoom",
-          "type": "real",
-          "default": "1",
+          "name": "snapping",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "fillColors",
+          "type": "var",
+          "default": "deck && deck.revision.length ? deck.documentColors() : []",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -32752,60 +32776,139 @@
           "required": false
         },
         {
-          "name": "selectedText",
-          "type": "string",
-          "default": "selectedTextObject ? String(selectedTextObject.text || \"\") : \"\"",
+          "name": "canvasDocument",
+          "type": "alias",
+          "default": "slideDocument",
           "readonly": true,
           "defaultProperty": false,
           "required": false
         },
         {
-          "name": "selectedTextObject",
+          "name": "toolController",
+          "type": "alias",
+          "default": "tools",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "spatialTransform",
+          "type": "alias",
+          "default": "transform",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "view",
+          "type": "alias",
+          "default": "canvas",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "snapModel",
+          "type": "alias",
+          "default": "snap",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "textEditor",
+          "type": "alias",
+          "default": "editor",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedObjectIds",
           "type": "var",
-          "default": "findObject(selectedObjectIds.length ? selectedObjectIds[0] : \"\")",
+          "default": "slideDocument.revision > 0 ? slideDocument.slideObjectIds(tools.selection) : []",
           "readonly": true,
           "defaultProperty": false,
           "required": false
         },
         {
-          "name": "pageScale",
-          "type": "real",
-          "default": "Math.max(0.1, Math.min((width - Tk.Theme.space.xl * 2) / Math.max(1, slideSize.width),",
+          "name": "textEditing",
+          "type": "bool",
+          "default": "!!control.deck && control.deck.textEditing && editor.document !== null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "currentSlide",
+          "type": "var",
+          "default": "control.deck && control.deck.revision.length ? control.deck.slide(control.slideId) : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "masterChoices",
+          "type": "var",
+          "default": "control.deck && control.deck.revision.length ? control.deck.masterChoices() : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedObject",
+          "type": "var",
+          "default": "findObject(selectedObjectIds.length === 1 ? selectedObjectIds[0] : \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "canEditNow",
+          "type": "bool",
+          "default": "enabled && !!deck && capabilities.canEdit && !textEditing",
           "readonly": true,
           "defaultProperty": false,
           "required": false
         }
       ],
-      "signals": [
-        {
-          "name": "selectionRequested",
-          "parameters": "string objectId"
-        },
-        {
-          "name": "objectMoveRequested",
-          "parameters": "string objectId, var bounds"
-        },
-        {
-          "name": "objectTextEditRequested",
-          "parameters": "string objectId, string text"
-        },
-        {
-          "name": "objectInsertRequested",
-          "parameters": "string kind, var bounds, string requestId"
-        },
-        {
-          "name": "masterApplyRequested",
-          "parameters": "string masterId, string slideId"
-        }
-      ],
+      "signals": [],
       "methods": [
         {
           "name": "findObject",
           "parameters": "id"
         },
         {
-          "name": "requestInsert",
+          "name": "select",
+          "parameters": "ids"
+        },
+        {
+          "name": "insert",
           "parameters": "kind"
+        },
+        {
+          "name": "deleteSelection",
+          "parameters": ""
+        },
+        {
+          "name": "setFill",
+          "parameters": "color"
+        },
+        {
+          "name": "beginTextEdit",
+          "parameters": ""
+        },
+        {
+          "name": "commitTextEdit",
+          "parameters": ""
+        },
+        {
+          "name": "cancelTextEdit",
+          "parameters": ""
+        },
+        {
+          "name": "viewRect",
+          "parameters": "bounds"
         }
       ],
       "enums": {},
@@ -32818,15 +32921,23 @@
       "bridge": false,
       "objectNames": [
         "slideApplyMaster",
-        "slideCanvasSurface",
+        "slideCancelText",
+        "slideCanvasStatus",
         "slideCanvasToolbar",
-        "slideCommitText",
+        "slideCanvasView",
+        "slideDelete",
+        "slideEditText",
+        "slideFill",
+        "slideFit",
+        "slideGuides",
         "slideInsertShape",
         "slideInsertText",
         "slideMasterPicker",
-        "slideObject_",
-        "slideTextDraft",
-        "slideTextEditRow",
+        "slideMoveArea",
+        "slideSelectionHandles",
+        "slideSnap",
+        "slideTextEditor",
+        "slideTransform",
         "slideZoom"
       ]
     },
@@ -32874,7 +32985,7 @@
         {
           "name": "masters",
           "type": "var",
-          "default": "[] // [{id,title,layouts:[{id,title}],themeId,placeholders:[{role,label,value,overrideCount}]}]",
+          "default": "[] // [{id,title,layouts:[{id,title}],themeId,placeholders:[{role,label,value,prompt,overrideCount}]}]",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -60120,7 +60231,7 @@
       "name": "PresentationWindows",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Two real native windows for a running SlideShow (docs/slides.md#windows): an audience window holding only a SlideFrameView, and a presenter window holding `presenterDelegate` (typically Tk.PresenterConsole). Windows are created through WindowHost with the roles \"slide-audience\" and \"slide-presenter\". Displays are chosen by stable screen name (QScreen::name).  audienceStatus: closed     no audience window (not opened, or closed by the user) connected  full screen on the chosen display (or, with none chosen, on a display other than the presenter's) shared     only one display: the audience window is a normal window on the presenter's display waiting    the chosen display is missing (never connected or unplugged); the audience window stays open as a window on the presenter's display and returns to the chosen display when it reappears AGENT-CONTRACT (D-161): audience content never receives the notes; the presenter window is the only place speakerNotes are bound.",
+      "description": "Two real native windows for a running SlideShow (docs/slides.md#windows): an audience window holding only a SlideFrameView, and a presenter window holding `presenterDelegate` (typically Tk.PresenterConsole). Windows are created through WindowHost with the roles \"slide-audience\" and \"slide-presenter\". Displays are chosen by stable screen name (QScreen::name).  audienceStatus: closed     no audience window (not opened, or closed by the user) connected  full screen on the chosen display (or, with none chosen, on a display other than the presenter's) shared     only one display: the audience window is a normal window on the presenter's display waiting    the chosen display is missing (never connected or unplugged); the audience window stays open as a window on the presenter's display and returns to the chosen display when it reappears presenterStatus: closed     no presenter window shown      on its chosen display, else the primary or any display the audience does not use hidden     only the audience's display is left (the presenter's display was unplugged): the window is hidden, never moved onto the projector, and is shown again when another display appears; the audience window's keys keep the show controllable AGENT-CONTRACT (D-161): audience content never receives the notes; the presenter window is the only place speakerNotes are bound, and it is never placed on the audience's display.",
       "singleton": false,
       "attached": null,
       "file": "src/core/presentation_windows.h",
@@ -60182,6 +60293,13 @@
           "constant": false
         },
         {
+          "name": "presenterStatus",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "audienceWindowId",
           "type": "QString",
           "default": "",
@@ -60233,6 +60351,14 @@
         {
           "name": "audienceReconnected",
           "parameters": "const QString &screenId"
+        },
+        {
+          "name": "presenterHidden",
+          "parameters": ""
+        },
+        {
+          "name": "presenterRestored",
+          "parameters": ""
         }
       ],
       "methods": [
@@ -65823,6 +65949,128 @@
       "bridge": false
     },
     {
+      "name": "SlideCanvasDocument",
+      "kind": "cpp",
+      "base": "CanvasDocumentAdapter",
+      "description": "AGENT-CONTRACT (docs/slides.md#canvas, docs/canvas.md#document-adapter): one slide of a SlideDeck seen through the WP-042 canvas boundary, so SlideCanvas uses CanvasView, ToolController, SpatialTransform, SnapModel, SelectionOverlay and GuideLayer unchanged. Each resolved slide object is an image object whose pixels come from Slides::renderObjectImage (the output painter's own object code), so the canvas shows the master background, font sizes and rich formatting the audience sees. commit() accepts only what a slide can hold: object moves, resizes and rotations (projected to bounds + rotation) and removals; it applies them to the deck as ONE SlideDeck undo step. Inserts, layer, page and guide edits are refused (insert through SlideDeck.insertObject).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/slide_canvas_document.h",
+      "properties": [
+        {
+          "name": "deck",
+          "type": "QindaTK::SlideDeck *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "slideId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "showPrompts",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "renderScale",
+          "type": "qreal",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "qulonglong",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "objectCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageRect",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "guides",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "imageRenders",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "slideObjectId",
+          "returns": "QString",
+          "parameters": "qulonglong canvasId"
+        },
+        {
+          "name": "canvasObjectId",
+          "returns": "qulonglong",
+          "parameters": "const QString &slideObjectId"
+        },
+        {
+          "name": "slideObjectIds",
+          "returns": "QStringList",
+          "parameters": "const QVariantList &canvasIds"
+        },
+        {
+          "name": "canvasObjectIds",
+          "returns": "QVariantList",
+          "parameters": "const QStringList &slideObjectIds"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "SlideDeck",
       "kind": "cpp",
       "base": "QObject",
@@ -65883,6 +66131,13 @@
         {
           "name": "canRedo",
           "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
           "default": "",
           "readonly": true,
           "constant": false
@@ -65963,6 +66218,11 @@
         {
           "name": "masterChoices",
           "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "documentColors",
+          "returns": "QStringList",
           "parameters": ""
         },
         {
@@ -66051,9 +66311,29 @@
           "parameters": "const QString &objectId, const QString &text"
         },
         {
+          "name": "transformObjects",
+          "returns": "bool",
+          "parameters": "const QVariantList &edits"
+        },
+        {
+          "name": "removeObjects",
+          "returns": "bool",
+          "parameters": "const QStringList &objectIds"
+        },
+        {
           "name": "setObjectFill",
           "returns": "bool",
           "parameters": "const QString &objectId, const QString &fill"
+        },
+        {
+          "name": "setObjectsFill",
+          "returns": "bool",
+          "parameters": "const QStringList &objectIds, const QString &fill"
+        },
+        {
+          "name": "objectTextJson",
+          "returns": "QString",
+          "parameters": "const QString &objectId"
         },
         {
           "name": "beginTextEdit",
@@ -66164,6 +66444,11 @@
           "name": "previewDataUrl",
           "returns": "QString",
           "parameters": "const QString &slideId, int width"
+        },
+        {
+          "name": "exportPlayback",
+          "returns": "int",
+          "parameters": "const QString &slideId, const QString &directory, int framesPerSecond = 30, int width = 0"
         }
       ],
       "enums": {},
@@ -66233,6 +66518,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "keyNavigation",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
         }
       ],
       "signals": [
@@ -66247,9 +66539,138 @@
       ],
       "methods": [
         {
+          "name": "mapToSlide",
+          "returns": "QPointF",
+          "parameters": "const QPointF &point"
+        },
+        {
+          "name": "mapFromSlide",
+          "returns": "QPointF",
+          "parameters": "const QPointF &point"
+        },
+        {
           "name": "grabFrame",
           "returns": "QImage",
           "parameters": "int width, int height"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SlidePreview",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (docs/slides.md#preview, OFF-22): the AnimationPane's preview. start(effectId) plays the build step that holds the effect from its start, through the same Slides::evaluate the show and the exported playback use, so the same ticks give the same pixels. Bind a Tk.SlideFrameView to `deck`, `slideId`, `step` and `ticks`. state: idle (no preview; step -1 shows the slide complete), running, finished (the step's end), canceled. AGENT-GUARD: cancel() lands on the step's completed frame, the same state SlideShow.next() gives when the presenter clicks during a running build and the last frame SlideDeck.exportPlayback writes for that step.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/slide_preview.h",
+      "properties": [
+        {
+          "name": "deck",
+          "type": "QindaTK::SlideDeck *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "liveClock",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "effectId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "slideId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "step",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "ticks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "stepEndTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "frameChanged",
+          "parameters": ""
+        },
+        {
+          "name": "finished",
+          "parameters": "bool canceled"
+        }
+      ],
+      "methods": [
+        {
+          "name": "start",
+          "returns": "bool",
+          "parameters": "const QString &effectId"
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "reset",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "advance",
+          "returns": "bool",
+          "parameters": "const QString &ticks"
         }
       ],
       "enums": {},
@@ -66424,6 +66845,27 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "annotationTool",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "annotationCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pointerVisible",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -66449,6 +66891,10 @@
         },
         {
           "name": "finished",
+          "parameters": ""
+        },
+        {
+          "name": "annotationsChanged",
           "parameters": ""
         }
       ],
@@ -66502,6 +66948,26 @@
           "name": "renderFrame",
           "returns": "QImage",
           "parameters": "int width, int height"
+        },
+        {
+          "name": "addAnnotationStroke",
+          "returns": "bool",
+          "parameters": "const QVariantList &points"
+        },
+        {
+          "name": "clearAnnotations",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "setPointer",
+          "returns": "bool",
+          "parameters": "qreal x, qreal y"
+        },
+        {
+          "name": "hidePointer",
+          "returns": "void",
+          "parameters": ""
         }
       ],
       "enums": {},

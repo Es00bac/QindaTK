@@ -492,6 +492,12 @@ matching flag is set. Moving, editing text and setting a fill set the flag;
 inheriting slide reflects immediately, and the editor can count overrides
 per placeholder. Other properties (lock, visibility) are always per object.
 
+**Amended (WP-056 audit).** A flag is set only by a real change: committing
+a text edit whose content equals the inherited text keeps the object
+inheriting. Placeholder prompts ("Click to add title") are a separate
+`prompt` field that only the editing canvas paints while the text is empty;
+a new deck's placeholders carry no text, so prompts never reach an output.
+
 ## D-159 — Slide timing is exact ticks; only eased progress is a double
 
 **Context.** Presentation playback must be deterministic (WP-056 item 3):
@@ -523,9 +529,15 @@ renderer. `SlideFrameView` paints through it, and `renderFrame`,
 through `QTextDocument` from the rich-text fragment's HTML.
 
 **Consequences.** The audience output equals the export for the same
-position, which the tests check pixel for pixel. The slide canvas used for
-editing is still the QML `SlideCanvas`; it shows plain text and geometry,
-not the evaluated animation frame.
+position, which the tests check pixel for pixel.
+
+**Amended (WP-056 audit).** The editing canvas uses the same code: the
+per-object half of the painter (`renderObjectImage`: fill and rich text at
+the object's size) draws each object's image for `SlideCanvasDocument`,
+which presents the slide to the WP-042 canvas stack, so the canvas shows the
+master background, font sizes and formatting while the canvas tools
+(selection, transform, snapping) work unchanged. The animation preview and
+exported playback frames are `paintFrame` at `evaluate` positions too.
 
 ## D-161 — Audience and presenter are separate native windows with a keep-alive audience
 
@@ -545,6 +557,12 @@ is added. Closing the presenter ends the presentation.
 notes, and plugging it back in needs no action. The status is visible to the
 presenter (`audienceStatus`, `displays`). Behaviour on real window managers
 and monitors is left to platform qualification.
+
+**Amended (WP-056 audit).** The presenter window is never placed on the
+audience's display (chosen, or last connected). If the presenter's display
+is removed and only the audience's is left, the presenter window is hidden
+(`presenterStatus` `hidden`) and the audience window's keys keep the show
+controllable, until another display appears.
 
 ## D-162 — Project dependency scans read off-thread and yield to newer answers
 

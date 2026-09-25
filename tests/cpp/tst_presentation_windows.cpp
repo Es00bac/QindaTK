@@ -35,6 +35,22 @@ private:
 
 const QString Notes = QStringLiteral("Secret presenter notes 42");
 
+// A desk with a laptop panel and a projector: the headless platform's own
+// screen cannot be unplugged, so placement is told it does not exist.
+class DeskWindows : public PresentationWindows {
+public:
+    explicit DeskWindows(QString ignored) : m_ignored(std::move(ignored)) {}
+protected:
+    QList<QScreen *> availableScreens() const override
+    {
+        QList<QScreen *> out;
+        for (QScreen *screen : QGuiApplication::screens()) if (screen->name() != m_ignored) out << screen;
+        return out;
+    }
+private:
+    QString m_ignored;
+};
+
 // Every "text" property in an item tree (labels, fields, captions).
 QStringList texts(QQuickItem *root)
 {
@@ -173,6 +189,61 @@ private slots:
         windows.close();
         QCOMPARE(windows.windowHost()->windows().size(), 0);
         QWindowSystemInterface::handleScreenRemoved(again);
+        QTRY_VERIFY(QGuiApplication::screens().size() == 1);
+    }
+
+    void presenterDisplayRemovalNeverShowsNotesToTheRoom()
+    {
+        const QString headless = QGuiApplication::primaryScreen()->name();
+        auto *laptop = new TestScreen(QStringLiteral("eDP-1"), QRect(-3000, 0, 1600, 1000));
+        auto *projector = new TestScreen(QStringLiteral("HDMI-A-1"), QRect(5000, 0, 1920, 1080));
+        QWindowSystemInterface::handleScreenAdded(laptop);
+        QWindowSystemInterface::handleScreenAdded(projector);
+        QTRY_VERIFY(QGuiApplication::screens().size() >= 3);
+
+        // With and without an explicit audience choice.
+        for (const bool chosen : {true, false}) {
+            DeskWindows windows(headless);
+            QSignalSpy hidden(&windows, &PresentationWindows::presenterHidden);
+            QSignalSpy restored(&windows, &PresentationWindows::presenterRestored);
+            windows.setShow(&m_show);
+            windows.setPresenterDelegate(m_delegate.data());
+            windows.setPresenterScreenId(QStringLiteral("eDP-1"));
+            if (chosen) windows.setAudienceScreenId(QStringLiteral("HDMI-A-1"));
+            QVERIFY2(windows.open(), qPrintable(windows.lastError()));
+            QCOMPARE(windows.audienceStatus(), QStringLiteral("connected"));
+            QCOMPARE(windows.audienceScreen(), QStringLiteral("HDMI-A-1"));
+            QCOMPARE(windows.presenterStatus(), QStringLiteral("shown"));
+            QCOMPARE(windows.presenterWindow()->screen()->name(), QStringLiteral("eDP-1"));
+
+            // Unplug the laptop panel: only the projector is left. The
+            // presenter console (with the notes) must not move onto it.
+            QWindowSystemInterface::handleScreenRemoved(laptop);
+            QTRY_COMPARE(windows.presenterStatus(), QStringLiteral("hidden"));
+            QCOMPARE(hidden.count(), 1);
+            QVERIFY(!windows.presenterWindow()->isVisible());
+            QCOMPARE(windows.audienceStatus(), QStringLiteral("connected"));
+            QCOMPARE(windows.audienceScreen(), QStringLiteral("HDMI-A-1"));
+            QVERIFY(!containsNotes(windows.audienceWindow()->contentItem()));
+            // Navigation stays controllable from the audience window.
+            const QString first = m_show.currentSlideId();
+            press(windows.audienceView(), Qt::Key_Right);
+            QVERIFY(m_show.currentSlideId() != first || m_show.buildStep() > 0 || m_show.ended());
+            press(windows.audienceView(), Qt::Key_Left);
+            QCOMPARE(m_show.currentSlideId(), first);
+
+            // Plug it back in: the presenter returns to it.
+            laptop = new TestScreen(QStringLiteral("eDP-1"), QRect(-3000, 0, 1600, 1000));
+            QWindowSystemInterface::handleScreenAdded(laptop);
+            QTRY_COMPARE(windows.presenterStatus(), QStringLiteral("shown"));
+            QCOMPARE(restored.count(), 1);
+            QVERIFY(windows.presenterWindow()->isVisible());
+            QCOMPARE(windows.presenterWindow()->screen()->name(), QStringLiteral("eDP-1"));
+            QCOMPARE(windows.audienceScreen(), QStringLiteral("HDMI-A-1"));
+            windows.close();
+        }
+        QWindowSystemInterface::handleScreenRemoved(laptop);
+        QWindowSystemInterface::handleScreenRemoved(projector);
         QTRY_VERIFY(QGuiApplication::screens().size() == 1);
     }
 

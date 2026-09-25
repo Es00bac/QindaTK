@@ -4,7 +4,9 @@
 #include "slide_render.h"
 #include "slide_show.h"
 
+#include <QKeyEvent>
 #include <QPainter>
+#include <algorithm>
 
 namespace QindaTK {
 using namespace Slides;
@@ -30,7 +32,8 @@ void SlideFrameView::reconnect()
     m_connections.clear();
     auto repaint = [this] { update(); };
     if (m_show) {
-        m_connections << connect(m_show, &SlideShow::frameChanged, this, repaint)
+        m_connections << connect(m_show, &SlideShow::annotationsChanged, this, repaint)
+                      << connect(m_show, &SlideShow::frameChanged, this, repaint)
                       << connect(m_show, &SlideShow::deckChanged, this, repaint)
                       << connect(m_show, &SlideShow::stateChanged, this, repaint);
     }
@@ -82,6 +85,58 @@ QImage SlideFrameView::grabFrame(int width, int height) const
     if (m_show && m_show->deck()) return renderImage(m_show->deck()->state(), m_show->currentFrame(), QSize(width, height));
     if (m_deck) return renderImage(m_deck->state(), staticFrame(*m_deck, m_slideId, m_step, m_ticks), QSize(width, height));
     return {};
+}
+
+void SlideFrameView::setKeyNavigation(bool enabled)
+{
+    if (m_keyNavigation == enabled) return;
+    m_keyNavigation = enabled;
+    setActiveFocusOnTab(enabled);
+    emit sourceChanged();
+}
+
+void SlideFrameView::keyPressEvent(QKeyEvent *event)
+{
+    if (!m_keyNavigation || !m_show) { event->ignore(); return; }
+    switch (event->key()) {
+    case Qt::Key_Right: case Qt::Key_Down: case Qt::Key_Space: case Qt::Key_PageDown:
+        m_show->next(); break;
+    case Qt::Key_Left: case Qt::Key_Up: case Qt::Key_PageUp: case Qt::Key_Backspace:
+        m_show->previous(); break;
+    case Qt::Key_B: case Qt::Key_Period:
+        m_show->setBlackedOut(!m_show->blackedOut()); break;
+    default:
+        event->ignore();
+        return;
+    }
+    event->accept();
+}
+
+QRectF SlideFrameView::slideRect() const
+{
+    const SlideDeck *deck = m_show && m_show->deck() ? m_show->deck() : m_deck.data();
+    const QSizeF slide = deck ? deck->state().size : QSizeF(960, 540);
+    const qreal scale = std::min(width() / slide.width(), height() / slide.height());
+    const QSizeF size = slide * scale;
+    return {(width() - size.width()) / 2, (height() - size.height()) / 2, size.width(), size.height()};
+}
+
+QPointF SlideFrameView::mapToSlide(const QPointF &point) const
+{
+    const SlideDeck *deck = m_show && m_show->deck() ? m_show->deck() : m_deck.data();
+    const QRectF rect = slideRect();
+    if (!deck || rect.isEmpty()) return {};
+    const QSizeF slide = deck->state().size;
+    return {(point.x() - rect.x()) * slide.width() / rect.width(), (point.y() - rect.y()) * slide.height() / rect.height()};
+}
+
+QPointF SlideFrameView::mapFromSlide(const QPointF &point) const
+{
+    const SlideDeck *deck = m_show && m_show->deck() ? m_show->deck() : m_deck.data();
+    const QRectF rect = slideRect();
+    if (!deck || rect.isEmpty()) return {};
+    const QSizeF slide = deck->state().size;
+    return {rect.x() + point.x() * rect.width() / slide.width(), rect.y() + point.y() * rect.height() / slide.height()};
 }
 
 void SlideFrameView::paint(QPainter *painter)

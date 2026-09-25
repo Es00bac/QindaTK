@@ -4,6 +4,7 @@
 #include "rich_text_html.h"
 
 #include <QColor>
+#include <QJsonDocument>
 #include <QSet>
 #include <QUuid>
 #include <cmath>
@@ -36,22 +37,28 @@ bool validRect(const QRectF &r)
 }
 bool validColor(const QString &color) { return color.isEmpty() || QColor::isValidColorName(color); }
 Placeholder placeholder(const QString &role, const QString &label, const QRectF &bounds,
-                        double fontSize, const QString &text)
+                        double fontSize, const QString &prompt)
 {
     Placeholder p;
     p.role = role;
     p.label = label;
     p.bounds = bounds;
     p.fontSize = fontSize;
-    p.text = TextContent::fromPlain(text);
+    p.text = TextContent::fromPlain({});
+    p.prompt = prompt;
     return p;
+}
+qsizetype encodedSize(const QJsonObject &json)
+{
+    return QJsonDocument(json).toJson(QJsonDocument::Compact).size();
 }
 } // namespace
 
 TextContent TextContent::fromPlain(const QString &text)
 {
     const RichText::Fragment fragment = RichTextHtml::fromPlainText(text);
-    return {RichTextCodec::fragmentToJson(fragment), plainOf(fragment)};
+    const QJsonObject json = RichTextCodec::fragmentToJson(fragment);
+    return {json, plainOf(fragment), encodedSize(json)};
 }
 
 std::optional<TextContent> TextContent::fromFragmentJson(const QJsonObject &json, QString *problem)
@@ -62,7 +69,7 @@ std::optional<TextContent> TextContent::fromFragmentJson(const QJsonObject &json
         if (problem) *problem = error.message.isEmpty() ? QStringLiteral("Invalid text fragment") : error.message;
         return std::nullopt;
     }
-    return TextContent{json, plainOf(*fragment)};
+    return TextContent{json, plainOf(*fragment), encodedSize(json)};
 }
 
 const QStringList &objectKinds() { static const QStringList v{"text", "shape"}; return v; }
@@ -109,15 +116,20 @@ QVector<ResolvedObject> resolveObjects(const DeckState &deck, const Slide &slide
     out.reserve(slide.objects.size());
     for (const SlideObject &o : slide.objects) {
         ResolvedObject r{o.id, o.kind, o.role, o.bounds, o.fill, o.fontSize > 0 ? o.fontSize : 24,
-                         o.text, o.locked, o.visible};
+                         o.text, o.rotation, {}, o.locked, o.visible};
         const Placeholder *base = master && !o.role.isEmpty() ? findPlaceholder(master->placeholders, o.role) : nullptr;
         if (base) {
             // AGENT-GUARD: inheritance is layout -> master for bounds and
             // master for text/fill/kind; an own* flag always wins (D-158).
             const Placeholder *positioned = layout ? findPlaceholder(layout->placeholders, o.role) : nullptr;
             r.kind = base->kind;
+            r.prompt = base->prompt;
             if (o.fontSize <= 0) r.fontSize = base->fontSize;
-            if (!o.ownBounds) { r.bounds = positioned ? positioned->bounds : base->bounds; r.inheritedBounds = true; }
+            if (!o.ownBounds) {
+                r.bounds = positioned ? positioned->bounds : base->bounds;
+                r.rotation = 0;
+                r.inheritedBounds = true;
+            }
             if (!o.ownText) { r.text = base->text; r.inheritedText = true; }
             if (!o.ownFill) { r.fill = base->fill; r.inheritedFill = true; }
         }
@@ -167,6 +179,7 @@ DeckState defaultDeck()
     master.title = QStringLiteral("Default");
     master.themeId = QStringLiteral("default");
     master.placeholders = {
+        // Placeholders start empty: the prompts are editing chrome (D-158).
         placeholder("title", "Title", QRectF(80, 60, 800, 90), 40, "Click to add title"),
         placeholder("subtitle", "Subtitle", QRectF(80, 300, 800, 60), 24, "Click to add subtitle"),
         placeholder("body", "Body", QRectF(80, 170, 800, 320), 22, "Click to add text")};
@@ -193,7 +206,7 @@ DeckState defaultDeck()
     return deck;
 }
 
-QString validate(const DeckState &deck)
+QString validate(const DeckState &deck, qsizetype encodedLimit)
 {
     if (!(deck.size.width() >= 16 && deck.size.height() >= 16 && deck.size.width() <= 16384
           && deck.size.height() <= 16384))
@@ -215,7 +228,8 @@ QString validate(const DeckState &deck)
             if (p.role.isEmpty() || roles.contains(p.role) || !validRect(p.bounds)) return false;
             roles.insert(p.role);
             if (master && (!objectKinds().contains(p.kind) || !validColor(p.fill)
-                           || !(p.fontSize >= 4 && p.fontSize <= 400))) return false;
+                           || !(p.fontSize >= 4 && p.fontSize <= 400) || p.text.bytes > MaximumTextBytes
+                           || p.prompt.size() > MaximumPromptLength)) return false;
         }
         return true;
     };
@@ -241,11 +255,16 @@ QString validate(const DeckState &deck)
             return QStringLiteral("Slide %1 has an invalid transition").arg(s.id);
         if (s.objects.size() > MaximumObjectsPerSlide || s.effects.size() > MaximumEffectsPerSlide)
             return QStringLiteral("Slide %1 exceeds the object or effect limit").arg(s.id);
+        if (s.notes.bytes > MaximumTextBytes)
+            return QStringLiteral("The notes of slide %1 exceed %2 MiB").arg(s.id).arg(MaximumTextBytes >> 20);
         QSet<QString> objects, roles;
         for (const SlideObject &o : s.objects) {
             if (!unique(o.id) || !objectKinds().contains(o.kind) || !validRect(o.bounds) || !validColor(o.fill)
-                || !(o.fontSize == 0 || (o.fontSize >= 4 && o.fontSize <= 400)))
+                || !(o.fontSize == 0 || (o.fontSize >= 4 && o.fontSize <= 400))
+                || !(std::isfinite(o.rotation) && o.rotation > -180.0 && o.rotation <= 180.0))
                 return QStringLiteral("Invalid object %1").arg(o.id);
+            if (o.text.bytes > MaximumTextBytes)
+                return QStringLiteral("The text of object %1 exceeds %2 MiB").arg(o.id).arg(MaximumTextBytes >> 20);
             if (!o.role.isEmpty()) {
                 if (roles.contains(o.role)) return QStringLiteral("Slide %1 repeats role %2").arg(s.id, o.role);
                 roles.insert(o.role);
@@ -260,6 +279,10 @@ QString validate(const DeckState &deck)
                 return QStringLiteral("Invalid effect %1").arg(e.id);
         }
     }
+    // The header and the (at most 64 KiB) session extensions come on top.
+    constexpr qsizetype HeaderReserve = 65 * 1024;
+    if (encodedBytesUpperBound(deck) + HeaderReserve > encodedLimit)
+        return QStringLiteral("The deck would exceed its %1 KiB size limit").arg(encodedLimit >> 10);
     return {};
 }
 

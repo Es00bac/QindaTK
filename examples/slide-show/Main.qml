@@ -11,7 +11,6 @@ Rectangle {
     height: 900
     color: Tk.Theme.color.bg
     property string currentSlideId: deck.slideIds.length ? deck.slideIds[0] : ""
-    property var selectedObjectIds: []
     property string selectedEffectId: ""
     property string selectedMasterId: "master-default"
     property string mode: "author"
@@ -32,6 +31,7 @@ Rectangle {
         onChanged: if (deck.indexOfSlide(root.currentSlideId) < 0 && deck.slideIds.length) root.currentSlideId = deck.slideIds[0]
     }
     Tk.SlideShow { id: slideShow; deck: deck }
+    Tk.SlidePreview { id: preview; deck: deck }
     Tk.PresentationWindows {
         id: presentation
         show: slideShow
@@ -102,23 +102,12 @@ Rectangle {
                 Tk.Flex.grow: 1
                 Tk.Flex.basis: 0
                 Tk.SlideCanvas {
+                    id: slideCanvas
+                    objectName: "slideShowCanvas"
                     anchors.fill: parent
                     anchors.margins: Tk.Theme.space.sm
-                    documentId: deck.documentId
+                    deck: deck
                     slideId: root.currentSlideId
-                    masterId: root.currentSlide.masterId || ""
-                    slideSize: deck.slideSize
-                    objects: deck.revision.length ? deck.objects(root.currentSlideId) : []
-                    selectedObjectIds: root.selectedObjectIds
-                    masterChoices: deck.revision.length ? deck.masterChoices() : []
-                    onSelectionRequested: function(id) { root.selectedObjectIds = [id] }
-                    onObjectMoveRequested: function(id, bounds) { deck.moveObject(id, bounds) }
-                    onObjectTextEditRequested: function(id, text) { deck.setObjectText(id, text) }
-                    onObjectInsertRequested: function(kind, bounds, requestId) {
-                        const id = deck.insertObject(root.currentSlideId, kind, bounds, kind === "text" ? qsTr("New text") : "")
-                        if (id.length) root.selectedObjectIds = [id]
-                    }
-                    onMasterApplyRequested: function(masterId, slideId) { deck.applyMaster(masterId, [slideId], "") }
                 }
             }
             Tk.Panel {
@@ -156,6 +145,20 @@ Rectangle {
                             onEffectAddRequested: function(targetId, kind, requestId) { root.selectedEffectId = deck.addEffect(targetId, kind) }
                             onEffectDeleteRequested: function(id) { deck.removeEffect(id) }
                             onEffectEditRequested: function(id, patch, requestId) { deck.editEffect(id, patch) }
+                            previewState: preview.state
+                            onPreviewRequested: function(id) { preview.start(id) }
+                            onPreviewCancelRequested: function(id) { preview.cancel() }
+                        }
+                        Tk.SlideFrameView {
+                            objectName: "slideEffectPreview"
+                            visible: preview.state !== "idle"
+                            deck: deck
+                            slideId: preview.slideId
+                            step: preview.step
+                            ticks: preview.ticks
+                            implicitHeight: Tk.Theme.size.control * 6
+                            Accessible.role: Accessible.Graphic
+                            Accessible.name: qsTr("Animation preview")
                         }
                         Tk.TextArea {
                             objectName: "slideNotesEditor"

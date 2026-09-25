@@ -105,6 +105,11 @@ SlideFrame SlideShow::currentFrame() const
     if (m_deck && !m_slideId.isEmpty())
         frame = evaluate(m_deck->state(), m_slideId, m_step, m_ticks, m_fromSlideId);
     frame.blackedOut = m_blackedOut || m_ended || !m_deck || m_slideId.isEmpty();
+    if (m_running) {
+        frame.annotations = m_annotations.value(m_slideId);
+        frame.pointerVisible = m_pointerVisible;
+        frame.pointer = m_pointer;
+    }
     return frame;
 }
 
@@ -141,6 +146,10 @@ bool SlideShow::fail(const QString &message)
 
 void SlideShow::place(QString slideId, int step, qint64 ticks, QString from)
 {
+    if (slideId != m_slideId && m_pointerVisible) {
+        m_pointerVisible = false;
+        emit annotationsChanged();
+    }
     m_slideId = std::move(slideId);
     m_step = step;
     m_ticks = ticks;
@@ -160,6 +169,9 @@ bool SlideShow::start(const QString &slideId)
     if (first.isEmpty() || slideIndex(m_deck->state(), first) < 0) return fail(QStringLiteral("No slide to show"));
     m_running = true;
     m_elapsed = 0;
+    m_annotations.clear();
+    m_pointerVisible = false;
+    emit annotationsChanged();
     m_timerState = QStringLiteral("running");
     emit clockChanged();
     place(first, 0, 0, {});
@@ -174,6 +186,9 @@ void SlideShow::stop()
     m_timerState = QStringLiteral("stopped");
     updateTimer();
     if (!changed) return;
+    m_annotations.clear(); // show ink ends with the show
+    m_pointerVisible = false;
+    emit annotationsChanged();
     emit stateChanged();
     emit clockChanged();
     emit frameChanged();

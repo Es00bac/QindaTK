@@ -37,6 +37,14 @@ struct ObjectFrame {
     double scale = 1;  // about the object's centre
 };
 
+// Live presenter ink over the current slide (OFF-23 annotation commands),
+// in slide pixels. `tool` is "pen" or "highlight". Ink belongs to the
+// running show, not the document: it is never saved or exported.
+struct AnnotationStroke {
+    QString tool;
+    QVector<QPointF> points;
+};
+
 // Everything the audience sees at one exact moment. It never carries notes.
 struct SlideFrame {
     QString slideId;
@@ -47,6 +55,9 @@ struct SlideFrame {
     double transitionProgress = 1;  // 1 once the transition finished
     QString fromSlideId;            // outgoing slide shown during the transition
     bool blackedOut = false;
+    QVector<AnnotationStroke> annotations; // drawn over the slide
+    bool pointerVisible = false;           // the presenter's pointer dot
+    QPointF pointer;
 };
 
 SlideSchedule schedule(const Slide &slide);
@@ -62,14 +73,27 @@ SlideFrame evaluate(const DeckState &deck, const QString &slideId, int step, qin
 // The slide with every build complete (export, thumbnails, previous-slide).
 SlideFrame finalFrame(const DeckState &deck, const QString &slideId);
 
+// Exported playback (docs/slides.md#preview): every build step of a slide
+// in order, sampled at `framesPerSecond` (frame n of a step at
+// floor(n * TicksPerSecond / fps) ticks) and closed by the step's completed
+// frame, the same positions a preview or a show reaches. Empty when fps is
+// outside 1-240, the slide is unknown or the result would exceed
+// MaximumPlaybackFrames.
+struct PlaybackPosition {
+    int step = 0;
+    qint64 ticks = 0;
+};
+inline constexpr int MaximumPlaybackFrames = 36000;
+QVector<PlaybackPosition> playbackPositions(const DeckState &deck, const QString &slideId, int framesPerSecond);
+
 // Seconds (a presentation value) to ticks, rounded to the nearest
 // millisecond first (705,600 ticks each) so 0.1 s is exactly 70,560,000
 // ticks; nullopt when not finite, negative or above 1e6 s.
 std::optional<qint64> secondsToTicks(double seconds);
 double ticksToSeconds(qint64 ticks);
 // QML shape: {slideId, step, ticks (decimal), transitionKind,
-// transitionProgress, fromSlideId, blackedOut, objects: [{id, opacity, dx,
-// dy, scale}]}.
+// transitionProgress, fromSlideId, blackedOut, annotationCount,
+// pointerVisible, objects: [{id, opacity, dx, dy, scale}]}.
 QVariantMap frameToVariant(const SlideFrame &frame);
 
 } // namespace QindaTK::Slides

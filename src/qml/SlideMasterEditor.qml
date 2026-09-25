@@ -9,7 +9,7 @@ Item {
     property string masterId: ""
     property string layoutId: ""
     property string selectedSlideId: ""
-    property var masters: [] // [{id,title,layouts:[{id,title}],themeId,placeholders:[{role,label,value,overrideCount}]}]
+    property var masters: [] // [{id,title,layouts:[{id,title}],themeId,placeholders:[{role,label,value,prompt,overrideCount}]}]
     property var placeholderOverrides: [] // [{slideId,role,value}]
     property var selectedSlideIds: []
     property var capabilities: ({ canEdit: true, canApply: true, canResetOverrides: true })
@@ -149,6 +149,7 @@ Item {
                                 Tk.TextField {
                                     objectName: "slidePlaceholderValue_" + modelData.role
                                     text: placeholderRow.editValue
+                                    placeholderText: String(modelData.prompt || "")
                                     tooltip: qsTr("Default value for %1 placeholder").arg(modelData.label || modelData.role)
                                     enabled: control.capabilities.canEdit
                                     onTextEdited: placeholderRow.editValue = text
