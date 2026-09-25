@@ -50,7 +50,7 @@ class PropertySyncSocketClient;
 // checkpoint window. A non-authoritative service is a replica's durable
 // queue: operations its own clients submit stay in the outbox until the
 // upstream hub acknowledges them, and it adopts the hub's base instead of
-// compacting. See docs/collaboration.md "Compaction" and D-178.
+// compacting. See docs/collaboration.md "Compaction" and D-204.
 class LocalPropertySyncService : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -98,13 +98,13 @@ public:
     // The upstream hub acknowledged this operation.
     void settle(const QString &operationId);
     // Removes an unsettled outbox operation that the hub refused for good and
-    // rebuilds every attached replica without it (D-179).
+    // rebuilds every attached replica without it (D-205).
     bool discard(const QString &operationId);
     // Whether count more operations fit, compacting first when possible.
     bool canAccept(int count);
     // A hub with no replica attached in this process (a headless server)
     // folds through a scratch replica built from this baseline snapshot and
-    // text property list, which must match every replica's (D-178).
+    // text property list, which must match every replica's (D-204).
     void setCompactionBaseline(const QByteArray &snapshot, const QStringList &textProperties);
     Q_INVOKABLE bool compact();
     // Replaces this replica's log with the hub's base and retained tail,
@@ -199,7 +199,7 @@ public:
     // UTF-16 code-unit positions in the property's current text.
     Q_INVOKABLE bool replaceText(const QString &entityId, const QString &propertyId,
                                  int start, int removeCount, const QString &text);
-    // Stable caret anchors for presence and selections (D-180). The anchor of
+    // Stable caret anchors for presence and selections (D-206). The anchor of
     // position p names the text element just before p (empty: the start); a
     // later insert or delete anywhere moves textPosition(anchor) with the
     // content, and a deleted anchor collapses to where its element was.

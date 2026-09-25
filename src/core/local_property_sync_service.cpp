@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // LocalPropertySyncService: operation routing, the durable store, log
 // compaction and the replica outbox. See docs/collaboration.md "Compaction"
-// (D-178) and "Permissions" (D-179).
+// (D-204) and "Permissions" (D-205).
 #include "local_property_sync.h"
 #include "property_sync_detail_p.h"
 #include "reference_document_codec.h"

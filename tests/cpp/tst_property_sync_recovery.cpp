@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 // WP-082 recovery over TCP: an offline edit the hub refuses for good is
-// discarded so the replica converges (D-179); peers adopt the hub's
-// compacted base live and after being offline (D-178); a session closed by
+// discarded so the replica converges (D-205); peers adopt the hub's
+// compacted base live and after being offline (D-204); a session closed by
 // a tampered, dropped or replayed frame reconnects and converges.
 #include "sync_network_fixture.h"
 #include <QJsonDocument>

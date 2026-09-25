@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Compacted state and rebuild for LocalPropertySyncClient (D-178).
+// Compacted state and rebuild for LocalPropertySyncClient (D-204).
 //
 // AGENT-NOTE: the state is everything a replica derives from the operations
 // it has seen: per-property winners, entity supporters and removed sets, and

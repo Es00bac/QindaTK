@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// WP-082 log compaction (D-178): an authoritative log folds into a state
+// WP-082 log compaction (D-204): an authoritative log folds into a state
 // snapshot, so a document outlives the 4,096-operation packet cap; replicas
 // that were offline, that join late, or that reopen the store converge on
 // the same document, and redelivered folded operations change nothing.

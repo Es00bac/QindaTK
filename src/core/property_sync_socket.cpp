@@ -67,7 +67,7 @@ void PropertySyncSocketServer::setService(LocalPropertySyncService *service)
     m_serviceConnections.clear();
     m_service = service;
     if (!service) return;
-    // This service holds the document's shared log: it compacts (D-178).
+    // This service holds the document's shared log: it compacts (D-204).
     service->setAuthoritative(true);
     m_serviceConnections.append(connect(service, &LocalPropertySyncService::changed, this, [this] {
         const auto devices = m_peers.keys();
@@ -291,7 +291,7 @@ void PropertySyncSocketServer::sendError(QIODevice *device, const QString &messa
 {
     // AGENT-CONTRACT (docs/collaboration.md "Permissions"; the bridge in
     // property_sync_socket_client.cpp): a permanent reject means this
-    // operation will never be accepted, and the replica discards it (D-179).
+    // operation will never be accepted, and the replica discards it (D-205).
     const QJsonObject body{{QStringLiteral("type"), QStringLiteral("reject")},
                            {QStringLiteral("id"), operationId},
                            {QStringLiteral("reason"), message},

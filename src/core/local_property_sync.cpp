@@ -129,7 +129,7 @@ bool LocalPropertySyncClient::queue(const QVector<PropertySyncOperation> &operat
     m_pending.append(operations);
     emit changed();
     if (!m_connected || flush()) return true;
-    // AGENT-GUARD (D-178): while connected, an applied edit is either in the
+    // AGENT-GUARD (D-204): while connected, an applied edit is either in the
     // service log or taken back. Keeping it only in memory would show an edit
     // that no store holds and that is lost when the process ends.
     const QString error = m_lastError;

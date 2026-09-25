@@ -120,7 +120,7 @@ signals:
     void disconnected();
     void operationRejected(const QString &operationId, const QString &reason);
     // A permanently refused operation was removed from the local store and
-    // the local replicas were rebuilt without it (D-179).
+    // the local replicas were rebuilt without it (D-205).
     void operationDiscarded(const QString &operationId, const QString &reason);
     void permissionChanged(bool mayEdit);
     void revoked(const QString &reason);

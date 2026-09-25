@@ -67,3 +67,18 @@ inherited `dragThreshold` and `cursorShape` properties of the former private
 base are not proxied. Code using them must migrate, as must C++ casts to the
 former base. Physical tablet and native assistive behavior remain separate
 qualification work.
+
+## WP-088 qualification harness
+
+From WP-088 on, Linux claims come from `tools/qualify/qualify.py`
+([qualification.md](qualification.md)). It covers:
+
+- Qt 6.11 and the Qt 6.8 SDK;
+- offscreen, Wayland (headless Weston) and xcb (private Xwayland), with the
+  software, OpenGL and Vulkan scene graphs;
+- every optional engine omitted, one at a time;
+- install relocation.
+
+The latest recorded result table is
+[evidence/WP-088-results.md](universal-toolkit/implementation/evidence/WP-088-results.md).
+A configuration or operation marked unqualified there is not claimed.

@@ -131,6 +131,21 @@ bool wantsGpu(int argc, char **argv)
     return false;
 }
 
+// AGENT-CONTRACT (tools/preview/CMakeLists.txt, D-202): the QindaTK import
+// root is found relative to this executable. A build-tree binary sits in a
+// directory that CMake gave a CMakeFiles/ folder; an installed one does not.
+// Returns an empty string for a system install whose modules are already on
+// Qt's default import path.
+QString defaultImportRoot()
+{
+    const QDir appDir(QCoreApplication::applicationDirPath());
+    const QString relative = appDir.exists(QStringLiteral("CMakeFiles"))
+        ? QStringLiteral(QINDATK_PREVIEW_BUILD_QML_REL)
+        : QStringLiteral(QINDATK_PREVIEW_INSTALL_QML_REL);
+    const QString root = QDir::cleanPath(appDir.filePath(relative));
+    return QFileInfo::exists(root + QStringLiteral("/QindaTK/qmldir")) ? root : QString();
+}
+
 bool wantsHeadless(int argc, char **argv)
 {
     for (int i = 1; i < argc; ++i) {
@@ -223,6 +238,9 @@ int main(int argc, char **argv)
     }
     if (parser.isSet(QStringLiteral("list-icons"))) {
         QQmlEngine probe;
+        if (const QString root = defaultImportRoot(); !root.isEmpty()) {
+            probe.addImportPath(root);
+        }
         QObject *icons = probe.singletonInstance<QObject *>(QStringLiteral("QindaTK"), QStringLiteral("Icons"));
         QStringList names;
         if (icons != nullptr) {
@@ -240,7 +258,9 @@ int main(int argc, char **argv)
         return 2;
     }
     QQmlEngine engine;
-    engine.addImportPath(QStringLiteral(QINDATK_BUILD_QML_DIR));
+    if (const QString root = defaultImportRoot(); !root.isEmpty()) {
+        engine.addImportPath(root);
+    }
     for (const QString &dir : parser.values(QStringLiteral("import"))) {
         engine.addImportPath(dir);
     }
