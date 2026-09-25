@@ -545,3 +545,75 @@ is added. Closing the presenter ends the presentation.
 notes, and plugging it back in needs no action. The status is visible to the
 presenter (`audienceStatus`, `displays`). Behaviour on real window managers
 and monitors is left to platform qualification.
+
+## D-182 — Reports evaluate in the query engine over a bounded snapshot
+
+**Context.** The first report cut built SQL for one group and a SUM. That SQL
+followed SQLite's own rules for nulls and mixed types, while FilterBar, pivots
+and the grid follow the WP-029 rules. Nested groups, averages, typed
+parameters and data errors would each have needed more hand-built SQL.
+
+**Decision.** `SqliteTableSource` reads a table's reportable columns in one
+bound read, at most 4,000 rows. It maps each declared type to a `QueryType`
+by SQLite affinity and turns a stored value of the wrong kind into an error
+value. Reports run through `QueryEngine`: a detail run for order and cells,
+and a grouped run for every total. Filters and parameters are WP-029 query
+JSON.
+
+**Consequences.** A report total equals a pivot over the same data, nulls
+included. Text stored in a numeric column stops the report, and the error
+names the column. A table larger than the bound cannot be reported yet, even
+with a narrow filter: pushing filters down into SQL is later provider work
+(docs/query-pivot.md#bounds-refresh-and-providers).
+
+## D-183 — A report is a rich-text document with band paragraphs and tables
+
+**Context.** Reports need preview, PDF and printers to agree page for page.
+WP-053 already gives rich-text documents one page geometry and one painter.
+
+**Decision.** A report run writes a `qindatk.richtext` document. Headers and
+totals are paragraphs, and detail rows are tables whose first row is the
+column labels, which the paginator repeats on every page (the page header
+band). Group page breaks are `pageBreakBefore` on the outermost group header
+that changed. The model decodes each run into one stable document, and only
+after the whole run succeeded.
+
+**Consequences.** `PrintAdapter`, `PrintPreview`, `RichDocumentView` and
+`exportPdf` need no report-specific code. A failed run leaves the last good
+pages on screen. The paginator has no running page regions, so reports have
+no page-footer band and no page numbers.
+
+## D-184 — A design is a session document of whole-design steps
+
+**Context.** Form and report designs were loose JSON files. Edits had no undo,
+and the files had no autosave or recovery.
+
+**Decision.** `LocalDataDesignDocument` implements `DocumentModel`. Each edit
+records the whole design before and after as one step (`QJsonObject` is
+implicitly shared, and designs are small), and `LocalDataDesignStore::checkStructure`
+checks it first. The built-in codec `qindatk.local-data-design.v1` writes the
+design map plus a `session` header, so the store's own reader still accepts
+the file. Version 1 files get an identity derived from their `designId`.
+
+**Consequences.** `DocumentManager` sessions, the shared `UndoService`,
+macros, autosave and recovery apply to designs unchanged. A refused edit
+changes nothing. The designers must go through the document to be undoable;
+without one they keep their host request signals.
+
+## D-185 — Saved designs are qualified against the live schema
+
+**Context.** A design outlives schema changes. A column can be renamed,
+dropped or retyped by a table rebuild, and a saved report must not print
+wrong totals or fail silently.
+
+**Decision.** A design records the bound column types. `validate(provider)`
+reports each bound field as `ok`, `missing`, `typeChanged` or `unsupported`,
+and runs the report definition through the report parser against the live
+schema. A missing field or a report that no longer parses is fatal. A type
+change on its own is a warning. Every report run parses again and keeps the
+previous document when parsing fails.
+
+**Consequences.** Reverting a schema change makes the same design valid again
+and gives an identical report, which the tests check for a rename and for a
+retype. Hosts show the non-fatal issues to the user; nothing rewrites a
+design automatically.

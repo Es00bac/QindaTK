@@ -2,27 +2,35 @@
 import QtQuick
 import QindaTK as Tk
 
-// SQLite records are in-memory; form/report design and rendered output use
-// the local atomic design codec and the shared paginated document renderer.
+// SQLite records are in memory. The form and report design is one
+// LocalDataDesignDocument: every designer edit is an undo step, and Save /
+// Reopen go through the atomic design codec, which rechecks the live schema.
+// The report runs through the shared query engine into a paginated document
+// that the page view, the print preview and PDF/printer output all share.
 Tk.AppWindow {
     id: window
     title: qsTr("Forms, schema and reports · SQLite fixture")
     width: 1280
-    height: 960
+    height: 1100
     property var currentRecord: ({})
-    property var formDesign: ({
-        title: "Contact details",
-        tableName: "contacts",
-        fields: [
-            { fieldName: "display_name", label: "Display name" },
-            { fieldName: "active", label: "Active" },
-            { fieldName: "department_id", label: "Department" }
-        ]
-    })
     property string workflowStatus: qsTr("Design not saved · local SQLite sample")
+    property int currentPage: 0
 
     Tk.LocalDataDesignStore { id: designStore }
     Tk.LocalReportDocumentModel { id: reportOutput }
+    Tk.LocalDataDesignDocument {
+        id: designDoc
+        onChanged: Qt.callLater(window.rebuildReport)
+    }
+    Tk.PrintAdapter {
+        id: printer
+        objectName: "reportPrintAdapter"
+        document: reportOutput.document
+        onJobFinished: function(jobId, status) {
+            window.workflowStatus = status === "completed" ? qsTr("Printed · %1").arg(job.outputPath || job.printerId)
+                                                           : qsTr("Print %1: %2").arg(status).arg(job.error)
+        }
+    }
 
     Tk.LocalDatabaseProvider {
         id: database
@@ -37,85 +45,74 @@ Tk.AppWindow {
             for (let i = 2; i < 102; ++i)
                 execute("INSERT INTO contacts(display_name, active, department_id) VALUES(?, ?, ?)",
                         ["Contributor " + String(i).padStart(3, "0"), i % 2 === 0, i % 2 + 1])
-            reloadRecord()
+            window.reloadRecord()
+            window.createDesign()
         }
     }
 
+    // The starting design is one undo step ("Create design").
+    function createDesign() {
+        const history = designDoc.undoService
+        history.beginMacro(qsTr("Create design"))
+        designDoc.bindTable(database, "contacts")
+        designDoc.setFormTitle(qsTr("Contact details"))
+        designDoc.setFormFieldLabel("display_name", qsTr("Display name"))
+        designDoc.setFormFieldLabel("active", qsTr("Active"))
+        designDoc.setFormFieldLabel("department_id", qsTr("Department"))
+        designDoc.setReportText("headerText", qsTr("Contact directory"))
+        designDoc.setReportText("footerText", qsTr("Internal directory · local fixture"))
+        designDoc.setReportGroups([{ field: "department_id", label: qsTr("Department"), pageBreakBefore: true,
+                                     totals: [{ field: "active", function: "sum" }] }])
+        history.endMacro()
+    }
     function reloadRecord() {
         const result = database.query("SELECT id, display_name, active, department_id FROM contacts WHERE id = ?", [1])
         if (result.ok && result.rows.length) currentRecord = result.rows[0]
     }
-    function quoted(name) { return '"' + String(name).replace(/"/g, '""') + '"' }
-    function reportSnapshot() {
-        return { tableName: report.tableName, headerText: report.headerText,
-                 footerText: report.footerText, filterField: report.filterField,
-                 filterValue: report.filterValue, groupField: report.groupField,
-                 sumField: report.sumField }
-    }
-    function designSnapshot() {
-        return {
-            format: "qindatk.local-data-design", version: 1, designId: "contacts-workbench",
-            binding: { provider: "sqlite", schema: "main", table: "contacts",
-                       fields: ["id", "display_name", "active", "department_id"] },
-            form: formDesign,
-            report: reportSnapshot()
-        }
+    function rebuildReport() {
+        if (!designDoc.tableName.length) return
+        const built = reportOutput.build(database, designDoc.report)
+        if (!built.ok) workflowStatus = qsTr("Report kept from the last good build · %1").arg(built.error)
     }
     function saveDesign() {
-        const result = designStore.saveToFile(designStore.defaultPath, designSnapshot(), database)
+        const result = designStore.saveToFile(designStore.defaultPath, designDoc.design, database)
         workflowStatus = result.ok ? qsTr("Design saved · %1").arg(result.path) : result.error
     }
     function reopenDesign() {
         const result = designStore.loadFromFile(designStore.defaultPath, database)
         if (!result.ok) { workflowStatus = result.error; return }
-        const data = result.design
-        formDesign = data.form
-        report.tableName = data.report.tableName
-        report.headerText = data.report.headerText
-        report.footerText = data.report.footerText
-        report.filterField = data.report.filterField
-        report.filterValue = data.report.filterValue
-        report.groupField = data.report.groupField
-        report.sumField = data.report.sumField || ""
-        workflowStatus = qsTr("Design reopened and schema binding verified · %1").arg(data.designId)
-        report.runPreview()
+        if (!designDoc.setDesign(result.design)) { workflowStatus = designDoc.lastError; return }
+        const changed = (result.issues || []).filter(issue => !issue.fatal).map(issue => issue.message)
+        workflowStatus = changed.length ? changed.join(" · ")
+                                        : qsTr("Design reopened and schema binding verified · %1").arg(result.design.designId)
     }
-
-    Component.onCompleted: Qt.callLater(function() {
-        report.runPreview()
-        reportOutput.build(database, reportSnapshot())
-    })
 
     Tk.Flex {
         direction: Tk.Flex.Column; gap: Tk.Theme.space.md; padding: Tk.Theme.space.md
         Tk.Flex {
             direction: Tk.Flex.Row; align: Tk.Flex.Center; gap: Tk.Theme.space.sm
             Tk.Overline { title: qsTr("LOCAL SQLITE · STABLE BINDINGS · PAGINATED OUTPUT"); wide: true; Tk.Flex.grow: 1 }
+            Tk.Button { objectName: "designUndo"; text: designDoc.undoText ? qsTr("Undo %1").arg(designDoc.undoText) : qsTr("Undo"); enabled: designDoc.canUndo; tooltip: qsTr("Undo the last design edit"); onClicked: designDoc.undo() }
+            Tk.Button { objectName: "designRedo"; text: qsTr("Redo"); enabled: designDoc.canRedo; tooltip: qsTr("Redo the design edit"); onClicked: designDoc.redo() }
             Tk.Button { text: qsTr("Save design"); tooltip: qsTr("Atomically save form and report design"); onClicked: window.saveDesign() }
             Tk.Button { text: qsTr("Reopen design"); tooltip: qsTr("Load saved design and validate its SQLite fields"); onClicked: window.reopenDesign() }
         }
         Tk.Flex {
             direction: Tk.Flex.Row; gap: Tk.Theme.space.md
             Tk.FormDesigner {
-                id: form; Tk.Flex.flex: 1; provider: database; tableName: "contacts"
+                id: form; Tk.Flex.flex: 1; provider: database; designDocument: designDoc
                 mode: "edit"; recordId: String(window.currentRecord.id || ""); record: window.currentRecord
-                design: window.formDesign
                 onRecordSaveRequested: function(requestId, tableName, recordId, changes) {
-                    const fields = Object.keys(changes).filter(name => ["display_name", "active", "department_id"].includes(name))
+                    const fields = Object.keys(changes).filter(name => designDoc.boundFields.includes(name) && name !== "id")
                     if (!fields.length) { acknowledge(requestId, "rejected", qsTr("No recognized editable fields")); return }
+                    const quoted = name => '"' + String(name).replace(/"/g, '""') + '"'
                     const sql = "UPDATE " + quoted(tableName) + " SET " + fields.map(name => quoted(name) + " = ?").join(", ") + " WHERE id = ?"
                     const bindings = fields.map(name => changes[name]); bindings.push(Number(recordId))
                     const result = database.execute(sql, bindings)
-                    if (result.ok) { window.reloadRecord(); acknowledge(requestId, "accepted", qsTr("SQLite updated %1 row(s)").arg(result.rowsAffected)) }
+                    if (result.ok) { window.reloadRecord(); window.rebuildReport(); acknowledge(requestId, "accepted", qsTr("SQLite updated %1 row(s)").arg(result.rowsAffected)) }
                     else acknowledge(requestId, "rejected", result.error)
                 }
-                onDesignChangeRequested: function(fieldName, change) {
-                    const fields = formDesign.fields.slice()
-                    const item = fields.find(field => field.fieldName === fieldName)
-                    if (item) item.label = change.label
-                    formDesign = Object.assign({}, formDesign, { fields: fields })
-                }
-                onDesignSaveRequested: function(requestId, snapshot) { window.formDesign = snapshot; acknowledge(requestId, "accepted", qsTr("Design held in example memory")) }
+                onDesignSaveRequested: function(requestId, snapshot) { window.saveDesign(); acknowledge(requestId, "accepted", window.workflowStatus) }
             }
             Tk.DatabaseSchemaView {
                 id: schema; Tk.Flex.flex: 1; provider: database; selectedTable: "contacts"
@@ -125,18 +122,20 @@ Tk.AppWindow {
                 onMigrationCommitRequested: function(requestId, plan) {
                     const result = plan.statements ? database.executeMigrationPlan(plan.statements) : database.executeMigration(plan.sql)
                     acknowledge(requestId, result.ok ? "accepted" : "rejected", result.ok ? qsTr("Schema updated explicitly") : result.error)
+                    const check = designDoc.validate(database)
+                    window.workflowStatus = check.ok ? qsTr("Design still matches the schema") : check.error
+                    window.rebuildReport()
                 }
             }
         }
         Tk.ReportDesigner {
-            id: report; width: parent.width; provider: database; tableName: "contacts"
-            headerText: qsTr("Contact directory"); footerText: qsTr("Internal directory · local fixture")
-            pageSize: 20
+            id: report; width: parent.width; provider: database; designDocument: designDoc
+            pageSize: 12
             onExportRequested: function(requestId, reportDesign) {
                 const built = reportOutput.build(database, reportDesign)
-                if (!built.ok) { workflowStatus = built.error; return }
+                if (!built.ok) { window.workflowStatus = built.error; return }
                 const exported = reportOutput.exportPdf(reportOutput.defaultPdfPath)
-                workflowStatus = exported.ok
+                window.workflowStatus = exported.ok
                     ? qsTr("PDF exported · %1 rows · %2").arg(exported.rowCount).arg(exported.path)
                     : exported.error
             }
@@ -156,11 +155,42 @@ Tk.AppWindow {
                     readOnly: true
                 }
             }
+            Item {
+                height: Tk.Theme.size.waveformHeight * 9
+                Tk.Flex.basis: Tk.Theme.size.panelMinWidth * 2.3; Tk.Flex.shrink: 0
+                Tk.PrintPreview {
+                    id: printPreview
+                    objectName: "reportPrintPreview"
+                    anchors.fill: parent
+                    pageCount: printer.pageCount
+                    currentPage: Math.min(window.currentPage, Math.max(0, printer.pageCount - 1))
+                    pageRange: printer.settings.pageRange
+                    settings: printer.settings
+                    capabilities: printer.capabilities
+                    destinations: printer.destinations
+                    job: printer.job
+                    onPageRequested: function(index) { window.currentPage = index }
+                    onPageRangeChangeRequested: function(range) { printer.applySettings({ pageRange: range }) }
+                    onSettingsChangeRequested: function(next) { if (!printer.applySettings(next)) window.workflowStatus = printer.lastError }
+                    onPrintRequested: function(settings, range) {
+                        if (printer.print({ pageRange: range }) === "") window.workflowStatus = printer.lastError
+                    }
+                    onCancelPrintRequested: function(id) { printer.cancel(id) }
+                    Tk.PrintSheetView {
+                        objectName: "reportPrintSheet"
+                        anchors.fill: parent
+                        adapter: printer
+                        pageIndex: printPreview.currentPage
+                        Accessible.role: Accessible.Graphic
+                        Accessible.name: qsTr("Printed sheet for report page %1").arg(pageIndex + 1)
+                    }
+                }
+            }
         }
         Tk.Notice {
             variant: "info"; title: qsTr("Fixture boundary")
-            text: qsTr("SQLite sample records are in memory. Design JSON is versioned and atomically saved to a local file with table/field names; reopen rechecks the live schema. Request export builds a paginated RichTextDocument and writes PDF using its document renderer.")
+            text: qsTr("SQLite sample records are in memory. Design edits are undoable document commands; the design JSON is versioned and atomically saved with table, field and type bindings, and reopen rechecks the live schema. The report is grouped by department with a page per group; preview, PDF and printers share one paginated document.")
         }
-        Tk.Caption { text: window.workflowStatus; wrapMode: Text.Wrap }
+        Tk.Caption { text: reportOutput.errorText ? qsTr("%1 · last error: %2").arg(window.workflowStatus).arg(reportOutput.errorText) : window.workflowStatus; wrapMode: Text.Wrap }
     }
 }

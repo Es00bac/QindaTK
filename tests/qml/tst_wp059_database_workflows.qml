@@ -14,6 +14,9 @@ TestCase {
 
     Component { id: formComponent; Tk.FormDesigner { provider: root.provider; tableName: "people"; recordId: "1"; mode: "edit"; record: ({ id: 1, name: "Mira", active: 1 }) } }
     Component { id: spyComponent; SignalSpy {} }
+    Component { id: documentComponent; Tk.LocalDataDesignDocument {} }
+    Component { id: reportComponent; Tk.ReportDesigner { provider: root.provider } }
+    Component { id: outputComponent; Tk.LocalReportDocumentModel {} }
 
     function init() {
         verify(provider.openMemory())
@@ -51,5 +54,54 @@ TestCase {
         verify(migrationPlan.ok)
         verify(!provider.tables.includes("people_name"))
         verify(provider.executeMigration(migrationPlan.sql).ok)
+    }
+
+    // WP-059: the designers edit a LocalDataDesignDocument through undoable
+    // commands, and the exported definition runs through the report engine.
+    function test_design_document_drives_designers() {
+        const doc = createTemporaryObject(documentComponent, root)
+        verify(doc.bindTable(root.provider, "people"))
+        const form = createTemporaryObject(formComponent, root, { designDocument: doc, mode: "design" })
+        verify(form)
+        compare(form.tableName, "people")
+        compare(form.displayFields.length, 3)
+        verify(form.updateLabel("name", "Full name"))
+        compare(form.caption("name"), "Full name")
+        verify(form.moveField("active", -2))
+        compare(String(form.displayFields[0].name), "active")
+        verify(form.setShown("id", false))
+        compare(form.displayFields.length, 3)
+        form.mode = "edit"
+        compare(form.displayFields.length, 2)
+        verify(doc.undo())
+        compare(form.displayFields.length, 3)
+        verify(doc.undo())
+        verify(doc.undo())
+        compare(form.caption("name"), "name")
+        compare(String(form.displayFields[0].name), "id")
+
+        const report = createTemporaryObject(reportComponent, root, { designDocument: doc })
+        verify(report)
+        compare(report.tableName, "people")
+        verify(report.applyGroup("active", "id", "sum", true))
+        compare(doc.report.groups.length, 1)
+        compare(report.groupField, "active")
+        verify(report.pageBreakPerGroup)
+        verify(report.applyFilter("name", "Mira"))
+        compare(report.filterField, "name")
+        compare(doc.report.query.parameters.filterValue.type, "text")
+        const exported = createTemporaryObject(spyComponent, root, { target: report, signalName: "exportRequested" })
+        report.requestExport()
+        compare(exported.count, 1)
+        const output = createTemporaryObject(outputComponent, root)
+        const built = output.build(root.provider, exported.signalArguments[0][1])
+        verify(built.ok, built.error)
+        compare(output.rowCount, 1)
+        compare(output.groupCount, 1)
+        verify(doc.undo())
+        compare(report.filterField, "")
+        verify(!report.applyGroup("missing", "", "sum", false))
+        verify(report.previewError.length > 0)
+        compare(report.groupField, "active")
     }
 }
