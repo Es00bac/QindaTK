@@ -4,12 +4,17 @@ import QtQuick
 import QindaTK as Tk
 
 // The host owns recurrence interpretation and preview expansion.
+// AGENT-CONTRACT (examples/local-productivity/Main.qml, LocalProductivityStore):
+// ruleChangeRequested maps to setEventRecurrence and
+// occurrenceExceptionRequested to setOccurrenceExcluded; the host then
+// republishes `rule` (with the stored `exceptions`) and a fresh `preview`.
 Tk.Box {
     id: control
     objectName: "recurrenceEditor"
     property var rule: ({ frequency: "weekly", interval: 1, weekdays: [], endMode: "never", count: 0, until: "", exceptions: [] })
     property string eventId: ""
     property string zone: "UTC"
+    property string startLocal: "" // series start, used to explain skipped dates
     property var preview: []
     property string previewState: "idle"
     property string lastRequestId: ""
@@ -28,6 +33,13 @@ Tk.Box {
     function requestPreview() { const id = "recurrence-preview-" + Date.now() + "-" + (++_requestSerial); lastRequestId = id; requestState = "pending"; previewState = "pending"; previewRequested(id, eventId, Object.assign({}, rule)); return id }
     function acknowledge(id, state, message) { if (id !== lastRequestId || requestState !== "pending") return false; requestState = state; requestMessage = message || ""; return true }
     function requestException(occurrenceId, excluded) { if (!occurrenceId) return false; const id = "recurrence-exception-" + Date.now() + "-" + (++_requestSerial); lastRequestId = id; requestState = "pending"; requestMessage = ""; occurrenceExceptionRequested(id, eventId, occurrenceId, excluded); return id }
+    // RFC 5545: a rule on a date that some months or years lack skips them.
+    readonly property string skipNote: {
+        const day = Number(String(startLocal).slice(8, 10)), month = Number(String(startLocal).slice(5, 7))
+        if (rule.frequency === "monthly" && day >= 29) return qsTr("Months without day %1 are skipped.").arg(day)
+        if (rule.frequency === "yearly" && month === 2 && day === 29) return qsTr("Repeats only in leap years.")
+        return ""
+    }
     function toggleWeekday(index) { const next = (rule.weekdays || []).slice(); const day = index + 1; const at = next.indexOf(day); if (at < 0) next.push(day); else next.splice(at, 1); next.sort(); return propose("weekdays", next) }
 
     Tk.Flex {
@@ -74,20 +86,38 @@ Tk.Box {
                 tooltip: qsTr("Last local date for the series"); Accessible.name: tooltip
                 onEditingFinished: control.propose("until", text)
             }
-            Tk.Label { text: qsTr("Exceptions: %1 · host managed").arg((control.rule.exceptions || []).length); muted: true; Tk.Flex.grow: 1 }
+            Tk.Label { objectName: "recurrenceExceptionCount"; text: qsTr("Skipped: %1").arg((control.rule.exceptions || []).length); muted: true; Tk.Flex.grow: 1 }
             Tk.Button { objectName: "recurrencePreview"; text: qsTr("Preview"); tooltip: qsTr("Request host occurrence preview"); onClicked: control.requestPreview() }
+        }
+        Tk.Caption { objectName: "recurrenceSkipNote"; visible: control.skipNote.length > 0; text: control.skipNote; color: Tk.Theme.color.textMuted }
+        Repeater {
+            model: control.rule.exceptions || []
+            delegate: Tk.Flex {
+                id: exceptionRow
+                required property var modelData
+                objectName: "recurrenceException"
+                direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center
+                Tk.Label { text: qsTr("Skipped %1").arg(String(exceptionRow.modelData).split("/").pop().replace("T", " ")); mono: true; muted: true; Tk.Flex.grow: 1 }
+                Tk.Button {
+                    objectName: "recurrenceRestore"; small: true; text: qsTr("Restore")
+                    tooltip: qsTr("Ask the host to bring this occurrence back"); Accessible.name: tooltip
+                    onClicked: control.requestException(String(exceptionRow.modelData), false)
+                }
+            }
         }
         Tk.Label { objectName: "recurrencePreviewState"; text: control.requestMessage || (control.previewState === "ready" ? qsTr("%1 occurrences supplied by host").arg(control.preview.length) : control.previewState); muted: true }
         Repeater {
             model: control.preview
             delegate: Tk.Flex {
+                id: previewRow
                 required property var modelData
                 direction: Tk.Flex.Row; gap: Tk.Theme.space.sm; align: Tk.Flex.Center
-                Tk.Label { text: String(modelData.localStart || "") + " · " + String(modelData.zone || control.zone); mono: true; Tk.Flex.grow: 1 }
+                Tk.Label { text: String(previewRow.modelData.localStart || "").replace("T", " ") + " · " + String(previewRow.modelData.zone || control.zone); mono: true; Tk.Flex.grow: 1 }
                 Tk.Button {
+                    objectName: "recurrenceSkip"; small: true
                     text: qsTr("Skip once"); tooltip: qsTr("Ask the host to exclude this occurrence")
                     Accessible.name: tooltip
-                    onClicked: control.requestException(String(modelData.occurrenceId || modelData.localStart || ""), true)
+                    onClicked: control.requestException(String(previewRow.modelData.occurrenceId || previewRow.modelData.localStart || ""), true)
                 }
             }
         }

@@ -116,9 +116,19 @@ qt_add_qml_module(qindatk
         core/document_session.cpp core/document_session.h
         core/document_manager.cpp core/document_manager.h
         core/settings_model.cpp core/settings_model.h
-        core/local_productivity_store.cpp core/local_productivity_store.h
+        core/local_productivity_store.cpp core/local_productivity_events.cpp core/local_productivity_store.h
         core/local_attachment_store.cpp core/local_attachment_store.h
         core/local_calendar_projection_model.cpp core/local_calendar_projection_model.h
+        core/protocol_client.cpp core/protocol_client.h
+        core/mail_mime.cpp core/mail_mime_parse.cpp core/mail_mime.h
+        core/mail_address_validator.cpp core/mail_address_validator.h
+        core/smtp_mail_provider.cpp core/smtp_mail_provider.h
+        core/imap_session.cpp core/imap_session.h
+        core/imap_mail_jobs.cpp core/imap_mail_jobs.h
+        core/imap_mail_provider.cpp core/imap_mail_provider.h
+        core/ical_codec.cpp core/ical_overrides.cpp core/ical_codec.h core/ical_codec_p.h
+        core/caldav_jobs.cpp core/caldav_jobs.h
+        core/caldav_provider.cpp core/caldav_provider.h
         core/state_store.cpp core/state_store.h
         core/settings_persistence.cpp core/settings_persistence.h
         core/workspace_session.cpp core/workspace_session.h

@@ -900,6 +900,93 @@ typing step per block), and every draft commits before the page changes or
 the editor is destroyed (`flushDrafts`). Pooled cards are hidden while in
 the pool, because `reuseItems` only culls them and a hidden-but-connected
 card could take a focus request meant for the visible one.
+## D-186 — Protocol providers run one blocking exchange per request off the GUI thread
+
+**Context.** WP-058 needs SMTP, IMAP and CalDAV clients behind the existing
+request/acknowledge seam of the productivity views. Event-driven state
+machines per protocol would triple the parsing surface, and
+QNetworkAccessManager covers only HTTP.
+
+**Decision.** `SmtpMailProvider`, `ImapMailProvider` and `CalDavProvider`
+copy their configuration and the records they need on the GUI thread, run the
+whole protocol dialogue as sequential blocking reads and writes on a
+`QSslSocket` in a thread-pool job (`Protocol::startWorker`), and apply the
+result map to `LocalProductivityStore` / `LocalAttachmentStore` back on the
+GUI thread before emitting the correlated signal. One shared `Channel`
+provides line/literal/HTTP framing, bounded reads, first-failure
+classification (`offline` vs `rejected`) and a redacted transcript.
+
+**Consequences.** Each exchange reads like the RFC it implements and is
+tested against in-process servers over real TCP. A request cannot be
+cancelled mid-exchange; it ends at `timeoutMs`. Jobs never touch QObjects,
+so destroying a provider only drops the pending result.
+
+## D-187 — Secrets stay in memory and only travel over TLS or loopback
+
+**Context.** Account passwords and OAuth tokens must not reach logs, saved
+store files or QML-visible properties, and a missing STARTTLS offer is the
+classic downgrade path.
+
+**Decision.** `setSecret(secret, mechanism)` is write-only; results carry a
+transcript in which authentication lines are replaced and every secret (and
+its base64 forms) is redacted. Credentials are sent only over TLS, to a
+loopback host, or with an explicit `allowInsecureAuth`. A requested STARTTLS
+that the server does not offer fails the request, and data buffered before
+the TLS handshake is refused.
+
+**Consequences.** Hosts persist secrets themselves (keyring). Tests assert
+the secret is absent from results, captured log output and saved files.
+Plain-text servers on the LAN need `allowInsecureAuth`.
+
+## D-188 — Remote writes are conditional; local edits are detected by digest
+
+**Context.** Offline edits, other clients and rebuilt mailboxes can all
+change a record between reads. Silent last-writer-wins loses work.
+
+**Decision.** CalDAV writes use `If-Match` on the last seen ETag (or
+`If-None-Match: *` for new resources) and deletes use `If-Match`. A local
+edit is a changed SHA-256 digest of the mapped fields against `syncDigest`,
+so store operations need no dirty flag; if the server's ETag also moved and
+its content no longer matches that digest, the record becomes a conflict for
+the host to resolve (`local` or `remote`). Writes start from the server's
+last text so unmapped properties survive. IMAP identities include
+UIDVALIDITY; a change resets that mailbox and stale actions return
+`conflict`. SMTP delivery is all-or-nothing across recipients. A local store
+stale-writer rejection is also reported as `conflict`.
+
+**Consequences.** Nothing is overwritten without the user seeing it. After a
+push the record adopts the canonical mapping of what was sent, so the next
+sync is quiet. Conflict details are in memory only; a restart rediscovers
+them on the next sync.
+
+**Recurrence instances (addendum, WP-058 audit).** Editing one occurrence
+must never rewrite the series, and a moved server instance must appear at
+its moved time. An occurrence is therefore identified by its original local
+start (`recurrenceId`, the RECURRENCE-ID in the master's zone) and stays
+`<eventId>/<local start>` wherever it moves. One-occurrence edits are
+`overrides` entries on the event record, mapped to and from RECURRENCE-ID
+components; "this and following" splits the series into a new record that
+CalDAV creates as a new resource; a series move carries the exclusion and
+override keys with it. Overrides and exclusions a new rule no longer
+produces are dropped rather than kept as hidden state. All-day series are
+date-only and move by whole days (docs/productivity-store.md#calendar-edits).
+
+## D-189 — Hosted services are host adapters over the standard protocols
+
+**Context.** Gmail, Microsoft 365, iCloud and similar services differ in
+sign-in, discovery and private APIs, and the toolkit must not ship client IDs
+or depend on a vendor.
+
+**Decision.** The toolkit implements only SMTP, IMAP and CalDAV. A host
+adapter owns sign-in (OAuth, token refresh, keyring), endpoint discovery and
+special folders, and passes tokens as `xoauth2` (mail) or `bearer` (CalDAV).
+A service reachable only through its own API is served by an adapter object
+with the same invokables, signals and record fields
+(docs/productivity-providers.md#host-adapters-for-hosted-services).
+
+**Consequences.** Views and the store are unchanged by the account type.
+No hosted account is exercised in the automated tests; qualification of real
+accounts belongs to WP-089/WP-090, which the user deferred on 2026-09-24.
 
 ## D-178 — A score is written music with its own model, separate from MIDI
 

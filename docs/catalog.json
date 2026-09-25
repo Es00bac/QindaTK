@@ -4612,7 +4612,7 @@
       "name": "CalendarView",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Render host-projected agenda data; event edits and navigation are requests.",
+      "description": "Render host-projected agenda data; event edits and navigation are requests. AGENT-CONTRACT (LocalCalendarProjectionModel, LocalProductivityStore.shiftEventLocal): rows may be occurrences ({eventId, occurrenceId, recurrenceRule, overridden}); a move proposal is {kind: \"shift-local\", minutes, zone, scope, occurrenceId} where scope is \"occurrence\", \"following\" or \"series\" for a recurring row and \"series\" otherwise. All-day rows move by whole days.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/CalendarView.qml",
@@ -4620,7 +4620,7 @@
         {
           "name": "events",
           "type": "var",
-          "default": "[] // {eventId,title,startLocal,endLocal,zone,allDay,calendarId}",
+          "default": "[] // {eventId,occurrenceId,title,startLocal,endLocal,zone,allDay,calendarId,recurrenceRule,overridden}",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -4635,6 +4635,14 @@
         },
         {
           "name": "selectedEventId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedOccurrenceId",
           "type": "string",
           "default": "\"\"",
           "readonly": false,
@@ -4674,6 +4682,14 @@
           "required": false
         },
         {
+          "name": "moveScope",
+          "type": "string",
+          "default": "\"occurrence\" // for recurring rows: occurrence, following, series",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "lastRequestId",
           "type": "string",
           "default": "\"\"",
@@ -4688,6 +4704,30 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "requestMessage",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasRecurring",
+          "type": "bool",
+          "default": "events.some(function(row) { return control.isRecurring(row) })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scopes",
+          "type": "var",
+          "default": "[{ text: qsTr(\"This event\"), value: \"occurrence\", tooltip: qsTr(\"Move only the chosen occurrence\") },",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -4700,11 +4740,27 @@
           "parameters": "string eventId"
         },
         {
+          "name": "occurrenceSelected",
+          "parameters": "string eventId, string occurrenceId"
+        },
+        {
           "name": "eventChangeRequested",
           "parameters": "string requestId, string eventId, var proposedChange"
         }
       ],
       "methods": [
+        {
+          "name": "isRecurring",
+          "parameters": "row"
+        },
+        {
+          "name": "isAllDay",
+          "parameters": "row"
+        },
+        {
+          "name": "rowKey",
+          "parameters": "row"
+        },
         {
           "name": "navigate",
           "parameters": "direction"
@@ -4714,8 +4770,16 @@
           "parameters": "eventId, proposed"
         },
         {
+          "name": "proposeMove",
+          "parameters": "row, direction"
+        },
+        {
+          "name": "select",
+          "parameters": "row"
+        },
+        {
           "name": "acknowledge",
-          "parameters": "id, state"
+          "parameters": "id, state, message"
         }
       ],
       "enums": {},
@@ -4729,6 +4793,9 @@
       "objectNames": [
         "calendarAgenda",
         "calendarEvent_",
+        "calendarMoveEarlier",
+        "calendarMoveLater",
+        "calendarMoveScope",
         "calendarNext",
         "calendarPrevious",
         "calendarRequestState",
@@ -19002,7 +19069,7 @@
       "name": "MailView",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Host owns message data and applies each explicit operation request.",
+      "description": "Host owns message data and applies each explicit operation request. AGENT-CONTRACT (docs/controls.md, ImapMailProvider): messages carry `threadId` (conversation), `attachments` [{id, name, mimeType, size, state \"remote\"|\"local\"}], `unread`, `flagged` and UTC `date`. The view groups conversations, asks for attachment bytes lazily and tracks each attachment job by request ID, so a late answer only changes the attachment it was asked for, never the reader of another message.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/MailView.qml",
@@ -19028,6 +19095,22 @@
           "type": "var",
           "default": "{",
           "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "threaded",
+          "type": "bool",
+          "default": "true",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "expandedThreadIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
           "defaultProperty": false,
           "required": false
         },
@@ -19086,6 +19169,30 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "attachmentJobs",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "threads",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -19100,9 +19207,37 @@
         {
           "name": "actionRequested",
           "parameters": "string requestId, string messageId, string action"
+        },
+        {
+          "name": "replyRequested",
+          "parameters": "string messageId"
+        },
+        {
+          "name": "attachmentRequested",
+          "parameters": "string requestId, string messageId, string attachmentId"
+        },
+        {
+          "name": "attachmentOpenRequested",
+          "parameters": "string messageId, string attachmentId"
         }
       ],
       "methods": [
+        {
+          "name": "nextId",
+          "parameters": "prefix"
+        },
+        {
+          "name": "formatDate",
+          "parameters": "text"
+        },
+        {
+          "name": "toggleThread",
+          "parameters": "threadId"
+        },
+        {
+          "name": "selectMessage",
+          "parameters": "messageId"
+        },
         {
           "name": "requestRefresh",
           "parameters": ""
@@ -19113,6 +19248,18 @@
         },
         {
           "name": "acknowledge",
+          "parameters": "requestId, state, message"
+        },
+        {
+          "name": "attachmentState",
+          "parameters": "messageId, attachment"
+        },
+        {
+          "name": "requestAttachment",
+          "parameters": "messageId, attachmentId"
+        },
+        {
+          "name": "acknowledgeAttachment",
           "parameters": "requestId, state, message"
         }
       ],
@@ -19126,14 +19273,20 @@
       "bridge": false,
       "objectNames": [
         "mailArchive",
+        "mailAttachmentLoad",
+        "mailAttachmentState",
+        "mailAttachment_",
         "mailDelete",
         "mailError",
         "mailMessageList",
-        "mailMessage_",
         "mailReader",
         "mailReaderBody",
+        "mailReaderSender",
         "mailRefresh",
+        "mailReply",
         "mailRequestState",
+        "mailToggleFlag",
+        "mailToggleRead",
         "mailView"
       ]
     },
@@ -28214,7 +28367,7 @@
       "name": "RecurrenceEditor",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "The host owns recurrence interpretation and preview expansion.",
+      "description": "The host owns recurrence interpretation and preview expansion. AGENT-CONTRACT (examples/local-productivity/Main.qml, LocalProductivityStore): ruleChangeRequested maps to setEventRecurrence and occurrenceExceptionRequested to setOccurrenceExcluded; the host then republishes `rule` (with the stored `exceptions`) and a fresh `preview`.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/RecurrenceEditor.qml",
@@ -28239,6 +28392,14 @@
           "name": "zone",
           "type": "string",
           "default": "\"UTC\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "startLocal",
+          "type": "string",
+          "default": "\"\" // series start, used to explain skipped dates",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -28298,6 +28459,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "skipNote",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -28348,10 +28517,15 @@
         "recurrenceCount",
         "recurrenceEditor",
         "recurrenceEndMode",
+        "recurrenceException",
+        "recurrenceExceptionCount",
         "recurrenceFrequency",
         "recurrenceInterval",
         "recurrencePreview",
         "recurrencePreviewState",
+        "recurrenceRestore",
+        "recurrenceSkip",
+        "recurrenceSkipNote",
         "recurrenceUntil",
         "recurrenceWeekday_"
       ]
@@ -29622,7 +29796,7 @@
       "name": "RichMailComposer",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Draft fields are host snapshots. Sending is only a request; this view never sends.",
+      "description": "Draft fields are host snapshots. Sending is only a request; this view never sends. AGENT-CONTRACT (docs/controls.md, examples/local-productivity/Main.qml): recipients are TokenField tokens validated by MailAddressValidator (the rules SmtpMailProvider sends with) and published as the draft's `to`/`cc` strings; attachments change only through acknowledged attachment jobs.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/RichMailComposer.qml",
@@ -29692,9 +29866,41 @@
           "required": false
         },
         {
+          "name": "attachmentJobs",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "toField",
+          "type": "alias",
+          "default": "toTokens",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "ccField",
+          "type": "alias",
+          "default": "ccTokens",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "recipientError",
+          "type": "string",
+          "default": "recipientProblem(toTokens.tokens, ccTokens.tokens)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "hasRecipient",
           "type": "bool",
-          "default": "String(workingDraft.to || \"\").trim().length > 0",
+          "default": "toTokens.tokens.some(function(token) { return token.valid !== false })",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -29702,7 +29908,7 @@
         {
           "name": "validDraft",
           "type": "bool",
-          "default": "hasRecipient && String(workingDraft.subject || \"\").trim().length > 0",
+          "default": "hasRecipient && recipientError.length === 0",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -29720,6 +29926,14 @@
         {
           "name": "sendRequested",
           "parameters": "string requestId, var draft"
+        },
+        {
+          "name": "attachmentAddRequested",
+          "parameters": "string requestId"
+        },
+        {
+          "name": "attachmentRemoveRequested",
+          "parameters": "string requestId, string attachmentId"
         }
       ],
       "methods": [
@@ -29730,6 +29944,22 @@
         {
           "name": "plainDocumentJson",
           "parameters": "text"
+        },
+        {
+          "name": "checkRecipient",
+          "parameters": "text"
+        },
+        {
+          "name": "recipientTokens",
+          "parameters": "text"
+        },
+        {
+          "name": "recipientText",
+          "parameters": "tokens"
+        },
+        {
+          "name": "recipientProblem",
+          "parameters": "to, cc"
         },
         {
           "name": "snapshot",
@@ -29748,6 +29978,14 @@
           "parameters": ""
         },
         {
+          "name": "commitRecipientDrafts",
+          "parameters": ""
+        },
+        {
+          "name": "nextId",
+          "parameters": "prefix"
+        },
+        {
           "name": "requestSave",
           "parameters": ""
         },
@@ -29758,6 +29996,22 @@
         {
           "name": "acknowledge",
           "parameters": "id, state, message"
+        },
+        {
+          "name": "requestAttachmentAdd",
+          "parameters": ""
+        },
+        {
+          "name": "requestAttachmentRemove",
+          "parameters": "attachmentId"
+        },
+        {
+          "name": "acknowledgeAttachment",
+          "parameters": "requestId, state, message, attachment"
+        },
+        {
+          "name": "dismissAttachmentJob",
+          "parameters": "requestId"
         }
       ],
       "enums": {},
@@ -29769,12 +30023,18 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "composerAttach",
+        "composerAttachmentJob",
+        "composerAttachmentRemove",
+        "composerAttachment_",
         "composerAttachments",
         "composerBody",
         "composerCc",
         "composerFormatBar",
+        "composerRecipientError",
         "composerSave",
         "composerSend",
+        "composerStatus",
         "composerSubject",
         "composerTo",
         "richMailComposer"
@@ -37275,7 +37535,7 @@
       "name": "TaskBoard",
       "kind": "qml",
       "base": "Tk.Box",
-      "description": "Host snapshots are authoritative; movement and editing are proposals.",
+      "description": "Host snapshots are authoritative; movement and editing are proposals. AGENT-CONTRACT (docs/controls.md, CalDavProvider.conflicts): a move names the target status and index within it (-1 = end), so reorder within a column and moves between columns share moveRequested. Tasks may carry `syncState` (\"synced\", \"conflict\"); `conflicts` lists the provider's conflict entries ({collection, id, remoteFields, remoteDeleted}) and each resolution is a conflictResolutionRequested(requestId, taskId, choice).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TaskBoard.qml",
@@ -37283,7 +37543,15 @@
         {
           "name": "columns",
           "type": "var",
-          "default": "[] // [{status,label,tasks:[{taskId,title,assignee,dueDate,priority}]}]",
+          "default": "[] // [{status,label,tasks:[{taskId,title,assignee,dueDate,priority,syncState}]}]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "conflicts",
+          "type": "var",
+          "default": "[]",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -37343,26 +37611,70 @@
           "readonly": false,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "dragTaskId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropStatus",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "dropIndex",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "taskConflicts",
+          "type": "var",
+          "default": "conflicts.filter(function(entry) { return String(entry.collection || \"tasks\") === \"tasks\" })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
         {
           "name": "moveRequested",
-          "parameters": "string requestId, string taskId, string fromStatus, string toStatus"
+          "parameters": "string requestId, string taskId, string fromStatus, string toStatus, int targetIndex"
         },
         {
           "name": "editRequested",
           "parameters": "string requestId, string taskId"
+        },
+        {
+          "name": "conflictResolutionRequested",
+          "parameters": "string requestId, string taskId, string choice"
         }
       ],
       "methods": [
         {
+          "name": "nextId",
+          "parameters": "prefix"
+        },
+        {
           "name": "move",
-          "parameters": "taskId, from, to"
+          "parameters": "taskId, from, to, targetIndex"
         },
         {
           "name": "edit",
           "parameters": "taskId"
+        },
+        {
+          "name": "resolveConflict",
+          "parameters": "taskId, choice"
         },
         {
           "name": "acknowledge",
@@ -37371,6 +37683,30 @@
         {
           "name": "includes",
           "parameters": "task"
+        },
+        {
+          "name": "columnIndex",
+          "parameters": "status"
+        },
+        {
+          "name": "taskIndex",
+          "parameters": "status, taskId"
+        },
+        {
+          "name": "shift",
+          "parameters": "taskId, status, delta, across"
+        },
+        {
+          "name": "titleOf",
+          "parameters": "taskId"
+        },
+        {
+          "name": "dropTarget",
+          "parameters": "scenePoint"
+        },
+        {
+          "name": "finishDrag",
+          "parameters": "taskId, fromStatus"
         }
       ],
       "enums": {},
@@ -37385,8 +37721,16 @@
         "taskBoard",
         "taskCard_",
         "taskColumn_",
+        "taskConflict_",
+        "taskConflicts",
         "taskFilter",
-        "taskRequestState"
+        "taskKeepLocal",
+        "taskMoveDown",
+        "taskMoveUp",
+        "taskRequestNotice",
+        "taskRequestState",
+        "taskSyncState",
+        "taskUseRemote"
       ]
     },
     {
@@ -39121,7 +39465,7 @@
       "name": "TokenField",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: committed tokens are {id,label,value,valid}; IDs survive reorder and label edits. completionProvider.request(query) returns a request ID, then finished(id,{candidates:[{label,value,valid}]}). Only the current ID, draft and edit revision may publish suggestions. Completion never edits a committed token; choosing a suggestion makes one PropertyBinding edit.",
+      "description": "AGENT-CONTRACT: committed tokens are {id,label,value,valid}; IDs survive reorder and label edits. completionProvider.request(query) returns a request ID, then finished(id,{candidates:[{label,value,valid}]}). Only the current ID, draft and edit revision may publish suggestions. Completion never edits a committed token; choosing a suggestion makes one PropertyBinding edit. `standalone` hosts (RichMailComposer recipients) own `tokens` themselves and receive every edit as tokensEdited(tokens); `validator(label)` may return {label, value, valid, error} to mark each committed token.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TokenField.qml",
@@ -39129,6 +39473,22 @@
         {
           "name": "binding",
           "type": "Tk.PropertyBinding",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "standalone",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "validator",
+          "type": "var",
           "default": "null",
           "readonly": false,
           "defaultProperty": false,
@@ -39154,6 +39514,14 @@
           "name": "label",
           "type": "string",
           "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "placeholderText",
+          "type": "string",
+          "default": "qsTr(\"Add token\")",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -39249,7 +39617,7 @@
         {
           "name": "readOnly",
           "type": "bool",
-          "default": "!binding || !binding.writable",
+          "default": "standalone ? !enabled : (!binding || !binding.writable)",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -39275,6 +39643,10 @@
         {
           "name": "tokenReordered",
           "parameters": "string id, int from, int to"
+        },
+        {
+          "name": "tokensEdited",
+          "parameters": "var tokens"
         }
       ],
       "methods": [
@@ -47391,6 +47763,177 @@
           "name": "exportDxf",
           "returns": "bool",
           "parameters": "const QString &path"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "CalDavProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Two-way CalDAV sync of one calendar collection with LocalProductivityStore: VEVENT <-> events, VTODO <-> tasks. Remote changes arrive by ETag; local edits are detected by a digest of the mapped fields and written back with If-Match, so a record changed on both sides becomes a conflict that the host resolves with resolveConflict(..., \"local\" | \"remote\"). AGENT-CONTRACT (CalendarView.qml, TaskBoard.qml, docs/productivity-providers.md): synced records carry remoteAccount/remoteHref/remoteEtag/remoteUid/remoteIcs/ syncDigest/syncState; a local record is pushed as new when its remoteAccount equals `accountId` and it has no remoteHref. result.state is \"accepted\", \"rejected\", \"offline\" or \"conflict\". AGENT-GUARD: the secret lives only in memory and is redacted from results.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/caldav_provider.h",
+      "properties": [
+        {
+          "name": "collectionUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "userName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "accountId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "calendarId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "defaultZone",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "allowInsecureAuth",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoSave",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "store",
+          "type": "LocalProductivityStore *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hasSecret",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "conflicts",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configChanged",
+          "parameters": ""
+        },
+        {
+          "name": "secretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "conflictsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "syncFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "changeFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setSecret",
+          "returns": "void",
+          "parameters": "const QString &secret, const QString &mechanism = QStringLiteral(\"basic\""
+        },
+        {
+          "name": "clearSecret",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "sync",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "removeRemote",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &collection, const QString &recordId"
+        },
+        {
+          "name": "resolveConflict",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &collection, const QString &recordId, const QString &choice"
         }
       ],
       "enums": {},
@@ -57652,6 +58195,205 @@
       "bridge": false
     },
     {
+      "name": "ImapMailProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "IMAP mailbox sync into LocalProductivityStore messages, remote flag/archive/ delete actions for MailView, and on-demand attachment download into LocalAttachmentStore. Each operation is one worker-thread IMAP session. AGENT-CONTRACT (MailView.qml, docs/productivity-providers.md): message records keep `id == messageId == \"imap:<accountId>:<mailbox>:<uidValidity>:<uid>\"` plus remoteAccount/remoteMailbox/remoteUidValidity/remoteUid; result.state is \"accepted\", \"rejected\", \"offline\" or \"conflict\" (stale UIDVALIDITY or a store stale-writer rejection) and is passed to MailView.acknowledge(). AGENT-GUARD: the secret lives only in memory (no READ accessor) and is redacted from every result, error and transcript.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/imap_mail_provider.h",
+      "properties": [
+        {
+          "name": "host",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "security",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "userName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "accountId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "mailbox",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "archiveMailbox",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fetchLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumMessageBytes",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "allowInsecureAuth",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoSave",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "store",
+          "type": "LocalProductivityStore *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "attachmentStore",
+          "type": "LocalAttachmentStore *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hasSecret",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configChanged",
+          "parameters": ""
+        },
+        {
+          "name": "secretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "syncFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "actionFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "attachmentFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setSecret",
+          "returns": "void",
+          "parameters": "const QString &secret, const QString &mechanism = QStringLiteral(\"auto\""
+        },
+        {
+          "name": "clearSecret",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "sync",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "applyAction",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QString &action"
+        },
+        {
+          "name": "fetchAttachment",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QString &attachmentId"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "JobModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
@@ -58505,9 +59247,19 @@
           "parameters": ""
         },
         {
-          "name": "shiftEventLocal",
+          "name": "setEventRecurrence",
           "returns": "QVariantMap",
-          "parameters": "const QString &eventId, int minutes"
+          "parameters": "const QString &eventId, const QVariantMap &rule"
+        },
+        {
+          "name": "setOccurrenceExcluded",
+          "returns": "QVariantMap",
+          "parameters": "const QString &eventId, const QString &occurrenceId, bool excluded"
+        },
+        {
+          "name": "setOccurrenceOverride",
+          "returns": "QVariantMap",
+          "parameters": "const QString &eventId, const QString &occurrenceId, const QVariantMap &fields"
         },
         {
           "name": "undoEventChange",
@@ -59065,6 +59817,38 @@
         {
           "name": "contentDirection",
           "returns": "QString",
+          "parameters": "const QString &text"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "MailAddressValidator",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Recipient parsing for RichMailComposer's token fields, using the same RFC 5322 rules SmtpMailProvider applies when it sends (Mime::parseAddressList), so a recipient the composer accepts is one the provider accepts.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/mail_address_validator.h",
+      "properties": [],
+      "signals": [],
+      "methods": [
+        {
+          "name": "parseOne",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "parseList",
+          "returns": "QVariantMap",
           "parameters": "const QString &text"
         }
       ],
@@ -64449,7 +65233,7 @@
       "name": "RecurrenceService",
       "kind": "cpp",
       "base": "QObject",
-      "description": "Expands local-wall-time event rules for CalendarView and RecurrenceEditor. The host remains responsible for event storage and provider synchronization.",
+      "description": "Expands local-wall-time event rules for CalendarView and RecurrenceEditor. The host remains responsible for event storage and provider synchronization. AGENT-CONTRACT (local_calendar_projection_model.cpp, local_productivity_events.cpp, ical_codec.cpp): a date-only start (\"yyyy-MM-dd\") is an all-day series. Its occurrences have a date-only localStart/occurrenceId, span whole local days (durationSeconds / 86400, at least one) and begin at the zone's start of day, so a DST change never shortens or skips them. Timed starts accept \"yyyy-MM-ddTHH:mm[:ss]\" or a space separator. AGENT-NOTE (RFC 5545 section 3.3.10): a monthly rule on the 29th-31st and a yearly rule on 29 February skip the months or years without that date; the skipped dates do not count toward `count` (docs/productivity-store.md).",
       "singleton": false,
       "attached": null,
       "file": "src/core/recurrence_service.h",
@@ -64473,6 +65257,11 @@
           "name": "expand",
           "returns": "QVariantList",
           "parameters": "const QString &eventId, const QString &startLocal, int durationSeconds, const QString &zoneId, const QVariantMap &rule, const QString &rangeStartUtc, const QString &rangeEndUtc, int limit = 200"
+        },
+        {
+          "name": "occurrenceAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &eventId, const QString &startLocal, int durationSeconds, const QString &zoneId, const QVariantMap &rule, const QString &occurrenceLocal"
         }
       ],
       "enums": {},
@@ -70591,6 +71380,164 @@
           "name": "hidePointer",
           "returns": "void",
           "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "SmtpMailProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "SMTP delivery (RFC 5321 subset: EHLO, STARTTLS, AUTH PLAIN/LOGIN/XOAUTH2, MAIL/RCPT/DATA) for RichMailComposer drafts. The exchange runs off the GUI thread; `sendFinished` carries the correlated acknowledgment. AGENT-CONTRACT (RichMailComposer.qml): result.state is one of \"accepted\", \"rejected\" or \"offline\", the values RichMailComposer.acknowledge() shows. AGENT-GUARD: the secret is held only in memory. It has no READ accessor, is never put in a result, transcript or saved record, and is redacted from any server text; tst_smtp_mail_provider checks results, logs and saved files.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/smtp_mail_provider.h",
+      "properties": [
+        {
+          "name": "host",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "port",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "security",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "userName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fromAddress",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fromName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "heloName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "allowInsecureAuth",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "attachmentStore",
+          "type": "LocalAttachmentStore *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hasSecret",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configChanged",
+          "parameters": ""
+        },
+        {
+          "name": "secretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sendFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setSecret",
+          "returns": "void",
+          "parameters": "const QString &secret, const QString &mechanism = QStringLiteral(\"auto\""
+        },
+        {
+          "name": "clearSecret",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "send",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QVariantMap &draft"
+        },
+        {
+          "name": "composeMessage",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &draft"
         }
       ],
       "enums": {},

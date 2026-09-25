@@ -115,12 +115,17 @@ presenter/audience snapshots through five toolkit controls.
 The [productivity fixture](productivity-suite/Main.qml) exercises mail,
 calendar, recurrence and task controls. Its recurrence preview uses
 `RecurrenceService`; message and task records remain sample snapshots.
-The [local productivity fixture](local-productivity/Main.qml) connects the
-same kinds of controls to `LocalProductivityStore` for persisted mail, drafts,
-events and task moves with local recovery and undo. `RichMailComposer` edits a
-`RichTextDocument`; autosaved draft rows keep both the compatibility plain
-body and canonical `richDocumentJson`, so formatting reopens with the stable
-draft ID and attachment metadata intact.
+The [local productivity fixture](local-productivity/Main.qml) puts all five
+views over one `LocalProductivityStore`: threaded mail with lazy attachments,
+a composer with validated recipient tokens and attachment jobs, a projected
+calendar with scoped moves and a persisted recurrence editor, and a task board
+with keyboard/pointer reorder and conflict resolution. Its
+`ProductivityHost.qml` routes each request to the store and to the SMTP, IMAP
+and CalDAV providers; with no account configured those requests come back
+rejected by the providers, and `tst_productivity_seam` runs the same file
+against local test servers. `RichMailComposer` edits a `RichTextDocument`;
+autosaved draft rows keep both the compatibility plain body and canonical
+`richDocumentJson`.
 The [attachment fixture](local-attachment-store/Main.qml) imports and rereads
 actual local payload bytes alongside a draft's stable attachment metadata.
 The [local calendar projection fixture](local-calendar-projection/Main.qml)
