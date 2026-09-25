@@ -8,6 +8,7 @@
 #include <QBuffer>
 #include <QPageSize>
 #include <QPainter>
+#include <QSet>
 #include <QPdfWriter>
 #include <QTextDocument>
 #include <algorithm>
@@ -195,6 +196,27 @@ QImage SlideDeck::renderFrame(const QString &slideId, int step, const QString &t
     const auto parsed = TimelineTime::parseDecimal(ticks.isEmpty() ? QStringLiteral("0") : ticks);
     if (!parsed || Slides::slideIndex(m_state, slideId) < 0) return {};
     return Slides::renderImage(m_state, Slides::evaluate(m_state, slideId, step, *parsed), QSize(width, height));
+}
+
+QString SlideDeck::cachedPreview(const Slides::Slide &slide) const
+{
+    const Slides::Master *master = Slides::findMaster(m_state, slide.masterId);
+    if (!master) return {};
+    auto it = m_previews.constFind(slide.id);
+    if (it != m_previews.constEnd() && it->size == m_state.size && it->master == *master && it->slide == slide)
+        return it->url;
+    const QString url = previewDataUrl(slide.id, PreviewWidth);
+    m_previews.insert(slide.id, {slide, *master, m_state.size, url});
+    return url;
+}
+
+void SlideDeck::prunePreviews() const
+{
+    if (m_previews.size() <= m_state.slides.size()) return;
+    QSet<QString> live;
+    for (const Slides::Slide &s : m_state.slides) live.insert(s.id);
+    for (auto it = m_previews.begin(); it != m_previews.end();)
+        it = live.contains(it.key()) ? std::next(it) : m_previews.erase(it);
 }
 
 QString SlideDeck::previewDataUrl(const QString &slideId, int width) const

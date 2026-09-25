@@ -81,10 +81,11 @@ QVariantList SlideDeck::slideSummaries() const
         out << QVariantMap{{"id", s.id}, {"index", i}, {"title", slideTitle(m_state, s)},
                            {"section", s.section}, {"hidden", s.hidden}, {"status", QString()},
                            {"masterId", s.masterId}, {"layoutId", s.layoutId},
-                           {"previewUrl", QString()}, {"effectCount", s.effects.size()},
+                           {"previewUrl", cachedPreview(s)}, {"effectCount", s.effects.size()},
                            {"buildCount", plan.buildCount}, {"transition", s.transition.kind},
                            {"hasNotes", !s.notes.plain.trimmed().isEmpty()}};
     }
+    prunePreviews();
     return out;
 }
 

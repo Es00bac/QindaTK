@@ -119,9 +119,13 @@ the graph at the new rate and restarts.
 `AudioEngine.transport` is a `TransportModel` whose adapter is the engine:
 acknowledged states only, positions as exact decimal sample strings. Play and
 record require a running device; record also requires input channels and an
-armed audio track (`AudioSession` reports it). Recording is linear: loop wraps
-keep writing the same take (per-pass takes are WP-065). Punch recording is
-reported unavailable.
+armed audio track (`AudioSession` reports it). The device writes one file per
+recording; every loop wrap or seek while a take is open is reported as a
+record jump (its own 1024-entry ring, so acknowledgments keep their room),
+and the session cuts the file into one take per pass in a comp. Punch is
+transport state (`requestPunch`, `canPunch`): the whole pass is recorded and
+the session selects the punch range. See [audio-comping.md](audio-comping.md)
+(WP-065).
 
 Latency is nominal from the driver configuration: ALSA output = buffer
 frames, input = one period; loopback output = one period. A finished take is
@@ -129,13 +133,17 @@ placed at `recordedSample − (input + output latency)`, so what was recorded
 lines up with what was heard; samples compensated before 0 become a source
 offset. `recordingFinished` carries `path, startSample, recordedSample,
 frames, sampleRate, channels, droppedFrames, latencyFrames, deviceLost,
-error`.
+error`, and (WP-065) `jumps` (`{frame, position}`), `jumpsDropped`,
+`loopEnabled/loopStart/loopEnd` and `punchEnabled/punchStart/punchEnd` as they
+were when the take began. `AudioSession.placeTake` places it: one media clip
+without passes or punch, otherwise takes in a comp.
 
 ## Session persistence
 
 `AudioSession` owns `timeline` (clips, edits, undo), `tempo`, `automation`,
 `schedule`, `resources`, `timeMap`, `mixer`, `edits` (source sample edits,
-saved as the `edits` part), `midi` and `launcher` (WP-064, the `midi` part). `importMedia(file, trackId,
+saved as the `edits` part), `midi` and `launcher` (WP-064, the `midi` part)
+and `comps` (take comps, WP-065, the `comps` part). `importMedia(file, trackId,
 startTicks)` decodes a RIFF/WAVE file (PCM 8/16/24/32, float 32/64,
 extensible), registers a resource (`media:<uuid>`) and inserts one undoable
 clip. `save(file)` writes `qindatk.audio-session/1` JSON atomically
@@ -166,7 +174,8 @@ layout; see [audio-measurement.md](audio-measurement.md).
 Hardware/OS matrices (PipeWire native, JACK, WASAPI, CoreAudio, real
 interfaces, driver hot-plug notifications) are WP-088 platform qualification;
 formats beyond WAV belong to format adapters; resampling at playback time,
-clip crossfades and per-clip gain are not modelled; plugins belong to
+crossfades between media clips and per-clip gain are not modelled (comp
+crossfades are, [audio-comping.md](audio-comping.md)); plugins belong to
 WP-066. Source edits (trim, fades, gain, spectral processing) are
 `AudioSession.edits` ([audio-editing.md](audio-editing.md), WP-063): the
 graph plays the edited buffers. Sends, buses and per-track and bus meters are in

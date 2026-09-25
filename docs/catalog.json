@@ -2091,7 +2091,7 @@
       "name": "BlockEditor",
       "kind": "qml",
       "base": "Item",
-      "description": "The host owns block IDs, ordering, canonical data, undo and persistence. Editors submit snapshots; they never split, merge or reorder local copies.",
+      "description": "Two modes (docs/notebooks.md#views). Bound to a Tk.NotebookDocument through `notebook`, the editor applies every edit to that persistent model (undo, save and recovery included). Without it, the host owns block IDs, order, data and undo: the editor only emits identified requests. AGENT-GUARD: blocks are virtualized (ListView, reuseItems). Uncommitted text lives in `drafts` keyed by block ID, never only in a delegate, so a recycled or rebuilt delegate restores it; committing clears the draft.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/BlockEditor.qml",
@@ -2115,7 +2115,7 @@
         {
           "name": "blocks",
           "type": "var",
-          "default": "[] // [{id,type,data,locked,error}]",
+          "default": "[] // host mode: [{id,type,data,locked,error,depth}]",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -2137,6 +2137,14 @@
           "required": false
         },
         {
+          "name": "caretOffset",
+          "type": "int",
+          "default": "-1",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "blockTypes",
           "type": "var",
           "default": "[",
@@ -2147,7 +2155,39 @@
         {
           "name": "capabilities",
           "type": "var",
-          "default": "({ canEdit: true, canInsert: true, canMove: true, canSplit: true, canMerge: true, canDelete: true })",
+          "default": "({ canEdit: true, canInsert: true, canMove: true, canSplit: true, canMerge: true, canDelete: true, canNest: true })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "notebook",
+          "type": "Tk.NotebookDocument",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "clipboard",
+          "type": "Tk.ClipboardService",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scriptRuntime",
+          "type": "Tk.ScriptRuntime",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resolver",
+          "type": "Tk.ResourceResolver",
+          "default": "null",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -2193,9 +2233,65 @@
           "required": false
         },
         {
+          "name": "selection",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "drafts",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "presentedBlocks",
+          "type": "var",
+          "default": "notebook ? _notebookBlocks : blocks",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "presentedIds",
+          "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "pendingFocusId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "selectedBlock",
           "type": "var",
           "default": "findBlock(selectedBlockId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "listView",
+          "type": "alias",
+          "default": "blockList",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeError",
+          "type": "string",
+          "default": "errorText.length > 0 ? errorText : notebook ? notebook.lastError : \"\"",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -2221,6 +2317,10 @@
         {
           "name": "blockMoveRequested",
           "parameters": "string blockId, int targetIndex, string requestId"
+        },
+        {
+          "name": "blockNestRequested",
+          "parameters": "string blockId, string direction, string requestId"
         },
         {
           "name": "blockContentEditRequested",
@@ -2249,16 +2349,52 @@
       ],
       "methods": [
         {
-          "name": "findBlock",
-          "parameters": "id"
+          "name": "refreshNotebookBlocks",
+          "parameters": ""
+        },
+        {
+          "name": "syncIds",
+          "parameters": ""
+        },
+        {
+          "name": "requestId",
+          "parameters": "kind, id"
         },
         {
           "name": "indexOf",
           "parameters": "id"
         },
         {
+          "name": "findBlock",
+          "parameters": "id"
+        },
+        {
+          "name": "isTextType",
+          "parameters": "type"
+        },
+        {
           "name": "makeDefaultData",
           "parameters": "type"
+        },
+        {
+          "name": "draftText",
+          "parameters": "id, committed"
+        },
+        {
+          "name": "storeDraft",
+          "parameters": "id, text, cursor, committed"
+        },
+        {
+          "name": "commitDraft",
+          "parameters": "id"
+        },
+        {
+          "name": "focusBlock",
+          "parameters": "id, offset"
+        },
+        {
+          "name": "applyFocusRequest",
+          "parameters": ""
         },
         {
           "name": "insertBlock",
@@ -2269,8 +2405,20 @@
           "parameters": "id, delta"
         },
         {
+          "name": "nestBlock",
+          "parameters": "id, direction"
+        },
+        {
+          "name": "deleteBlock",
+          "parameters": "id"
+        },
+        {
           "name": "submitText",
           "parameters": "block, text"
+        },
+        {
+          "name": "submitData",
+          "parameters": "block, patch"
         },
         {
           "name": "splitBlock",
@@ -2279,6 +2427,62 @@
         {
           "name": "mergeWithPrevious",
           "parameters": "block"
+        },
+        {
+          "name": "navigate",
+          "parameters": "id, offset, direction"
+        },
+        {
+          "name": "extendSelection",
+          "parameters": "id, offset, direction"
+        },
+        {
+          "name": "hasBlockSelection",
+          "parameters": ""
+        },
+        {
+          "name": "inSelection",
+          "parameters": "id"
+        },
+        {
+          "name": "effectiveSelection",
+          "parameters": "id, start, end"
+        },
+        {
+          "name": "copy",
+          "parameters": "id, start, end"
+        },
+        {
+          "name": "cut",
+          "parameters": "id, start, end"
+        },
+        {
+          "name": "deleteSelection",
+          "parameters": ""
+        },
+        {
+          "name": "paste",
+          "parameters": "id, offset"
+        },
+        {
+          "name": "formatSelection",
+          "parameters": "id, start, end, patch"
+        },
+        {
+          "name": "evaluate",
+          "parameters": "id"
+        },
+        {
+          "name": "tableEdit",
+          "parameters": "block, action, row, column, text"
+        },
+        {
+          "name": "runsHtml",
+          "parameters": "data"
+        },
+        {
+          "name": "openLink",
+          "parameters": "blockId, href"
         }
       ],
       "enums": {},
@@ -2290,26 +2494,520 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
-        "blockContent_",
-        "blockDelete_",
+        "blockEditorEmpty",
         "blockEditorError",
         "blockEditorList",
         "blockEditorToolbar",
-        "blockEmbed_",
-        "blockError_",
         "blockInsert",
         "blockInsertType",
-        "blockMediaPreview_",
-        "blockMediaRelink_",
+        "blockRedo",
+        "blockUndo"
+      ]
+    },
+    {
+      "name": "BlockEditorBlock",
+      "kind": "qml",
+      "base": "Tk.Box",
+      "description": "Internal part of Tk.BlockEditor: one block card (ListView delegate). It holds no edit state of its own; the editor's `drafts` survive recycling.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BlockEditorBlock.qml",
+      "properties": [
+        {
+          "name": "index",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": true
+        },
+        {
+          "name": "editor",
+          "type": "var",
+          "default": "null // the owning Tk.BlockEditor (var: a typed property would make a load cycle)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "block",
+          "type": "var",
+          "default": "(editor ? editor.findBlock(modelData) : null) || ({ id: modelData, type: \"\", data: ({}) })",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockId",
+          "type": "string",
+          "default": "modelData",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "textual",
+          "type": "bool",
+          "default": "editor ? editor.isTextType(block.type) : false",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "locked",
+          "type": "bool",
+          "default": "!!block.locked",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "!!editor && (editor.selectedBlockId === block.id || editor.inSelection(block.id))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "depth",
+          "type": "int",
+          "default": "block.depth || 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "previous",
+          "type": "var",
+          "default": "editor && index > 0 ? editor.presentedBlocks[index - 1] : null",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "contentItem_",
+          "type": "var",
+          "default": "content.item",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "blockContent_",
+        "blockDelete_",
+        "blockError_",
+        "blockEvaluate_",
+        "blockIndent_",
         "blockMerge_",
         "blockMoveDown_",
         "blockMoveUp_",
+        "blockOutdent_",
+        "blockOutput_",
         "blockSelect_",
         "blockSplit_",
-        "blockTableEdit_",
-        "blockText_",
-        "blockUnsupported_",
         "notebookBlock_"
+      ]
+    },
+    {
+      "name": "BlockEditorChart",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "Internal part of Tk.BlockEditor: a chart block drawn by Tk.ChartView from a table block's columns (NotebookDocument.chartSeries). Point IDs are the table's stable row IDs, so a selection survives row edits.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BlockEditorChart.qml",
+      "properties": [
+        {
+          "name": "editor",
+          "type": "var",
+          "default": "null // the owning Tk.BlockEditor (var: a typed property would make a load cycle)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "block",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockId",
+          "type": "string",
+          "default": "block && block.id ? block.id : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "kinds",
+          "type": "var",
+          "default": "[\"line\", \"bar\", \"scatter\"]",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "series",
+          "type": "var",
+          "default": "seriesFor(blockId, editor && editor.notebook ? editor.notebook.revision : \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "seriesFor",
+          "parameters": "id, revision"
+        },
+        {
+          "name": "datasetKind",
+          "parameters": "kind"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "blockChartError_",
+        "blockChartKind_",
+        "blockChart_"
+      ]
+    },
+    {
+      "name": "BlockEditorMedia",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "Internal part of Tk.BlockEditor: image, ink, embed, divider and preserved unsupported blocks. An image keeps its logical resource ID; availability comes from the editor's Tk.ResourceResolver, so a missing file shows a relink notice instead of losing the block.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BlockEditorMedia.qml",
+      "properties": [
+        {
+          "name": "editor",
+          "type": "var",
+          "default": "null // the owning Tk.BlockEditor (var: a typed property would make a load cycle)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "block",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockId",
+          "type": "string",
+          "default": "block && block.id ? block.id : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockType",
+          "type": "string",
+          "default": "block && block.type ? block.type : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockData",
+          "type": "var",
+          "default": "block && block.data ? block.data : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resourceId",
+          "type": "string",
+          "default": "String(blockData.resourceId || \"\")",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "availability",
+          "type": "string",
+          "default": "availabilityOf(resourceId, editor && editor.resolver ? editor.resolver.resources : [])",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "link",
+          "type": "var",
+          "default": "editor && editor.notebook && String(blockData.targetId || \"\").indexOf(\"notebook:\") === 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "known",
+          "type": "bool",
+          "default": "[\"image\", \"ink\", \"embed\", \"divider\"].indexOf(blockType) >= 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "availabilityOf",
+          "parameters": "id, resources"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "blockEmbedOpen_",
+        "blockEmbed_",
+        "blockMediaCaption_",
+        "blockMediaMissing_",
+        "blockMediaPreview_",
+        "blockMediaRelink_",
+        "blockUnsupported_"
+      ]
+    },
+    {
+      "name": "BlockEditorTable",
+      "kind": "qml",
+      "base": "Tk.Flex",
+      "description": "Internal part of Tk.BlockEditor: an editable table block. Cells commit on editing finished; at most `visibleRowLimit` rows are instantiated at once.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BlockEditorTable.qml",
+      "properties": [
+        {
+          "name": "editor",
+          "type": "var",
+          "default": "null // the owning Tk.BlockEditor (var: a typed property would make a load cycle)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "block",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleRowLimit",
+          "type": "int",
+          "default": "50",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockId",
+          "type": "string",
+          "default": "block && block.id ? block.id : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "var",
+          "default": "block && block.data && block.data.columns ? block.data.columns : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rows",
+          "type": "var",
+          "default": "block && block.data && block.data.rows ? block.data.rows : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "editable",
+          "type": "bool",
+          "default": "!!editor && editor.capabilities.canEdit && !(block && block.locked)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "blockTableAddColumn_",
+        "blockTableAddRow_",
+        "blockTableCell_",
+        "blockTableEdit_",
+        "blockTableHeader_",
+        "blockTableRemoveColumn_",
+        "blockTableRemoveRow_"
+      ]
+    },
+    {
+      "name": "BlockEditorText",
+      "kind": "qml",
+      "base": "Item",
+      "description": "Internal part of Tk.BlockEditor: the text field of a text, heading, list, quote, to-do or code block, with the editor's cross-block keyboard rules (docs/notebooks.md#keyboard).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/BlockEditorText.qml",
+      "properties": [
+        {
+          "name": "editor",
+          "type": "var",
+          "default": "null // the owning Tk.BlockEditor (var: a typed property would make a load cycle)",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "block",
+          "type": "var",
+          "default": "({})",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "textEditor",
+          "type": "alias",
+          "default": "field",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockId",
+          "type": "string",
+          "default": "block && block.id ? block.id : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockType",
+          "type": "string",
+          "default": "block && block.type ? block.type : \"text\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "blockData",
+          "type": "var",
+          "default": "block && block.data ? block.data : ({})",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "committedText",
+          "type": "string",
+          "default": "blockData.text !== undefined ? String(blockData.text) : \"\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "formatted",
+          "type": "bool",
+          "default": "!!blockData.runs && blockData.runs.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasDraft",
+          "type": "bool",
+          "default": "!!editor && editor.drafts[blockId] !== undefined",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "locked",
+          "type": "bool",
+          "default": "!!(block && block.locked)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "load",
+          "parameters": ""
+        },
+        {
+          "name": "claimFocus",
+          "parameters": ""
+        },
+        {
+          "name": "firstLine",
+          "parameters": ""
+        },
+        {
+          "name": "lastLine",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "blockRichPreview_",
+        "blockText_"
       ]
     },
     {
@@ -20870,11 +21568,19 @@
       "name": "NotebookView",
       "kind": "qml",
       "base": "Item",
-      "description": "Navigation and search results are host snapshots addressed by stable IDs.",
+      "description": "Two modes (docs/notebooks.md#views). Bound to a Tk.NotebookDocument through `notebook`, the view reads sections and pages from it, applies structural edits to it, owns navigation history and searches its indexed content. Without it, navigation, search results and structure are host snapshots addressed by stable IDs and every change is a request signal.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/NotebookView.qml",
       "properties": [
+        {
+          "name": "notebook",
+          "type": "Tk.NotebookDocument",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
         {
           "name": "notebookId",
           "type": "string",
@@ -20996,6 +21702,22 @@
           "required": false
         },
         {
+          "name": "presentedSections",
+          "type": "var",
+          "default": "notebook ? notebook.sections : sections",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "presentedPages",
+          "type": "var",
+          "default": "notebook ? notebook.pages : pages",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "currentPage",
           "type": "var",
           "default": "findPage(currentPageId)",
@@ -21088,16 +21810,60 @@
           "parameters": ""
         },
         {
+          "name": "requestId",
+          "parameters": "kind"
+        },
+        {
+          "name": "openPage",
+          "parameters": "id, recordHistory"
+        },
+        {
           "name": "navigateTo",
           "parameters": "id"
+        },
+        {
+          "name": "goBack",
+          "parameters": ""
+        },
+        {
+          "name": "goForward",
+          "parameters": ""
         },
         {
           "name": "submitSearch",
           "parameters": ""
         },
         {
+          "name": "insertSection",
+          "parameters": "title"
+        },
+        {
+          "name": "insertPage",
+          "parameters": "sectionId, afterPageId"
+        },
+        {
+          "name": "setCollapsed",
+          "parameters": "sectionId, collapsed"
+        },
+        {
+          "name": "movePageToSection",
+          "parameters": "pageId, sectionId"
+        },
+        {
+          "name": "deletePage",
+          "parameters": "pageId"
+        },
+        {
           "name": "moveCurrent",
           "parameters": "delta"
+        },
+        {
+          "name": "addTag",
+          "parameters": "tag"
+        },
+        {
+          "name": "removeTag",
+          "parameters": "tag"
         }
       ],
       "enums": {},
@@ -21133,6 +21899,8 @@
         "notebookSectionTitle",
         "notebookSection_",
         "notebookStatus",
+        "notebookTagInput",
+        "notebookTag_",
         "notebookToolbar"
       ]
     },
@@ -34547,7 +35315,7 @@
       "name": "TakeCompView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "Host-owned takes and comp snapshots. Gesture coordinates choose among the supplied decimal-string boundaries; sample values are never Number-coerced.",
+      "description": "Host-owned takes and comp snapshots. Gesture coordinates choose among the supplied decimal-string boundaries; sample values are never Number-coerced. AGENT-CONTRACT (WP-065, docs/audio-comping.md): AudioTakeCompModel.viewState supplies takes/compSegments/sampleBoundaries; a take's sourceOffsetSample is a signed decimal (a pass can start before the comp origin).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TakeCompView.qml",
@@ -34633,6 +35401,22 @@
           "required": false
         },
         {
+          "name": "keyboardTakeIndex",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "keyboardTakeId",
+          "type": "string",
+          "default": "takeCount > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "snapshotValid",
           "type": "bool",
           "default": "root.validateSnapshot()",
@@ -34679,6 +35463,10 @@
           "parameters": "string proposalId, string takeId, string startSample, string endSample, string sourceOffsetSample"
         },
         {
+          "name": "compProposalPreviewCanceled",
+          "parameters": "string proposalId"
+        },
+        {
           "name": "compProposalRequested",
           "parameters": "string proposalId, string segmentId, string takeId, string startSample, string endSample, string sourceId, string sourceOffsetSample"
         },
@@ -34693,11 +35481,19 @@
         {
           "name": "compareRequested",
           "parameters": "string takeId, string referenceTakeId, string startSample, string endSample, string takeOffsetSample, string referenceOffsetSample"
+        },
+        {
+          "name": "selectionRequested",
+          "parameters": "string startSample, string endSample"
         }
       ],
       "methods": [
         {
           "name": "isDecimalString",
+          "parameters": "value"
+        },
+        {
+          "name": "isSignedDecimalString",
           "parameters": "value"
         },
         {
@@ -34767,6 +35563,14 @@
         {
           "name": "requestCompare",
           "parameters": "takeId"
+        },
+        {
+          "name": "moveCursor",
+          "parameters": "delta, extend"
+        },
+        {
+          "name": "focusTake",
+          "parameters": "delta"
         },
         {
           "name": "fractionForSample",
@@ -42851,7 +43655,7 @@
       "name": "AudioSession",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md). It owns the accepted domain models — TimelineModel (clips, edits, undo), TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver (media identity, availability, relink) — and AudioMixerModel (buses, routing, sends, groups; WP-062) and AudioSourceEditModel (sample, fade and spectral edits of each source; WP-063), MidiSequenceModel (patterns, scenes and slots; WP-064) with its MidiLauncherModel, and compiles them into an AudioRenderGraph for its engine and for offline renders. It persists as \"qindatk.audio-session/1\" JSON with media paths relative to the session.",
+      "description": "AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md). It owns the accepted domain models — TimelineModel (clips, edits, undo), TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver (media identity, availability, relink) — and AudioMixerModel (buses, routing, sends, groups; WP-062) and AudioSourceEditModel (sample, fade and spectral edits of each source; WP-063), MidiSequenceModel (patterns, scenes and slots; WP-064) with its MidiLauncherModel, AudioTakeCompModel (take comps; WP-065, docs/audio-comping.md), and compiles them into an AudioRenderGraph for its engine and for offline renders. It persists as \"qindatk.audio-session/1\" JSON with media paths relative to the session.",
       "singleton": false,
       "attached": null,
       "file": "src/core/audio_session.h",
@@ -42927,6 +43731,20 @@
           "constant": true
         },
         {
+          "name": "comps",
+          "type": "QindaTK::AudioTakeCompModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "passTakes",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "engine",
           "type": "QindaTK::AudioEngine *",
           "default": "",
@@ -42998,6 +43816,10 @@
           "parameters": ""
         },
         {
+          "name": "passTakesChanged",
+          "parameters": ""
+        },
+        {
           "name": "lastErrorChanged",
           "parameters": ""
         },
@@ -43060,6 +43882,11 @@
           "name": "importMidi",
           "returns": "QVariantMap",
           "parameters": "const QString &file"
+        },
+        {
+          "name": "compForClip",
+          "returns": "QString",
+          "parameters": "const QString &clipId"
         }
       ],
       "enums": {},
@@ -43412,6 +44239,209 @@
           "name": "rowForFrequency",
           "returns": "int",
           "parameters": "double hz"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AudioTakeCompModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (D-174..D-177, docs/audio-comping.md): the take comps of an AudioSession (session.comps). A timeline clip whose resourceId is a comp ID plays that comp through AudioRenderGraph; this model owns what the comp selects. Every accepted edit is one step of the model's own history (per-owner undo, as D-110 and D-134): a step stores the whole comp before and after. A preview is provisional: playback() returns it (heard in the engine and in renders) until commitPreview() records it or cancelPreview() restores the committed comp. Audition and comparison choose what plays without changing the comp; they are neither saved nor undone.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_take_comp_model.h",
+      "properties": [
+        {
+          "name": "revision",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "compIds",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "historyCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewCompId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "revisionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "compData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &compId"
+        },
+        {
+          "name": "pieces",
+          "returns": "QVariantList",
+          "parameters": "const QString &compId"
+        },
+        {
+          "name": "viewState",
+          "returns": "QVariantMap",
+          "parameters": "const QString &compId, int columns = 256, int peakCount = 64"
+        },
+        {
+          "name": "select",
+          "returns": "QVariantMap",
+          "parameters": "const QString &compId, const QString &takeId, const QString &startSample, const QString &endSample"
+        },
+        {
+          "name": "split",
+          "returns": "QVariantMap",
+          "parameters": "const QString &compId, const QString &atSample"
+        },
+        {
+          "name": "merge",
+          "returns": "QVariantMap",
+          "parameters": "const QString &compId, const QString &segmentId"
+        },
+        {
+          "name": "clear",
+          "returns": "QVariantMap",
+          "parameters": "const QString &compId, const QString &startSample, const QString &endSample"
+        },
+        {
+          "name": "setFade",
+          "returns": "QVariantMap",
+          "parameters": "const QString &compId, const QString &samples, const QString &shape"
+        },
+        {
+          "name": "preview",
+          "returns": "QVariantMap",
+          "parameters": "const QString &compId, const QString &takeId, const QString &startSample, const QString &endSample"
+        },
+        {
+          "name": "commitPreview",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "cancelPreview",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "setAudition",
+          "returns": "bool",
+          "parameters": "const QString &compId, const QString &takeId"
+        },
+        {
+          "name": "audition",
+          "returns": "QString",
+          "parameters": "const QString &compId"
+        },
+        {
+          "name": "compare",
+          "returns": "bool",
+          "parameters": "const QString &compId, const QString &takeId, const QString &referenceTakeId"
+        },
+        {
+          "name": "toggleComparison",
+          "returns": "QString",
+          "parameters": "const QString &compId"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clearHistory",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "contentMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "loadContent",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &content"
         }
       ],
       "enums": {},
@@ -57798,6 +58828,420 @@
           "name": "render",
           "returns": "QVariantMap",
           "parameters": "const QString &outputNodeId, int width, int height"
+        },
+        {
+          "name": "saveToFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        },
+        {
+          "name": "loadFromFile",
+          "returns": "bool",
+          "parameters": "const QString &path"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "NotebookDocument",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Editable, persistent notebook: sections, pages and nested blocks with stable UUID identity. Every structural or text change is one DocumentCommand in the shared UndoService, so DocumentSession save, autosave and recovery work unchanged (schema qindatk.notebook.v1). GUI thread only.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/notebook_document.h",
+      "properties": [
+        {
+          "name": "documentId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "title",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sections",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pages",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "blockCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoService",
+          "type": "QindaTK::UndoService *",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "committedChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "blockEvaluated",
+          "parameters": "const QString &blockId, bool success"
+        }
+      ],
+      "methods": [
+        {
+          "name": "addSection",
+          "returns": "QString",
+          "parameters": "const QString &title, int index = -1"
+        },
+        {
+          "name": "renameSection",
+          "returns": "bool",
+          "parameters": "const QString &sectionId, const QString &title"
+        },
+        {
+          "name": "removeSection",
+          "returns": "bool",
+          "parameters": "const QString &sectionId"
+        },
+        {
+          "name": "setSectionCollapsed",
+          "returns": "bool",
+          "parameters": "const QString &sectionId, bool collapsed"
+        },
+        {
+          "name": "addPage",
+          "returns": "QString",
+          "parameters": "const QString &sectionId, const QString &afterPageId = {}, const QString &title = {}"
+        },
+        {
+          "name": "renamePage",
+          "returns": "bool",
+          "parameters": "const QString &pageId, const QString &title"
+        },
+        {
+          "name": "setPageTags",
+          "returns": "bool",
+          "parameters": "const QString &pageId, const QStringList &tags"
+        },
+        {
+          "name": "movePage",
+          "returns": "bool",
+          "parameters": "const QString &pageId, const QString &targetSectionId, int index"
+        },
+        {
+          "name": "removePage",
+          "returns": "bool",
+          "parameters": "const QString &pageId"
+        },
+        {
+          "name": "page",
+          "returns": "QVariantMap",
+          "parameters": "const QString &pageId"
+        },
+        {
+          "name": "blocks",
+          "returns": "QVariantList",
+          "parameters": "const QString &pageId"
+        },
+        {
+          "name": "block",
+          "returns": "QVariantMap",
+          "parameters": "const QString &blockId"
+        },
+        {
+          "name": "pageOfBlock",
+          "returns": "QString",
+          "parameters": "const QString &blockId"
+        },
+        {
+          "name": "insertBlock",
+          "returns": "QString",
+          "parameters": "const QString &pageId, const QString &afterBlockId, const QString &type, const QVariantMap &data = {}"
+        },
+        {
+          "name": "setBlockData",
+          "returns": "bool",
+          "parameters": "const QString &blockId, const QVariantMap &data"
+        },
+        {
+          "name": "setBlockText",
+          "returns": "bool",
+          "parameters": "const QString &blockId, const QString &text"
+        },
+        {
+          "name": "replaceText",
+          "returns": "bool",
+          "parameters": "const QString &blockId, int offset, int removed, const QString &text"
+        },
+        {
+          "name": "formatText",
+          "returns": "bool",
+          "parameters": "const QString &blockId, int offset, int length, const QVariantMap &patch"
+        },
+        {
+          "name": "setBlockType",
+          "returns": "bool",
+          "parameters": "const QString &blockId, const QString &type"
+        },
+        {
+          "name": "setBlockLocked",
+          "returns": "bool",
+          "parameters": "const QString &blockId, bool locked"
+        },
+        {
+          "name": "moveBlock",
+          "returns": "bool",
+          "parameters": "const QString &blockId, const QString &targetPageId, const QString &targetParentId, int targetIndex"
+        },
+        {
+          "name": "moveBlockBy",
+          "returns": "bool",
+          "parameters": "const QString &blockId, int delta"
+        },
+        {
+          "name": "indentBlock",
+          "returns": "bool",
+          "parameters": "const QString &blockId"
+        },
+        {
+          "name": "outdentBlock",
+          "returns": "bool",
+          "parameters": "const QString &blockId"
+        },
+        {
+          "name": "splitBlock",
+          "returns": "QString",
+          "parameters": "const QString &blockId, int offset"
+        },
+        {
+          "name": "mergeBlocks",
+          "returns": "int",
+          "parameters": "const QString &firstBlockId, const QString &secondBlockId"
+        },
+        {
+          "name": "removeBlock",
+          "returns": "bool",
+          "parameters": "const QString &blockId"
+        },
+        {
+          "name": "setTableCell",
+          "returns": "bool",
+          "parameters": "const QString &blockId, int row, int column, const QString &text"
+        },
+        {
+          "name": "insertTableRow",
+          "returns": "bool",
+          "parameters": "const QString &blockId, int index"
+        },
+        {
+          "name": "removeTableRow",
+          "returns": "bool",
+          "parameters": "const QString &blockId, int index"
+        },
+        {
+          "name": "insertTableColumn",
+          "returns": "bool",
+          "parameters": "const QString &blockId, int index, const QString &name"
+        },
+        {
+          "name": "removeTableColumn",
+          "returns": "bool",
+          "parameters": "const QString &blockId, int index"
+        },
+        {
+          "name": "moveCaret",
+          "returns": "QVariantMap",
+          "parameters": "const QString &blockId, int offset, const QString &direction"
+        },
+        {
+          "name": "selectionText",
+          "returns": "QString",
+          "parameters": "const QVariantMap &selection"
+        },
+        {
+          "name": "selectionHtml",
+          "returns": "QString",
+          "parameters": "const QVariantMap &selection"
+        },
+        {
+          "name": "selectionRange",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &selection"
+        },
+        {
+          "name": "deleteSelection",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &selection"
+        },
+        {
+          "name": "copySelection",
+          "returns": "bool",
+          "parameters": "QindaTK::ClipboardService *clipboard, const QVariantMap &selection"
+        },
+        {
+          "name": "cutSelection",
+          "returns": "QVariantMap",
+          "parameters": "QindaTK::ClipboardService *clipboard, const QVariantMap &selection"
+        },
+        {
+          "name": "paste",
+          "returns": "QVariantMap",
+          "parameters": "QindaTK::ClipboardService *clipboard, const QString &pageId, const QString &blockId, int offset"
+        },
+        {
+          "name": "insertRange",
+          "returns": "QVariantMap",
+          "parameters": "const QString &pageId, const QString &blockId, int offset, const QVariantMap &range"
+        },
+        {
+          "name": "insertText",
+          "returns": "QVariantMap",
+          "parameters": "const QString &pageId, const QString &blockId, int offset, const QString &text"
+        },
+        {
+          "name": "insertHtml",
+          "returns": "QVariantMap",
+          "parameters": "const QString &pageId, const QString &blockId, int offset, const QString &html"
+        },
+        {
+          "name": "search",
+          "returns": "QVariantList",
+          "parameters": "const QString &query, const QVariantMap &options = {}"
+        },
+        {
+          "name": "searchPageIds",
+          "returns": "QStringList",
+          "parameters": "const QString &query, const QVariantMap &options = {}"
+        },
+        {
+          "name": "linkTo",
+          "returns": "QString",
+          "parameters": "const QString &pageId, const QString &blockId = {}"
+        },
+        {
+          "name": "resolveLink",
+          "returns": "QVariantMap",
+          "parameters": "const QString &href"
+        },
+        {
+          "name": "backlinks",
+          "returns": "QVariantList",
+          "parameters": "const QString &pageId"
+        },
+        {
+          "name": "brokenLinks",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "resourceIds",
+          "returns": "QStringList",
+          "parameters": ""
+        },
+        {
+          "name": "assetStatus",
+          "returns": "QVariantList",
+          "parameters": "QindaTK::ResourceResolver *resolver"
+        },
+        {
+          "name": "evaluateBlock",
+          "returns": "bool",
+          "parameters": "const QString &blockId, QindaTK::ScriptRuntime *runtime"
+        },
+        {
+          "name": "chartSeries",
+          "returns": "QVariantMap",
+          "parameters": "const QString &blockId"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "resetFromJson",
+          "returns": "bool",
+          "parameters": "const QString &json"
         },
         {
           "name": "saveToFile",

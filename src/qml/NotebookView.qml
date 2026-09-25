@@ -2,9 +2,14 @@
 import QtQuick
 import QindaTK as Tk
 
-// Navigation and search results are host snapshots addressed by stable IDs.
+// Two modes (docs/notebooks.md#views). Bound to a Tk.NotebookDocument through
+// `notebook`, the view reads sections and pages from it, applies structural
+// edits to it, owns navigation history and searches its indexed content.
+// Without it, navigation, search results and structure are host snapshots
+// addressed by stable IDs and every change is a request signal.
 Item {
     id: control
+    property Tk.NotebookDocument notebook: null
     property string notebookId: ""
     property string notebookTitle: ""
     property var sections: [] // [{id,title,collapsed}]
@@ -20,6 +25,8 @@ Item {
     property var capabilities: ({ canEditStructure: true, canSearch: true, canNavigate: true })
     property string tooltip: qsTr("Navigate notebook sections and pages")
     default property alias pageContent: pageContentSlot.data
+    readonly property var presentedSections: notebook ? notebook.sections : sections
+    readonly property var presentedPages: notebook ? notebook.pages : pages
     readonly property var currentPage: findPage(currentPageId)
     readonly property int currentIndex: pageIndex(currentPageId)
     readonly property var visiblePages: filteredPages()
@@ -35,23 +42,24 @@ Item {
     signal searchRequested(string query, string requestId)
     signal historyNavigationRequested(string pageId)
     signal pageOrderChangeRequested(string pageId, int targetIndex, string requestId)
+    signal pageOpened(string pageId) // notebook mode: the view changed currentPageId
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 5
     implicitHeight: Tk.Theme.size.panelMinHeight * 3
     Accessible.role: Accessible.Pane
     Accessible.name: tooltip
-    Accessible.description: qsTr("%1 sections, %2 pages").arg(sections.length).arg(pages.length)
+    Accessible.description: qsTr("%1 sections, %2 pages").arg(presentedSections.length).arg(presentedPages.length)
 
     function findPage(id) {
-        for (let i = 0; i < pages.length; ++i) if (pages[i].id === id) return pages[i]
+        for (let i = 0; i < presentedPages.length; ++i) if (presentedPages[i].id === id) return presentedPages[i]
         return null
     }
     function pageIndex(id) {
-        for (let i = 0; i < pages.length; ++i) if (pages[i].id === id) return i
+        for (let i = 0; i < presentedPages.length; ++i) if (presentedPages[i].id === id) return i
         return -1
     }
     function findSection(id) {
-        for (let i = 0; i < sections.length; ++i) if (sections[i].id === id) return sections[i]
+        for (let i = 0; i < presentedSections.length; ++i) if (presentedSections[i].id === id) return presentedSections[i]
         return null
     }
     function pagesInSection(sectionId) {
@@ -59,26 +67,124 @@ Item {
     }
     function filteredPages() {
         const queryText = query.trim().toLocaleLowerCase()
-        return pages.filter(function(page) {
+        return presentedPages.filter(function(page) {
             if (queryText.length === 0) return true
             // Indexed content hits need not contain the query in their title,
-            // tags or excerpt. A completed host search is authoritative,
-            // including the empty-result case.
+            // tags or excerpt. A completed search is authoritative, including
+            // the empty-result case.
             if (searchState === "complete") return searchResultPageIds.indexOf(page.id) >= 0
             const metadata = (String(page.title || "") + " " + String(page.excerpt || "") + " " + (page.tags || []).join(" ")).toLocaleLowerCase()
             return metadata.indexOf(queryText) >= 0
         })
     }
+    function requestId(kind) { return notebookId + ":" + kind + ":" + Date.now() }
+    function openPage(id, recordHistory) {
+        if (!findPage(id) || id === currentPageId) return
+        if (recordHistory && currentPageId.length > 0) {
+            historyBackPageIds = historyBackPageIds.concat([currentPageId])
+            historyForwardPageIds = []
+        }
+        currentPageId = id
+        pageOpened(id)
+    }
     function navigateTo(id) {
-        if (enabled && capabilities.canNavigate && findPage(id)) pageSelectedRequested(id)
+        if (!enabled || !capabilities.canNavigate || !findPage(id)) return
+        if (notebook) openPage(id, true)
+        else pageSelectedRequested(id)
+    }
+    function goBack() {
+        if (historyBackPageIds.length === 0) return
+        const target = historyBackPageIds[historyBackPageIds.length - 1]
+        if (!notebook) {
+            historyNavigationRequested(target)
+            return
+        }
+        historyForwardPageIds = [currentPageId].concat(historyForwardPageIds)
+        historyBackPageIds = historyBackPageIds.slice(0, -1)
+        openPage(target, false)
+    }
+    function goForward() {
+        if (historyForwardPageIds.length === 0) return
+        const target = historyForwardPageIds[0]
+        if (!notebook) {
+            historyNavigationRequested(target)
+            return
+        }
+        historyBackPageIds = historyBackPageIds.concat([currentPageId])
+        historyForwardPageIds = historyForwardPageIds.slice(1)
+        openPage(target, false)
     }
     function submitSearch() {
-        if (enabled && capabilities.canSearch) searchRequested(query.trim(), notebookId + ":search:" + Date.now())
+        if (!enabled || !capabilities.canSearch) return
+        if (!notebook) {
+            searchRequested(query.trim(), requestId("search"))
+            return
+        }
+        searchResultPageIds = query.trim().length > 0 ? notebook.searchPageIds(query.trim()) : []
+        searchState = query.trim().length > 0 ? "complete" : "idle"
+    }
+    function insertSection(title) {
+        if (!capabilities.canEditStructure || title.length === 0) return
+        if (notebook) notebook.addSection(title, -1)
+        else sectionInsertRequested(title, requestId("section"))
+    }
+    function insertPage(sectionId, afterPageId) {
+        if (!capabilities.canEditStructure) return
+        if (!notebook) {
+            pageInsertRequested(sectionId, afterPageId, requestId("page"))
+            return
+        }
+        const id = notebook.addPage(sectionId, afterPageId, qsTr("Untitled page"))
+        if (id.length > 0) openPage(id, true)
+    }
+    function setCollapsed(sectionId, collapsed) {
+        if (notebook) notebook.setSectionCollapsed(sectionId, collapsed)
+        else sectionCollapseRequested(sectionId, collapsed)
+    }
+    function movePageToSection(pageId, sectionId) {
+        if (!capabilities.canEditStructure) return
+        if (notebook) notebook.movePage(pageId, sectionId, -1)
+        else pageMoveRequested(pageId, sectionId, pagesInSection(sectionId).length, requestId("page-move"))
+    }
+    function deletePage(pageId) {
+        if (!capabilities.canEditStructure) return
+        if (!notebook) {
+            pageDeleteRequested(pageId)
+            return
+        }
+        const index = pageIndex(pageId)
+        const neighbour = presentedPages[index + 1] || presentedPages[index - 1]
+        historyBackPageIds = historyBackPageIds.filter(function(id) { return id !== pageId })
+        historyForwardPageIds = historyForwardPageIds.filter(function(id) { return id !== pageId })
+        if (notebook.removePage(pageId)) currentPageId = neighbour ? neighbour.id : ""
     }
     function moveCurrent(delta) {
+        if (!capabilities.canEditStructure || !currentPage) return
+        if (notebook) {
+            const siblings = presentedPages.filter(function(page) { return page.sectionId === currentPage.sectionId })
+            let position = -1
+            for (let i = 0; i < siblings.length; ++i) if (siblings[i].id === currentPageId) position = i
+            const target = position + delta
+            if (position >= 0 && target >= 0 && target < siblings.length)
+                notebook.movePage(currentPageId, currentPage.sectionId, target)
+            return
+        }
         const target = currentIndex + delta
-        if (capabilities.canEditStructure && target >= 0 && target < pages.length)
-            pageOrderChangeRequested(currentPageId, target, notebookId + ":page-order:" + Date.now())
+        if (target >= 0 && target < presentedPages.length)
+            pageOrderChangeRequested(currentPageId, target, requestId("page-order"))
+    }
+    function addTag(tag) {
+        const value = tag.trim()
+        if (!currentPage || value.length === 0) return
+        const tags = (currentPage.tags || []).concat([value])
+        if (notebook) notebook.setPageTags(currentPageId, tags)
+        else tagEditRequested(currentPageId, tags, requestId("tags"))
+    }
+    function removeTag(tag) {
+        if (!currentPage) return
+        const tags = (currentPage.tags || []).filter(function(item) { return item !== tag })
+        if (notebook) notebook.setPageTags(currentPageId, tags)
+        else tagEditRequested(currentPageId, tags, requestId("tags"))
     }
 
     Tk.Flex {
@@ -91,14 +197,14 @@ Item {
             direction: Tk.Flex.Row
             align: Tk.Flex.Center
             gap: Tk.Theme.space.sm
-            Tk.Heading { text: control.notebookTitle || qsTr("Notebook"); level: 2; Tk.Flex.grow: 1; Tk.Flex.basis: 0 }
+            Tk.Heading { text: control.notebookTitle || (control.notebook ? control.notebook.title : "") || qsTr("Notebook"); level: 2; Tk.Flex.grow: 1; Tk.Flex.basis: 0 }
             Tk.Button {
                 objectName: "notebookBack"
                 text: qsTr("Back")
                 iconName: "arrow-left"
                 tooltip: qsTr("Return to the previous page")
                 enabled: control.historyBackPageIds.length > 0
-                onClicked: control.historyNavigationRequested(control.historyBackPageIds[control.historyBackPageIds.length - 1])
+                onClicked: control.goBack()
             }
             Tk.Button {
                 objectName: "notebookForward"
@@ -106,7 +212,7 @@ Item {
                 iconName: "arrow-right"
                 tooltip: qsTr("Go forward to the next page in history")
                 enabled: control.historyForwardPageIds.length > 0
-                onClicked: control.historyNavigationRequested(control.historyForwardPageIds[0])
+                onClicked: control.goForward()
             }
             Tk.TextField {
                 id: searchField
@@ -115,7 +221,11 @@ Item {
                 placeholderText: qsTr("Search notebook")
                 tooltip: qsTr("Search page titles, tags and request indexed content from the host")
                 enabled: control.capabilities.canSearch
-                onTextEdited: control.query = text
+                onTextEdited: {
+                    control.query = text
+                    // A finished search no longer matches the edited query.
+                    if (control.notebook) control.searchState = "idle"
+                }
                 onAccepted: control.submitSearch()
             }
             Tk.Button {
@@ -143,7 +253,7 @@ Item {
             Tk.Flex.basis: 0
             Tk.Panel {
                 objectName: "notebookNavigationPanel"
-                title: qsTr("Contents · %1 pages").arg(control.pages.length)
+                title: qsTr("Contents · %1 pages").arg(control.presentedPages.length)
                 implicitWidth: Tk.Theme.size.panelMinWidth * 1.7
                 Tk.Flex.shrink: 0
                 Tk.Flex {
@@ -169,7 +279,7 @@ Item {
                             tooltip: qsTr("Create a notebook section")
                             enabled: control.capabilities.canEditStructure && newSectionTitle.text.trim().length > 0
                             onClicked: {
-                                control.sectionInsertRequested(newSectionTitle.text.trim(), control.notebookId + ":section:" + Date.now())
+                                control.insertSection(newSectionTitle.text.trim())
                                 newSectionTitle.text = ""
                             }
                         }
@@ -182,7 +292,7 @@ Item {
                             align: Tk.Flex.Stretch
                             gap: Tk.Theme.space.sm
                             Repeater {
-                                model: control.sections
+                                model: control.presentedSections
                                 delegate: Tk.Flex {
                                     required property var modelData
                                     objectName: "notebookSection_" + modelData.id
@@ -194,7 +304,7 @@ Item {
                                         iconName: modelData.collapsed === true ? "chevron-right" : "chevron-down"
                                         variant: "ghost"
                                         tooltip: qsTr("Expand or collapse section %1").arg(modelData.title)
-                                        onClicked: control.sectionCollapseRequested(modelData.id, modelData.collapsed !== true)
+                                        onClicked: control.setCollapsed(modelData.id, modelData.collapsed !== true)
                                         Tk.Flex.shrink: 0
                                     }
                                     Repeater {
@@ -230,7 +340,7 @@ Item {
                                                     iconName: "plus"
                                                     tooltip: qsTr("Insert a page after %1").arg(modelData.title)
                                                     enabled: control.capabilities.canEditStructure
-                                                    onClicked: control.pageInsertRequested(modelData.sectionId, modelData.id, control.notebookId + ":page:" + Date.now())
+                                                    onClicked: control.insertPage(modelData.sectionId, modelData.id)
                                                 }
                                             }
                                             TapHandler { onTapped: control.navigateTo(modelData.id) }
@@ -243,11 +353,11 @@ Item {
                                         iconName: "plus"
                                         tooltip: qsTr("Insert a page in %1").arg(modelData.title)
                                         enabled: control.capabilities.canEditStructure
-                                        onClicked: control.pageInsertRequested(modelData.id, "", control.notebookId + ":page:" + Date.now())
+                                        onClicked: control.insertPage(modelData.id, "")
                                     }
                                 }
                             }
-                            Tk.Caption { visible: control.sections.length === 0; text: qsTr("No sections yet.") }
+                            Tk.Caption { visible: control.presentedSections.length === 0; text: qsTr("No sections yet.") }
                         }
                     }
                 }
@@ -271,21 +381,17 @@ Item {
                         Tk.ComboBox {
                             id: moveSectionPicker
                             objectName: "notebookMoveSection"
-                            model: control.sections
+                            model: control.presentedSections
                             textRole: "title"
                             currentIndex: {
                                 if (!control.currentPage) return -1
-                                for (let i = 0; i < control.sections.length; ++i)
-                                    if (control.sections[i].id === control.currentPage.sectionId) return i
+                                for (let i = 0; i < control.presentedSections.length; ++i)
+                                    if (control.presentedSections[i].id === control.currentPage.sectionId) return i
                                 return -1
                             }
                             tooltip: qsTr("Move current page to another section")
                             enabled: !!control.currentPage && control.capabilities.canEditStructure
-                            onActivated: function(index) {
-                                const target = control.sections[index]
-                                control.pageMoveRequested(control.currentPageId, target.id, control.pagesInSection(target.id).length,
-                                                          control.notebookId + ":page-move:" + Date.now())
-                            }
+                            onActivated: function(index) { control.movePageToSection(control.currentPageId, control.presentedSections[index].id) }
                         }
                         Tk.IconButton {
                             objectName: "notebookPageMoveUp"
@@ -298,15 +404,15 @@ Item {
                             objectName: "notebookPageMoveDown"
                             iconName: "arrow-down"
                             tooltip: qsTr("Move page later in notebook order")
-                            enabled: control.currentIndex >= 0 && control.currentIndex < control.pages.length - 1 && control.capabilities.canEditStructure
+                            enabled: control.currentIndex >= 0 && control.currentIndex < control.presentedPages.length - 1 && control.capabilities.canEditStructure
                             onClicked: control.moveCurrent(1)
                         }
                         Tk.IconButton {
                             objectName: "notebookPageDelete"
                             iconName: "trash-2"
                             tooltip: qsTr("Delete current page")
-                            enabled: !!control.currentPage && control.capabilities.canEditStructure && control.pages.length > 1
-                            onClicked: control.pageDeleteRequested(control.currentPageId)
+                            enabled: !!control.currentPage && control.capabilities.canEditStructure && control.presentedPages.length > 1
+                            onClicked: control.deletePage(control.currentPageId)
                         }
                     }
                     Tk.Flex {
@@ -319,11 +425,27 @@ Item {
                             model: control.currentPage ? control.currentPage.tags || [] : []
                             delegate: Tk.Chip {
                                 required property string modelData
+                                objectName: "notebookTag_" + modelData
                                 text: modelData
-                                tooltip: qsTr("Page tag %1").arg(modelData)
+                                iconName: control.capabilities.canEditStructure ? "x" : ""
+                                tooltip: control.capabilities.canEditStructure ? qsTr("Remove tag %1").arg(modelData)
+                                                                              : qsTr("Page tag %1").arg(modelData)
+                                onClicked: if (control.capabilities.canEditStructure) control.removeTag(modelData)
                             }
                         }
                         Tk.Caption { visible: !!control.currentPage && (control.currentPage.tags || []).length === 0; text: qsTr("No tags") }
+                        Tk.TextField {
+                            id: tagInput
+                            objectName: "notebookTagInput"
+                            small: true
+                            placeholderText: qsTr("Add tag")
+                            tooltip: qsTr("Type a tag and press Enter to add it to this page")
+                            enabled: control.capabilities.canEditStructure
+                            onAccepted: {
+                                control.addTag(text)
+                                text = ""
+                            }
+                        }
                     }
                     Item {
                         id: pageContentSlot
