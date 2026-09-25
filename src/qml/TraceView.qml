@@ -24,6 +24,20 @@ Item {
         if (dataRevision < 0 || !index || !selectedId) return ({})
         return index.record(selectedId)
     }
+    // Nearest parent first, as TraceIndex.ancestorsOf returns them.
+    readonly property var selectedAncestors: {
+        if (dataRevision < 0 || !index || !selectedId) return []
+        return index.ancestorsOf(selectedId)
+    }
+    readonly property var selectedChildren: {
+        if (dataRevision < 0 || !index || !selectedId) return []
+        return index.childrenOf(selectedId)
+    }
+    // Display-only span of the snapshot in microseconds for the ruler.
+    readonly property real totalMicros: {
+        if (dataRevision < 0 || !index || index.count === 0) return 1
+        return Math.max(0.001, (Number(index.endNs) - Number(index.startNs)) / 1000)
+    }
     signal exportRequested(string json)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 2
@@ -48,8 +62,20 @@ Item {
             align: Tk.Flex.Center
             gap: Tk.Theme.space.sm
             Tk.Overline { title: qsTr("TRACE"); Tk.Flex.grow: 1 }
-            Tk.Caption { text: root.index ? qsTr("%1 records · %2 dropped")
-                                              .arg(root.index.count).arg(root.index.truncatedCount) : "" }
+            Tk.Caption {
+                objectName: "traceCounts"
+                text: !root.index ? ""
+                      : root.index.busy ? qsTr("Loading trace…")
+                      : qsTr("%1 records · %2 dropped · %3 rejected")
+                        .arg(root.index.count).arg(root.index.truncatedCount)
+                        .arg(root.index.rejectedCount)
+            }
+            Tk.Button {
+                objectName: "traceCancel"
+                visible: !!root.index && root.index.busy
+                text: qsTr("Cancel"); tooltip: qsTr("Stop loading this trace")
+                onClicked: root.index.cancel()
+            }
             Tk.Button {
                 objectName: "traceZoomOut"
                 text: "−"; tooltip: qsTr("Zoom out")
@@ -84,6 +110,13 @@ Item {
                 onSearched: function(text) { root.textFilter = text }
             }
         }
+        Tk.Caption {
+            objectName: "traceError"
+            visible: !!root.index && root.index.lastError.length > 0
+            text: root.index ? root.index.lastError : ""
+            color: Tk.Theme.color.danger
+            elide: Text.ElideRight
+        }
         Tk.Slider {
             objectName: "tracePan"
             from: 0
@@ -92,6 +125,29 @@ Item {
             enabled: root.zoom > 1
             tooltip: qsTr("Pan through trace time")
             onValueModified: function(value) { root.pan = value }
+        }
+        Tk.Flex {
+            direction: Tk.Flex.Row
+            Item {
+                implicitWidth: timeline.labelWidth
+                implicitHeight: Tk.Theme.size.timeRuler
+            }
+            // Shared ruler pattern: units are microseconds from the trace start.
+            Tk.TimeRuler {
+                id: ruler
+                objectName: "traceRuler"
+                Tk.Flex.flex: 1
+                Tk.Flex.minWidth: 0
+                tooltip: qsTr("Trace time")
+                pixelsPerUnit: width * root.zoom / root.totalMicros
+                originUnits: root.pan * root.totalMicros
+                playheadUnits: root.selectedRecord.startNs === undefined || !root.index ? -1
+                    : (Number(root.selectedRecord.startNs) - Number(root.index.startNs)) / 1000
+                formatUnit: function(micros) {
+                    return micros >= 1000 ? Number((micros / 1000).toPrecision(6)) + qsTr(" ms")
+                                          : Number(micros.toPrecision(6)) + qsTr(" µs")
+                }
+            }
         }
         Flickable {
             id: timeline
@@ -105,6 +161,12 @@ Item {
             contentWidth: width
             contentHeight: Math.max(height, root.visibleRecords.length * rowHeight)
             boundsBehavior: Flickable.StopAtBounds
+            // Ctrl+wheel zooms; a plain wheel still scrolls the rows.
+            WheelHandler {
+                target: null
+                acceptedModifiers: Qt.ControlModifier
+                onWheel: function(event) { root.zoomBy(event.angleDelta.y > 0 ? 2 : 0.5) }
+            }
             readonly property real labelWidth: Tk.Theme.size.panelMinWidth / 2
             readonly property real rowHeight: Tk.Theme.size.row
             Rectangle {
@@ -165,6 +227,16 @@ Item {
                   .arg(root.selectedRecord.clockDomain)
                   .arg(root.selectedRecord.parentId || qsTr("none"))
                   : qsTr("Select a span or event to inspect exact times")
+            elide: Text.ElideRight
+        }
+        Tk.Caption {
+            objectName: "traceInspectorDetail"
+            visible: !!root.selectedId
+            text: qsTr("%1 ns long · depth %2 · path %3 · %4 children")
+                  .arg(root.selectedRecord.durationNs || "").arg(root.selectedAncestors.length)
+                  .arg(root.selectedAncestors.slice().reverse().concat([root.selectedId])
+                       .join(" › "))
+                  .arg(root.selectedChildren.length)
             elide: Text.ElideRight
         }
     }

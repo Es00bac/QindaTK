@@ -545,3 +545,72 @@ is added. Closing the presenter ends the presentation.
 notes, and plugging it back in needs no action. The status is visible to the
 presenter (`audienceStatus`, `displays`). Behaviour on real window managers
 and monitors is left to platform qualification.
+
+## D-162 — Project dependency scans read off-thread and yield to newer answers
+
+**Context.** WP-087 needs real dependency extraction for a whole project and
+must reject obsolete analyses. The first slice scanned one QML file at a
+time on the caller's thread.
+
+**Decision.** `AssetDependencyIndex.scanProjectAsync()` walks the project
+root for QML files (no symlinks or hidden entries, at most 4,096 files) and
+extracts edges on a worker. The worker never touches the index. When it
+finishes, the GUI thread applies each source's edges only if the source's
+scan token is unchanged since the scan started, so a file rescanned in the
+meantime keeps its newer edges; those sources are reported as skipped. A
+newer scan or `cancelProjectScan()` discards the older result. An indexed
+QML source whose file is gone is marked unavailable and loses its outgoing
+edges, so its dependents report a missing input.
+
+**Consequences.** Hosts get whole-project extraction without blocking the
+GUI. A project over the file cap is refused with an error, not partially
+indexed. Other source formats still commit edges through
+`beginScan`/`commitScanEdges` with the same token rule.
+
+## D-163 — Edges record where they were written; relinks are plans
+
+**Context.** A "missing file" diagnostic is only actionable if it says which
+line to fix, and relinking must not rewrite user files behind the host's
+undo history.
+
+**Decision.** Every edge stores `kind` (`import`, `reference`, `host`), a
+1-based `line` and the reference text as written. Diagnostics name the
+line. `relinkCandidates(id)` lists project files with the same file name
+(a bounded walk of 20,000 entries, at most 32 results).
+`relinkPlan(missingId, replacementId)` returns one edit per dependent with
+the replacement text relative to that source. The index never writes files;
+the host applies the plan in its own transaction and rescans.
+
+**Consequences.** Relink is reviewable and undoable by the host. Directory
+imports cannot be relinked file by file; the plan says so in `note`.
+
+## D-164 — Chrome Trace Event JSON is the one foreign trace format
+
+**Context.** Real execution traces come from profilers. Chrome, Perfetto and
+Qt Creator's trace tools read and write Chrome Trace Event JSON.
+
+**Decision.** `TraceIndex.ingestJsonAsync`/`ingestFileAsync` read either the
+index's own export or Chrome trace events, off the GUI thread, up to 64 MiB.
+Chrome `ts`/`dur` microseconds become a `chrome` clock domain of 1 ns per
+tick, rounded to the nearest nanosecond. `X`, matched `B`/`E` and instant
+events are kept; counters, async and flow phases and unmatched begins count
+as rejected. Parents come from time containment on the same thread. Record
+IDs are `e<n>`, the event's 1-based position in the file.
+
+**Consequences.** Real profiler output opens without a host adapter.
+Cross-thread parents and clock-domain metadata need the index's own format,
+which round-trips exactly through `exportJson()`.
+
+## D-165 — Trace cancellation is cooperative and keeps the current snapshot
+
+**Context.** Large traces must stay off the GUI thread and be cancellable
+without losing what the user is looking at.
+
+**Decision.** Each analysis gets a cancel flag that the worker polls every
+1,024 rows. `cancel()`, a newer ingest, `setClockDomains` and `clear()` set
+it and bump the generation, so a finished stale result is discarded with
+`analysisDiscarded`. `cancel()` leaves the published snapshot in place.
+
+**Consequences.** A cancelled row loop stops within 1,024 rows. JSON parsing
+and the final sort cannot be interrupted, so their result is simply
+discarded. The view never shows a half-applied trace.

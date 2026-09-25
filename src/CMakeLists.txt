@@ -143,7 +143,8 @@ qt_add_qml_module(qindatk
         core/resource_resolver.cpp core/resource_resolver.h
         core/asset_dependency_index.cpp core/asset_dependency_index.h
         core/trace_index.cpp core/trace_index.h
-        core/asset_dependency_qml.cpp
+        core/asset_dependency_qml.cpp core/asset_dependency_scan.cpp
+        core/trace_import.cpp
         core/resource_resolver_async.cpp
         core/document_resource_links.cpp core/document_resource_links.h
         core/transfer_payload.cpp core/transfer_payload.h
