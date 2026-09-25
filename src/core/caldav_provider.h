@@ -59,6 +59,13 @@ public:
     // choice "remote" adopts the server version; "local" overwrites it with If-Match.
     Q_INVOKABLE bool resolveConflict(const QString &requestId, const QString &collection,
                                      const QString &recordId, const QString &choice);
+    // Finds the account's calendars from a server root, principal, home set
+    // or collection URL (`collectionUrl` when empty): RFC 6764 well-known
+    // redirect, current-user-principal, calendar-home-set, PROPFIND Depth 1.
+    // Emits discoveryFinished with principalUrl, homeSetUrl and calendars
+    // [{url, displayName, color, description, components, readOnly}]; needs
+    // no store. Defined in caldav_discovery.cpp.
+    Q_INVOKABLE bool discoverCalendars(const QString &requestId, const QString &url = {});
 
 signals:
     void configChanged();
@@ -67,6 +74,7 @@ signals:
     void conflictsChanged();
     void syncFinished(const QString &requestId, const QVariantMap &result);
     void changeFinished(const QString &requestId, const QVariantMap &result);
+    void discoveryFinished(const QString &requestId, const QVariantMap &result);
 
 private:
     struct Prepared;

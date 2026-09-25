@@ -3,9 +3,12 @@
 // certificate from a test CA (tests/fixtures/tls). Implicit TLS and STARTTLS
 // succeed only when the CA is trusted; an untrusted certificate fails the
 // handshake before any credential is written. Also covers the IMAP and POP3
-// XOAUTH2 and CalDAV bearer mechanisms that host adapters use (D-189).
+// XOAUTH2 and CalDAV bearer mechanisms that host adapters use (D-189), CalDAV
+// discovery and private iCalendar feeds (webcal: maps to https:).
 #include "caldav_provider.h"
 #include "caldav_test_server.h"
+#include "ics_calendar_provider.h"
+#include "ics_feed_test_server.h"
 #include "imap_mail_provider.h"
 #include "local_productivity_store.h"
 #include "mail_test_servers.h"
@@ -308,6 +311,74 @@ private slots:
         QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(text(result)));
         QCOMPARE(store.tasks().size(), 1);
         QVERIFY(!text(result).contains(kToken));
+    }
+
+    void caldavDiscoveryOverHttps()
+    {
+        CalDavTestServer server;
+        server.enableTls();
+        server.principal = QStringLiteral("/dav/principals/ada/");
+        server.homeSet = QStringLiteral("/dav/calendars/ada/");
+        server.calendars = {{server.collection, QStringLiteral("Work"), {}, {}, {QStringLiteral("VEVENT")}, false}};
+        server.authorization = "Basic " + QByteArray("ada:" + kSecret.toUtf8()).toBase64();
+        CalDavProvider provider;
+        provider.setProperty("userName", QStringLiteral("ada"));
+        provider.setProperty("timeoutMs", 10000);
+        provider.setSecret(kSecret);
+        QSignalSpy spy(&provider, &CalDavProvider::discoveryFinished);
+        provider.discoverCalendars(QStringLiteral("untrusted"), server.root() + server.principal);
+        QVERIFY(spy.wait(15000));
+        QVariantMap result = spy.takeFirst().at(1).toMap();
+        QCOMPARE(result.value(QStringLiteral("state")).toString(), QStringLiteral("rejected"));
+        QVERIFY(server.requests.isEmpty());
+
+        TestTls::trustTestCa(true);
+        provider.discoverCalendars(QStringLiteral("trusted"), server.root() + server.principal);
+        QVERIFY(spy.wait(15000));
+        result = spy.takeFirst().at(1).toMap();
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(text(result)));
+        QCOMPARE(result.value(QStringLiteral("calendars")).toList().size(), 1);
+        QVERIFY(result.value(QStringLiteral("homeSetUrl")).toString().startsWith(QStringLiteral("https://")));
+        QVERIFY(!text(result).contains(kSecret));
+    }
+
+    void privateIcsFeedOverWebcal()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        IcsFeedTestServer server;
+        server.enableTls();
+        server.authorization = "Basic " + QByteArray("ada:" + kSecret.toUtf8()).toBase64();
+        server.routes.insert(QStringLiteral("/private/basic.ics"),
+                             {200, "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:p1\r\nSUMMARY:Private\r\n"
+                                   "DTSTART:20260901T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n", "\"p\"", {}, {}, false});
+        LocalProductivityStore store;
+        store.setFilePath(directory.filePath(QStringLiteral("calendar.json")));
+        IcsCalendarProvider provider;
+        provider.setStore(&store);
+        provider.setProperty("userName", QStringLiteral("ada"));
+        provider.setProperty("timeoutMs", 10000);
+        provider.setProperty("feedUrl", QStringLiteral("webcal://127.0.0.1:%1/private/basic.ics").arg(server.port()));
+        provider.setSecret(kSecret);
+        QSignalSpy spy(&provider, &IcsCalendarProvider::syncFinished);
+        provider.sync(QStringLiteral("untrusted"));
+        QVERIFY(spy.wait(15000));
+        QVariantMap result = spy.takeFirst().at(1).toMap();
+        QCOMPARE(result.value(QStringLiteral("state")).toString(), QStringLiteral("rejected"));
+        QVERIFY(server.requests.isEmpty());
+
+        TestTls::trustTestCa(true);
+        provider.sync(QStringLiteral("trusted"));
+        QVERIFY(spy.wait(15000));
+        result = spy.takeFirst().at(1).toMap();
+        QVERIFY2(result.value(QStringLiteral("ok")).toBool(), qPrintable(text(result)));
+        QCOMPARE(store.events().size(), 1);
+        QVERIFY(store.events().first().toMap().value(QStringLiteral("icsFeed")).toString().startsWith(QStringLiteral("https://")));
+        QVERIFY(server.requests.last().endsWith(QStringLiteral("[auth]")));
+        QVERIFY(!text(result).contains(kSecret));
+        QFile saved(store.filePath());
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QVERIFY(!saved.readAll().contains(kSecret.toUtf8()));
     }
 };
 

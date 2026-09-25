@@ -10,7 +10,7 @@
 // copies of everything it needs and never touches QObjects.
 namespace QindaTK::ImapJobs {
 
-enum class Kind { Sync, Action, Attachment };
+enum class Kind { Sync, Action, Attachment, Mailboxes, Append };
 
 struct KnownMessage {
     bool unread = false;
@@ -29,6 +29,11 @@ struct Job {
     // Action / attachment: the target message.
     qint64 uid = 0, uidValidity = 0;
     QString action, section, encoding;
+    QString targetMailbox;        // archive and move: display name of the destination
+    // Mailboxes: STATUS counts. Append: destination, bytes and flags.
+    bool withCounts = false;
+    QByteArray appendMessage;
+    QStringList appendFlags;
 };
 
 QString recordId(const QString &accountId, const QString &mailbox, qint64 uidValidity, qint64 uid);

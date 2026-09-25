@@ -30013,7 +30013,7 @@
         },
         {
           "name": "ribbon",
-          "type": "Item",
+          "type": "Tk.Ribbon",
           "default": "",
           "readonly": false,
           "defaultProperty": false,
@@ -30128,7 +30128,7 @@
       "properties": [
         {
           "name": "ribbon",
-          "type": "Item",
+          "type": "Tk.Ribbon",
           "default": "null",
           "readonly": false,
           "defaultProperty": false,
@@ -30201,7 +30201,7 @@
         {
           "name": "content",
           "type": "Item",
-          "default": "loader.item",
+          "default": "loader.item as Item",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -48963,6 +48963,10 @@
         {
           "name": "changeFinished",
           "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "discoveryFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
         }
       ],
       "methods": [
@@ -48990,6 +48994,11 @@
           "name": "resolveConflict",
           "returns": "bool",
           "parameters": "const QString &requestId, const QString &collection, const QString &recordId, const QString &choice"
+        },
+        {
+          "name": "discoverCalendars",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &url = {}"
         }
       ],
       "enums": {},
@@ -59088,6 +59097,187 @@
       "bridge": false
     },
     {
+      "name": "IcsCalendarProvider",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "iCalendar files and feeds for LocalProductivityStore events, over the CalDAV codec (ical_codec.h): a subscribed feed (https:, http:, webcal:) is a read-only replica of one calendar; an imported file becomes ordinary local events; an export writes one VCALENDAR atomically. AGENT-CONTRACT (CalendarView.qml, CalDavProvider, docs/productivity-providers.md): feed records carry id \"ics:<accountId>:<calendarId>:<uid>\", readOnly true, remoteAccount = accountId, remoteUid, remoteIcs, icsFeed (the normalized feed URL), feedEtag and feedLastModified; CalDavProvider never pushes a record with icsFeed. Imported records have no remoteAccount, keep the UID in remoteUid and the source text in remoteIcs (the base an export or a later CalDAV upload writes over). result.state is \"accepted\", \"rejected\", \"offline\" or \"conflict\" (a store stale-writer rejection). AGENT-GUARD: the secret lives only in memory and is redacted from results.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/ics_calendar_provider.h",
+      "properties": [
+        {
+          "name": "store",
+          "type": "LocalProductivityStore *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "accountId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "calendarId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "feedUrl",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "userName",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "defaultZone",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "timeoutMs",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumBytes",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "allowInsecureAuth",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "autoSave",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hasSecret",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "configChanged",
+          "parameters": ""
+        },
+        {
+          "name": "secretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "syncFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "importFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "exportFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        }
+      ],
+      "methods": [
+        {
+          "name": "setSecret",
+          "returns": "void",
+          "parameters": "const QString &secret, const QString &mechanism = QStringLiteral(\"basic\""
+        },
+        {
+          "name": "clearSecret",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "sync",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "importFile",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &path, const QString &calendarId = {}"
+        },
+        {
+          "name": "exportFile",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &path, const QString &calendarId = {}, const QStringList &eventIds = {}"
+        },
+        {
+          "name": "parseText",
+          "returns": "QVariantMap",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "serializeEvents",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantList &events"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "ImageCompareItem",
       "kind": "cpp",
       "base": "QQuickPaintedItem",
@@ -59432,7 +59622,7 @@
       "name": "ImapMailProvider",
       "kind": "cpp",
       "base": "QObject",
-      "description": "IMAP mailbox sync into LocalProductivityStore messages, remote flag/archive/ delete actions for MailView, and on-demand attachment download into LocalAttachmentStore. Each operation is one worker-thread IMAP session. AGENT-CONTRACT (MailView.qml, docs/productivity-providers.md): message records keep `id == messageId == \"imap:<accountId>:<mailbox>:<uidValidity>:<uid>\"` plus remoteAccount/remoteMailbox/remoteUidValidity/remoteUid; result.state is \"accepted\", \"rejected\", \"offline\" or \"conflict\" (stale UIDVALIDITY or a store stale-writer rejection) and is passed to MailView.acknowledge(). AGENT-GUARD: the secret lives only in memory (no READ accessor) and is redacted from every result, error and transcript.",
+      "description": "IMAP mailbox sync into LocalProductivityStore messages, remote flag/archive/ move/delete actions for MailView, on-demand attachment download into LocalAttachmentStore, the folder list (LIST + SPECIAL-USE + STATUS) and APPEND (a sent/draft copy). Each operation is one worker-thread IMAP session. Mailbox names are UTF-8 display names; the wire uses modified UTF-7. AGENT-CONTRACT (MailView.qml, docs/productivity-providers.md): message records keep `id == messageId == \"imap:<accountId>:<mailbox>:<uidValidity>:<uid>\"` plus remoteAccount/remoteMailbox/remoteUidValidity/remoteUid; result.state is \"accepted\", \"rejected\", \"offline\" or \"conflict\" (stale UIDVALIDITY or a store stale-writer rejection) and is passed to MailView.acknowledge(). AGENT-GUARD: the secret lives only in memory (no READ accessor) and is redacted from every result, error and transcript.",
       "singleton": false,
       "attached": null,
       "file": "src/core/imap_mail_provider.h",
@@ -59588,6 +59778,14 @@
         {
           "name": "attachmentFinished",
           "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "mailboxesFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
+        },
+        {
+          "name": "appendFinished",
+          "parameters": "const QString &requestId, const QVariantMap &result"
         }
       ],
       "methods": [
@@ -59615,6 +59813,21 @@
           "name": "fetchAttachment",
           "returns": "bool",
           "parameters": "const QString &requestId, const QString &messageId, const QString &attachmentId"
+        },
+        {
+          "name": "listMailboxes",
+          "returns": "bool",
+          "parameters": "const QString &requestId, bool withCounts = false"
+        },
+        {
+          "name": "append",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &mailbox, const QByteArray &rawMessage, const QStringList &flags = {}"
+        },
+        {
+          "name": "moveMessage",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &messageId, const QString &targetMailbox"
         }
       ],
       "enums": {},

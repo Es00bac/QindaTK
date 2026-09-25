@@ -147,6 +147,9 @@ target_compile_definitions(tst_productivity_seam PRIVATE
     QINDATK_LOCAL_PRODUCTIVITY_FIXTURE="${PROJECT_SOURCE_DIR}/examples/local-productivity/Main.qml")
 target_compile_definitions(tst_provider_tls PRIVATE
     QINDATK_TLS_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tls")
+qindatk_add_test(tst_ics_calendar_provider)
+qindatk_add_test(tst_imap_folders)
+qindatk_add_test(tst_caldav_discovery)
 qindatk_add_test(tst_workspace_session)
 qindatk_add_test(tst_dock_restore)
 qindatk_add_test(tst_resource_resolver)

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "imap_mail_provider.h"
 
+#include "imap_folders.h"
 #include "imap_mail_jobs.h"
 #include "protocol_client.h"
 
@@ -80,6 +81,64 @@ bool ImapMailProvider::fetchAttachment(const QString &requestId, const QString &
                  {{QStringLiteral("messageId"), messageId}, {QStringLiteral("attachmentId"), attachmentId}});
 }
 
+bool ImapMailProvider::listMailboxes(const QString &requestId, bool withCounts)
+{
+    return start(Operation::Mailboxes, requestId, {{QStringLiteral("withCounts"), withCounts}});
+}
+
+bool ImapMailProvider::append(const QString &requestId, const QString &mailbox, const QByteArray &rawMessage,
+                              const QStringList &flags)
+{
+    return start(Operation::Append, requestId,
+                 {{QStringLiteral("mailbox"), mailbox}, {QStringLiteral("rawMessage"), rawMessage},
+                  {QStringLiteral("flags"), flags}});
+}
+
+bool ImapMailProvider::moveMessage(const QString &requestId, const QString &messageId, const QString &targetMailbox)
+{
+    return start(Operation::Action, requestId,
+                 {{QStringLiteral("messageId"), messageId}, {QStringLiteral("action"), QStringLiteral("move")},
+                  {QStringLiteral("targetMailbox"), targetMailbox}});
+}
+
+// Validates a message-scoped request (action, attachment) against the stored
+// record and fills the job's target; returns a rejection map on failure.
+QVariantMap ImapMailProvider::prepareMessageJob(Operation operation, const QVariantMap &input, ImapJobs::Job *job) const
+{
+    const QVariantMap message = findMessage(input.value(QStringLiteral("messageId")).toString());
+    job->uid = message.value(QStringLiteral("remoteUid")).toLongLong();
+    job->uidValidity = message.value(QStringLiteral("remoteUidValidity")).toLongLong();
+    if (message.isEmpty() || job->uid <= 0 || job->uidValidity <= 0
+        || message.value(QStringLiteral("remoteAccount")).toString() != m_accountId
+        || message.value(QStringLiteral("remoteMailbox")).toString() != m_mailbox)
+        return rejection(QStringLiteral("The message is not stored from this IMAP mailbox"));
+    job->action = input.value(QStringLiteral("action")).toString();
+    if (operation == Operation::Action) {
+        if (job->action == QLatin1String("move")) {
+            job->targetMailbox = input.value(QStringLiteral("targetMailbox")).toString();
+            if (job->targetMailbox.trimmed().isEmpty() || job->targetMailbox == m_mailbox)
+                return rejection(QStringLiteral("Choose a different mailbox to move the message to"));
+        } else if (!remoteActions().contains(job->action)) {
+            return rejection(QStringLiteral("\"%1\" is a host action (for example reply opens a draft)").arg(job->action));
+        } else if (job->action == QLatin1String("archive")) {
+            job->targetMailbox = m_archiveMailbox;
+            if (m_archiveMailbox.trimmed().isEmpty() || m_archiveMailbox == m_mailbox)
+                return rejection(QStringLiteral("No archive mailbox different from the current one is configured"));
+        }
+        return {};
+    }
+    const QString attachmentId = input.value(QStringLiteral("attachmentId")).toString();
+    for (const QVariant &value : message.value(QStringLiteral("attachments")).toList()) {
+        const QVariantMap attachment = value.toMap();
+        if (attachment.value(QStringLiteral("id")).toString() != attachmentId) continue;
+        job->section = attachment.value(QStringLiteral("section")).toString();
+        job->encoding = attachment.value(QStringLiteral("encoding")).toString();
+    }
+    if (job->section.isEmpty()) return rejection(QStringLiteral("Attachment %1 is not part of the message").arg(attachmentId));
+    if (!m_attachmentStore) return rejection(QStringLiteral("No attachment store is configured"));
+    return {};
+}
+
 bool ImapMailProvider::start(Operation operation, const QString &requestId, const QVariantMap &input)
 {
     ImapJobs::Job job;
@@ -92,8 +151,24 @@ bool ImapMailProvider::start(Operation operation, const QString &requestId, cons
     job.maximumMessageBytes = m_maximumMessageBytes;
 
     QVariantMap early;
-    if (!m_store) early = rejection(QStringLiteral("No local store is configured for mail sync"));
-    if (early.isEmpty() && operation == Operation::Sync) {
+    if (operation == Operation::Mailboxes) {
+        job.withCounts = input.value(QStringLiteral("withCounts")).toBool();
+    } else if (operation == Operation::Append) {
+        job.targetMailbox = input.value(QStringLiteral("mailbox")).toString();
+        job.appendMessage = input.value(QStringLiteral("rawMessage")).toByteArray();
+        job.appendFlags = input.value(QStringLiteral("flags")).toStringList();
+        if (job.targetMailbox.trimmed().isEmpty())
+            early = rejection(QStringLiteral("No mailbox is given for the message copy"));
+        else if (job.appendMessage.isEmpty() || job.appendMessage.size() > ImapFolders::MaximumAppendBytes)
+            early = rejection(QStringLiteral("The message must be between 1 byte and 64 MiB"));
+        else if (job.appendMessage.contains('\0'))
+            early = rejection(QStringLiteral("The message contains NUL bytes"));
+        for (const QString &flag : std::as_const(job.appendFlags))
+            if (early.isEmpty() && !ImapFolders::validFlag(flag))
+                early = rejection(QStringLiteral("\"%1\" is not a valid IMAP flag").arg(flag));
+    } else if (!m_store) {
+        early = rejection(QStringLiteral("No local store is configured for mail sync"));
+    } else if (operation == Operation::Sync) {
         for (const QVariant &value : m_store->messages()) {
             const QVariantMap row = value.toMap();
             if (row.value(QStringLiteral("remoteAccount")).toString() != m_accountId
@@ -103,45 +178,34 @@ bool ImapMailProvider::start(Operation operation, const QString &requestId, cons
             job.known.insert(row.value(QStringLiteral("remoteUid")).toLongLong(),
                              {row.value(QStringLiteral("unread")).toBool(), row.value(QStringLiteral("flagged")).toBool()});
         }
-    } else if (early.isEmpty()) {
-        const QVariantMap message = findMessage(input.value(QStringLiteral("messageId")).toString());
-        job.uid = message.value(QStringLiteral("remoteUid")).toLongLong();
-        job.uidValidity = message.value(QStringLiteral("remoteUidValidity")).toLongLong();
-        if (message.isEmpty() || job.uid <= 0 || job.uidValidity <= 0
-            || message.value(QStringLiteral("remoteAccount")).toString() != m_accountId
-            || message.value(QStringLiteral("remoteMailbox")).toString() != m_mailbox)
-            early = rejection(QStringLiteral("The message is not stored from this IMAP mailbox"));
-        job.action = input.value(QStringLiteral("action")).toString();
-        if (early.isEmpty() && operation == Operation::Action && !remoteActions().contains(job.action))
-            early = rejection(QStringLiteral("\"%1\" is a host action (for example reply opens a draft)").arg(job.action));
-        if (early.isEmpty() && operation == Operation::Attachment) {
-            const QString attachmentId = input.value(QStringLiteral("attachmentId")).toString();
-            for (const QVariant &value : message.value(QStringLiteral("attachments")).toList()) {
-                const QVariantMap attachment = value.toMap();
-                if (attachment.value(QStringLiteral("id")).toString() != attachmentId) continue;
-                job.section = attachment.value(QStringLiteral("section")).toString();
-                job.encoding = attachment.value(QStringLiteral("encoding")).toString();
-            }
-            if (job.section.isEmpty()) early = rejection(QStringLiteral("Attachment %1 is not part of the message").arg(attachmentId));
-            else if (!m_attachmentStore) early = rejection(QStringLiteral("No attachment store is configured"));
-        }
+    } else {
+        early = prepareMessageJob(operation, input, &job);
     }
+    // The message bytes are not echoed back in the result.
+    QVariantMap echoed = input;
+    echoed.remove(QStringLiteral("rawMessage"));
 
     ++m_pending;
     m_state = QStringLiteral("working");
     emit stateChanged();
     if (!early.isEmpty()) {
-        early.insert(input);
+        early.insert(echoed);
         QMetaObject::invokeMethod(this, [this, operation, requestId, early] { complete(operation, requestId, early); },
                                   Qt::QueuedConnection);
         return false;
     }
-    const ImapJobs::Kind kind = operation == Operation::Sync ? ImapJobs::Kind::Sync
-        : operation == Operation::Action ? ImapJobs::Kind::Action : ImapJobs::Kind::Attachment;
+    ImapJobs::Kind kind = ImapJobs::Kind::Sync;
+    switch (operation) {
+    case Operation::Sync: kind = ImapJobs::Kind::Sync; break;
+    case Operation::Action: kind = ImapJobs::Kind::Action; break;
+    case Operation::Attachment: kind = ImapJobs::Kind::Attachment; break;
+    case Operation::Mailboxes: kind = ImapJobs::Kind::Mailboxes; break;
+    case Operation::Append: kind = ImapJobs::Kind::Append; break;
+    }
     Protocol::startWorker(this, [kind, job] { return ImapJobs::run(kind, job); },
-                          [this, operation, requestId, input](const QVariantMap &result) {
+                          [this, operation, requestId, echoed](const QVariantMap &result) {
                               QVariantMap merged = result;
-                              merged.insert(input);
+                              merged.insert(echoed);
                               complete(operation, requestId, merged);
                           });
     return true;
@@ -208,7 +272,7 @@ QVariantMap ImapMailProvider::applyActionResult(QVariantMap result)
     const QString action = result.value(QStringLiteral("action")).toString();
     QVariantMap row = findMessage(messageId);
     if (row.isEmpty()) return persist(result);        // removed locally meanwhile; remote change stands
-    if (action == QLatin1String("archive") || action == QLatin1String("delete")) {
+    if (action == QLatin1String("archive") || action == QLatin1String("move") || action == QLatin1String("delete")) {
         m_store->remove(QStringLiteral("messages"), row.value(QStringLiteral("id")).toString());
     } else {
         if (action == QLatin1String("read") || action == QLatin1String("unread"))
@@ -257,7 +321,7 @@ void ImapMailProvider::complete(Operation operation, const QString &requestId, Q
     if (result.value(QStringLiteral("ok")).toBool() && m_store) {
         if (operation == Operation::Sync) result = applySyncResult(result);
         else if (operation == Operation::Action) result = applyActionResult(result);
-        else result = applyAttachmentResult(result);
+        else if (operation == Operation::Attachment) result = applyAttachmentResult(result);
     }
     result.remove(QStringLiteral("bytes"));
     result.insert(QStringLiteral("requestId"), requestId);
@@ -266,9 +330,13 @@ void ImapMailProvider::complete(Operation operation, const QString &requestId, Q
     m_pending = qMax(0, m_pending - 1);
     m_state = result.value(QStringLiteral("state")).toString();
     emit stateChanged();
-    if (operation == Operation::Sync) emit syncFinished(requestId, result);
-    else if (operation == Operation::Action) emit actionFinished(requestId, result);
-    else emit attachmentFinished(requestId, result);
+    switch (operation) {
+    case Operation::Sync: emit syncFinished(requestId, result); break;
+    case Operation::Action: emit actionFinished(requestId, result); break;
+    case Operation::Attachment: emit attachmentFinished(requestId, result); break;
+    case Operation::Mailboxes: emit mailboxesFinished(requestId, result); break;
+    case Operation::Append: emit appendFinished(requestId, result); break;
+    }
 }
 
 } // namespace QindaTK

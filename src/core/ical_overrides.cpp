@@ -163,7 +163,15 @@ QString resolveZone(const QString &tzid)
 {
     if (QTimeZone(tzid.toUtf8()).isValid()) return tzid;
     const QByteArray iana = QTimeZone::windowsIdToDefaultIanaId(tzid.toUtf8());
-    return iana.isEmpty() ? QString() : QString::fromUtf8(iana);
+    if (!iana.isEmpty()) return QString::fromUtf8(iana);
+    // Vendor-prefixed IDs such as "/mozilla.org/20050126_1/America/New_York"
+    // or "/citadel.org/20250101_1/Europe/Berlin": the longest IANA suffix.
+    const QStringList parts = tzid.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    for (qsizetype i = 1; i < parts.size(); ++i) {
+        const QString candidate = parts.mid(i).join(QLatin1Char('/'));
+        if (QTimeZone(candidate.toUtf8()).isValid()) return candidate;
+    }
+    return {};
 }
 
 Stamp parseStampValue(QString value, const Property &property, const QString &defaultZone)

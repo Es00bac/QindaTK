@@ -1044,6 +1044,63 @@ stays on the server. A sync that deletes runs two sessions, a deliberate
 exception to one exchange per request (D-186). Oversized mail has headers
 only until a future "download the rest" action.
 
+## D-299 — IMAP names are UTF-8 in the API; folders, APPEND and moves are provider operations
+
+**Context.** QindaMail needs a folder pane (with the Sent, Drafts, Trash,
+Junk and Archive roles), a copy of sent mail and moves between folders.
+IMAP names mailboxes in modified UTF-7 (RFC 3501 §5.1.3), so the provider
+refused every non-ASCII name; roles come from RFC 6154 attributes, which
+older servers do not send and Gmail sends without being asked.
+
+**Decision.** Every mailbox name at the provider boundary — `mailbox`,
+`archiveMailbox`, move and append targets, listed `name`s, record IDs and
+`remoteMailbox` — is the decoded UTF-8 display name; only the wire (and
+`rawName`) carries modified UTF-7 (`imap_mutf7`). `listMailboxes` uses
+`LIST "" "*"` with `RETURN (SPECIAL-USE)` when advertised, reads roles from
+attributes in either reply, and fills unclaimed roles from well-known names
+("Sent Items", "Deleted Items", "[Gmail]/Sent Mail"); a heuristic never
+overrides an attribute. STATUS counts are opt-in and bounded (200
+mailboxes); a refused STATUS leaves that mailbox's counts at -1.
+`append` uses a synchronizing literal and reports APPENDUID; it never
+touches the store. `moveMessage` generalizes `archive` (UID MOVE, or COPY +
+`\Deleted` + UID EXPUNGE) and removes the local record rather than
+re-keying it, because a record under the destination's identity would make
+that mailbox's next sync skip every older UID.
+
+**Consequences.** Hosts store what the user sees and never encode names. A
+mailbox a non-conforming server names in raw 8-bit is listed but cannot be
+selected (UTF8=ACCEPT is not enabled). A moved message disappears locally
+until the destination is synced. The Sent copy is composed separately and
+has its own Message-ID.
+
+## D-300 — iCalendar feeds are read-only replicas; imported files become local events
+
+**Context.** Holiday, sports and team calendars are published as `.ics`
+feeds (often `webcal:`), and users exchange `.ics` files. A feed has no
+write path and no stable identity beyond its URL and the UIDs inside;
+an imported file must not tie events to a server.
+
+**Decision.** `IcsCalendarProvider` reuses the CalDAV codec (a calendar-level
+split and merge were added to `ical_codec`, not a second parser). A feed sync
+is a conditional GET whose 200 replaces exactly the events of that
+`calendarId` whose `icsFeed` is the feed: IDs `ics:<accountId>:<calendarId>:<uid>`,
+`readOnly: true`, `remoteAccount`, `remoteUid`, `remoteIcs` and the
+validators; a 304 changes nothing, and any failure leaves the replica as it
+was. `CalDavProvider` skips records with `icsFeed`, so a replica is never
+uploaded. An imported file becomes ordinary local events (`remoteUid`,
+`remoteIcs`, no `remoteAccount`) keyed by UID within the calendar, so
+re-importing updates instead of duplicating, and a UID that belongs to an
+account record is left alone. Export writes the records the way CalDAV
+writes them, into one VCALENDAR, atomically. Vendor TZIDs are resolved by
+IANA suffix or X-LIC-LOCATION and rewritten; UID-less components get a
+stable derived UID.
+
+**Consequences.** Feeds are safe to refresh on a timer and cheap when
+unchanged; local edits of a replica are overwritten by design (views should
+honour `readOnly`). Imported events can later be given a `remoteAccount` and
+CalDAV uploads them with their original UID and alarms. Credentials of a
+private feed follow D-187 and stay on the feed's site across redirects.
+
 ## D-178 — A score is written music with its own model, separate from MIDI
 
 **Context.** AUD-27 needs voices, ties, tuplets, spelling and articulations;

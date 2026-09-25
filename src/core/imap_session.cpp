@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "imap_session.h"
 
+#include "imap_mutf7.h"
+
 #include <QRegularExpression>
 
 namespace QindaTK::Imap {
@@ -84,15 +86,19 @@ QList<Value> parseResponse(const QByteArray &raw)
     return values;
 }
 
-QByteArray quoted(const QString &text)
+QByteArray quoted(const QString &text) { return quoted(text.toUtf8()); }
+
+QByteArray quoted(const QByteArray &bytes)
 {
     QByteArray out = "\"";
-    for (const char c : text.toUtf8()) {
+    for (const char c : bytes) {
         if (c == '\\' || c == '"') out += '\\';
         out += c;
     }
     return out + '"';
 }
+
+QByteArray mailboxArgument(const QString &name) { return quoted(encodeMailboxName(name)); }
 
 const Value *FetchItem::find(const char *name) const
 {
@@ -142,7 +148,18 @@ bool Session::readResponse(QByteArray *raw)
 }
 
 bool Session::command(const QByteArray &command, QList<QByteArray> *untagged, const QString &shown,
-                      const QByteArray &continuation)
+                      const QByteArray &continuation, const QString &continuationShown)
+{
+    return exchange(command, untagged, shown, continuation, continuationShown, true);
+}
+
+bool Session::optionalCommand(const QByteArray &command, QList<QByteArray> *untagged)
+{
+    return exchange(command, untagged, {}, {}, {}, false);
+}
+
+bool Session::exchange(const QByteArray &command, QList<QByteArray> *untagged, const QString &shown,
+                       const QByteArray &continuation, const QString &continuationShown, bool required)
 {
     const QByteArray tag = "a" + QByteArray::number(++m_tag);
     if (!m_channel->write(tag + ' ' + command + "\r\n",
@@ -160,14 +177,16 @@ bool Session::command(const QByteArray &command, QList<QByteArray> *untagged, co
             // A second request (e.g. an XOAUTH2 error challenge) gets an empty answer.
             const QByteArray answer = continued ? QByteArray() : continuation;
             continued = true;
-            if (!m_channel->write(answer + "\r\n", answer.isEmpty() ? QString() : QStringLiteral("<redacted>")))
-                return false;
+            const QString answerShown = answer.isEmpty() ? QString()
+                : continuationShown.isEmpty() ? QStringLiteral("<redacted>") : continuationShown;
+            if (!m_channel->write(answer + "\r\n", answerShown)) return false;
             continue;
         }
         if (!raw.startsWith(tag + ' ')) continue;
         const QByteArray status = raw.mid(tag.size() + 1);
         m_lastStatus = QString::fromUtf8(status);
         if (status.startsWith("OK")) return true;
+        if (!required) return false;
         const QByteArray verb = command.split(' ').first();
         m_channel->fail(Protocol::Failure::Rejected,
                         QStringLiteral("%1 failed: %2").arg(QString::fromLatin1(verb), m_lastStatus));
@@ -270,14 +289,12 @@ bool Session::authenticate(const Protocol::Credentials &credentials)
 
 bool Session::select(const QString &mailbox, qint64 *uidValidity, qint64 *exists)
 {
-    for (const QChar c : mailbox) {
-        if (c.unicode() < 0x20 || c.unicode() > 0x7e) {
-            m_channel->fail(Protocol::Failure::Rejected, QStringLiteral("Mailbox names must be printable ASCII"));
-            return false;
-        }
+    if (mailbox.trimmed().isEmpty()) {
+        m_channel->fail(Protocol::Failure::Rejected, QStringLiteral("No mailbox name is configured"));
+        return false;
     }
     QList<QByteArray> untagged;
-    if (!command("SELECT " + quoted(mailbox), &untagged)) return false;
+    if (!command("SELECT " + mailboxArgument(mailbox), &untagged)) return false;
     static const QRegularExpression validity(QStringLiteral("\\[UIDVALIDITY (\\d+)\\]"), QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression count(QStringLiteral("^(\\d+) EXISTS"), QRegularExpression::CaseInsensitiveOption);
     *uidValidity = 0;

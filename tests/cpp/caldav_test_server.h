@@ -7,6 +7,11 @@
 // stale ETag). Each response closes the connection, as the client requests.
 // AGENT-CONTRACT (caldav_jobs.cpp): ETags are opaque quoted strings and every
 // accepted write returns a new one in the ETag header.
+// Discovery (caldav_discovery.cpp): with `principal` set, PROPFIND for the
+// discovery properties answers at the context path (current-user-principal),
+// the principal (calendar-home-set), the home set (Depth 1: its calendars and
+// one non-calendar child) and each calendar; /.well-known/caldav redirects to
+// the context path when `wellKnown` is set (RFC 6764).
 
 #include <QHostAddress>
 #include <QMap>
@@ -28,6 +33,18 @@ public:
     QMap<QString, Resource> resources;     // path -> resource
     QStringList requests;                  // "METHOD path [If-Match: x] [If-None-Match: y]"
     bool chunked = false;                  // GET bodies use chunked transfer coding
+    struct Calendar {
+        QString path, displayName, color, description;
+        QStringList components{QStringLiteral("VEVENT"), QStringLiteral("VTODO")};
+        bool readOnly = false;
+    };
+    QString principal;                     // e.g. "/dav/principals/ada/"; empty = no discovery
+    QString homeSet;                       // e.g. "/dav/calendars/ada/"
+    QString contextPath = QStringLiteral("/dav/");
+    bool absoluteHomeSet = false;          // calendar-home-set as an absolute URL
+    bool wellKnown = false;                // /.well-known/caldav -> 301 contextPath
+    QByteArray wellKnownTarget;            // overrides the Location of that redirect
+    QList<Calendar> calendars;             // members of homeSet
 
     CalDavTestServer()
     {
@@ -38,10 +55,10 @@ public:
     }
     quint16 port() const { return m_server.serverPort(); }
     void enableTls() { m_server.tls = true; m_server.implicit = true; }
-    QString url() const
+    QString url() const { return root() + collection; }
+    QString root() const
     {
-        return QStringLiteral("%1://127.0.0.1:%2%3").arg(m_server.tls ? QStringLiteral("https") : QStringLiteral("http"))
-            .arg(port()).arg(collection);
+        return QStringLiteral("%1://127.0.0.1:%2").arg(m_server.tls ? QStringLiteral("https") : QStringLiteral("http")).arg(port());
     }
     QString path(const QString &name) const { return collection + name; }
     QByteArray etagOf(const QString &path) const
@@ -112,6 +129,12 @@ private:
                         + (ifNoneMatch.isEmpty() ? QString() : QStringLiteral(" If-None-Match: ") + QString::fromLatin1(ifNoneMatch)));
         if (!authorization.isEmpty() && headers.value("authorization") != authorization) return reply(socket, 401);
         const bool exists = resources.contains(target);
+        if (target == QLatin1String("/.well-known/caldav")) {
+            if (!wellKnown) return reply(socket, 404);
+            return redirect(socket, wellKnownTarget.isEmpty() ? contextPath.toUtf8() : wellKnownTarget);
+        }
+        if (method == "PROPFIND" && body.contains("current-user-principal"))
+            return discovery(socket, target, headers.value("depth"));
         if (method == "PROPFIND") {
             if (target != collection || headers.value("depth") != "1") return reply(socket, 400);
             QByteArray xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<d:multistatus xmlns:d=\"DAV:\">"
@@ -137,6 +160,68 @@ private:
             return reply(socket, 204);
         }
         reply(socket, 405);
+    }
+
+    void redirect(QTcpSocket *socket, const QByteArray &location)
+    {
+        socket->write("HTTP/1.1 301 Moved\r\nConnection: close\r\nLocation: " + location + "\r\nContent-Length: 0\r\n\r\n");
+        socket->flush();
+        socket->disconnectFromHost();
+    }
+
+    static QByteArray response(const QString &href, const QByteArray &props, const QByteArray &missing = {})
+    {
+        QByteArray out = "<d:response><d:href>" + href.toUtf8() + "</d:href><d:propstat><d:prop>" + props
+            + "</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>";
+        if (!missing.isEmpty())
+            out += "<d:propstat><d:prop>" + missing + "</d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat>";
+        return out + "</d:response>";
+    }
+
+    QByteArray calendarProps(const Calendar &calendar) const
+    {
+        QByteArray comps;
+        for (const QString &name : calendar.components) comps += "<c:comp name=\"" + name.toUtf8() + "\"/>";
+        QByteArray privileges = "<d:privilege><d:read/></d:privilege>";
+        if (!calendar.readOnly) privileges += "<d:privilege><d:write-content/></d:privilege>";
+        QByteArray props = "<d:resourcetype><d:collection/><c:calendar/></d:resourcetype>"
+                           "<d:current-user-principal><d:href>" + principal.toUtf8() + "</d:href></d:current-user-principal>"
+                           "<c:supported-calendar-component-set>" + comps + "</c:supported-calendar-component-set>"
+                           "<d:current-user-privilege-set>" + privileges + "</d:current-user-privilege-set>";
+        if (!calendar.displayName.isEmpty()) props += "<d:displayname>" + calendar.displayName.toUtf8() + "</d:displayname>";
+        if (!calendar.color.isEmpty()) props += "<a:calendar-color>" + calendar.color.toUtf8() + "</a:calendar-color>";
+        if (!calendar.description.isEmpty())
+            props += "<c:calendar-description>" + calendar.description.toUtf8() + "</c:calendar-description>";
+        return props;
+    }
+
+    void discovery(QTcpSocket *socket, const QString &target, const QByteArray &depth)
+    {
+        if (principal.isEmpty()) return reply(socket, 404);
+        const QByteArray me = "<d:current-user-principal><d:href>" + principal.toUtf8() + "</d:href></d:current-user-principal>";
+        QByteArray xml;
+        if (target == contextPath) {
+            xml = response(target, "<d:resourcetype><d:collection/></d:resourcetype>" + me, "<c:calendar-home-set/>");
+        } else if (target == principal) {
+            const QString home = absoluteHomeSet ? root() + homeSet : homeSet;
+            xml = response(target, "<d:resourcetype><d:principal/><d:collection/></d:resourcetype>" + me
+                                       + "<c:calendar-home-set><d:href>" + home.toUtf8() + "</d:href></c:calendar-home-set>");
+        } else if (target == homeSet) {
+            xml = response(target, "<d:resourcetype><d:collection/></d:resourcetype>" + me);
+            if (depth == "1") {
+                xml += response(homeSet + QStringLiteral("inbox/"),
+                                "<d:resourcetype><d:collection/><c:schedule-inbox/></d:resourcetype>");
+                for (const Calendar &calendar : std::as_const(calendars))
+                    xml += response(calendar.path, calendarProps(calendar), "<d:getctag/>");
+            }
+        } else {
+            for (const Calendar &calendar : std::as_const(calendars))
+                if (calendar.path == target) xml = response(target, calendarProps(calendar));
+            if (xml.isEmpty()) return reply(socket, 404);
+        }
+        reply(socket, 207, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<d:multistatus xmlns:d=\"DAV:\" "
+                           "xmlns:c=\"urn:ietf:params:xml:ns:caldav\" xmlns:a=\"http://apple.com/ns/ical/\">"
+                               + xml + "</d:multistatus>", {}, "application/xml; charset=utf-8");
     }
 
     TestTls::Server m_server;

@@ -301,7 +301,7 @@ protected:
         }
     }
 
-private:
+protected:                   // imap_folder_test_server.h extends the mailbox commands
     bool m_implicitOnly = false;
     static QByteArray literal(const QByteArray &bytes) { return "{" + QByteArray::number(bytes.size()) + "}\r\n" + bytes; }
 

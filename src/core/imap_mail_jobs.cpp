@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #include "imap_mail_jobs.h"
 
+#include "imap_folders.h"
 #include "imap_session.h"
 #include "mail_mime.h"
 #include "mail_record.h"
@@ -98,7 +99,7 @@ bool expunge(Imap::Session &session, const QByteArray &uid)
     return session.hasCapability("UIDPLUS") ? session.command("UID EXPUNGE " + uid) : session.command("EXPUNGE");
 }
 
-bool runAction(Imap::Session &session, const Job &job, Protocol::Channel &channel)
+bool runAction(Imap::Session &session, const Job &job, Protocol::Channel &channel, QVariantMap *out)
 {
     const QByteArray uid = number(job.uid);
     if (job.action == QLatin1String("read")) return session.command("UID STORE " + uid + " +FLAGS.SILENT (\\Seen)");
@@ -106,9 +107,16 @@ bool runAction(Imap::Session &session, const Job &job, Protocol::Channel &channe
     if (job.action == QLatin1String("flag")) return session.command("UID STORE " + uid + " +FLAGS.SILENT (\\Flagged)");
     if (job.action == QLatin1String("unflag")) return session.command("UID STORE " + uid + " -FLAGS.SILENT (\\Flagged)");
     if (job.action == QLatin1String("delete")) return expunge(session, uid);
-    if (job.action == QLatin1String("archive")) {
-        if (session.hasCapability("MOVE")) return session.command("UID MOVE " + uid + ' ' + Imap::quoted(job.archiveMailbox));
-        return session.command("UID COPY " + uid + ' ' + Imap::quoted(job.archiveMailbox)) && expunge(session, uid);
+    if (job.action == QLatin1String("archive") || job.action == QLatin1String("move")) {
+        // AGENT-NOTE: MOVE (RFC 6851) is atomic; without it COPY + \Deleted +
+        // (UID) EXPUNGE is the RFC 3501 equivalent. COPYUID (UIDPLUS) names
+        // the message's UID in the destination when the server sends it.
+        const QByteArray target = Imap::mailboxArgument(job.targetMailbox);
+        QList<QByteArray> untagged;
+        const bool move = session.hasCapability("MOVE");
+        if (!session.command((move ? "UID MOVE " : "UID COPY ") + uid + ' ' + target, &untagged)) return false;
+        ImapFolders::readCopyUid(untagged, session.lastStatus(), job.uid, out);
+        return move || expunge(session, uid);
     }
     channel.fail(Protocol::Failure::Rejected, QStringLiteral("Unsupported mail action %1").arg(job.action));
     return false;
@@ -163,13 +171,19 @@ QVariantMap run(Kind kind, const Job &job)
     QString conflict;
     bool ok = false;
     qint64 validity = 0, exists = 0;
-    if (session.open(job.endpoint, job.credentials) && session.select(job.mailbox, &validity, &exists)) {
+    if (!session.open(job.endpoint, job.credentials)) {
+        // failure recorded on the channel
+    } else if (kind == Kind::Mailboxes) {
+        ok = ImapFolders::listMailboxes(session, job.withCounts, &result);
+    } else if (kind == Kind::Append) {
+        ok = ImapFolders::append(session, job.targetMailbox, job.appendMessage, job.appendFlags, &result);
+    } else if (session.select(job.mailbox, &validity, &exists)) {
         if (kind == Kind::Sync) {
             ok = syncMailbox(session, job, validity, exists, &result);
         } else if (validity != job.uidValidity) {
             conflict = QStringLiteral("The mailbox was rebuilt on the server (UIDVALIDITY changed); sync before retrying");
         } else if (kind == Kind::Action) {
-            ok = runAction(session, job, channel);
+            ok = runAction(session, job, channel, &result);
         } else {
             ok = download(session, job, channel, &result);
         }

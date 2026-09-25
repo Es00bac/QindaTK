@@ -52,4 +52,35 @@ QByteArray fromRecord(const QString &component, const QString &uid, const QVaria
 // SHA-256 over the mapped fields only; a changed digest means a local edit.
 QString digest(const QString &component, const QVariantMap &record);
 
+// ---- Whole calendars (ical_calendar.cpp): .ics files and feeds ----------
+
+// One UID of a calendar: its master component, its RECURRENCE-ID overrides
+// and the VTIMEZONEs they reference, as a standalone VCALENDAR (`ics`, the
+// `remoteIcs` base for fromRecord) plus its mapping. `mapped.ok` is false
+// (with `mapped.error`) for a component the mapping cannot use.
+struct CalendarItem {
+    Mapped mapped;
+    QByteArray ics;
+};
+
+struct ParsedCalendar {
+    bool ok = false;
+    QString error;                 // not an iCalendar stream at all
+    QString name;                  // X-WR-CALNAME, if any
+    QList<CalendarItem> items;     // VEVENT and VTODO groups in source order
+    QStringList warnings;          // unsupported components, missing UIDs, bounds
+    bool truncated = false;        // more than maximumItems UIDs
+};
+
+// Splits a VCALENDAR stream (several concatenated calendars allowed) into
+// per-UID items. A component without UID gets a stable "qindatk-<sha1>" UID
+// derived from its text. TZIDs that are not IANA or Windows names resolve
+// through the VTIMEZONE's X-LIC-LOCATION or an IANA suffix
+// ("/mozilla.org/.../Europe/Berlin") and are rewritten to the IANA name.
+ParsedCalendar parseCalendar(const QByteArray &text, const QString &defaultZone, int maximumItems = 20000);
+// Joins standalone VCALENDAR texts (fromRecord output) into one VCALENDAR:
+// VERSION:2.0, PRODID, CALSCALE, optional X-WR-CALNAME, each VTIMEZONE once
+// (by TZID), then every other component in order.
+QByteArray mergeCalendars(const QList<QByteArray> &calendars, const QString &name = {});
+
 } // namespace QindaTK::ICal

@@ -10,10 +10,13 @@
 #include <QtQml/qqmlregistration.h>
 
 namespace QindaTK {
+namespace ImapJobs { struct Job; }
 
 // IMAP mailbox sync into LocalProductivityStore messages, remote flag/archive/
-// delete actions for MailView, and on-demand attachment download into
-// LocalAttachmentStore. Each operation is one worker-thread IMAP session.
+// move/delete actions for MailView, on-demand attachment download into
+// LocalAttachmentStore, the folder list (LIST + SPECIAL-USE + STATUS) and
+// APPEND (a sent/draft copy). Each operation is one worker-thread IMAP session.
+// Mailbox names are UTF-8 display names; the wire uses modified UTF-7.
 // AGENT-CONTRACT (MailView.qml, docs/productivity-providers.md): message
 // records keep `id == messageId == "imap:<accountId>:<mailbox>:<uidValidity>:<uid>"`
 // plus remoteAccount/remoteMailbox/remoteUidValidity/remoteUid; result.state
@@ -64,6 +67,19 @@ public:
     // Downloads one attachment section and imports its bytes by attachment ID.
     Q_INVOKABLE bool fetchAttachment(const QString &requestId, const QString &messageId,
                                      const QString &attachmentId);
+    // Lists every mailbox (INBOX first) with its special-use role; with
+    // `withCounts` also STATUS (MESSAGES UNSEEN) for up to 200 of them.
+    // Emits mailboxesFinished; needs no store.
+    Q_INVOKABLE bool listMailboxes(const QString &requestId, bool withCounts = false);
+    // Stores `rawMessage` (RFC 5322 bytes, e.g. SmtpMailProvider.composeMessage)
+    // in `mailbox` with `flags` such as ["\\Seen"]; emits appendFinished
+    // with appendUid when the server supports UIDPLUS. Needs no store.
+    Q_INVOKABLE bool append(const QString &requestId, const QString &mailbox, const QByteArray &rawMessage,
+                            const QStringList &flags = {});
+    // Moves a message of `mailbox` to `targetMailbox` (UID MOVE, or COPY +
+    // expunge) and removes the local record; emits actionFinished with
+    // action "move".
+    Q_INVOKABLE bool moveMessage(const QString &requestId, const QString &messageId, const QString &targetMailbox);
 
 signals:
     void configChanged();
@@ -72,10 +88,13 @@ signals:
     void syncFinished(const QString &requestId, const QVariantMap &result);
     void actionFinished(const QString &requestId, const QVariantMap &result);
     void attachmentFinished(const QString &requestId, const QVariantMap &result);
+    void mailboxesFinished(const QString &requestId, const QVariantMap &result);
+    void appendFinished(const QString &requestId, const QVariantMap &result);
 
 private:
-    enum class Operation { Sync, Action, Attachment };
+    enum class Operation { Sync, Action, Attachment, Mailboxes, Append };
     bool start(Operation operation, const QString &requestId, const QVariantMap &input);
+    QVariantMap prepareMessageJob(Operation operation, const QVariantMap &input, ImapJobs::Job *job) const;
     void complete(Operation operation, const QString &requestId, QVariantMap result);
     QVariantMap applySyncResult(QVariantMap result);
     QVariantMap applyActionResult(QVariantMap result);

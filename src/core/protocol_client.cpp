@@ -10,7 +10,6 @@
 namespace QindaTK::Protocol {
 namespace {
 constexpr qsizetype MaximumLine = 1 << 20;
-constexpr qsizetype MaximumHttpBody = 16 * 1024 * 1024;
 constexpr int MaximumTranscript = 400;
 }
 
@@ -237,7 +236,7 @@ void Channel::close()
 
 bool httpRequest(Channel &channel, const Endpoint &endpoint, const QByteArray &method,
                  const QByteArray &target, const QMap<QByteArray, QByteArray> &headers,
-                 const QByteArray &body, HttpResponse *response)
+                 const QByteArray &body, HttpResponse *response, qint64 maximumBody)
 {
     *response = {};
     if (!channel.open(endpoint)) return false;
@@ -287,7 +286,7 @@ bool httpRequest(Channel &channel, const Endpoint &endpoint, const QByteArray &m
             if (!channel.readLine(&line)) return false;
             bool ok = false;
             const qint64 size = line.split(';').first().trimmed().toLongLong(&ok, 16);
-            if (!ok || size < 0 || response->body.size() + size > MaximumHttpBody) {
+            if (!ok || size < 0 || response->body.size() + size > maximumBody) {
                 channel.fail(Failure::Rejected, QStringLiteral("Malformed or oversized HTTP chunk"));
                 return false;
             }
@@ -302,12 +301,16 @@ bool httpRequest(Channel &channel, const Endpoint &endpoint, const QByteArray &m
     } else if (response->headers.contains("content-length")) {
         bool ok = false;
         const qint64 size = response->headers.value("content-length").toLongLong(&ok);
-        if (!ok || size < 0 || size > MaximumHttpBody) {
+        if (!ok || size < 0) {
             channel.fail(Failure::Rejected, QStringLiteral("Invalid HTTP Content-Length"));
             return false;
         }
+        if (size > maximumBody) {
+            channel.fail(Failure::Rejected, QStringLiteral("Server response exceeds %1 bytes").arg(maximumBody));
+            return false;
+        }
         if (!channel.readBytes(size, &response->body)) return false;
-    } else if (!channel.readToEnd(&response->body, MaximumHttpBody)) {
+    } else if (!channel.readToEnd(&response->body, maximumBody)) {
         return false;
     }
     channel.close();

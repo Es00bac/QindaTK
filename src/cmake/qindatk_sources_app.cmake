@@ -78,6 +78,12 @@ set(qindatk_app_sources
     core/ical_codec.cpp core/ical_overrides.cpp core/ical_codec.h core/ical_codec_p.h
     core/caldav_jobs.cpp core/caldav_jobs.h
     core/caldav_provider.cpp core/caldav_provider.h
+    core/caldav_discovery.cpp core/caldav_discovery.h
+    core/ical_calendar.cpp
+    core/imap_mutf7.cpp core/imap_mutf7.h
+    core/imap_folders.cpp core/imap_folders.h
+    core/ics_calendar_jobs.cpp core/ics_calendar_jobs.h
+    core/ics_calendar_provider.cpp core/ics_calendar_provider.h
     core/state_store.cpp core/state_store.h
     core/settings_persistence.cpp core/settings_persistence.h
     core/workspace_session.cpp core/workspace_session.h

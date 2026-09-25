@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-or-later -->
 # Mail, calendar and task providers
 
-Four protocol providers connect the local productivity store
+Five providers connect the local productivity store
 ([productivity-store.md](productivity-store.md)) to standard servers. The
 views (`MailView`, `RichMailComposer`, `CalendarView`, `RecurrenceEditor`,
 `TaskBoard`) only emit correlated requests; the host calls a provider and
@@ -11,9 +11,10 @@ message)` (see [Wiring the views](#wiring-the-views)).
 | Type | Protocol | Local side |
 | --- | --- | --- |
 | `Tk.SmtpMailProvider` | SMTP submission (RFC 5321: EHLO, STARTTLS, AUTH PLAIN/LOGIN/XOAUTH2, MAIL/RCPT/DATA) | draft records + `LocalAttachmentStore` bytes |
-| `Tk.ImapMailProvider` | IMAP4rev1 (RFC 3501; SASL-IR, UIDPLUS, MOVE when offered) | `messages` records + attachment bytes on demand |
+| `Tk.ImapMailProvider` | IMAP4rev1 (RFC 3501; SASL-IR, UIDPLUS, MOVE, RFC 6154 SPECIAL-USE when offered; modified UTF-7 names; LIST/STATUS/APPEND) | `messages` records + attachment bytes on demand |
 | `Tk.Pop3MailProvider` | POP3 (RFC 1939: USER/PASS, UIDL, LIST, RETR, TOP, DELE, RSET, QUIT; RFC 2449 CAPA; RFC 2595 STLS; RFC 5034 AUTH PLAIN/XOAUTH2) | `messages` records that *are* the mailbox (D-298) + attachment bytes |
-| `Tk.CalDavProvider` | CalDAV over WebDAV (RFC 4791/4918: PROPFIND Depth 1, GET, PUT/DELETE with If-Match) and iCalendar (RFC 5545 subset) | `events` (VEVENT) and `tasks` (VTODO) |
+| `Tk.CalDavProvider` | CalDAV over WebDAV (RFC 4791/4918: PROPFIND Depth 1, GET, PUT/DELETE with If-Match), discovery (RFC 6764/5397) and iCalendar (RFC 5545 subset) | `events` (VEVENT) and `tasks` (VTODO) |
+| `Tk.IcsCalendarProvider` | iCalendar feeds (conditional HTTP GET of `https:`/`http:`/`webcal:`) and `.ics` files, over the CalDAV codec | read-only feed replicas and imported local `events` (D-300) |
 
 Nothing here talks to a hosted service's private API. Every provider runs
 one protocol exchange per request on a worker thread with a blocking socket
@@ -60,6 +61,18 @@ place and lists the server version in `CalDavProvider.conflicts`, which the
 board shows with "Keep mine" and "Use server". Local-only records are
 acknowledged after the local save.
 
+The folder pane, moves, the Sent copy and calendar set-up are host actions
+over the same result contract:
+
+| Host action | Call | Result |
+| --- | --- | --- |
+| Show or refresh the folder list | `ImapMailProvider.listMailboxes(requestId, withCounts)` | `mailboxesFinished`; open a folder by setting `mailbox` and calling `sync` |
+| Drop a message on a folder | `moveMessage(requestId, messageId, targetMailbox)` | `actionFinished` (`action: "move"`) |
+| Keep a copy of sent mail | after an accepted `sendFinished`, `append(requestId, sentMailbox, composeMessage(draft).message, ["\\Seen"])` | `appendFinished` |
+| Add a calendar account | `CalDavProvider.discoverCalendars(requestId, url)`, then one `CalDavProvider` per chosen `url` | `discoveryFinished` |
+| Subscribe to a calendar feed | `IcsCalendarProvider.sync` (on a timer) | `syncFinished` |
+| Import or export an `.ics` file | `IcsCalendarProvider.importFile` / `exportFile` | `importFinished` / `exportFinished` |
+
 A POP3 account takes the same three `MailView` requests to
 `Pop3MailProvider.sync`, `applyAction` and `fetchAttachment`; its results
 have the same shape, so the view needs nothing POP3-specific.
@@ -87,6 +100,18 @@ IMAP and POP3 `xoauth2` (`tst_pop3_mail_provider` covers POP3's expired-token
 error challenge and the RFC 5034 continuation for tokens too long for the
 AUTH line) and
 CalDAV `bearer`.
+
+Calendar discovery and private iCalendar feeds follow the same rules and
+add one: credentials go only to the start URL's site (the same host, or a
+host under the parent domain of a host with three or more labels, so
+`caldav.icloud.com` may hand over to `p42-caldav.icloud.com`). Discovery
+fails when a redirect or `href` leaves the site; a feed drops the
+credentials for a redirect to another site or to plain HTTP (public feeds
+are often served from a CDN). A feed URL with user info
+(`https://user:pw@…`) is refused: credentials belong in `setSecret`.
+`tst_provider_tls` runs discovery over HTTPS and a private `webcal:` feed
+with the test CA; `tst_caldav_discovery` and `tst_ics_calendar_provider`
+check results, captured logs and the saved store for the secret.
 
 ## SMTP delivery
 
@@ -133,6 +158,57 @@ With `autoSave` (default) each accepted operation saves the store. If
 another writer saved the file first, the result is `conflict`; reload the
 store and sync again. Sync is idempotent because it derives what is new from
 the stored UIDs.
+
+### Folders, APPEND and moves (D-299)
+
+`mailbox`, `archiveMailbox`, every append and move target and every listed
+`name` are UTF-8 display names; the wire carries modified UTF-7 (RFC 3501
+§5.1.3), so `~peter/mail/台北/日本語` is sent as
+`~peter/mail/&U,BTFw-/&ZeVnLIqe-` and `R&D` as `R&-D`. Record IDs and
+`remoteMailbox` keep the display name. `sync` works for any selectable
+mailbox: set `mailbox` and sync; each mailbox's records are separate.
+
+- `listMailboxes(requestId, withCounts = false)` → `mailboxesFinished`.
+  It sends `LIST "" "*"`, with `RETURN (SPECIAL-USE)` when the server
+  advertises RFC 6154, and needs no store. `result.mailboxes` (INBOX first,
+  then server order, at most 10,000):
+
+  | Field | Meaning |
+  | --- | --- |
+  | `name` | decoded display name (a malformed wire name is its bytes read as UTF-8) |
+  | `rawName` | the wire (modified UTF-7) name |
+  | `delimiter` | hierarchy delimiter, `""` for a flat name |
+  | `flags` | the LIST attributes as sent (`\HasNoChildren`, `\Noselect`, `\Sent`…) |
+  | `specialUse` | `inbox`, `sent`, `drafts`, `trash`, `junk`, `archive`, `all`, `flagged` or `""` |
+  | `selectable` | false for `\Noselect` / `\NonExistent` |
+  | `unread`, `total` | `STATUS (MESSAGES UNSEEN)` counts, `-1` when not asked or refused |
+
+  Roles come from the attributes (Gmail sends them in a plain LIST, which
+  is read the same way). A role no attribute claims is taken from the
+  well-known name of the last path segment: `Sent Items`/`Sent Mail`/
+  `Sent Messages` → sent, `Drafts` → drafts, `Deleted Items`/`Deleted
+  Messages`/`Trash`/`Bin` → trash, `Junk`/`Spam`/`Junk E-mail`/`Bulk Mail` →
+  junk, `Archive(s)` → archive, `All Mail` → all, `Starred` → flagged. With
+  `withCounts` the first 200 selectable mailboxes get a STATUS
+  (`countsTruncated` says when there were more); a mailbox whose STATUS is
+  refused keeps `-1` and the listing still succeeds.
+- `append(requestId, mailbox, rawMessage, flags = [])` → `appendFinished`
+  stores RFC 5322 bytes (`SmtpMailProvider.composeMessage(draft).message`)
+  with a synchronizing literal; bare LF is sent as CRLF and the transcript
+  shows only `{n message bytes}`. `flags` are system flags or keyword atoms
+  (`\Seen`, `\Draft`, `$Forwarded`; `\Recent` is refused); the message is
+  1 byte to 64 MiB without NUL. The result carries `mailbox`, `flags`,
+  `size` and, when the server has UIDPLUS, `appendUid` and
+  `appendUidValidity`. A missing mailbox is `rejected` with the server's
+  `[TRYCREATE]` text; nothing is created. The store is not touched: the copy
+  arrives with the next sync of that mailbox. Needs no store.
+- `moveMessage(requestId, messageId, targetMailbox)` → `actionFinished`
+  with `action: "move"`: UID MOVE (RFC 6851), or UID COPY + `\Deleted` +
+  UID EXPUNGE (EXPUNGE without UIDPLUS, as for `delete`). The local record is
+  removed; the destination's next sync brings the message back under that
+  mailbox's identity (`targetUid`/`targetUidValidity` report it when the
+  server sends COPYUID). The target must differ from `mailbox`. `archive` is
+  a move to `archiveMailbox`.
 
 ## POP3 download
 
@@ -214,6 +290,39 @@ remote edit is a new conflict); `"remote"` adopts the server version.
 details live in memory; after a restart the next sync detects them again
 from `syncState` and the ETags.
 
+### Calendar discovery
+
+`discoverCalendars(requestId, url)` → `discoveryFinished` finds an
+account's calendars from a server root, a principal, a home set or a
+collection URL (`collectionUrl` when `url` is empty), with the provider's
+`userName`/secret (`basic` or `bearer`); it needs no store:
+
+1. PROPFIND Depth 0 on the URL for `current-user-principal` (RFC 5397),
+   `calendar-home-set` (RFC 4791), `resourcetype` and the calendar
+   properties. A calendar collection answers for itself.
+2. When that is not a DAV resource or names nothing, the same origin's
+   `/.well-known/caldav` (RFC 6764), following its redirect.
+3. The principal's `calendar-home-set`; a plain collection with neither is
+   taken as the home set.
+4. PROPFIND Depth 1 on the home set; every member whose `resourcetype`
+   contains `calendar` is a calendar (at most 500).
+
+The result has `principalUrl`, `homeSetUrl` and `calendars`:
+`{url (absolute, ends with "/"), displayName (the last path segment when
+unnamed), color ("#rrggbb" from Apple's calendar-color, or ""), description,
+components (supported-calendar-component-set; VEVENT and VTODO when not
+reported), readOnly (current-user-privilege-set without write,
+write-content or all; false when not reported)}`. Redirects are followed up
+to 5 times. Every request must be `https:` unless the host is loopback or
+`allowInsecureAuth` is set, and credentials stay on the start URL's site
+(see [Credentials](#credentials)). Google's CalDAV starts at
+`https://apidata.googleusercontent.com/caldav/v2/<calendar-id>/user` with a
+bearer token; iCloud at `https://caldav.icloud.com/`; Fastmail and
+Nextcloud at their server root.
+
+`CalDavProvider.sync` never pushes a record that carries `icsFeed`, so a
+feed replica is safe even under the same `accountId`.
+
 ### iCalendar mapping
 
 | iCalendar | Event field | Notes |
@@ -239,6 +348,71 @@ High/Normal/Low, and `X-QINDATK-ORDER`/`X-QINDATK-ASSIGNEE` to `order` and
 `assignee`. Written events reference zones by IANA TZID without a VTIMEZONE
 block (RFC 7809 style); a server that requires VTIMEZONE needs a host adapter.
 
+## iCalendar feeds and files (D-300)
+
+`Tk.IcsCalendarProvider` reads and writes `.ics` data with the CalDAV codec
+(`ical_codec`): the same mapping table, overrides and recurrence rules.
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `store` | — | `LocalProductivityStore` for `events` |
+| `accountId`, `calendarId` | `ics` | feed replicas' `remoteAccount` and calendar |
+| `feedUrl` | — | `https:`, `http:`, `webcal:` or `webcals:` (both mean `https:`) |
+| `userName`, `setSecret(secret, "basic" \| "bearer")` | — | optional credentials of a private feed |
+| `defaultZone` | the system zone | zone of floating times |
+| `timeoutMs`, `maximumBytes` | 15000, 16 MiB | per request; a larger feed or file is `rejected` |
+| `allowInsecureAuth`, `autoSave` | false, true | as for the other providers |
+
+**Feeds.** `sync(requestId)` → `syncFinished` sends a conditional GET
+(`If-None-Match`/`If-Modified-Since` from the last 200 response, kept in
+memory and on the records as `feedEtag`/`feedLastModified`, so they survive
+a restart). A 304 is `accepted` with `unchanged: true` and changes nothing.
+A 200 replaces the events of `calendarId` whose `icsFeed` is this feed:
+each VEVENT UID becomes `ics:<accountId>:<calendarId>:<uid>` with the mapped
+fields and `readOnly: true`, `remoteAccount`, `remoteUid`, `remoteIcs` (the
+UID's components and the VTIMEZONEs they use), `icsFeed` (the normalized
+URL), `feedEtag`, `feedLastModified`; events the feed no longer has are
+removed; records that did not change are not rewritten. The result carries
+`added`, `updated`, `removed`, `skipped`, `eventCount`, `calendarName`
+(X-WR-CALNAME), `warnings`, `status`, `finalUrl` and `bytes`. Up to 5
+redirects are followed; 401/403, a malformed or oversized body and other
+failures are `rejected`, 429/502/503/504 and network failures `offline`
+(`retryable`), and none of them changes the store. Tasks in a feed are
+skipped.
+
+**Import.** `importFile(requestId, path, calendarId)` → `importFinished`
+reads a local path or `file:` URL on the worker and adds each VEVENT UID as
+an ordinary editable event of `calendarId` (the provider's when empty): ID
+`import:<calendarId>:<uid>`, `remoteUid` (the UID) and `remoteIcs` (its
+source, the base later writes keep alarms and attendees from), no
+`remoteAccount`. An event of that calendar with the same UID is updated
+instead of duplicated, so a second import of a file changes nothing; a UID
+that belongs to an account or feed record is skipped with a warning. The
+result counts `imported`, `updated`, `unchanged` and `skipped` and lists
+`eventIds` and `warnings`. Import never deletes.
+
+**Export.** `exportFile(requestId, path, calendarId, eventIds)` →
+`exportFinished` writes the calendar's events (or only `eventIds`) as one
+VCALENDAR (VERSION 2.0, PRODID, CALSCALE, each VTIMEZONE once) through
+`QSaveFile`. Each event is written as CalDAV writes it (`fromRecord` over
+`remoteIcs`, UID `remoteUid` else the record ID): RRULE, EXDATE and
+overrides as RECURRENCE-ID components. An empty selection is `rejected`
+(RFC 5545 needs one component). The result has `exported`, `bytes` and
+`path`.
+
+**Without the store.** `parseText(text)` returns `{ok, error, calendarName,
+events, tasks, warnings}` (records as import would map them, `id` = UID) and
+`serializeEvents(events)` returns `{ok, error, text, count, warnings}`, for
+hosts that preview an `.ics` attachment.
+
+**Parsing.** Several VCALENDARs in one stream are read; VJOURNAL and other
+components are skipped with a warning. A component without UID gets a
+stable `qindatk-<sha1>` UID from its text (DTSTAMP excluded). A TZID that is
+neither IANA nor Windows resolves through the longest IANA suffix
+(`/mozilla.org/20050126_1/Europe/Berlin`) or the VTIMEZONE's
+`X-LIC-LOCATION` and is rewritten to the IANA name; an event whose zone
+cannot be resolved is skipped with a warning.
+
 ## Host adapters for hosted services
 
 Hosted accounts differ in sign-in and endpoints, not in the protocols above.
@@ -248,8 +422,11 @@ A host adapter owns (D-189):
    storage. It passes the current token with `setSecret(token, "xoauth2")`
    (SMTP/IMAP/POP3) or `setSecret(token, "bearer")` (CalDAV) before each request
    and retries once after a `rejected` authentication result.
-2. **Discovery.** Hostnames, ports, the CalDAV collection URL and special
-   mailboxes (for example a provider's archive folder name).
+2. **Discovery.** Hostnames and ports (presets, autoconfig). Once the
+   endpoint is known the toolkit finds the rest: calendars with
+   `CalDavProvider.discoverCalendars`, special mailboxes with
+   `ImapMailProvider.listMailboxes` (the adapter may still override a role,
+   for example a provider's archive folder name).
 3. **Anything outside the protocols.** A service whose mail or calendar is
    only available through its own REST API is served by an adapter object
    that exposes the same invokables and signals (`send`/`sendFinished`,
@@ -261,8 +438,21 @@ The toolkit ships no hosted-service adapter and no client IDs.
 
 ## Limits
 
-- Mailbox names must be printable ASCII (no modified UTF-7); addresses must be
-  ASCII (no SMTPUTF8).
+- Mailbox names travel in modified UTF-7; UTF8=ACCEPT (RFC 6855) is not
+  enabled, so a mailbox a non-conforming server names in raw 8-bit is listed
+  (with `rawName`) but cannot be selected. Addresses must be ASCII (no
+  SMTPUTF8).
+- The Sent copy comes from `composeMessage`, which writes a new Message-ID;
+  it differs from the delivered message's until `send` can reuse composed
+  bytes. Services that file sent mail themselves (Gmail) need no copy.
+- Calendar discovery has no public-suffix list: the parent domain of a
+  three-label host counts as its site, so a three-label registrable domain
+  (`a.co.uk`) would trust its siblings.
+- Feed replicas are protected by convention (`readOnly`), not by the store:
+  a local edit is replaced by the next sync. VTIMEZONE rules are not
+  interpreted (zones resolve by name). A private feed whose secret is part
+  of its URL keeps that URL in `icsFeed` and in the transcript. Each changed
+  record is one store `upsert` (one `dataChanged`), as for CalDAV.
 - POP3: no APOP (use TLS), no `UIDL`-less servers (sync is rejected), and a
   headers-only message (`bodyTruncated`) stays on the server; there is no
   "download the rest" action yet. Attachments of a message that leaves the

@@ -90,10 +90,11 @@ struct HttpResponse {
 };
 
 // One HTTP/1.1 request on a fresh connection (Connection: close). Handles
-// Content-Length, chunked and read-to-close bodies up to 16 MiB.
+// Content-Length, chunked and read-to-close bodies up to `maximumBody`
+// (16 MiB by default); a larger body fails the request as rejected.
 bool httpRequest(Channel &channel, const Endpoint &endpoint, const QByteArray &method,
                  const QByteArray &target, const QMap<QByteArray, QByteArray> &headers,
-                 const QByteArray &body, HttpResponse *response);
+                 const QByteArray &body, HttpResponse *response, qint64 maximumBody = 16 * 1024 * 1024);
 
 // Runs `work` on the global thread pool and calls `done` on `owner`'s thread.
 // `work` must not touch `owner`; if `owner` is destroyed first `done` is dropped.

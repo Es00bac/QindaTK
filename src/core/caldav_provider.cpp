@@ -111,7 +111,10 @@ bool CalDavProvider::prepare(Prepared *prepared, QString *error) const
     for (const QString &collection : {QStringLiteral("events"), QStringLiteral("tasks")}) {
         for (const QVariant &value : collection == QLatin1String("tasks") ? m_store->tasks() : m_store->events()) {
             const QVariantMap row = value.toMap();
-            if (row.value(QStringLiteral("remoteAccount")).toString() == m_accountId)
+            // AGENT-GUARD: IcsCalendarProvider replicas (icsFeed) are read-only
+            // copies of a feed; pushing them would publish someone else's feed.
+            if (row.value(QStringLiteral("remoteAccount")).toString() == m_accountId
+                && row.value(QStringLiteral("icsFeed")).toString().isEmpty())
                 job.items.append(localItem(collection, row));
         }
     }
