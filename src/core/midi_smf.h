@@ -44,6 +44,10 @@ struct Imported {
 
 QByteArray write(const MidiPattern &pattern, int ticksPerQuarter, const QVector<TempoEvent> &tempo,
                  ExportReport *report);
+// The notes that enclose a later note of their key and channel (starts at or
+// after it, ends before it): FIFO pairing would give those ends back in
+// another order. O(n log n) (ExportReport::ambiguousOverlaps).
+int nestedNotes(const QVector<MidiNote> &notes);
 std::optional<Imported> read(const QByteArray &data, int ticksPerQuarter, QString *error);
 
 } // namespace MidiFile

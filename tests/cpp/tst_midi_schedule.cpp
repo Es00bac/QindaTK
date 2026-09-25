@@ -3,12 +3,16 @@
 // controllers at exact samples through tempo changes, sample-accurate and
 // block-size independent rendering, overlapping notes, no note outliving its
 // release, polymetric step rows, seeded probability, launched clips from
-// their boundary, and the session round trip.
+// their boundary, the session round trip, controllers the test instrument
+// plays, bounded look-back for long notes, patterns the timeline places, and
+// PPQ changes that rescale exactly or are refused.
 #include "audio_session.h"
 
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 using namespace QindaTK;
@@ -233,6 +237,149 @@ private slots:
         const std::vector<float> cut = render(*graph, 96000, 12000, 512, &launch);
         const qint64 silent = 3000 + MidiTestInstrument::releaseFrames(Rate) - 1;
         for (qint64 i = silent; i < 12000; ++i) QCOMPARE(cut[std::size_t(i * 2)], 0.0f);
+    }
+
+    void controllersShapeTheTestInstrument()
+    {
+        Rig rig;
+        const QString note = rig.note(0, 1920, 69); // 440 Hz for one second
+        QVERIFY(ok(rig.session.insertPattern(rig.track, rig.pattern)));
+        const std::vector<float> plain = render(*rig.graph(), 0, 48000, AudioRenderGraph::kMaxBlock);
+        const auto event = [&](const QString &controller, qint64 tick, quint32 value, const QString &noteId = {}) {
+            QVariantMap fields{{QStringLiteral("controller"), controller}, {QStringLiteral("tick"), tick},
+                               {QStringLiteral("raw"), QString::number(value)}};
+            if (!noteId.isEmpty()) fields.insert(QStringLiteral("noteId"), noteId);
+            return rig.midi->setEvent(rig.pattern, fields);
+        };
+        const auto crossings = [](const std::vector<float> &out, qint64 from, qint64 to) {
+            int count = 0;
+            for (qint64 i = from + 1; i < to; ++i)
+                count += (out[std::size_t(i * 2 - 2)] < 0.0f) != (out[std::size_t(i * 2)] < 0.0f);
+            return count;
+        };
+        const auto largestStep = [](const std::vector<float> &out, qint64 from, qint64 to) {
+            double step = 0.0;
+            for (qint64 i = from + 1; i < to; ++i)
+                step = std::max(step, double(std::abs(out[std::size_t(i * 2)] - out[std::size_t(i * 2 - 2)])));
+            return step;
+        };
+
+        // CC7 volume at beat 2 halves the level from its exact sample on.
+        QVERIFY(ok(event(QStringLiteral("cc:7"), 960, 0x80000000u)));
+        std::vector<float> shaped = render(*rig.graph(), 0, 48000, AudioRenderGraph::kMaxBlock);
+        QVERIFY(render(*rig.graph(), 0, 48000, 37) == shaped); // still stateless: any block size
+        for (qint64 i = 0; i < 24000; ++i) QCOMPARE(shaped[std::size_t(i * 2)], plain[std::size_t(i * 2)]);
+        const double half = double(0x80000000u) / 4294967295.0;
+        for (qint64 i = 24000; i < 48000; i += 997)
+            QVERIFY(std::abs(shaped[std::size_t(i * 2)] - plain[std::size_t(i * 2)] * half) < 1e-6);
+        QVERIFY(rig.midi->undo());
+
+        // Channel pitch bend to the top (+2 semitones), with continuous phase.
+        QVERIFY(ok(event(QStringLiteral("pitchBend"), 960, 0xFFFFFFFFu)));
+        shaped = render(*rig.graph(), 0, 48000, AudioRenderGraph::kMaxBlock);
+        QVERIFY(render(*rig.graph(), 0, 48000, 37) == shaped);
+        const std::vector<float> seek = render(*rig.graph(), 30000, 4000, 128);
+        QVERIFY(std::equal(seek.begin(), seek.end(), shaped.begin() + 30000 * 2)); // a seek hears the same bend
+        QCOMPARE(crossings(shaped, 0, 24000), crossings(plain, 0, 24000));
+        const double ratio = double(crossings(shaped, 24000, 47000)) / double(crossings(plain, 24000, 47000));
+        QVERIFY2(std::abs(ratio - std::exp2(2.0 / 12.0)) < 0.01, qPrintable(QString::number(ratio)));
+        QVERIFY(largestStep(shaped, 1000, 47000) < 1.3 * largestStep(plain, 1000, 47000)); // no phase jump
+        QVERIFY(rig.midi->undo());
+
+        // A per-note bend of +12 semitones (32-bit, MIDI 2.0 range ±48) doubles the frequency.
+        QVERIFY(ok(event(QStringLiteral("noteBend"), 960, 0x80000000u + 0x20000000u, note)));
+        shaped = render(*rig.graph(), 0, 48000, AudioRenderGraph::kMaxBlock);
+        QVERIFY(render(*rig.graph(), 0, 48000, 37) == shaped);
+        const double octave = double(crossings(shaped, 24000, 47000)) / double(crossings(plain, 24000, 47000));
+        QVERIFY2(std::abs(octave - 2.0) < 0.01, qPrintable(QString::number(octave)));
+        // The scheduled stream still carries every controller for other instruments.
+        using E = MidiScheduledEvent;
+        QCOMPARE(events(*rig.graph(), rig.channel, 0, 48000),
+                 (QList<QList<qint64>>{{0, E::NoteOn, 69}, {24000, E::Controller, 69}}));
+    }
+
+    void longNotesKeepTheLookBackBounded()
+    {
+        MidiPattern pattern;
+        pattern.id = QUuid::createUuid();
+        pattern.length = 3840;
+        pattern.notes.push_back({QUuid::createUuid(), 0, qint64(1) << 30, 60, 0, 0x8000});
+        MidiStepRow row;
+        row.id = QUuid::createUuid();
+        row.stepTicks = 240;
+        MidiStep step;
+        step.id = QUuid::createUuid();
+        step.enabled = true;
+        row.steps = {step, step, step, step};
+        pattern.rows.push_back(row);
+        const MidiProgram program = MidiProgram::compile(pattern);
+        QCOMPARE(program.notes.front().duration, qint64(3840)); // a played note ends at its own repeat
+        // A window 100000 passes after the origin visits only the notes that can still sound there.
+        const qint64 far = qint64(3840) * 100000 + 100;
+        int visits = 0;
+        program.forEachNote(0, far, far + 100, [&](qint64, qint64, int, int, quint16, int) { ++visits; });
+        QVERIFY2(visits <= 3, qPrintable(QString::number(visits)));
+
+        // In the graph: the long note sounds until the pattern repeats.
+        Rig rig;
+        rig.midi->setPattern(rig.pattern, {{QStringLiteral("length"), QStringLiteral("3840")}});
+        rig.note(0, qint64(1) << 30, 60);
+        QVERIFY(ok(rig.session.insertPattern(rig.track, rig.pattern, QStringLiteral("0"), QStringLiteral("7680"))));
+        using E = MidiScheduledEvent;
+        QCOMPARE(events(*rig.graph(), rig.channel, 0, 2 * 96000),
+                 (QList<QList<qint64>>{{0, E::NoteOn, 60}, {96000, E::NoteOff, 60}, {96000, E::NoteOn, 60}}));
+    }
+
+    void patternsThatClipsPlaceCannotBeRemoved()
+    {
+        Rig rig;
+        rig.note(0, 480, 60);
+        QVERIFY(ok(rig.session.insertPattern(rig.track, rig.pattern)));
+        QVERIFY(!ok(rig.midi->removePattern(rig.pattern)));
+        QVERIFY(rig.midi->lastError().contains(QStringLiteral("Synth")));
+        // Undoing "Add pattern" would orphan the clip too: refused, nothing changes.
+        QVERIFY(rig.midi->undo()); // the note
+        QCOMPARE(rig.midi->undoText(), QStringLiteral("Add pattern"));
+        QVERIFY(!rig.midi->undo());
+        QVERIFY(rig.midi->pattern(QUuid::fromString(rig.pattern)));
+        QVERIFY(rig.midi->canUndo());
+        // Once the clip is gone (timeline undo), the pattern can go.
+        QVERIFY(rig.session.history()->undo());
+        QVERIFY(rig.midi->undo());
+        QVERIFY(!rig.midi->pattern(QUuid::fromString(rig.pattern)));
+    }
+
+    void ppqChangesRescaleExactlyOrAreRefused()
+    {
+        Rig rig;
+        const QString note = rig.note(480, 240, 60);
+        QVERIFY(ok(rig.midi->setEvent(rig.pattern, {{QStringLiteral("controller"), QStringLiteral("cc:1")},
+                                                    {QStringLiteral("tick"), 960}, {QStringLiteral("value"), 0.5}})));
+        QVERIFY(ok(rig.midi->addRow(rig.pattern, {{QStringLiteral("steps"), 4}, {QStringLiteral("stepTicks"), QStringLiteral("240")}})));
+        TimeMap *map = rig.session.timeMap();
+        map->setTicksPerQuarter(1920);
+        QCOMPARE(map->ticksPerQuarter(), 1920);
+        QCOMPARE(rig.midi->ticksPerQuarter(), 1920);
+        const MidiPattern *pattern = rig.midi->pattern(QUuid::fromString(rig.pattern));
+        QCOMPARE(pattern->length, qint64(15360));
+        QCOMPARE(pattern->notes.first().tick, qint64(960)); // the same beat position
+        QCOMPARE(pattern->notes.first().duration, qint64(480));
+        QCOMPARE(pattern->events.first().tick, qint64(1920));
+        QCOMPARE(pattern->rows.first().stepTicks, qint64(480));
+        // The history moved with it: undo restores rescaled content.
+        QVERIFY(rig.midi->undo());
+        QVERIFY(rig.midi->undo());
+        QCOMPARE(rig.midi->pattern(QUuid::fromString(rig.pattern))->notes.first().tick, qint64(960));
+        QVERIFY(rig.midi->redo());
+        QVERIFY(rig.midi->redo());
+        // 7 PPQ cannot hold tick 960 of 1920 (a half tick): refused, nothing moves.
+        QSignalSpy rejected(map, &TimeMap::rejected);
+        map->setTicksPerQuarter(7);
+        QCOMPARE(rejected.size(), 1);
+        QCOMPARE(map->ticksPerQuarter(), 1920);
+        QCOMPARE(rig.midi->ticksPerQuarter(), 1920);
+        QCOMPARE(rig.midi->pattern(QUuid::fromString(rig.pattern))->notes.first().tick, qint64(960));
+        Q_UNUSED(note);
     }
 
     void sessionRoundTripKeepsMidiAndItsSchedule()

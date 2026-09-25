@@ -6496,6 +6496,10 @@
           "parameters": "string requestId, string slotId, string quantization"
         },
         {
+          "name": "recordRequested",
+          "parameters": "string requestId, string slotId, string quantization"
+        },
+        {
           "name": "stopRequested",
           "parameters": "string requestId, string slotId"
         },
@@ -6511,6 +6515,10 @@
       "methods": [
         {
           "name": "requestLaunch",
+          "parameters": "slotId"
+        },
+        {
+          "name": "requestRecord",
           "parameters": "slotId"
         },
         {
@@ -44410,6 +44418,10 @@
           "parameters": "int kind, quint64 serial, quint64 lane, quint64 slot, qint64 sample, int code"
         },
         {
+          "name": "midiRecordEvent",
+          "parameters": "int kind, quint64 serial, quint64 slot, qint64 sample, qint64 tick, int pitch, int velocity, int code"
+        },
+        {
           "name": "midiReset",
           "parameters": "const QString &reason"
         }
@@ -45651,6 +45663,13 @@
         {
           "name": "launcher",
           "type": "QindaTK::MidiLauncherModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "midiInput",
+          "type": "QindaTK::MidiInputPort *",
           "default": "",
           "readonly": true,
           "constant": true
@@ -60195,10 +60214,108 @@
       "bridge": false
     },
     {
+      "name": "MidiInputPort",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (D-153): MIDI note input for an AudioSession (`session.midiInput`, WP-064, docs/audio-midi.md). One ALSA sequencer input port (Linux, the supported platform; D-088 keeps ALSA optional): keyboards and software ports connect to it (connectPort, or any sequencer patchbay). Note-on/off become audition notes on the session's engine, so they sound through the test instrument and a running launcher recording (session.launcher.record) captures them at the engine position. Reading runs on the GUI thread through a socket notifier, never on the device thread. Closing the port or losing the engine releases every held note. Device *configuration* (DeviceSettingsPanel, PLT-19) is WP-060's; this is the note path WP-064's recording needs.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/midi_input_port.h",
+      "properties": [
+        {
+          "name": "available",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "portOpen",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "portAddress",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "heldNotes",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "receivedNotes",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "portChanged",
+          "parameters": ""
+        },
+        {
+          "name": "notesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "openPort",
+          "returns": "bool",
+          "parameters": "const QString &name = QStringLiteral(\"QindaTK MIDI in\""
+        },
+        {
+          "name": "closePort",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "connectPort",
+          "returns": "bool",
+          "parameters": "const QString &address"
+        },
+        {
+          "name": "receiveNote",
+          "returns": "void",
+          "parameters": "int pitch, int velocity7"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "MidiLauncherModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT (D-153): the clip launcher of an AudioSession (`session.launcher`, WP-064, docs/audio-midi.md). Slots come from the MIDI model; launch and stop requests go to the engine, which quantizes them on the device thread. Slot states change only from engine events: \"queued\" when the engine accepted a launch for a boundary, \"playing\" when that boundary was rendered, \"ready\" when it stopped. `slotList` is the ClipLauncher `slots` snapshot; launchAcknowledged carries the one answer to each request (accepted | rejected | canceled) for acknowledgeLaunch().",
+      "description": "AGENT-CONTRACT (D-153): the clip launcher of an AudioSession (`session.launcher`, WP-064, docs/audio-midi.md). Slots come from the MIDI model; launch and stop requests go to the engine, which quantizes them on the device thread. Slot states change only from engine events: \"queued\" when the engine accepted a launch for a boundary, \"playing\" when that boundary was rendered, \"ready\" when it stopped. `slotList` is the ClipLauncher `slots` snapshot; launchAcknowledged carries the one answer to each request (accepted | rejected | canceled) for acknowledgeLaunch(). Recording (midi_launcher_record.cpp): record() arms one slot; the engine stamps every audition note (MidiInputPort, the host) from the quantized start, and the stopped take becomes a new pattern in that slot as one undo step (\"Record clip\"). A transport stop, a device loss or detaching the engine ends the take and keeps what was played.",
       "singleton": false,
       "attached": null,
       "file": "src/core/midi_launcher_model.h",
@@ -60237,6 +60354,13 @@
           "default": "",
           "readonly": true,
           "constant": false
+        },
+        {
+          "name": "recordingSlot",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
         }
       ],
       "signals": [
@@ -60259,6 +60383,10 @@
         {
           "name": "slotStopped",
           "parameters": "const QString &slotId, const QString &sample"
+        },
+        {
+          "name": "recordingFinished",
+          "parameters": "const QString &slotId, const QString &patternId, int noteCount"
         }
       ],
       "methods": [
@@ -60274,6 +60402,16 @@
         },
         {
           "name": "stopAll",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &quantization = {}"
+        },
+        {
+          "name": "record",
+          "returns": "bool",
+          "parameters": "const QString &requestId, const QString &slotId, const QString &quantization = {}"
+        },
+        {
+          "name": "stopRecording",
           "returns": "bool",
           "parameters": "const QString &requestId, const QString &quantization = {}"
         },

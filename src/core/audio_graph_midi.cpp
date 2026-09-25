@@ -105,18 +105,56 @@ void AudioRenderGraph::addMidi(const Node &node, qint64 start, int frames, doubl
     });
 }
 
+namespace {
+
+// The controller state one note hears (the test instrument, midi_program.h):
+// volume × expression and the pitch ratio, constant between change ticks.
+struct NoteShape {
+    MidiProgram::Cursor cursors[4];
+    double values[4] = {1.0, 1.0, 0.0, 0.0}; // volume, expression, bend, note bend (semitones)
+
+    NoteShape(const MidiProgram &program, int channel, int note, qint64 origin, qint64 base) noexcept
+        : cursors{program.shape(channel, MidiProgram::Volume, origin), program.shape(channel, MidiProgram::Expression, origin),
+                  program.shape(channel, MidiProgram::Bend, origin), program.bends(note, base)}
+    {
+    }
+    void seek(qint64 tick) noexcept
+    {
+        for (int i = 0; i < 4; ++i) values[i] = cursors[i].seek(tick, values[i]);
+    }
+    qint64 next() const noexcept
+    {
+        qint64 next = MidiProgram::Cursor::kNever;
+        for (const auto &cursor : cursors) next = std::min(next, cursor.next());
+        return next;
+    }
+    void apply(qint64 tick) noexcept
+    {
+        for (int i = 0; i < 4; ++i)
+            for (auto &cursor = cursors[i]; cursor.next() == tick; cursor.advance())
+                values[i] = cursor.points[cursor.index].value;
+    }
+    double gain() const noexcept { return values[0] * values[1]; }
+    double ratio() const noexcept { return std::exp2((values[2] + values[3]) / 12.0); }
+};
+
+} // namespace
+
 // The test instrument (midi_program.h): each note is a cosine at its pitch
 // from its exact start sample, released at its end (or at the placement's
-// cut). Overlapping notes, including the same pitch, sum.
+// cut). Overlapping notes, including the same pitch, sum. Controllers act on
+// the notes of their own placement from the pattern origin on (a trimmed
+// clip chases the values before its start).
 void AudioRenderGraph::playPlacement(const MidiPlacement &placement, qint64 start, int frames, double *const in[2],
                                      int lanes) const noexcept
 {
     const qint64 stop = start + frames;
     if (placement.program < 0 || placement.from >= stop || placement.to <= start - m_release) return;
     const MidiProgram &program = m_programs[std::size_t(placement.program)];
-    const qint64 from = m_clock.tickAt(std::max(placement.from, start - m_release), false) - program.reach;
+    const qint64 from = m_clock.tickAt(std::max(placement.from, start - m_release), false);
     const qint64 to = m_clock.tickAt(std::min(placement.to, stop), true) + 1;
-    program.forEachNote(placement.origin, from, to, [&](qint64 at, qint64 duration, int pitch, int, quint16 velocity) {
+    program.forEachNote(placement.origin, from, to,
+                        [&](qint64 at, qint64 duration, int pitch, int channel, quint16 velocity, int note) {
         const qint64 begin = m_clock.sampleAt(at);
         if (begin < placement.from || begin >= placement.to || begin >= stop) return;
         const qint64 end = std::min(m_clock.sampleAt(at + duration), placement.to);
@@ -124,13 +162,41 @@ void AudioRenderGraph::playPlacement(const MidiPlacement &placement, qint64 star
         const double step = m_midiPhase[pitch];
         const double amplitude = MidiTestInstrument::kLevel * double(velocity) / 65535.0;
         const qint64 last = std::min(stop, end + m_release);
-        for (qint64 sample = std::max(begin, start); sample < last; ++sample) {
-            const qint64 n = sample - begin;
-            const double value = amplitude * MidiTestInstrument::envelope(n, sample < end ? -1 : sample - end, m_attack, m_release)
-                                 * std::cos(step * double(n));
-            const int i = int(sample - start);
+        const auto sample = [&](qint64 t, double gain, double angle) {
+            const qint64 n = t - begin;
+            const double value = amplitude * gain
+                                 * MidiTestInstrument::envelope(n, t < end ? -1 : t - end, m_attack, m_release)
+                                 * std::cos(angle);
+            const int i = int(t - start);
             in[0][i] += value;
             if (lanes > 1) in[1][i] += value;
+        };
+        const bool noteBent = note >= 0 && program.notes[std::size_t(note)].bendCount > 0;
+        if (!noteBent && !program.shaped(channel)) {
+            for (qint64 s = std::max(begin, start); s < last; ++s) sample(s, 1.0, step * double(s - begin));
+            return;
+        }
+        // AGENT-GUARD: a bent note integrates its phase from its own start
+        // over the same change ticks in every render, so any block size, a
+        // seek or a loop gives identical samples; an unbent note keeps the
+        // plain step · n phase and only looks up its gain.
+        const bool bent = noteBent || !program.shapes[channel][MidiProgram::Bend].empty();
+        const qint64 base = note >= 0 ? at - program.notes[std::size_t(note)].tick : at;
+        NoteShape shape(program, channel, note, placement.origin, base);
+        qint64 p = bent ? begin : std::max(begin, start);
+        shape.seek(m_clock.tickAt(p, false));
+        double phase = 0.0; // at p (bent notes only)
+        while (p < last) {
+            const qint64 change = shape.next();
+            const qint64 q = change == MidiProgram::Cursor::kNever ? last : std::min(m_clock.sampleAt(change), last);
+            const double gain = shape.gain();
+            const double ratio = shape.ratio();
+            for (qint64 s = std::max(p, start); s < q; ++s)
+                sample(s, gain, bent ? phase + step * ratio * double(s - p) : step * double(s - begin));
+            if (bent) phase += step * ratio * double(q - p);
+            p = std::max(p, q);
+            if (change == MidiProgram::Cursor::kNever) break;
+            shape.apply(change);
         }
     });
 }
@@ -153,8 +219,8 @@ int AudioRenderGraph::midiEvents(const QString &channelId, qint64 start, int fra
         const MidiProgram &program = m_programs[std::size_t(placement.program)];
         const qint64 first = m_clock.tickAt(std::max(placement.from, start), false) - 1;
         const qint64 to = m_clock.tickAt(std::min(placement.to, stop), true) + 1;
-        program.forEachNote(placement.origin, first - program.reach, to,
-                            [&](qint64 at, qint64 duration, int pitch, int channel, quint16 velocity) {
+        program.forEachNote(placement.origin, first, to,
+                            [&](qint64 at, qint64 duration, int pitch, int channel, quint16 velocity, int) {
             const qint64 begin = m_clock.sampleAt(at);
             if (begin < placement.from || begin >= placement.to) return;
             const qint64 end = std::min(m_clock.sampleAt(at + duration), placement.to);

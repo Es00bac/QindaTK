@@ -25,6 +25,7 @@ void MidiLauncherModel::setEngine(AudioEngine *engine)
     m_engine = engine;
     if (engine) {
         m_connections << connect(engine, &AudioEngine::midiLaunchEvent, this, &MidiLauncherModel::engineEvent)
+                      << connect(engine, &AudioEngine::midiRecordEvent, this, &MidiLauncherModel::recordEvent)
                       << connect(engine, &AudioEngine::midiReset, this, &MidiLauncherModel::reset)
                       << connect(engine, &AudioEngine::stateChanged, this, &MidiLauncherModel::slotListChanged);
     }
@@ -55,7 +56,8 @@ QVariantList MidiLauncherModel::slotList() const
     for (const MidiSlot &slot : m_midi->content().launchSlots) {
         const Runtime runtime = m_runtime.value(slot.id);
         const MidiPattern *pattern = m_midi->pattern(slot.patternId);
-        const QString state = runtime.queued ? QStringLiteral("queued")
+        const QString state = m_take && m_take->slot == slot.id ? QStringLiteral("recording")
+                              : runtime.queued ? QStringLiteral("queued")
                               : runtime.playing ? QStringLiteral("playing") : QStringLiteral("ready");
         list.push_back(QVariantMap{{QStringLiteral("id"), Midi::idText(slot.id)},
                                    {QStringLiteral("sceneId"), Midi::idText(slot.sceneId)},
@@ -95,9 +97,11 @@ QVariantMap MidiLauncherModel::slotState(const QString &slotId) const
     const QUuid id = QUuid::fromString(slotId);
     if (!findSlot(id)) return {};
     const Runtime runtime = m_runtime.value(id);
-    return {{QStringLiteral("state"), runtime.queued ? QStringLiteral("queued")
+    const bool recording = m_take && m_take->slot == id;
+    return {{QStringLiteral("state"), recording ? QStringLiteral("recording")
+                                      : runtime.queued ? QStringLiteral("queued")
                                       : runtime.playing ? QStringLiteral("playing") : QStringLiteral("ready")},
-            {QStringLiteral("startSample"), QString::number(runtime.startSample)},
+            {QStringLiteral("startSample"), QString::number(recording ? m_take->startSample : runtime.startSample)},
             {QStringLiteral("stopSample"), QString::number(runtime.stopSample)},
             {QStringLiteral("stopping"), runtime.stopping}};
 }
@@ -113,8 +117,7 @@ bool MidiLauncherModel::reject(const QString &requestId, const QString &message)
 bool MidiLauncherModel::post(const QString &requestId, const QUuid &slot, quint64 lane, bool launching,
                              const QString &quantization)
 {
-    const auto quantize = quantization.isEmpty() ? std::optional<MidiQuantize>(m_midi->content().quantize)
-                                                 : Midi::parseQuantize(quantization);
+    const auto quantize = quantizeOf(quantization);
     if (!quantize) return reject(requestId, tr("Launch quantization is none, beat or bar"));
     if (!m_engine) return reject(requestId, tr("No audio engine is attached to the session"));
     QString error;
@@ -160,6 +163,9 @@ QString MidiLauncherModel::codeText(int code)
     case MidiEngineEvent::NoSlot: return tr("The slot is not on a MIDI track of the playing session");
     case MidiEngineEvent::NoLane: return tr("Too many tracks are launching clips");
     case MidiEngineEvent::TransportStopped: return tr("The transport stopped");
+    case MidiEngineEvent::RecordBusy: return tr("Another take is recording");
+    case MidiEngineEvent::NotRecording: return tr("Nothing was recording");
+    case MidiEngineEvent::Detached: return tr("The session left the engine");
     default: return {};
     }
 }
@@ -219,6 +225,7 @@ void MidiLauncherModel::engineEvent(int kind, quint64 serial, quint64 lane, quin
         }
         break;
     case MidiEngineEvent::Rejected:
+        if (m_take && m_take->serial == serial) m_take.reset(); // a recording the engine refused
         acknowledge(serial, QStringLiteral("rejected"), codeText(code));
         break;
     default:
@@ -229,6 +236,7 @@ void MidiLauncherModel::engineEvent(int kind, quint64 serial, quint64 lane, quin
 
 void MidiLauncherModel::reset(const QString &reason)
 {
+    if (m_take) finishTake(0); // a device loss keeps the notes already played
     const auto requests = std::exchange(m_requests, {});
     const auto launches = std::exchange(m_launches, {});
     m_runtime.clear();

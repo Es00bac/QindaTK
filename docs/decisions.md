@@ -1402,6 +1402,13 @@ note-off, all-notes-off, a transport stop, a device stop or loss and
 detaching the session release them. **Consequences.** Device output equals
 the offline render at any block size, recompiles never cut a note, and a
 note never outlives its end by more than the release.
+**Amended (WP-064 audit).** A played note lasts at most its pattern's length
+(it would otherwise overlap its own repeat); the stored duration is kept.
+So a render window looks back at most one pass and device-thread work per
+block never grows with playback time. The test instrument follows its
+placement's CC7 volume, CC11 expression, channel pitch bend (±2 semitones)
+and per-note pitch bend (±48); a bent note integrates its phase from its own
+start over fixed change ticks, so it stays stateless and block-independent.
 
 ## D-153 — Clip launches are quantized on the device thread and acknowledged from it
 
@@ -1419,6 +1426,16 @@ Launched clips and the arrangement sum on a track; a file render is the
 arrangement only. **Consequences.** No GUI delay can move a start off the
 grid, the launcher shows queued and playing from engine facts, and a
 transport stop, device loss or detached session leaves nothing playing.
+**Amended (WP-064 audit).** Launcher state is kept in device samples, so a
+transport jump (loop wrap, seek) re-bases it on the device thread: a playing
+clip keeps its musical progress and is heard from the new position; a
+waiting launch or stop is re-quantized from the new position and reported
+again. A destroyed session sends the same reset as a detached one. MIDI
+recording is engine-owned the same way: the device thread quantizes a
+take's start, stamps each audition note (the session's ALSA MIDI input or
+the host) with a take-relative tick at the period that applies it, and
+sizes the take on stop; the launcher commits it as a new pattern in its
+slot, one undo step.
 
 ## D-154 — Mesh paint is a surface-space dab with an exact CPU reference
 

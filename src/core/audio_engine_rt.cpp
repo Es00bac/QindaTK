@@ -67,6 +67,8 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
     for (int done = 0; m_playing && done < frames;) {
         // AGENT-GUARD (D-153): launcher transitions fall on their exact
         // sample: a sub-block ends where a queued clip starts or a stop lands.
+        // A loop wrap and a seek re-base them first (rebaseMidi), so a
+        // boundary at or past the loop end is never left unreachable.
         launchTransitions(m_position);
         int count = frames - done;
         const bool looping = m_loopEnabled && m_loopEnd > m_loopStart && m_position < m_loopEnd;
@@ -80,6 +82,7 @@ void AudioEngineProcessor::process(const float *input, float *output, int frames
         done += count;
         if (looping && m_position == m_loopEnd) {
             m_position = m_loopStart;
+            rebaseMidi(m_loopEnd, m_loopStart); // launches and takes follow the wrap (WP-064)
             if (m_recording) recordJump(m_takeFrames + done, m_position); // a new pass (WP-065)
         }
     }
@@ -117,12 +120,14 @@ void AudioEngineProcessor::apply(const EngineCommand &command) noexcept
     case EngineCommand::Stop:
         endLaunches(true); // a transport stop is an all-notes-off (WP-064)
         releaseVoices(-1);
+        if (m_midiRecord.armed) stopRecord(m_midiRecord.serial, int(MidiQuantize::None), MidiEngineEvent::TransportStopped);
         if (m_recording) endTake();
         m_recording = false;
         m_playing = false;
         return ack(command, true);
     case EngineCommand::Seek:
         if (command.position < 0) return ack(command, false, EngineEvent::InvalidPosition);
+        rebaseMidi(m_position, command.position);
         m_position = command.position;
         if (m_recording && m_takeAnnounced) recordJump(m_takeFrames, m_position);
         return ack(command, true);

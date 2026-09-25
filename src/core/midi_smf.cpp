@@ -11,6 +11,9 @@
 #include <QSaveFile>
 #include <QUrl>
 #include <algorithm>
+#include <bit>
+#include <tuple>
+#include <vector>
 
 namespace QindaTK {
 namespace {
@@ -143,6 +146,49 @@ QString localPath(const QString &file)
 
 } // namespace
 
+// Notes in their stored order (tick, pitch, channel, id), grouped by key.
+// Note a counts when some later note b of its key has b.tick < a.end and
+// b.end < a.end: the smallest end among the later notes that start before
+// a.end (one contiguous run of the group) comes from a sparse table.
+int MidiFile::nestedNotes(const QVector<MidiNote> &notes)
+{
+    const std::size_t n = std::size_t(notes.size());
+    std::vector<int> order(n);
+    for (std::size_t i = 0; i < n; ++i) order[i] = int(i);
+    std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
+        const MidiNote &x = notes.at(a);
+        const MidiNote &y = notes.at(b);
+        return std::tie(x.channel, x.pitch, x.tick) < std::tie(y.channel, y.pitch, y.tick);
+    });
+    std::vector<std::vector<qint64>> table(1, std::vector<qint64>(n));
+    for (std::size_t i = 0; i < n; ++i) table[0][i] = notes.at(order[i]).end();
+    for (std::size_t width = 1; 2 * width <= n; width *= 2) {
+        const std::vector<qint64> &below = table.back();
+        std::vector<qint64> level(n - 2 * width + 1);
+        for (std::size_t i = 0; i < level.size(); ++i) level[i] = std::min(below[i], below[i + width]);
+        table.push_back(std::move(level));
+    }
+    const auto minimum = [&](std::size_t first, std::size_t last) { // [first, last), non-empty
+        const std::size_t level = std::size_t(std::bit_width(last - first) - 1);
+        return std::min(table[level][first], table[level][last - (std::size_t(1) << level)]);
+    };
+    int nested = 0;
+    for (std::size_t group = 0; group < n;) {
+        const MidiNote &head = notes.at(order[group]);
+        std::size_t end = group;
+        while (end < n && notes.at(order[end]).pitch == head.pitch && notes.at(order[end]).channel == head.channel) ++end;
+        for (std::size_t i = group; i + 1 < end; ++i) {
+            const qint64 aEnd = notes.at(order[i]).end();
+            const auto after = std::partition_point(order.begin() + qsizetype(i + 1), order.begin() + qsizetype(end),
+                                                    [&](int index) { return notes.at(index).tick < aEnd; });
+            const std::size_t last = std::size_t(after - order.begin());
+            if (last > i + 1 && minimum(i + 1, last) < aEnd) ++nested;
+        }
+        group = end;
+    }
+    return nested;
+}
+
 QByteArray MidiFile::write(const MidiPattern &pattern, int ppq, const QVector<TempoEvent> &tempo, ExportReport *report)
 {
     ExportReport local;
@@ -202,16 +248,7 @@ QByteArray MidiFile::write(const MidiPattern &pattern, int ppq, const QVector<Te
     }
     for (const MidiStepRow &row : pattern.rows)
         for (const MidiStep &step : row.steps) r.droppedSteps += step.enabled ? 1 : 0;
-    // Nested notes of one key: FIFO pairing on import gives the ends back in start order.
-    for (qsizetype i = 0; i < pattern.notes.size(); ++i)
-        for (qsizetype j = i + 1; j < pattern.notes.size(); ++j) {
-            const MidiNote &a = pattern.notes.at(i);
-            const MidiNote &b = pattern.notes.at(j);
-            if (a.pitch == b.pitch && a.channel == b.channel && b.tick < a.end() && b.end() < a.end()) {
-                ++r.ambiguousOverlaps;
-                break;
-            }
-        }
+    r.ambiguousOverlaps = nestedNotes(pattern.notes);
     QByteArray header;
     be(header, 1, 2);
     be(header, 2, 2);

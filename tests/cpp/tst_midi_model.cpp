@@ -3,9 +3,12 @@
 // resize, quantize, controller and per-note events, drag gestures, step
 // rows), JSON persistence and Standard MIDI File interchange.
 #include "midi_sequence_model.h"
+#include "midi_smf.h"
 
 #include <QFile>
 #include <QTemporaryDir>
+#include <QElapsedTimer>
+#include <QRandomGenerator>
 #include <QtTest>
 #include <algorithm>
 
@@ -170,6 +173,96 @@ private slots:
         QVERIFY(ok(model.previewEventEdit(QStringLiteral("vel-1"), p, QStringLiteral("velocity"), a, {}, 0.25)));
         QVERIFY(ok(model.finishEdit(QStringLiteral("vel-1"))));
         QCOMPARE(noteOf(model, p, a)->velocity, Midi::velocityFromUnit(0.25));
+    }
+
+    void controllerLaneDragsAndDeletesAreOneStepEach()
+    {
+        MidiSequenceModel model;
+        const QString p = model.addPattern(QStringLiteral("Lane"), QStringLiteral("3840")).value(QStringLiteral("patternId")).toString();
+        const QString note = addNote(model, p, 960, 480, 60, 0x8000);
+        const QString cc = model.setEvent(p, {{QStringLiteral("controller"), QStringLiteral("cc:1")}, {QStringLiteral("tick"), 240},
+                                              {QStringLiteral("value"), 0.25}}).value(QStringLiteral("eventId")).toString();
+        const QString bend = model.setEvent(p, {{QStringLiteral("controller"), QStringLiteral("noteBend")},
+                                                {QStringLiteral("noteId"), note}, {QStringLiteral("tick"), 1000},
+                                                {QStringLiteral("raw"), raw(0x90000000u)}}).value(QStringLiteral("eventId")).toString();
+        QVERIFY(!cc.isEmpty() && !bend.isEmpty());
+        const MidiPattern committed = *model.pattern(uuid(p));
+        const auto eventOf = [&](const QString &id) -> const MidiControlEvent * {
+            for (const MidiControlEvent &event : model.pattern(uuid(p))->events)
+                if (event.id == uuid(id)) return &event;
+            return nullptr;
+        };
+        const auto lane = [&](const QString &controller) {
+            return model.controllerEvents(p, controller, QStringLiteral("0"), QStringLiteral("3840"));
+        };
+        // A CC drag moves tick and value; the lane shows the preview, the pattern keeps the commit.
+        QVERIFY(ok(model.previewEventEdit(QStringLiteral("cc-1"), p, QStringLiteral("cc:1"), cc, QStringLiteral("480"), 0.5)));
+        QVERIFY(ok(model.previewEventEdit(QStringLiteral("cc-1"), p, QStringLiteral("cc:1"), cc, QStringLiteral("720"), 1.0)));
+        QCOMPARE(lane(QStringLiteral("cc:1")).first().toMap().value(QStringLiteral("ticks")).toString(), QStringLiteral("720"));
+        QCOMPARE(eventOf(cc)->tick, qint64(240));
+        QVERIFY(!ok(model.previewEventEdit(QStringLiteral("cc-1"), p, QStringLiteral("cc:7"), cc, QStringLiteral("720"), 1.0)));
+        QVERIFY(ok(model.finishEdit(QStringLiteral("cc-1"))));
+        QCOMPARE(eventOf(cc)->tick, qint64(720));
+        QCOMPARE(eventOf(cc)->value, Midi::valueFromUnit(MidiController::ControlChange, 1.0));
+        QCOMPARE(model.undoText(), QStringLiteral("Edit %1").arg(Midi::descriptor(QStringLiteral("cc:1"))
+                                                                     .value(QStringLiteral("label")).toString()));
+        // A per-note event dragged outside its note is re-clamped inside [tick, end).
+        QVERIFY(ok(model.previewEventEdit(QStringLiteral("nb-1"), p, QStringLiteral("noteBend"), bend, QStringLiteral("3000"), 0.75)));
+        QVERIFY(ok(model.finishEdit(QStringLiteral("nb-1"))));
+        QCOMPARE(eventOf(bend)->tick, qint64(1439));
+        QCOMPARE(eventOf(bend)->value, Midi::valueFromUnit(MidiController::NoteBend, 0.75));
+        QVERIFY(ok(model.previewEventEdit(QStringLiteral("nb-2"), p, QStringLiteral("noteBend"), bend, QStringLiteral("10"), 0.75)));
+        QVERIFY(ok(model.finishEdit(QStringLiteral("nb-2"))));
+        QCOMPARE(eventOf(bend)->tick, qint64(960));
+        // A canceled drag leaves nothing behind.
+        QVERIFY(ok(model.previewEventEdit(QStringLiteral("cc-2"), p, QStringLiteral("cc:1"), cc, QStringLiteral("0"), 0.0)));
+        QVERIFY(model.cancelEdit(QStringLiteral("cc-2")));
+        QCOMPARE(eventOf(cc)->tick, qint64(720));
+        // Delete: one step for the events named; a velocity is not deletable; an unknown ID refuses all.
+        QVERIFY(!ok(model.deleteEvents(p, {note})));
+        QVERIFY(!ok(model.deleteEvents(p, {cc, QUuid::createUuid().toString()})));
+        QVERIFY(eventOf(cc));
+        QVERIFY(ok(model.deleteEvents(p, {cc, bend})));
+        QVERIFY(!eventOf(cc) && !eventOf(bend));
+        QVERIFY(lane(QStringLiteral("cc:1")).isEmpty());
+        QCOMPARE(model.undoText(), QStringLiteral("Delete controller events"));
+        QVERIFY(model.undo());
+        QCOMPARE(eventOf(bend)->tick, qint64(960));
+        for (int i = 0; i < 3; ++i) QVERIFY(model.undo());
+        QVERIFY(*model.pattern(uuid(p)) == committed); // every drag was exactly one step
+    }
+
+    void nestedNoteReportIsExactAndLinear()
+    {
+        // Against the pairwise definition on random overlapping notes.
+        QRandomGenerator random(64);
+        for (int round = 0; round < 20; ++round) {
+            QVector<MidiNote> notes;
+            for (int i = 0; i < 200; ++i)
+                notes.push_back({QUuid::createUuid(), random.bounded(2000), 1 + random.bounded(600),
+                                 60 + random.bounded(3), random.bounded(2), 0x8000});
+            MidiPattern pattern;
+            pattern.notes = notes;
+            Midi::sortPattern(pattern);
+            int pairwise = 0;
+            for (qsizetype i = 0; i < pattern.notes.size(); ++i)
+                for (qsizetype j = i + 1; j < pattern.notes.size(); ++j) {
+                    const MidiNote &a = pattern.notes.at(i);
+                    const MidiNote &b = pattern.notes.at(j);
+                    if (a.pitch == b.pitch && a.channel == b.channel && b.tick < a.end() && b.end() < a.end()) {
+                        ++pairwise;
+                        break;
+                    }
+                }
+            QCOMPARE(MidiFile::nestedNotes(pattern.notes), pairwise);
+        }
+        // The largest legal pattern of one key without nesting: no pairwise scan.
+        MidiPattern big;
+        for (int i = 0; i < Midi::kMaxNotes; ++i) big.notes.push_back({QUuid::createUuid(), qint64(i) * 10, 15, 60, 0, 0x8000});
+        QElapsedTimer timer;
+        timer.start();
+        QCOMPARE(MidiFile::nestedNotes(big.notes), 0);
+        QVERIFY2(timer.elapsed() < 1000, qPrintable(QString::number(timer.elapsed())));
     }
 
     void stepRowsArePolymetricAndUndoRestoresThePattern()

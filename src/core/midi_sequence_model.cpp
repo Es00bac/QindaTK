@@ -4,10 +4,12 @@
 // midi_sequence_ops.cpp (patterns, rows, steps, scenes, slots).
 #include "midi_sequence_model.h"
 
+#include "midi_input_port.h"
 #include "timeline_time.h"
 
 #include <QJsonDocument>
 #include <algorithm>
+#include <numeric>
 
 namespace QindaTK {
 namespace {
@@ -22,6 +24,30 @@ double fraction(qint64 tick, qint64 start, qint64 span)
     return std::clamp(double(tick - start) / double(span), 0.0, 1.0);
 }
 
+// Every tick of `content` at `to` PPQ instead of `from`; false (content
+// partly changed) when one position is not exact or leaves the valid range.
+bool rescale(MidiContent &content, int from, int to)
+{
+    const qint64 divisor = std::gcd(from, to);
+    const qint64 num = to / divisor;
+    const qint64 den = from / divisor;
+    const auto scale = [&](qint64 &value) {
+        if (value > Midi::kMaxLength || (value * num) % den != 0) return false; // |value| <= 2^40, num <= 10^6
+        value = value * num / den;
+        return true;
+    };
+    for (MidiPattern &pattern : content.patterns) {
+        if (!scale(pattern.length)) return false;
+        for (MidiNote &note : pattern.notes)
+            if (!scale(note.tick) || !scale(note.duration)) return false;
+        for (MidiControlEvent &event : pattern.events)
+            if (!scale(event.tick)) return false;
+        for (MidiStepRow &row : pattern.rows)
+            if (!scale(row.stepTicks)) return false;
+    }
+    return Midi::validate(content).isEmpty();
+}
+
 } // namespace
 
 MidiSequenceModel::MidiSequenceModel(QObject *parent)
@@ -29,16 +55,53 @@ MidiSequenceModel::MidiSequenceModel(QObject *parent)
 {
 }
 
+QString MidiSequenceModel::ticksPerQuarterProblem(int ppq) const
+{
+    if (ppq < 1 || ppq > 1000000) return tr("Ticks per quarter must be 1..1000000");
+    if (ppq == m_ppq) return {};
+    if (m_gesture) return tr("Finish or cancel the current MIDI edit first");
+    const QString inexact = tr("The MIDI notes would move: a position is not exact at %1 ticks per quarter").arg(ppq);
+    MidiContent content = m_content;
+    if (!rescale(content, m_ppq, ppq)) return inexact;
+    for (const Step &step : m_history) {
+        MidiContent before = step.before, after = step.after;
+        if (!rescale(before, m_ppq, ppq) || !rescale(after, m_ppq, ppq)) return inexact;
+    }
+    return {};
+}
+
 void MidiSequenceModel::setTicksPerQuarter(int ppq)
 {
-    if (ppq < 1 || ppq == m_ppq) return;
+    if (ppq == m_ppq) return;
+    if (const QString problem = ticksPerQuarterProblem(ppq); !problem.isEmpty()) {
+        failure(problem);
+        return;
+    }
+    const int from = m_ppq;
+    rescale(m_content, from, ppq);
+    for (Step &step : m_history) {
+        rescale(step.before, from, ppq);
+        rescale(step.after, from, ppq);
+    }
     m_ppq = ppq;
     emit ticksPerQuarterChanged();
+    publish();
+}
+
+QString MidiSequenceModel::removalProblem(const MidiContent &next) const
+{
+    if (!m_patternUse) return {};
+    for (const MidiPattern &pattern : m_content.patterns)
+        if (!Midi::find(next, pattern.id))
+            if (const QString use = m_patternUse(pattern.id); !use.isEmpty()) return use;
+    return {};
 }
 
 bool MidiSequenceModel::commitContent(const MidiContent &next, const QString &label, QString *error)
 {
-    if (const QString problem = Midi::validate(next); !problem.isEmpty()) {
+    QString problem = Midi::validate(next);
+    if (problem.isEmpty()) problem = removalProblem(next);
+    if (!problem.isEmpty()) {
         if (error) *error = problem;
         return false;
     }
@@ -181,9 +244,11 @@ QVariantMap MidiSequenceModel::capabilities() const
                                                                QStringLiteral("bar")}},
             {QStringLiteral("instrument"), QStringLiteral("builtin-test")},
             {QStringLiteral("smf"), smf},
-            {QStringLiteral("midiDevices"), false},
-            {QStringLiteral("midiDevicesReason"),
-             tr("MIDI device input and output are not part of the reference engine")}};
+            {QStringLiteral("midiDevices"),
+             QVariantMap{{QStringLiteral("input"), MidiInputPort::available()},
+                         {QStringLiteral("inputTransport"), QStringLiteral("alsa-sequencer")},
+                         {QStringLiteral("output"), false},
+                         {QStringLiteral("recording"), true}}}};
 }
 
 QVariantList MidiSequenceModel::noteRows(const QString &patternId, const QString &startTicks,
@@ -282,6 +347,11 @@ QVariantList MidiSequenceModel::stepRows(const QString &patternId) const
 bool MidiSequenceModel::undo()
 {
     if (m_gesture || !canUndo()) return false;
+    if (const QString problem = removalProblem(m_history.at(m_cursor - 1).before); !problem.isEmpty()) {
+        failure(problem);
+        return false;
+    }
+    clearError();
     m_content = m_history.at(--m_cursor).before;
     publish();
     emit historyChanged();
@@ -291,6 +361,11 @@ bool MidiSequenceModel::undo()
 bool MidiSequenceModel::redo()
 {
     if (m_gesture || !canRedo()) return false;
+    if (const QString problem = removalProblem(m_history.at(m_cursor).after); !problem.isEmpty()) {
+        failure(problem);
+        return false;
+    }
+    clearError();
     m_content = m_history.at(m_cursor++).after;
     publish();
     emit historyChanged();

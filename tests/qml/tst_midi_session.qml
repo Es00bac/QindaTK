@@ -24,6 +24,10 @@ TestCase {
         Tk.StepSequencer { width: 320; height: 160; stepCount: 4 }
     }
     Component {
+        id: laneComponent
+        Tk.MidiControllerLane { width: 400; height: 120 }
+    }
+    Component {
         id: launcherComponent
         Tk.ClipLauncher { width: 360; height: 160 }
     }
@@ -98,6 +102,52 @@ TestCase {
         compare(session.midi.stepRows(pattern)[0].steps[3].enabled, false)
     }
 
+    function test_controllerLaneEditsTheSessionModel() {
+        const pattern = session.midi.addPattern("Lane", "3840").patternId
+        const event = session.midi.setEvent(pattern, { controller: "cc:1", tick: "960", value: 0.25 }).eventId
+        verify(event.length > 0)
+        const lane = createTemporaryObject(laneComponent, root, {
+            patternId: pattern, controllerId: "cc:1", resolutionBits: 7,
+            tickBoundaries: session.midi.tickBoundaries("0", "3840", "240") })
+        verify(lane !== null)
+        const refresh = () => { lane.events = session.midi.controllerEvents(pattern, "cc:1", "0", "3840") }
+        refresh()
+        session.midi.contentChanged.connect(refresh)
+        session.midi.previewChanged.connect(refresh)
+        lane.valuePreviewRequested.connect((id, p, c, e, ticks, value) => session.midi.previewEventEdit(id, p, c, e, ticks, value))
+        lane.editFinished.connect(id => session.midi.finishEdit(id))
+        lane.editCanceled.connect(id => session.midi.cancelEdit(id))
+        lane.eventValueRequested.connect((p, c, e, ticks, value) =>
+            session.midi.setEvent(p, { id: e, controller: c, tick: ticks, value: value }))
+        lane.eventDeleteRequested.connect((p, c, e) => session.midi.deleteEvents(p, [e]))
+        compare(lane.events.length, 1)
+
+        verify(lane.beginEditAt(0.25 * lane.width))                  // the stem at tick 960
+        verify(lane.updateEditAt(0.5 * lane.width, 0))               // to tick 1920, full value
+        compare(lane.events[0].ticks, "1920")                         // the preview
+        compare(session.midi.patternData(pattern).events[0].tick, "960") // nothing committed yet
+        verify(lane.finishEdit())
+        compare(session.midi.patternData(pattern).events[0].tick, "1920")
+        compare(session.midi.patternData(pattern).events[0].raw, "4294967295")
+        verify(session.midi.undo())                                   // one step
+        compare(lane.events[0].ticks, "960")
+
+        verify(lane.beginEditAt(0.25 * lane.width))
+        verify(lane.updateEditAt(0.75 * lane.width, lane.height / 2))
+        verify(lane.cancelEdit())
+        compare(lane.events[0].ticks, "960")
+        compare(session.midi.patternData(pattern).events[0].tick, "960")
+
+        verify(lane.requestSetValue(event, "480", 0.5))
+        compare(lane.events[0].ticks, "480")
+        verify(lane.requestDelete(event))
+        compare(lane.events.length, 0)
+        verify(session.midi.undo())
+        compare(lane.events.length, 1)
+        session.midi.contentChanged.disconnect(refresh)
+        session.midi.previewChanged.disconnect(refresh)
+    }
+
     function test_launcherWithoutADeviceRefusesAndExplains() {
         const pattern = session.midi.addPattern("Clip", "3840").patternId
         const track = session.addMidiTrack("Synth")
@@ -116,5 +166,13 @@ TestCase {
         compare(answer[0], "direct")
         compare(answer[1], "rejected")
         verify(answer[2].length > 0)
+        // A record request reaches the session's launcher the same way.
+        launcher.slots = [{ id: slot, label: "Clip", state: "ready", available: true }]
+        launcher.recordRequested.connect((id, s, q) => session.launcher.record(id, s, q))
+        session.launcher.launchAcknowledged.connect((id, state, message) => launcher.acknowledgeLaunch(id, state, message))
+        verify(launcher.requestRecord(slot))
+        compare(answer[1], "rejected") // no engine attached
+        compare(launcher._requestState, "rejected")
+        compare(session.launcher.recordingSlot, "")
     }
 }

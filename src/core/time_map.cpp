@@ -183,6 +183,8 @@ bool TimeMap::setFrameRate(qint64 n, qint64 d) {
 void TimeMap::setTicksPerQuarter(int ppq) {
     if (ppq < 1 || ppq > 1000000) { reject(QStringLiteral("ticks per quarter must be 1..1000000")); return; }
     if (m_ppq == ppq) return;
+    if (m_ppqGuard)
+        if (const QString reason = m_ppqGuard(ppq); !reason.isEmpty()) { reject(reason); return; }
     m_ppq = ppq;
     emit changed();
 }
