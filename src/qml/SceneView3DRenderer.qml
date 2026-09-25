@@ -16,6 +16,7 @@ Q3D.View3D {
         id: sceneCamera
         position: viewport.control ? viewport.control.cameraPosition : Qt.vector3d(0, 0, 0)
         eulerRotation: viewport.control ? viewport.control.cameraEulerDegrees : Qt.vector3d(0, 0, 0)
+        fieldOfView: viewport.control ? viewport.control.cameraFieldOfView : 60
     }
     Q3D.DirectionalLight { eulerRotation: Qt.vector3d(-30, -35, 0) }
     Q3D.Repeater3D {
@@ -55,12 +56,24 @@ Q3D.View3D {
         }
         visible: meshGeometry.triangleCount > 0
         pickable: true
+        // AGENT-CONTRACT (D-156): the three document channels map to the
+        // material; scalar maps read red and the factors stay 1 so the
+        // uploaded bytes alone decide roughness and metalness.
         materials: Q3D.PrincipledMaterial {
-            roughness: 0.8
+            roughness: 1.0
+            metalness: 1.0
             cullMode: Q3D.Material.NoCulling
             baseColorMap: Q3D.Texture {
                 textureData: meshGeometry.textureData
             }
+            roughnessMap: Q3D.Texture {
+                textureData: meshGeometry.roughnessData
+            }
+            roughnessChannel: Q3D.Material.R
+            metalnessMap: Q3D.Texture {
+                textureData: meshGeometry.metalnessData
+            }
+            metalnessChannel: Q3D.Material.R
         }
     }
     // AGENT-CONTRACT: the viewport maps pointer motion into the chosen transform
@@ -108,6 +121,8 @@ Q3D.View3D {
             const id = hit.objectHit ? hit.objectHit.entityId : ""
             if (id === meshEntity.entityId) {
                 viewport.control.meshPicked(hit.scenePosition)
+                const face = viewport.control.pickMeshFace(mouse.x, mouse.y)
+                if (face.faceId) viewport.control.meshFacePicked(face.faceId, face.uv)
                 return
             }
             if (!scene) return

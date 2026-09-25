@@ -4,7 +4,10 @@ import QtQuick.Templates as T
 import QindaTK as Tk
 
 // AGENT-CONTRACT: consumes MeshRigDocument.bones/vertices snapshots and emits
-// stable bone/vertex IDs; the host commits pose and weight edits.
+// stable bone/vertex/constraint IDs; the host commits pose, weight,
+// constraint, key and frame edits. Sliders edit `sourcePose` (the static pose
+// or the keyed value at the frame), never the constrained `evaluatedPose`, so
+// the editor cannot bake constraint output into the rig (docs/mesh-rig.md).
 T.Control {
     id: control
     objectName: "rigEditor"
@@ -13,14 +16,22 @@ T.Control {
     property string selectedBoneId: ""
     property string selectedVertexId: ""
     property string mode: "pose" // "pose" or "weights"
+    property int currentFrame: 0
+    property real constraintInfluence: 1.0
     property string tooltip: qsTr("Rig editor: orthographic skeleton projection and pose controls")
     readonly property var selectedBone: boneById(selectedBoneId)
     readonly property var selectedVertex: vertexById(selectedVertexId)
+    readonly property var constraintTargets: (bones || []).filter(b => String(b.boneId) !== selectedBoneId)
     signal boneSelected(string boneId)
     signal vertexSelected(string vertexId)
     signal bonePoseRequested(string boneId, vector3d eulerDegrees)
     signal vertexWeightsRequested(string vertexId, var weights)
     signal resetPoseRequested()
+    signal constraintAddRequested(string boneId, string type, string targetId, real influence)
+    signal constraintRemoveRequested(string constraintId)
+    signal poseKeyRequested(string boneId, int frame, vector3d eulerDegrees)
+    signal poseKeyRemoveRequested(string boneId, int frame)
+    signal frameRequested(int frame)
 
     implicitWidth: Tk.Theme.size.panelMinWidth * 3
     implicitHeight: Tk.Theme.size.waveformHeight * 6
@@ -41,9 +52,12 @@ T.Control {
     function selectBone(id) {
         if (boneById(id)) boneSelected(String(id))
     }
+    function editablePose() {
+        if (!selectedBone) return Qt.vector3d(0, 0, 0)
+        return selectedBone.sourcePose || selectedBone.pose || Qt.vector3d(0, 0, 0)
+    }
     function axisValue(axis) {
-        if (!selectedBone) return 0
-        const pose = selectedBone.pose || Qt.vector3d(0, 0, 0)
+        const pose = editablePose()
         return axis === 0 ? pose.x : (axis === 1 ? pose.y : pose.z)
     }
     function axisLimit(axis, side) {
@@ -53,12 +67,32 @@ T.Control {
     }
     function setPoseAxis(axis, value) {
         if (!selectedBone) return
-        const pose = selectedBone.pose || Qt.vector3d(0, 0, 0)
+        const pose = editablePose()
         let next = Qt.vector3d(pose.x, pose.y, pose.z)
         if (axis === 0) next.x = value
         else if (axis === 1) next.y = value
         else next.z = value
         bonePoseRequested(selectedBoneId, next)
+    }
+    function hasKeyAtFrame() {
+        for (const key of ((selectedBone && selectedBone.keys) || []))
+            if (Number(key.frame) === currentFrame) return true
+        return false
+    }
+    function requestKey() {
+        if (!selectedBone) return false
+        poseKeyRequested(selectedBoneId, currentFrame, editablePose())
+        return true
+    }
+    function requestKeyRemoval() {
+        if (!hasKeyAtFrame()) return false
+        poseKeyRemoveRequested(selectedBoneId, currentFrame)
+        return true
+    }
+    function requestCopyRotation(targetId) {
+        if (!selectedBone || !targetId || String(targetId) === selectedBoneId) return false
+        constraintAddRequested(selectedBoneId, "copyRotation", String(targetId), constraintInfluence)
+        return true
     }
     function requestBoneWeight(value) {
         if (!selectedVertex || !selectedBoneId) return
@@ -88,18 +122,30 @@ T.Control {
         Tk.Flex {
             direction: Tk.Flex.Row
             gap: Tk.Theme.space.sm
+            align: Tk.Flex.Center
             Tk.Overline { text: qsTr("Rig") }
             Tk.Badge { text: control.mode === "pose" ? qsTr("POSE") : qsTr("WEIGHTS"); variant: "accent" }
             Tk.Button {
                 objectName: "rigEditMode"
                 text: control.mode === "pose" ? qsTr("Weights") : qsTr("Pose")
+                small: true
                 tooltip: qsTr("Switch between bone posing and vertex weight editing")
                 onClicked: control.mode = control.mode === "pose" ? "weights" : "pose"
             }
             Tk.Spacer { size: Tk.Theme.space.sm }
+            Tk.NumberField {
+                objectName: "rigFrame"
+                small: true
+                label: qsTr("Frame")
+                from: 0; to: 100000; stepSize: 1
+                value: control.currentFrame
+                tooltip: qsTr("Animation frame the rig is evaluated at")
+                onValueModified: function(value) { control.frameRequested(Math.round(value)) }
+            }
             Tk.Button {
                 text: qsTr("Reset pose")
-                tooltip: qsTr("Reset all bone rotations")
+                small: true
+                tooltip: qsTr("Reset all static bone rotations; animation keys are kept")
                 enabled: control.bones && control.bones.length > 0
                 onClicked: control.resetPoseRequested()
             }
@@ -148,7 +194,6 @@ T.Control {
                             ctx.beginPath(); ctx.arc(px(b.tail.x), py(b.tail.y), Tk.Theme.space.sm, 0, Math.PI * 2); ctx.fill()
                         }
                     }
-                    Connections { target: control; function onBonesChanged() { skeleton.requestPaint() } }
                 }
                 Accessible.ignored: true
             }
@@ -157,49 +202,50 @@ T.Control {
                 Tk.Flex {
                     anchors.fill: parent
                     direction: Tk.Flex.Column
-                Tk.Overline { text: qsTr("Bones · %1").arg(control.bones ? control.bones.length : 0) }
-                Tk.Scroll {
-                    Tk.Flex.flex: 1
-                    overflowY: Tk.Scroll.Auto
-                    Tk.Flex {
-                        direction: Tk.Flex.Column
-                        Repeater {
-                            model: control.bones || []
-                            delegate: Tk.Button {
-                                required property var modelData
-                                text: modelData.name || modelData.boneId
-                                tooltip: qsTr("Select bone %1").arg(text)
-                                variant: String(modelData.boneId) === control.selectedBoneId ? "accent" : "default"
-                                onClicked: control.selectBone(modelData.boneId)
-                                Accessible.role: Accessible.ListItem
-                                Accessible.selected: String(modelData.boneId) === control.selectedBoneId
-                                objectName: "rigBone_" + modelData.boneId
+                    Tk.Overline { text: qsTr("Bones · %1").arg(control.bones ? control.bones.length : 0) }
+                    Tk.Scroll {
+                        Tk.Flex.flex: 1
+                        overflowY: Tk.Scroll.Auto
+                        Tk.Flex {
+                            direction: Tk.Flex.Column
+                            Repeater {
+                                model: control.bones || []
+                                delegate: Tk.Button {
+                                    required property var modelData
+                                    text: modelData.animated ? qsTr("%1 (keyed)").arg(modelData.name || modelData.boneId)
+                                                  : (modelData.name || modelData.boneId)
+                                    tooltip: qsTr("Select bone %1").arg(modelData.name || modelData.boneId)
+                                    variant: String(modelData.boneId) === control.selectedBoneId ? "accent" : "default"
+                                    onClicked: control.selectBone(modelData.boneId)
+                                    Accessible.role: Accessible.ListItem
+                                    Accessible.selected: String(modelData.boneId) === control.selectedBoneId
+                                    objectName: "rigBone_" + modelData.boneId
+                                }
                             }
                         }
                     }
-                }
-                Tk.Overline { visible: control.mode === "weights"; text: qsTr("Vertices") }
-                Tk.Scroll {
-                    visible: control.mode === "weights"
-                    Tk.Flex.flex: 1
-                    overflowY: Tk.Scroll.Auto
-                    Tk.Flex {
-                        direction: Tk.Flex.Column
-                        Repeater {
-                            model: control.vertices || []
-                            delegate: Tk.Button {
-                                required property var modelData
-                                text: qsTr("Vertex %1").arg(modelData.vertexId)
-                                tooltip: qsTr("Select weighted vertex %1").arg(modelData.vertexId)
-                                variant: String(modelData.vertexId) === control.selectedVertexId ? "accent" : "default"
-                                onClicked: control.vertexSelected(String(modelData.vertexId))
-                                Accessible.role: Accessible.ListItem
-                                Accessible.selected: String(modelData.vertexId) === control.selectedVertexId
-                                objectName: "rigVertex_" + modelData.vertexId
+                    Tk.Overline { visible: control.mode === "weights"; text: qsTr("Vertices") }
+                    Tk.Scroll {
+                        visible: control.mode === "weights"
+                        Tk.Flex.flex: 1
+                        overflowY: Tk.Scroll.Auto
+                        Tk.Flex {
+                            direction: Tk.Flex.Column
+                            Repeater {
+                                model: control.vertices || []
+                                delegate: Tk.Button {
+                                    required property var modelData
+                                    text: qsTr("Vertex %1").arg(modelData.vertexId)
+                                    tooltip: qsTr("Select weighted vertex %1").arg(modelData.vertexId)
+                                    variant: String(modelData.vertexId) === control.selectedVertexId ? "accent" : "default"
+                                    onClicked: control.vertexSelected(String(modelData.vertexId))
+                                    Accessible.role: Accessible.ListItem
+                                    Accessible.selected: String(modelData.vertexId) === control.selectedVertexId
+                                    objectName: "rigVertex_" + modelData.vertexId
+                                }
                             }
                         }
                     }
-                }
                 }
             }
         }
@@ -230,6 +276,65 @@ T.Control {
         Tk.Flex {
             direction: Tk.Flex.Row
             gap: Tk.Theme.space.sm
+            align: Tk.Flex.Center
+            visible: control.mode === "pose" && Boolean(control.selectedBone)
+            Tk.Button {
+                objectName: "rigKey"
+                text: control.hasKeyAtFrame() ? qsTr("Update key") : qsTr("Key")
+                small: true
+                tooltip: qsTr("Key this bone's pose at frame %1").arg(control.currentFrame)
+                onClicked: control.requestKey()
+            }
+            Tk.Button {
+                objectName: "rigRemoveKey"
+                text: qsTr("Remove key")
+                small: true
+                enabled: control.hasKeyAtFrame()
+                tooltip: qsTr("Remove this bone's key at frame %1").arg(control.currentFrame)
+                onClicked: control.requestKeyRemoval()
+            }
+            Tk.ComboBox {
+                id: targetPicker
+                objectName: "rigConstraintTarget"
+                small: true
+                Tk.Flex.flex: 1
+                model: control.constraintTargets
+                textRole: "name"
+                valueRole: "boneId"
+                tooltip: qsTr("Bone whose rotation the selected bone copies")
+            }
+            Tk.Button {
+                objectName: "rigAddConstraint"
+                text: qsTr("Copy rotation")
+                small: true
+                enabled: control.constraintTargets.length > 0
+                tooltip: qsTr("Add a copy-rotation constraint from the chosen bone; loops are refused")
+                onClicked: control.requestCopyRotation(targetPicker.currentValue)
+            }
+        }
+        Tk.Flex {
+            direction: Tk.Flex.Row
+            gap: Tk.Theme.space.xs
+            visible: control.mode === "pose" && Boolean(control.selectedBone)
+                     && (control.selectedBone.constraints || []).length > 0
+            Repeater {
+                model: control.selectedBone ? (control.selectedBone.constraints || []) : []
+                delegate: Tk.Button {
+                    required property var modelData
+                    readonly property var target: control.boneById(modelData.targetId)
+                    objectName: "rigConstraint_" + modelData.constraintId
+                    small: true
+                    trailingIconName: "x"
+                    text: qsTr("Copy %1 × %2").arg(target ? target.name : modelData.targetId)
+                                                 .arg(Number(modelData.influence).toFixed(2))
+                    tooltip: qsTr("Remove this copy-rotation constraint")
+                    onClicked: control.constraintRemoveRequested(String(modelData.constraintId))
+                }
+            }
+        }
+        Tk.Flex {
+            direction: Tk.Flex.Row
+            gap: Tk.Theme.space.sm
             visible: control.mode === "weights" && Boolean(control.selectedVertex) && Boolean(control.selectedBone)
             Tk.Label { text: qsTr("%1 weight").arg(control.selectedBone ? control.selectedBone.name : ""); muted: true }
             Tk.Slider {
@@ -244,6 +349,18 @@ T.Control {
             }
         }
         Tk.Caption {
+            objectName: "rigEvaluatedPose"
+            mono: true
+            visible: Boolean(control.selectedBone)
+            text: control.selectedBone && control.selectedBone.evaluatedPose
+                ? qsTr("Evaluated %1°, %2°, %3° at frame %4")
+                    .arg(Number(control.selectedBone.evaluatedPose.x).toFixed(1))
+                    .arg(Number(control.selectedBone.evaluatedPose.y).toFixed(1))
+                    .arg(Number(control.selectedBone.evaluatedPose.z).toFixed(1))
+                    .arg(control.currentFrame)
+                : ""
+        }
+        Tk.Caption {
             text: qsTr("Side view of bone rest coordinates; scene mesh display is supplied by the host.")
             wrapMode: Text.Wrap
         }
@@ -253,8 +370,11 @@ T.Control {
     Keys.onPressed: function(event) {
         if ((event.key === Qt.Key_Left || event.key === Qt.Key_Right) && selectedBone) {
             const axis = (event.modifiers & Qt.ShiftModifier) ? 1 : 2
-            const pose = selectedBone.pose || Qt.vector3d(0, 0, 0)
+            const pose = editablePose()
             setPoseAxis(axis, pose[axis === 1 ? "y" : "z"] + (event.key === Qt.Key_Left ? -1 : 1))
+            event.accepted = true
+        } else if (event.key === Qt.Key_K && selectedBone) {
+            requestKey()
             event.accepted = true
         }
     }

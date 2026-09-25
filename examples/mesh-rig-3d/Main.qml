@@ -23,9 +23,15 @@ Rectangle {
             setUV(second, 1, Qt.point(1, 1))
             setUV(second, 2, Qt.point(0, 1))
             resizeTexture(256, 256)
+            // Separate strokes: samples inside one stroke are joined by dabs.
             beginPaint()
             paintRay(Qt.vector3d(-45, 35, 100), Qt.vector3d(0, 0, -1), "#e9a358", 24, 1)
+            endPaint()
+            beginPaint()
             paintRay(Qt.vector3d(35, -25, 100), Qt.vector3d(0, 0, -1), "#3caec2", 30, 1)
+            endPaint()
+            beginPaint("metalness")
+            paintRay(Qt.vector3d(35, -25, 100), Qt.vector3d(0, 0, -1), "#ffffff", 30, 1)
             endPaint()
         }
     }

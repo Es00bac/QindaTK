@@ -35,7 +35,7 @@ QString MeshRigDocument::toJson() const {
     // AGENT-GUARD: A save during an active paint stroke records the committed
     // pixels, matching SceneModel3D's preview/persistence boundary.
     const State &state = m_painting ? m_beforePaint : m_state;
-    QJsonObject root{{"format", "qindatk.mesh-rig"}, {"version", 1}};
+    QJsonObject root{{"format", "qindatk.mesh-rig"}, {"version", 2}};
     QJsonArray vertices;
     for (const auto &v : state.vertices) {
         QJsonObject weights;
@@ -53,19 +53,31 @@ QString MeshRigDocument::toJson() const {
     }
     root.insert("faces", faces);
     QJsonArray bones;
-    for (const auto &b : state.bones)
+    for (const auto &b : state.bones) {
+        QJsonArray constraints, keys;
+        for (const auto &c : b.constraints)
+            constraints.append(QJsonObject{{"id", c.id}, {"type", c.type},
+                                           {"targetId", c.targetId}, {"influence", c.influence}});
+        for (const auto &k : b.keys) keys.append(QJsonObject{{"frame", k.frame}, {"pose", vec(k.pose)}});
         bones.append(QJsonObject{{"id", b.id}, {"name", b.name}, {"parentId", b.parentId},
                                  {"head", vec(b.head)}, {"tail", vec(b.tail)},
                                  {"minimum", vec(b.minimum)}, {"maximum", vec(b.maximum)},
-                                 {"pose", vec(b.pose)}});
+                                 {"pose", vec(b.pose)}, {"constraints", constraints}, {"keys", keys}});
+    }
     root.insert("bones", bones);
     QJsonArray seams;
     for (const auto &key : state.seams) {
         const auto parts = key.split(u'|'); seams.append(QJsonArray{parts[0], parts[1]});
     }
     root.insert("seams", seams);
-    QByteArray pixels; QBuffer buffer(&pixels); buffer.open(QIODevice::WriteOnly);
-    state.texture.save(&buffer, "PNG"); root.insert("texturePng", QString::fromLatin1(pixels.toBase64()));
+    QJsonObject textures;
+    const QStringList channels = textureChannels();
+    for (int c = 0; c < ChannelCount; ++c) {
+        QByteArray pixels; QBuffer buffer(&pixels); buffer.open(QIODevice::WriteOnly);
+        state.textures[c].save(&buffer, "PNG");
+        textures.insert(channels[c], QString::fromLatin1(pixels.toBase64()));
+    }
+    root.insert("textures", textures);
     return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
 }
 
@@ -75,7 +87,9 @@ bool MeshRigDocument::stateFromJson(const QString &json, State *result) const {
     const auto parsed = QJsonDocument::fromJson(json.toUtf8(), &error);
     if (error.error != QJsonParseError::NoError || !parsed.isObject()) return fail("Invalid mesh JSON");
     const auto root = parsed.object();
-    if (root.value("format") != "qindatk.mesh-rig" || root.value("version") != 1)
+    // Version 1 files (one sRGB texture, no constraints or keys) still open.
+    const int version = root.value("version").toInt();
+    if (root.value("format") != "qindatk.mesh-rig" || (version != 1 && version != 2))
         return fail("Unsupported mesh format or version");
     const auto vertexRows = root.value("vertices").toArray();
     const auto faceRows = root.value("faces").toArray();
@@ -114,6 +128,40 @@ bool MeshRigDocument::stateFromJson(const QString &json, State *result) const {
                 return fail("Invalid bone limit or pose");
         boneIds.insert(b.id); state.bones.append(b);
     }
+    // Constraints and keys may name any bone, so they parse after all bones.
+    QSet<QString> constraintIds;
+    for (int i = 0; version == 2 && i < boneRows.size(); ++i) {
+        const auto item = boneRows[i].toObject();
+        const auto constraints = item.value("constraints").toArray();
+        const auto keys = item.value("keys").toArray();
+        if (!item.value("constraints").isArray() || !item.value("keys").isArray()
+            || constraints.size() > 4 || keys.size() > 1024) return fail("Invalid bone constraints or keys");
+        Bone &b = state.bones[i];
+        for (const auto row : constraints) {
+            const auto c = row.toObject(); Constraint constraint;
+            constraint.id = c.value("id").toString(); constraint.type = c.value("type").toString();
+            constraint.targetId = c.value("targetId").toString();
+            constraint.influence = c.value("influence").toDouble(-1);
+            if (!validId(constraint.id) || constraintIds.contains(constraint.id)
+                || constraint.type != QLatin1String("copyRotation") || !boneIds.contains(constraint.targetId)
+                || constraint.targetId == b.id || !(constraint.influence >= 0 && constraint.influence <= 1))
+                return fail("Invalid bone constraint");
+            constraintIds.insert(constraint.id); b.constraints.append(constraint);
+        }
+        int previous = -1;
+        for (const auto row : keys) {
+            const auto k = row.toObject(); PoseKey key;
+            const QJsonValue frame = k.value("frame");
+            key.frame = frame.toInt(-1);
+            if (!frame.isDouble() || frame.toDouble() != key.frame || key.frame <= previous || key.frame > 100000
+                || !readVec(k.value("pose"), &key.pose) || !withinLimits(b, key.pose))
+                return fail("Invalid or unordered pose key");
+            previous = key.frame; b.keys.append(key);
+        }
+    }
+    for (const auto &b : state.bones)
+        for (const auto &c : b.constraints)
+            if (constraintReaches(state, c.targetId, b.id)) return fail("Constraint cycle in mesh file");
     for (int i = 0; i < vertexRows.size(); ++i) {
         const auto weights = vertexRows[i].toObject().value("weights").toObject();
         if (weights.size() > 4) return fail("Too many vertex influences");
@@ -178,26 +226,42 @@ bool MeshRigDocument::stateFromJson(const QString &json, State *result) const {
         if (!found || state.seams.contains(key)) return fail("Unknown or duplicate UV seam");
         state.seams.insert(key);
     }
-    const auto encoded = root.value("texturePng").toString();
-    if (encoded.isEmpty() || encoded.size() > 8 * 1024 * 1024) return fail("Invalid texture data");
-    QByteArray bytes = QByteArray::fromBase64(encoded.toLatin1());
-    QBuffer buffer(&bytes); buffer.open(QIODevice::ReadOnly); QImageReader reader(&buffer, "PNG");
-    const auto size = reader.size();
-    if (size.width() < 1 || size.height() < 1 || size.width() > 1024 || size.height() > 1024)
-        return fail("Texture dimensions are out of bounds");
-    QImage decoded = reader.read();
-    if (decoded.isNull()) return fail("Invalid texture pixels");
-    if (decoded.colorSpace().isValid() && decoded.colorSpace() != QColorSpace::SRgb)
-        decoded.convertToColorSpace(QColorSpace::SRgb);
-    state.texture = decoded.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-    state.texture.setColorSpace(QColorSpace::SRgb);
+    QJsonObject textures;
+    if (version == 1) textures.insert("baseColor", root.value("texturePng"));
+    else if (root.value("textures").isObject()) textures = root.value("textures").toObject();
+    QSize size;
+    const QStringList channels = textureChannels();
+    for (int c = 0; c < ChannelCount; ++c) {
+        if (!textures.contains(channels[c]) && version == 1) continue;
+        const auto encoded = textures.value(channels[c]).toString();
+        if (encoded.isEmpty() || encoded.size() > 8 * 1024 * 1024) return fail("Invalid texture data");
+        QByteArray bytes = QByteArray::fromBase64(encoded.toLatin1());
+        QBuffer buffer(&bytes); buffer.open(QIODevice::ReadOnly); QImageReader reader(&buffer, "PNG");
+        const auto channelSize = reader.size();
+        if (channelSize.width() < 1 || channelSize.height() < 1 || channelSize.width() > 1024
+            || channelSize.height() > 1024 || (size.isValid() && channelSize != size))
+            return fail("Texture dimensions are out of bounds or differ between channels");
+        size = channelSize;
+        QImage decoded = reader.read();
+        if (decoded.isNull()) return fail("Invalid texture pixels");
+        if (c == BaseColor) {
+            if (decoded.colorSpace().isValid() && decoded.colorSpace() != QColorSpace::SRgb)
+                decoded.convertToColorSpace(QColorSpace::SRgb);
+        } else {
+            decoded.setColorSpace(QColorSpace()); // linear scalar data: never colour-converted
+        }
+        state.textures[c] = decoded.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+        if (c == BaseColor) state.textures[c].setColorSpace(QColorSpace::SRgb);
+    }
+    for (int c = 0; c < ChannelCount; ++c)
+        if (state.textures[c].isNull()) state.textures[c] = blankChannel(c, size.width(), size.height());
     *result = state; return true;
 }
 
 bool MeshRigDocument::fromJson(const QString &json) {
     if (m_painting) return fail("Finish painting before loading");
     State next; if (!stateFromJson(json, &next)) return false;
-    remember(); m_state = next; notify(); return true;
+    return commit(next, QStringLiteral("Load mesh document"));
 }
 bool MeshRigDocument::saveToFile(const QString &path) const {
     const QByteArray bytes = toJson().toUtf8();
