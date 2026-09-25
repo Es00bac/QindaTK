@@ -2592,6 +2592,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "typeLabel",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [],
@@ -2615,8 +2623,8 @@
         "blockMoveUp_",
         "blockOutdent_",
         "blockOutput_",
-        "blockSelect_",
         "blockSplit_",
+        "blockType_",
         "notebookBlock_"
       ]
     },
@@ -21951,7 +21959,6 @@
         "notebookPageMoveUp",
         "notebookPagePanel",
         "notebookPageRow_",
-        "notebookPageSelect_",
         "notebookPageTags",
         "notebookSearch",
         "notebookSearchSubmit",
@@ -30945,7 +30952,7 @@
       "name": "ScoreView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the notation host owns semantic score records, rhythmic interpretation, engraving coordinates, pagination, selection, and edits. `layoutSnapshot` supplies already-laid-out staff/measure/event coordinates and exact insertion tick strings. This control draws that snapshot and sends stable-ID requests; it does not infer spacing, spelling, rhythm, or playback. Snapshot coordinates (`x0`, `x1`, `top`, `lineGap`, event `x`, `staffStep`, playbackCursorX, and entry-position `x`) are normalized to this control. `staffStep` is the host's diatonic engraving step from the bottom staff line; exact insertion ticks remain strings and are never parsed as JS numbers.",
+      "description": "AGENT-CONTRACT: the notation host owns semantic score records, rhythmic interpretation, engraving coordinates, pagination, selection, and edits. `layoutSnapshot` supplies already-laid-out staff/measure/event coordinates and exact insertion tick strings. This control draws that snapshot and sends stable-ID requests; it does not infer spacing, spelling, rhythm, or playback. Snapshot coordinates (`x0`, `x1`, `top`, `lineGap`, event `x`, `staffStep`, playbackCursorX, and entry-position `x`) are normalized to this control. `staffStep` is the host's diatonic engraving step from the bottom staff line; exact insertion ticks remain strings and are never parsed as JS numbers. The reference host is Tk.ScoreModel (WP-067, D-178): its layoutSnapshot(page) is this view's snapshot and every request below maps to one of its calls (docs/notation.md#editing). Drawing lives in ScorePaint.js.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ScoreView.qml",
@@ -31109,6 +31116,14 @@
           "readonly": true,
           "defaultProperty": false,
           "required": false
+        },
+        {
+          "name": "selectedLabel",
+          "type": "string",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
         }
       ],
       "signals": [
@@ -31137,6 +31152,14 @@
           "parameters": "string scoreId, string selectedEventId, string direction"
         },
         {
+          "name": "eventDeleteRequested",
+          "parameters": "string requestId, string scoreId, string eventId"
+        },
+        {
+          "name": "notationEditRequested",
+          "parameters": "string requestId, string scoreId, string eventId, string edit, var value"
+        },
+        {
           "name": "playbackLocateRequested",
           "parameters": "string measureId, string positionTicks"
         }
@@ -31161,6 +31184,18 @@
         {
           "name": "createRequestId",
           "parameters": "prefix"
+        },
+        {
+          "name": "findEvent",
+          "parameters": "eventId"
+        },
+        {
+          "name": "requestNotationEdit",
+          "parameters": "edit, value"
+        },
+        {
+          "name": "requestDelete",
+          "parameters": ""
         },
         {
           "name": "eventContext",
@@ -32825,11 +32860,27 @@
       "name": "SlideCanvas",
       "kind": "qml",
       "base": "Item",
-      "description": "Host snapshots own geometry and text. Gestures preview locally, then report one request; the surface resumes from the host snapshot until it is acked.",
+      "description": "Host snapshots own geometry and text. Gestures preview locally, then report one request; the surface resumes from the host snapshot until it is acked. AGENT-CONTRACT (docs/slides.md#output, D-160): with `deck` set, the page is painted by Tk.SlideFrameView (the audience/export painter, every build complete) and object delegates draw only placeholder and selection chrome on top; without it the delegates draw a schematic of the host `objects`.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/SlideCanvas.qml",
       "properties": [
+        {
+          "name": "deck",
+          "type": "Tk.SlideDeck",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rendered",
+          "type": "bool",
+          "default": "!!control.deck && control.slideId.length > 0",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
         {
           "name": "documentId",
           "type": "string",
@@ -32977,12 +33028,14 @@
       "bridge": false,
       "objectNames": [
         "slideApplyMaster",
+        "slideCanvasRender",
         "slideCanvasSurface",
         "slideCanvasToolbar",
         "slideCommitText",
         "slideInsertShape",
         "slideInsertText",
         "slideMasterPicker",
+        "slideObjectChrome",
         "slideObject_",
         "slideTextDraft",
         "slideTextEditRow",
@@ -42562,6 +42615,13 @@
           "constant": false
         },
         {
+          "name": "backends",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
           "name": "outputMeter",
           "type": "QindaTK::AudioMeterModel *",
           "default": "",
@@ -42649,6 +42709,10 @@
       "signals": [
         {
           "name": "devicesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "backendsChanged",
           "parameters": ""
         },
         {
@@ -65338,6 +65402,511 @@
         }
       ],
       "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScoreModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (D-178, docs/notation.md): the persistent score behind ScoreView. ScoreView requests map one-to-one onto the invokables below (noteEntryRequested -> insertNote, restEntryRequested -> insertRest, notationEditRequested -> editEvent, eventDeleteRequested -> deleteEvents, navigateRequested -> adjacentEvent) and `layoutSnapshot(page)` is the view's `layoutSnapshot`. Every accepted change is validated whole (Score::validate) and recorded as one step of the model's own history; undo restores the complete previous content. A refused change changes nothing and records nothing. Results are {ok, error, ...}.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/score_model.h",
+      "properties": [
+        {
+          "name": "schemaId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "scoreId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "title",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "composer",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "parts",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "measures",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "totalTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageWidth",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pageHeight",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "staffSpace",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "margin",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "layoutRevision",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "capabilities",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "contentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "layoutChanged",
+          "parameters": ""
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        },
+        {
+          "name": "committed",
+          "parameters": "const QString &label"
+        }
+      ],
+      "methods": [
+        {
+          "name": "removePart",
+          "returns": "QVariantMap",
+          "parameters": "const QString &partId"
+        },
+        {
+          "name": "setPart",
+          "returns": "QVariantMap",
+          "parameters": "const QString &partId, const QVariantMap &fields"
+        },
+        {
+          "name": "setClef",
+          "returns": "QVariantMap",
+          "parameters": "const QString &staffId, const QString &clef"
+        },
+        {
+          "name": "addVoice",
+          "returns": "QVariantMap",
+          "parameters": "const QString &staffId"
+        },
+        {
+          "name": "appendMeasures",
+          "returns": "QVariantMap",
+          "parameters": "int count"
+        },
+        {
+          "name": "insertMeasures",
+          "returns": "QVariantMap",
+          "parameters": "const QString &beforeMeasureId, int count"
+        },
+        {
+          "name": "removeMeasures",
+          "returns": "QVariantMap",
+          "parameters": "const QStringList &measureIds"
+        },
+        {
+          "name": "setTimeSignature",
+          "returns": "QVariantMap",
+          "parameters": "const QString &measureId, int numerator, int denominator"
+        },
+        {
+          "name": "setKeySignature",
+          "returns": "QVariantMap",
+          "parameters": "const QString &measureId, int fifths"
+        },
+        {
+          "name": "setBreak",
+          "returns": "QVariantMap",
+          "parameters": "const QString &measureId, const QString &kind"
+        },
+        {
+          "name": "insertNote",
+          "returns": "QVariantMap",
+          "parameters": "const QString &partId, const QString &staffId, const QString &voiceId, const QString &measureId, const QString &positionTicks, const QString &pitch, const QString &durationId"
+        },
+        {
+          "name": "insertRest",
+          "returns": "QVariantMap",
+          "parameters": "const QString &partId, const QString &staffId, const QString &voiceId, const QString &measureId, const QString &positionTicks, const QString &durationId"
+        },
+        {
+          "name": "editEvent",
+          "returns": "QVariantMap",
+          "parameters": "const QString &eventId, const QString &edit, const QVariant &value = {}"
+        },
+        {
+          "name": "deleteEvents",
+          "returns": "QVariantMap",
+          "parameters": "const QStringList &eventIds"
+        },
+        {
+          "name": "eventData",
+          "returns": "QVariantMap",
+          "parameters": "const QString &eventId"
+        },
+        {
+          "name": "adjacentEvent",
+          "returns": "QString",
+          "parameters": "const QString &eventId, const QString &direction"
+        },
+        {
+          "name": "rhythmReport",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "readingOrder",
+          "returns": "QVariantList",
+          "parameters": "const QVariantMap &options = {}"
+        },
+        {
+          "name": "describeEvent",
+          "returns": "QString",
+          "parameters": "const QString &eventId"
+        },
+        {
+          "name": "layoutSnapshot",
+          "returns": "QVariantMap",
+          "parameters": "int page, const QVariantMap &options = {}"
+        },
+        {
+          "name": "locate",
+          "returns": "QVariantMap",
+          "parameters": "const QString &tick, const QVariantMap &options = {}"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clearHistory",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "toJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "loadJson",
+          "returns": "QVariantMap",
+          "parameters": "const QString &json"
+        },
+        {
+          "name": "contentMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "loadContent",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &content"
+        },
+        {
+          "name": "save",
+          "returns": "bool",
+          "parameters": "const QString &file"
+        },
+        {
+          "name": "open",
+          "returns": "QVariantMap",
+          "parameters": "const QString &file"
+        },
+        {
+          "name": "exportPdf",
+          "returns": "QVariantMap",
+          "parameters": "const QString &file, const QVariantMap &options = {}"
+        },
+        {
+          "name": "exportMusicXml",
+          "returns": "QVariantMap",
+          "parameters": "const QString &file, const QVariantMap &options = {}"
+        },
+        {
+          "name": "importMusicXml",
+          "returns": "QVariantMap",
+          "parameters": "const QString &file"
+        },
+        {
+          "name": "midiConversion",
+          "returns": "QVariantMap",
+          "parameters": "int ticksPerQuarter = Score::kPpq"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScorePlayback",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (D-180, docs/notation.md#playback): plays a ScoreModel through an AudioSession's MIDI model and engine (WP-064). sync() writes the score's MIDI rendering (Score::toMidi) into one pattern of `session.midi` as one MIDI undo step and keeps one beat-locked clip of it on a MIDI track at `startTicks`, so the tempo map (WP-049) times it and the engine schedules it like any pattern. The score stays the source; the pattern is derived and is replaced whole on every sync. Audition uses the engine's cue voices (auditionNoteOn/Off).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/score_playback.h",
+      "properties": [
+        {
+          "name": "score",
+          "type": "QindaTK::ScoreModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "session",
+          "type": "QindaTK::AudioSession *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "startTicks",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "trackId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "patternId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "clipId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "autoSync",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "report",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "scoreChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sessionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "linkChanged",
+          "parameters": ""
+        },
+        {
+          "name": "autoSyncChanged",
+          "parameters": ""
+        },
+        {
+          "name": "synced",
+          "parameters": ""
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "sync",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "scoreTickAt",
+          "returns": "QString",
+          "parameters": "const QString &timelineTicks"
+        },
+        {
+          "name": "timelineTicksFor",
+          "returns": "QString",
+          "parameters": "const QString &scoreTick"
+        },
+        {
+          "name": "currentScoreTick",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "cursor",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &options = {}"
+        },
+        {
+          "name": "midiNoteFor",
+          "returns": "QString",
+          "parameters": "const QString &scoreNoteId"
+        },
+        {
+          "name": "audition",
+          "returns": "bool",
+          "parameters": "const QString &eventId"
+        },
+        {
+          "name": "releaseAudition",
+          "returns": "bool",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
