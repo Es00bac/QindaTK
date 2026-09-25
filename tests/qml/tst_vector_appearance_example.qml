@@ -44,6 +44,16 @@ TestCase {
         compare(styles.selectionStyle.count, 2)
         compare(stroke.style.alignment, "center")
         compare(stroke.style.width, 4)
+        // The fields show the selection, and each colour's text matches its swatch.
+        const width = findChild(stroke, "strokeWidth")
+        const strokeColor = findChild(stroke, "strokeColor")
+        const fillColor = findChild(fill, "fillSolidColor")
+        compare(width.value, 4)
+        compare(String(strokeColor.color), "#e6a55a")
+        compare(findChild(strokeColor, "colorHex").text, "#e6a55a")
+        compare(String(fillColor.color), "#468fb8")
+        compare(findChild(fillColor, "colorHex").text, "#468fb8")
+        compare(part("styleWorkingOpacity").value, 1)
 
         stroke.styleChangeRequested(Object.assign({}, stroke.style, { alignment: "outside" }))
         compare(styles.lastError, "")
@@ -59,8 +69,32 @@ TestCase {
 
         part("styleWorkingOpacity").valueModified(0.5)
         compare(styles.selectionStyle.opacity, 0.5)
+        compare(part("styleWorkingOpacity").value, 0.5)
         part("styleWorkingBlend").activated(1)
         compare(styles.selectionStyle.blend, "multiply")
+
+        // A user edit assigns the field itself, as typing does; the editor
+        // still follows the owner afterwards, undo included.
+        width.value = 6
+        width.valueModified(6)
+        compare(styles.selectionStyle.strokeWidth, 6)
+        part("styleWorkingUndo").clicked()
+        compare(styles.selectionStyle.strokeWidth, 4)
+        compare(width.value, 4)
+    }
+
+    function test_empty_selection_is_explicit() {
+        const scene = loader.item
+        const stroke = part("styleWorkingStroke")
+        const fill = part("styleWorkingFill")
+        compare(part("styleWorkingSelection").text, "2 shape(s) selected")
+        scene.selectedIds = []
+        compare(part("styleWorkingStyles").selectionStyle.count, 0)
+        verify(!stroke.enabled)
+        verify(!fill.enabled)
+        compare(part("styleWorkingSelection").text, "No shape selected. Select shapes to edit their style.")
+        const strokeColor = findChild(stroke, "strokeColor")
+        compare(findChild(strokeColor, "colorHex").text, String(strokeColor.color))
     }
 
     function test_appearance_stack_follows_the_model() {

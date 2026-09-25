@@ -448,6 +448,7 @@ bool RichTextCodec::fromJsonObject(const QJsonObject &root, RichTextDocument &do
         && reader.number(pageJson, "heightPt", &page.heightPt, 72, 14400, QStringLiteral("page"))
         && reader.integer(pageJson, "columns", &page.columns, 1, 24, QStringLiteral("page"))
         && reader.number(pageJson, "columnGapPt", &page.columnGapPt, 0, 1440, QStringLiteral("page"))
+        && reader.number(pageJson, "bleedPt", &page.bleedPt, 0, 72, QStringLiteral("page"))
         && (margins.isEmpty() || margins.size() == 4 || reader.fail(QStringLiteral("page.marginsPt"), QStringLiteral("Four margins expected")))
         && reader.number(defaultsJson, "sizePt", &defaults.sizePt, 1, 1638, QStringLiteral("defaults"))
         && reader.color(defaultsJson, "color", &defaults.color, QStringLiteral("defaults"))

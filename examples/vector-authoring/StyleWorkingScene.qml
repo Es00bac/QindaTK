@@ -16,6 +16,7 @@ Rectangle {
     color: Tk.Theme.color.bg
     property var selectedIds: []
     property string editingEffect: ""
+    readonly property bool hasSelection: (styles.selectionStyle.count || 0) > 0
 
     function combine(operation) {
         const id = document.combinePaths(scene.selectedIds, operation)
@@ -61,6 +62,18 @@ Rectangle {
     }
     Tk.ToolController { id: tools; document: document }
     Tk.CanvasViewState { id: pose }
+    // Owner-to-field syncing that survives the fields' own user edits (an
+    // edit assigns a field's value, which would end a plain binding).
+    Binding {
+        target: opacityField
+        property: "value"
+        value: styles.selectionStyle.opacity === undefined ? 1 : styles.selectionStyle.opacity
+    }
+    Binding {
+        target: effectAmountField
+        property: "value"
+        value: scene.effectAmount(appearance.effects, scene.editingEffect)
+    }
 
     Tk.Flex {
         anchors.fill: parent
@@ -90,9 +103,18 @@ Rectangle {
                     width: parent.width
                     direction: Tk.Flex.Column
                     gap: Tk.Theme.space.md
+                    Tk.Caption {
+                        objectName: "styleWorkingSelection"
+                        width: parent.width
+                        text: scene.hasSelection
+                              ? qsTr("%n shape(s) selected", "", styles.selectionStyle.count)
+                              : qsTr("No shape selected. Select shapes to edit their style.")
+                        wrapMode: Text.WordWrap
+                    }
                     Tk.StrokeStyleEditor {
                         objectName: "styleWorkingStroke"
                         width: parent.width
+                        enabled: scene.hasSelection
                         style: styles.strokeStyle
                         capabilities: ({ units: ["document"] })
                         onStyleChangeRequested: function(next) { styles.applyStrokeStyle(next) }
@@ -100,6 +122,7 @@ Rectangle {
                     Tk.FillStyleEditor {
                         objectName: "styleWorkingFill"
                         width: parent.width
+                        enabled: scene.hasSelection
                         fill: styles.fillStyle
                         patterns: styles.patterns
                         capabilities: ({ gradient: false })
@@ -107,9 +130,10 @@ Rectangle {
                     }
                     Tk.PropertyRow {
                         label: qsTr("Opacity")
+                        enabled: scene.hasSelection
                         Tk.NumberField {
+                            id: opacityField
                             objectName: "styleWorkingOpacity"
-                            value: styles.selectionStyle.opacity === undefined ? 1 : styles.selectionStyle.opacity
                             from: 0
                             to: 1
                             stepSize: 0.05
@@ -120,6 +144,7 @@ Rectangle {
                     }
                     Tk.PropertyRow {
                         label: qsTr("Blend")
+                        enabled: scene.hasSelection
                         Tk.ComboBox {
                             objectName: "styleWorkingBlend"
                             model: styles.blendModes
@@ -162,8 +187,8 @@ Rectangle {
                         visible: scene.editingEffect.length > 0
                         label: qsTr("Effect blur")
                         Tk.NumberField {
+                            id: effectAmountField
                             objectName: "styleWorkingEffectAmount"
-                            value: scene.effectAmount(appearance.effects, scene.editingEffect)
                             from: 0
                             to: 250
                             stepSize: 0.5

@@ -166,10 +166,10 @@ or frame.
 columns filled left to right; each column is at least 36 pt wide. A page
 break ends the page, not the column. `pageSetupMm` reports `columns` and
 `gutterMm`, and `applyPageSetupMm` applies size, orientation, margins,
-columns and gap as one undoable `StepDocument`. Section or page scopes and
-print bleed are refused (`Unsupported`) with the document unchanged; they
-belong to [WP-053](universal-toolkit/implementation/phase-04-office.md#wp-053),
-with printer output. Units are canonical: points in the model, millimetres
+columns, gap and (WP-053) bleed as one undoable `StepDocument`. Section or
+page scopes are refused (`Unsupported`) with the document unchanged: page
+geometry is document-wide ([printing.md](printing.md#bleed-and-page-scope),
+D-133). Units are canonical: points in the model, millimetres
 in the panel, whatever the locale.
 
 ## Persistence

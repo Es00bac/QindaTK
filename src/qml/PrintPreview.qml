@@ -3,7 +3,8 @@ import QtQuick
 import QindaTK as Tk
 
 // Settings and print jobs belong to a PrintAdapter. The host inserts the same
-// document page renderer used for export; this panel never paints fake pages.
+// document page renderer used for export (Tk.PrintSheetView bound to the
+// adapter, docs/printing.md); this panel never paints fake pages.
 Item {
     id: control
     property int pageCount: 0
@@ -14,6 +15,7 @@ Item {
     property var capabilities: ({ paperIds: ["a4"], orientations: ["portrait"], scaleModes: ["fit"],
                                   duplexModes: ["simplex"], colorModes: ["color"], maxCopies: 1 })
     property var job: ({ id: "", status: "idle", progress: 0, error: "", affectedStart: 0, affectedEnd: 0 })
+    property var destinations: [] // [{printerId,label,kind,available,status}] (PrintAdapter.destinations)
     property string previewError: ""
     property string tooltip: qsTr("Preview document pages and submit a print request")
     default property alias pageContent: previewHost.data
@@ -136,6 +138,35 @@ Item {
             gap: Tk.Theme.space.xs
             columnGap: Tk.Theme.space.md
             Tk.PropertyRow {
+                label: qsTr("Destination")
+                Tk.Grid.columnSpan: 2
+                Tk.ComboBox {
+                    objectName: "printDestination"
+                    model: control.destinations
+                    textRole: "label"
+                    currentIndex: {
+                        for (let i = 0; i < model.length; ++i) if (model[i].printerId === control.settings.printerId) return i
+                        return -1
+                    }
+                    placeholderText: qsTr("No destination")
+                    tooltip: qsTr("Printer or file to send the pages to")
+                    enabled: model.length > 0
+                    onActivated: function(index) { control.requestSetting("printerId", model[index].printerId) }
+                }
+            }
+            Tk.PropertyRow {
+                label: qsTr("File")
+                Tk.Grid.columnSpan: 2
+                visible: control.capabilities.kind === "file"
+                Tk.TextField {
+                    objectName: "printOutputPath"
+                    text: control.settings.outputPath || ""
+                    placeholderText: qsTr("Path of the PDF to write")
+                    tooltip: qsTr("Local file the output is written to")
+                    onEditingFinished: if (text !== (control.settings.outputPath || "")) control.requestSetting("outputPath", text)
+                }
+            }
+            Tk.PropertyRow {
                 label: qsTr("Paper")
                 Tk.ComboBox {
                     objectName: "printPaper"
@@ -242,6 +273,26 @@ Item {
                 }
             }
         }
+        Tk.Flex {
+            direction: Tk.Flex.Row
+            gap: Tk.Theme.space.md
+            Tk.CheckBox {
+                objectName: "printBleed"
+                text: qsTr("Include bleed")
+                checked: !!control.settings.includeBleed
+                enabled: control.capabilities.bleed !== false
+                tooltip: qsTr("Extend each sheet by the page's bleed")
+                onClicked: control.requestSetting("includeBleed", checked)
+            }
+            Tk.CheckBox {
+                objectName: "printCropMarks"
+                text: qsTr("Crop marks")
+                checked: !!control.settings.cropMarks
+                enabled: control.capabilities.bleed !== false
+                tooltip: qsTr("Draw trim marks outside the bleed")
+                onClicked: control.requestSetting("cropMarks", checked)
+            }
+        }
         Tk.Caption {
             objectName: "printCapabilityStatus"
             visible: (control.capabilities.unavailableOptions || []).length > 0
@@ -292,7 +343,8 @@ Item {
             Tk.Caption {
                 objectName: "printJobStatus"
                 visible: control.job.status !== "idle"
-                text: control.job.error || qsTr("Job %1 · %2").arg(control.job.id).arg(control.job.status)
+                text: (control.job.error || qsTr("Job %1 · %2").arg(control.job.id).arg(control.job.status))
+                      + (control.job.affectedPages ? " · " + qsTr("pages %1 not printed").arg(control.job.affectedPages) : "")
                 color: control.job.status === "failed" ? Tk.Theme.color.danger : Tk.Theme.color.textMuted
                 wrapMode: Text.WordWrap
                 Tk.Flex.grow: 1

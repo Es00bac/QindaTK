@@ -77,14 +77,20 @@ Item {
                 ctx.beginPath()
                 ctx.moveTo(x0, y0)
                 if (link.feedback) {
-                    // Loop out of the source's right side and into the target's left.
-                    const span = Math.max(Tk.Theme.space.xxxl, Math.abs(x0 - x1) / 2)
-                    ctx.bezierCurveTo(x0 + span, y0, x1 - span, y1, x1, y1)
+                    // Return lane below every bar (sankeyLayout laneY/loop):
+                    // out right, down, back left, up into the target's left.
+                    const lane = root.margin + link.laneY
+                    ctx.lineTo(x0 + link.loop, y0)
+                    ctx.lineTo(x0 + link.loop, lane)
+                    ctx.lineTo(x1 - link.loop, lane)
+                    ctx.lineTo(x1 - link.loop, y1)
+                    ctx.lineTo(x1, y1)
                 } else {
                     const middle = (x0 + x1) / 2
                     ctx.bezierCurveTo(middle, y0, middle, y1, x1, y1)
                 }
                 ctx.lineWidth = Math.max(Tk.Theme.size.border, link.width)
+                ctx.lineJoin = "round"
                 ctx.strokeStyle = link.feedback ? Tk.Theme.color.warning : Tk.Theme.color.accent
                 ctx.globalAlpha = String(link.edgeId) === root.selectedEdgeId
                     ? Tk.Theme.opacity.muted : Tk.Theme.opacity.disabled
@@ -108,7 +114,8 @@ Item {
             width: Tk.Theme.size.icon
             height: Math.max(Tk.Theme.size.icon, modelData.width)
             x: root.margin + (modelData.x0 + modelData.x1) / 2 - width / 2
-            y: root.margin + (modelData.y0 + modelData.y1) / 2 - height / 2
+            y: root.margin + (modelData.feedback ? modelData.laneY
+                                                 : (modelData.y0 + modelData.y1) / 2) - height / 2
             Accessible.role: Accessible.Graphic
             Accessible.name: tooltip
             HoverHandler { id: bandHover }
@@ -153,8 +160,9 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: bar.lastColumn ? undefined : parent.right
                 anchors.right: bar.lastColumn ? parent.left : undefined
-                anchors.leftMargin: Tk.Theme.space.sm
-                anchors.rightMargin: Tk.Theme.space.sm
+                // Clear the vertical legs of return lanes in this column.
+                anchors.leftMargin: Tk.Theme.space.sm + bar.modelData.labelInsetRight
+                anchors.rightMargin: Tk.Theme.space.sm + bar.modelData.labelInsetLeft
                 text: qsTr("%1 · %2").arg(bar.modelData.title).arg(root.formatFlow(bar.modelData.value))
                 font.pixelSize: Tk.Theme.font.caption
                 color: bar.imbalance ? Tk.Theme.color.warning : Tk.Theme.color.text

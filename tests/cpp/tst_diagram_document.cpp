@@ -317,16 +317,46 @@ void TstDiagramDocument::sankeyBandsAndConservation()
     const QString qo = loop.addPort(q, QStringLiteral("out"), QStringLiteral("output"));
     const QString qi = loop.addPort(q, QStringLiteral("in"), QStringLiteral("input"));
     const QString pq = loop.connectPorts(p, po, q, qi);
-    QVERIFY(!loop.connectPorts(q, qo, p, pi).isEmpty());
-    QVERIFY(loop.setEdgeFlow(pq, 0));
+    const QString qp = loop.connectPorts(q, qo, p, pi);
+    QVERIFY(!pq.isEmpty() && !qp.isEmpty());
+    QVERIFY(loop.setEdgeFlow(pq, 2));
     const QVariantMap cyclic = loop.sankeyLayout(300, 100, 10, 10);
     QVERIFY(cyclic.value(QStringLiteral("valid")).toBool());
     QCOMPARE(cyclic.value(QStringLiteral("columns")).toInt(), 1);
-    QVERIFY(row(cyclic.value(QStringLiteral("links")).toList(), QStringLiteral("edgeId"), pq)
-                .value(QStringLiteral("feedback")).toBool());
-    QCOMPARE(row(cyclic.value(QStringLiteral("links")).toList(), QStringLiteral("edgeId"), pq)
-                 .value(QStringLiteral("width")).toDouble(), 0.0);
-    // P receives 1 and sends 0: a through node that loses flow.
+    // Two return lanes reserve 2 gaps + 3 units: (100 - 10 - 20) / (4 + 3) = 10.
+    QCOMPARE(cyclic.value(QStringLiteral("scale")).toDouble(), 10.0);
+    const QVariantList cycleNodes = cyclic.value(QStringLiteral("nodes")).toList();
+    const QVariantList cycleLinks = cyclic.value(QStringLiteral("links")).toList();
+    auto cycleNode = [&](const QString &id, const char *key) {
+        return row(cycleNodes, QStringLiteral("nodeId"), id).value(QLatin1String(key)).toDouble();
+    };
+    auto cycleLink = [&](const QString &id, const char *key) {
+        return row(cycleLinks, QStringLiteral("edgeId"), id).value(QLatin1String(key));
+    };
+    QVERIFY(cycleLink(pq, "feedback").toBool() && cycleLink(qp, "feedback").toBool());
+    // Bars fill the 50 px node area; lanes sit below it and never overlap bars.
+    QCOMPARE(cycleNode(p, "y"), 0.0);
+    QCOMPARE(cycleNode(p, "height"), 20.0);
+    QCOMPARE(cycleNode(q, "y"), 30.0);
+    QCOMPARE(cycleNode(q, "height"), 20.0);
+    // Q->P leaves lower (y0 35), so it takes the inner lane.
+    QCOMPARE(cycleLink(qp, "y0").toDouble(), 35.0);
+    QCOMPARE(cycleLink(qp, "laneY").toDouble(), 65.0);
+    QCOMPARE(cycleLink(qp, "loop").toDouble(), 15.0);
+    QCOMPARE(cycleLink(pq, "y0").toDouble(), 10.0);
+    QCOMPARE(cycleLink(pq, "y1").toDouble(), 40.0);
+    QCOMPARE(cycleLink(pq, "laneY").toDouble(), 90.0);
+    QCOMPARE(cycleLink(pq, "loop").toDouble(), 40.0);
+    QCOMPARE(cycleLink(pq, "laneY").toDouble() + cycleLink(pq, "width").toDouble() / 2, 100.0);
+    // The widest leg (40 + 10) moves labels and reserves room on both sides.
+    QCOMPARE(cycleNode(p, "labelInsetRight"), 50.0);
+    QCOMPARE(cycleNode(p, "labelInsetLeft"), 50.0);
+    QCOMPARE(cycleNode(p, "x"), 50.0);
+    QCOMPARE(cycleLink(pq, "x0").toDouble(), 60.0);
+    QCOMPARE(cycleLink(pq, "x1").toDouble(), 50.0);
+    QCOMPARE(row(nodes, QStringLiteral("nodeId"), s).value(QStringLiteral("labelInsetRight")).toDouble(), 0.0);
+    QVERIFY(!loop.sankeyLayout(100, 100, 10, 10).value(QStringLiteral("valid")).toBool());
+    // P receives 1 and sends 2, Q the reverse: both through nodes are unbalanced.
     QCOMPARE(loop.flowImbalances().size(), 2);
 }
 

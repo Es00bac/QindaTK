@@ -91,6 +91,49 @@ struct CanvasAppearance {
     friend bool operator==(const CanvasAppearance &, const CanvasAppearance &) = default;
 };
 
+// AGENT-GUARD (D-106): objects hold their appearance through this immutable,
+// implicitly shared handle, null for the default. Inline, the ~100-byte
+// record grew every object and both copies in every undo step (the WP-044
+// round build failed tst_canvas_persistence's history bound on it). Read with
+// `->` or `*`; write by assigning a CanvasAppearance or with update(), which
+// copies, never touching a record other objects or history steps share.
+class CanvasAppearanceRef {
+public:
+    CanvasAppearanceRef() = default;
+    CanvasAppearanceRef(const CanvasAppearance &value) { assign(value); } // NOLINT: implicit by design
+    CanvasAppearanceRef &operator=(const CanvasAppearance &value)
+    {
+        assign(value);
+        return *this;
+    }
+    [[nodiscard]] const CanvasAppearance &get() const { return m_data ? *m_data : defaultValue(); }
+    const CanvasAppearance &operator*() const { return get(); }
+    const CanvasAppearance *operator->() const { return &get(); }
+    [[nodiscard]] bool isDefault() const { return !m_data; }
+    template <typename Change> void update(Change &&change)
+    {
+        CanvasAppearance value = get();
+        change(value);
+        assign(value);
+    }
+    friend bool operator==(const CanvasAppearanceRef &a, const CanvasAppearanceRef &b)
+    {
+        return a.m_data == b.m_data || a.get() == b.get();
+    }
+
+private:
+    static const CanvasAppearance &defaultValue()
+    {
+        static const CanvasAppearance value;
+        return value;
+    }
+    void assign(const CanvasAppearance &value)
+    {
+        m_data = value.isDefault() ? nullptr : std::make_shared<const CanvasAppearance>(value);
+    }
+    std::shared_ptr<const CanvasAppearance> m_data;
+};
+
 struct CanvasObject {
     CanvasObjectId id = 0;
     CanvasLayerId layer = 0;
@@ -118,7 +161,7 @@ struct CanvasObject {
     bool visible = true;
     bool locked = false;
     QString name;
-    CanvasAppearance appearance; // alignment, opacity, blend, pattern, effects (D-106)
+    CanvasAppearanceRef appearance; // alignment, opacity, blend, pattern, effects (D-106)
 
     friend bool operator==(const CanvasObject &, const CanvasObject &) = default;
 
@@ -131,8 +174,8 @@ struct CanvasObject {
     // The fill COLOUR is painted (patterns are separate: hasPattern()).
     [[nodiscard]] bool hasFill() const { return fill.isValid() && fill.alpha() > 0 && closesArea(); }
     [[nodiscard]] bool hasPattern() const
-    { return appearance.pattern.kind != CanvasPatternKind::None && appearance.pattern.ink.isValid()
-        && appearance.pattern.ink.alpha() > 0 && closesArea(); }
+    { return appearance->pattern.kind != CanvasPatternKind::None && appearance->pattern.ink.isValid()
+        && appearance->pattern.ink.alpha() > 0 && closesArea(); }
     // Some paint covers the fill area (picking and containment use this).
     [[nodiscard]] bool fillsArea() const { return hasFill() || hasPattern(); }
     [[nodiscard]] bool hasStroke() const { return stroke.isValid() && stroke.alpha() > 0; }

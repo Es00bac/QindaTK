@@ -35,7 +35,7 @@ QPen pen(const CanvasObject &object, qreal minimumWidth)
     value.setJoinStyle(object.strokeJoin);
     // AGENT-NOTE: Qt's stroker limits the miter length (tip to inner corner)
     // to limit x width, the SVG stroke-miterlimit ratio, which export writes.
-    value.setMiterLimit(object.appearance.miterLimit);
+    value.setMiterLimit(object.appearance->miterLimit);
     if (!object.dashPattern.isEmpty()) value.setDashPattern(object.dashPattern);
     return value;
 }

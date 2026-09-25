@@ -71,12 +71,13 @@ Item {
                 gap: Tk.Theme.space.xs
                 Repeater {
                     model: control.items
-                    delegate: Tk.Button {
+                    // AGENT-NOTE: rows read from the start and elide at the end.
+                    delegate: Tk.ListRow {
                         required property var modelData
                         objectName: "reviewItem_" + modelData.id
                         text: (modelData.kind === "change" ? qsTr("Change") : qsTr("Comment"))
                               + " · " + (modelData.author || qsTr("Unknown author")) + " · " + modelData.summary
-                        variant: modelData.id === control.selectedItemId ? "outline" : "ghost"
+                        selected: modelData.id === control.selectedItemId
                         tooltip: qsTr("Select review item by %1").arg(modelData.author || qsTr("Unknown author"))
                         onClicked: control.selectItem(modelData.id)
                     }

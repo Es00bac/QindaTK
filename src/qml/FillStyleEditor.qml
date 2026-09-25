@@ -34,7 +34,18 @@ Item {
         const merged = Object.assign({}, oldSettings[nextKind] || defaultSettings(nextKind), patch || {})
         oldSettings[nextKind] = merged
         fillChangeRequested(Object.assign({}, fill, { kind: nextKind, settings: oldSettings }))
+        syncFields()
     }
+    // AGENT-NOTE: as in StrokeStyleEditor, the owner's descriptor is the
+    // truth: a hex edit ends the colour field's binding, so the field is
+    // synced whenever `fill` changes and after every request. It reads `fill`
+    // itself because the currentSettings binding may still be stale here.
+    function syncFields() {
+        const all = editor.fill.settings || ({})
+        const current = all[editor.fill.kind] || editor.defaultSettings(editor.fill.kind)
+        solidColorField.color = current.color || Tk.Theme.color.accent
+    }
+    onFillChanged: syncFields()
     function patternIndex(id) {
         for (let i = 0; i < patterns.length; ++i) if (patterns[i].id === id) return i
         return -1
@@ -62,6 +73,7 @@ Item {
             visible: editor.fill.kind === "solid"
             label: qsTr("Color")
             Tk.ColorField {
+                id: solidColorField
                 objectName: "fillSolidColor"
                 color: editor.currentSettings.color || Tk.Theme.color.accent
                 tooltip: qsTr("Solid fill colour")

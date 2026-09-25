@@ -177,6 +177,20 @@ private slots:
         QVERIFY(reference(doc, c2).isEmpty());
     }
 
+    void bibliographyEntriesEndEachPartOnce()
+    {
+        ReferenceSource source;
+        source.author = QStringLiteral("Wu, L.");
+        source.title = QStringLiteral("Field calibration of soil sensors");
+        source.year = QStringLiteral("2024");
+        source.publisher = QStringLiteral("Hydrology Press");
+        QCOMPARE(bibliographyEntry(source, 1),
+                 QStringLiteral("[1] Wu, L. Field calibration of soil sensors. Hydrology Press, 2024."));
+        source.title = QStringLiteral("Notes.");
+        source.publisher.clear();
+        QCOMPARE(bibliographyEntry(source, 2), QStringLiteral("[2] Wu, L. Notes. 2024."));
+    }
+
     void unsupportedRequestsAreTypedAndChangeNothing()
     {
         RichTextDocument doc;

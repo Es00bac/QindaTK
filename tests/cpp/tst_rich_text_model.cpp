@@ -444,7 +444,7 @@ private slots:
         QCOMPARE(doc.pageSetupMm().value(QStringLiteral("columns")).toInt(), 2);
         QVERIFY(doc.undo());
         QVERIFY(doc.pageSetupValue() == before);
-        // Invalid column counts, section scope and bleed change nothing.
+        // Invalid column counts, section scope and a bleed over 25.4 mm change nothing.
         for (const QVariant &columns : {QVariant(0), QVariant(25), QVariant(1.5)}) {
             settings.insert(QStringLiteral("columns"), columns);
             QVERIFY(!doc.applyPageSetupMm(settings));
@@ -454,7 +454,7 @@ private slots:
         settings.insert(QStringLiteral("scope"), QStringLiteral("section"));
         QVERIFY(!doc.applyPageSetupMm(settings));
         settings.insert(QStringLiteral("scope"), QStringLiteral("document"));
-        settings.insert(QStringLiteral("bleedMm"), 3.0);
+        settings.insert(QStringLiteral("bleedMm"), 30.0);
         QVERIFY(!doc.applyPageSetupMm(settings));
         QVERIFY(doc.pageSetupValue() == before);
     }

@@ -949,8 +949,11 @@ peak, LRA and conformance certification are separate work.
 **Context.** WP-044 needs stroke alignment, a miter limit, opacity, blend
 modes, pattern fills and an ordered effect stack that survive undo, save,
 clipboard and export, while a richer host may carry effects the reference
-renderer cannot draw. **Decision.** `CanvasObject::appearance` holds them.
-Effects have stable token ids, an enabled flag and parameters stored as
+renderer cannot draw. **Decision.** `CanvasObject::appearance` holds them
+through an immutable, implicitly shared handle (`CanvasAppearanceRef`) that
+is null for the default, so a plain object and each undo step's before and
+after copies pay one pointer instead of a ~100-byte record (inline, it failed
+the canvas history-memory bound). Effects have stable token ids, an enabled flag and parameters stored as
 canonical compact JSON, so an unknown kind round-trips byte for byte and is
 reported unsupported instead of dropped. One rule set
 (`CanvasAppearanceRules`) validates commits, the decoder and both models.
@@ -1267,6 +1270,45 @@ provisional: the session plays and analyses it until it is committed (one
 undo step) or cancelled (the committed samples return). **Consequences.**
 A user hears a spectral change before accepting it, a cancelled preview
 never lands, and undo restores the exact original samples.
+
+## D-142 — Roto masks sample the frame their layer's pixels came from
+
+**Context.** WP-073 left `MotionFrameRenderer` sampling a layer's mask at the
+composition time parsed as a frame index, so an offset, remapped or
+tick-timebase layer cut its pixels with the wrong frame's shape. Masks and
+tracks are keyed by source frame indices, the indices the media decoder
+presents. **Decision.** A masked layer samples its mask at the source frame
+index supplied with its pixels (`setSourceImage(sourceId, image,
+sourceFrame)`; `MediaFrameFeed` passes the frame it decoded for that layer),
+else at `floor(localTicks / maskTicksPerFrame)` of the evaluated layer time
+(default 1 tick per frame). Composition time is never used. A negative layer
+time fails the frame. **Consequences.** Tracking, mask keys and rendered
+masks share one coordinate, so a mask stays on the decoded pixels through
+offsets, remaps, holds at media ends and proxies (masks are normalized). A
+host that supplies still images at a tick timebase sets `maskTicksPerFrame`
+to its frame duration. Two layers sharing one `sourceId` at different times
+remain unsupported, as for pixels.
+
+## D-143 — Tracking runs on a worker, holds lost frames and refines to subpixel
+
+**Context.** VID-15 needs cancellable analysis, explicit failure instead of
+extrapolated certainty, occlusion handling and measured accuracy; the WP-075
+first slice stepped a whole-pixel search on the GUI thread and stopped at the
+first lost frame. **Decision.** `TrackingEngine` runs a job on a Qt Concurrent
+worker over implicitly shared proxy copies and posts samples back; a job ID
+makes cancellation immediate and discards late samples, and replacing a frame
+cancels the job. Each frame takes the lowest mean-absolute-error integer
+match, then a parabola through the squared-error neighbours for the subpixel
+offset (skipped for a zero-error match). A lost frame keeps the last trusted
+position with its measured confidence; with `occlusionFrames` the search
+continues around that position with a radius growing per lost frame and
+resumes `tracked` on a match. Mask propagation (`applyTrackToMask`) keys only
+accepted, nonlost frames and reports skipped ones. **Consequences.** Known
+integer shifts track exactly and smooth subpixel shifts within 0.2 px;
+lost frames are visible in data and UI and never move a mask. Translation is
+the motion model: rotation, scale and perspective need rebasing
+(`rebaseTrack`) or corrections, and multi-resolution flow or camera solving
+remain later adapters.
 
 ## D-150 — MIDI data is musical ticks at MIDI 2.0 resolution, owned by one model per session
 

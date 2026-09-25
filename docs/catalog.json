@@ -13471,6 +13471,10 @@
           "parameters": "nextKind, patch"
         },
         {
+          "name": "syncFields",
+          "parameters": ""
+        },
+        {
           "name": "patternIndex",
           "parameters": "id"
         }
@@ -25205,7 +25209,7 @@
       "name": "PrintPreview",
       "kind": "qml",
       "base": "Item",
-      "description": "Settings and print jobs belong to a PrintAdapter. The host inserts the same document page renderer used for export; this panel never paints fake pages.",
+      "description": "Settings and print jobs belong to a PrintAdapter. The host inserts the same document page renderer used for export (Tk.PrintSheetView bound to the adapter, docs/printing.md); this panel never paints fake pages.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/PrintPreview.qml",
@@ -25254,6 +25258,14 @@
           "name": "job",
           "type": "var",
           "default": "({ id: \"\", status: \"idle\", progress: 0, error: \"\", affectedStart: 0, affectedEnd: 0 })",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "destinations",
+          "type": "var",
+          "default": "[] // [{printerId,label,kind,available,status}] (PrintAdapter.destinations)",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -25364,14 +25376,18 @@
       "valueType": false,
       "bridge": false,
       "objectNames": [
+        "printBleed",
         "printCapabilityStatus",
         "printColorMode",
         "printCopies",
+        "printCropMarks",
+        "printDestination",
         "printDuplex",
         "printJobProgress",
         "printJobStatus",
         "printNextPage",
         "printOrientation",
+        "printOutputPath",
         "printPageCount",
         "printPageSurface",
         "printPaper",
@@ -29323,7 +29339,7 @@
       "name": "ScientificPlot",
       "kind": "qml",
       "base": "Item",
-      "description": "",
+      "description": "A 2D scientific figure: traces and scatter series with X and asymmetric Y error bars, an optional sampled surface (colour map), numeric annotations, calibrated linear/log axes, keyboard/pointer selection, a data table and a text summary as the textual alternative, and PNG/SVG export with provenance. AGENT-NOTE: `dataset` is the WP-085 first-slice single-series API; it is series 0 when set, ahead of `series`. Painting, sampling and export live in ScientificPlotRenderer (C++), see docs/scientific-plot.md.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/ScientificPlot.qml",
@@ -29337,9 +29353,41 @@
           "required": false
         },
         {
+          "name": "series",
+          "type": "list<Tk.ScientificDataset>",
+          "default": "",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "surface",
+          "type": "Tk.ScientificGrid",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "surfaceInterpolation",
+          "type": "int",
+          "default": "Tk.ScientificGrid.Bilinear",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "annotations",
+          "type": "Tk.ChartAnnotationModel",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "xAxis",
           "type": "alias",
-          "default": "plot.xAxis",
+          "default": "horizontalAxis",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -29347,7 +29395,23 @@
         {
           "name": "yAxis",
           "type": "alias",
-          "default": "plot.yAxis",
+          "default": "verticalAxis",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "xLabel",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "yLabel",
+          "type": "string",
+          "default": "\"\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -29377,17 +29441,57 @@
           "required": false
         },
         {
+          "name": "tableSource",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "mode",
           "type": "int",
-          "default": "Tk.UncertaintyRenderer.ErrorBars",
+          "default": "Tk.ScientificPlotRenderer.ErrorBars",
           "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "paintPointLimit",
+          "type": "int",
+          "default": "2048",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "renderer",
+          "type": "alias",
+          "default": "plot",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "allSeries",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedSeries",
+          "type": "int",
+          "default": "plot.selectedSeries",
+          "readonly": true,
           "defaultProperty": false,
           "required": false
         },
         {
           "name": "selectedSampleId",
           "type": "string",
-          "default": "plot.selectedId",
+          "default": "plot.selectedSampleId",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -29395,7 +29499,23 @@
         {
           "name": "selectedSample",
           "type": "var",
-          "default": "dataset && selectedSampleId",
+          "default": "plot.selectedSample",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "problem",
+          "type": "string",
+          "default": "plot.problem",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "summary",
+          "type": "string",
+          "default": "plot.summary",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -29405,6 +29525,10 @@
         {
           "name": "sampleSelected",
           "parameters": "string id"
+        },
+        {
+          "name": "seriesSampleSelected",
+          "parameters": "int series, string id"
         }
       ],
       "methods": [
@@ -29414,15 +29538,43 @@
         },
         {
           "name": "projected",
-          "parameters": "id"
+          "parameters": "a, b"
         },
         {
           "name": "selectId",
           "parameters": "id"
         },
         {
+          "name": "selectSample",
+          "parameters": "seriesIndex, id"
+        },
+        {
+          "name": "navigateSelection",
+          "parameters": "key"
+        },
+        {
+          "name": "setViewport",
+          "parameters": "xs, xe, ys, ye"
+        },
+        {
+          "name": "zoom",
+          "parameters": "factor, xAnchor, yAnchor"
+        },
+        {
+          "name": "pan",
+          "parameters": "dx, dy"
+        },
+        {
           "name": "csvData",
           "parameters": ""
+        },
+        {
+          "name": "textSummary",
+          "parameters": ""
+        },
+        {
+          "name": "metadataJson",
+          "parameters": "width, height"
         },
         {
           "name": "exportPng",
@@ -29444,7 +29596,203 @@
       "objectNames": [
         "scientificPlot",
         "scientificPlotCanvas",
-        "scientificPlotDataTable"
+        "scientificPlotDataTable",
+        "scientificPlotFocusRing",
+        "scientificPlotSurfaceTable"
+      ]
+    },
+    {
+      "name": "ScientificPlot3D",
+      "kind": "qml",
+      "base": "T.Control",
+      "description": "3D scientific plot: a sampled surface (ScientificGrid) and/or 3D scatter points (ScientificDataset, dimensions 3) in a calibrated domain cube. AGENT-NOTE: ScientificScene3D (C++) owns the data-to-scene transform, the explicit interpolation lattice and the orbit camera. The Qt Quick 3D renderer (ScientificPlot3DRenderer.qml, GPU backends only) and the software view (ScientificScene3DView, also the export painter) both draw from it, so they agree; see docs/scientific-plot.md and decision D-140.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ScientificPlot3D.qml",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "Tk.ScientificGrid",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "points",
+          "type": "Tk.ScientificDataset",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "interpolation",
+          "type": "int",
+          "default": "Tk.ScientificGrid.Bilinear",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "resolution",
+          "type": "int",
+          "default": "48",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"3D plot: drag to orbit, wheel or +/- to zoom, arrow keys orbit, click a point to select it\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "showDataTable",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "forceSoftware",
+          "type": "bool",
+          "default": "false",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "orbitStep",
+          "type": "real",
+          "default": "5",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "scene",
+          "type": "alias",
+          "default": "plotScene",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "gpuRenderer",
+          "type": "bool",
+          "default": "renderer.status === Loader.Ready && renderer.active",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedPointId",
+          "type": "string",
+          "default": "plotScene.selectedPointId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "pointSelected",
+          "parameters": "string id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "fitDomain",
+          "parameters": ""
+        },
+        {
+          "name": "project",
+          "parameters": "x, y, z"
+        },
+        {
+          "name": "csvData",
+          "parameters": ""
+        },
+        {
+          "name": "textSummary",
+          "parameters": ""
+        },
+        {
+          "name": "metadataJson",
+          "parameters": "width, height"
+        },
+        {
+          "name": "exportPng",
+          "parameters": "path, size"
+        },
+        {
+          "name": "exportSvg",
+          "parameters": "path, size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "scientificPlot3D",
+        "scientificPlot3DAxisLabel",
+        "scientificPlot3DDataTable",
+        "scientificPlot3DGesture",
+        "scientificPlot3DRendererLoader",
+        "scientificPlot3DSoftware"
+      ]
+    },
+    {
+      "name": "ScientificPlot3DRenderer",
+      "kind": "qml",
+      "base": "Q3D.View3D",
+      "description": "Qt Quick 3D view of a ScientificScene3D. Loaded lazily by ScientificPlot3D on RHI backends; excluded from the module when Qt Quick 3D is missing. AGENT-CONTRACT: the camera binds to the scene's cameraPosition, cameraRotation, fieldOfView and clip planes exactly, so pixels here match ScientificScene3D.project() and the software/export painter.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/ScientificPlot3DRenderer.qml",
+      "properties": [
+        {
+          "name": "plotScene",
+          "type": "Tk.ScientificScene3D",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "scientificFrame3D",
+        "scientificPoints3D",
+        "scientificRenderer3D",
+        "scientificSurface3D"
       ]
     },
     {
@@ -32417,7 +32765,7 @@
       "name": "SpectrogramView",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the host supplies bounded, already-computed tiles and exact sample boundaries plus FFT metadata. This view draws them and requests regions; it does not run FFT, interpret normalization, or apply spectral processing.",
+      "description": "AGENT-CONTRACT: the host supplies bounded, already-computed tiles and exact sample boundaries plus FFT metadata. This view draws them and requests regions; it does not run FFT, interpret normalization, or apply spectral processing. The reference host is Tk.AudioSpectrogramSource (tiles, boundaries, metadata) plus AudioSession.edits.preview/commitPreview for processRequested (docs/audio-editing.md, D-136/D-137). The committed selection is host state in sample/Hz coordinates, so it keeps its place through zoom.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/SpectrogramView.qml",
@@ -32535,9 +32883,49 @@
           "required": false
         },
         {
+          "name": "selectionStartSample",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionEndSample",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionLowHz",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectionHighHz",
+          "type": "real",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "tileCount",
           "type": "int",
           "default": "root.tiles.length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "hasSelection",
+          "type": "bool",
+          "default": "root.selectionStartSample.length > 0",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -32555,6 +32943,10 @@
         {
           "name": "gestureCanceled",
           "parameters": "string gestureId"
+        },
+        {
+          "name": "processRequested",
+          "parameters": "string gestureId, string sourceId, string channelId, string operation, string startSample, string endSample, real lowHz, real highHz"
         },
         {
           "name": "zoomRequested",
@@ -32577,6 +32969,14 @@
         {
           "name": "sampleEndAt",
           "parameters": "x"
+        },
+        {
+          "name": "fractionForSample",
+          "parameters": "sample"
+        },
+        {
+          "name": "requestProcess",
+          "parameters": "operation"
         },
         {
           "name": "frequencyAt",
@@ -33155,6 +33555,10 @@
         }
       ],
       "methods": [
+        {
+          "name": "syncFields",
+          "parameters": ""
+        },
         {
           "name": "request",
           "parameters": "patch"
@@ -37010,6 +37414,14 @@
           "required": false
         },
         {
+          "name": "occlusionFrames",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "track",
           "type": "var",
           "default": "tracks.find(function(item) { return String(item.trackId) === control.selectedTrackId }) || ({})",
@@ -37021,6 +37433,14 @@
           "name": "features",
           "type": "var",
           "default": "(track.previewPoints || []).length",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "lostCount",
+          "type": "int",
+          "default": "features.filter(function(item) { return item.state === \"lost\" }).length",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -37041,7 +37461,7 @@
         },
         {
           "name": "startRequested",
-          "parameters": "string trackId, string startFrame, string endFrame"
+          "parameters": "string trackId, string startFrame, string endFrame, int occlusionFrames"
         },
         {
           "name": "cancelRequested",
@@ -39550,7 +39970,7 @@
       "name": "WaveformEditor",
       "kind": "qml",
       "base": "T.Control",
-      "description": "AGENT-CONTRACT: the host owns source samples, edits and sample indexing. `columns` carries bounded extrema and exact decimal sample boundaries; this view only requests a selection or edit gesture and never changes the source snapshot.",
+      "description": "AGENT-CONTRACT: the host owns source samples, edits and sample indexing. `columns` carries bounded extrema and exact decimal sample boundaries; this view only requests a selection or edit gesture and never changes the source snapshot. The reference host is Tk.AudioWaveformSource (columns, zoom, scroll) plus AudioSession.edits.apply for edit requests (docs/audio-editing.md, D-134/D-135).",
       "singleton": false,
       "attached": null,
       "file": "src/qml/WaveformEditor.qml",
@@ -40340,6 +40760,167 @@
       "registrationKind": "qml_element",
       "exported": true,
       "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AudioAnalysisSource",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (D-135/D-136, docs/audio-editing.md): the analysis half of WaveformEditor and SpectrogramView. A source reads one resource of an AudioSession through session.edits (so it always analyses the samples that play), over the view range [startSample, endSample) in source samples (an empty endSample is the end of the source). Heavy work runs on the thread pool with a cancellation token; a newer request, a range change or a new source revision cancels the older one, and a superseded result is never published. The views stay pure: they bind `columns` / `tiles` and forward their zoom/scroll requests to zoom() and scroll().",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_analysis_source.h",
+      "properties": [
+        {
+          "name": "session",
+          "type": "QindaTK::AudioSession *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "resourceId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "channel",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "startSample",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "endSample",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "columnCount",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "state",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "revision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frames",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sampleRate",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "channels",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sessionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "resourceIdChanged",
+          "parameters": ""
+        },
+        {
+          "name": "channelChanged",
+          "parameters": ""
+        },
+        {
+          "name": "rangeChanged",
+          "parameters": ""
+        },
+        {
+          "name": "columnCountChanged",
+          "parameters": ""
+        },
+        {
+          "name": "stateChanged",
+          "parameters": ""
+        },
+        {
+          "name": "resultChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "refresh",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "cancel",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "zoom",
+          "returns": "void",
+          "parameters": "const QString &anchorSample, double factor"
+        },
+        {
+          "name": "scroll",
+          "returns": "void",
+          "parameters": "double fraction"
+        },
+        {
+          "name": "showAll",
+          "returns": "void",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": true,
+      "registered": true,
+      "registrationKind": "qml_anonymous",
+      "exported": false,
+      "internal": true,
       "valueType": false,
       "bridge": false
     },
@@ -41571,7 +42152,7 @@
       "name": "AudioSession",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md). It owns the accepted domain models — TimelineModel (clips, edits, undo), TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver (media identity, availability, relink) — and AudioMixerModel (buses, routing, sends, groups; WP-062), and compiles them into an AudioRenderGraph for its engine and for offline renders. It persists as \"qindatk.audio-session/1\" JSON with media paths relative to the session.",
+      "description": "AGENT-CONTRACT: the reference audio session (WP-060, docs/audio-engine.md). It owns the accepted domain models — TimelineModel (clips, edits, undo), TempoMapModel/AutomationModel through EngineSchedule, and ResourceResolver (media identity, availability, relink) — and AudioMixerModel (buses, routing, sends, groups; WP-062) and AudioSourceEditModel (sample, fade and spectral edits of each source; WP-063), and compiles them into an AudioRenderGraph for its engine and for offline renders. It persists as \"qindatk.audio-session/1\" JSON with media paths relative to the session.",
       "singleton": false,
       "attached": null,
       "file": "src/core/audio_session.h",
@@ -41621,6 +42202,13 @@
         {
           "name": "mixer",
           "type": "QindaTK::AudioMixerModel *",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "edits",
+          "type": "QindaTK::AudioSourceEditModel *",
           "default": "",
           "readonly": true,
           "constant": true
@@ -41744,6 +42332,393 @@
           "name": "relinkMedia",
           "returns": "bool",
           "parameters": "const QString &resourceId, const QString &file"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AudioSourceEditModel",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "AGENT-CONTRACT (D-134, docs/audio-editing.md): the sample edits of every source in an AudioSession. The session hands in each decoded original (setOriginal); buffer() is the original with the edit list applied, and the session plays, renders and analyses that buffer. Every accepted edit is one step of this model's own history (per-owner undo, as D-110). A change to a source's samples bumps its revision and emits sourceChanged: the session drops resampled copies and recompiles, and analysis sources drop their peak pyramids and spectral tiles for that source. Previews (D-137) run prepare() on a worker thread, can be cancelled at any point, and once ready are provisional: buffer() returns the previewed samples (heard and analysed) until commitPreview() records the edit or cancelPreview() restores the committed samples.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_source_edit_model.h",
+      "properties": [
+        {
+          "name": "canUndo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "canRedo",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "undoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "redoText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "historyCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewRequestId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewState",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewResourceId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sourceChanged",
+          "parameters": "const QString &resourceId, const QString &revision"
+        },
+        {
+          "name": "historyChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewReady",
+          "parameters": "const QString &requestId, const QVariantMap &summary"
+        },
+        {
+          "name": "previewFailed",
+          "parameters": "const QString &requestId, const QString &error"
+        },
+        {
+          "name": "previewCanceled",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "lastErrorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "revision",
+          "returns": "QString",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "frames",
+          "returns": "QString",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "channels",
+          "returns": "int",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "sampleRate",
+          "returns": "int",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "edits",
+          "returns": "QVariantList",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "capabilities",
+          "returns": "QVariantList",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "problems",
+          "returns": "QStringList",
+          "parameters": "const QString &resourceId"
+        },
+        {
+          "name": "apply",
+          "returns": "QVariantMap",
+          "parameters": "const QString &resourceId, const QVariantMap &edit"
+        },
+        {
+          "name": "preview",
+          "returns": "QVariantMap",
+          "parameters": "const QString &requestId, const QString &resourceId, const QVariantMap &edit"
+        },
+        {
+          "name": "commitPreview",
+          "returns": "QVariantMap",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "cancelPreview",
+          "returns": "bool",
+          "parameters": "const QString &requestId"
+        },
+        {
+          "name": "undo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "redo",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "clearHistory",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "contentMap",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
+          "name": "loadContent",
+          "returns": "QVariantMap",
+          "parameters": "const QVariantMap &content"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AudioSpectrogramSource",
+      "kind": "cpp",
+      "base": "AudioAnalysisSource",
+      "description": "Spectrogram cells from cached spectrum tiles (D-136).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_analysis_source.h",
+      "properties": [
+        {
+          "name": "fftSize",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "hopSize",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rows",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "minimumHz",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumHz",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "frequencyScale",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "floorDb",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maxFrames",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "tiles",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sampleBoundaries",
+          "type": "QStringList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "resolvedMaximumHz",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "effectiveHop",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "stride",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "window",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "normalization",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "cachedTiles",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cacheBytes",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "settingsChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "cell",
+          "returns": "QVariantMap",
+          "parameters": "int column, int row"
+        },
+        {
+          "name": "rowForFrequency",
+          "returns": "int",
+          "parameters": "double hz"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "AudioWaveformSource",
+      "kind": "cpp",
+      "base": "AudioAnalysisSource",
+      "description": "Waveform columns with exact extrema from a peak pyramid built once per source revision on a worker thread.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_analysis_source.h",
+      "properties": [
+        {
+          "name": "columns",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [],
+      "methods": [
+        {
+          "name": "extrema",
+          "returns": "QVariantMap",
+          "parameters": "const QString &startSample, const QString &endSample"
         }
       ],
       "enums": {},
@@ -54812,6 +55787,13 @@
           "constant": false
         },
         {
+          "name": "maskTicksPerFrame",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
           "name": "lastError",
           "type": "QString",
           "default": "",
@@ -54864,6 +55846,10 @@
           "parameters": ""
         },
         {
+          "name": "maskTimingChanged",
+          "parameters": ""
+        },
+        {
           "name": "frameChanged",
           "parameters": ""
         },
@@ -54881,6 +55867,11 @@
         }
       ],
       "methods": [
+        {
+          "name": "sourceFrame",
+          "returns": "QString",
+          "parameters": "const QString &sourceId"
+        },
         {
           "name": "loadSource",
           "returns": "bool",
@@ -56274,6 +57265,341 @@
           "parameters": "const QString &path, const QSize &size"
         }
       ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PrintAdapter",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Printing and publishing preflight for a RichTextDocument (WP-053, docs/printing.md): destinations and their capabilities, one print ticket, the output sheets, a bounded preview cache, print jobs and preflight. AGENT-CONTRACT (D-130/D-131): preview images, jobs and exportPdf share Print::sheetFor/paintSheet; PrintPreview, PrintSheetView and PreflightPanel only draw these properties and send requests back to this object.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/print_adapter.h",
+      "properties": [
+        {
+          "name": "document",
+          "type": "QindaTK::RichTextDocument *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "destinations",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "settings",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "capabilities",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pageCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheetCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheets",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "job",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "busy",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "issues",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "preflightStale",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "blockingIssueCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "profileId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "profiles",
+          "type": "QVariantList",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "previewCacheLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "previewCacheCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewCacheBytes",
+          "type": "qint64",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewRenderCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "previewGeneration",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastErrorCode",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "documentChanged",
+          "parameters": ""
+        },
+        {
+          "name": "destinationsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "settingsChanged",
+          "parameters": ""
+        },
+        {
+          "name": "outputChanged",
+          "parameters": ""
+        },
+        {
+          "name": "jobChanged",
+          "parameters": ""
+        },
+        {
+          "name": "jobFinished",
+          "parameters": "const QString &jobId, const QString &status"
+        },
+        {
+          "name": "issuesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewChanged",
+          "parameters": ""
+        },
+        {
+          "name": "previewInvalidated",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "refreshDestinations",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "applySettings",
+          "returns": "bool",
+          "parameters": "const QVariantMap &patch"
+        },
+        {
+          "name": "sheetForPage",
+          "returns": "QVariantMap",
+          "parameters": "int pageIndex"
+        },
+        {
+          "name": "print",
+          "returns": "QString",
+          "parameters": "const QVariantMap &patch = {}"
+        },
+        {
+          "name": "cancel",
+          "returns": "bool",
+          "parameters": "const QString &jobId"
+        },
+        {
+          "name": "runPreflight",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "issue",
+          "returns": "QVariantMap",
+          "parameters": "const QString &issueId"
+        },
+        {
+          "name": "repair",
+          "returns": "bool",
+          "parameters": "const QString &issueId, const QString &actionId, const QVariant &argument = {}"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "PrintSheetView",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "Shows one output sheet of a PrintAdapter: the page placed on the selected paper with the ticket's scale, bleed, crop marks and colour, as the job will print it (D-130). Images come from the adapter's bounded preview cache and are fetched in updatePolish, on the GUI thread, never while painting.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/print_sheet_view.h",
+      "properties": [
+        {
+          "name": "adapter",
+          "type": "QindaTK::PrintAdapter *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pageIndex",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sheetSize",
+          "type": "QSizeF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "sheetRect",
+          "type": "QRectF",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selected",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "ready",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "zoom",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "adapterChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pageIndexChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sheetChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
@@ -59381,7 +60707,7 @@
       "name": "ScientificDataset",
       "kind": "cpp",
       "base": "QAbstractListModel",
-      "description": "A bounded, one-dimensional float64 series. The host owns measurement and uncertainty semantics; this adapter preserves values and makes a drawable interval projection without estimating statistics.",
+      "description": "A bounded series of float64 samples. The host owns measurement and uncertainty semantics; this adapter validates and preserves values and never estimates statistics. AGENT-CONTRACT: Trace series have strictly increasing X (binary search, line segments and the UncertaintyModel projection rely on it); Scatter series accept any finite X and never project intervals. ScientificPlot- Renderer and ScientificScene3D read samples() directly (docs/scientific-plot.md).",
       "singleton": false,
       "attached": null,
       "file": "src/core/scientific_dataset.h",
@@ -59389,6 +60715,27 @@
         {
           "name": "sourceId",
           "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "label",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "kind",
+          "type": "Kind",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "dimensions",
+          "type": "int",
           "default": "",
           "readonly": false,
           "constant": false
@@ -59402,6 +60749,13 @@
         },
         {
           "name": "yUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zUnit",
           "type": "QString",
           "default": "",
           "readonly": false,
@@ -59484,6 +60838,16 @@
           "parameters": "const QString &id"
         },
         {
+          "name": "samplesInRange",
+          "returns": "QVariantList",
+          "parameters": "double xMin, double xMax, int limit"
+        },
+        {
+          "name": "extent",
+          "returns": "QVariantMap",
+          "parameters": ""
+        },
+        {
           "name": "csvData",
           "returns": "QString",
           "parameters": ""
@@ -59494,6 +60858,1048 @@
           "parameters": ""
         }
       ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScientificFigureComposer",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Composes several ScientificPlotRenderer panels into one exported figure: a title row, then panels row-major in `columns` equal cells, each labelled (a), (b), ... in its top-left corner. Every panel is drawn by its own drawFigure() at the cell size, so a panel exports exactly as it would alone. AGENT-CONTRACT: the composite metadata embeds each panel's complete figureMetadata() (sources, digests, axes, sampling) under its label.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/scientific_figure_composer.h",
+      "properties": [
+        {
+          "name": "panels",
+          "type": "QQmlListProperty<QindaTK::ScientificPlotRenderer>",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "title",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "textColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "metrics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "panelRect",
+          "returns": "QRectF",
+          "parameters": "int index, const QSize &size"
+        },
+        {
+          "name": "metadataJson",
+          "returns": "QString",
+          "parameters": "int width, int height"
+        },
+        {
+          "name": "renderImage",
+          "returns": "QImage",
+          "parameters": "const QSize &size"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScientificGeometry3D",
+      "kind": "cpp",
+      "base": "QQuick3DGeometry",
+      "description": "Optional Qt Quick 3D upload of one part of a ScientificScene3D: the surface triangles, the scatter points (small octahedra) or the domain frame (lines). Built only when Qt Quick 3D is available (src/CMakeLists.txt). AGENT-CONTRACT: ScientificScene3D owns every position and colour; this adapter copies its current snapshot into GPU vertex buffers on meshChanged and never transforms data itself, so the GPU image matches the software view and export (same scene coordinates, same camera properties).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/scientific_geometry3d.h",
+      "properties": [
+        {
+          "name": "scene",
+          "type": "QindaTK::ScientificScene3D *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "part",
+          "type": "Part",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "primitiveCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sceneChanged",
+          "parameters": ""
+        },
+        {
+          "name": "geometryUpdated",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScientificGrid",
+      "kind": "cpp",
+      "base": "QAbstractListModel",
+      "description": "A sampled surface z(x, y) on a rectilinear float64 lattice. The list model exposes one row per lattice node (the textual/tabular alternative). AGENT-CONTRACT: row r is ys[r] (row 0 is the SMALLEST y, unlike HeatmapModel whose row 0 is the top); column c is xs[c]. Missing nodes are stored as NaN internally because non-finite input is rejected, so NaN is unambiguous. Interpolation never invents a value next to a missing node: any contributing (nonzero weight) missing corner makes the result missing. ScientificPlotRenderer and ScientificScene3D sample through sampleAt().",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/scientific_grid.h",
+      "properties": [
+        {
+          "name": "sourceId",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "label",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zUnit",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "parameters",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "rows",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "missingCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "shape",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "precision",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "hasValues",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "zMinimum",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "zMaximum",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "lastError",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "errorChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "replaceGrid",
+          "returns": "bool",
+          "parameters": "const QVariantList &xs, const QVariantList &ys, const QVariantList &values"
+        },
+        {
+          "name": "node",
+          "returns": "QVariantMap",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "interpolate",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y, Interpolation mode"
+        },
+        {
+          "name": "window",
+          "returns": "QVariantMap",
+          "parameters": "int firstRow, int lastRow, int firstColumn, int lastColumn, int maxRows, int maxColumns"
+        },
+        {
+          "name": "csvData",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "metadataJson",
+          "returns": "QString",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScientificPlotRenderer",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "A 2D scientific figure: any number of Trace/Scatter series with X and asymmetric Y error bars, an optional sampled surface drawn as a colour map, numeric annotations, calibrated linear/log axes and provenance export. AGENT-CONTRACT: the renderer never rescales data. Units of every series, the surface and every annotation must equal the axis units or the figure refuses to draw and says why (`problem`). ScientificPlot.qml supplies theme colours and metrics; ScientificFigureComposer calls drawFigure().",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/scientific_plot_renderer.h",
+      "properties": [
+        {
+          "name": "series",
+          "type": "QQmlListProperty<QindaTK::ScientificDataset>",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "surface",
+          "type": "ScientificGrid *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "surfaceInterpolation",
+          "type": "QindaTK::ScientificGrid::Interpolation",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "annotations",
+          "type": "ChartAnnotationModel *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xAxis",
+          "type": "ChartAxis *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yAxis",
+          "type": "ChartAxis *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "mode",
+          "type": "Mode",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "gridColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "textColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "missingColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "annotationColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "seriesColors",
+          "type": "QList<QColor>",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "surfaceColors",
+          "type": "QList<QColor>",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "metrics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "title",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xLabel",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yLabel",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "paintPointLimit",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "problem",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "summary",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedSeries",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedSampleId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedSample",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "viewX",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "viewY",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "seriesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "axesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "viewportChanged",
+          "parameters": ""
+        },
+        {
+          "name": "sampleSelected",
+          "parameters": "int series, const QString &id"
+        },
+        {
+          "name": "summaryChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "setViewport",
+          "returns": "void",
+          "parameters": "double xStart, double xEnd, double yStart, double yEnd"
+        },
+        {
+          "name": "pan",
+          "returns": "void",
+          "parameters": "double xFraction, double yFraction"
+        },
+        {
+          "name": "zoom",
+          "returns": "void",
+          "parameters": "double factor, double xAnchor = 0.5, double yAnchor = 0.5"
+        },
+        {
+          "name": "selectSample",
+          "returns": "bool",
+          "parameters": "int series, const QString &id"
+        },
+        {
+          "name": "navigateSelection",
+          "returns": "bool",
+          "parameters": "int key"
+        },
+        {
+          "name": "hitAt",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y"
+        },
+        {
+          "name": "projected",
+          "returns": "QVariantMap",
+          "parameters": "int series, const QString &id"
+        },
+        {
+          "name": "dataAt",
+          "returns": "QVariantMap",
+          "parameters": "double pixelX, double pixelY"
+        },
+        {
+          "name": "paintedIndices",
+          "returns": "QVariantList",
+          "parameters": "int series"
+        },
+        {
+          "name": "omittedCount",
+          "returns": "int",
+          "parameters": ""
+        },
+        {
+          "name": "ticks",
+          "returns": "QVariantList",
+          "parameters": "const QString &axis"
+        },
+        {
+          "name": "csvData",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "textSummary",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "metadataJson",
+          "returns": "QString",
+          "parameters": "int width, int height"
+        },
+        {
+          "name": "renderImage",
+          "returns": "QImage",
+          "parameters": "const QSize &size"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScientificScene3D",
+      "kind": "cpp",
+      "base": "QObject",
+      "description": "Data-to-scene transform, camera and meshes for 3D scientific plots. One object feeds three consumers that must agree: the Qt Quick 3D renderer (ScientificGeometry3D + ScientificPlot3DRenderer.qml), the software view (ScientificScene3DView) and PNG/SVG export (renderImage()). AGENT-CONTRACT: data (x, y, z) maps to scene (X, Y, Z) = (nx, nz, -ny) * sceneExtent with n = 2 (v - min) / (max - min) - 1, so data Z is up in Qt Quick 3D's Y-up world. The camera orbits the origin: position = distance * (cos el sin az, sin el, cos el cos az), rotation = fromEulerAngles(-el, az, 0), vertical fieldOfView, OpenGL clip space. ScientificPlot3DRenderer.qml binds PerspectiveCamera to cameraPosition/cameraRotation/fieldOfView/clipNear/clipFar.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/scientific_scene3d.h",
+      "properties": [
+        {
+          "name": "grid",
+          "type": "ScientificGrid *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "points",
+          "type": "ScientificDataset *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "interpolation",
+          "type": "QindaTK::ScientificGrid::Interpolation",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "resolutionX",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "resolutionY",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xMinimum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "xMaximum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yMinimum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "yMaximum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zMinimum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "zMaximum",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "sceneExtent",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "azimuth",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "elevation",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "distance",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fieldOfView",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "clipNear",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "clipFar",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "cameraPosition",
+          "type": "QVector3D",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "cameraRotation",
+          "type": "QQuaternion",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "meshRevision",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "triangleCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "holeCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "pointCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "problem",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedPointId",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "surfaceColors",
+          "type": "QList<QColor>",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pointColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "frameColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "backgroundColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "textColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "metrics",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "title",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "changed",
+          "parameters": ""
+        },
+        {
+          "name": "cameraChanged",
+          "parameters": ""
+        },
+        {
+          "name": "meshChanged",
+          "parameters": ""
+        },
+        {
+          "name": "styleChanged",
+          "parameters": ""
+        },
+        {
+          "name": "selectionChanged",
+          "parameters": ""
+        },
+        {
+          "name": "pointSelected",
+          "parameters": "const QString &id"
+        }
+      ],
+      "methods": [
+        {
+          "name": "toScene",
+          "returns": "QVector3D",
+          "parameters": "double x, double y, double z"
+        },
+        {
+          "name": "fromScene",
+          "returns": "QVariantMap",
+          "parameters": "const QVector3D &scene"
+        },
+        {
+          "name": "project",
+          "returns": "QVariantMap",
+          "parameters": "double x, double y, double z, double width, double height"
+        },
+        {
+          "name": "orbit",
+          "returns": "void",
+          "parameters": "double azimuthDegrees, double elevationDegrees"
+        },
+        {
+          "name": "dolly",
+          "returns": "void",
+          "parameters": "double factor"
+        },
+        {
+          "name": "fitDomain",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "hitPoint",
+          "returns": "QString",
+          "parameters": "double pixelX, double pixelY, double width, double height"
+        },
+        {
+          "name": "selectPoint",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "latticeNode",
+          "returns": "QVariantMap",
+          "parameters": "int row, int column"
+        },
+        {
+          "name": "csvData",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "textSummary",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "metadataJson",
+          "returns": "QString",
+          "parameters": "int width, int height"
+        },
+        {
+          "name": "renderImage",
+          "returns": "QImage",
+          "parameters": "const QSize &size"
+        },
+        {
+          "name": "exportPng",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        },
+        {
+          "name": "exportSvg",
+          "returns": "bool",
+          "parameters": "const QString &path, const QSize &size"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
+      "name": "ScientificScene3DView",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "Software-rendered view of a ScientificScene3D (the same painter as export). ScientificPlot3D shows it when no RHI graphics backend is available.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/scientific_scene3d.h",
+      "properties": [
+        {
+          "name": "scene",
+          "type": "ScientificScene3D *",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sceneChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [],
       "enums": {},
       "module": "QindaTK",
       "anonymous": false,
@@ -64354,7 +66760,7 @@
       "name": "TrackingRotoModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT: decoded, tagged source frames remain host-owned inputs; only tracks, accepted points, masks and keyframes are serialized. Generated tracking points stay in previewPoints until acceptAnalysis is called.",
+      "description": "AGENT-CONTRACT: decoded, tagged source frames remain host-owned inputs; only tracks, accepted points, masks and keyframes are serialized. Generated tracking points stay in previewPoints until acceptAnalysis is called. AGENT-CONTRACT (docs/tracking-roto.md \"Tracking footage\"): frame IDs are source frame indices, the same indices loadMediaFrames decodes and MediaFrameFeed reports per fed layer; MotionFrameRenderer samples masks at the frame the layer's pixels came from.",
       "singleton": false,
       "attached": null,
       "file": "src/core/tracking_roto_model.h",
@@ -64383,6 +66789,27 @@
         {
           "name": "analysisProgress",
           "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "loadingFrames",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "frameLoadProgress",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "loadedFrames",
+          "type": "QVariantList",
           "default": "",
           "readonly": true,
           "constant": false
@@ -64419,6 +66846,18 @@
           "parameters": ""
         },
         {
+          "name": "loadChanged",
+          "parameters": ""
+        },
+        {
+          "name": "framesChanged",
+          "parameters": ""
+        },
+        {
+          "name": "frameLoadFinished",
+          "parameters": "bool ok, const QString &error"
+        },
+        {
           "name": "errorChanged",
           "parameters": ""
         }
@@ -64428,6 +66867,16 @@
           "name": "loadFrame",
           "returns": "bool",
           "parameters": "int frame, const QUrl &url"
+        },
+        {
+          "name": "loadMediaFrames",
+          "returns": "bool",
+          "parameters": "const QString &uri, int firstFrame, int count"
+        },
+        {
+          "name": "cancelFrameLoad",
+          "returns": "void",
+          "parameters": ""
         },
         {
           "name": "addTrack",
@@ -64442,7 +66891,7 @@
         {
           "name": "startAnalysis",
           "returns": "bool",
-          "parameters": "const QString &trackId, int startFrame, int endFrame"
+          "parameters": "const QString &trackId, int startFrame, int endFrame, int occlusionFrames = 0"
         },
         {
           "name": "cancelAnalysis",
@@ -64463,6 +66912,11 @@
           "name": "offsetTrack",
           "returns": "bool",
           "parameters": "const QString &trackId, double dx, double dy, int fromFrame, int toFrame"
+        },
+        {
+          "name": "rebaseTrack",
+          "returns": "bool",
+          "parameters": "const QString &trackId, int frame"
         },
         {
           "name": "addMask",
@@ -64498,6 +66952,11 @@
           "name": "previewTrackedMask",
           "returns": "QVariantMap",
           "parameters": "const QString &maskId, int sourceFrame, int targetFrame, const QString &trackId"
+        },
+        {
+          "name": "applyTrackToMask",
+          "returns": "QVariantMap",
+          "parameters": "const QString &maskId, int sourceFrame, const QString &trackId, int fromFrame, int toFrame"
         },
         {
           "name": "exportMaskedPng",

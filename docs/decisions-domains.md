@@ -232,3 +232,153 @@ Orphaned comments and cut fields keep their identity across a save. A
 WP-051 version-2 reader reports the new members as ignored and loses them;
 both readers ship in the same round. See
 [references-review.md](references-review.md#persistence).
+
+## D-130 — One output description for preview, files and printers
+
+**Context.** WP-053 needs preview, PDF export and printer output to agree
+page for page. The first PDF export painted layout pages straight into a
+writer, and a preview drawn some other way could drift from it.
+
+**Decision.** `Print::sheetFor` is the only source of output geometry: the
+sheet size, the page's trim box on it, the scale, bleed and crop marks. It is
+a pure function of the page setup, the ticket and the paper.
+`Print::paintSheet` is the only painting path; every device (the preview
+image, `QPdfWriter`, the system print engine) gives it a painter in 1/96-inch
+units, the unit `RichTextLayout` already paints in. `exportPdf` is the same
+path with the default file ticket.
+
+**Consequences.** A test device that rasterises job output matches the
+preview pixel for pixel, and PDF media boxes match the plan. Devices never
+scale or place pages themselves. A new device only opens, advances and
+finishes sheets. See [printing.md](printing.md#one-output-description).
+
+## D-131 — Print jobs print a snapshot, one sheet per turn
+
+**Context.** The document is GUI-thread only, and a user may keep editing
+while a long job prints. Cancel must work mid-job, and a failure must not
+lose the settings or pretend success.
+
+**Decision.** `print()` copies the document through its own codec and lays
+out the copy; the job paints that copy one sheet per event-loop turn.
+`cancel()` is a request that the next turn honours by aborting the device.
+Devices commit only in `finish()` (QSaveFile for PDF, a `.part` file for the
+system engine, the CUPS spool), so an aborted job leaves no output; a device
+that streams reports `deliveredSheets()`. A failed or cancelled job names the
+pages that did not reach paper or disk, and the ticket stays unchanged.
+
+**Consequences.** Editing during a job is safe, and the GUI stays responsive
+between sheets. Copying costs one encode and decode (about 50 ms for 500
+pages). "Completed" for a printer means handed to CUPS; tracking the job on
+the printer is not part of this package.
+
+## D-132 — Preflight issues have derived IDs and validated repairs
+
+**Context.** `PreflightPanel` keys its selection on issue IDs, and OFF-13
+asks that issues clear after a validated repair.
+
+**Decision.** An issue ID is the check plus its target
+(`font-missing:<family>`, `image-missing:<objectId>`, `output-<field>`), so a
+re-run finds the same ID. `PrintAdapter.repair` applies one action, as one
+document transaction or one ticket change, then runs preflight again. It
+succeeds only if the ID is gone; otherwise it undoes the transaction,
+restores the ticket and reports failure. Checks that need the author's
+judgement (overset text, low resolution, open review marks) navigate instead
+of repairing.
+
+**Consequences.** A repair can never leave a half-fix behind, and panels can
+keep their selection across runs. A host with external undo
+(`RichTextDocument.externalUndo`) must accept that a failed repair's undo
+goes through its own history. See [printing.md](printing.md#preflight).
+
+## D-133 — Bleed is page setup; page geometry stays document-wide
+
+**Context.** WP-051 refused bleed and section/page scopes in
+`applyPageSetupMm` and passed both to WP-053.
+
+**Decision.** Bleed is a page property: `PageSetup.bleedPt` (0–72 pt),
+saved in `qindatk.richtext` version 2 and set through `applyPageSetupMm`. A
+ticket chooses whether sheets include it and crop marks. Section and page
+scopes stay refused (`unsupported`): `RichTextLayout`, `RichTextArea`, the
+page model and the tiles all assume one page size, and changing that is a
+layout project of its own, not output work.
+
+**Consequences.** Documents without bleed keep their version-1 bytes.
+`PageSetupDialog` can offer bleed now; its scope choice still gets
+`unsupported` for anything but `document`. Per-section geometry has no owning
+package yet; it needs a plan decision before any work starts.
+
+## D-138 — Scientific data is float64 with explicit gaps and exact units
+
+**Context.** WP-085 plots measurements whose precision, gaps and units must
+survive display and export. Chart models accept loose numbers, treat NaN
+variously and sometimes rescale; an exported figure that silently converted
+millivolts to volts, or drew a missing reading as zero, would be wrong in a
+way no reader can see.
+
+**Decision.** `ScientificDataset` and `ScientificGrid` store IEEE float64,
+reject every non-finite input, and represent a gap only by an explicit
+`missingY` flag or a `null` node. Uncertainty is host-supplied nonnegative
+offsets, symmetric or asymmetric, in X and Y; the toolkit estimates nothing.
+Trace series have strictly increasing X; scatter series accept any X. Units
+are exact strings: a figure whose series, surface or annotations disagree
+with the axis units refuses to draw and names the mismatch, instead of
+converting. Replacement is atomic and bounded (100,000 samples; 1,048,576
+grid nodes).
+
+**Consequences.** A figure shows exactly the numbers given and states its
+gaps. Hosts convert units and window very large arrays before handing them
+over; out-of-core storage is not part of the models.
+
+## D-139 — Figures downsample by envelope and record how
+
+**Context.** A 100,000-sample trace cannot be painted point by point at
+interactive rates, and stride sampling hides the spikes and gaps that
+scientific readers look for.
+
+**Decision.** A trace over `paintPointLimit` keeps, per equal index bucket,
+its first, minimum, maximum and last present sample and its first gap (an M4
+envelope, at most five per bucket). Scatter keeps every k-th sample plus the
+extreme-X/Y samples. Surfaces are sampled once per raster pixel centre in a
+raster of at most 1,024². The method and painted counts are part of the
+export metadata, and `paintedIndices()` exposes the exact selection.
+
+**Consequences.** Extremes and gaps are always visible; line shape between
+them is approximate at high compression, which the metadata declares.
+Performance figures for large data belong to WP-088.
+
+## D-140 — One scene object feeds GPU 3D, software 3D and export
+
+**Context.** Qt Quick 3D gives real shaded surfaces, but it needs an RHI
+backend: headless tests and the software adaptation cannot render it, and a
+figure exported from GPU pixels would differ by driver.
+
+**Decision.** `ScientificScene3D` (C++) owns the data-to-scene transform
+(data Z up, a ±100 cube), the explicit interpolation lattice with holes at
+missing nodes, and an orbit camera expressed as position, quaternion,
+vertical field of view and clip planes. `ScientificGeometry3D` uploads its
+snapshot to Qt Quick 3D with the camera bound to those properties, and the
+software view and PNG/SVG export project the same vertices with the same
+matrices (depth-sorted faces, headlight shading). Coordinates are float32
+only inside the normalized cube; data stays float64.
+
+**Consequences.** Projection, picking, interpolation and export are testable
+headless with exact numbers, and 3D figures export reproducibly on any
+machine. The GPU image adds lighting and antialiasing differences only;
+comparing it with the export belongs to WP-092's output-fidelity work.
+
+## D-141 — Exports embed complete provenance and are byte-reproducible
+
+**Context.** EXT-06 requires reproducible figures with data and parameter
+provenance; the first slice embedded one series' metadata in PNG/SVG.
+
+**Decision.** 2D figures, composed panels and 3D scenes embed one JSON
+document (PNG text chunk, SVG `<metadata>`): every source's identity, units,
+precision, shape, host parameters and full samples or a SHA-256 of the
+lattice, plus all render parameters (axes, viewport, sampling, interpolation,
+colour domain, camera, size). Painting is deterministic for identical inputs,
+size and fonts, so repeated exports are byte-identical. A composite embeds
+each panel's full metadata under its (a), (b) label.
+
+**Consequences.** A figure file alone identifies and verifies its data.
+Large series make large files, since every sample is embedded; hosts that
+need small files export `csvData()`/`metadataJson()` sidecars instead.

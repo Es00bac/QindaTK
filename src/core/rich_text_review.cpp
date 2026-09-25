@@ -96,12 +96,14 @@ QString citationResult(int number) { return QStringLiteral("[%1]").arg(number); 
 
 QString bibliographyEntry(const ReferenceSource &source, int number)
 {
+    // A part that already ends a sentence ("Wu, L.") takes no second period.
+    auto sentence = [](const QString &text) { return text.endsWith(u'.') ? text : text + u'.'; };
     QStringList parts;
-    if (!source.author.trimmed().isEmpty()) parts.append(source.author.trimmed() + u'.');
-    if (!source.title.trimmed().isEmpty()) parts.append(source.title.trimmed() + u'.');
+    if (!source.author.trimmed().isEmpty()) parts.append(sentence(source.author.trimmed()));
+    if (!source.title.trimmed().isEmpty()) parts.append(sentence(source.title.trimmed()));
     QString where = source.publisher.trimmed();
     if (!source.year.trimmed().isEmpty()) where += (where.isEmpty() ? QString() : QStringLiteral(", ")) + source.year.trimmed();
-    if (!where.isEmpty()) parts.append(where + u'.');
+    if (!where.isEmpty()) parts.append(sentence(where));
     if (parts.isEmpty()) parts.append(tr("Untitled source."));
     return QStringLiteral("[%1] %2").arg(number).arg(parts.join(u' '));
 }

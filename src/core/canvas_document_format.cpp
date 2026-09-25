@@ -224,7 +224,7 @@ QByteArray encode(const CanvasDocumentState &state, OperationError *error)
         }
         w.out() << quint8(o.parametricKind) << quint32(o.parametricPoints)
                 << double(o.parametricInnerRatio) << double(o.parametricCornerRadius);
-        w.bytes(CanvasAppearanceCodec::encode(o.appearance)); // v6 (D-106)
+        w.bytes(CanvasAppearanceCodec::encode(*o.appearance)); // v6 (D-106)
     }
     if (!w.ok()) {
         if (error) *error = problem(ErrorCode::BackendFailure, QStringLiteral("Canvas encoding failed"));
@@ -459,9 +459,11 @@ std::optional<CanvasDocumentState> decode(const QByteArray &bytes, const CanvasD
             o.parametricInnerRatio = inner; o.parametricCornerRadius = corner;
         }
         if (version >= 6) {
-            QByteArray appearance;
-            if (!in.bytes(appearance, CanvasAppearanceCodec::MaximumBytes)) return truncated();
-            if (const auto e = CanvasAppearanceCodec::decode(appearance, &o.appearance)) return fail(e);
+            QByteArray block;
+            CanvasAppearance appearance;
+            if (!in.bytes(block, CanvasAppearanceCodec::MaximumBytes)) return truncated();
+            if (const auto e = CanvasAppearanceCodec::decode(block, &appearance)) return fail(e);
+            o.appearance = appearance;
         }
         o.id = id;
         o.layer = layer;

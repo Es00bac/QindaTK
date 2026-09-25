@@ -30,6 +30,7 @@ pages below are the reference.
 | [diff-view.md](diff-view.md) | Bounded local diff, lazy large-provider seam, stable hunk IDs and host transaction requests |
 | [rich-text.md](rich-text.md) | Structured rich-text model, `qindatk.richtext` persistence, per-view shaping and incremental pagination, commands, clipboard and object seams |
 | [publishing.md](publishing.md) | Named styles with inheritance and overrides, merged table cells, table styles, linked text frames, page columns and `qindatk.richtext` version 2 |
+| [printing.md](printing.md) | Print tickets and destination capabilities, one sheet geometry for preview, PDF and printers, bounded preview cache, cancellable jobs, publishing preflight with validated repairs, page bleed |
 | [references-review.md](references-review.md) | Equations (TeX subset, layout, linear text), reference fields that renumber in one undo step, comments and tracked changes with accept/reject |
 | [resource-table.md](resource-table.md) | Stable resource and time-bucket identity, allocation units, conflicts and reversible edits |
 | [persistence.md](persistence.md) | Document sessions of any registered kind, the reference file format, atomic save, multi-document close and recovery behavior |
@@ -58,7 +59,7 @@ pages below are the reference.
 | [media-playback.md](media-playback.md) | Media decode with exact frame identity and rate policy, audio sync, source/timeline programs, playback engine and frame transfer, program finishing (grade and captions), virtual media bins with proxies and relink, frame feeds, verified export and the test signal |
 | [video-scopes.md](video-scopes.md) | Waveform, RGB parade, histogram and vectorscope snapshots of decoded frames under stated matrix, range and space conventions, graticule targets, demand-driven analysis bound to the player's presented frame |
 | [render-queue.md](render-queue.md) | Durable render snapshots, provider registration, ordered PNG output, manifests and restart policy |
-| [tracking-roto.md](tracking-roto.md) | Accepted feature tracks, loss confidence, cancellable analysis, keyframed normalized masks and composition pixel application |
+| [tracking-roto.md](tracking-roto.md) | Feature tracks on a cancellable worker (subpixel, occlusion, decoded footage), loss confidence, keyframed normalized masks and layer-time composition masking |
 | [edit-timeline.md](edit-timeline.md) | Multitrack edit timeline: exact ticks, typed edit transactions, snapping, ripple, history, virtualization, media and transfer seams |
 | [sequence-edits.md](sequence-edits.md) | NLE sequence edits: roll, ripple, slip and slide with linked sound, frame-exact bounds, transitions and their evaluation, multicam angles and switching, and the SequenceEditor/MulticamModel backends of the trim, transition and multicam views |
 | [tempo-automation.md](tempo-automation.md) | Tempo/meter events, beat-locked clips, automation curves and modes, engine schedule snapshots |
@@ -74,7 +75,7 @@ pages below are the reference.
 | [polar.md](polar.md) | Numeric polar, categorical radar and radial-bar coordinates, validation, selection and export |
 | [uncertainty.md](uncertainty.md) | Declared interval meanings, error bars, continuous bands, provenance and metadata-preserving export |
 | [geographic-map.md](geographic-map.md) | Local GeoJSON vectors, WGS84/Web Mercator semantics, antimeridian wrap, selection, attribution and unsupported tile state |
-| [scientific-plot.md](scientific-plot.md) | Float64 scientific samples, units, missing values, host-supplied uncertainty, calibrated 2D cursor and reproducible figure export |
+| [scientific-plot.md](scientific-plot.md) | Float64 scientific series and sampled surfaces: units, missing values, asymmetric/X uncertainty, multi-series 2D figures, downsampling, 3D surface/scatter with explicit interpolation and camera, reproducible figure and panel export |
 | [event-log.md](event-log.md) | Bounded event ingestion, UTC identity, filtering, pause/follow, selection and CSV data seam |
 | [docking.md](docking.md) | DockModel operations, zones/lanes/groups, the JSON schema, DockHost gestures |
 | [qindastudio-migration.md](qindastudio-migration.md) | Moving QindaStudio onto QindaTK: type map (StudioPanel, DockHost, StudioPill, StudioIcon, StudioTheme → QindaTK), build integration, migration order |

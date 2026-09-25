@@ -73,9 +73,11 @@ void TstCanvasVectorExport::appearanceExportsAsSvg()
     doc.setPageRect(QRectF(0, 0, 200, 200));
     const CanvasObjectId framed = doc.addRect(10, 10, 60, 40, QColor("#3366cc"), QColor("#cc3333"), 4);
     const CanvasObjectId shadowed = doc.addEllipse(100, 10, 40, 40, QColor("#22aa66"), {}, 0);
-    const CanvasObjectId scaled = doc.addRect(10, 80, 20, 20, QColor("#ffcc00"), QColor("#0000ff"), 4);
+    // addRect keeps the rectangle at the origin and places it with the
+    // transform, so these transforms carry the placement too.
+    const CanvasObjectId scaled = doc.addRect(0, 0, 20, 20, QColor("#ffcc00"), QColor("#0000ff"), 4);
     const CanvasObjectId stretched = doc.addRect(0, 0, 10, 10, QColor("#aa22aa"), {}, 0);
-    QVERIFY(doc.setObjectTransform(scaled, {2, 0, 0, 2, 0, 0}));
+    QVERIFY(doc.setObjectTransform(scaled, {2, 0, 0, 2, 20, 160})); // document 20,160 40x40
     QVERIFY(doc.setObjectTransform(stretched, {8, 0, 0, 2, 100, 100}));
     CanvasStyleModel styles;
     styles.setDocument(&doc);
@@ -158,12 +160,14 @@ void TstCanvasVectorExport::appearanceExportsAsSvg()
     // Strokes are document units: a uniform scale divides the width, any
     // other transform is written into document-space geometry.
     const Element &scaledRect = elements[find(elements, objectId("canvas-object", scaled))];
-    QCOMPARE(scaledRect.value("transform"), QStringLiteral("matrix(2 0 0 2 0 0)"));
+    QCOMPARE(scaledRect.value("transform"), QStringLiteral("matrix(2 0 0 2 20 160)"));
     QCOMPARE(scaledRect.value("stroke-width"), QStringLiteral("2"));
     const Element &stretchedPath = elements[find(elements, objectId("canvas-object", stretched))];
     QCOMPARE(stretchedPath.name, QStringLiteral("path"));
     QVERIFY(!stretchedPath.attributes.hasAttribute(QLatin1String("transform")));
-    QCOMPARE(stretchedPath.value("d"), QStringLiteral("M 100 100 L 180 100 L 180 120 L 100 120 Z"));
+    // Closed contours write their closing segment explicitly (it may be a
+    // curve), as the path writer always has.
+    QCOMPARE(stretchedPath.value("d"), QStringLiteral("M 100 100 L 180 100 L 180 120 L 100 120 L 100 100 Z"));
 
     // Qt's SVG renderer and the canvas agree on those strokes and geometry.
     const QImage canvas = CanvasPainter::renderTile(doc, QRectF(0, 0, 200, 200), 200, {});

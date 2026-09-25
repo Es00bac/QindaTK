@@ -73,8 +73,8 @@ void TstCanvasVectorAppearance::strokeAlignmentPaintsOneSide()
     styles.setDocument(&doc);
     QVERIFY(styles.apply(ids({inside}), {{"alignment", "inside"}}));
     QVERIFY(styles.apply(ids({outside}), {{"alignment", "outside"}, {"miterLimit", 8}}));
-    QCOMPARE(doc.object(inside)->appearance.strokeAlignment, CanvasStrokeAlignment::Inside);
-    QCOMPARE(doc.object(outside)->appearance.miterLimit, 8.0);
+    QCOMPARE(doc.object(inside)->appearance->strokeAlignment, CanvasStrokeAlignment::Inside);
+    QCOMPARE(doc.object(outside)->appearance->miterLimit, 8.0);
     // Bounds follow the painted side: nothing outside an inside stroke, the
     // whole width outside an outside stroke.
     QCOMPARE(CanvasGeometry::documentBounds(*doc.object(inside)), QRectF(20, 20, 60, 60));
@@ -93,7 +93,7 @@ void TstCanvasVectorAppearance::strokeAlignmentPaintsOneSide()
     QCOMPARE(hits.first().object, outside);
 
     QVERIFY(doc.undo());
-    QCOMPARE(doc.object(outside)->appearance.strokeAlignment, CanvasStrokeAlignment::Center);
+    QCOMPARE(doc.object(outside)->appearance->strokeAlignment, CanvasStrokeAlignment::Center);
     QCOMPARE(render(doc, 200).pixelColor(114, 50), page); // centred band is 115..125
     // An open path has no side to align to: the whole selection is refused.
     const CanvasObjectId open = doc.addPath({QVariantMap{{"x", 10}, {"y", 150}},
@@ -118,7 +118,7 @@ void TstCanvasVectorAppearance::patternFillDrawsInkOverTheFill()
     styles.setDocument(&doc);
     QVERIFY(styles.apply(ids({id}), {{"pattern", QVariantMap{{"kind", "lines"}, {"ink", "#f0c000"},
                                                                 {"spacing", 10}, {"weight", 4}}}}));
-    const CanvasPattern pattern = doc.object(id)->appearance.pattern;
+    const CanvasPattern pattern = doc.object(id)->appearance->pattern;
     QCOMPARE(pattern.kind, CanvasPatternKind::Lines);
     QCOMPARE(pattern.ink, ink);
     QCOMPARE(pattern.spacing, 10.0);
@@ -144,22 +144,22 @@ void TstCanvasVectorAppearance::patternFillDrawsInkOverTheFill()
     // A swatch takes its ink from the stroke; null clears; undo restores.
     const CanvasObjectId dotted = doc.addEllipse(10, 10, 30, 30, fill, QColor("#204020"), 1);
     QVERIFY(styles.apply(ids({dotted}), {{"pattern", "dots"}}));
-    const CanvasPattern dots = doc.object(dotted)->appearance.pattern;
+    const CanvasPattern dots = doc.object(dotted)->appearance->pattern;
     QCOMPARE(dots.kind, CanvasPatternKind::Dots);
     QCOMPARE(dots.ink, QColor("#204020"));
     QCOMPARE(dots.spacing, 8.0);
     QCOMPARE(dots.weight, 3.0);
     QCOMPARE(CanvasAppearanceRules::swatchId(dots), QStringLiteral("dots"));
     QVERIFY(styles.apply(ids({dotted}), {{"pattern", QVariant()}}));
-    QVERIFY(doc.object(dotted)->appearance.pattern == CanvasPattern{});
+    QVERIFY(doc.object(dotted)->appearance->pattern == CanvasPattern{});
     QVERIFY(doc.undo());
-    QCOMPARE(doc.object(dotted)->appearance.pattern, dots);
+    QCOMPARE(doc.object(dotted)->appearance->pattern, dots);
     // Unknown swatches, overweight lines and open shapes are refused.
     QVERIFY(!styles.apply(ids({dotted}), {{"pattern", "plaid"}}));
     QVERIFY(!styles.apply(ids({dotted}), {{"pattern", QVariantMap{{"kind", "lines"}, {"spacing", 4}, {"weight", 5}}}}));
     const CanvasObjectId line = doc.addPolyline({QPointF(0, 0), QPointF(20, 20)}, QColor(Qt::black), 1);
     QVERIFY(!styles.apply(ids({line}), {{"pattern", "hatch"}}));
-    QCOMPARE(doc.object(line)->appearance.pattern.kind, CanvasPatternKind::None);
+    QCOMPARE(doc.object(line)->appearance->pattern.kind, CanvasPatternKind::None);
 }
 
 void TstCanvasVectorAppearance::effectsRenderInStackOrder()
@@ -239,7 +239,7 @@ void TstCanvasVectorAppearance::blurOpacityAndBlend()
     styles.setDocument(&mixed);
     QVERIFY(styles.apply(ids({grey}), {{"blend", "multiply"}}));
     QVERIFY(styles.apply(ids({blue}), {{"opacity", 0.5}}));
-    QCOMPARE(mixed.object(grey)->appearance.blend, CanvasBlendMode::Multiply);
+    QCOMPARE(mixed.object(grey)->appearance->blend, CanvasBlendMode::Multiply);
     const QImage composite = render(mixed, 128);
     QVERIFY(near(composite.pixelColor(48, 32), QColor(128, 0, 0), 2));     // grey x red
     QVERIFY(near(composite.pixelColor(80, 32), QColor(128, 128, 128), 2)); // grey x white
@@ -274,7 +274,7 @@ void TstCanvasVectorAppearance::appearancePersistsAndInvalidRecordsAreRejected()
     QCOMPARE(model.effect(glow).value(QStringLiteral("parameters")).toMap()
                  .value(QStringLiteral("tint")).toString(), QStringLiteral("gold"));
     const CanvasObject styled = *doc.object(id);
-    QCOMPARE(styled.appearance.effects.size(), 3);
+    QCOMPARE(styled.appearance->effects.size(), 3);
 
     OperationError error;
     const QByteArray bytes = CanvasDocumentFormat::encode(doc.state(), &error);
@@ -288,10 +288,10 @@ void TstCanvasVectorAppearance::appearancePersistsAndInvalidRecordsAreRejected()
 
     // The block codec refuses truncated or padded blocks.
     CanvasAppearance decoded;
-    const QByteArray block = CanvasAppearanceCodec::encode(styled.appearance);
+    const QByteArray block = CanvasAppearanceCodec::encode(*styled.appearance);
     QVERIFY(CanvasAppearanceCodec::encode(CanvasAppearance{}).isEmpty());
     QVERIFY(!CanvasAppearanceCodec::decode(block, &decoded));
-    QCOMPARE(decoded, styled.appearance);
+    QCOMPARE(decoded, *styled.appearance);
     QVERIFY(CanvasAppearanceCodec::decode(block.chopped(3), &decoded));
     QVERIFY(CanvasAppearanceCodec::decode(block + QByteArray("x"), &decoded));
 
@@ -305,18 +305,21 @@ void TstCanvasVectorAppearance::appearancePersistsAndInvalidRecordsAreRejected()
             qWarning() << field << "got" << failure.fieldPath << failure.message;
         return refused && failure.fieldPath == QLatin1String(field);
     };
-    QVERIFY(rejected([](CanvasObject &o) { o.appearance.opacity = 1.5; }, "objects.appearance.opacity"));
-    QVERIFY(rejected([](CanvasObject &o) { o.appearance.blend = CanvasBlendMode(40); }, "objects.appearance.blend"));
-    QVERIFY(rejected([](CanvasObject &o) { o.appearance.effects[1].id = o.appearance.effects[0].id; },
+    const auto tampered = [](const std::function<void(CanvasAppearance &)> &change) {
+        return [change](CanvasObject &o) { o.appearance.update(change); };
+    };
+    QVERIFY(rejected(tampered([](CanvasAppearance &a) { a.opacity = 1.5; }), "objects.appearance.opacity"));
+    QVERIFY(rejected(tampered([](CanvasAppearance &a) { a.blend = CanvasBlendMode(40); }), "objects.appearance.blend"));
+    QVERIFY(rejected(tampered([](CanvasAppearance &a) { a.effects[1].id = a.effects[0].id; }),
                      "objects.appearance.effects.id"));
-    QVERIFY(rejected([](CanvasObject &o) { o.appearance.effects[0].parameters = "{\"blur\":1}"; },
+    QVERIFY(rejected(tampered([](CanvasAppearance &a) { a.effects[0].parameters = "{\"blur\":1}"; }),
                      "objects.appearance.effects.parameters"));
-    QVERIFY(rejected([](CanvasObject &o) { o.appearance.effects[2].parameters = "{ \"size\": 3 }"; },
+    QVERIFY(rejected(tampered([](CanvasAppearance &a) { a.effects[2].parameters = "{ \"size\": 3 }"; }),
                      "objects.appearance.effects.parameters"));
-    QVERIFY(rejected([](CanvasObject &o) { o.appearance.pattern.weight = 20; }, "objects.appearance.pattern.spacing"));
+    QVERIFY(rejected(tampered([](CanvasAppearance &a) { a.pattern.weight = 20; }), "objects.appearance.pattern.spacing"));
     // Commits apply the same rules.
     CanvasObject bad = styled;
-    bad.appearance.miterLimit = 0.5;
+    bad.appearance.update([](CanvasAppearance &a) { a.miterLimit = 0.5; });
     CanvasEdit edit;
     edit.label = QStringLiteral("Invalid miter limit");
     edit.changes.append({id, styled, bad});
@@ -346,8 +349,8 @@ void TstCanvasVectorAppearance::styleModelBindsTheSelection()
     QVariantMap stroke = styles.strokeStyle();
     stroke.insert(QStringLiteral("alignment"), QStringLiteral("inside"));
     QVERIFY(styles.applyStrokeStyle(stroke));
-    QCOMPARE(doc.object(a)->appearance.strokeAlignment, CanvasStrokeAlignment::Inside);
-    QCOMPARE(doc.object(b)->appearance.strokeAlignment, CanvasStrokeAlignment::Inside);
+    QCOMPARE(doc.object(a)->appearance->strokeAlignment, CanvasStrokeAlignment::Inside);
+    QCOMPARE(doc.object(b)->appearance->strokeAlignment, CanvasStrokeAlignment::Inside);
     QCOMPARE(doc.object(b)->strokeWidth, 5.0);
     QCOMPARE(styles.strokeStyle().value(QStringLiteral("alignment")).toString(), QStringLiteral("inside"));
     QVERIFY(doc.undo()); // the panel follows undo
@@ -368,15 +371,15 @@ void TstCanvasVectorAppearance::styleModelBindsTheSelection()
     QVariantMap fill = styles.fillStyle();
     fill.insert(QStringLiteral("kind"), QStringLiteral("pattern"));
     QVERIFY(styles.applyFillStyle(fill));
-    QCOMPARE(doc.object(a)->appearance.pattern.kind, CanvasPatternKind::Lines);
-    QCOMPARE(doc.object(b)->appearance.pattern.ink, QColor("#445566"));
+    QCOMPARE(doc.object(a)->appearance->pattern.kind, CanvasPatternKind::Lines);
+    QCOMPARE(doc.object(b)->appearance->pattern.ink, QColor("#445566"));
     QCOMPARE(styles.fillStyle().value(QStringLiteral("kind")).toString(), QStringLiteral("pattern"));
     QCOMPARE(styles.fillStyle().value(QStringLiteral("settings")).toMap().value(QStringLiteral("pattern"))
                  .toMap().value(QStringLiteral("patternId")).toString(), QStringLiteral("hatch"));
     fill = styles.fillStyle();
     fill.insert(QStringLiteral("kind"), QStringLiteral("solid"));
     QVERIFY(styles.applyFillStyle(fill));
-    QCOMPARE(doc.object(a)->appearance.pattern.kind, CanvasPatternKind::None);
+    QCOMPARE(doc.object(a)->appearance->pattern.kind, CanvasPatternKind::None);
     QCOMPARE(doc.object(a)->fill, QColor("#112233"));
     fill.insert(QStringLiteral("kind"), QStringLiteral("gradient"));
     QVERIFY(!styles.applyFillStyle(fill));

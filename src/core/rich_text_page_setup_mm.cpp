@@ -31,18 +31,23 @@ QVariantMap RichTextDocument::pageSetupMm() const
                  {QStringLiteral("left"), mm(m_page.marginLeftPt)}}},
             {QStringLiteral("gutterMm"), mm(m_page.columnGapPt)},
             {QStringLiteral("columns"), m_page.columns},
-            {QStringLiteral("bleedMm"), 0.0}};
+            {QStringLiteral("bleedMm"), mm(m_page.bleedPt)}};
 }
 
 bool RichTextDocument::applyPageSetupMm(const QVariantMap &settings)
 {
-    // AGENT-NOTE: WP-051 pages carry text columns; per-section or per-page
-    // geometry and print bleed are refused (docs/publishing.md#page-setup-and-columns).
+    // AGENT-NOTE (D-133): page geometry is document-wide; per-section or
+    // per-page geometry is refused (docs/printing.md#bleed-and-page-scope).
+    // Bleed (WP-053) is document setup that print tickets may include.
     const QString scope = settings.value(QStringLiteral("scope"), QStringLiteral("document")).toString();
-    double bleed = 0;
-    if (scope != QStringLiteral("document") || !finiteNumber(settings.value(QStringLiteral("bleedMm"), 0), &bleed)
-        || bleed != 0) {
-        reject(ErrorCode::Unsupported, QStringLiteral("Section and page scopes and print bleed are not supported by the rich-text paginator"));
+    if (scope != QStringLiteral("document")) {
+        reject(ErrorCode::Unsupported, QStringLiteral("Section and page scopes are not supported by the rich-text paginator"));
+        return false;
+    }
+    double bleed = m_page.bleedPt / pointsPerMillimetre;
+    if (!finiteNumber(settings.value(QStringLiteral("bleedMm"), bleed), &bleed) || bleed < 0
+        || bleed * pointsPerMillimetre > 72.0 + 1e-9) {
+        reject(ErrorCode::Validation, QStringLiteral("Bleed must be 0 to 25.4 mm"));
         return false;
     }
     double columns = 1, gutter = m_page.columnGapPt / pointsPerMillimetre;
@@ -78,6 +83,7 @@ bool RichTextDocument::applyPageSetupMm(const QVariantMap &settings)
     page.marginLeftPt = left * pointsPerMillimetre;
     page.columns = int(columns);
     page.columnGapPt = gutter * pointsPerMillimetre;
+    page.bleedPt = qMin(72.0, bleed * pointsPerMillimetre);
     return setPageSetup(page);
 }
 

@@ -251,6 +251,7 @@ struct PageSetup {
     double marginLeftPt = 72.0;
     int columns = 1;                  // text columns of the content box, 1..24
     double columnGapPt = 18.0;
+    double bleedPt = 0.0;             // print bleed around the trim box, 0..72 (WP-053)
     friend bool operator==(const PageSetup &, const PageSetup &) = default;
     double contentWidthPt() const { return widthPt - marginLeftPt - marginRightPt; }
     double contentHeightPt() const { return heightPt - marginTopPt - marginBottomPt; }
