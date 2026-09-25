@@ -182,8 +182,11 @@ T.ComboBox {
     // Grid/Flex tracks sized from it do not oscillate. The elided Text on top
     // draws the label. Measuring from the elided text would shrink the track
     // that the elision came from.
+    // AGENT-GUARD: no `id` on this contentItem. An id stops the deferred
+    // contentItem from being deferred, and T.ComboBox then never reports the
+    // field's acceptableInput (tst_combo_editing: "12" read as acceptable).
+    // The elided Text reaches the field as `parent`.
     contentItem: T.TextField {
-        id: comboInput
         text: control.editable ? control.editText : control.displayText
         enabled: control.editable
         autoScroll: control.editable
@@ -209,7 +212,7 @@ T.ComboBox {
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
             color: control.enabled ? Tk.Theme.color.text : Tk.Theme.color.textDisabled
-            font: comboInput.font
+            font: parent.font
             renderType: Text.NativeRendering
         }
     }
