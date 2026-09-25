@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QStandardPaths>
 #include <QUuid>
+#include <dlfcn.h>
 
 namespace QindaTK {
 namespace {
@@ -147,16 +148,20 @@ QString hostExecutable()
 {
     const QString configured = qEnvironmentVariable("QINDATK_PLUGIN_HOST");
     if (!configured.isEmpty() && QFileInfo(configured).isExecutable()) return configured;
-    // The build tree's host first: a build must not pick up the host of an
-    // older installed QindaTK (the protocol check would refuse it anyway).
-#ifdef QINDATK_PLUGIN_HOST_BUILD_PATH
-    if (QFileInfo(QStringLiteral(QINDATK_PLUGIN_HOST_BUILD_PATH)).isExecutable())
-        return QStringLiteral(QINDATK_PLUGIN_HOST_BUILD_PATH);
-#endif
-#ifdef QINDATK_PLUGIN_HOST_INSTALL_PATH
-    if (QFileInfo(QStringLiteral(QINDATK_PLUGIN_HOST_INSTALL_PATH)).isExecutable())
-        return QStringLiteral(QINDATK_PLUGIN_HOST_INSTALL_PATH);
-#endif
+    // AGENT-CONTRACT (src/CMakeLists.txt, D-202): the host is found relative
+    // to libqindatk itself, so a moved install keeps its host and no build or
+    // install path is compiled in. A build-tree library sits in a directory
+    // CMake gave a CMakeFiles/ folder; an installed one does not. The build
+    // tree's host comes first: a build must not pick up the host of an older
+    // installed QindaTK (the protocol check would refuse it anyway).
+    Dl_info info{};
+    if (::dladdr(reinterpret_cast<const void *>(&hostExecutable), &info) && info.dli_fname) {
+        const QDir libDir = QFileInfo(QString::fromLocal8Bit(info.dli_fname)).absoluteDir();
+        const QString relative = libDir.exists(QStringLiteral("CMakeFiles")) ? QStringLiteral(QINDATK_PLUGIN_HOST_BUILD_REL)
+                                                                             : QStringLiteral(QINDATK_PLUGIN_HOST_INSTALL_REL);
+        const QString host = QDir::cleanPath(libDir.filePath(relative));
+        if (QFileInfo(host).isExecutable()) return host;
+    }
     return QStandardPaths::findExecutable(QStringLiteral("qindatk-plugin-host"));
 }
 

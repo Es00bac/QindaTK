@@ -19,6 +19,8 @@ const void *factory(const char *) { return nullptr; }
 
 } // namespace
 
+// clap/entry.h declares clap_entry with CLAP_EXPORT; repeating the attribute
+// on this definition is ignored by GCC (-Wattributes).
 extern "C" {
-CLAP_EXPORT const clap_plugin_entry_t clap_entry = {CLAP_VERSION_INIT, crashingInit, deinit, factory};
+const clap_plugin_entry_t clap_entry = {CLAP_VERSION_INIT, crashingInit, deinit, factory};
 }

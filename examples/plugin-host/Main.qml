@@ -81,6 +81,10 @@ Rectangle {
         const next = instanceSnapshot.map(function(entry) { return Object.assign({}, entry) })
         const index = next.findIndex(function(entry) { return String(entry.instanceId) === String(instanceId) })
         if (index < 0) { rack.acknowledgeAction(requestId, "rejected", qsTr("Instance no longer exists")); return }
+        if (action === "reload" && next[index].available === false) {
+            rack.acknowledgeAction(requestId, "rejected", qsTr("%1 is still not installed").arg(next[index].name))
+            return
+        }
         if (action === "reorder") {
             const moved = next.splice(index, 1)[0]
             next.splice(Math.max(0, Math.min(next.length, payload.targetIndex)), 0, moved)

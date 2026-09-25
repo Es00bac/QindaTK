@@ -255,7 +255,9 @@ const void *entryFactory(const char *id)
 } // namespace
 } // namespace QindaTKTestPlugins
 
+// clap/entry.h declares clap_entry with CLAP_EXPORT; repeating the attribute
+// on this definition is ignored by GCC (-Wattributes).
 extern "C" {
-CLAP_EXPORT const clap_plugin_entry_t clap_entry = {CLAP_VERSION_INIT, QindaTKTestPlugins::entryInit,
+const clap_plugin_entry_t clap_entry = {CLAP_VERSION_INIT, QindaTKTestPlugins::entryInit,
                                                     QindaTKTestPlugins::entryDeinit, QindaTKTestPlugins::entryFactory};
 }

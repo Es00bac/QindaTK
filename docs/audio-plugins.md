@@ -38,6 +38,11 @@ per format (`format`, `available`, `reason`, `isolation`, `audio`, `notes`,
 `parameters`, `state`, `latency`, `editor`, `transport`). Evidence is kept per
 format: only CLAP is advertised as available.
 
+The host executable is found in this order: `$QINDATK_PLUGIN_HOST`; the
+build tree's `libexec/qindatk-plugin-host`, or an install's
+`<libexecdir>/qindatk/qindatk-plugin-host`, both located relative to
+`libqindatk` itself so a moved install keeps working (D-202); then `PATH`.
+
 What the CLAP host supports:
 
 | Area | Supported | Not supported |

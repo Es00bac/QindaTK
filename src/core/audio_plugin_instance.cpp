@@ -26,6 +26,12 @@ AudioPluginInstance::~AudioPluginInstance()
         beginUnload();
         finishUnload(1000);
     }
+    // A process fail() killed may not be reaped yet: it is dead, so the wait is short.
+    for (QProcess *killed : findChildren<QProcess *>(Qt::FindDirectChildrenOnly)) {
+        killed->disconnect();
+        if (killed->state() != QProcess::NotRunning) killed->waitForFinished(1000);
+        delete killed;
+    }
     dropEditorWindow();
     if (m_processor) m_processor->setDead();
 }
@@ -248,10 +254,19 @@ void AudioPluginInstance::fail(const QString &message)
     m_editorOpen = false;
     if (m_process) {
         // Possibly inside one of its waitFor calls: stop it now, delete later.
-        m_process->disconnect(this);
-        if (m_process->state() != QProcess::NotRunning) m_process->kill();
-        m_process->deleteLater();
+        // AGENT-NOTE: a killed child is deleted once it has been reaped
+        // (finished); deleting it earlier makes ~QProcess warn and block on
+        // the wait. It stays parented to this instance, so an instance that
+        // goes first still takes it along.
+        QProcess *process = m_process;
         m_process = nullptr;
+        process->disconnect(this);
+        if (process->state() != QProcess::NotRunning) {
+            connect(process, &QProcess::finished, process, &QObject::deleteLater);
+            process->kill();
+        } else {
+            process->deleteLater();
+        }
     }
     m_replies.clear();
     m_buffer.clear();

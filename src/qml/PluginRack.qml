@@ -301,8 +301,8 @@ T.Control {
                                     Accessible.ignored: true
                                 }
                                 Tk.Mono {
-                                    text: parameterRow.modelData.binding ? String(parameterRow.modelData.binding.valueText)
-                                                                         : String(parameterRow.modelData.displayValue || "—")
+                                    text: String((parameterRow.modelData.binding && parameterRow.modelData.binding.valueText)
+                                                 || parameterRow.modelData.displayValue || "—")
                                     color: Tk.Theme.color.textMuted
                                     Accessible.ignored: true
                                 }

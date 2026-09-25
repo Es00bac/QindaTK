@@ -537,8 +537,14 @@ target_include_directories(qindatk-plugin-host PRIVATE core "${PROJECT_SOURCE_DI
 target_link_libraries(qindatk-plugin-host PRIVATE Qt6::Core ${CMAKE_DL_LIBS})
 set_target_properties(qindatk-plugin-host PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/libexec")
 install(TARGETS qindatk-plugin-host RUNTIME DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/qindatk")
+# AGENT-CONTRACT (core/audio_plugin_types.cpp hostExecutable(), D-202): only
+# paths relative to libqindatk's directory are compiled in, never the build or
+# install prefix, so an installed QindaTK stays relocatable.
+file(RELATIVE_PATH qindatk_host_build_rel "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_BINARY_DIR}/libexec/qindatk-plugin-host")
+file(RELATIVE_PATH qindatk_host_install_rel "${CMAKE_INSTALL_FULL_LIBDIR}"
+    "${CMAKE_INSTALL_FULL_LIBEXECDIR}/qindatk/qindatk-plugin-host")
 set_source_files_properties(core/audio_plugin_types.cpp PROPERTIES COMPILE_DEFINITIONS
-    "QINDATK_PLUGIN_HOST_BUILD_PATH=\"$<TARGET_FILE:qindatk-plugin-host>\";QINDATK_PLUGIN_HOST_INSTALL_PATH=\"${CMAKE_INSTALL_FULL_LIBEXECDIR}/qindatk/qindatk-plugin-host\"")
+    "QINDATK_PLUGIN_HOST_BUILD_REL=\"${qindatk_host_build_rel}\";QINDATK_PLUGIN_HOST_INSTALL_REL=\"${qindatk_host_install_rel}\"")
 add_dependencies(qindatk qindatk-plugin-host)
 
 if(QINDATK_ENABLE_WIDGETS AND TARGET Qt6::Widgets)
