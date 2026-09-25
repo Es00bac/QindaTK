@@ -143,9 +143,13 @@ T.Control {
         anchors.margins: strip.padding
         direction: Tk.Flex.Column
         gap: Tk.Theme.space.sm
+        // AGENT-NOTE: only the fader grows and shrinks (down to its minimum);
+        // every other part keeps its height, so a short strip never squeezes
+        // the pan pad or the routing panel.
         Tk.Flex {
             width: parent.width
             gap: Tk.Theme.space.xs
+            Tk.Flex.shrink: 0
             Tk.Label {
                 objectName: "channelName"
                 text: strip.channelName
@@ -159,6 +163,7 @@ T.Control {
         Tk.AudioMeter {
             objectName: "channelPeakMeter"
             width: parent.width
+            Tk.Flex.shrink: 0
             meter: strip.boundMeter
             levels: strip.meterLevels
             showScale: strip.detail
@@ -170,6 +175,7 @@ T.Control {
             width: parent.width
             Tk.Flex.grow: 1
             Tk.Flex.shrink: 1
+            Tk.Flex.minHeight: Tk.Theme.size.controlLg * 3
             binding: strip.gainBinding
             mapper: strip.bound ? null : strip.gainMap
             from: strip.gainMinimum
@@ -184,6 +190,7 @@ T.Control {
             id: pan
             objectName: "channelPanning"
             width: parent.width
+            Tk.Flex.shrink: 0
             mixer: strip.bound ? strip.mixer : null
             channelId: strip.channelId
             speakerLayout: strip.layout
@@ -199,6 +206,7 @@ T.Control {
         Tk.Flex {
             width: parent.width
             gap: Tk.Theme.space.xs
+            Tk.Flex.shrink: 0
             Tk.IconButton {
                 objectName: "channelMute"
                 iconName: "volume-x"
@@ -247,6 +255,7 @@ T.Control {
         }
         Tk.Caption {
             objectName: "channelGroups"
+            Tk.Flex.shrink: 0
             visible: strip.detail && strip.groupNames && strip.groupNames.length > 0
             width: parent.width
             elide: Text.ElideRight
@@ -255,6 +264,7 @@ T.Control {
         }
         Tk.ChannelRoutingPanel {
             objectName: "channelRouting"
+            Tk.Flex.shrink: 0
             visible: strip.detail && strip.bound
             width: parent.width
             mixer: strip.bound ? strip.mixer : null
@@ -265,6 +275,7 @@ T.Control {
         }
         Tk.Caption {
             objectName: "channelRouteSummary"
+            Tk.Flex.shrink: 0
             visible: !strip.bound
             width: parent.width
             elide: Text.ElideRight
@@ -273,6 +284,7 @@ T.Control {
         }
         Tk.Caption {
             objectName: "channelCommandStatus"
+            Tk.Flex.shrink: 0
             visible: strip.commandMessage.length > 0
             width: parent.width
             wrapMode: Text.Wrap
@@ -281,9 +293,10 @@ T.Control {
                    ? Tk.Theme.color.warning : Tk.Theme.color.textMuted
         }
     }
-    // Host mode: the fader shows the host's value whenever no gesture holds it.
-    Binding { target: fader; property: "value"; value: strip.gainValue; when: !strip.bound && !fader.gestureOpen }
-    Binding { target: fader; property: "silent"; value: strip.gainSilent; when: !strip.bound && !fader.gestureOpen }
+    // Host mode: the fader shows the host's value whenever no gesture holds it,
+    // and keeps the gesture's value (never the pre-binding default) while one does.
+    Binding { target: fader; property: "value"; value: strip.gainValue; when: !strip.bound && !fader.gestureOpen; restoreMode: Binding.RestoreNone }
+    Binding { target: fader; property: "silent"; value: strip.gainSilent; when: !strip.bound && !fader.gestureOpen; restoreMode: Binding.RestoreNone }
     Tk.ToolTip { visible: strip.hovered && strip.tooltip.length > 0; text: strip.tooltip }
     TapHandler {
         objectName: "channelSelectionArea"
