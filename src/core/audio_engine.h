@@ -38,6 +38,9 @@ class AudioEngine : public TransportAdapter {
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
+    // [{id: "builtin" | "alsa", available, reason}]: which device backends
+    // this build and this engine offer, and why one is absent (WP-088, D-203).
+    Q_PROPERTY(QVariantList backends READ backends NOTIFY backendsChanged)
     Q_PROPERTY(QindaTK::AudioMeterModel *outputMeter READ outputMeter CONSTANT)
     Q_PROPERTY(QindaTK::AudioLoudnessModel *outputLoudness READ outputLoudness CONSTANT)
     Q_PROPERTY(QVariantMap activeConfiguration READ activeConfiguration NOTIFY stateChanged)
@@ -77,6 +80,7 @@ public:
     State stateValue() const { return m_state; }
 
     QVariantList devices() const { return m_devices; }
+    QVariantList backends() const;
     AudioMeterModel *outputMeter() const { return m_outputMeter; }
     AudioLoudnessModel *outputLoudness() const { return m_outputLoudness; }
     QVariantMap activeConfiguration() const;
@@ -122,6 +126,7 @@ public:
 
 signals:
     void devicesChanged();
+    void backendsChanged();
     void stateChanged();
     void formatChanged();
     void statisticsChanged();

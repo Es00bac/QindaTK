@@ -28,6 +28,7 @@ pages below are the reference.
 | [workbook.md](workbook.md) | Workbook model, formula grammar and functions, reference rules and names, incremental recalculation, transactions, cell and number formats, conditional formats, data validation, merged cells, sheet properties, clipboard ranges, CSV/TSV interchange, sessions and the native workbook format |
 | [slides.md](slides.md) | Slide deck model, master/layout inheritance and overrides, rich text boxes, exact-tick builds and easing, the shared slide painter and PDF export, deterministic playback, audience/presenter windows and display reconnect |
 | [query-pivot.md](query-pivot.md) | Typed query AST, null semantics, bounded grouping and pivots, provenance and grid/provider adapters |
+| [forms-reports.md](forms-reports.md) | Local SQLite forms and reports: the design document with undo, save and recovery, report definitions (bands, nested groups, totals, typed parameters), evaluation through the query engine, paginated output for preview, PDF and printers, schema qualification |
 | [diff-view.md](diff-view.md) | Bounded local diff, lazy large-provider seam, stable hunk IDs and host transaction requests |
 | [rich-text.md](rich-text.md) | Structured rich-text model, `qindatk.richtext` persistence, per-view shaping and incremental pagination, commands, clipboard and object seams |
 | [publishing.md](publishing.md) | Named styles with inheritance and overrides, merged table cells, table styles, linked text frames, page columns and `qindatk.richtext` version 2 |
@@ -70,6 +71,7 @@ pages below are the reference.
 | [audio-editing.md](audio-editing.md) | Waveform and spectral editing: sample/channel coordinates, exact peak pyramid, FFT window/hop/scaling conventions, bounded spectrum tiles, source edits with undo and persistence, cancellable spectral previews, WaveformEditor/SpectrogramView providers |
 | [audio-comping.md](audio-comping.md) | Takes and comping: loop passes cut from record jumps, non-destructive punch, comp coordinates and edits, take-junction crossfades, previews, audition/compare, persistence and relink, TakeCompView wiring |
 | [audio-midi.md](audio-midi.md) | MIDI, patterns and clip launching: tick/velocity/controller resolutions, per-note expression, exact reversible edits and gestures, stateless sample-accurate scheduling and test instrument, polymetric steps and seeded probability, engine-quantized launching, audition lifecycle, MIDI file interchange |
+| [notation.md](notation.md) | Score model and rhythm rules, notation edits, engraving layout and pagination, PDF output, MusicXML interchange with IDs, MIDI playback and audition (WP-067) |
 | [audio-measurement.md](audio-measurement.md) | Realtime meter tap, peak/RMS meter and BS.1770-4 loudness models, hold/fall/clip on audio time, engine parameter transactions for Knob and Fader, silence floor |
 | [vector-authoring.md](vector-authoring.md) | Vector appearance panels and undoable solid canvas style edits |
 | [chart-data.md](chart-data.md) | Typed axes/series, linked viewports, annotations, projection, hit identity, decimation, tabular export and histogram bin ranges |
@@ -87,6 +89,7 @@ pages below are the reference.
 | [decisions.md](decisions.md), [decisions-application.md](decisions-application.md), [decisions-services.md](decisions-services.md), [decisions-domains.md](decisions-domains.md) | ADR-lite logs of durable choices |
 | [verification.md](verification.md) | Build/test gates, headless verification, manual checklist |
 | [platform-support.md](platform-support.md) | Tested Qt/platform/backend matrix, open qualification gates and upgrade procedure |
+| [qualification.md](qualification.md) | WP-088 Linux qualification harness (`tools/qualify`): configuration × operation matrix, optional-engine variants, install relocation, result table |
 | [overflow-diagnostics-20260919.md](overflow-diagnostics-20260919.md) | Source diagnosis and scope of the menu/dialog overflow repair |
 | [Universal toolkit audit and proposal](universal-toolkit/README.md) | Current component reference, creative/Office/audio/video gap reports, hypothetical extension documentation and implementation roadmap |
 | [Complete implementation plan for Sol](universal-toolkit/implementation/README.md) | All 212 proposals in 84 work packages; Luna delegation, Astra escalation, engine integration and full acceptance gates |

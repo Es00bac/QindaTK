@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
+#include <QMap>
 #include <QObject>
 #include <QVariantList>
 #include <QVariantMap>
@@ -55,6 +56,8 @@ private:
     QVariantMap failure(const QString &error);
     static QString firstKeyword(const QString &sql);
     QVariantMap runMigrationPlan(const QStringList &statements, bool commit);
+    // Every foreign key of every table, keyed by its full description.
+    QMap<QString, QVariantMap> relationshipIndex() const;
 
     sqlite3 *m_db = nullptr;
     QString m_filePath;
