@@ -322,7 +322,7 @@ void PropertySyncSocketClient::handleFrame(const QJsonObject &frame)
         const QString id = frame.value(QStringLiteral("id")).toString();
         const QString reason = frame.value(QStringLiteral("reason")).toString();
         fail(reason);
-        // AGENT-GUARD (D-205): an edit the hub will never accept is taken out
+        // AGENT-GUARD (D-296): an edit the hub will never accept is taken out
         // of this replica, or it would stay visible here and nowhere else and
         // be resent on every reconnect. A transient refusal stays queued.
         if (frame.value(QStringLiteral("permanent")).toBool() && m_service

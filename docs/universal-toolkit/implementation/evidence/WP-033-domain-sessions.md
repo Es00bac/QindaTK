@@ -185,8 +185,8 @@ installed consumer.
   `tests/CMakeLists.txt` (appended sources and tests), `docs/index.md` (one
   row), `docs/decisions-application.md` (D-053 is provisional: it was
   first written as D-046, which integration has since given to spatial snaps,
-  and D-047 to D-052 are also taken there; the timeline D-045 already collides
-  with the chart D-045), and
+  and D-047 to D-052 are also taken there; the timeline D-045, since
+  renumbered D-290, collided with the chart D-045), and
   `docs/controls.md` (the `CanvasDocument` row). Regenerate `docs/catalog.json`
   after merging; this branch changes only the entries for the types it
   touches.

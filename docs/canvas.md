@@ -171,7 +171,7 @@ hashes; the next edit detaches the document's copy. A worker encodes the
 state.
 
 Guides, artboards and the layer tree travel inside the extensions JSON
-(D-041, D-092, D-093) under `qindatk.canvas.guides`,
+(D-289, D-092, D-093) under `qindatk.canvas.guides`,
 `qindatk.canvas.artboards` and `qindatk.canvas.layerTree`, so the binary
 layout and version stay unchanged and an older reader keeps them as opaque
 data. The decoder moves each record out of the host extensions and validates
@@ -661,7 +661,7 @@ session history work as for objects. Guides do not paint document pixels.
 Limits: `maximumGuides` (1024) and `maximumGuideIdLength` (64); positions must
 be finite.
 
-Guides are document content (decision D-041): saved inside the extensions
+Guides are document content (decision D-289): saved inside the extensions
 JSON under `qindatk.canvas.guides` as `{next, items}`, so the binary layout and
 version are unchanged and an older reader keeps the record as opaque data.
 The decoder moves the record out of the session extensions into the

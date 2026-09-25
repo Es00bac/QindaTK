@@ -32,14 +32,14 @@ struct AudioSourceEdit {
     double highHz = 0.0;
     int fftSize = 2048;                  // SpectralGain analysis size; hop fftSize / 4
     AudioPitch::Correction pitch;        // Pitch: target, amount, formant, retiming (start/end unused)
-    // SpectralGain paint/lasso mask (D-186); empty is the lowHz…highHz band.
+    // SpectralGain paint/lasso mask (D-293); empty is the lowHz…highHz band.
     std::vector<AudioDsp::SpectralMaskPolygon> mask;
 
     // Prepared result of a spectral or pitch edit: planar replacement samples for the
     // affected channels over [patchStart, patchStart + patch->frames).
     // Not persisted: prepare() recomputes it deterministically. Gain, fades
     // and silence keep no patch; apply() computes them from the base samples
-    // (D-187), so a committed edit of those kinds holds only its parameters.
+    // (D-294), so a committed edit of those kinds holds only its parameters.
     qint64 patchStart = 0;
     AudioBufferPtr patch;
     quint64 sequence = 0; // commit order inside an AudioSourceEditModel (patch budget)

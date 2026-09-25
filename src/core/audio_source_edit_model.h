@@ -39,7 +39,7 @@ class AudioSourceEditModel : public QObject {
     Q_PROPERTY(qint64 patchBudgetBytes READ patchBudgetBytes WRITE setPatchBudgetBytes NOTIFY historyChanged)
 public:
     static constexpr int kHistoryLimit = 128;
-    // AGENT-NOTE (D-187): spectral patches are a cache of deterministic
+    // AGENT-NOTE (D-294): spectral patches are a cache of deterministic
     // results. Past this many bytes the oldest are dropped (the newest always
     // stays) and recomputed by prepare() when a fold or redo needs them.
     static constexpr qint64 kDefaultPatchBudgetBytes = qint64(64) * 1024 * 1024;

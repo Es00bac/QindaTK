@@ -43,7 +43,7 @@ QVector3D MeshRigDocument::sourcePose(const Bone &b, int frame) {
     return b.keys.last().pose;
 }
 QVector3D MeshRigDocument::boneSource(const Bone &b) const {
-    // AGENT-NOTE (D-178): a bone bound to the AnimationModel reads its three
+    // AGENT-NOTE (D-291): a bone bound to the AnimationModel reads its three
     // rotation lanes at timeTicks; an open edit gesture previews its pose
     // until endEditGesture keys it. Private keys serve unbound bones.
     if (const auto it = m_gesturePoses.constFind(b.id); it != m_gesturePoses.cend()) return *it;
@@ -150,7 +150,7 @@ QVector3D MeshRigDocument::evaluatedPose(const QString &boneId) const {
     const int i = boneIndex(boneId);
     return i < 0 ? QVector3D() : currentPoses().at(i);
 }
-// AGENT-CONTRACT (D-178): one playhead. currentFrame and timeTicks move
+// AGENT-CONTRACT (D-291): one playhead. currentFrame and timeTicks move
 // together (ticks = frame x ticksPerFrame); private keys read the frame and
 // AnimationModel lanes read the exact ticks. Neither is an undoable edit.
 void MeshRigDocument::setCurrentFrame(int frame) {

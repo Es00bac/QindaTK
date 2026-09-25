@@ -93,7 +93,7 @@ T.Control {
         const ray = meshRay(x, y)
         return ray.origin ? meshDocument.pickFace(ray.origin, ray.direction) : ({})
     }
-    // Mesh tools (D-179): "" leaves left clicks to the renderer; "select"
+    // Mesh tools (D-292): "" leaves left clicks to the renderer; "select"
     // picks faces and bones, "paint" sends camera rays through the pointer.
     property string meshTool: ""
     // Selection synchronization in: highlighted face and bone (stable IDs).

@@ -137,7 +137,7 @@ identities. **Consequences.** Locale and display-calendar changes never
 silently rewrite document values, and date-only values never acquire a time
 or offset by accident.
 
-## D-040 — Render output is a verified directory receipt
+## D-288 — Render output is a verified directory receipt
 
 **Context.** `JobModel` schedules transient functions and cannot recover a
 render after process exit. **Decision.** `RenderQueueModel` journals immutable

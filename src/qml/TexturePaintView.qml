@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Templates as T
 import QindaTK as Tk
 
-// AGENT-CONTRACT (D-179): this surface paints in texture space. The pointer
+// AGENT-CONTRACT (D-292): this surface paints in texture space. The pointer
 // maps to the UV of the texel it shows (the fitted texture rectangle below),
 // and one requested stroke goes to MeshRigDocument.beginPaint(channel) /
 // paintUv / endPaint. Painting from the camera view happens in SceneView3D

@@ -57,7 +57,7 @@ runs out of operations (see [Compaction](#compaction)).
 While a client is connected, an edit the service cannot store (a full or
 unwritable store) is refused **before** it shows, or taken back if the store
 fails while writing, and `lastError` says why; a connected replica never shows
-an edit that exists only in memory (D-204). Multi-operation edits
+an edit that exists only in memory (D-295). Multi-operation edits
 (`replaceText`, `createEntity` with values, restore) are checked as a whole
 before their first operation applies, so a refused edit leaves nothing
 behind.
@@ -69,7 +69,7 @@ An authoritative service compacts once `compactAt` operations (default
 It folds every operation into a **base**: the state a replica derives from
 them (per-property winners, entity supporters and removed sets, and each text
 sequence with its element IDs and tombstones). The log then keeps only newer
-operations and the shared checkpoints (D-204). The base is written next to
+operations and the shared checkpoints (D-295). The base is written next to
 the store (`<storagePath>.base.<id>`) before the store names it, so a crash
 leaves either the old or the new pair. Folding uses a replica attached to the
 service that holds exactly base + log; a headless hub (a server with no
@@ -221,7 +221,7 @@ mismatch, invalid packet, reused ID) or transient (a full or unwritable hub
 store). A permanently refused operation, such as an edit queued offline
 before a permission loss, is removed from the replica's store and every local
 replica is rebuilt without it; the bridge emits `operationDiscarded(id,
-reason)` so the host can tell the user which edit was dropped (D-205). The
+reason)` so the host can tell the user which edit was dropped (D-296). The
 replica then matches the hub again and nothing is resent. A transient
 refusal stays queued and is retried on the next reconnect.
 

@@ -71,7 +71,7 @@ private:
     double m_windowSum = 0.0;
 };
 
-// ---- spectral processing (D-137, masks D-186) ----
+// ---- spectral processing (D-137, masks D-293) ----
 // A mask polygon vertex in source coordinates: sample index and frequency.
 struct SpectralMaskPoint {
     double sample = 0.0;
@@ -88,7 +88,7 @@ struct SpectralGainSpec {
     double gain = 0.0;     // linear factor applied to those bins
     int fftSize = 2048;    // hop is fftSize / 4
     int sampleRate = 48000;
-    // AGENT-CONTRACT (D-186): when non-empty, the mask replaces the band. A
+    // AGENT-CONTRACT (D-293): when non-empty, the mask replaces the band. A
     // frame centred on sample c changes bin k when k * rate / N lies inside
     // any polygon on the vertical line x = c (even-odd per polygon, union
     // across polygons; the inside interval [y0, y1] includes its ends).

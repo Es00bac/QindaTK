@@ -491,7 +491,7 @@ work-area limitations (especially multi-monitor X11) remain visible and are
 not replaced with guessed geometry. Native mixed-monitor placement and scale
 changes require the physical platform qualification in WP-092.
 
-## D-026 — Gantt dates project through a working calendar
+## D-286 — Gantt dates project through a working calendar
 
 **Context.** A schedule edit over a weekend or DST boundary cannot be
 represented faithfully by adding a fixed count of wall-clock pixels or local
@@ -508,7 +508,7 @@ previews never mutate committed data. Hosts own resource constraints,
 persisted undo and calendar boundary-time policy. The bundled adapter is a
 reference finish-to-start planner only.
 
-## D-030 — Polar plots declare bearing and radial semantics outside Cartesian axes
+## D-287 — Polar plots declare bearing and radial semantics outside Cartesian axes
 
 **Context.** A Cartesian `ChartAxis` fraction does not determine a bearing,
 wraparound, category sector, direction or radial distance. Reusing it for
@@ -526,7 +526,7 @@ outside the radial domain surfaces as an error rather than plausible but
 false geometry. Cartesian chart APIs remain unchanged. CSV records the
 coordinate convention so the display can be interpreted outside the view.
 
-## D-041 — Canvas guides are document content
+## D-289 — Canvas guides are document content
 
 **Context.** CAN-07 needs guides that snap, move through transactions and
 return after save/reopen, and it left the document/workspace ownership
@@ -703,7 +703,7 @@ layer change. Structural commands build ordinary layer deltas, so one undo
 step restores a whole move, group, ungroup or tree deletion, and every commit
 validates parents, cycles, depth (`maximumLayerDepth`, 64) and group content.
 The tree is saved in the extensions JSON under `qindatk.canvas.layerTree`
-(only for non-flat layers), like the guides of D-041. **Consequences.**
+(only for non-flat layers), like the guides of D-289. **Consequences.**
 Existing flat documents keep their bytes and behaviour; older readers keep the
 tree as opaque data and see the layers flat. Group transforms, opacity,
 blend modes and masks remain outside this model (WP-044/WP-045 own
@@ -1593,7 +1593,7 @@ Every pass plays exactly what was heard at its position, pre- and post-roll
 stay available, the event ring's acknowledgment guarantee is untouched, and
 a recording with lost jumps falls back to one linear clip.
 
-## D-178 — Rig timeline animation lives in the WP-073 AutomationModel
+## D-291 — Rig timeline animation lives in the WP-073 AutomationModel
 
 **Context.** WP-077 kept bone keys in a private linear list with a manual
 integer frame, so KeyframeTimeline, DopeSheet and CurveEditor could not show
@@ -1610,7 +1610,7 @@ the private keys stay in the mesh file, so nothing is lost without the model.
 The host saves the `AutomationModel` beside the mesh, as with
 `MotionComposition`, and orders the two histories.
 
-## D-179 — Mesh painting happens where the pointer is shown
+## D-292 — Mesh painting happens where the pointer is shown
 
 **Context.** `TexturePaintView` drew the flat texture but sent its pointer
 position into a camera ray, so the painted texel was not the one under the
@@ -1627,7 +1627,7 @@ under any graphics backend and headless; selection synchronizes both ways
 between the 3D view and the UV and rig editors. `rayProvider` and
 `paintRayRequested` on `TexturePaintView` are gone.
 
-## D-186 — Spectral masks are sample/Hz polygons applied per analysis frame
+## D-293 — Spectral masks are sample/Hz polygons applied per analysis frame
 
 **Context.** AUD-21 asks for paint and lasso masks, and WP-063 is the only
 package that owns it; a rectangle band gain cannot follow a sweep or a
@@ -1645,7 +1645,7 @@ it keeps its place through zoom. **Consequences.** Masks are reversible,
 persistent and numerically the same machinery as band gain; free-form
 repair tools remain out of scope.
 
-## D-187 — Committed edits hold parameters; spectral patches are a bounded cache
+## D-294 — Committed edits hold parameters; spectral patches are a bounded cache
 
 **Context.** Every in-place edit kept a float copy of its range for the
 session, so repeated whole-file gains on long sources grew without limit.
@@ -1800,7 +1800,7 @@ rendered, and a stale analysis must never replace newer edits.
 parameters (target cents, amount, formant ratio, anchor/target samples,
 analysis settings) and recomputed deterministically on replay, previewed on
 the thread pool (D-137); the computed patch is held like a spectral patch,
-inside the D-187 budget and recomputed when dropped. `AudioPitchSource` holds its analysis of the
+inside the D-294 budget and recomputed when dropped. `AudioPitchSource` holds its analysis of the
 committed samples while a preview is ready, marks it stale on any change to
 the committed samples, refuses requests while stale, and drops any result
 computed for an older revision. `commitEdit` commits the ready preview only
@@ -1897,7 +1897,7 @@ backend", or "The application did not enable the ALSA backend" after
 consumer can show why a backend is missing. A new backend adds its entry
 here.
 
-## D-204 — The hub log compacts into a replica state, and connected edits are durable or taken back
+## D-295 — The hub log compacts into a replica state, and connected edits are durable or taken back
 
 **Context.** The operation log had a lifetime cap of 4,096 packets and no
 compaction, so a normal editing session filled a document for good; after
@@ -1939,7 +1939,7 @@ format is unchanged and selections survive every edit in a session. Joins
 sharper than the limit now bevel on the canvas as in exported SVG; objects
 with sharp mitred joins have larger (correct) paint bounds.
 
-## D-205 — A permanently refused edit is discarded from the replica
+## D-296 — A permanently refused edit is discarded from the replica
 
 **Context.** An edit queued offline before a permission loss stayed applied
 in the replica and store, and was resent and rejected on every reconnect: the
