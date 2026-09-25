@@ -121,7 +121,9 @@ private slots:
         ready.clear();
         trace.ingestAsync(tooMany);
         QVERIFY(ready.wait(10000));
-        QCOMPARE(trace.count(), 0);
+        // Refused, and the 20,000-record snapshot stays (D-165).
+        QCOMPARE(trace.count(), 20000);
+        QCOMPARE(trace.truncatedCount(), 5);
         QCOMPARE(trace.lastError(), QStringLiteral("Trace input exceeds 50,000 records"));
     }
 
@@ -203,7 +205,18 @@ private slots:
         copy.ingestJsonAsync(QStringLiteral("{\"records\": ["));
         QVERIFY(ready.wait(5000));
         QVERIFY(copy.lastError().startsWith(QStringLiteral("Trace JSON is invalid")));
-        QCOMPARE(copy.count(), 0);
+        QCOMPARE(copy.count(), 4);  // a failed import keeps the loaded trace
+        QCOMPARE(copy.exportJson(), exported);
+        ready.clear();
+        copy.ingestFileAsync(QStringLiteral("/nonexistent/trace.json"));
+        QVERIFY(ready.wait(5000));
+        QCOMPARE(copy.lastError(), QStringLiteral("Cannot read trace file"));
+        QCOMPARE(copy.count(), 4);
+        // The next good import clears the error.
+        ready.clear();
+        copy.ingestJsonAsync(exported);
+        QVERIFY(ready.wait(5000));
+        QVERIFY(copy.lastError().isEmpty());
     }
 
     void chromeTraceFileImportsWithNesting()
@@ -236,6 +249,133 @@ private slots:
         QCOMPARE(upload.value(QStringLiteral("durationNs")).toString(), QStringLiteral("3001"));
         QVERIFY(upload.value(QStringLiteral("parentId")).toString().isEmpty());
         QCOMPARE(trace.childrenOf(QStringLiteral("e2")).size(), 1);
+    }
+
+    void chromeLimitsAreReportedAsEnforced()
+    {
+        TraceIndex trace;
+        QSignalSpy ready(&trace, &TraceIndex::analysisReady);
+        trace.ingestJsonAsync(QString::fromUtf8(ChromeTrace));
+        QVERIFY(ready.wait(5000));
+        QCOMPARE(trace.count(), 4);
+        auto events = [](int count, const char *pattern) {
+            QByteArray json("[");
+            for (int i = 0; i < count; ++i) {
+                if (i) json += ',';
+                json += QByteArray(pattern).replace("%1", QByteArray::number(i));
+            }
+            return QString::fromUtf8(json + ']');
+        };
+        // 50,001 complete events are 50,001 records: over the record limit.
+        ready.clear();
+        trace.ingestJsonAsync(events(50001, R"({"ph":"X","name":"n","pid":1,"tid":1,"ts":%1,"dur":0})"));
+        QVERIFY(ready.wait(20000));
+        QCOMPARE(trace.lastError(), QStringLiteral("Trace input exceeds 50,000 records"));
+        QCOMPARE(trace.count(), 4);
+        // 200,001 raw events: over the raw event limit, with its own message.
+        ready.clear();
+        trace.ingestJsonAsync(events(200001, R"({"ph":"i","ts":%1})"));
+        QVERIFY(ready.wait(20000));
+        QCOMPARE(trace.lastError(), QStringLiteral("Chrome trace has more than 200,000 events"));
+        QCOMPARE(trace.count(), 4);
+        // 60,000 raw events that pair into 30,000 records are accepted.
+        ready.clear();
+        trace.ingestJsonAsync(events(30000, R"({"ph":"B","name":"n","pid":1,"tid":1,"ts":%1},)"
+                                            R"({"ph":"E","pid":1,"tid":1,"ts":%1.5})"));
+        QVERIFY(ready.wait(20000));
+        QVERIFY(trace.lastError().isEmpty());
+        QCOMPARE(trace.count(), 20000);
+        QCOMPARE(trace.truncatedCount(), 10000);
+    }
+
+    void layoutAggregatesWithoutDroppingRecords()
+    {
+        const QVariantMap fixture = loadFixture();
+        TraceIndex trace;
+        QVERIFY(trace.setClockDomains(fixture.value(QStringLiteral("clockDomains")).toList()));
+        QSignalSpy ready(&trace, &TraceIndex::analysisReady);
+        trace.ingestAsync(fixture.value(QStringLiteral("records")).toList());
+        QVERIFY(ready.wait(5000));
+        // Same-thread children sit one lane below their parent.
+        QCOMPARE(trace.tracks(), (QVariantList{
+            QVariantMap{{QStringLiteral("threadId"), QStringLiteral("gpu")},
+                        {QStringLiteral("firstRow"), 0}, {QStringLiteral("lanes"), 2}},
+            QVariantMap{{QStringLiteral("threadId"), QStringLiteral("ui")},
+                        {QStringLiteral("firstRow"), 2}, {QStringLiteral("lanes"), 2}}}));
+        auto tileFor = [](const QVariantMap &layout, const QString &id) {
+            for (const QVariant &tile : layout.value(QStringLiteral("tiles")).toList())
+                if (tile.toMap().value(QStringLiteral("id")).toString() == id) return tile.toMap();
+            return QVariantMap{};
+        };
+        QVariantMap layout = trace.layoutWindow(0, 1, 400);
+        QCOMPARE(layout.value(QStringLiteral("rows")).toInt(), 4);
+        QCOMPARE(layout.value(QStringLiteral("tiles")).toList().size(), 4);
+        QCOMPARE(tileFor(layout, QStringLiteral("worker")).value(QStringLiteral("row")).toInt(), 0);
+        QCOMPARE(tileFor(layout, QStringLiteral("upload")).value(QStringLiteral("row")).toInt(), 1);
+        QCOMPARE(tileFor(layout, QStringLiteral("present")).value(QStringLiteral("row")).toInt(), 3);
+        QCOMPARE(tileFor(layout, QStringLiteral("worker")).value(QStringLiteral("x0")).toDouble(), 0.5);
+        QCOMPARE(tileFor(layout, QStringLiteral("worker")).value(QStringLiteral("x1")).toDouble(), 0.75);
+        // A span that starts before the window is clipped at both ends:
+        // worker covers 0.5..0.75 of the trace, the window is 0.6..1.0.
+        layout = trace.layoutWindow(0.6, 1.0, 400);
+        QCOMPARE(tileFor(layout, QStringLiteral("worker")).value(QStringLiteral("x0")).toDouble(), 0.0);
+        QVERIFY(qAbs(tileFor(layout, QStringLiteral("worker")).value(QStringLiteral("x1")).toDouble()
+                     - 0.375) < 1e-9);
+        QCOMPARE(trace.recordAt(0, 1, 400, 2, 10), QStringLiteral("root"));
+        QCOMPARE(trace.recordAt(0, 1, 400, 3, 350), QStringLiteral("present"));
+        QVERIFY(trace.recordAt(0, 1, 400, 3, 10).isEmpty());
+
+        // A 20,001-record trace: every record is in exactly one mark, a row
+        // never holds more marks than pixel columns, and zooming in reaches
+        // any single record.
+        QVariantList rows{QVariantMap{{QStringLiteral("id"), QStringLiteral("all")},
+            {QStringLiteral("kind"), QStringLiteral("span")}, {QStringLiteral("name"), QStringLiteral("All")},
+            {QStringLiteral("threadId"), QStringLiteral("ui")}, {QStringLiteral("clockDomain"), QStringLiteral("mono")},
+            {QStringLiteral("startTicks"), QStringLiteral("0")}, {QStringLiteral("endTicks"), QStringLiteral("19999")}}};
+        for (int i = 0; i < 20000; ++i) rows.append(traceEvent(i));
+        rows.removeLast();  // 20,000 records in all, nothing truncated
+        ready.clear();
+        trace.ingestAsync(rows);
+        QVERIFY(ready.wait(10000));
+        QCOMPARE(trace.count(), 20000);
+        layout = trace.layoutWindow(0, 1, 1000);
+        const QVariantList tiles = layout.value(QStringLiteral("tiles")).toList();
+        int sum = 0, merged = 0;
+        for (const QVariant &tile : tiles) {
+            sum += tile.toMap().value(QStringLiteral("count")).toInt();
+            if (tile.toMap().value(QStringLiteral("count")).toInt() > 1) ++merged;
+        }
+        QCOMPARE(layout.value(QStringLiteral("matched")).toInt(), 20000);
+        QCOMPARE(sum, 20000);
+        QVERIFY(tiles.size() <= 1 + 1000);
+        QVERIFY(merged > 0);
+        QCOMPARE(tileFor(layout, QStringLiteral("all")).value(QStringLiteral("count")).toInt(), 1);
+        const double at = 12345.0 / 19999.0, width = 4.0 / 19999.0;
+        layout = trace.layoutWindow(at - width / 2, at + width / 2, 400);
+        const QVariantMap single = tileFor(layout, QStringLiteral("12345"));
+        QCOMPARE(single.value(QStringLiteral("count")).toInt(), 1);
+        const int column = int(single.value(QStringLiteral("x0")).toDouble() * 400);
+        QCOMPARE(trace.recordAt(at - width / 2, at + width / 2, 400,
+                                single.value(QStringLiteral("row")).toInt(), column),
+                 QStringLiteral("12345"));
+        QCOMPARE(trace.layoutWindow(0, 1, 1000, {}, QStringLiteral("all"))
+                 .value(QStringLiteral("matched")).toInt(), 1);
+    }
+
+    void exportRunsOnAWorker()
+    {
+        const QVariantMap fixture = loadFixture();
+        TraceIndex trace;
+        QVERIFY(trace.setClockDomains(fixture.value(QStringLiteral("clockDomains")).toList()));
+        QSignalSpy ready(&trace, &TraceIndex::analysisReady);
+        trace.ingestAsync(fixture.value(QStringLiteral("records")).toList());
+        QVERIFY(ready.wait(5000));
+        QSignalSpy exported(&trace, &TraceIndex::exportReady);
+        const QString request = trace.exportJsonAsync();
+        QCOMPARE(exported.size(), 0);  // not serialized on the calling thread
+        QVERIFY(exported.wait(5000));
+        QCOMPARE(exported.first().at(0).toString(), request);
+        QCOMPARE(exported.first().at(1).toString(), trace.exportJson());
     }
 };
 

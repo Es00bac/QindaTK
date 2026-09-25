@@ -14,6 +14,7 @@
 namespace QindaTK {
 namespace {
 constexpr qint64 MaxFileBytes = 64 * 1024 * 1024;
+constexpr int MaxChromeEvents = 200000;
 // |ts| in microseconds; keeps ts × 1000 exact in a double and inside qint64.
 constexpr double MaxChromeMicros = 9.0e12;
 
@@ -46,8 +47,12 @@ struct Pending {
 TraceIndex::Analysis TraceIndex::chromeTrace(const QVariantList &events, const CancelFlag &cancel)
 {
     Analysis failed;
-    if (events.size() > 4 * 50000) {
-        failed.error = QStringLiteral("Trace input exceeds 50,000 records");
+    // AGENT-NOTE: two limits, each with its own message. A Chrome file needs
+    // up to two raw events per record (B + E) plus metadata, so the raw
+    // array is refused above 200,000 entries; the converted records then
+    // meet analyze()'s 50,000-record input limit like any other ingest.
+    if (events.size() > MaxChromeEvents) {
+        failed.error = QStringLiteral("Chrome trace has more than 200,000 events");
         return failed;
     }
     QHash<QString, QString> threadNames;

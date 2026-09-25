@@ -613,7 +613,10 @@ it and bump the generation, so a finished stale result is discarded with
 
 **Consequences.** A cancelled row loop stops within 1,024 rows. JSON parsing
 and the final sort cannot be interrupted, so their result is simply
-discarded. The view never shows a half-applied trace.
+discarded. The view never shows a half-applied trace. A failed analysis
+(invalid JSON, unreadable or oversized file, too many rows) is treated the
+same way: it sets `lastError` and keeps the published snapshot, so picking a
+bad file never erases a loaded trace.
 
 ## D-166 — Collaborative deletes remove only what their author observed
 
@@ -762,3 +765,44 @@ refresh.
 **Consequences.** Only the visible cards and the cache buffer exist.
 Scrolling away and back, or a structural refresh, never loses typing. A host
 that binds its own blocks sees the same behaviour.
+
+## D-204 — Trace views draw aggregated lane marks, never one item per record
+
+**Context.** EXT-11 requires inspecting a large trace without per-event
+delegates. A Repeater capped at 500 records hid the rest of a dense window
+without saying so, and one row per record wasted height.
+
+**Decision.** Analysis assigns each record a lane in its thread's track (the
+first lane free at its start, below its same-thread parent; 32 lanes, the
+last shared). `TraceIndex.layoutWindow` bins the window into pixel columns
+per visible row and merges records that would share a pixel into one mark
+with a count and its longest record's ID. `TraceView` paints those marks on
+one Canvas; `recordAt` hit-tests the record under the pointer, and
+double-clicking a merged mark zooms until its records separate. Zoom goes
+down to a 50 ns window.
+
+**Consequences.** Work per frame is one pass over at most 20,000 retained
+records, and the mark count is bounded by rows × columns, whatever the trace
+size. Every record in the window is counted (`matched`) and reachable by
+zooming. Individual marks are not focusable items; keyboard inspection goes
+through the filters and the inspector.
+
+## D-205 — Scans prune what they created; rebuilds need a valid closure
+
+**Context.** Deleted files and removed references stayed in the asset index
+forever, filling the 4,096-asset cap, and Rebuild only looked at the
+selected asset's own diagnostics.
+
+**Decision.** Entries a scan created (`discovered`) are pruned once they are
+missing, have no inputs and nothing uses them. Host-registered assets go only
+through `removeAsset` or `pruneMissing`. A rebuild of X is blocked by a
+missing leaf (a missing asset with no inputs) or a cycle anywhere in X's
+dependency closure; a missing asset with inputs is a generated output that
+the rebuild recreates. `rebuildPlan(changedId)` splits `affectedBy` into
+valid outputs in dependency order and blocked ones with a reason.
+
+**Consequences.** The index size follows the project, not the session. A
+host that wants to keep a missing file visible with no users registers it
+with `upsertAsset`. Rebuild gating costs one closure walk per selection and
+one reverse walk per plan.
+

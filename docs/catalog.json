@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-24",
+  "generated": "2026-09-25",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -671,6 +671,102 @@
       ]
     },
     {
+      "name": "AssetDependencyGraph",
+      "kind": "qml",
+      "base": "Item",
+      "description": "The selected asset's neighbourhood drawn with the shared NodeGraph: inputs on the left, the asset in the middle, dependents on the right. Selecting a node re-centres on it. Read-only: move and link requests are ignored. AGENT-CONTRACT (EXT-10): graph state comes from Tk.AssetDependencyIndex (dependencies, dependents, asset); positions are computed here from theme sizes and are view state, never written back to the index.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/qml/AssetDependencyGraph.qml",
+      "properties": [
+        {
+          "name": "index",
+          "type": "Tk.AssetDependencyIndex",
+          "default": "null",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "selectedId",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "revision",
+          "type": "int",
+          "default": "0",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "maxPerSide",
+          "type": "int",
+          "default": "12",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "default": "qsTr(\"Dependency graph\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "graphView",
+          "type": "alias",
+          "default": "graph",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "neighbourhood",
+          "type": "var",
+          "default": "build(revision, selectedId)",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "assetSelected",
+          "parameters": "string assetId"
+        }
+      ],
+      "methods": [
+        {
+          "name": "build",
+          "parameters": "revision, id"
+        },
+        {
+          "name": "fit",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "registrationKind": "qml_module",
+      "exported": true,
+      "anonymous": false,
+      "internal": false,
+      "valueType": false,
+      "bridge": false,
+      "objectNames": [
+        "assetDependencyGraph",
+        "dependencyGraphHidden",
+        "dependencyNodeGraph"
+      ]
+    },
+    {
       "name": "AssetDependencyView",
       "kind": "qml",
       "base": "Item",
@@ -754,6 +850,38 @@
         {
           "name": "relinkCandidates",
           "type": "var",
+          "default": "[]",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "relinkRequest",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "relinkKey",
+          "type": "string",
+          "default": "graphRevision >= 0 && index && selectedId",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rebuildBlockers",
+          "type": "var",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "rebuildPlan",
+          "type": "var",
           "default": "{",
           "readonly": true,
           "defaultProperty": false,
@@ -798,11 +926,20 @@
           "parameters": "string assetId"
         },
         {
+          "name": "rebuildAffectedRequested",
+          "parameters": "string assetId, var validIds"
+        },
+        {
           "name": "relinkChosen",
           "parameters": "string assetId, string replacementId, var plan"
         }
       ],
-      "methods": [],
+      "methods": [
+        {
+          "name": "requestRelinkCandidates",
+          "parameters": ""
+        }
+      ],
       "enums": {},
       "module": "QindaTK",
       "registrationKind": "qml_module",
@@ -818,12 +955,16 @@
         "dependencyCancelScan",
         "dependencyCandidate_",
         "dependencyCounts",
+        "dependencyDetailMode",
         "dependencyDetailScroll",
         "dependencyDiagnostic",
         "dependencyImpact",
         "dependencyInput_",
         "dependencyNavigate",
         "dependencyRebuild",
+        "dependencyRebuildAffected",
+        "dependencyRebuildBlocked",
+        "dependencyRebuildPlan",
         "dependencyRelink",
         "dependencySearch",
         "dependencySelectedTitle",
@@ -38049,7 +38190,7 @@
       "name": "TraceView",
       "kind": "qml",
       "base": "Item",
-      "description": "AGENT-CONTRACT (WP-087): TraceIndex owns exact times and bounded queries; this view only projects normalized coordinates and never edits trace data.",
+      "description": "AGENT-CONTRACT (WP-087): TraceIndex owns exact times, lanes and the aggregated layout (trace_layout.cpp); this view projects normalized coordinates onto one canvas and never edits trace data. AGENT-GUARD (EXT-11): no per-record delegates. Everything in a window is drawn from layoutWindow's marks, whose count is bounded by rows × pixel columns; a Repeater over records would bring back the 500-record cap.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/TraceView.qml",
@@ -38119,6 +38260,14 @@
           "required": false
         },
         {
+          "name": "pendingExport",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "windowSize",
           "type": "real",
           "default": "1 / zoom",
@@ -38127,9 +38276,57 @@
           "required": false
         },
         {
-          "name": "visibleRecords",
+          "name": "maxZoom",
+          "type": "real",
+          "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "tracks",
+          "type": "var",
+          "default": "dataRevision >= 0 && index ? index.tracks(threadFilter) : []",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "columns",
+          "type": "int",
+          "default": "Math.max(1, Math.floor(timeline.trackWidth))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "firstRow",
+          "type": "int",
+          "default": "Math.max(0, Math.floor(timeline.contentY / timeline.rowHeight))",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "visibleRows",
+          "type": "int",
+          "default": "Math.ceil(timeline.height / timeline.rowHeight) + 1",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "layout",
           "type": "var",
           "default": "{",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "mergedMarks",
+          "type": "int",
+          "default": "layout.tiles.filter(tile => tile.count > 1).length",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -38177,6 +38374,30 @@
         {
           "name": "zoomBy",
           "parameters": "factor"
+        },
+        {
+          "name": "zoomToWindow",
+          "parameters": "x0, x1"
+        },
+        {
+          "name": "rowAt",
+          "parameters": "y"
+        },
+        {
+          "name": "columnAt",
+          "parameters": "x"
+        },
+        {
+          "name": "tileAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "selectAt",
+          "parameters": "x, y"
+        },
+        {
+          "name": "exportTrace",
+          "parameters": ""
         }
       ],
       "enums": {},
@@ -38195,12 +38416,14 @@
         "traceInspector",
         "traceInspectorDetail",
         "tracePan",
-        "traceRecord_",
         "traceRuler",
         "traceSearch",
         "traceThreadFilter",
         "traceTimeline",
+        "traceTracks",
+        "traceTracksInput",
         "traceView",
+        "traceWindowSummary",
         "traceZoomIn",
         "traceZoomOut"
       ]
@@ -42013,6 +42236,10 @@
         {
           "name": "projectScanDiscarded",
           "parameters": "const QString &requestId"
+        },
+        {
+          "name": "relinkCandidatesReady",
+          "parameters": "const QString &requestId, const QString &assetId, const QStringList &candidates"
         }
       ],
       "methods": [
@@ -42045,6 +42272,31 @@
           "name": "scanQmlFile",
           "returns": "bool",
           "parameters": "const QString &sourceId"
+        },
+        {
+          "name": "scanFile",
+          "returns": "bool",
+          "parameters": "const QString &sourceId"
+        },
+        {
+          "name": "indexRenderJobs",
+          "returns": "int",
+          "parameters": "const QVariantList &jobs"
+        },
+        {
+          "name": "indexDocumentResources",
+          "returns": "int",
+          "parameters": "const QString &documentId, QindaTK::DocumentResourceLinks *links"
+        },
+        {
+          "name": "removeAsset",
+          "returns": "bool",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "pruneMissing",
+          "returns": "int",
+          "parameters": ""
         },
         {
           "name": "scanProjectAsync",
@@ -42082,8 +42334,23 @@
           "parameters": "const QString &id"
         },
         {
+          "name": "rebuildBlockers",
+          "returns": "QVariantList",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "rebuildPlan",
+          "returns": "QVariantMap",
+          "parameters": "const QString &changedId"
+        },
+        {
           "name": "relinkCandidates",
           "returns": "QStringList",
+          "parameters": "const QString &id"
+        },
+        {
+          "name": "relinkCandidatesAsync",
+          "returns": "QString",
           "parameters": "const QString &id"
         },
         {
@@ -70409,6 +70676,10 @@
         {
           "name": "analysisDiscarded",
           "parameters": "const QString &requestId"
+        },
+        {
+          "name": "exportReady",
+          "parameters": "const QString &requestId, const QString &json"
         }
       ],
       "methods": [
@@ -70468,7 +70739,27 @@
           "parameters": "const QString &fromNs, const QString &toNs, const QString &threadId = {}, const QString &textFilter = {}, int limit = 500"
         },
         {
+          "name": "tracks",
+          "returns": "QVariantList",
+          "parameters": "const QString &threadId = {}"
+        },
+        {
+          "name": "layoutWindow",
+          "returns": "QVariantMap",
+          "parameters": "double fromFraction, double toFraction, int columns, const QString &threadId = {}, const QString &textFilter = {}, int firstRow = 0, int rowCount = 64"
+        },
+        {
+          "name": "recordAt",
+          "returns": "QString",
+          "parameters": "double fromFraction, double toFraction, int columns, int row, int column, const QString &threadId = {}, const QString &textFilter = {}"
+        },
+        {
           "name": "exportJson",
+          "returns": "QString",
+          "parameters": ""
+        },
+        {
+          "name": "exportJsonAsync",
           "returns": "QString",
           "parameters": ""
         }

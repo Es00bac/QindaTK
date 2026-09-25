@@ -59,12 +59,29 @@ public:
                                           const QString &threadId = {},
                                           const QString &textFilter = {},
                                           int limit = 500) const;
+    // Thread tracks in display order: [{threadId, firstRow, lanes}].
+    Q_INVOKABLE QVariantList tracks(const QString &threadId = {}) const;
+    // Aggregated marks for a time window (fractions of the snapshot) drawn
+    // into `columns` pixel columns; see trace_layout.cpp for the contract.
+    Q_INVOKABLE QVariantMap layoutWindow(double fromFraction, double toFraction, int columns,
+                                         const QString &threadId = {},
+                                         const QString &textFilter = {},
+                                         int firstRow = 0, int rowCount = 64) const;
+    // The record drawn at pixel `column` of layout row `row` (the longest
+    // one covering that pixel), or "" when none is there.
+    Q_INVOKABLE QString recordAt(double fromFraction, double toFraction, int columns,
+                                 int row, int column, const QString &threadId = {},
+                                 const QString &textFilter = {}) const;
+    // Synchronous export, for small snapshots and tests. Views use
+    // exportJsonAsync, which serializes a copy of the snapshot on a worker.
     Q_INVOKABLE QString exportJson() const;
+    Q_INVOKABLE QString exportJsonAsync();
 
 signals:
     void changed();
     void analysisReady(const QString &requestId, int retainedCount);
     void analysisDiscarded(const QString &requestId);
+    void exportReady(const QString &requestId, const QString &json);
 
 private:
     struct ClockDomain {
@@ -84,10 +101,12 @@ private:
         qint64 endTicks = 0;
         qint64 startNs = 0;
         qint64 endNs = 0;
+        int lane = 0;  // row inside the thread's track; see assignLanes
     };
     struct Analysis {
         QVector<Record> records;
         QStringList threads;
+        QHash<QString, int> lanes;  // thread -> lane count
         QString error;
         QHash<QString, ClockDomain> domains;
         bool replaceDomains = false;
@@ -104,9 +123,13 @@ private:
     static Analysis analyzeJson(const QByteArray &bytes, const CancelFlag &cancel);
     static Analysis analyzeFile(const QString &path, const CancelFlag &cancel);
     static Analysis chromeTrace(const QVariantList &events, const CancelFlag &cancel);
+    static bool assignLanes(Analysis *result, const CancelFlag &cancel);
+    static QString serialize(const QVector<Record> &records,
+                             const QHash<QString, ClockDomain> &domains,
+                             int truncated, int rejected);
     static bool parseDomains(const QVariantList &domains, QHash<QString, ClockDomain> *out);
     QString startJob(std::function<Analysis(const CancelFlag &)> job);
-    QVariantMap recordMap(const Record &record) const;
+    static QVariantMap recordMap(const Record &record);
     static bool decimal(const QVariant &value, qint64 *out);
     static bool convert(qint64 ticks, const ClockDomain &domain, qint64 *ns);
     void publish(Analysis result, quint64 generation);
@@ -114,11 +137,13 @@ private:
     QVector<Record> m_records;
     QHash<QString, int> m_byId;
     QStringList m_threads;
+    QHash<QString, int> m_lanes;
     QString m_error;
     qint64 m_start = 0;
     qint64 m_end = 0;
     CancelFlag m_cancel;
     quint64 m_generation = 0;
+    quint64 m_exportSerial = 0;
     int m_rejected = 0;
     int m_truncated = 0;
     bool m_busy = false;

@@ -6,6 +6,7 @@
 #include <QFutureWatcher>
 #include <QtConcurrent>
 #include <algorithm>
+#include <utility>
 
 namespace QindaTK {
 namespace {
@@ -22,8 +23,11 @@ AssetDependencyIndex::runProjectScan(const QString &root,
                                      std::shared_ptr<std::atomic_bool> cancel)
 {
     ProjectScan scan;
+    scan.root = root;
     QStringList files;
-    QDirIterator it(root, {QStringLiteral("*.qml")},
+    QDirIterator it(root, {QStringLiteral("*.qml"), QStringLiteral("*.svg"),
+                           QStringLiteral("*.html"), QStringLiteral("*.htm"),
+                           QStringLiteral("*.css")},
                     QDir::Files | QDir::Readable | QDir::NoSymLinks,
                     QDirIterator::Subdirectories);
     while (it.hasNext()) {
@@ -32,7 +36,7 @@ AssetDependencyIndex::runProjectScan(const QString &root,
         const QString id = QDir(root).relativeFilePath(it.fileInfo().canonicalFilePath());
         if (id.isEmpty() || id.startsWith(QStringLiteral("../"))) continue;
         if (files.size() >= MaxProjectSources) {
-            scan.error = QStringLiteral("Project has more than 4,096 QML files");
+            scan.error = QStringLiteral("Project has more than 4,096 source files");
             return scan;
         }
         files.append(id);
@@ -41,7 +45,7 @@ AssetDependencyIndex::runProjectScan(const QString &root,
     scan.sources.reserve(files.size());
     for (const QString &id : std::as_const(files)) {
         if (cancel->load()) { scan.cancelled = true; return scan; }
-        scan.sources.append(SourceResult{id, extractQml(root, id)});
+        scan.sources.append(SourceResult{id, extractSource(root, id)});
     }
     return scan;
 }
@@ -66,7 +70,7 @@ QString AssetDependencyIndex::scanProjectAsync()
             [this, watcher, generation, requestId, tokens] {
         const ProjectScan scan = watcher->result();
         watcher->deleteLater();
-        if (generation != m_projectGeneration || scan.cancelled) {
+        if (generation != m_projectGeneration || scan.cancelled || scan.root != m_projectRoot) {
             emit projectScanDiscarded(requestId);
             return;
         }
@@ -112,18 +116,28 @@ void AssetDependencyIndex::applyProjectScan(const ProjectScan &scan,
         if (applyExtraction(source.sourceId, source.extraction)) ++applied;
         else if (firstError.isEmpty()) firstError = m_error;
     }
-    // QML sources that were indexed but no longer exist are deleted: their
-    // outgoing edges go, their dependents now report a missing input.
+    // Sources that were indexed but no longer exist are deleted: their
+    // outgoing edges go and their dependents report a missing input. One
+    // nothing uses any more is pruned, with the placeholders only it used.
+    QSet<QString> deleted;
     for (auto it = m_assets.begin(); it != m_assets.end(); ++it) {
-        if (it->kind != QStringLiteral("qml") || seen.contains(it.key()) || newer(it.key()))
+        const QString kind = sourceKind(it.key());
+        if (kind.isEmpty() || it->kind != kind || seen.contains(it.key()) || newer(it.key()))
             continue;
         if (QFileInfo::exists(QDir(m_projectRoot).absoluteFilePath(it.key()))) continue;
         it->available = false;
         m_edgeCount -= it->dependencies.size();
+        for (auto edge = it->dependencies.cbegin(); edge != it->dependencies.cend(); ++edge)
+            deleted.insert(edge.key());
         it->dependencies.clear();
         ++it->scanToken;
+        deleted.insert(it.key());
     }
     --m_quiet;
+    // Twice: a deleted source pruned first can leave its deleted inputs unused.
+    QSet<QString> candidates = std::exchange(m_pruneCandidates, {}) + deleted;
+    pruneOrphans(candidates);
+    pruneOrphans(candidates);
     m_error = firstError;
     notify();
     emit projectScanFinished(requestId, applied, skipped);
@@ -131,10 +145,34 @@ void AssetDependencyIndex::applyProjectScan(const ProjectScan &scan,
 
 QStringList AssetDependencyIndex::relinkCandidates(const QString &id) const
 {
+    return findRelinkCandidates(m_projectRoot, id);
+}
+
+QString AssetDependencyIndex::relinkCandidatesAsync(const QString &id)
+{
+    // AGENT-NOTE: views use this form; the walk visits up to 20,000 entries
+    // and must not run inside a binding on the GUI thread.
+    const QString requestId = QStringLiteral("relink-%1").arg(++m_relinkSerial);
+    const QString root = m_projectRoot;
+    auto *watcher = new QFutureWatcher<QStringList>(this);
+    connect(watcher, &QFutureWatcher<QStringList>::finished, this,
+            [this, watcher, requestId, id, root] {
+        const QStringList candidates = watcher->result();
+        watcher->deleteLater();
+        // A root change meanwhile makes the relative candidates meaningless.
+        emit relinkCandidatesReady(requestId, id, root == m_projectRoot ? candidates
+                                                                         : QStringList{});
+    });
+    watcher->setFuture(QtConcurrent::run([root, id] { return findRelinkCandidates(root, id); }));
+    return requestId;
+}
+
+QStringList AssetDependencyIndex::findRelinkCandidates(const QString &root, const QString &id)
+{
     const QString name = QFileInfo(id).fileName();
     QStringList result;
-    if (m_projectRoot.isEmpty() || name.isEmpty()) return result;
-    QDirIterator it(m_projectRoot, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot
+    if (root.isEmpty() || name.isEmpty()) return result;
+    QDirIterator it(root, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot
                                    | QDir::NoSymLinks, QDirIterator::Subdirectories);
     int visited = 0;
     while (it.hasNext() && visited < MaxRelinkEntriesVisited
@@ -143,7 +181,7 @@ QStringList AssetDependencyIndex::relinkCandidates(const QString &id) const
         ++visited;
         const QFileInfo info = it.fileInfo();
         if (!info.isFile() || info.fileName() != name) continue;
-        const QString candidate = QDir(m_projectRoot).relativeFilePath(info.canonicalFilePath());
+        const QString candidate = QDir(root).relativeFilePath(info.canonicalFilePath());
         if (candidate != id && !candidate.startsWith(QStringLiteral("../")))
             result.append(candidate);
     }

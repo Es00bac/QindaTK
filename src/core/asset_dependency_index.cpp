@@ -46,6 +46,10 @@ void AssetDependencyIndex::setProjectRoot(const QString &path)
     if (root.isEmpty() || !QFileInfo(root).isDir()) {
         fail(QStringLiteral("Project root must be an existing directory")); return;
     }
+    // AGENT-GUARD: a scan started under the old root must never commit its
+    // relative IDs against the new one; cancelling bumps the generation, so
+    // its result is discarded (applyProjectScan also checks the root).
+    if (root != m_projectRoot) cancelProjectScan();
     m_projectRoot = root;
     m_error.clear();
     notify();
@@ -84,12 +88,22 @@ bool AssetDependencyIndex::upsertAsset(const QString &id, const QString &label,
                                       const QString &uri, bool available,
                                       const QString &kind)
 {
+    return upsert(id, label, uri, available, kind, false);
+}
+
+bool AssetDependencyIndex::upsert(const QString &id, const QString &label,
+                                  const QString &uri, bool available,
+                                  const QString &kind, bool discovered)
+{
     if (!validId(id) || label.trimmed().isEmpty() || label.size() > 512
         || uri.size() > 2048 || kind.trimmed().isEmpty() || kind.size() > 64)
         return fail(QStringLiteral("Invalid asset ID or metadata"));
     if (!m_assets.contains(id) && m_assets.size() >= MaxAssets)
         return fail(QStringLiteral("Asset index is full"));
+    const bool created = !m_assets.contains(id);
     Asset &entry = m_assets[id];
+    // The host registering an asset makes it host-owned for good.
+    entry.discovered = created ? discovered : entry.discovered && discovered;
     const bool different = entry.id != id || entry.label != label || entry.uri != uri
                            || entry.available != available || entry.kind != kind;
     entry.id = id;
@@ -186,13 +200,18 @@ bool AssetDependencyIndex::commitEdges(const QString &sourceId, const QString &t
             placeholder.label = QFileInfo(id).fileName();
             if (placeholder.label.isEmpty()) placeholder.label = id;
             placeholder.kind = QStringLiteral("unresolved");
+            placeholder.discovered = true;
             m_assets.insert(id, placeholder);
         }
     }
     Asset &source = m_assets[sourceId];
+    QSet<QString> dropped;
+    for (auto it = source.dependencies.cbegin(); it != source.dependencies.cend(); ++it)
+        if (!next.contains(it.key())) dropped.insert(it.key());
     m_edgeCount += next.size() - source.dependencies.size();
     source.dependencies = std::move(next);
     m_error.clear();
+    pruneOrphans(dropped);  // a removed reference's placeholder goes with it
     notify();
     return true;
 }
