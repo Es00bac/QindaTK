@@ -104,6 +104,7 @@ Rectangle {
                 Tk.SlideCanvas {
                     anchors.fill: parent
                     anchors.margins: Tk.Theme.space.sm
+                    deck: deck
                     documentId: deck.documentId
                     slideId: root.currentSlideId
                     masterId: root.currentSlide.masterId || ""

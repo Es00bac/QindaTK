@@ -16,6 +16,26 @@ TestCase {
     Component { id: showComponent; Tk.SlideShow { liveClock: false } }
     Component { id: sorterComponent; Tk.SlideSorter { width: 320; height: 560 } }
     Component { id: consoleComponent; Tk.PresenterConsole { width: 880; height: 580 } }
+    Component { id: canvasComponent; Tk.SlideCanvas { width: 700; height: 460 } }
+
+    function test_canvas_paints_the_audience_render_under_chrome() {
+        const deck = createTemporaryObject(deckComponent, this)
+        const slide = deck.slideIds[0]
+        const canvas = createTemporaryObject(canvasComponent, this, { deck: deck, slideId: slide })
+        canvas.objects = Qt.binding(function() { return deck.revision.length ? deck.objects(slide) : [] })
+        verify(canvas.rendered)
+        const render = findChild(canvas, "slideCanvasRender")
+        verify(render !== null)
+        verify(render.visible)
+        compare(render.deck, deck)
+        compare(render.step, -1)
+        const title = canvas.objects.filter(function(o) { return o.role === "title" })[0]
+        const chrome = findChild(findChild(canvas, "slideObject_" + title.id), "slideObjectChrome")
+        verify(chrome !== null)
+        compare(chrome.color.a, 0) // content comes from the painter, not the delegate
+        tryVerify(function() { return render.paintCount > 0 })
+        compare(render.displayedSlideId, slide)
+    }
 
     function test_sorter_reorders_the_deck_with_undo() {
         const deck = createTemporaryObject(deckComponent, this)
