@@ -46312,6 +46312,158 @@
       "bridge": false
     },
     {
+      "name": "AudioPitchSource",
+      "kind": "cpp",
+      "base": "AudioAnalysisSource",
+      "description": "AGENT-CONTRACT (D-194…D-197, docs/audio-pitch.md): the pitch host behind PitchEditor. It analyses one resource of an AudioSession (through session.edits, so it measures what plays) on the thread pool, once per committed buffer, and publishes `snapshot` in PitchEditor's analysisSnapshot format for the view range. Edits go through session.edits as the \"pitch\" operation: previewEdit/commitEdit/cancelEdit take PitchEditor's request arguments unchanged.  AGENT-GUARD: a ready preview makes session.edits return the previewed samples. The source then *holds* its analysis of the committed samples (`holding`), so notes keep their IDs through a drag and stale previewed pitch never becomes the thing the next request edits. Any change to the committed samples marks the analysis stale (`current` false) and editFor() refuses until the new analysis is published; a result computed for an older revision is never published (stillCurrent()).",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/audio_pitch_source.h",
+      "properties": [
+        {
+          "name": "minimumHz",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "maximumHz",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "voicingThreshold",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "correctionAmount",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "pitchSnapCents",
+          "type": "int",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "snapshot",
+          "type": "QVariantMap",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "current",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "holding",
+          "type": "bool",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "noteCount",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "analysisRuns",
+          "type": "int",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "detector",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        },
+        {
+          "name": "corrector",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": true
+        }
+      ],
+      "signals": [
+        {
+          "name": "settingsChanged",
+          "parameters": ""
+        }
+      ],
+      "methods": [
+        {
+          "name": "frameAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sample"
+        },
+        {
+          "name": "noteAt",
+          "returns": "QVariantMap",
+          "parameters": "const QString &sample"
+        },
+        {
+          "name": "notes",
+          "returns": "QVariantList",
+          "parameters": ""
+        },
+        {
+          "name": "editFor",
+          "returns": "QVariantMap",
+          "parameters": "const QString &segmentId, const QString &noteId, const QString &operation, const QString &anchorSample, const QString &targetSample, double targetPitchCents, double targetFormantRatio"
+        },
+        {
+          "name": "previewEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &gestureId, const QString &segmentId, const QString &noteId, const QString &operation, const QString &anchorSample, const QString &targetSample, double targetPitchCents, double targetFormantRatio"
+        },
+        {
+          "name": "commitEdit",
+          "returns": "QVariantMap",
+          "parameters": "const QString &gestureId, const QString &segmentId, const QString &noteId, const QString &operation, const QString &anchorSample, const QString &targetSample, double targetPitchCents, double targetFormantRatio"
+        },
+        {
+          "name": "cancelEdit",
+          "returns": "bool",
+          "parameters": "const QString &gestureId"
+        },
+        {
+          "name": "writeTestSignal",
+          "returns": "QVariantMap",
+          "parameters": "const QString &file, const QVariantList &notes, int sampleRate = 48000"
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "AudioPluginHost",
       "kind": "cpp",
       "base": "QObject",
