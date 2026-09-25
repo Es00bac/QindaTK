@@ -6,6 +6,10 @@ import QindaTK as Tk
 // AGENT-CONTRACT: the host supplies bounded, already-computed tiles and exact
 // sample boundaries plus FFT metadata. This view draws them and requests regions;
 // it does not run FFT, interpret normalization, or apply spectral processing.
+// The reference host is Tk.AudioSpectrogramSource (tiles, boundaries, metadata)
+// plus AudioSession.edits.preview/commitPreview for processRequested
+// (docs/audio-editing.md, D-136/D-137). The committed selection is host state
+// in sample/Hz coordinates, so it keeps its place through zoom.
 T.Control {
     id: root
 
@@ -23,6 +27,11 @@ T.Control {
     property string statusText: ""
     property string tooltip: ""
     property bool selectionEnabled: true
+    // Committed region, drawn at any zoom: exact samples and Hz.
+    property string selectionStartSample: ""
+    property string selectionEndSample: ""
+    property real selectionLowHz: 0
+    property real selectionHighHz: 0
     property string _gestureId: ""
     property int _gestureSerial: 0
     property real _startX: 0
@@ -37,6 +46,8 @@ T.Control {
     signal selectionCommitted(string gestureId, string sourceId, string channelId,
                               string startSample, string endSample, real lowHz, real highHz)
     signal gestureCanceled(string gestureId)
+    signal processRequested(string gestureId, string sourceId, string channelId, string operation,
+                            string startSample, string endSample, real lowHz, real highHz)
     signal zoomRequested(string anchorSample, real anchorHz, real factor)
     signal scrollRequested(real timeFraction, real frequencyFraction)
 
@@ -46,7 +57,7 @@ T.Control {
     Accessible.role: Accessible.Graphic
     Accessible.name: root.tooltip.length ? root.tooltip : qsTr("Spectrogram view")
     Accessible.description: root.statusText.length ? root.statusText
-        : qsTr("%1 point FFT, %2 window, %3 hop, %4 normalization")
+        : qsTr("%1 point FFT, %2 window, %3 hop, %4 normalization. Delete removes the selected region.")
           .arg(root.fftSize).arg(root.fftWindow).arg(root.hopSize).arg(root.fftNormalization)
     activeFocusOnTab: true
     focus: true
@@ -65,6 +76,28 @@ T.Control {
         if (root.sampleBoundaries.length < 2) return ""
         const index = Math.min(root.sampleBoundaries.length - 1, root.boundaryIndex(x) + 1)
         return String(root.sampleBoundaries[index])
+    }
+    // Exact boundary strings first; otherwise linear between the first and last.
+    function fractionForSample(sample) {
+        const count = root.sampleBoundaries.length
+        if (count < 2) return 0
+        const wanted = String(sample)
+        for (let i = 0; i < count; ++i)
+            if (String(root.sampleBoundaries[i]) === wanted) return i / (count - 1)
+        const first = Number(root.sampleBoundaries[0])
+        const last = Number(root.sampleBoundaries[count - 1])
+        if (!(last > first)) return 0
+        return Math.max(0, Math.min(1, (Number(wanted) - first) / (last - first)))
+    }
+    readonly property bool hasSelection: root.selectionStartSample.length > 0
+        && root.selectionEndSample.length > 0 && root.selectionStartSample !== root.selectionEndSample
+        && root.selectionHighHz > root.selectionLowHz
+    function requestProcess(operation) {
+        if (!root.enabled || !root.selectionEnabled || !root.hasSelection) return false
+        const id = "spectral-process-" + (++root._gestureSerial).toString()
+        root.processRequested(id, root.sourceId, root.channelId, operation, root.selectionStartSample,
+                              root.selectionEndSample, root.selectionLowHz, root.selectionHighHz)
+        return true
     }
     function frequencyAt(y) {
         const fraction = 1 - Math.max(0, Math.min(1, y / Math.max(1, root.height)))
@@ -155,6 +188,16 @@ T.Control {
             ctx.fillText(root.formatHz(root.maximumHz), Tk.Theme.space.xs, Tk.Theme.space.xs)
             ctx.textBaseline = "bottom"
             ctx.fillText(root.formatHz(root.minimumHz), Tk.Theme.space.xs, height - Tk.Theme.space.xs)
+            if (root.hasSelection && !root._gestureId.length) {
+                const sx0 = root.fractionForSample(root.selectionStartSample) * width
+                const sx1 = root.fractionForSample(root.selectionEndSample) * width
+                const sy0 = root.yForFrequency(root.selectionHighHz)
+                const sy1 = root.yForFrequency(root.selectionLowHz)
+                ctx.strokeStyle = root.css(Tk.Theme.color.focus)
+                ctx.lineWidth = Tk.Theme.size.border
+                ctx.strokeRect(Math.min(sx0, sx1), sy0, Math.max(Tk.Theme.size.border, Math.abs(sx1 - sx0)),
+                               Math.max(Tk.Theme.size.border, sy1 - sy0))
+            }
             if (root._gestureId.length) {
                 const x = Math.min(root._startX, root._endX), y = Math.min(root._startY, root._endY)
                 ctx.fillStyle = root.css(Tk.Theme.color.selection)
@@ -182,6 +225,10 @@ T.Control {
     onMinimumHzChanged: spectralCanvas.requestPaint()
     onMaximumHzChanged: spectralCanvas.requestPaint()
     onFrequencyScaleChanged: spectralCanvas.requestPaint()
+    onSelectionStartSampleChanged: spectralCanvas.requestPaint()
+    onSelectionEndSampleChanged: spectralCanvas.requestPaint()
+    onSelectionLowHzChanged: spectralCanvas.requestPaint()
+    onSelectionHighHzChanged: spectralCanvas.requestPaint()
     DragHandler {
         target: null
         enabled: root.enabled && root.selectionEnabled
@@ -205,6 +252,12 @@ T.Control {
         }
     }
     Keys.onEscapePressed: event => { root.cancelSelection(); event.accepted = true }
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+            root.requestProcess("spectralGain")
+            event.accepted = true
+        }
+    }
     Tk.ToolTip { visible: hover.hovered && root.tooltip.length > 0; text: root.tooltip }
     HoverHandler { id: hover }
 }
