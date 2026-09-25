@@ -16,7 +16,10 @@
 
 namespace QindaTK {
 
-// Sync endpoint for one document. It listens on an owner-only local socket
+// Sync endpoint for one document (the hub). setService marks the service
+// authoritative, so it compacts and pushes each new base to live peers; the
+// replicas attached to that service in this process share presence with
+// every peer. It listens on an owner-only local socket
 // (listen) and/or a local-network TCP port (listenNetwork). The host grants
 // each actor a credential and editor/viewer permission; grants may change
 // while listening. Every connection authenticates by challenge-response and
@@ -66,7 +69,9 @@ private:
     bool send(QIODevice *device, const QJsonObject &body);
     void sendBacklog(QIODevice *device);
     void broadcastPresence(QIODevice *origin, const QJsonObject &frame);
-    void sendError(QIODevice *device, const QString &message, const QString &operationId = {});
+    void sendError(QIODevice *device, const QString &message, const QString &operationId = {},
+                   bool permanent = false);
+    bool sendBase(QIODevice *device);
     void endSessions(const QString &actorId, const QString &reason);
     void expireIdle();
     QLocalServer m_server;
@@ -79,13 +84,15 @@ private:
     QString m_lastError;
     QHash<QString, Grant> m_grants;
     QHash<QIODevice *, Peer> m_peers;
-    QMetaObject::Connection m_serviceConnection;
+    QVector<QMetaObject::Connection> m_serviceConnections;
 };
 
 // Local-service bridge. The client process owns a LocalPropertySyncService
-// with storagePath set: its durable operation log is also its outgoing queue.
-// On reconnect, only this actor's operations are resent; server dedup uses
-// operation UUID and exact typed content. Presence never enters either log.
+// with storagePath set: its durable outbox is the outgoing queue. On
+// reconnect, this actor's unacknowledged operations are resent; server dedup
+// uses operation UUID and exact typed content. A permanent reject discards
+// the operation locally; a hub base (after compaction) is adopted. Presence
+// never enters either log.
 // setHost selects the TCP transport; otherwise the local socket name is used.
 class PropertySyncSocketClient final : public QObject {
     Q_OBJECT
@@ -112,6 +119,9 @@ signals:
     void connected();
     void disconnected();
     void operationRejected(const QString &operationId, const QString &reason);
+    // A permanently refused operation was removed from the local store and
+    // the local replicas were rebuilt without it (D-179).
+    void operationDiscarded(const QString &operationId, const QString &reason);
     void permissionChanged(bool mayEdit);
     void revoked(const QString &reason);
     void presenceChanged(const QString &actorId, const QVariantMap &presence);
@@ -131,6 +141,9 @@ private:
     void setMayEdit(bool mayEdit);
     void heartbeat();
     void sendOutgoing();
+    void resetRebase();
+    void receiveBasePart(const QJsonObject &frame);
+    bool finishRebase();
     void sendCurrentPresence();
     void leaveRemotePresence();
     QLocalSocket m_socket;
@@ -151,6 +164,12 @@ private:
     QSet<QString> m_sent;
     QHash<QString, QVariantMap> m_remotePresence;
     QVariantMap m_localPresence;
+    QByteArray m_baseBytes;
+    QString m_baseId;
+    int m_baseParts = 0;
+    int m_baseTotal = 0;
+    bool m_rebasing = false;
+    QVector<PropertySyncOperation> m_rebaseTail;
     bool m_ready = false;
     bool m_mayEdit = false;
     QMetaObject::Connection m_serviceConnection;

@@ -24,7 +24,6 @@ bool outranks(const PropertySyncOperation &a, const PropertySyncOperation &b)
     return a.operationId > b.operationId;
 }
 
-namespace {
 std::optional<QJsonObject> encodeValue(const QVariant &value)
 {
     QString kind;
@@ -83,6 +82,7 @@ std::optional<QVariant> decodeValue(const QJsonObject &object)
     return std::nullopt;
 }
 
+namespace {
 using Kind = PropertySyncOperation::Kind;
 
 QString kindName(Kind kind)

@@ -1484,3 +1484,44 @@ turned into a comp by one source switch, or in a new comp. **Consequences.**
 Every pass plays exactly what was heard at its position, pre- and post-roll
 stay available, the event ring's acknowledgment guarantee is untouched, and
 a recording with lost jumps falls back to one linear clip.
+
+## D-178 — The hub log compacts into a replica state, and connected edits are durable or taken back
+
+**Context.** The operation log had a lifetime cap of 4,096 packets and no
+compaction, so a normal editing session filled a document for good; after
+that an edit showed locally but lived only in memory. **Decision.** The
+authoritative service (the hub; a socket server marks its service) folds its
+log into a base: the state a replica derives from the operations (winners,
+supporters, removed sets, text sequences with element IDs and tombstones).
+The log keeps newer operations and the shared checkpoints; the base is
+written before the store names it. Replicas rebuild from base + log + their
+own queue; socket peers adopt each new base and keep their unacknowledged
+outbox. Every merge rule is idempotent, so a folded operation delivered again
+changes nothing, and clocks never reset. A connected edit that the store
+cannot hold is refused before it applies or taken back, and multi-operation
+edits are checked whole before the first part applies. **Consequences.**
+Documents have no lifetime operation limit; a headless hub needs
+`setCompactionBaseline`; a rebuild resets the document once; replica stores
+move to format 2 (version 1 still opens).
+
+## D-179 — A permanently refused edit is discarded from the replica
+
+**Context.** An edit queued offline before a permission loss stayed applied
+in the replica and store, and was resent and rejected on every reconnect: the
+replica never converged. **Decision.** The server marks a reject permanent
+(no permission, identity mismatch, invalid packet, reused ID) or transient
+(full or unwritable store). On a permanent reject the bridge removes that
+operation from its outbox and store and rebuilds every local replica without
+it, emitting `operationDiscarded`; transient refusals stay queued.
+**Consequences.** Replicas converge with the hub after a downgrade; the host
+tells the user which edit was dropped. An edit made without permission is
+not kept for a later upgrade.
+
+## D-180 — Text carets and selections travel as element anchors
+
+**Context.** Presence carried text positions, which point at the wrong place
+after a concurrent edit, and element IDs were private. **Decision.**
+`LocalPropertySyncClient::textAnchor` names the element before a position
+and `textPosition` resolves it on any replica; a deleted element resolves to
+the gap it left. **Consequences.** Shared selections follow edits without
+host rebasing; anchors survive compaction because element IDs do.

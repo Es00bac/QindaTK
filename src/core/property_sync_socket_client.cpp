@@ -148,9 +148,12 @@ bool PropertySyncSocketClient::connectToServer()
     if (m_localClient && (m_localClient->service() != m_service
                           || m_localClient->actorId() != m_actorId))
         return fail(QStringLiteral("Local presence client identity mismatch"));
+    if (m_service->isAuthoritative())
+        return fail(QStringLiteral("A hub service cannot also be a replica of another hub"));
     m_lastError.clear();
     m_sent.clear();
     m_buffer.clear();
+    resetRebase();
     m_channel.reset();
     if (m_host.isEmpty()) m_socket.connectToServer(m_socketName);
     else m_tcpSocket.connectToHost(m_host, m_port);
@@ -184,6 +187,7 @@ void PropertySyncSocketClient::onDisconnected()
     m_ready = false;
     m_sent.clear();
     m_buffer.clear();
+    resetRebase();
     m_channel.reset();
     leaveRemotePresence();
     emit disconnected();
@@ -289,20 +293,41 @@ void PropertySyncSocketClient::handleFrame(const QJsonObject &frame)
     const QString type = frame.value(QStringLiteral("type")).toString();
     if (type == QStringLiteral("ready") || type == QStringLiteral("permission")) {
         setMayEdit(frame.value(QStringLiteral("mayEdit")).toBool());
-    } else if (type == QStringLiteral("replayEnd")) {
+    } else if (type == QStringLiteral("replayEnd") || type == QStringLiteral("rebased")) {
+        if (m_rebasing && !finishRebase()) return;
+        if (type == QStringLiteral("rebased")) return;
         m_ready = true;
         emit connected();
         sendOutgoing();
         sendCurrentPresence();
+    } else if (type == QStringLiteral("base")) {
+        receiveBasePart(frame);
     } else if (type == QStringLiteral("operation")) {
         const auto operation =
             propertySyncOperationFromJson(frame.value(QStringLiteral("data")).toObject());
-        if (!operation || !m_service || !m_service->submit(*operation))
+        if (operation && m_rebasing) {
+            // Held until the marker: the base and its tail replace the log at once.
+            if (m_rebaseTail.size() >= sync_detail::MaxOperations) {
+                fail(QStringLiteral("Hub tail is too long"));
+                abortConnection();
+                return;
+            }
+            m_rebaseTail.append(*operation);
+        } else if (!operation || !m_service || !m_service->submitUpstream(*operation)) {
             fail(m_service ? m_service->lastError() : QStringLiteral("No local service"));
+        }
+    } else if (type == QStringLiteral("ack")) {
+        if (m_service) m_service->settle(frame.value(QStringLiteral("id")).toString());
     } else if (type == QStringLiteral("reject")) {
         const QString id = frame.value(QStringLiteral("id")).toString();
         const QString reason = frame.value(QStringLiteral("reason")).toString();
         fail(reason);
+        // AGENT-GUARD (D-179): an edit the hub will never accept is taken out
+        // of this replica, or it would stay visible here and nowhere else and
+        // be resent on every reconnect. A transient refusal stays queued.
+        if (frame.value(QStringLiteral("permanent")).toBool() && m_service
+            && m_service->discard(id))
+            emit operationDiscarded(id, reason);
         emit operationRejected(id, reason);
     } else if (type == QStringLiteral("revoked")) {
         const QString reason = frame.value(QStringLiteral("reason")).toString();
@@ -329,7 +354,7 @@ void PropertySyncSocketClient::handleFrame(const QJsonObject &frame)
             emit presenceLeft(actor);
             if (m_localClient) m_localClient->receivePresenceLeft(actor);
         }
-    } else if (type != QStringLiteral("ack") && type != QStringLiteral("pong")) {
+    } else if (type != QStringLiteral("pong")) {
         fail(QStringLiteral("Unknown server frame"));
         abortConnection();
     }
@@ -353,10 +378,58 @@ void PropertySyncSocketClient::leaveRemotePresence()
     }
 }
 
+void PropertySyncSocketClient::resetRebase()
+{
+    m_rebasing = false;
+    m_baseParts = 0;
+    m_baseBytes.clear();
+    m_baseId.clear();
+    m_rebaseTail.clear();
+}
+
+void PropertySyncSocketClient::receiveBasePart(const QJsonObject &frame)
+{
+    const QString id = frame.value(QStringLiteral("id")).toString();
+    const int part = frame.value(QStringLiteral("part")).toInt(-1);
+    const int parts = frame.value(QStringLiteral("parts")).toInt(-1);
+    const QByteArray encoded = frame.value(QStringLiteral("data")).toString().toLatin1();
+    const auto decoded = QByteArray::fromBase64Encoding(encoded);
+    const bool first = part == 0;
+    const int maxParts = int(sync_detail::MaxStateBytes / (48 * 1024)) + 1;
+    if (!sync_detail::canonicalUuid(id) || parts < 1 || parts > maxParts || !decoded
+        || (first ? false : (id != m_baseId || part != m_baseParts || parts != m_baseTotal))
+        || m_baseBytes.size() + decoded.decoded.size() > sync_detail::MaxStateBytes) {
+        fail(QStringLiteral("Invalid hub base frame"));
+        abortConnection();
+        return;
+    }
+    if (first) {
+        resetRebase();
+        m_baseId = id;
+        m_baseTotal = parts;
+    }
+    m_baseBytes.append(decoded.decoded);
+    m_baseParts = part + 1;
+    m_rebasing = m_baseParts == m_baseTotal;
+}
+
+bool PropertySyncSocketClient::finishRebase()
+{
+    const bool adopted = m_service
+        && m_service->adoptBase(m_baseBytes, m_baseId, m_rebaseTail);
+    const QString error = m_service ? m_service->lastError() : QStringLiteral("No local service");
+    resetRebase();
+    if (adopted) return true;
+    fail(error);
+    abortConnection();
+    return false;
+}
+
 void PropertySyncSocketClient::sendOutgoing()
 {
     if (!m_ready || !m_service) return;
-    for (const auto &operation : m_service->operations()) {
+    // Only unacknowledged local operations: the outbox is the durable queue.
+    for (const auto &operation : m_service->outbox()) {
         if (operation.actorId != m_actorId || m_sent.contains(operation.operationId)) continue;
         const auto encoded = propertySyncOperationToJson(operation);
         if (!encoded || !send({{QStringLiteral("type"), QStringLiteral("operation")},

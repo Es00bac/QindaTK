@@ -22,13 +22,33 @@ QVariant LocalPropertySyncClient::baseValue(const QString &entityId,
     return descriptor ? descriptor->defaultValue : QVariant{};
 }
 
-bool LocalPropertySyncClient::addSupport(const QString &entityId, const QString &operationId)
+bool LocalPropertySyncClient::addSupport(const QString &entityId,
+                                         const PropertySyncOperation &operation)
 {
     auto &support = m_support[entityId];
+    if (support.contains(operation.operationId)) return true;   // redelivered
     if (support.size() >= MaxObserved)
         return fail(QStringLiteral("Entity has too many create operations"));
-    support.insert(operationId);
+    support.insert(operation.operationId, {operation.logicalTime, operation.actorId});
     return true;
+}
+
+bool LocalPropertySyncClient::foreignSupportSince(const QString &entityId, quint64 time) const
+{
+    // Another actor's live supporter newer than time: a Create (revival) or a
+    // winning edit of one of the object's properties.
+    const QSet<QString> removed = m_removed.value(entityId);
+    const auto support = m_support.value(entityId);
+    for (auto it = support.cbegin(); it != support.cend(); ++it)
+        if (!removed.contains(it.key()) && it->actorId != m_actorId && it->time > time)
+            return true;
+    for (const QString &property : m_document->propertyIds()) {
+        const auto winner = m_winners.constFind(keyOf(entityId, property));
+        if (winner != m_winners.cend() && !removed.contains(winner->operationId)
+            && winner->actorId != m_actorId && winner->logicalTime > time)
+            return true;
+    }
+    return false;
 }
 
 // AGENT-CONTRACT (docs/collaboration.md "Objects and deletes"): an entity is
@@ -41,8 +61,9 @@ bool LocalPropertySyncClient::entityAlive(const QString &entityId) const
 {
     const QSet<QString> removed = m_removed.value(entityId);
     if (m_baselineEntities.contains(entityId) && !removed.contains(entityId)) return true;
-    for (const QString &id : m_support.value(entityId))
-        if (!removed.contains(id)) return true;
+    const auto support = m_support.value(entityId);
+    for (auto it = support.cbegin(); it != support.cend(); ++it)
+        if (!removed.contains(it.key())) return true;
     for (const QString &property : m_document->propertyIds()) {
         const auto winner = m_winners.constFind(keyOf(entityId, property));
         if (winner != m_winners.cend() && !removed.contains(winner->operationId)) return true;
@@ -52,6 +73,7 @@ bool LocalPropertySyncClient::entityAlive(const QString &entityId) const
 
 bool LocalPropertySyncClient::reconcileEntity(const QString &entityId)
 {
+    if (m_detached) return true;   // a rebuild materializes the document once
     const EntityId entity = EntityId::parse(entityId);
     const bool alive = entityAlive(entityId);
     const bool present = m_document->contains(entity);
@@ -62,11 +84,23 @@ bool LocalPropertySyncClient::reconcileEntity(const QString &entityId)
         m_expectedRevision = m_document->revision().value;
         return true;
     }
+    const QVariantMap values = entityValues(entityId);
+    if (values.isEmpty() && !m_document->propertyIds().isEmpty()) return false;
+    if (!m_document->addEntity(entity, values))
+        return fail(QStringLiteral("Cannot add synchronized entity"));
+    m_expectedRevision = m_document->revision().value;
+    return true;
+}
+
+QVariantMap LocalPropertySyncClient::entityValues(const QString &entityId)
+{
+    // A revived or rebuilt object takes each property's winner, else its
+    // baseline value, else the descriptor default; text is the sequence.
     QVariantMap values;
     for (const QString &property : m_document->propertyIds()) {
         if (isTextProperty(property)) {
             TextSequence *text = sequence(entityId, property);
-            if (!text) return false;
+            if (!text) return {};
             values.insert(property, visibleText(*text));
             continue;
         }
@@ -74,16 +108,13 @@ bool LocalPropertySyncClient::reconcileEntity(const QString &entityId)
         values.insert(property, winner != m_winners.cend() ? winner->value
                                                            : baseValue(entityId, property));
     }
-    if (!m_document->addEntity(entity, values))
-        return fail(QStringLiteral("Cannot add synchronized entity"));
-    m_expectedRevision = m_document->revision().value;
-    return true;
+    return values;
 }
 
 bool LocalPropertySyncClient::receiveEntity(const PropertySyncOperation &operation)
 {
     if (operation.kind == Kind::Create) {
-        if (!addSupport(operation.entityId, operation.operationId)) return false;
+        if (!addSupport(operation.entityId, operation)) return false;
     } else {
         const auto observed = decodeIdList(operation.value.toByteArray());
         if (!observed) return fail(QStringLiteral("Invalid delete operation"));
@@ -95,7 +126,7 @@ bool LocalPropertySyncClient::receiveEntity(const PropertySyncOperation &operati
 
 QString LocalPropertySyncClient::createEntity(const QVariantMap &values)
 {
-    if (!readyToEdit()) return {};
+    if (!readyToEdit(1 + int(values.size()))) return {};
     for (auto it = values.cbegin(); it != values.cend(); ++it) {
         const auto descriptor = m_document->descriptor(it.key());
         if (!descriptor || isTextProperty(it.key())
@@ -106,8 +137,7 @@ QString LocalPropertySyncClient::createEntity(const QVariantMap &values)
     }
     const QString entityId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     const auto create = makeOperation(Kind::Create, entityId, entityProperty(), true);
-    if (!submitLocal(create, step(Kind::Create, create.operationId, entityId)))
-        return m_seen.contains(create.operationId) ? entityId : QString();
+    if (!submitLocal(create, step(Kind::Create, create.operationId, entityId))) return {};
     for (auto it = values.cbegin(); it != values.cend(); ++it)
         if (!setValueImpl(entityId, it.key(), it.value(), false)) return entityId;
     return entityId;
@@ -128,8 +158,9 @@ bool LocalPropertySyncClient::deleteEntityImpl(const QString &entityId, bool rec
     QStringList observed;
     if (m_baselineEntities.contains(entityId) && !removed.contains(entityId))
         observed.append(entityId);
-    for (const QString &id : m_support.value(entityId))
-        if (!removed.contains(id)) observed.append(id);
+    const auto support = m_support.value(entityId);
+    for (auto it = support.cbegin(); it != support.cend(); ++it)
+        if (!removed.contains(it.key())) observed.append(it.key());
     for (const QString &property : m_document->propertyIds()) {
         const auto winner = m_winners.constFind(keyOf(entityId, property));
         if (winner != m_winners.cend() && !removed.contains(winner->operationId)

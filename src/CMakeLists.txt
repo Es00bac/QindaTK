@@ -241,7 +241,8 @@ qt_add_qml_module(qindatk
         core/property_document.cpp core/property_document.h
         core/local_property_sync.cpp core/local_property_sync_restore.cpp core/local_property_sync.h
         core/local_property_sync_structure.cpp core/local_property_sync_text.cpp
-        core/local_property_sync_undo.cpp
+        core/local_property_sync_undo.cpp core/local_property_sync_service.cpp
+        core/local_property_sync_state.cpp
         core/property_sync_codec.cpp core/property_sync_detail_p.h
         core/property_sync_channel.cpp core/property_sync_channel.h
         core/property_sync_socket.cpp core/property_sync_socket_client.cpp core/property_sync_socket.h
