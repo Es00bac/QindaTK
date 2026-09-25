@@ -2,15 +2,21 @@
 import QtQuick
 import QindaTK as Tk
 
-// This is a semantic source editor surface, not an equation parser or layout
-// engine. The host validates source and returns explicit capability/errors.
+// Visual and source editing of one equation (OFF-09). The visual view
+// (Tk.EquationCanvas) edits the expression tree: a caret and selection in its
+// slots, typing, ^ _ / for scripts and fractions, and palette templates. The
+// source view edits the TeX-subset text. Both write `sourceDraft` as
+// canonical source, so the two round-trip; the host validates the draft and
+// applies it with sourceChangeRequested.
 Item {
     id: control
     property var equation: null // {id,source,linearText,status,error,location,supportedSymbols:[symbol ids]}
     property var symbols: [] // [{id,label,source,tooltip}]
     property string sourceDraft: equation ? equation.source || "" : ""
     property string errorText: ""
-    property string tooltip: qsTr("Edit equation source and insert supported symbols")
+    property string tooltip: qsTr("Edit the equation visually or as source and insert supported symbols")
+    // Where palette symbols go: "visual" (the caret in the tree) or "source".
+    property string activeView: "visual"
     readonly property bool available: equation !== null && equation.id !== undefined && !!equation.id
     readonly property bool canCommit: available && equation.supported !== false && errorText.length === 0
     signal sourceChangeRequested(string equationId, string source)
@@ -31,8 +37,13 @@ Item {
         if (enabled && canCommit) sourceChangeRequested(equation.id, sourceDraft)
     }
     function insertSymbol(symbol) {
-        if (!enabled || !canCommit || !symbol || equation.supportedSymbols
+        if (!enabled || !available || !symbol || equation.supportedSymbols
                 && equation.supportedSymbols.indexOf(symbol.id) < 0) return
+        if (activeView === "visual") {
+            visualView.insertSymbol(symbol.id) // the tree edit writes sourceDraft
+            visualView.forceActiveFocus()
+            return
+        }
         symbolInsertRequested(equation.id, symbol.id, sourceDraft, sourceField.cursorPosition)
     }
 
@@ -77,10 +88,43 @@ Item {
                     objectName: "equationSymbol_" + modelData.id
                     text: modelData.label
                     tooltip: modelData.tooltip || qsTr("Insert %1 symbol").arg(modelData.label)
-                    enabled: control.canCommit && (!control.equation.supportedSymbols
-                              || control.equation.supportedSymbols.indexOf(modelData.id) >= 0)
+                    enabled: control.available && control.equation.supported !== false
+                             && (!control.equation.supportedSymbols
+                                 || control.equation.supportedSymbols.indexOf(modelData.id) >= 0)
                     onClicked: control.insertSymbol(modelData)
                 }
+            }
+        }
+        Rectangle {
+            objectName: "equationVisualFrame"
+            visible: control.available
+            implicitHeight: Math.max(visualView.implicitHeight, Tk.Theme.size.control * 3)
+            color: Tk.Theme.color.inputBg
+            radius: Tk.Theme.radius.sm
+            border.width: Tk.Theme.size.border
+            border.color: visualView.activeFocus ? Tk.Theme.color.inputFocusBorder : Tk.Theme.color.inputBorder
+            Tk.EquationCanvas {
+                id: visualView
+                objectName: "equationVisual"
+                anchors.fill: parent
+                source: control.sourceDraft
+                readOnly: !control.enabled || !!control.equation && control.equation.supported === false
+                fontSizePt: Tk.Theme.font.display * 0.75 // px to pt at 96 dpi
+                padding: Tk.Theme.space.sm
+                inkColor: Tk.Theme.color.text
+                caretColor: Tk.Theme.color.accent
+                selectionColor: Tk.Theme.color.accentSubtle
+                placeholderColor: Tk.Theme.color.textMuted
+                Accessible.role: Accessible.EditableText
+                Accessible.name: qsTr("Equation, visual view")
+                Accessible.description: linearText
+                onActiveFocusChanged: if (activeFocus) control.activeView = "visual"
+                onEdited: function(source) { control.sourceDraft = source }
+                Tk.ToolTip {
+                    text: qsTr("Type to edit: ^ superscript, _ subscript, / fraction; arrow keys move between slots")
+                    visible: visualHover.hovered
+                }
+                HoverHandler { id: visualHover }
             }
         }
         Tk.TextArea {
@@ -94,6 +138,7 @@ Item {
             tooltip: qsTr("Equation source submitted to the document parser")
             readOnly: control.equation && control.equation.supported === false
             onTextChanged: control.sourceDraft = text
+            onActiveFocusChanged: if (activeFocus) control.activeView = "source"
         }
         Tk.Caption {
             objectName: "equationUnsupportedSymbols"
@@ -113,8 +158,10 @@ Item {
             wrapMode: Text.WordWrap
         }
         Tk.Caption {
+            objectName: "equationHelp"
+            visible: control.available
             color: Tk.Theme.color.textMuted
-            text: qsTr("Visual equation layout is supplied by the document host. Source edits are requests and are validated there.")
+            text: qsTr("Edit in the visual view (^ superscript, _ subscript, / fraction, arrows between slots) or in the source; Apply sends the source to the document.")
             wrapMode: Text.WordWrap
         }
         Tk.Button {

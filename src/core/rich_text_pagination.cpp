@@ -15,13 +15,14 @@ namespace RichText {
 
 bool sameFlow(const FlowState &a, const FlowState &b)
 {
-    return a.blockId == b.blockId && a.line == b.line && a.row == b.row
+    return a.blockId == b.blockId && a.line == b.line && a.row == b.row && a.notes == b.notes
         && a.cellLine == b.cellLine && a.exclusions == b.exclusions && a.widths == b.widths;
 }
 
 FlowBuilder::FlowBuilder(RichTextLayout &layout, const RichTextDocument &document, qreal width,
                          qreal height, bool paged)
-    : m_layout(layout), m_document(document), m_width(width), m_height(height), m_paged(paged)
+    : m_layout(layout), m_document(document), m_width(width), m_height(height), m_paged(paged),
+      m_regionHeight(height)
 {
 }
 
@@ -34,12 +35,13 @@ bool FlowBuilder::build(const FlowState &start, Page *page, FlowState *next)
     m_floats.clear();
     FlowState state = start;
     const auto &blocks = m_document.blocks();
-    while (state.block < blocks.size()) {
+    while (state.block < blocks.size() && !state.notes) {
         const Block &block = blocks.at(state.block);
         state.blockId = block.id();
         const bool placed = block.paragraph ? placeParagraph(*block.paragraph, state, *page)
                                             : placeTable(*block.table, state, *page);
         if (!placed) {
+            finishNotes(*page);
             *next = state;
             return true;
         }
@@ -50,8 +52,10 @@ bool FlowBuilder::build(const FlowState &start, Page *page, FlowState *next)
         state.widths.clear();
         if (state.block < blocks.size()) state.blockId = blocks.at(state.block).id();
     }
+    finishNotes(*page);
+    const bool more = placeEndNotes(state, *page);
     *next = state;
-    return false;
+    return more;
 }
 
 QVector<FlowBuilder::FloatBox> FlowBuilder::floatsOf(const Paragraph &p, qreal top, bool rightToLeft) const
@@ -172,8 +176,24 @@ bool FlowBuilder::placeParagraph(const Paragraph &p, FlowState &state, Page &pag
             && top + m.height + m.spaceAfter + next > m_height)
             return false;
     }
+    // Footnotes referenced from a line need room at the region's foot with it.
+    const QVector<NoteReference> notes = m_paged ? noteReferences(m_document, p) : QVector<NoteReference>{};
+    QVector<qreal> noteNeed(n, 0);  // note height referenced from each line
+    QVector<QVector<int>> lineNotes(n);
+    for (int k = 0; k < notes.size(); ++k) {
+        if (!notes.at(k).footnote) continue;
+        int line = n - 1;
+        while (line > 0 && m_layout.modelOffset(m, m.lines.at(line).start) > notes.at(k).offset) --line;
+        noteNeed[line] += m_layout.noteHeight(notes.at(k).text, m_width);
+        lineNotes[line].append(k);
+    }
+    auto roomFor = [&](int last) { // lines [first, last] with their footnotes
+        qreal need = 0;
+        for (int line = first; line <= last; ++line) need += noteNeed.at(line);
+        return bottomOf(last) + noteRoom(need) <= m_height + 0.01;
+    };
     int fit = 0;
-    while (first + fit < n && (!m_paged || bottomOf(first + fit) <= m_height + 0.01)) ++fit;
+    while (first + fit < n && (!m_paged || roomFor(first + fit))) ++fit;
     bool split = first + fit < n;
     if (split) {
         if (n - (first + fit) == 1 && fit >= 2) --fit;                 // widow: carry two lines
@@ -189,6 +209,9 @@ bool FlowBuilder::placeParagraph(const Paragraph &p, FlowState &state, Page &pag
     } else {
         fit = n - first;
     }
+    for (int line = first; line < first + fit; ++line)
+        for (int k : lineNotes.at(line))
+            reserveNote(p, notes.at(k).fieldId, notes.at(k).text, m_layout.noteHeight(notes.at(k).text, m_width));
     if (fit > 0) {
         PageItem item;
         item.kind = PageItem::Lines;
@@ -267,6 +290,7 @@ void RichTextLayout::invalidateAll()
     m_contextMetrics.clear();
     m_tables.clear();
     m_pages.clear();
+    m_noteHeights.clear();
     m_shapedCount = 0;
     m_flowHeight = 0;
     m_complete = !m_document;
@@ -383,6 +407,8 @@ void RichTextLayout::onContentChanged(const ChangeSet &change)
         finalizePages(pageCount());
         return;
     }
+    // The end-note area lists notes from the whole document: rebuild through it.
+    if (hasNotes()) dirtyLast = int(ids.size());
     repaginateFrom(dirtyFirst, dirtyLast);
 }
 

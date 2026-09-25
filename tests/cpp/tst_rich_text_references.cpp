@@ -199,8 +199,10 @@ private slots:
         const QString citation = doc.insertReference(pid(doc, 0), 4, QStringLiteral("citation"), source);
         QVERIFY(!citation.isEmpty());
         const QByteArray before = RichTextCodec::encode(doc);
-        QVERIFY(doc.insertReference(pid(doc, 0), 0, QStringLiteral("footnote"), source).isEmpty());
+        QVERIFY(doc.insertReference(pid(doc, 0), 0, QStringLiteral("index-entry"), source).isEmpty());
         QCOMPARE(doc.lastErrorCode(), QStringLiteral("unsupported"));
+        QVERIFY(doc.insertReference(pid(doc, 0), 0, QStringLiteral("footnote"), QStringLiteral(" ")).isEmpty());
+        QCOMPARE(doc.lastErrorCode(), QStringLiteral("invalidArgument")); // a note needs text
         QVERIFY(doc.insertReference(pid(doc, 0), 0, QStringLiteral("cross-reference"), source).isEmpty());
         QCOMPARE(doc.lastErrorCode(), QStringLiteral("invalidArgument"));
         QVERIFY(doc.insertReference(pid(doc, 0), 0, QStringLiteral("caption"), QStringLiteral("sequence:9")).isEmpty());
@@ -211,7 +213,8 @@ private slots:
         QVERIFY(!doc.addSource({{QStringLiteral("year"), QStringLiteral("2020")}}).size());
         QCOMPARE(RichTextCodec::encode(doc), before);
         QCOMPARE(doc.referenceTypes(), (QStringList{QStringLiteral("caption"), QStringLiteral("cross-reference"),
-                                                    QStringLiteral("citation"), QStringLiteral("bibliography")}));
+                                                    QStringLiteral("citation"), QStringLiteral("bibliography"),
+                                                    QStringLiteral("footnote"), QStringLiteral("endnote")}));
     }
 
     void referencesPersistAndStaleResultsUpdate()
@@ -257,7 +260,7 @@ private slots:
         QJsonObject invalid = root;
         QJsonArray fields = invalid.value(QStringLiteral("fields")).toArray();
         QJsonObject first = fields.at(0).toObject();
-        first.insert(QStringLiteral("kind"), QStringLiteral("footnote"));
+        first.insert(QStringLiteral("kind"), QStringLiteral("sidenote"));
         fields.replace(0, first);
         invalid.insert(QStringLiteral("fields"), fields);
         OperationError error;

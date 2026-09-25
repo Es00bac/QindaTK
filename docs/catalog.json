@@ -13480,7 +13480,7 @@
       "name": "EquationEditor",
       "kind": "qml",
       "base": "Item",
-      "description": "This is a semantic source editor surface, not an equation parser or layout engine. The host validates source and returns explicit capability/errors.",
+      "description": "Visual and source editing of one equation (OFF-09). The visual view (Tk.EquationCanvas) edits the expression tree: a caret and selection in its slots, typing, ^ _ / for scripts and fractions, and palette templates. The source view edits the TeX-subset text. Both write `sourceDraft` as canonical source, so the two round-trip; the host validates the draft and applies it with sourceChangeRequested.",
       "singleton": false,
       "attached": null,
       "file": "src/qml/EquationEditor.qml",
@@ -13520,7 +13520,15 @@
         {
           "name": "tooltip",
           "type": "string",
-          "default": "qsTr(\"Edit equation source and insert supported symbols\")",
+          "default": "qsTr(\"Edit the equation visually or as source and insert supported symbols\")",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "activeView",
+          "type": "string",
+          "default": "\"visual\"",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -13577,11 +13585,14 @@
       "objectNames": [
         "equationApply",
         "equationError",
+        "equationHelp",
         "equationLinearAlternative",
         "equationNavigate",
         "equationSource",
         "equationSymbol_",
-        "equationUnsupportedSymbols"
+        "equationUnsupportedSymbols",
+        "equationVisual",
+        "equationVisualFrame"
       ]
     },
     {
@@ -28614,7 +28625,7 @@
         {
           "name": "references",
           "type": "var",
-          "default": "[] // [{id,label,type,targetId,status,formattedText,error,location}]",
+          "default": "[] // [{id,label,type,targetId,noteText,status,formattedText,error,location}]",
           "readonly": false,
           "defaultProperty": false,
           "required": false
@@ -28668,6 +28679,22 @@
           "required": false
         },
         {
+          "name": "draftNoteText",
+          "type": "string",
+          "default": "\"\"",
+          "readonly": false,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
+          "name": "draftIsNote",
+          "type": "bool",
+          "default": "draftType === \"footnote\" || draftType === \"endnote\"",
+          "readonly": true,
+          "defaultProperty": false,
+          "required": false
+        },
+        {
           "name": "errorText",
           "type": "string",
           "default": "\"\"",
@@ -28694,7 +28721,7 @@
         {
           "name": "canAdd",
           "type": "bool",
-          "default": "supportedTypes.indexOf(draftType) >= 0 && draftTargetId.length > 0",
+          "default": "supportedTypes.indexOf(draftType) >= 0",
           "readonly": true,
           "defaultProperty": false,
           "required": false
@@ -28762,6 +28789,7 @@
         "referenceLabel",
         "referenceListScroll",
         "referenceNavigate",
+        "referenceNoteText",
         "referenceRemove",
         "referenceSave",
         "referenceStatus",
@@ -29572,6 +29600,10 @@
           "parameters": ""
         },
         {
+          "name": "selectAdjacent",
+          "parameters": "forward"
+        },
+        {
           "name": "sendReply",
           "parameters": ""
         }
@@ -29592,6 +29624,8 @@
         "reviewItem_",
         "reviewListScroll",
         "reviewNavigate",
+        "reviewNext",
+        "reviewPrevious",
         "reviewReject",
         "reviewReply",
         "reviewResolve",
@@ -55108,6 +55142,184 @@
       "bridge": false
     },
     {
+      "name": "EquationCanvas",
+      "kind": "cpp",
+      "base": "QQuickPaintedItem",
+      "description": "The visual view of Tk.EquationEditor (WP-052, OFF-09): paints the laid-out equation with a caret and selection in its expression tree and edits the tree from keys, clicks and palette requests (RichText::Equation::Editor). AGENT-CONTRACT: `source` is the canonical TeX-subset source both ways. Setting it re-parses (a source that does not parse is kept as `error` and the tree stays); every visual edit writes the new canonical source and emits edited(source). docs/references-review.md#visual-editing.",
+      "singleton": false,
+      "attached": null,
+      "file": "src/core/equation_canvas.h",
+      "properties": [
+        {
+          "name": "source",
+          "type": "QString",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "linearText",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "error",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "caretPath",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "selectedSource",
+          "type": "QString",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "readOnly",
+          "type": "bool",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "fontSizePt",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "padding",
+          "type": "double",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "inkColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "caretColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "selectionColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "placeholderColor",
+          "type": "QColor",
+          "default": "",
+          "readonly": false,
+          "constant": false
+        },
+        {
+          "name": "contentWidth",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        },
+        {
+          "name": "contentHeight",
+          "type": "double",
+          "default": "",
+          "readonly": true,
+          "constant": false
+        }
+      ],
+      "signals": [
+        {
+          "name": "sourceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "caretChanged",
+          "parameters": ""
+        },
+        {
+          "name": "appearanceChanged",
+          "parameters": ""
+        },
+        {
+          "name": "edited",
+          "parameters": "const QString &source"
+        }
+      ],
+      "methods": [
+        {
+          "name": "moveCaret",
+          "returns": "bool",
+          "parameters": "const QString &direction, bool extend = false"
+        },
+        {
+          "name": "insertText",
+          "returns": "bool",
+          "parameters": "const QString &text"
+        },
+        {
+          "name": "insertSymbol",
+          "returns": "bool",
+          "parameters": "const QString &symbolId"
+        },
+        {
+          "name": "backspace",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "deleteForward",
+          "returns": "bool",
+          "parameters": ""
+        },
+        {
+          "name": "selectAll",
+          "returns": "void",
+          "parameters": ""
+        },
+        {
+          "name": "setCaretAt",
+          "returns": "bool",
+          "parameters": "qreal x, qreal y, bool extend = false"
+        },
+        {
+          "name": "caretRectangle",
+          "returns": "QRectF",
+          "parameters": ""
+        }
+      ],
+      "enums": {},
+      "module": "QindaTK",
+      "anonymous": false,
+      "registered": true,
+      "registrationKind": "qml_element",
+      "exported": true,
+      "internal": false,
+      "valueType": false,
+      "bridge": false
+    },
+    {
       "name": "EventLogModel",
       "kind": "cpp",
       "base": "QAbstractListModel",
@@ -66762,6 +66974,16 @@
           "name": "selectRange",
           "returns": "bool",
           "parameters": "const QString &startParagraphId, int startOffset, const QString &endParagraphId, int endOffset"
+        },
+        {
+          "name": "goToReviewItem",
+          "returns": "bool",
+          "parameters": "const QString &itemId"
+        },
+        {
+          "name": "goToAdjacentReviewItem",
+          "returns": "QString",
+          "parameters": "bool forward, const QString &kind = {}"
         }
       ],
       "enums": {},
@@ -67199,6 +67421,16 @@
           "parameters": ""
         },
         {
+          "name": "insertNote",
+          "returns": "QString",
+          "parameters": "const QString &paragraphId, int offset, const QString &kind, const QString &text"
+        },
+        {
+          "name": "setNoteText",
+          "returns": "bool",
+          "parameters": "const QString &noteId, const QString &text"
+        },
+        {
           "name": "addComment",
           "returns": "QString",
           "parameters": "const QString &startParagraphId, int startOffset, const QString &endParagraphId, int endOffset, const QString &body"
@@ -67232,6 +67464,16 @@
           "name": "reviewContextAt",
           "returns": "QString",
           "parameters": "const QString &paragraphId, int offset"
+        },
+        {
+          "name": "reviewItemLocation",
+          "returns": "QVariantMap",
+          "parameters": "const QString &itemId"
+        },
+        {
+          "name": "adjacentReviewItem",
+          "returns": "QString",
+          "parameters": "const QString &paragraphId, int offset, bool forward, const QString &kind = {}"
         },
         {
           "name": "undo",

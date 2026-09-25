@@ -168,7 +168,12 @@ copy, PDF output and `StepObject` undo, and need no new schema version: an
 older reader shows a labelled object with its linear text. Matrices,
 environments, accents and font commands are not supported. Equation size
 does not follow later changes to the default size until the source is set
-again. See [references-review.md](references-review.md#equations).
+again. Visual editing (`Tk.EquationCanvas`, `Equation::Editor`) edits a
+normalized form of the same AST, in which every slot is a row, and writes
+the canonical source after every edit. An edit whose tree would not survive
+its own source is refused, so the visual and source views always round-trip.
+See [references-review.md](references-review.md#equations) and
+[visual editing](references-review.md#visual-editing).
 
 ## D-115 — Field results are rewritten inside the committing transaction
 
@@ -189,8 +194,11 @@ deletion and paste.
 **Consequences.** A renumbering is part of the edit that caused it: it
 undoes, redoes, persists and repaginates with that edit, and a reference
 never silently points at another caption. Each commit in a document with
-fields costs one scan of its spans. Footnotes are refused because pagination
-has no note area.
+fields costs one scan of its spans. Footnotes and endnotes are fields of
+kinds `footnote` and `endnote`: the result is the note's number, the record
+holds its plain text, and pagination reserves room for a footnote at the
+foot of the page column that holds its reference (endnotes follow the last
+block). See [notes](references-review.md#notes).
 
 ## D-116 — Review ranges are character-format marks
 
@@ -209,8 +217,23 @@ characters after another change's text was removed goes with it.
 
 **Consequences.** Ranges move, resize, overlap and undo exactly with no
 anchor bookkeeping, and a cut and paste carries a comment along. Formats
-multiply by the combinations of marks in use. Paragraph marks and formatting
-changes are not tracked. See [references-review.md](references-review.md#review).
+multiply by the combinations of marks in use.
+
+**Amendment (WP-052 audit).** Every content edit under tracking is recorded
+or refused with `unsupported`; none applies untracked. A paragraph break
+carries its insertion or deletion mark in the `markFormat` of the paragraph
+before it, so accepting a tracked deletion across paragraphs joins them as
+the untracked deletion would. A formatting change is a `format` change whose
+record keeps the former character formats (indexed by `CharFormat.formatSlot`)
+and paragraph formats, so rejecting it restores them. Deleting a table row
+or column marks its text deleted in a change that names the row or column;
+accepting it removes them. An equation source change or a reference change
+is the old object or field marked deleted beside the new one inserted. A
+paste re-anchors a field or comment whose only other copy is marked deleted,
+so a tracked cut and paste is a move. Structure edits that cannot be
+expressed this way (inserting tables, rows or columns, merging and splitting
+cells, column widths, table styles, moving sections) are refused while
+tracking. See [tracked changes](references-review.md#tracked-changes).
 
 ## D-117 — Annotations are richtext version-2 members
 

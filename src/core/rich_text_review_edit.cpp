@@ -68,16 +68,18 @@ QVector<Piece> pieces(const Paragraph &p, int from, int to)
     return result;
 }
 
-// Every change ID any character carries.
+// Every change ID any character or paragraph mark carries.
 QSet<QString> placedChanges(const RichTextDocument &doc)
 {
     QSet<QString> ids;
-    for (const Paragraph *p : doc.paragraphsInOrder())
-        for (const Span &span : p->spans) {
-            const CharFormat &format = doc.charFormat(span.format);
-            if (!format.insertionId.isEmpty()) ids.insert(format.insertionId);
-            if (!format.deletionId.isEmpty()) ids.insert(format.deletionId);
-        }
+    auto add = [&ids](const CharFormat &format) {
+        for (const QString *id : {&format.insertionId, &format.deletionId, &format.formatChangeId})
+            if (!id->isEmpty()) ids.insert(*id);
+    };
+    for (const Paragraph *p : doc.paragraphsInOrder()) {
+        add(doc.charFormat(p->markFormat));
+        for (const Span &span : p->spans) add(doc.charFormat(span.format));
+    }
     return ids;
 }
 
@@ -95,16 +97,23 @@ OperationError RichTextDocument::applyAnnotation(const StepAnnotation &step, boo
         return reject(ErrorCode::Validation, QStringLiteral("Too many annotations"));
     m_annotations.set(step.id, to);
     change.annotations = true;
-    // Resolved threads are drawn without their highlight: repaint their text.
+    // Resolved threads are drawn without their highlight, and a note's text
+    // is set by pagination: re-lay the paragraphs that show them.
     const auto *before = from ? std::get_if<CommentThread>(&*from) : nullptr;
     const auto *after = to ? std::get_if<CommentThread>(&*to) : nullptr;
-    if (before && after && before->resolved != after->resolved)
+    const auto *noteBefore = from ? std::get_if<ReferenceField>(&*from) : nullptr;
+    const auto *noteAfter = to ? std::get_if<ReferenceField>(&*to) : nullptr;
+    const bool note = noteBefore && noteAfter && (noteBefore->isNote() || noteAfter->isNote())
+        && !(*noteBefore == *noteAfter);
+    if ((before && after && before->resolved != after->resolved) || note)
         for (Paragraph *p : paragraphsInOrder())
-            for (const Span &span : p->spans)
-                if (charFormat(span.format).commentIds.contains(step.id)) {
+            for (const Span &span : p->spans) {
+                const CharFormat &format = charFormat(span.format);
+                if (format.commentIds.contains(step.id) || format.fieldId == step.id) {
                     touch(p, change);
                     break;
                 }
+            }
     return {};
 }
 
@@ -143,6 +152,8 @@ Position RichTextDocument::afterTrackedDeletion(const Position &position) const
 std::optional<QString> RichTextDocument::trackedInsertionId(const Position &at)
 {
     if (!m_trackChanges) return QString();
+    // A paste's paragraph breaks join the paste's own insertion.
+    if (m_annotations.changes.contains(m_insertionHint)) return m_insertionHint;
     // Typing next to one's own insertion continues it.
     if (const Paragraph *p = paragraph(at.paragraph))
         for (const int offset : {at.offset - 1, at.offset}) {
@@ -152,7 +163,7 @@ std::optional<QString> RichTextDocument::trackedInsertionId(const Position &at)
             if (!id.isEmpty() && change != m_annotations.changes.constEnd() && change->author == m_reviewAuthor)
                 return id;
         }
-    const TrackedChange change{newAnnotationId(), ChangeKind::Insertion, m_reviewAuthor, reviewTime()};
+    const TrackedChange change{newAnnotationId(), ChangeKind::Insertion, m_reviewAuthor, reviewTime(), {}, {}, {}, {}, {}};
     if (apply(StepAnnotation{change.id, std::nullopt, Annotation(change)})) return std::nullopt;
     return change.id;
 }
@@ -175,12 +186,37 @@ bool RichTextDocument::markDeleted(const Position &start, const Position &end)
         ? charFormat(Spans::formatAt(last->spans, end.offset)).deletionId : QString();
     if (ownChange(before, ChangeKind::Deletion)) deletion = before;
     else if (ownChange(after, ChangeKind::Deletion)) deletion = after;
+    auto deletionId = [&]() {
+        if (deletion.isEmpty()) {
+            const TrackedChange change{newAnnotationId(), ChangeKind::Deletion, m_reviewAuthor, reviewTime(),
+                                       {}, {}, {}, {}, {}};
+            if (apply(StepAnnotation{change.id, std::nullopt, Annotation(change)})) return false;
+            deletion = change.id;
+        }
+        return true;
+    };
     QSet<QString> removedInsertions;
-    for (int i = last->flatIndex; i >= first->flatIndex; --i) {
+    const int firstIndex = first->flatIndex;
+    for (int i = last->flatIndex; i >= firstIndex; --i) {
         Paragraph *p = flat.at(i);
-        const int from = p == first ? start.offset : 0;
+        const int from = i == firstIndex ? start.offset : 0;
         const int to = p == last ? end.offset : int(p->text.size());
         const QVector<Piece> list = pieces(*p, from, to);
+        // The break after p is inside the range when a paragraph of the same
+        // container follows within it: it is marked like a character.
+        const Paragraph *following = p == last ? nullptr : nextParagraph(p);
+        if (following && following->flatIndex <= last->flatIndex && containerOf(following) == containerOf(p)) {
+            CharFormat mark = charFormat(p->markFormat);
+            if (ownChange(mark.insertionId, ChangeKind::Insertion)) {
+                // One's own tracked break simply goes: the paragraphs join.
+                removedInsertions.insert(mark.insertionId);
+                if (!joinWithNext(p)) return false;
+            } else if (mark.deletionId.isEmpty()) {
+                if (!deletionId()) return false;
+                mark.deletionId = deletion;
+                if (!setMarkFormat(p, internFormat(mark))) return false;
+            }
+        }
         // Right to left, so the offsets of the pieces still to come hold.
         for (qsizetype k = list.size() - 1; k >= 0; --k) {
             const Piece &piece = list.at(k);
@@ -192,11 +228,7 @@ bool RichTextDocument::markDeleted(const Position &start, const Position &end)
                 if (apply(textStep(*this, *p, piece.start, piece.length, {}, {}))) return false;
                 continue;
             }
-            if (deletion.isEmpty()) {
-                const TrackedChange change{newAnnotationId(), ChangeKind::Deletion, m_reviewAuthor, reviewTime()};
-                if (apply(StepAnnotation{change.id, std::nullopt, Annotation(change)})) return false;
-                deletion = change.id;
-            }
+            if (!deletionId()) return false;
             if (!rewriteFormats(*this, *p, piece.start, piece.start + piece.length,
                                 [&deletion](CharFormat &f) { f.deletionId = deletion; }))
                 return false;
@@ -216,17 +248,44 @@ bool RichTextDocument::resolveChange(const QString &changeId, bool accept)
     if (found == m_annotations.changes.constEnd())
         return !reject(ErrorCode::InvalidArgument, QStringLiteral("Unknown tracked change"));
     const TrackedChange change = *found;
-    // Accepting a deletion or rejecting an insertion removes the text;
-    // the other two keep it and drop the mark.
-    const bool removeText = accept == (change.kind == ChangeKind::Deletion);
     AutoTransaction transaction(this, accept ? tr("Accept change") : tr("Reject change"));
     if (!transaction.valid) return false;
-    const QVector<Paragraph *> flat = paragraphsInOrder();
-    QSet<QString> nested;
+    const QSet<QString> placedBefore = placedChanges(*this);
     bool ok = true;
+    if (change.kind == ChangeKind::Format) {
+        // Accepting keeps the new look; rejecting restores the former one.
+        if (accept) {
+            for (Paragraph *p : paragraphsInOrder())
+                ok = ok && rewriteFormats(*this, *p, 0, int(p->text.size()), [&changeId](CharFormat &f) {
+                    if (f.formatChangeId != changeId) return;
+                    f.formatChangeId.clear();
+                    f.formatSlot = -1;
+                });
+        } else {
+            ok = restoreFormats(change);
+        }
+        ok = ok && !apply(StepAnnotation{changeId, Annotation(change), std::nullopt});
+        return transaction.finish(ok, {});
+    }
+    // Accepting a deletion or rejecting an insertion removes the text (and
+    // joins paragraphs at a removed break); the other two keep it and drop the mark.
+    const bool removeText = accept == (change.kind == ChangeKind::Deletion);
+    const QVector<Paragraph *> flat = paragraphsInOrder();
     for (qsizetype i = flat.size() - 1; ok && i >= 0; --i) {
         Paragraph *p = flat.at(i);
         const QVector<Piece> list = pieces(*p, 0, int(p->text.size()));
+        const CharFormat mark = charFormat(p->markFormat);
+        if (mark.insertionId == changeId || mark.deletionId == changeId) {
+            if (removeText) {
+                ok = joinWithNext(p);
+            } else {
+                CharFormat kept = mark;
+                if (kept.insertionId == changeId) kept.insertionId.clear();
+                if (kept.deletionId == changeId) kept.deletionId.clear();
+                ok = setMarkFormat(p, internFormat(kept));
+            }
+        }
+        // The pieces were taken before a join appended the next paragraph's text.
         for (qsizetype k = list.size() - 1; ok && k >= 0; --k) {
             const CharFormat format = charFormat(list.at(k).format);
             if (format.insertionId != changeId && format.deletionId != changeId) continue;
@@ -239,19 +298,25 @@ bool RichTextDocument::resolveChange(const QString &changeId, bool accept)
                 });
                 continue;
             }
-            for (const QString &other : {format.insertionId, format.deletionId})
-                if (!other.isEmpty() && other != changeId) nested.insert(other);
             ok = !apply(textStep(*this, *p, start, length, {}, {}));
         }
     }
+    // A deleted table row or column goes with its text when accepted.
+    if (ok && accept && !change.table.isNull()) {
+        const QString table = change.table.toString(QUuid::WithoutBraces);
+        if (!change.row.isNull() && this->table(change.table))
+            ok = removeTableRowNow(table, change.row.toString(QUuid::WithoutBraces));
+        else if (!change.column.isNull() && this->table(change.table))
+            ok = removeTableColumnNow(table, change.column.toString(QUuid::WithoutBraces));
+    }
     ok = ok && !apply(StepAnnotation{changeId, Annotation(change), std::nullopt});
-    // Another reviewer's change inside removed text has nothing left to review;
-    // their changes elsewhere keep their text and marks.
-    if (ok && !nested.isEmpty()) {
+    // Another reviewer's change inside removed text has nothing left to
+    // review; their changes elsewhere keep their text and marks.
+    if (ok) {
         const QSet<QString> placed = placedChanges(*this);
-        for (const QString &id : std::as_const(nested)) {
+        for (const QString &id : placedBefore) {
             const auto other = m_annotations.changes.constFind(id);
-            if (ok && !placed.contains(id) && other != m_annotations.changes.constEnd())
+            if (ok && id != changeId && !placed.contains(id) && other != m_annotations.changes.constEnd())
                 ok = !apply(StepAnnotation{id, Annotation(*other), std::nullopt});
         }
     }

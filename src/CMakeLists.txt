@@ -303,10 +303,15 @@ qt_add_qml_module(qindatk
         core/rich_text_publishing.cpp core/rich_text_publishing.h
         core/rich_text_page_setup_mm.cpp
         core/rich_text_review.cpp core/rich_text_review.h core/rich_text_review_edit.cpp
+        core/rich_text_steps.h core/rich_text_review_track.cpp core/rich_text_review_structure.cpp
+        core/rich_text_codec_track.cpp core/rich_text_notes.cpp
         core/rich_text_review_snapshots.cpp core/rich_text_fields.cpp core/rich_text_fields_p.h
         core/rich_text_fields_snapshots.cpp
         core/rich_text_equation.cpp core/rich_text_equation.h core/rich_text_equation_text.cpp
         core/rich_text_equation_layout.cpp core/rich_text_equation_edit.cpp
+        core/rich_text_equation_editor.cpp core/rich_text_equation_editor.h
+        core/rich_text_equation_editor_p.h core/rich_text_equation_caret.cpp
+        core/equation_canvas.cpp core/equation_canvas.h
         core/rich_text_pdf_export.cpp
         core/print_ticket.cpp core/print_ticket.h
         core/print_output.cpp core/print_output.h

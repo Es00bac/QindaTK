@@ -287,6 +287,7 @@ bool RichTextDocument::applyParagraphStyle(const Position &a, const Position &b,
     if (!transaction.valid) return false;
     const QVector<Paragraph *> flat = paragraphsInOrder();
     bool ok = true;
+    QString change; // tracked formatting change (WP-052)
     // Applying a style clears the paragraph's direct paragraph formatting;
     // removing one keeps the values it gave as direct formatting.
     for (int i = first->flatIndex; ok && i <= last->flatIndex; ++i) {
@@ -295,7 +296,7 @@ bool RichTextDocument::applyParagraphStyle(const Position &a, const Position &b,
         next.styleId = styleId;
         next.overrides = 0;
         next = materializedFormat(m_styles, next);
-        if (!(next == p->format)) ok = !apply(StepParagraphFormat{p->id, p->format, next});
+        ok = applyParagraphFormatStep(StepParagraphFormat{p->id, p->format, next}, &change);
     }
     return transaction.finish(ok, ordered ? b : a);
 }
@@ -398,6 +399,7 @@ bool RichTextDocument::resetDirectFormatting(const QStringList &paragraphIds, co
     AutoTransaction transaction(this, tr("Reset direct formatting"));
     if (!transaction.valid) return false;
     bool ok = true;
+    QString change; // tracked formatting change (WP-052)
     for (const QString &id : paragraphIds) {
         Paragraph *p = paragraph(QUuid(id));
         if (!p) {
@@ -408,7 +410,7 @@ bool RichTextDocument::resetDirectFormatting(const QStringList &paragraphIds, co
             ParagraphFormat next = p->format;
             next.overrides &= ~paragraphBits;
             next = materializedFormat(m_styles, next);
-            ok = !apply(StepParagraphFormat{p->id, p->format, next});
+            ok = applyParagraphFormatStep(StepParagraphFormat{p->id, p->format, next}, &change);
         }
         if (!ok || character.isEmpty()) continue;
         // Links, objects and character styles stay; the named members inherit again.
@@ -425,7 +427,7 @@ bool RichTextDocument::resetDirectFormatting(const QStringList &paragraphIds, co
             step.markBefore = p->markFormat;
             step.markAfter = mark;
         }
-        if (!(step.before == step.after) || step.markBefore >= 0) ok = !apply(step);
+        if (!(step.before == step.after) || step.markBefore >= 0) ok = applyFormatStep(step, &change);
     }
     return transaction.finish(ok, {});
 }

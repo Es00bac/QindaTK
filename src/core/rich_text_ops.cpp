@@ -130,6 +130,7 @@ std::optional<Position> RichTextDocument::insertText(const Position &requested, 
     plain.insertionId = *insertion;
     plain.commentIds = m_annotations.threads.isEmpty() ? QStringList() : charFormat(formatIndexAt(at)).commentIds;
     const int typing = internFormat(plain);
+    const ScopedValue hint(m_insertionHint, *insertion);
     Position caret = at;
     const QStringList lines = text.split(u'\n');
     for (qsizetype i = 0; i < lines.size(); ++i) {
@@ -158,13 +159,19 @@ std::optional<Position> RichTextDocument::splitParagraph(const Position &at)
     AutoTransaction transaction(this, tr("New paragraph"));
     if (!transaction.valid) return std::nullopt;
     Paragraph *p = paragraph(at.paragraph);
+    // Under tracking the new break is an insertion (its mark is the
+    // markFormat of the paragraph before it); "" without tracking.
+    const std::optional<QString> insertion = trackedInsertionId(at);
+    if (!insertion) return transaction.finish(false, at), std::nullopt;
     if (at.offset == 0 && !p->text.isEmpty()) {
         // Enter at a paragraph start opens an empty paragraph above it, so the
         // text keeps its identity; the page break moves up with the new line.
         auto created = std::make_shared<Paragraph>();
         created->id = QUuid::createUuid();
         created->format = p->format;
-        created->markFormat = formatIndexAt(at);
+        CharFormat mark = charFormat(formatIndexAt(at));
+        mark.insertionId = *insertion;
+        created->markFormat = internFormat(mark);
         ensureOrder();
         const ContainerSpec spec = containerOf(p);
         int index = p->blockIndex;
@@ -193,9 +200,17 @@ std::optional<Position> RichTextDocument::splitParagraph(const Position &at)
         created->format.styleId.clear();
         created->format.overrides = 0;
     }
-    created->markFormat = formatIndexAt(at);
+    // The old break, with its review marks, now ends the second part.
+    CharFormat mark = charFormat(formatIndexAt(at));
+    const CharFormat &oldMark = charFormat(p->markFormat);
+    mark.insertionId = oldMark.insertionId;
+    mark.deletionId = oldMark.deletionId;
+    created->markFormat = internFormat(mark);
+    const bool marked = !oldMark.insertionId.isEmpty() || !oldMark.deletionId.isEmpty() || !insertion->isEmpty();
     const Position caret{created->id, 0};
-    if (!transaction.finish(!apply(StepSplit{p->id, at.offset, created}), caret)) return std::nullopt;
+    bool ok = !apply(StepSplit{p->id, at.offset, created});
+    if (ok && marked) ok = markParagraphBreak(p, *insertion);
+    if (!transaction.finish(ok, caret)) return std::nullopt;
     return caret;
 }
 
@@ -260,7 +275,7 @@ std::optional<Position> RichTextDocument::deleteRange(const Position &a, const P
     AutoTransaction transaction(this, tr("Delete"));
     if (!transaction.valid) return std::nullopt;
     if (m_trackChanges) {
-        // Tracked: the text stays, marked deleted (paragraphs are not joined).
+        // Tracked: the text and the breaks inside the range stay, marked deleted.
         if (!transaction.finish(markDeleted(start, end), start)) return std::nullopt;
         return start;
     }
@@ -318,6 +333,7 @@ bool RichTextDocument::applyCharFormat(const Position &a, const Position &b, con
     if (start == end) return true;
     AutoTransaction transaction(this, tr("Format"));
     if (!transaction.valid) return false;
+    QString change; // the tracked formatting change of this edit, if any
     const Paragraph *first = paragraph(start.paragraph);
     const Paragraph *last = paragraph(end.paragraph);
     const QVector<Paragraph *> flat = paragraphsInOrder();
@@ -339,7 +355,7 @@ bool RichTextDocument::applyCharFormat(const Position &a, const Position &b, con
             }
         }
         if (step.before == step.after && step.markBefore < 0) continue;
-        ok = !apply(step);
+        ok = applyFormatStep(step, &change);
     }
     return transaction.finish(ok, end);
 }
@@ -355,13 +371,14 @@ bool RichTextDocument::setParagraphFormat(const Position &a, const Position &b,
     if (!transaction.valid) return false;
     const QVector<Paragraph *> flat = paragraphsInOrder();
     bool ok = true;
+    QString change;
     for (int i = first->flatIndex; ok && i <= last->flatIndex; ++i) {
         Paragraph *p = flat.at(i);
         // Patched members of a styled paragraph become direct overrides; the
         // rest keep (or, with a new style ID, take) the style's values.
         ParagraphFormat after = materializedFormat(m_styles, patch.applied(p->format));
         if (p->table) after.pageBreakBefore = false;
-        if (!(after == p->format)) ok = !apply(StepParagraphFormat{p->id, p->format, after});
+        ok = applyParagraphFormatStep(StepParagraphFormat{p->id, p->format, after}, &change);
     }
     return transaction.finish(ok, ordered ? b : a);
 }
@@ -421,6 +438,7 @@ bool RichTextDocument::changeListLevel(const Position &a, const Position &b, int
     const QVector<Paragraph *> flat = paragraphsInOrder();
     bool ok = true;
     bool changed = false;
+    QString change;
     for (int i = first->flatIndex; ok && i <= last->flatIndex; ++i) {
         Paragraph *p = flat.at(i);
         if (p->format.listId.isEmpty()) continue;
@@ -428,7 +446,7 @@ bool RichTextDocument::changeListLevel(const Position &a, const Position &b, int
         after.listLevel = qBound(0, p->format.listLevel + delta, 8);
         if (after == p->format) continue;
         changed = true;
-        ok = !apply(StepParagraphFormat{p->id, p->format, after});
+        ok = applyParagraphFormatStep(StepParagraphFormat{p->id, p->format, after}, &change);
     }
     return transaction.finish(ok && changed, b);
 }

@@ -11,7 +11,8 @@ size_t qHash(const CharFormat &f, size_t seed) noexcept
     return qHashMulti(seed, f.family, f.sizePt, f.weight, int(f.italic) * 9 + int(f.underline) * 3
                       + int(f.strike), rgba(f.color), rgba(f.background), f.href,
                       int(f.verticalAlign), f.objectId, f.styleId, f.fieldId,
-                      f.commentIds.join(QChar(0x1f)), f.insertionId, f.deletionId);
+                      f.commentIds.join(QChar(0x1f)), f.insertionId, f.deletionId, f.formatChangeId,
+                      f.formatSlot);
 }
 
 bool CharFormatPatch::isEmpty() const

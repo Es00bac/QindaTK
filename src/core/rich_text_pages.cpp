@@ -53,7 +53,7 @@ static size_t hashItems(const RichTextDocument &doc, const Page &page, const QHa
     for (const PageItem &item : page.items) {
         seed = qHashMulti(seed, int(item.kind), item.block, item.first, item.count, qRound64(item.x * 64),
                           qRound64(item.y * 64), qRound64(item.width * 64), qRound64(item.height * 64),
-                          item.cellFirstLine, item.objectId, item.headerRepeat, item.frameId);
+                          item.cellFirstLine, item.objectId, item.headerRepeat, item.frameId, item.text, item.rule);
         for (qreal height : item.rowHeights) seed = qHashMulti(seed, qRound64(height * 64));
         for (const WidthBreak &w : item.widths) seed = qHashMulti(seed, w.line, qRound64(w.width * 64));
         if (const Paragraph *p = doc.paragraph(item.block))

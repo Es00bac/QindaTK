@@ -50,8 +50,26 @@ struct CharFormat {
     QStringList commentIds;// comment threads anchored on the run, sorted, unique
     QString insertionId;   // tracked insertion
     QString deletionId;    // tracked deletion (the text stays until accepted)
+    QString formatChangeId;// tracked formatting change; its record keeps the former look
+    int formatSlot = -1;   // index of the former format in that record
     bool hasMarks() const
-    { return !fieldId.isEmpty() || !commentIds.isEmpty() || !insertionId.isEmpty() || !deletionId.isEmpty(); }
+    {
+        return !fieldId.isEmpty() || !commentIds.isEmpty() || !insertionId.isEmpty() || !deletionId.isEmpty()
+            || !formatChangeId.isEmpty();
+    }
+    // The attributes alone: no object, field or review marks.
+    CharFormat withoutMarks() const
+    {
+        CharFormat plain = *this;
+        plain.objectId.clear();
+        plain.fieldId.clear();
+        plain.commentIds.clear();
+        plain.insertionId.clear();
+        plain.deletionId.clear();
+        plain.formatChangeId.clear();
+        plain.formatSlot = -1;
+        return plain;
+    }
     friend bool operator==(const CharFormat &, const CharFormat &) = default;
 };
 size_t qHash(const CharFormat &format, size_t seed = 0) noexcept;

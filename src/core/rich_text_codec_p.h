@@ -109,5 +109,9 @@ void insertMarks(const CharFormat &format, QJsonObject *json);
 // With `known`, a mark naming no record of its kind is dropped with a warning.
 bool readMarks(const QJsonObject &json, const Annotations *known, CharFormat *format, const QString &path,
                PublishingError *error, QStringList *warnings = nullptr);
+// Tracked formatting and table structure of a change (rich_text_codec_track.cpp):
+// "formats", "paragraphs", "table", "row" and "column".
+void insertChangeMembers(const TrackedChange &change, QJsonObject *json);
+bool readChangeMembers(const QJsonObject &json, TrackedChange *change, const QString &path, PublishingError *error);
 
 } // namespace QindaTK::RichText::Codec

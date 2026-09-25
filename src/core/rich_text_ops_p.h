@@ -21,6 +21,17 @@ struct AutoTransaction {
     bool valid = true;
 };
 
+// Sets a string member for a scope and restores it (the tracked insertion
+// that the paragraph breaks of one typing or paste gesture join).
+struct ScopedValue {
+    ScopedValue(QString &slot, const QString &value) : slot(slot), saved(slot) { if (!value.isEmpty()) slot = value; }
+    ~ScopedValue() { slot = saved; }
+    ScopedValue(const ScopedValue &) = delete;
+    ScopedValue &operator=(const ScopedValue &) = delete;
+    QString &slot;
+    QString saved;
+};
+
 // Normalizes newlines and drops control and object characters from typed or
 // pasted text; '\n' separates paragraphs, U+2028 stays a soft line break.
 QString cleanInsertedText(QString text);

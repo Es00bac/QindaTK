@@ -86,6 +86,25 @@ bool RichTextArea::selectRange(const QString &startParagraphId, int startOffset,
     return true;
 }
 
+bool RichTextArea::goToReviewItem(const QString &itemId)
+{
+    if (!m_document) return false;
+    const QVariantMap at = m_document->reviewItemLocation(itemId);
+    if (at.isEmpty()) return false;
+    return selectRange(at.value(QStringLiteral("paragraphId")).toString(), at.value(QStringLiteral("offset")).toInt(),
+                       at.value(QStringLiteral("endParagraphId")).toString(), at.value(QStringLiteral("endOffset")).toInt());
+}
+
+QString RichTextArea::goToAdjacentReviewItem(bool forward, const QString &kind)
+{
+    if (!m_document) return {};
+    const Position start = m_document->compare(m_anchor.position, m_focus.position) <= 0 ? m_anchor.position
+                                                                                        : m_focus.position;
+    const QString id = m_document->adjacentReviewItem(start.paragraph.toString(QUuid::WithoutBraces), start.offset,
+                                                      forward, kind);
+    return !id.isEmpty() && goToReviewItem(id) ? id : QString();
+}
+
 QString RichTextArea::addComment(const QString &body)
 {
     if (!m_document || m_readOnly) return {};

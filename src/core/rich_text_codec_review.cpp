@@ -6,6 +6,7 @@
 
 #include <QJsonArray>
 #include <algorithm>
+#include <cmath>
 
 namespace QindaTK::RichText::Codec {
 
@@ -82,6 +83,7 @@ void insertAnnotationMembers(const Annotations &a, QJsonObject *root)
         insertText(o, "sequence", field.sequence);
         insertText(o, "target", field.target);
         insertText(o, "label", field.label);
+        insertText(o, "text", field.text);
         fields.append(o);
     }
     QJsonArray sources;
@@ -114,6 +116,7 @@ void insertAnnotationMembers(const Annotations &a, QJsonObject *root)
         QJsonObject o{{QStringLiteral("id"), change.id}, {QStringLiteral("kind"), changeKindName(change.kind)}};
         insertText(o, "author", change.author);
         insertText(o, "time", change.time);
+        insertChangeMembers(change, &o);
         changes.append(o);
     }
     if (!fields.isEmpty()) root->insert(QStringLiteral("fields"), fields);
@@ -130,13 +133,15 @@ bool annotationsFromJson(const QJsonObject &root, Annotations *out, PublishingEr
         return a.contains(id) ? reader.fail(path + QStringLiteral(".id"), QStringLiteral("Duplicate identifier")) : true;
     };
     const bool ok = reader.array(root, "fields", [&](const QJsonObject &o, const QString &path) {
-        reader.checkKeys(o, path, {"id", "kind", "sequence", "target", "label"});
+        reader.checkKeys(o, path, {"id", "kind", "sequence", "target", "label", "text"});
         ReferenceField field;
         QString kind;
         if (!reader.text(o, "id", &field.id, path, true) || !reader.text(o, "kind", &kind, path, true)
             || !reader.text(o, "sequence", &field.sequence, path) || !reader.text(o, "target", &field.target, path)
-            || !reader.text(o, "label", &field.label, path) || !unique(field.id, path))
+            || !reader.text(o, "label", &field.label, path) || !reader.text(o, "text", &field.text, path)
+            || !unique(field.id, path))
             return false;
+        if (field.text.size() > MaximumNoteText) return reader.fail(path + QStringLiteral(".text"), QStringLiteral("Note text too long"));
         const std::optional<FieldKind> parsed = fieldKindFromName(kind);
         if (!parsed) return reader.fail(path + QStringLiteral(".kind"), QStringLiteral("Unknown field kind"));
         field.kind = *parsed;
@@ -178,12 +183,12 @@ bool annotationsFromJson(const QJsonObject &root, Annotations *out, PublishingEr
         a.threads.insert(thread.id, thread);
         return true;
     }) && reader.array(root, "changes", [&](const QJsonObject &o, const QString &path) {
-        reader.checkKeys(o, path, {"id", "kind", "author", "time"});
+        reader.checkKeys(o, path, {"id", "kind", "author", "time", "formats", "paragraphs", "table", "row", "column"});
         TrackedChange change;
         QString kind;
         if (!reader.text(o, "id", &change.id, path, true) || !reader.text(o, "kind", &kind, path, true)
             || !reader.text(o, "author", &change.author, path) || !reader.text(o, "time", &change.time, path)
-            || !unique(change.id, path))
+            || !unique(change.id, path) || !readChangeMembers(o, &change, path, reader.error))
             return false;
         const std::optional<ChangeKind> parsed = changeKindFromName(kind);
         if (!parsed) return reader.fail(path + QStringLiteral(".kind"), QStringLiteral("Unknown change kind"));
@@ -204,6 +209,10 @@ void insertMarks(const CharFormat &f, QJsonObject *o)
     if (!f.commentIds.isEmpty()) o->insert(QStringLiteral("comments"), QJsonArray::fromStringList(f.commentIds));
     if (!f.insertionId.isEmpty()) o->insert(QStringLiteral("insertion"), f.insertionId);
     if (!f.deletionId.isEmpty()) o->insert(QStringLiteral("deletion"), f.deletionId);
+    if (!f.formatChangeId.isEmpty()) {
+        o->insert(QStringLiteral("formatChange"), f.formatChangeId);
+        o->insert(QStringLiteral("formatSlot"), f.formatSlot);
+    }
 }
 
 bool readMarks(const QJsonObject &o, const Annotations *known, CharFormat *f, const QString &path,
@@ -211,8 +220,15 @@ bool readMarks(const QJsonObject &o, const Annotations *known, CharFormat *f, co
 {
     Reader reader{error, warnings};
     if (!reader.text(o, "field", &f->fieldId, path) || !reader.text(o, "insertion", &f->insertionId, path)
-        || !reader.text(o, "deletion", &f->deletionId, path))
+        || !reader.text(o, "deletion", &f->deletionId, path) || !reader.text(o, "formatChange", &f->formatChangeId, path))
         return false;
+    if (!f->formatChangeId.isEmpty()) {
+        const QJsonValue slot = o.value(QStringLiteral("formatSlot"));
+        if (!slot.isDouble() || slot.toDouble() < 0 || slot.toDouble() >= MaximumFormerFormats
+            || slot.toDouble() != std::floor(slot.toDouble()))
+            return reader.fail(path + QStringLiteral(".formatSlot"), QStringLiteral("Former format index expected"));
+        f->formatSlot = slot.toInt();
+    }
     const QJsonValue comments = o.value(QStringLiteral("comments"));
     if (!comments.isUndefined()) {
         if (!comments.isArray()) return reader.fail(path + QStringLiteral(".comments"), QStringLiteral("Array expected"));
@@ -245,6 +261,13 @@ bool readMarks(const QJsonObject &o, const Annotations *known, CharFormat *f, co
     if (!f->deletionId.isEmpty() && !change(f->deletionId, ChangeKind::Deletion)) {
         drop(QStringLiteral("deletion"));
         f->deletionId.clear();
+    }
+    if (!f->formatChangeId.isEmpty()
+        && (!change(f->formatChangeId, ChangeKind::Format)
+            || f->formatSlot >= known->changes.value(f->formatChangeId).formats.size())) {
+        drop(QStringLiteral("formatChange"));
+        f->formatChangeId.clear();
+        f->formatSlot = -1;
     }
     const qsizetype before = f->commentIds.size();
     f->commentIds.removeIf([known](const QString &id) { return !known->threads.contains(id); });

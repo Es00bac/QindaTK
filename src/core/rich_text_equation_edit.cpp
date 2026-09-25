@@ -175,6 +175,8 @@ bool RichTextDocument::setEquationSource(const QString &equationId, const QStrin
     if (*next == *current) return true;
     AutoTransaction transaction(this, tr("Edit equation"));
     if (!transaction.valid) return false;
+    // Under tracking the former equation stays as a deleted copy (review).
+    if (m_trackChanges) return transaction.finish(replaceEquationTracked(*current, *next), {});
     // One StepObject: the new size re-lays the anchor's paragraph, and undo
     // restores the old source and size together.
     return transaction.finish(!apply(StepObject{equationId, *current, *next}), {});

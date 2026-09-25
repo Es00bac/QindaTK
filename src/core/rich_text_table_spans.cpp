@@ -70,6 +70,7 @@ QVariantMap RichTextDocument::tableSnapshot(const QString &tableId) const
 
 bool RichTextDocument::mergeTableCells(const QString &tableId, const QStringList &cellIds)
 {
+    if (refuseWhileTracking(tr("Merging table cells"))) return false;
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     if (!current) return !reject(ErrorCode::InvalidArgument, QStringLiteral("Unknown table"));
     TableGridMap map;
@@ -127,6 +128,7 @@ bool RichTextDocument::mergeTableCells(const QString &tableId, const QStringList
 
 bool RichTextDocument::splitTableCell(const QString &tableId, const QString &cellId)
 {
+    if (refuseWhileTracking(tr("Splitting a table cell"))) return false;
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     const int slot = current ? slotOfCell(*current, QUuid(cellId)) : -1;
     const int columns = current ? int(current->columnWeights.size()) : 1;
@@ -152,6 +154,7 @@ bool RichTextDocument::splitTableCell(const QString &tableId, const QString &cel
 
 bool RichTextDocument::setTableStyle(const QString &tableId, const QString &styleId)
 {
+    if (refuseWhileTracking(tr("Changing a table style"))) return false;
     const TablePtr current = livePointer(*this, table(QUuid(tableId)));
     const NamedStyle *named = style(styleId);
     if (!current || (!styleId.isEmpty() && (!named || named->kind != StyleKind::Table)))
