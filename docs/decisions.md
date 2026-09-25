@@ -857,7 +857,12 @@ string parameters; its window moves with the cut. Setting one requires an
 outgoing clip ending at the incoming clip's start and enough head and tail
 handle. After any other edit the planner drops a transition whose cut no
 longer exists (in the same change set) and refuses an edit that leaves too
-little handle. `MediaProgram` extends both spans over the window and
+little handle. A clip's two windows (its own lead-in after the cut and the
+lead-out into the next clip before the next cut) must fit in its length
+together: setting or editing into an overlap is refused (field `duration`),
+and a timeline loaded with one keeps the later cut when it becomes a
+program, because the renderer draws a span inside a fade-out only as the
+partner of the incoming span. `MediaProgram` extends both spans over the window and
 `MediaTransition` evaluates it: the weight at each frame's midpoint rounded
 once to 1/65536, an integer channel blend, and per-sample linear or
 equal-power gains for sound. **Consequences.** Transitions need no new
@@ -874,7 +879,11 @@ program track of ordinary clips. A switch is one frame-exact `switchSource`
 transaction: the program clip is cut at the switch time and the part after
 it shows the new angle at `(T − syncStart) + syncOffset`, computed from the
 sync map rather than from the clip being cut; `audioFollowsVideo` decides
-whether the linked sound is cut and switched too. **Consequences.** Switches
+whether the linked sound is cut and switched too. An angle whose sound is a
+separate recording carries that file's own sync offset and length, and the
+switch gives the linked sound part that position and bound
+(`linkedSourceOffset`/`linkedSourceDuration`); `unsyncedClipIds()` checks
+the sound track against it too. **Consequences.** Switches
 never accumulate drift, undo removes one cut at a time, the saved timeline
 plus the angle table reopens the same cuts (the angle is recovered from each
 clip's resource), and program playback and export need no multicam-specific

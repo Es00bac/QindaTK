@@ -47,9 +47,11 @@ public:
     static void planRoll(Context &context);
     static void planSlip(Context &context);
     static void planSlide(Context &context);
+    // Transitions (timeline_planner_transitions.cpp).
     static void planTransition(Context &context);
     // Drops transitions whose cut an edit removed and reports ones whose
-    // handles it made insufficient (a soft error); called from finish().
+    // handles it made insufficient or whose window it made overlap the
+    // neighbouring transition on the same clip (a soft error); called from finish().
     static void reconcileTransitions(Context &context);
     // The frame start nearest `ticks` (TimeMap frame rate, program origin).
     static std::optional<qint64> framePoint(const TimelineModel &model, qint64 ticks);
@@ -58,8 +60,16 @@ public:
     // std::nullopt when no legal value exists.
     static std::optional<qint64> legalDelta(const Context &context, qint64 point, qint64 delta,
                                             qint64 low, qint64 high);
-    // Tail handle of a clip in source ticks (the int64 maximum when unbounded).
+    // Tail/head handle of a clip in source ticks (the int64 maximum when unbounded).
     static qint64 tailRoom(const Context &context, const TimelineClip &clip);
+    static qint64 headRoom(const Context &context, const TimelineClip &clip);
+    // Committed clip on `trackId` that ends exactly at / starts exactly at `tick`.
+    static const TimelineClip *endingAt(const TimelineModel &model, const QUuid &trackId, qint64 tick,
+                                        const QSet<QUuid> &exclude);
+    static const TimelineClip *startingAt(const TimelineModel &model, const QUuid &trackId, qint64 tick,
+                                          const QSet<QUuid> &exclude);
+    // True when the clip and its track are unlocked; otherwise sets the plan error.
+    static bool editableClip(Context &context, const TimelineClip &clip);
 
     // Links and source switches (timeline_planner_links.cpp).
     static QVector<QUuid> withLinked(const TimelineModel &model, const QVector<QUuid> &ids);

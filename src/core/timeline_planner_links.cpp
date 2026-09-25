@@ -110,7 +110,6 @@ void TimelinePlanner::planSwitchSource(Context &context)
     const QSet<QUuid> primary(request.clipIds.cbegin(), request.clipIds.cend());
     const QVector<QUuid> ids = request.linked ? withLinked(context.model, request.clipIds) : request.clipIds;
     const qint64 minimum = policy.minimumClipTicks();
-    const qint64 available = request.sourceDuration.value_or(-1);
     const QUuid ns(context.operationId);
     QHash<QUuid, TimelineClip> after;
     for (const QUuid &id : ids) {
@@ -121,8 +120,14 @@ void TimelinePlanner::planSwitchSource(Context &context)
             return setError(context, error(ErrorCode::Validation,
                 tr("Clip “%1” does not play at the switch time").arg(clipName(*clip))));
         }
-        const QString resource = primary.contains(id) || request.linkedResourceId.isEmpty()
+        // AGENT-NOTE (D-121): a linked partner may play a different file (a
+        // separately recorded sound) with its own sync position and length.
+        const bool partner = !primary.contains(id);
+        const QString resource = !partner || request.linkedResourceId.isEmpty()
             ? request.resourceId : request.linkedResourceId;
+        const qint64 offset = partner && request.linkedSourceOffset ? *request.linkedSourceOffset : *request.sourceOffset;
+        const qint64 available = (partner && request.linkedSourceDuration ? request.linkedSourceDuration
+                                                                           : request.sourceDuration).value_or(-1);
         TimelineClip right = *clip;
         if (at > clip->start) {
             TimelineClip left = *clip;
@@ -138,7 +143,7 @@ void TimelinePlanner::planSwitchSource(Context &context)
             after.insert(left.id, left);
         }
         right.resourceId = resource;
-        right.sourceOffset = *request.sourceOffset;
+        right.sourceOffset = offset;
         right.sourceDuration = available;
         const auto sourceEnd = TimelineTime::add(right.sourceOffset, right.duration);
         if (!policy.allowBeyondSource()

@@ -29,9 +29,11 @@ class SequenceEditorTest : public QObject {
 private slots:
     void trimPreviewCommitsOneStep();
     void trimSessionsCancelAndRetire();
+    void trimPreviewsRequestTheAdjacentFrames();
     void transitionEditsAreTransactions();
     void multicamSwitchesDuringPlaybackAndReopens();
     void multicamRefusesIllegalSwitches();
+    void multicamSeparateSoundKeepsItsOwnSync();
 };
 
 void SequenceEditorTest::trimPreviewCommitsOneStep()
@@ -135,6 +137,46 @@ void SequenceEditorTest::trimSessionsCancelAndRetire()
     QVERIFY(editor.commitTrim().value(QStringLiteral("ok")).toBool());
     QCOMPARE(s.at(ClipA).duration, 51 * F);
     QCOMPARE(s.at(SoundA).duration, 50 * F);
+}
+
+// VID-03: the two filmstrips show the outgoing clip's last frame and the
+// incoming clip's first frame of the would-be edit (source ticks; the last
+// tick of the outgoing part lies in its last frame).
+void SequenceEditorTest::trimPreviewsRequestTheAdjacentFrames()
+{
+    Session s;
+    QVERIFY(s.loadStandard());
+    SequenceEditor editor;
+    editor.setTimeline(&s.model);
+    QVERIFY(editor.selectEditPoint(id(ClipA), id(ClipB)));
+    const auto frames = [&editor](const char *key) { return editor.trimEdit().value(QLatin1String(key)).toString(); };
+    struct Case {
+        const char *mode;
+        const char *side;
+        qint64 delta;
+        qint64 leftHead, leftTail, rightHead, rightTail; // expected, in frames (tails exclusive)
+    };
+    // A: src 10F, 50F long. B: src 20F, 50F long, 30F of tail handle.
+    const Case cases[] = {
+        {"roll", "", 5 * F, 10, 65, 25, 70},  // the cut moves: A shows 5 more frames, B starts 5 later
+        {"roll", "", -4 * F, 10, 56, 16, 70},
+        {"slip", "right", 3 * F, 10, 60, 23, 73}, // B's content moves under a fixed cut
+        {"slip", "left", -6 * F, 4, 54, 20, 70},
+        {"slide", "right", 5 * F, 10, 65, 20, 70}, // B moves, A's tail follows, B's frames stay
+        {"ripple", "left", -3 * F, 10, 57, 20, 70},
+    };
+    for (const Case &c : cases) {
+        const QVariantMap preview = editor.previewTrim(QLatin1String(c.mode), QLatin1String(c.side), ticks(c.delta));
+        QVERIFY2(preview.value(QStringLiteral("ok")).toBool(), qPrintable(preview.value(QStringLiteral("error")).toString()));
+        QCOMPARE(frames("leftHeadTicks"), ticks(c.leftHead * F));
+        QCOMPARE(frames("leftTailTicks"), ticks(c.leftTail * F - 1));
+        QCOMPARE(frames("rightHeadTicks"), ticks(c.rightHead * F));
+        QCOMPARE(frames("rightTailTicks"), ticks(c.rightTail * F - 1));
+        QVERIFY(editor.cancelTrim());
+        // Cancelling shows the committed frames again.
+        QCOMPARE(frames("leftTailTicks"), ticks(60 * F - 1));
+        QCOMPARE(frames("rightHeadTicks"), ticks(20 * F));
+    }
 }
 
 void SequenceEditorTest::transitionEditsAreTransactions()
@@ -283,6 +325,77 @@ void SequenceEditorTest::multicamRefusesIllegalSwitches()
     QCOMPARE(multicam.sourceTicksAt(QStringLiteral("late"), ticks(35 * F)), ticks(5 * F));
     QVERIFY(!multicam.loadContent({{QStringLiteral("schema"), QStringLiteral("other")}}));
     QCOMPARE(multicam.angleCount(), 2);
+}
+
+// An angle recorded with separate sound: the sound clip is placed and cut
+// from the recorder's own sync offset and bounded by its own length.
+void SequenceEditorTest::multicamSeparateSoundKeepsItsOwnSync()
+{
+    Session s;
+    QVERIFY(s.model.setContent({S, 1}, {track(V1, QStringLiteral("video")), track(A1, QStringLiteral("audio"))},
+                               {}, {}));
+    MulticamModel multicam;
+    multicam.setTimeline(&s.model);
+    multicam.setTrackId(id(V1));
+    multicam.setAudioTrackId(id(A1));
+    QVERIFY(multicam.addAngle({{QStringLiteral("angleId"), QStringLiteral("wide")},
+                               {QStringLiteral("resourceId"), QStringLiteral("cam1")},
+                               {QStringLiteral("audioResourceId"), QStringLiteral("rec1")},
+                               {QStringLiteral("syncOffsetTicks"), ticks(10 * F)},
+                               {QStringLiteral("sourceDurationTicks"), ticks(200 * F)},
+                               {QStringLiteral("audioSyncOffsetTicks"), ticks(57 * F + 11)},
+                               {QStringLiteral("audioSourceDurationTicks"), ticks(300 * F)}}));
+    QVERIFY(multicam.addAngle({{QStringLiteral("angleId"), QStringLiteral("close")},
+                               {QStringLiteral("resourceId"), QStringLiteral("cam2")},
+                               {QStringLiteral("audioResourceId"), QStringLiteral("rec2")},
+                               {QStringLiteral("syncOffsetTicks"), ticks(30 * F)},
+                               {QStringLiteral("sourceDurationTicks"), ticks(200 * F)},
+                               {QStringLiteral("audioSyncOffsetTicks"), ticks(-20 * F)},
+                               {QStringLiteral("audioSourceDurationTicks"), ticks(80 * F)}}));
+    QVERIFY(multicam.insertProgram(QStringLiteral("wide"), QStringLiteral("0"), ticks(100 * F)).value(QStringLiteral("ok")).toBool());
+    const auto soundAt = [&s](qint64 at) { return *s.model.clipRecord(s.model.clipsInRange(uid(A1), at, at + 1).first()); };
+    const auto pictureAt = [&s](qint64 at) { return *s.model.clipRecord(s.model.clipsInRange(uid(V1), at, at + 1).first()); };
+    QCOMPARE(pictureAt(0).sourceOffset, 10 * F);
+    QCOMPARE(soundAt(0).resourceId, QStringLiteral("rec1"));
+    QCOMPARE(soundAt(0).sourceOffset, 57 * F + 11);
+    QCOMPARE(soundAt(0).sourceDuration, 300 * F);
+    // A cut at 40F: cam2 from 70F, and rec2 (started 20F after sync) from 20F.
+    QVERIFY(multicam.switchAngle(QStringLiteral("close"), ticks(40 * F)).value(QStringLiteral("ok")).toBool());
+    QCOMPARE(pictureAt(40 * F).sourceOffset, 70 * F);
+    QCOMPARE(soundAt(40 * F).resourceId, QStringLiteral("rec2"));
+    QCOMPARE(soundAt(40 * F).sourceOffset, 20 * F);
+    QCOMPARE(soundAt(40 * F).sourceDuration, 80 * F);
+    QVERIFY(multicam.unsyncedClipIds().isEmpty());
+    QVERIFY(s.model.undo());
+    // rec2 has nothing before 20F: a cut at 10F is refused although cam2 has picture there.
+    QVERIFY(!multicam.switchAngle(QStringLiteral("close"), ticks(10 * F)).value(QStringLiteral("ok")).toBool());
+    // A recorder 1F too short for the part after 40F is refused too.
+    QVERIFY(multicam.removeAngle(QStringLiteral("close")));
+    QVERIFY(multicam.addAngle({{QStringLiteral("angleId"), QStringLiteral("close")},
+                               {QStringLiteral("resourceId"), QStringLiteral("cam2")},
+                               {QStringLiteral("audioResourceId"), QStringLiteral("rec2")},
+                               {QStringLiteral("syncOffsetTicks"), ticks(30 * F)},
+                               {QStringLiteral("sourceDurationTicks"), ticks(200 * F)},
+                               {QStringLiteral("audioSyncOffsetTicks"), ticks(-20 * F)},
+                               {QStringLiteral("audioSourceDurationTicks"), ticks(79 * F)}}));
+    QVERIFY(!multicam.switchAngle(QStringLiteral("close"), ticks(40 * F)).value(QStringLiteral("ok")).toBool());
+    QCOMPARE(s.model.clipCount(), 2);
+    // Slipping only the sound is drift, and unsyncedClipIds reports it.
+    const QString sound = soundAt(0).id.toString(QUuid::WithoutBraces);
+    TimelineEditRequest slip;
+    slip.kind = TimelineEditKind::Slip;
+    slip.clipIds = {soundAt(0).id};
+    TimelineEditInput input;
+    input.pointerTicks = F;
+    input.snap = false;
+    QVERIFY(!s.model.apply(slip, input));
+    QCOMPARE(multicam.unsyncedClipIds(), QStringList{sound});
+    // The audio sync fields survive the saved angle table.
+    MulticamModel restored;
+    QVERIFY(restored.loadContent(multicam.contentMap()));
+    QCOMPARE(restored.angleRecords().at(0).audioSyncOffset, 57 * F + 11);
+    QCOMPARE(restored.angleRecords().at(1).audioSourceDuration, 79 * F);
+    QCOMPARE(multicam.angles().at(1).toMap().value(QStringLiteral("audioSyncOffsetTicks")).toString(), ticks(-20 * F));
 }
 
 QTEST_MAIN(SequenceEditorTest)

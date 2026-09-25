@@ -1,6 +1,6 @@
 {
   "_license": "SPDX-License-Identifier: LGPL-3.0-or-later",
-  "generated": "2026-09-24",
+  "generated": "2026-09-25",
   "module": "QindaTK",
   "version": "1.0",
   "types": [
@@ -58465,7 +58465,7 @@
       "name": "MulticamModel",
       "kind": "cpp",
       "base": "QObject",
-      "description": "AGENT-CONTRACT (docs/sequence-edits.md \"Multicam\", D-121): the backend of MulticamView. Angles are synchronized sources: at timeline tick T, angle a shows source ticks (T - syncStartTicks) + a.syncOffsetTicks. The program is ordinary clips on `trackId`; switchAngle() is one SwitchSource transaction that cuts the program clip at the (frame-exact) switch time and gives the part from there the angle's source at that sync position. With audioFollowsVideo the linked sound is cut and switched with it; without it the sound is untouched. The program angle at a time is the angle whose resource the program clip there shows, so the cuts reopen from the saved timeline plus this model's angle table (contentMap/loadContent).",
+      "description": "AGENT-CONTRACT (docs/sequence-edits.md \"Multicam\", D-121): the backend of MulticamView. Angles are synchronized sources: at timeline tick T, angle a shows source ticks (T - syncStartTicks) + a.syncOffsetTicks. The program is ordinary clips on `trackId`; switchAngle() is one SwitchSource transaction that cuts the program clip at the (frame-exact) switch time and gives the part from there the angle's source at that sync position. With audioFollowsVideo the linked sound is cut and switched with it; without it the sound is untouched. An angle whose sound is a separate file (audioResourceId) has its own sync offset and length for that file, so its sound lands at (T - syncStartTicks) + a.audioSyncOffsetTicks. The program angle at a time is the angle whose resource the program clip there shows, so the cuts reopen from the saved timeline plus this model's angle table (contentMap/loadContent).",
       "singleton": false,
       "attached": null,
       "file": "src/core/multicam_model.h",
