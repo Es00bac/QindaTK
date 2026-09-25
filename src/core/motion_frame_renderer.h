@@ -26,6 +26,7 @@ class MotionFrameRenderer : public QObject {
     QML_ELEMENT
     Q_PROPERTY(QindaTK::MotionComposition *composition READ composition WRITE setComposition NOTIFY compositionChanged)
     Q_PROPERTY(QindaTK::TrackingRotoModel *rotoModel READ rotoModel WRITE setRotoModel NOTIFY rotoModelChanged)
+    Q_PROPERTY(QString maskTicksPerFrame READ maskTicksPerFrame WRITE setMaskTicksPerFrame NOTIFY maskTimingChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
     Q_PROPERTY(QString contentRevision READ contentRevision NOTIFY contentInvalidated)
     Q_PROPERTY(QString frameTicks READ frameTicks NOTIFY frameChanged)
@@ -46,9 +47,16 @@ public:
     void setComposition(MotionComposition *composition);
     TrackingRotoModel *rotoModel() const { return m_rotoModel; }
     void setRotoModel(TrackingRotoModel *model);
+    // AGENT-CONTRACT (docs/tracking-roto.md "Masks in composition", D-142):
+    // a masked layer samples its mask at the source frame its pixels came
+    // from (setSourceImage's sourceFrame, which MediaFrameFeed passes), else
+    // at floor(layer localTicks / maskTicksPerFrame).
+    QString maskTicksPerFrame() const { return QString::number(m_maskTicksPerFrame); }
+    void setMaskTicksPerFrame(const QString &ticks);
     QString lastError() const { return m_error; }
     QImage frame() const;
-    bool setSourceImage(const QString &sourceId, const QImage &image);
+    bool setSourceImage(const QString &sourceId, const QImage &image, qint64 sourceFrame = -1);
+    Q_INVOKABLE QString sourceFrame(const QString &sourceId) const;
     bool registerEffectProcessor(const QString &effectId, MotionEffectRegistry::Processor processor);
     Q_INVOKABLE bool loadSource(const QString &sourceId, const QUrl &url);
     Q_INVOKABLE void removeSource(const QString &sourceId);
@@ -58,6 +66,7 @@ public:
 signals:
     void compositionChanged();
     void rotoModelChanged();
+    void maskTimingChanged();
     void frameChanged();
     void errorChanged();
     void contentInvalidated();
@@ -80,6 +89,8 @@ private:
     QPointer<TrackingRotoModel> m_rotoModel;
     QList<QMetaObject::Connection> m_compositionLinks, m_animationLinks, m_rotoLinks;
     QHash<QString, QImage> m_sources;
+    QHash<QString, qint64> m_sourceFrames; // decoded source frame index per sourceId
+    qint64 m_maskTicksPerFrame = 1;
     MotionEffectRegistry m_effects;
     qsizetype m_sourceBytes = 0;
     mutable QMutex m_frameMutex;

@@ -139,38 +139,93 @@ QVariantMap TrackingRotoModel::evaluateMask(const QString &maskId, int frame) co
             {QStringLiteral("interpolation"), interpolation}};
 }
 
-QVariantMap TrackingRotoModel::previewTrackedMask(const QString &maskId, int sourceFrame,
-                                                   int targetFrame, const QString &trackId) const
+bool TrackingRotoModel::translatedPath(const QString &maskId, int sourceFrame, const Track &track,
+                                       int targetFrame, QVector<PathPoint> *path, QString *error) const
 {
-    const int index = trackIndex(trackId);
     const QVariantMap shape = evaluateMask(maskId, sourceFrame);
-    if (index < 0 || !shape.value(QStringLiteral("ok")).toBool())
-        return {{QStringLiteral("ok"), false},
-                {QStringLiteral("error"), QStringLiteral("Track or source mask is unavailable.")}};
-    const Track &track = m_tracks[index];
+    if (!shape.value(QStringLiteral("ok")).toBool()) {
+        *error = QStringLiteral("Source mask is unavailable.");
+        return false;
+    }
     const QImage reference = m_frames.value(track.referenceFrame);
-    if (reference.isNull())
-        return {{QStringLiteral("ok"), false},
-                {QStringLiteral("error"), QStringLiteral("Rebind source frames before mask propagation.")}};
+    if (reference.isNull()) {
+        *error = QStringLiteral("Rebind source frames before mask propagation.");
+        return false;
+    }
+    // AGENT-GUARD: only accepted, nonlost points move a mask; a lost frame
+    // holds the last trusted position, which must never read as motion.
     if (!track.points.contains(sourceFrame) || !track.points.contains(targetFrame)
         || track.points.value(sourceFrame).state == QLatin1String("lost")
-        || track.points.value(targetFrame).state == QLatin1String("lost"))
-        return {{QStringLiteral("ok"), false},
-                {QStringLiteral("error"), QStringLiteral("Accepted tracking points are unavailable or lost.")}};
+        || track.points.value(targetFrame).state == QLatin1String("lost")) {
+        *error = QStringLiteral("Accepted tracking points are unavailable or lost.");
+        return false;
+    }
     const double dx = (track.points.value(targetFrame).x - track.points.value(sourceFrame).x)
         / reference.width();
     const double dy = (track.points.value(targetFrame).y - track.points.value(sourceFrame).y)
         / reference.height();
-    QVariantList points = shape.value(QStringLiteral("points")).toList();
-    for (QVariant &entry : points) {
-        QVariantMap point = entry.toMap();
-        point[QStringLiteral("x")] = std::clamp(point.value(QStringLiteral("x")).toDouble() + dx, 0.0, 1.0);
-        point[QStringLiteral("y")] = std::clamp(point.value(QStringLiteral("y")).toDouble() + dy, 0.0, 1.0);
-        entry = point;
+    QVector<PathPoint> result;
+    parsePath(shape.value(QStringLiteral("points")).toList(), &result);
+    for (PathPoint &point : result) {
+        point.x = std::clamp(point.x + dx, 0.0, 1.0);
+        point.y = std::clamp(point.y + dy, 0.0, 1.0);
     }
+    *path = result;
+    return true;
+}
+
+QVariantMap TrackingRotoModel::previewTrackedMask(const QString &maskId, int sourceFrame,
+                                                   int targetFrame, const QString &trackId) const
+{
+    const int index = trackIndex(trackId);
+    QVector<PathPoint> path;
+    QString error = QStringLiteral("Track or source mask is unavailable.");
+    if (index < 0 || !translatedPath(maskId, sourceFrame, m_tracks[index], targetFrame, &path, &error))
+        return {{QStringLiteral("ok"), false}, {QStringLiteral("error"), error}};
     return {{QStringLiteral("ok"), true}, {QStringLiteral("maskId"), maskId},
             {QStringLiteral("trackId"), trackId}, {QStringLiteral("frame"), targetFrame},
-            {QStringLiteral("points"), points}, {QStringLiteral("state"), QStringLiteral("preview")}};
+            {QStringLiteral("points"), pathList(path)}, {QStringLiteral("state"), QStringLiteral("preview")}};
+}
+
+QVariantMap TrackingRotoModel::applyTrackToMask(const QString &maskId, int sourceFrame,
+                                                const QString &trackId, int fromFrame, int toFrame)
+{
+    const int track = trackIndex(trackId);
+    const int mask = maskIndex(maskId);
+    const auto fail = [this](const QString &error) {
+        setError(error);
+        return QVariantMap{{QStringLiteral("ok"), false}, {QStringLiteral("error"), error}};
+    };
+    if (track < 0 || mask < 0 || fromFrame < 0 || toFrame < fromFrame || toFrame - fromFrame >= 512
+        || m_analysis.running)
+        return fail(QStringLiteral("Mask tracking needs a mask, a track and a range of at most 512 frames."));
+    // Source-side checks (mask shape, bound reference frame, trusted source
+    // point) fail the request; a missing or lost target frame is skipped.
+    QString error;
+    QVector<PathPoint> path;
+    if (!translatedPath(maskId, sourceFrame, m_tracks[track], sourceFrame, &path, &error))
+        return fail(error);
+    QMap<int, QVector<PathPoint>> keys = m_masks.at(mask).keys;
+    QVariantList keyed, skipped;
+    for (int frame = fromFrame; frame <= toFrame; ++frame) {
+        if (frame == sourceFrame) continue;
+        if (!translatedPath(maskId, sourceFrame, m_tracks[track], frame, &path, &error)) {
+            skipped.append(frame);
+            continue;
+        }
+        keys.insert(frame, path);
+        keyed.append(frame);
+    }
+    if (keyed.isEmpty()) return fail(QStringLiteral("No accepted, nonlost tracking point in the range."));
+    if (keys.size() > 512) return fail(QStringLiteral("A mask holds at most 512 keyframes."));
+    // One undo step for the whole propagation.
+    remember();
+    m_masks[mask].keys = keys;
+    setError({});
+    emit changed();
+    return {{QStringLiteral("ok"), true}, {QStringLiteral("maskId"), maskId},
+            {QStringLiteral("trackId"), trackId}, {QStringLiteral("keyedFrames"), keyed},
+            {QStringLiteral("skippedFrames"), skipped}};
 }
 
 QImage TrackingRotoModel::applyMask(const QString &maskId, int frame, const QImage &source)

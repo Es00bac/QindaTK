@@ -232,7 +232,10 @@ void MediaFrameFeed::apply()
             applied = m_graph && !image.isNull() && m_graph->setSourceImage(target.nodeId, taggedSrgb(image));
             if (!applied && m_graph) m_graph->clearSourceImage(target.nodeId);
         } else {
-            applied = m_renderer && !image.isNull() && m_renderer->setSourceImage(target.sourceId, image);
+            // The decoded frame index lets masks sample the frame these pixels
+            // came from (D-142).
+            applied = m_renderer && !image.isNull()
+                && m_renderer->setSourceImage(target.sourceId, image, result.frame);
             if (!applied && m_renderer) m_renderer->removeSource(target.sourceId);
         }
         if (applied)

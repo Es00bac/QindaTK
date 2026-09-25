@@ -225,6 +225,8 @@ source nodes from media. `prepare(ticks)` evaluates the composition, decodes
 each visible media layer at its exact `localTicks` (and each graph source at
 `ticks`, with `ticksPerSecondNumerator/Denominator`), then sets every source
 in one step and emits `prepared(requestId, ticks)`; the host renders after it.
+Each layer source carries its decoded frame index
+(`MotionFrameRenderer.sourceFrame`), which roto masks sample (D-142).
 Sources hold their first/last frame outside the media. A newer `prepare`
 cancels the older one, whose results never apply. Offline media removes the
 layer source (`removeSource`) or clears the node (`clearSourceImage`), and a
