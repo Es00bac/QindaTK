@@ -65,10 +65,12 @@ Rectangle {
             return
         }
         root.compId = placed.compId
-        // One accepted edit in the history, and a swipe waiting for a decision.
+        // One accepted edit in the history, a swipe waiting for a decision,
+        // and Take 3 auditioned over the selection (its lane button reads Stop).
         session.comps.select(root.compId, root.takes[0].takeId, "12000", "18000")
         if (root.preview(root.takes[1].takeId, "6000", "10500"))
             root.proposal = { proposalId: "startup", status: "pending" }
+        session.comps.setAudition(root.compId, root.takes[2].takeId, root.selectionStart, root.selectionEnd)
     }
 
     Tk.Flex {
@@ -117,8 +119,8 @@ Rectangle {
                       .arg((Number(root.snapshot.fadeSamples || 0) * 1000 / root.rate).toFixed(1))
                       .arg(root.snapshot.fadeShape === "linear" ? qsTr("linear") : qsTr("equal power"))
                       .arg(session.comps.historyCount)
-                      .arg(root.snapshot.previewing ? qsTr("the preview")
-                           : root.takeLabel(root.snapshot.audition || ""))
+                      .arg(root.snapshot.audition ? qsTr("%1 alone").arg(root.takeLabel(root.snapshot.audition))
+                           : root.snapshot.previewing ? qsTr("the preview") : qsTr("the comp"))
             }
         }
         Tk.TakeCompView {
@@ -130,6 +132,7 @@ Rectangle {
             selectionStartSample: root.selectionStart
             selectionEndSample: root.selectionEnd
             referenceTakeId: root.takes.length ? root.takes[0].takeId : ""
+            auditionTakeId: root.snapshot.audition || "" // its lane button reads Stop
             proposal: root.proposal
             statusText: root.status
             tooltip: qsTr("Vocal take comp lane")
@@ -149,13 +152,19 @@ Rectangle {
                 root.status = accept ? (result.ok ? qsTr("Accepted into the comp") : String(result.error))
                                      : qsTr("Rejected; the comp is unchanged")
             }
-            onAuditionRequested: function(takeId) {
-                session.comps.setAudition(root.compId, takeId)
-                root.status = qsTr("Auditioning %1 alone").arg(root.takeLabel(takeId))
+            onAuditionRequested: function(takeId, sourceId, start, end) {
+                session.comps.setAudition(root.compId, takeId, start, end)
+                root.status = qsTr("Auditioning %1 alone over %2–%3 s").arg(root.takeLabel(takeId))
+                              .arg(root.seconds(start)).arg(root.seconds(end))
             }
-            onCompareRequested: function(takeId, referenceId) {
-                session.comps.compare(root.compId, takeId, referenceId)
-                root.status = qsTr("Comparing %1 with %2").arg(root.takeLabel(takeId)).arg(root.takeLabel(referenceId))
+            onAuditionStopRequested: function(takeId) {
+                session.comps.setAudition(root.compId, "")
+                root.status = qsTr("Stopped auditioning %1; hearing the comp").arg(root.takeLabel(takeId))
+            }
+            onCompareRequested: function(takeId, referenceId, start, end) {
+                session.comps.compare(root.compId, takeId, referenceId, start, end)
+                root.status = qsTr("Comparing %1 with %2 over %3–%4 s").arg(root.takeLabel(takeId))
+                              .arg(root.takeLabel(referenceId)).arg(root.seconds(start)).arg(root.seconds(end))
             }
         }
         Tk.Mono {

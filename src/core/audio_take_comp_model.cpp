@@ -33,12 +33,19 @@ const AudioTakeComp *AudioTakeCompModel::comp(const QString &compId) const
     return it == m_comps.cend() ? nullptr : &it.value();
 }
 
-AudioCompPlayback AudioTakeCompModel::playback(const QString &compId) const
+AudioCompPlayback AudioTakeCompModel::playback(const QString &compId, bool committed) const
 {
+    // AGENT-GUARD (D-176): an export must never hear a swipe in progress or an
+    // audition, so the offline graph asks for the committed comp.
+    if (committed) {
+        const AudioTakeComp *content = comp(compId);
+        return content ? AudioComp::playback(*content) : AudioCompPlayback{};
+    }
     const AudioTakeComp *content = m_preview.active && m_preview.comp.id == compId ? &m_preview.comp : comp(compId);
     if (!content) return {};
-    const QString take = m_listening.value(compId).take;
-    return AudioComp::playback(*content, content->take(take) ? take : QString());
+    const Listening listening = m_listening.value(compId);
+    if (!content->take(listening.take)) return AudioComp::playback(*content);
+    return AudioComp::playback(*content, listening.take, listening.start, listening.end);
 }
 
 QStringList AudioTakeCompModel::compIds() const
@@ -107,6 +114,7 @@ QVariantMap AudioTakeCompModel::compData(const QString &compId) const
     if (!content) return {};
     QVariantMap map = AudioComp::toMap(*content);
     map.insert(QStringLiteral("audition"), audition(compId));
+    map.insert(QStringLiteral("auditionRange"), auditionRange(compId));
     map.insert(QStringLiteral("previewing"), previewCompId() == compId);
     return map;
 }
@@ -227,13 +235,37 @@ bool AudioTakeCompModel::cancelPreview()
     return true;
 }
 
-bool AudioTakeCompModel::setAudition(const QString &compId, const QString &takeId)
+std::optional<std::pair<qint64, qint64>> AudioTakeCompModel::listenRange(const AudioTakeComp &comp,
+                                                                         const QString &startSample,
+                                                                         const QString &endSample) const
+{
+    if (startSample.isEmpty() && endSample.isEmpty()) return std::pair<qint64, qint64>{0, -1};
+    const auto start = sample(startSample);
+    const auto end = sample(endSample);
+    if (!start || !end || *start < 0 || *end <= *start || *end > comp.length) return std::nullopt;
+    return std::pair{*start, *end};
+}
+
+bool AudioTakeCompModel::setAudition(const QString &compId, const QString &takeId, const QString &startSample,
+                                     const QString &endSample)
 {
     const AudioTakeComp *content = comp(compId);
     if (!content || (!takeId.isEmpty() && !content->take(takeId))) return false;
-    m_listening.insert(compId, {takeId, {}, {}});
+    const auto range = listenRange(*content, startSample, endSample);
+    if (!range) return false;
+    if (takeId.isEmpty()) m_listening.remove(compId);
+    else m_listening.insert(compId, {takeId, {}, {}, range->first, range->second});
     touch();
     return true;
+}
+
+QVariantMap AudioTakeCompModel::auditionRange(const QString &compId) const
+{
+    const AudioTakeComp *content = comp(compId);
+    const Listening listening = m_listening.value(compId);
+    if (!content || !content->take(listening.take)) return {};
+    return {{QStringLiteral("startSample"), QString::number(listening.start)},
+            {QStringLiteral("endSample"), QString::number(listening.end < 0 ? content->length : listening.end)}};
 }
 
 QString AudioTakeCompModel::audition(const QString &compId) const
@@ -243,11 +275,14 @@ QString AudioTakeCompModel::audition(const QString &compId) const
     return content && content->take(take) ? take : QString();
 }
 
-bool AudioTakeCompModel::compare(const QString &compId, const QString &takeId, const QString &referenceTakeId)
+bool AudioTakeCompModel::compare(const QString &compId, const QString &takeId, const QString &referenceTakeId,
+                                 const QString &startSample, const QString &endSample)
 {
     const AudioTakeComp *content = comp(compId);
     if (!content || !content->take(takeId) || !content->take(referenceTakeId) || takeId == referenceTakeId) return false;
-    m_listening.insert(compId, {takeId, takeId, referenceTakeId});
+    const auto range = listenRange(*content, startSample, endSample);
+    if (!range) return false;
+    m_listening.insert(compId, {takeId, takeId, referenceTakeId, range->first, range->second});
     touch();
     return true;
 }
