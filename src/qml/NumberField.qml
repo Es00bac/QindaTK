@@ -122,7 +122,12 @@ T.Control {
     }
     onDecimalsChanged: syncText()
     Component.onCompleted: {
-        control.value = control.clamp(control.value)
+        // AGENT-GUARD: assign only when clamping changes the value. An
+        // unconditional `value = clamp(value)` removed every owner binding on
+        // `value` at creation, so bound fields froze at their first value.
+        const clamped = control.clamp(control.value)
+        if (clamped !== control.value)
+            control.value = clamped
         control.syncText()
     }
 

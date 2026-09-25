@@ -116,7 +116,7 @@ void paint(QPainter *painter, const CanvasDocumentAdapter &doc, const QRectF &re
             // Sub-pixel: one device pixel keeps the density visible without
             // spending a path on it.
             const QColor c = o->hasFill() ? o->fill
-                : o->hasPattern() ? o->appearance.pattern.ink : o->stroke;
+                : o->hasPattern() ? o->appearance->pattern.ink : o->stroke;
             painter->fillRect(QRectF(bounds.center() - QPointF(pixel / 2, pixel / 2),
                                      QSizeF(pixel, pixel)), c);
             if (stats) {

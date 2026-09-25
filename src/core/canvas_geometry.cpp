@@ -85,7 +85,7 @@ QRectF documentBounds(const CanvasObject &object)
 QRectF paintBounds(const CanvasObject &object)
 {
     const QRectF bounds = documentBounds(object);
-    if (bounds.isNull() || object.appearance.effects.isEmpty()) return bounds;
+    if (bounds.isNull() || object.appearance->effects.isEmpty()) return bounds;
     return bounds.marginsAdded(CanvasAppearanceRules::effectMargins(object));
 }
 

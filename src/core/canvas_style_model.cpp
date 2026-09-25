@@ -150,21 +150,21 @@ void applyTo(CanvasObject &after, const CanvasObject &before, const StyleRequest
     if (r.cap) after.strokeCap = *r.cap;
     if (r.join) after.strokeJoin = *r.join;
     if (r.fillRule) after.fillRule = *r.fillRule;
-    if (r.alignment) after.appearance.strokeAlignment = *r.alignment;
-    if (r.miterLimit) after.appearance.miterLimit = *r.miterLimit;
-    if (r.opacity) after.appearance.opacity = *r.opacity;
-    if (r.blend) after.appearance.blend = *r.blend;
-    if (!r.patternSet) return;
-    if (!r.pattern) {
-        after.appearance.pattern = {};
-        return;
+    CanvasAppearance appearance = *after.appearance;
+    if (r.alignment) appearance.strokeAlignment = *r.alignment;
+    if (r.miterLimit) appearance.miterLimit = *r.miterLimit;
+    if (r.opacity) appearance.opacity = *r.opacity;
+    if (r.blend) appearance.blend = *r.blend;
+    if (r.patternSet && !r.pattern) appearance.pattern = {};
+    if (r.patternSet && r.pattern) {
+        // Ink not given: keep the current ink, else take the stroke colour.
+        CanvasPattern pattern = *r.pattern;
+        if (!pattern.ink.isValid())
+            pattern.ink = before.appearance->pattern.ink.isValid() ? before.appearance->pattern.ink
+                : before.hasStroke() ? before.stroke : QColor(Qt::black);
+        appearance.pattern = pattern;
     }
-    // Ink not given: keep the current ink, else take the stroke colour.
-    CanvasPattern pattern = *r.pattern;
-    if (!pattern.ink.isValid())
-        pattern.ink = before.appearance.pattern.ink.isValid() ? before.appearance.pattern.ink
-            : before.hasStroke() ? before.stroke : QColor(Qt::black);
-    after.appearance.pattern = pattern;
+    after.appearance = appearance;
 }
 } // namespace
 

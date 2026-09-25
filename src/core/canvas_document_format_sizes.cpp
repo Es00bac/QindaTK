@@ -51,7 +51,7 @@ qsizetype objectRecordBytes(const CanvasObject &object)
         + qsizetype(object.pathNodes.size()) * 48 + qsizetype(object.dashPattern.size()) * 8;
     for (const auto &contour : object.extraContours)
         bytes += 5 + qsizetype(contour.nodes.size()) * 48;
-    if (!object.appearance.isDefault()) bytes += CanvasAppearanceCodec::encode(object.appearance).size();
+    if (!object.appearance.isDefault()) bytes += CanvasAppearanceCodec::encode(*object.appearance).size();
     return bytes;
 }
 

@@ -24,9 +24,20 @@ Item {
     readonly property var dashModes: ["solid", "dash", "dot", "custom"]
     readonly property string dashText: (style.dash || []).join(" ")
 
+    // AGENT-NOTE: the owner's descriptor is the truth. User edits assign the
+    // fields' own values, which ends their bindings, so the fields are synced
+    // from `style` whenever the owner changes it and after every request (an
+    // owner may reject or later undo the edit).
+    function syncFields() {
+        widthField.value = editor.style.width === undefined ? 1 : editor.style.width
+        miterField.value = editor.style.miterLimit === undefined ? 4 : editor.style.miterLimit
+        colorField.color = editor.style.color || Tk.Theme.color.text
+    }
     function request(patch) {
         styleChangeRequested(Object.assign({}, style, patch))
+        syncFields()
     }
+    onStyleChanged: syncFields()
     function indexOf(list, value) {
         const index = list.indexOf(value)
         return index < 0 ? -1 : index
@@ -50,6 +61,7 @@ Item {
         Tk.PropertyRow {
             label: qsTr("Width")
             Tk.NumberField {
+                id: widthField
                 objectName: "strokeWidth"
                 value: editor.style.width === undefined ? 1 : editor.style.width
                 from: 0
@@ -72,6 +84,7 @@ Item {
         Tk.PropertyRow {
             label: qsTr("Color")
             Tk.ColorField {
+                id: colorField
                 objectName: "strokeColor"
                 color: editor.style.color || Tk.Theme.color.text
                 tooltip: qsTr("Stroke colour")
@@ -111,6 +124,7 @@ Item {
         Tk.PropertyRow {
             label: qsTr("Miter limit")
             Tk.NumberField {
+                id: miterField
                 objectName: "strokeMiterLimit"
                 value: editor.style.miterLimit === undefined ? 4 : editor.style.miterLimit
                 from: 1

@@ -66,8 +66,8 @@ qsizetype CanvasAppearanceModel::indexOf(const QString &effectId) const
 {
     const CanvasObject *o = target();
     if (!o) return -1;
-    for (qsizetype i = 0; i < o->appearance.effects.size(); ++i)
-        if (o->appearance.effects.at(i).id == effectId) return i;
+    for (qsizetype i = 0; i < o->appearance->effects.size(); ++i)
+        if (o->appearance->effects.at(i).id == effectId) return i;
     return -1;
 }
 
@@ -76,7 +76,7 @@ void CanvasAppearanceModel::refresh()
     QVariantList effects;
     const CanvasObject *o = target();
     if (o)
-        for (const CanvasEffect &effect : o->appearance.effects) effects.append(record(effect));
+        for (const CanvasEffect &effect : o->appearance->effects) effects.append(record(effect));
     const bool editable = o && m_document->effectiveVisible(*o) && !m_document->effectiveLocked(*o);
     if (effects == m_effects && editable == m_editable) return;
     m_effects = effects;
@@ -100,7 +100,7 @@ bool CanvasAppearanceModel::commit(const QVector<CanvasEffect> &effects, const Q
     if (!m_document->effectiveVisible(*before) || m_document->effectiveLocked(*before))
         return fail(tr("The object is hidden or locked"));
     CanvasObject after = *before;
-    after.appearance.effects = effects;
+    after.appearance.update([&effects](CanvasAppearance &a) { a.effects = effects; });
     if (const OperationError error = CanvasDocumentFormat::validateObject(after, after.id, CanvasDocumentLimits{}))
         return fail(error.message);
     if (after != *before) {
@@ -131,12 +131,12 @@ QString CanvasAppearanceModel::addEffect(const QString &kind, const QVariantMap 
         return {};
     }
     QSet<QString> used;
-    for (const CanvasEffect &existing : o->appearance.effects) used.insert(existing.id);
+    for (const CanvasEffect &existing : o->appearance->effects) used.insert(existing.id);
     const QString stem = kind.size() <= 48 ? kind : QStringLiteral("effect");
     int n = 1;
     while (used.contains(QStringLiteral("%1-%2").arg(stem).arg(n))) ++n;
     effect.id = QStringLiteral("%1-%2").arg(stem).arg(n);
-    QVector<CanvasEffect> effects = o->appearance.effects;
+    QVector<CanvasEffect> effects = o->appearance->effects;
     effects.append(effect);
     return commit(effects, tr("Add appearance effect")) ? effect.id : QString();
 }
@@ -145,7 +145,7 @@ bool CanvasAppearanceModel::removeEffect(const QString &effectId)
 {
     const qsizetype index = indexOf(effectId);
     if (index < 0) return fail(tr("No such appearance effect: %1").arg(effectId));
-    QVector<CanvasEffect> effects = target()->appearance.effects;
+    QVector<CanvasEffect> effects = target()->appearance->effects;
     effects.removeAt(index);
     return commit(effects, tr("Remove appearance effect"));
 }
@@ -154,7 +154,7 @@ bool CanvasAppearanceModel::moveEffect(const QString &effectId, int index)
 {
     const qsizetype from = indexOf(effectId);
     if (from < 0) return fail(tr("No such appearance effect: %1").arg(effectId));
-    QVector<CanvasEffect> effects = target()->appearance.effects;
+    QVector<CanvasEffect> effects = target()->appearance->effects;
     if (index < 0 || index >= effects.size()) return fail(tr("Invalid effect position"));
     effects.move(from, index);
     return commit(effects, tr("Reorder appearance effects"));
@@ -164,7 +164,7 @@ bool CanvasAppearanceModel::setEffectEnabled(const QString &effectId, bool enabl
 {
     const qsizetype index = indexOf(effectId);
     if (index < 0) return fail(tr("No such appearance effect: %1").arg(effectId));
-    QVector<CanvasEffect> effects = target()->appearance.effects;
+    QVector<CanvasEffect> effects = target()->appearance->effects;
     effects[index].enabled = enabled;
     return commit(effects, enabled ? tr("Enable appearance effect") : tr("Bypass appearance effect"));
 }
@@ -173,7 +173,7 @@ bool CanvasAppearanceModel::setEffectParameters(const QString &effectId, const Q
 {
     const qsizetype index = indexOf(effectId);
     if (index < 0) return fail(tr("No such appearance effect: %1").arg(effectId));
-    QVector<CanvasEffect> effects = target()->appearance.effects;
+    QVector<CanvasEffect> effects = target()->appearance->effects;
     const QString kind = effects.at(index).kind;
     QByteArray canonical;
     if (const OperationError error = CanvasAppearanceRules::canonicalParameters(kind, parameters, &canonical))
@@ -185,7 +185,7 @@ bool CanvasAppearanceModel::setEffectParameters(const QString &effectId, const Q
 QVariantMap CanvasAppearanceModel::effect(const QString &effectId) const
 {
     const qsizetype index = indexOf(effectId);
-    return index < 0 ? QVariantMap() : record(target()->appearance.effects.at(index));
+    return index < 0 ? QVariantMap() : record(target()->appearance->effects.at(index));
 }
 
 } // namespace QindaTK

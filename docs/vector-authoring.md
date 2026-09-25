@@ -124,7 +124,11 @@ only and does not copy image resources. The session schema ID is unchanged.
 ## Appearance
 
 `CanvasObject::appearance` holds everything beyond flat fill and stroke
-(D-106). Commits, the native decoder and both models share its rules
+(D-106). It is an immutable, implicitly shared `CanvasAppearanceRef`, null for
+the default: read it with `->` or `*`, and change it by assigning a
+`CanvasAppearance` or with `update([](CanvasAppearance &a) { ... })`, which
+copies rather than writing a record other objects or undo steps share.
+Commits, the native decoder and both models share its rules
 (`CanvasAppearanceRules`):
 
 - **Stroke alignment.** `center` strokes straddle the outline; `inside` and

@@ -949,8 +949,11 @@ peak, LRA and conformance certification are separate work.
 **Context.** WP-044 needs stroke alignment, a miter limit, opacity, blend
 modes, pattern fills and an ordered effect stack that survive undo, save,
 clipboard and export, while a richer host may carry effects the reference
-renderer cannot draw. **Decision.** `CanvasObject::appearance` holds them.
-Effects have stable token ids, an enabled flag and parameters stored as
+renderer cannot draw. **Decision.** `CanvasObject::appearance` holds them
+through an immutable, implicitly shared handle (`CanvasAppearanceRef`) that
+is null for the default, so a plain object and each undo step's before and
+after copies pay one pointer instead of a ~100-byte record (inline, it failed
+the canvas history-memory bound). Effects have stable token ids, an enabled flag and parameters stored as
 canonical compact JSON, so an unknown kind round-trips byte for byte and is
 reported unsupported instead of dropped. One rule set
 (`CanvasAppearanceRules`) validates commits, the decoder and both models.

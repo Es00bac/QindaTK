@@ -169,7 +169,7 @@ CanvasTileContent build(const CanvasDocumentAdapter &doc, const QRectF &rect, qr
             quad(current.vertices, QRectF(bounds.center() - QPointF(pixel / 2, pixel / 2),
                                           QSizeF(pixel, pixel)),
                  o->hasFill() ? o->fill
-                     : o->hasPattern() ? o->appearance.pattern.ink : o->stroke);
+                     : o->hasPattern() ? o->appearance->pattern.ink : o->stroke);
             if (stats) {
                 ++stats->dots;
             }
